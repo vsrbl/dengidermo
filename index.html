@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+        
+        body {
+            background: #f8f8f8;
+            margin: 0;
+            padding: 0;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="black"/></svg>') 6 6, auto;
+        }
+        
+        .product-container {
+            position: relative;
+            overflow: hidden;
+            width: 256px;
+            height: 256px;
+        }
+        
+        .product-container:hover {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="white"/></svg>') 6 6, auto;
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease, transform-origin 0.3s ease;
+            transform-origin: center;
+        }
+        
+        .product-container:hover .product-image {
+            transform: scale(4.4);
+        }
+        
+        .product-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 400;
+            color: #000;
+            text-align: right;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        .product-container:hover + .product-text {
+            font-weight: 700;
+        }
+        
+        
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center px-8">
+    <div class="w-full max-w-6xl">
+        <div class="flex flex-col md:flex-row gap-6 justify-center items-center">
+        <div class="flex flex-col product-item">
+            <div class="product-container">
+                <img 
+                    src="xc-thYuxttcTHXUAXZQBR" 
+                    alt="Product 1"
+                    class="product-image"
+                />
+            </div>
+            <div class="product-text">dengidermo#1</div>
+        </div>
+        <div class="flex flex-col product-item">
+            <div class="product-container">
+                <img 
+                    src="ndGPo9efCpyi2FbMd9tD8" 
+                    alt="Product 2"
+                    class="product-image"
+                />
+            </div>
+            <div class="product-text">dengidermo#2</div>
+        </div>
+        <div class="flex flex-col product-item">
+            <div class="product-container">
+                <img 
+                    src="YySSDT3wd7Ww37AhPd09F" 
+                    alt="Product 3"
+                    class="product-image"
+                />
+            </div>
+            <div class="product-text">dengidermo#3</div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Интерактивность продуктов
+        document.querySelectorAll('.product-container').forEach(container => {
+            const img = container.querySelector('.product-image');
+            
+            container.addEventListener('mousemove', (e) => {
+                if (!container.matches(':hover')) return;
+                
+                const rect = container.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width - 0.5) * 100;
+                const y = ((e.clientY - rect.top) / rect.height - 0.5) * 100;
+                
+                img.style.transformOrigin = `${50 + x}% ${50 + y}%`;
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                img.style.transformOrigin = 'center';
+            });
+            
+            container.addEventListener('mouseenter', () => {
+                img.style.transition = 'transform 0.3s ease, transform-origin 0.1s ease';
+            });
+            
+            // Добавляем клик для перехода в Telegram
+            container.addEventListener('click', () => {
+                window.open('https://t.me/dengidermo', '_blank');
+            });
+        });
+
+    </script>
+</body>
+</html>
