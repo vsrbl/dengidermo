@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>dengidermo</title>
     
-    <!-- Favicon - замените PATH_TO_YOUR_FAVICON на путь к вашему favicon -->
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="ico/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="ico/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="ico/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="ico/apple-touch-icon.png">
     <meta name="theme-color" content="#f8f8f8">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -27,178 +28,288 @@
             overflow: hidden;
             width: 256px;
             height: 256px;
-            cursor: pointer;
         }
         
-        .product-container:hover {
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="white"/></svg>') 6 6, auto;
+        .image-slider {
+            display: flex;
+            width: 512px;
+            height: 256px;
+            transition: transform 0.3s ease;
         }
         
         .product-image {
-            width: 100%;
-            height: 100%;
+            width: 256px;
+            height: 256px;
             object-fit: cover;
-            transition: transform 0.3s ease, transform-origin 0.3s ease;
-            transform-origin: center;
-        }
-        
-        .product-container:hover .product-image {
-            transform: scale(4.4);
+            flex-shrink: 0;
         }
         
         .product-text {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
+            font-size: 9px;
             font-weight: 400;
             color: #000;
-            text-align: right;
-            margin-top: 8px;
             letter-spacing: 0.5px;
         }
         
-        .product-container:hover + .product-text {
-            font-weight: 700;
+        .mobile-indicators {
+            display: flex;
+            gap: 4px;
         }
-
-        /* Планшеты (средние экраны) */
-        @media (max-width: 1024px) and (min-width: 769px) {
+        
+        .indicator {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid black;
+            transition: all 0.3s ease;
+        }
+        
+        .indicator.active {
+            background: black;
+        }
+        
+        /* ПК - классные плавные приближения */
+        @media (min-width: 769px) {
             .product-container {
-                width: 200px;
-                height: 200px;
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="black"/></svg>') 6 6, auto;
             }
             
+            .product-container:hover {
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="white"/></svg>') 6 6, auto;
+            }
+            
+            .product-image:first-child {
+                transform-origin: 50% 50%;
+            }
+            
+            .product-container:hover + div .product-text {
+                font-weight: 700;
+            }
+            
+            /* На ПК показываем только первую картинку */
+            .image-slider {
+                transform: translateX(0px) !important;
+            }
+            
+            /* Скрываем индикаторы на ПК */
+            .mobile-indicators {
+                display: none;
+            }
+            
+            /* Подписи по центру на ПК */
             .product-text {
-                font-size: 10px;
-            }
-            
-            .product-container:hover .product-image {
-                transform: scale(3.5);
+                text-align: center;
+                width: 100%;
             }
         }
-
-        /* Мобильные устройства */
+        
+        /* Мобильные - слайдеры */
         @media (max-width: 768px) {
             body {
-                padding: 0 !important;
-                margin: 0;
+                padding: 2rem 0;
             }
             
-            .min-h-screen {
-                padding: 16px !important;
+            .desktop-gallery {
+                display: flex;
+                flex-direction: row;
+                gap: 0.5rem;
+                padding: 0 1rem;
+                overflow-x: auto;
+                scroll-behavior: smooth;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
             }
             
-            .products-grid {
-                flex-direction: column !important;
-                gap: 16px !important;
-                width: 100%;
-                align-items: stretch !important;
+            .desktop-gallery::-webkit-scrollbar {
+                display: none;
             }
             
             .product-item {
-                width: 100% !important;
-                position: relative;
+                flex: 0 0 auto;
+                min-width: 256px;
             }
             
-            .product-container {
-                width: 100%;
-                height: calc(100vw - 32px);
-                max-height: calc(100vh - 32px);
+            /* Приближение вторых картинок ТОЛЬКО на мобильных - 2.9x зум */
+            .product-container[data-product="1"] .product-image:nth-child(2) {
+                width: 256px;
+                height: 256px;
+                object-fit: cover;
+                transform: scale(2.9);
+                transform-origin: 51% 43%;
                 position: relative;
+                z-index: -1;
             }
             
-            .product-text {
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 11px;
-                font-weight: 400;
-                color: #000;
-                text-align: center;
-                margin: 8px 0 0 0;
-                padding: 0;
-                letter-spacing: 0.5px;
-                line-height: 11px;
-                height: 11px;
+            .product-container[data-product="2"] .product-image:nth-child(2) {
+                width: 256px;
+                height: 256px;
+                object-fit: cover;
+                transform: scale(2.9);
+                transform-origin: 52% 40.5%;
                 position: relative;
-                z-index: 10;
+                z-index: -1;
             }
             
-            /* Полностью отключаем все эффекты на мобильных */
-            .product-container:hover .product-image,
-            .product-container:active .product-image,
-            .product-container:focus .product-image {
-                transform: none !important;
+            .product-container[data-product="3"] .product-image:nth-child(2) {
+                width: 256px;
+                height: 256px;
+                object-fit: cover;
+                transform: scale(2.9);
+                transform-origin: 52% 43%;
+                position: relative;
+                z-index: -1;
             }
-        }
 
-        /* Очень маленькие экраны - наследуют стили мобильных */
-        @media (max-width: 480px) {
-            .product-text {
-                font-size: 12px;
-            }
         }
-        
-        
 
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center px-8">
     <div class="w-full max-w-6xl">
-        <div class="products-grid flex flex-col sm:flex-row gap-6 justify-center items-center">
-        <div class="flex flex-col product-item">
-            <a href="https://t.me/dengidermo" target="_blank" class="product-container">
-                <img 
-                    src="images/i1bwback.jpg" 
-                    alt="Product 1"
-                    class="product-image"
-                />
-            </a>
-            <div class="product-text">dengidermo#1</div>
+        <h1 style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 400; color: #000; text-align: center; letter-spacing: 0.5px; margin-bottom: 20px;">dengidermo collection #1</h1>
+        <div class="desktop-gallery flex flex-col md:flex-row gap-2 justify-center items-center">
+            <div class="flex flex-col product-item">
+                <div class="product-container" data-product="1">
+                    <div class="image-slider">
+                        <img src="images/i1bwback.jpg" alt="Product 1 Original" class="product-image" />
+                        <img src="images/i1bwback.jpg" alt="Product 1 Zoom" class="product-image" />
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; height: 12px;">
+                    <div class="product-text">naherbabki</div>
+                    <div class="mobile-indicators">
+                        <div class="indicator active"></div>
+                        <div class="indicator"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col product-item">
+                <div class="product-container" data-product="2">
+                    <div class="image-slider">
+                        <img src="images/i2bwback.jpg" alt="Product 2 Original" class="product-image" />
+                        <img src="images/i2bwback.jpg" alt="Product 2 Zoom" class="product-image" />
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; height: 12px;">
+                    <div class="product-text">nahuibabki</div>
+                    <div class="mobile-indicators">
+                        <div class="indicator active"></div>
+                        <div class="indicator"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col product-item">
+                <div class="product-container" data-product="3">
+                    <div class="image-slider">
+                        <img src="images/i3bwback.jpg" alt="Product 3 Original" class="product-image" />
+                        <img src="images/i3bwback.jpg" alt="Product 3 Zoom" class="product-image" />
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; height: 12px;">
+                    <div class="product-text">dengidermo</div>
+                    <div class="mobile-indicators">
+                        <div class="indicator active"></div>
+                        <div class="indicator"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="flex flex-col product-item">
-            <a href="https://t.me/dengidermo" target="_blank" class="product-container">
-                <img 
-                    src="images/i2bwback.jpg" 
-                    alt="Product 2"
-                    class="product-image"
-                />
-            </a>
-            <div class="product-text">dengidermo#2</div>
-        </div>
-        <div class="flex flex-col product-item">
-            <a href="https://t.me/dengidermo" target="_blank" class="product-container">
-                <img 
-                    src="images/i3bwback.jpg" 
-                    alt="Product 3"
-                    class="product-image"
-                />
-            </a>
-            <div class="product-text">dengidermo#3</div>
-        </div>
+    </div>
     </div>
     
     <script type="module">
-        // Интерактивность продуктов
-        document.querySelectorAll('.product-container').forEach(container => {
-            const img = container.querySelector('.product-image');
-            
-            container.addEventListener('mousemove', (e) => {
-                if (!container.matches(':hover')) return;
+        // Проверка устройства: мобильное или десктоп
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // МОБИЛЬНЫЕ - простые слайдеры
+            document.querySelectorAll('.product-container').forEach(container => {
+                const slider = container.querySelector('.image-slider');
+                const indicators = container.parentElement.querySelectorAll('.indicator');
+                let currentIndex = 0;
                 
-                const rect = container.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width - 0.5) * 100;
-                const y = ((e.clientY - rect.top) / rect.height - 0.5) * 100;
+                let startX = 0;
+                let isDragging = false;
                 
-                img.style.transformOrigin = `${50 + x}% ${50 + y}%`;
+                container.addEventListener('touchstart', e => {
+                    startX = e.touches[0].clientX;
+                    isDragging = true;
+                    slider.style.transition = 'none';
+                });
+                
+                container.addEventListener('touchmove', e => {
+                    if (!isDragging) return;
+                    const currentX = e.touches[0].clientX;
+                    const diff = currentX - startX;
+                    const newPos = -currentIndex * 256 + diff;
+                    slider.style.transform = `translateX(${Math.max(-256, Math.min(0, newPos))}px)`;
+                });
+                
+                container.addEventListener('touchend', e => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    slider.style.transition = 'transform 0.3s ease';
+                    const endX = e.changedTouches[0].clientX;
+                    const diff = endX - startX;
+                    
+                    if (Math.abs(diff) > 30) {
+                        if (diff > 0 && currentIndex > 0) currentIndex = 0;
+                        if (diff < 0 && currentIndex < 1) currentIndex = 1;
+                    }
+                    
+                    slider.style.transform = `translateX(${-currentIndex * 256}px)`;
+                    indicators[0].classList.toggle('active', currentIndex === 0);
+                    indicators[1].classList.toggle('active', currentIndex === 1);
+                    
+                    if (Math.abs(diff) < 10) {
+                        window.open('https://t.me/dengidermo', '_blank');
+                    }
+                });
             });
-            
-            container.addEventListener('mouseleave', () => {
-                img.style.transformOrigin = 'center';
+        } else {
+            // ПК - mouse-tracking зум + индикаторы + клик в Telegram
+            document.querySelectorAll('.product-container').forEach(container => {
+                const img = container.querySelector('.product-image:first-child');
+                
+                container.addEventListener('mouseenter', () => {
+                    // Медленное приближение 0.3s
+                    img.style.transition = 'transform 0.3s ease-out, transform-origin 0.05s ease-out';
+                    img.style.transform = 'scale(4)';
+                    
+                    // Переключаем индикаторы на "зум режим"
+                    const indicators = container.parentElement.querySelectorAll('.indicator');
+                    indicators[0].classList.remove('active');
+                    indicators[1].classList.add('active');
+                });
+                
+                container.addEventListener('mouseleave', () => {
+                    // Быстрое отдаление 0.1s
+                    img.style.transition = 'transform 0.1s ease-out, transform-origin 0.05s ease-out';
+                    img.style.transform = 'scale(1)';
+                    
+                    // Возвращаем индикаторы в "обычный режим"
+                    const indicators = container.parentElement.querySelectorAll('.indicator');
+                    indicators[0].classList.add('active');
+                    indicators[1].classList.remove('active');
+                });
+                
+                container.addEventListener('mousemove', e => {
+                    const rect = container.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                    
+                    img.style.transformOrigin = `${x}% ${y}%`;
+                });
+                
+                container.addEventListener('click', () => {
+                    window.open('https://t.me/dengidermo', '_blank');
+                });
             });
-            
-            container.addEventListener('mouseenter', () => {
-                img.style.transition = 'transform 0.3s ease, transform-origin 0.1s ease';
-            });
-        });
-
+        }
     </script>
 </body>
 </html>
