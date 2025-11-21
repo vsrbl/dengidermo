@@ -3,51 +3,359 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Will Back Soon</title>
-    <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>NNCCKKRR</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            width: 100%;
-            height: 100vh;
+            font-family: 'JetBrains Mono', monospace;
+            background: #ffffff;
+            color: #000000;
+            font-size: 14px;
+            line-height: 1.6;
+            font-weight: 300;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-bottom: 0;
+            z-index: 1000;
+            padding: 20px 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        nav {
+            display: flex;
+            gap: 30px;
+        }
+
+        nav a {
+            color: #000000;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: opacity 0.3s;
+        }
+
+        nav a:hover {
+            opacity: 0.5;
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 71px;
+            min-height: 100vh;
+        }
+
+
+
+        /* Portfolio Grid */
+        .portfolio {
+            padding: 0;
+        }
+
+        .masonry-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            background: #ffffff;
+        }
+
+        .grid-item {
+            background: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #ffffff;
-            font-family: 'Azeret Mono', monospace;
-            overflow: hidden;
-        }
-        
-        .container {
-            text-align: center;
-            padding: 40px;
-            max-width: 90vw;
-        }
-        
-        h1 {
-            font-size: 32px;
-            font-weight: 400;
-            letter-spacing: -1px;
-            line-height: 1.1;
-            color: #000;
-            text-transform: lowercase;
-            white-space: nowrap;
-        }
-        
-        .accent {
-            font-weight: 700;
+            font-size: 10px;
             letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+        }
+
+        .grid-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .grid-item:hover::before {
+            opacity: 0.05;
+        }
+
+        .grid-item span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Grid item sizes */
+        .square {
+            aspect-ratio: 1;
+        }
+
+        .horizontal {
+            grid-column: span 2;
+            aspect-ratio: 2/1;
+        }
+
+        .vertical {
+            grid-row: span 2;
+            aspect-ratio: 1/2;
+        }
+
+        .large-square {
+            grid-column: span 2;
+            grid-row: span 2;
+            aspect-ratio: 1;
+        }
+
+        /* About Section */
+        .about {
+            padding: 80px 0;
+            border-top: 0;
+        }
+
+        .about-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 60px;
+        }
+
+        .about h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .about p {
+            margin-bottom: 20px;
+            line-height: 1.8;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 0;
+            padding: 20px 0;
+            text-align: center;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+
+        /* Mobile Menu Toggle */
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .menu-toggle span {
+            width: 25px;
+            height: 1px;
+            background: #000000;
+            transition: all 0.3s;
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            .masonry-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .horizontal,
+            .vertical,
+            .large-square {
+                grid-column: span 1;
+                grid-row: span 1;
+                aspect-ratio: 1;
+            }
+
+            .about-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            nav {
+                position: fixed;
+                top: 71px;
+                left: 0;
+                right: 0;
+                background: #ffffff;
+                flex-direction: column;
+                padding: 20px;
+                gap: 20px;
+                border-bottom: 1px solid #000000;
+                transform: translateY(-100%);
+                opacity: 0;
+                transition: all 0.3s;
+                pointer-events: none;
+            }
+
+            nav.active {
+                transform: translateY(0);
+                opacity: 1;
+                pointer-events: all;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .menu-toggle.active span:nth-child(1) {
+                transform: rotate(45deg) translate(5px, 5px);
+            }
+
+            .menu-toggle.active span:nth-child(2) {
+                opacity: 0;
+            }
+
+            .menu-toggle.active span:nth-child(3) {
+                transform: rotate(-45deg) translate(6px, -6px);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .masonry-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .about,
+            .contact {
+                padding: 60px 0;
+            }
+        }
+
+        /* Prevent layout shift */
+        .grid-item {
+            content-visibility: auto;
+            contain-intrinsic-size: 200px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>will <span class="accent">back</span> soon</h1>
-    </div>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">NNCCKKRR</div>
+                <div class="menu-toggle" id="menuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <nav id="nav">
+                    <a href="https://instagram.com/nncckkrr" target="_blank">Instagram</a>
+                    <a href="https://t.me/nncckkrr" target="_blank">Telegram</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="portfolio" id="work">
+            <div class="masonry-grid">
+                <div class="grid-item vertical"><span>[001]</span></div>
+                <div class="grid-item square"><span>[002]</span></div>
+                <div class="grid-item square"><span>[003]</span></div>
+                <div class="grid-item vertical"><span>[004]</span></div>
+                <div class="grid-item square"><span>[024]</span></div>
+                <div class="grid-item square"><span>[005]</span></div>
+                <div class="grid-item square"><span>[006]</span></div>
+                <div class="grid-item horizontal"><span>[007]</span></div>
+                <div class="grid-item square"><span>[008]</span></div>
+                <div class="grid-item horizontal"><span>[009]</span></div>
+                <div class="grid-item vertical"><span>[010]</span></div>
+                <div class="grid-item square"><span>[011]</span></div>
+                <div class="grid-item square"><span>[012]</span></div>
+                <div class="grid-item vertical"><span>[013]</span></div>
+                <div class="grid-item square"><span>[014]</span></div>
+                <div class="grid-item square"><span>[015]</span></div>
+                <div class="grid-item horizontal"><span>[016]</span></div>
+                <div class="grid-item horizontal"><span>[017]</span></div>
+                <div class="grid-item vertical"><span>[018]</span></div>
+                <div class="grid-item square"><span>[019]</span></div>
+                <div class="grid-item square"><span>[020]</span></div>
+                <div class="grid-item vertical"><span>[021]</span></div>
+                <div class="grid-item square"><span>[025]</span></div>
+                <div class="grid-item square"><span>[022]</span></div>
+                <div class="grid-item horizontal"><span>[023]</span></div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>© 2025 nncckkrr. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const menuToggle = document.getElementById('menuToggle');
+        const nav = document.getElementById('nav');
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                menuToggle.classList.toggle('active');
+                nav.classList.toggle('active');
+            });
+        }
+
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (menuToggle) menuToggle.classList.remove('active');
+                if (nav) nav.classList.remove('active');
+            });
+        });
+    </script>
 </body>
 </html>
