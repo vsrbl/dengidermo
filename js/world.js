@@ -1,21 +1,22 @@
 import {
+
     PLAYER_SPEED,
-    PLAYER_SIZE,
-    BULLET_SPEED
+    PLAYER_SIZE
+
 } from './constants.js';
 
-import { world } from './entities.js';
+import {
 
-let bulletId = 0;
+    world
+
+} from './entities.js';
 
 export function createPlayer(id, canvas) {
 
     world.players[id] = {
+
         x: canvas.width / 2,
-        y: canvas.height / 2,
-        score:0,
-        hp:100,
-        lastShot:0
+        y: canvas.height / 2
     };
 }
 
@@ -45,38 +46,5 @@ export function movePlayer(p, input, canvas) {
     p.y = Math.max(
         PLAYER_SIZE,
         Math.min(canvas.height - PLAYER_SIZE, p.y)
-    );
-}
-
-export function shootBullet(player, mx, my) {
-
-    const angle = Math.atan2(
-        my - player.y,
-        mx - player.x
-    );
-
-    world.bullets.push({
-        id: bulletId++,
-        x: player.x,
-        y: player.y,
-        vx: Math.cos(angle) * BULLET_SPEED,
-        vy: Math.sin(angle) * BULLET_SPEED
-    });
-}
-
-export function updateBullets(canvas) {
-
-    for(let b of world.bullets) {
-
-        b.x += b.vx;
-        b.y += b.vy;
-    }
-
-    world.bullets = world.bullets.filter(b =>
-
-        b.x > 0 &&
-        b.y > 0 &&
-        b.x < canvas.width &&
-        b.y < canvas.height
     );
 }
