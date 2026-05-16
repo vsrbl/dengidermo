@@ -2,32 +2,59 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Roguelike Online</title>
+
+    <title>DENGIDERMO</title>
 
     <link rel="stylesheet" href="./style.css">
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
+
 <body>
 
 <div id="ui">
-    <h2>ROGUELIKE ONLINE</h2>
 
-    <button id="btn-host">Создать игру</button>
+    <h1>DENGIDERMO</h1>
 
-    <input id="input-id" placeholder="ID друга">
+    <button id="btn-host">
+        Создать игру
+    </button>
 
-    <button id="btn-join">Подключиться</button>
+    <input
+        type="text"
+        id="input-id"
+        placeholder="ID хоста"
+    >
 
-    <div id="status">Ожидание...</div>
+    <button id="btn-join">
+        Подключиться
+    </button>
+
+    <div id="status">
+        Ожидание...
+    </div>
+
 </div>
 
 <div id="hud">
-    <span id="hud-id"></span>
-    <span id="hud-count"></span>
+
+    <div>
+        ROOM:
+        <span id="hud-id">-</span>
+    </div>
+
+    <div>
+        PLAYERS:
+        <span id="hud-count">1</span>
+    </div>
+
 </div>
 
-<canvas id="gameCanvas" width="1280" height="720"></canvas>
+<canvas
+    id="gameCanvas"
+    width="1280"
+    height="720"
+></canvas>
 
 <script type="module" src="./js/main.js"></script>
 
