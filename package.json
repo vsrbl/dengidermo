@@ -7,6 +7,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "peer": "^1.0.2"
+    "peer": "^1.5.4"
   }
 }
