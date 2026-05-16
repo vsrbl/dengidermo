@@ -3,7 +3,6 @@ import { NET_TICK } from './constants.js';
 import { input, setupInput } from './input.js';
 
 import {
-    world,
     renderState
 } from './entities.js';
 
@@ -26,23 +25,31 @@ import {
     myId
 } from './net.js';
 
-const canvas = document.getElementById('gameCanvas');
+const canvas =
+    document.getElementById('gameCanvas');
 
-const ctx = canvas.getContext('2d');
+const ctx =
+    canvas.getContext('2d');
 
 setupInput(canvas);
 
-document.getElementById('btn-host').onclick = () => {
+document.getElementById('btn-host')
+.onclick = () => {
 
     startHost(canvas);
 
     startGame();
 };
 
-document.getElementById('btn-join').onclick = () => {
+document.getElementById('btn-join')
+.onclick = () => {
 
     const hostId =
-        document.getElementById('input-id').value;
+        document.getElementById('input-id')
+        .value
+        .trim();
+
+    if(!hostId) return;
 
     connectToHost(hostId);
 
@@ -78,29 +85,38 @@ function loop(timestamp) {
                 input
             });
 
-            const me = renderState.players[myId];
+            const me =
+                renderState.players[myId];
 
             if(me) {
 
-                movePlayer(me, input, canvas);
+                movePlayer(
+                    me,
+                    input,
+                    canvas
+                );
             }
         }
     }
 
     updateRenderPlayers();
 
-    draw(ctx, canvas, myId);
+    draw(
+        ctx,
+        canvas,
+        myId
+    );
 
     requestAnimationFrame(loop);
 }
 
 function startGame() {
 
-    document.getElementById('ui').style.display =
-        'none';
+    document.getElementById('ui')
+        .style.display = 'none';
 
-    document.getElementById('hud').style.display =
-        'block';
+    document.getElementById('hud')
+        .style.display = 'block';
 
     canvas.style.display = 'block';
 
