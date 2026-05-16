@@ -1,11 +1,3 @@
-import Peer from 'peerjs';
-
-import {
-    NET_TICK,
-    FIRE_RATE,
-    MAX_PLAYERS
-} from './constants.js';
-
 import {
     world,
     renderState
@@ -17,39 +9,51 @@ import {
     shootBullet
 } from './world.js';
 
+import {
+    FIRE_RATE,
+    MAX_PLAYERS
+} from './constants.js';
+
 export let peer = null;
-
 export let hostConnection = null;
-
 export let connections = {};
 
 export let myId = null;
-
 export let isHost = false;
 
-const peerConfig = {
+const PEER_CONFIG = {
     host: 'dengidermo-1.onrender.com',
+    secure: true,
     port: 443,
     path: '/myapp',
-    secure: true
+
+    config: {
+        iceServers: [
+            {
+                urls: 'stun:stun.l.google.com:19302'
+            }
+        ]
+    }
 };
 
 export function startHost(canvas) {
 
     isHost = true;
 
-    peer = new Peer(peerConfig);
+    peer = new Peer(PEER_CONFIG);
 
     peer.on('open', id => {
 
         myId = id;
 
         createPlayer(id, canvas);
+
+        console.log('HOST ID:', id);
     });
 
     peer.on('connection', conn => {
 
-        if(
+        if (
             Object.keys(connections).length >=
             MAX_PLAYERS - 1
         ) {
@@ -61,46 +65,73 @@ export function startHost(canvas) {
 
         createPlayer(conn.peer, canvas);
 
+        console.log('PLAYER JOIN:', conn.peer);
+
         conn.on('data', data => {
 
-            if(data.type === 'input') {
+            if(data.type !== 'input') return;
 
-                const p = world.players[conn.peer];
+            const p = world.players[conn.peer];
 
-                if(!p) return;
+            if(!p) return;
 
-                movePlayer(p, data.input, canvas);
+            movePlayer(
+                p,
+                data.input,
+                canvas
+            );
 
-                if(data.input.mouseDown) {
+            if(data.input.mouseDown) {
 
-                    const now = Date.now();
+                const now = performance.now();
 
-                    if(now - p.lastShot > FIRE_RATE) {
+                if(now - p.lastShot > FIRE_RATE) {
 
-                        p.lastShot = now;
+                    p.lastShot = now;
 
-                        shootBullet(
-                            p,
-                            data.input.mouseX,
-                            data.input.mouseY
-                        );
-                    }
+                    shootBullet(
+                        p,
+                        data.input.mouseX,
+                        data.input.mouseY
+                    );
                 }
             }
         });
+
+        conn.on('close', () => {
+
+            console.log('PLAYER LEFT:', conn.peer);
+
+            delete connections[conn.peer];
+            delete world.players[conn.peer];
+            delete renderState.players[conn.peer];
+        });
+    });
+
+    peer.on('error', err => {
+        console.error(err);
     });
 }
 
 export function connectToHost(hostId) {
 
-    peer = new Peer(peerConfig);
+    peer = new Peer(PEER_CONFIG);
 
     peer.on('open', id => {
 
         myId = id;
 
-        hostConnection = peer.connect(hostId, {
-            reliable:true
+        hostConnection = peer.connect(
+            hostId,
+            {
+                reliable: true,
+                serialization: 'json'
+            }
+        );
+
+        hostConnection.on('open', () => {
+
+            console.log('CONNECTED TO HOST');
         });
 
         hostConnection.on('data', packet => {
@@ -130,6 +161,16 @@ export function connectToHost(hostId) {
                 renderState.players[id].score = sp.score;
             }
         });
+
+        hostConnection.on('close', () => {
+
+            console.log('DISCONNECTED');
+        });
+
+        hostConnection.on('error', err => {
+
+            console.error(err);
+        });
     });
 }
 
@@ -137,9 +178,12 @@ export function sendSnapshot() {
 
     const packet = {
         type:'snapshot',
+
         players:{},
-        bullets:world.bullets,
-        loot:world.loot
+
+        bullets: world.bullets,
+
+        loot: world.loot
     };
 
     for(let id in world.players) {
@@ -155,9 +199,11 @@ export function sendSnapshot() {
 
     for(let id in connections) {
 
-        if(connections[id].open) {
+        const conn = connections[id];
 
-            connections[id].send(packet);
+        if(conn?.open) {
+
+            conn.send(packet);
         }
     }
 }
