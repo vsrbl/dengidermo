@@ -1,10 +1,9 @@
 export const world = {
-    players:{},
-    bullets:[],
-    loot:[],
-    enemies:[]
+
+    players:{}
 };
 
 export const renderState = {
+
     players:{}
 };
