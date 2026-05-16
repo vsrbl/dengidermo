@@ -1,28 +1,45 @@
-import { NET_TICK } from './constants.js';
+import {
 
-import { input, setupInput } from './input.js';
+    NET_TICK
+
+} from './constants.js';
 
 import {
-    renderState
+
+    input,
+    setupInput
+
+} from './input.js';
+
+import {
+
+    renderState,
+    world
+
 } from './entities.js';
 
 import {
-    updateBullets,
+
     movePlayer
+
 } from './world.js';
 
 import {
+
     updateRenderPlayers,
     draw
+
 } from './render.js';
 
 import {
+
     startHost,
     connectToHost,
     sendSnapshot,
     isHost,
     hostConnection,
     myId
+
 } from './net.js';
 
 const canvas =
@@ -31,7 +48,7 @@ const canvas =
 const ctx =
     canvas.getContext('2d');
 
-setupInput(canvas);
+setupInput();
 
 document.getElementById('btn-host')
 .onclick = () => {
@@ -49,17 +66,10 @@ document.getElementById('btn-join')
         .value
         .trim();
 
-    if(!hostId) return;
-
     connectToHost(hostId);
 
     startGame();
 };
-
-function updateHost() {
-
-    updateBullets(canvas);
-}
 
 let lastNetTick = 0;
 
@@ -67,7 +77,23 @@ function loop(timestamp) {
 
     if(isHost) {
 
-        updateHost();
+        const me =
+            world.players[myId];
+
+        if(me) {
+
+            movePlayer(
+                me,
+                input,
+                canvas
+            );
+
+            renderState.players[myId].tx =
+                me.x;
+
+            renderState.players[myId].ty =
+                me.y;
+        }
     }
 
     if(timestamp - lastNetTick >= NET_TICK) {
@@ -80,22 +106,7 @@ function loop(timestamp) {
 
         } else if(hostConnection?.open) {
 
-            hostConnection.send({
-                type:'input',
-                input
-            });
-
-            const me =
-                renderState.players[myId];
-
-            if(me) {
-
-                movePlayer(
-                    me,
-                    input,
-                    canvas
-                );
-            }
+            hostConnection.send(input);
         }
     }
 
