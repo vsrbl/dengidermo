@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>B&W P2P Roguelike v2</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            margin: 0; background-color: #111; color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; user-select: none;
+        }
+        canvas {
+            background-color: #000; border: 2px solid #fff;
+            image-rendering: pixelated; display: none; cursor: crosshair;
+        }
+        #ui {
+            text-align: center; border: 2px solid #fff; padding: 20px; background: #000;
+        }
+        input, button {
+            background: #000; color: #fff; border: 1px solid #fff;
+            padding: 10px; margin: 5px; font-family: inherit; cursor: pointer;
+        }
+        button:hover { background: #fff; color: #000; }
+        #status { margin-top: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h2>B&W ROGUELIKE</h2>
+        <button id="btn-host">Создать игру</button><br><br>
+        <input type="text" id="input-id" placeholder="ID друга">
+        <button id="btn-join">Подключиться</button>
+        <div id="status">Ожидание...</div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const ui = document.getElementById('ui');
+    const statusDiv = document.getElementById('status');
+
+    let peer = null, connection = null, isHost = false, myId = null;
+
+    // Константы баланса
+    const PLAYER_SPEED = 4;
+    const BULLET_SPEED = 8;
+    const FIRE_COOLDOWN = 250; 
+    const PLAYER_SIZE = 10; 
+
+    let gameState = { players: {}, bullets: [], loot: [] };
+    const input = { w: false, a: false, s: false, d: false, mouseX: 0, mouseY: 0, mouseDown: false };
+
+    // --- НАСТРОЙКИ ТВОЕГО ЛИЧНОГО СЕРВЕРА НА RENDER ---
+    const myPeerConfig = {
+        host: 'dengidermo.onrender.com', // Без https://
+        port: 443,                       // Стандартный порт для защищенного соединения
+        path: '/myapp',
+        secure: true                     // Обязательно true
+    };
+
+    // --- СЕТЬ (PEERJS) ---
+    document.getElementById('btn-host').onclick = () => {
+        isHost = true; 
+        // Подключаемся к твоему серверу
+        peer = new Peer(myPeerConfig);
+        
+        statusDiv.innerText = "Подключение к твоему серверу на Render...";
+        
+        peer.on('open', (id) => {
+            myId = id; statusDiv.innerHTML = `Твой ID: <b>${id}</b><br>Кинь его другу!`;
+            gameState.players[myId] = { x: canvas.width/2 - 50, y: canvas.height/2, score: 0, lastShot: 0 };
+            for(let i=0; i<5; i++) spawnLoot();
+        });
+
+        peer.on('connection', (conn) => {
+            connection = conn; statusDiv.innerText = "Друг зашел!";
+            gameState.players[conn.peer] = { x: canvas.width/2 + 50, y: canvas.height/2, score: 0, lastShot: 0 };
+            conn.on('data', (data) => processClientInput(conn.peer, data));
+            startGame();
+        });
+
+        peer.on('error', (err) => {
+            statusDiv.innerHTML = `<span style="color:red">Ошибка сервера: ${err.type}</span>`;
+            console.error(err);
+        });
+    };
+
+    document.getElementById('btn-join').onclick = () => {
+        const hostId = document.getElementById('input-id').value.trim();
+        if (!hostId) return;
+        
+        isHost = false; 
+        // Подключаемся к твоему серверу
+        peer = new Peer(myPeerConfig);
+        
+        statusDiv.innerText = "Подключение...";
+        
+        peer.on('open', (id) => {
+            myId = id; connection = peer.connect(hostId);
+            connection.on('open', () => { statusDiv.innerText = "В игре!"; startGame(); });
+            connection.on('data', (data) => { gameState = data; }); 
+        });
+
+        peer.on('error', (err) => {
+            statusDiv.innerHTML = `<span style="color:red">Ошибка сервера: ${err.type}</span>`;
+            console.error(err);
+        });
+    };
+
+    // --- УПРАВЛЕНИЕ ---
+    window.addEventListener('keydown', (e) => { if(input.hasOwnProperty(e.key.toLowerCase())) input[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', (e) => { if(input.hasOwnProperty(e.key.toLowerCase())) input[e.key.toLowerCase()] = false; });
+    
+    canvas.addEventListener('mousedown', () => input.mouseDown = true);
+    canvas.addEventListener('mouseup', () => input.mouseDown = false);
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        input.mouseX = e.clientX - rect.left;
+        input.mouseY = e.clientY - rect.top;
+    });
+
+    window.addEventListener('blur', () => {
+        input.w = input.a = input.s = input.d = input.mouseDown = false;
+    });
+
+    // --- ФИЗИКА И ЛОГИКА (ТОЛЬКО ХОСТ) ---
+    function spawnLoot() {
+        gameState.loot.push({
+            x: Math.random() * (canvas.width - 40) + 20,
+            y: Math.random() * (canvas.height - 40) + 20
+        });
+    }
+
+    function movePlayer(p, controls) {
+        let dx = 0, dy = 0;
+        if(controls.w) dy -= 1;
+        if(controls.s) dy += 1;
+        if(controls.a) dx -= 1;
+        if(controls.d) dx += 1;
+
+        if(dx !== 0 || dy !== 0) {
+            const length = Math.sqrt(dx*dx + dy*dy);
+            p.x += (dx / length) * PLAYER_SPEED;
+            p.y += (dy / length) * PLAYER_SPEED;
+        }
+
+        p.x = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, p.x));
+        p.y = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, p.y));
+
+        if(controls.mouseDown && Date.now() - p.lastShot > FIRE_COOLDOWN) {
+            const angle = Math.atan2(controls.mouseY - p.y, controls.mouseX - p.x);
+            gameState.bullets.push({
+                x: p.x, y: p.y,
+                vx: Math.cos(angle) * BULLET_SPEED,
+                vy: Math.sin(angle) * BULLET_SPEED
+            });
+            p.lastShot = Date.now();
+        }
+    }
+
+    function processClientInput(clientId, clientInput) {
+        let p = gameState.players[clientId];
+        if (p) movePlayer(p, clientInput);
+    }
+
+    function updateHostLogic() {
+        let p = gameState.players[myId];
+        if(p) movePlayer(p, input);
+
+        for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+            let b = gameState.bullets[i];
+            b.x += b.vx; b.y += b.vy;
+            if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                gameState.bullets.splice(i, 1);
+            }
+        }
+
+        for (let id in gameState.players) {
+            let player = gameState.players[id];
+            for (let i = gameState.loot.length - 1; i >= 0; i--) {
+                let l = gameState.loot[i];
+                if (Math.abs(player.x - l.x) < 15 && Math.abs(player.y - l.y) < 15) {
+                    player.score += 10;
+                    gameState.loot.splice(i, 1);
+                    spawnLoot();
+                }
+            }
+        }
+    }
+
+    // --- ОТРИСОВКА И ЦИКЛ ---
+    function startGame() {
+        ui.style.display = 'none';
+        canvas.style.display = 'block';
+        
+        setInterval(() => {
+            if (isHost && connection && connection.open) {
+                connection.send(gameState);
+            } else if (!isHost && connection && connection.open) {
+                connection.send(input);
+            }
+        }, 1000 / 30); 
+
+        gameLoop();
+    }
+
+    function draw() {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#fff';
+        gameState.loot.forEach(l => {
+            ctx.fillRect(l.x - 4, l.y - 1, 8, 2);
+            ctx.fillRect(l.x - 1, l.y - 4, 2, 8);
+        });
+
+        gameState.bullets.forEach(b => ctx.fillRect(b.x - 2, b.y - 2, 4, 4));
+
+        for (let id in gameState.players) {
+            let p = gameState.players[id];
+            if (id === myId) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.x - PLAYER_SIZE, p.y - PLAYER_SIZE, PLAYER_SIZE*2, PLAYER_SIZE*2);
+            } else {
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                ctx.strokeRect(p.x - PLAYER_SIZE, p.y - PLAYER_SIZE, PLAYER_SIZE*2, PLAYER_SIZE*2);
+            }
+            ctx.fillStyle = '#fff'; ctx.font = "14px Courier New";
+            ctx.fillText(p.score, p.x - 10, p.y - 15);
+        }
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(input.mouseX, input.mouseY, 5, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    function gameLoop() {
+        if (isHost) updateHostLogic();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>
