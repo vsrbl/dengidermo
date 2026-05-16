@@ -1,6 +1,14 @@
-import { world, renderState } from './entities.js';
+import {
 
-import { PLAYER_SIZE } from './constants.js';
+    renderState
+
+} from './entities.js';
+
+import {
+
+    PLAYER_SIZE
+
+} from './constants.js';
 
 export function updateRenderPlayers() {
 
@@ -16,22 +24,13 @@ export function updateRenderPlayers() {
 export function draw(ctx, canvas, myId) {
 
     ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    ctx.fillStyle = '#fff';
-
-    for(let l of world.loot) {
-
-        ctx.fillRect(l.x - 4, l.y - 1, 8, 2);
-        ctx.fillRect(l.x - 1, l.y - 4, 2, 8);
-    }
-
-    for(let b of world.bullets) {
-
-        ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
-    }
-
-    ctx.font = "14px monospace";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
     for(let id in renderState.players) {
 
@@ -59,13 +58,5 @@ export function draw(ctx, canvas, myId) {
                 PLAYER_SIZE * 2
             );
         }
-
-        ctx.fillStyle = '#fff';
-
-        ctx.fillText(
-            p.score,
-            p.x - 10,
-            p.y - 18
-        );
     }
 }
