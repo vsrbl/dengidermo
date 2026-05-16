@@ -1,361 +1,414 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nncckkrr</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-    </style>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-        body {
-            font-family: 'JetBrains Mono', monospace;
-            background: #ffffff;
-            color: #000000;
-            font-size: 14px;
-            line-height: 1.6;
-            font-weight: 300;
-            overflow-x: hidden;
-        }
+  <title>nncckkrr</title>
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      cursor:none;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        /* Header */
-        header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #ffffff;
-            border-bottom: 0;
-            z-index: 1000;
-            padding: 20px 0;
-        }
+    html,body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:#050505;
+      font-family:Inter,sans-serif;
+      touch-action:none;
+    }
 
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    canvas{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+    }
 
-        .logo {
-            font-size: 16px;
-            font-weight: 10;
-            letter-spacing: 2px;
-            text-transform: lowercase;
-        }
+    .cursor{
+      position:fixed;
+      width:24px;
+      height:24px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.8);
+      pointer-events:none;
+      z-index:1000;
+      transform:translate(-50%,-50%);
+      transition:width .25s,height .25s,border .25s;
+      backdrop-filter:blur(4px);
+    }
 
-        nav {
-            display: flex;
-            gap: 30px;
-        }
+    .cursor-inner{
+      position:fixed;
+      width:6px;
+      height:6px;
+      border-radius:50%;
+      background:white;
+      pointer-events:none;
+      z-index:1001;
+      transform:translate(-50%,-50%);
+    }
 
-        nav a {
-            color: #000000;
-            text-decoration: none;
-            text-transform: lowercase;
-            font-size: 12px;
-            letter-spacing: 1px;
-            transition: opacity 0.3s;
-        }
+    .grain{
+      position:fixed;
+      inset:-200%;
+      background-image:
+      url("https://grainy-gradients.vercel.app/noise.svg");
+      opacity:.06;
+      animation:grain 8s steps(10) infinite;
+      pointer-events:none;
+    }
 
-        nav a:hover {
-            opacity: 0.5;
-        }
+    @keyframes grain{
+      0%{transform:translate(0,0)}
+      10%{transform:translate(-5%,-10%)}
+      20%{transform:translate(-15%,5%)}
+      30%{transform:translate(7%,-25%)}
+      40%{transform:translate(-5%,25%)}
+      50%{transform:translate(-15%,10%)}
+      60%{transform:translate(15%,0%)}
+      70%{transform:translate(0%,15%)}
+      80%{transform:translate(3%,35%)}
+      90%{transform:translate(-10%,10%)}
+      100%{transform:translate(0,0)}
+    }
 
-        /* Main Content */
-        main {
-            margin-top: 71px;
-            min-height: 100vh;
-        }
+    @media (max-width:768px){
 
+      *{
+        cursor:auto;
+      }
 
-
-        /* Portfolio Grid */
-        .portfolio {
-            padding: 0;
-        }
-
-        .masonry-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0;
-            background: #ffffff;
-        }
-
-        .grid-item {
-            background: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-            min-height: 200px;
-        }
-
-        .grid-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #000000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .grid-item:hover::before {
-            opacity: 0.05;
-        }
-
-        .grid-item span {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Grid item sizes */
-        .square {
-            aspect-ratio: 1;
-        }
-
-        .horizontal {
-            grid-column: span 2;
-            aspect-ratio: 2/1;
-        }
-
-        .vertical {
-            grid-row: span 2;
-            aspect-ratio: 1/2;
-        }
-
-        .large-square {
-            grid-column: span 2;
-            grid-row: span 2;
-            aspect-ratio: 1;
-        }
-
-        /* About Section */
-        .about {
-            padding: 80px 0;
-            border-top: 0;
-        }
-
-        .about-content {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 60px;
-        }
-
-        .about h2 {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        .about p {
-            margin-bottom: 20px;
-            line-height: 1.8;
-        }
-
-        /* Footer */
-        footer {
-            border-top: 0;
-            padding: 20px 0;
-            text-align: center;
-            font-size: 12px;
-            letter-spacing: 1px;
-        }
-
-        /* Mobile Menu Toggle */
-        .menu-toggle {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            cursor: pointer;
-        }
-
-        .menu-toggle span {
-            width: 25px;
-            height: 1px;
-            background: #000000;
-            transition: all 0.3s;
-        }
-
-        /* Mobile Styles */
-        @media (max-width: 768px) {
-            .masonry-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .horizontal,
-            .vertical,
-            .large-square {
-                grid-column: span 1;
-                grid-row: span 1;
-                aspect-ratio: 1;
-            }
-
-            .about-content {
-                grid-template-columns: 1fr;
-                gap: 40px;
-            }
-
-            nav {
-                position: fixed;
-                top: 71px;
-                left: 0;
-                right: 0;
-                background: #ffffff;
-                flex-direction: column;
-                padding: 20px;
-                gap: 20px;
-                border-bottom: 1px solid #000000;
-                transform: translateY(-100%);
-                opacity: 0;
-                transition: all 0.3s;
-                pointer-events: none;
-            }
-
-            nav.active {
-                transform: translateY(0);
-                opacity: 1;
-                pointer-events: all;
-            }
-
-            .menu-toggle {
-                display: flex;
-            }
-
-            .menu-toggle.active span:nth-child(1) {
-                transform: rotate(45deg) translate(5px, 5px);
-            }
-
-            .menu-toggle.active span:nth-child(2) {
-                opacity: 0;
-            }
-
-            .menu-toggle.active span:nth-child(3) {
-                transform: rotate(-45deg) translate(6px, -6px);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 0 15px;
-            }
-
-            .masonry-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .about,
-            .contact {
-                padding: 60px 0;
-            }
-        }
-
-        /* Prevent layout shift */
-        .grid-item {
-            content-visibility: auto;
-            contain-intrinsic-size: 200px;
-        }
-    </style>
+      .cursor,
+      .cursor-inner{
+        display:none;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <header>
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">nncckkrr</div>
-                <div class="menu-toggle" id="menuToggle">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-                <nav id="nav">
-                    <a href="https://instagram.com/nncckkrr" target="_blank">Instagram</a>
-                    <a href="https://t.me/nncckkrr" target="_blank">Telegram</a>
-                </nav>
-            </div>
-        </div>
-    </header>
 
-    <main>
-        <section class="portfolio" id="work">
-            <div class="masonry-grid">
-                <div class="grid-item vertical"><span>[001]</span></div>
-                <div class="grid-item square"><span>[002]</span></div>
-                <div class="grid-item square"><span>[003]</span></div>
-                <div class="grid-item vertical"><span>[004]</span></div>
-                <div class="grid-item square"><span>[024]</span></div>
-                <div class="grid-item square"><span>[005]</span></div>
-                <div class="grid-item square"><span>[006]</span></div>
-                <div class="grid-item horizontal"><span>[007]</span></div>
-                <div class="grid-item square"><span>[008]</span></div>
-                <div class="grid-item horizontal"><span>[009]</span></div>
-                <div class="grid-item vertical"><span>[010]</span></div>
-                <div class="grid-item square"><span>[011]</span></div>
-                <div class="grid-item square"><span>[012]</span></div>
-                <div class="grid-item vertical"><span>[013]</span></div>
-                <div class="grid-item square"><span>[014]</span></div>
-                <div class="grid-item square"><span>[015]</span></div>
-                <div class="grid-item horizontal"><span>[016]</span></div>
-                <div class="grid-item horizontal"><span>[017]</span></div>
-                <div class="grid-item vertical"><span>[018]</span></div>
-                <div class="grid-item square"><span>[019]</span></div>
-                <div class="grid-item square"><span>[020]</span></div>
-                <div class="grid-item vertical"><span>[021]</span></div>
-                <div class="grid-item square"><span>[025]</span></div>
-                <div class="grid-item square"><span>[022]</span></div>
-                <div class="grid-item horizontal"><span>[023]</span></div>
-            </div>
-        </section>
+<canvas id="canvas"></canvas>
 
-    </main>
+<div class="grain"></div>
 
-    <footer>
-        <div class="container">
-            <p>© 2025 nncckkrr. All rights reserved.</p>
-        </div>
-    </footer>
+<div class="cursor"></div>
+<div class="cursor-inner"></div>
 
-    <script>
-        const menuToggle = document.getElementById('menuToggle');
-        const nav = document.getElementById('nav');
+<script>
 
-        if (menuToggle) {
-            menuToggle.addEventListener('click', () => {
-                menuToggle.classList.toggle('active');
-                nav.classList.toggle('active');
-            });
-        }
+const canvas = document.getElementById("canvas")
+const ctx = canvas.getContext("2d")
 
-        document.querySelectorAll('nav a').forEach(link => {
-            link.addEventListener('click', () => {
-                if (menuToggle) menuToggle.classList.remove('active');
-                if (nav) nav.classList.remove('active');
-            });
-        });
-    </script>
+let width
+let height
+
+const nickname = "nncckkrr"
+const altText = "visual artist"
+
+let activeText = nickname
+
+const particles = []
+
+const mouse = {
+  x:0,
+  y:0,
+  down:false
+}
+
+const cursor = {
+  x:0,
+  y:0
+}
+
+const inner = {
+  x:0,
+  y:0
+}
+
+let particleCount
+
+class Particle{
+
+  constructor(x,y,index){
+
+    this.baseX = x
+    this.baseY = y
+
+    this.x = x
+    this.y = y
+
+    this.vx = 0
+    this.vy = 0
+
+    this.index = index
+
+    this.offset = Math.random() * 1000
+
+    this.size = Math.random() * 8 + 12
+  }
+
+  getLetter(){
+
+    const text = activeText
+
+    const speed = 0.45
+
+    const shift =
+      Math.floor(
+        performance.now() * 0.001 * speed +
+        this.index * 0.35
+      )
+
+    return text[
+      shift % text.length
+    ]
+  }
+
+  update(){
+
+    const dx = mouse.x - this.x
+    const dy = mouse.y - this.y
+
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    if(dist < 220){
+
+      const force = (220 - dist) / 220
+
+      const angle = Math.atan2(dy,dx)
+
+      this.vx -= Math.cos(angle) * force * 2.2
+      this.vy -= Math.sin(angle) * force * 2.2
+    }
+
+    this.vx += (this.baseX - this.x) * 0.008
+    this.vy += (this.baseY - this.y) * 0.008
+
+    this.vx *= 0.94
+    this.vy *= 0.94
+
+    this.x += this.vx
+    this.y += this.vy
+  }
+
+  draw(){
+
+    ctx.font = `${this.size}px Inter`
+
+    ctx.fillStyle = "rgba(255,255,255,.82)"
+
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+
+    ctx.fillText(
+      this.getLetter(),
+      this.x,
+      this.y
+    )
+  }
+}
+
+function createParticles(){
+
+  particles.length = 0
+
+  width = canvas.width = window.innerWidth
+  height = canvas.height = window.innerHeight
+
+  const mobile = width < 768
+
+  particleCount = mobile ? 90 : 180
+
+  for(let i=0;i<particleCount;i++){
+
+    const padding = mobile ? 40 : 80
+
+    const x =
+      Math.random() * (width - padding * 2)
+      + padding
+
+    const y =
+      Math.random() * (height - padding * 2)
+      + padding
+
+    particles.push(
+      new Particle(x,y,i)
+    )
+  }
+
+  mouse.x = width / 2
+  mouse.y = height / 2
+}
+
+createParticles()
+
+function drawConnections(){
+
+  for(let a=0;a<particles.length;a++){
+
+    for(let b=a+1;b<particles.length;b++){
+
+      const dx =
+        particles[a].x - particles[b].x
+
+      const dy =
+        particles[a].y - particles[b].y
+
+      const dist =
+        Math.sqrt(dx * dx + dy * dy)
+
+      const maxDist =
+        width < 768 ? 120 : 160
+
+      if(dist < maxDist){
+
+        const opacity =
+          (1 - dist / maxDist) * 0.12
+
+        ctx.beginPath()
+
+        ctx.moveTo(
+          particles[a].x,
+          particles[a].y
+        )
+
+        ctx.lineTo(
+          particles[b].x,
+          particles[b].y
+        )
+
+        ctx.strokeStyle =
+          `rgba(255,255,255,${opacity})`
+
+        ctx.lineWidth = .7
+
+        ctx.stroke()
+      }
+    }
+  }
+}
+
+function animate(){
+
+  ctx.clearRect(0,0,width,height)
+
+  const gradient =
+    ctx.createRadialGradient(
+      mouse.x,
+      mouse.y,
+      0,
+      mouse.x,
+      mouse.y,
+      300
+    )
+
+  gradient.addColorStop(
+    0,
+    "rgba(255,255,255,.05)"
+  )
+
+  gradient.addColorStop(
+    1,
+    "rgba(255,255,255,0)"
+  )
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0,0,width,height)
+
+  particles.forEach(p => p.update())
+
+  drawConnections()
+
+  particles.forEach(p => p.draw())
+
+  cursor.x += (mouse.x - cursor.x) * 0.1
+  cursor.y += (mouse.y - cursor.y) * 0.1
+
+  inner.x += (mouse.x - inner.x) * 0.28
+  inner.y += (mouse.y - inner.y) * 0.28
+
+  document.querySelector(".cursor").style.transform =
+    `translate(${cursor.x}px,${cursor.y}px) translate(-50%,-50%)`
+
+  document.querySelector(".cursor-inner").style.transform =
+    `translate(${inner.x}px,${inner.y}px) translate(-50%,-50%)`
+
+  requestAnimationFrame(animate)
+}
+
+animate()
+
+window.addEventListener("mousemove",e=>{
+
+  mouse.x = e.clientX
+  mouse.y = e.clientY
+})
+
+window.addEventListener("touchmove",e=>{
+
+  mouse.x = e.touches[0].clientX
+  mouse.y = e.touches[0].clientY
+
+},{passive:true})
+
+function activateAlt(){
+
+  activeText = altText
+
+  document.querySelector(".cursor").style.width = "48px"
+  document.querySelector(".cursor").style.height = "48px"
+  document.querySelector(".cursor").style.border =
+    "1px solid rgba(255,255,255,.3)"
+}
+
+function deactivateAlt(){
+
+  activeText = nickname
+
+  document.querySelector(".cursor").style.width = "24px"
+  document.querySelector(".cursor").style.height = "24px"
+  document.querySelector(".cursor").style.border =
+    "1px solid rgba(255,255,255,.8)"
+}
+
+window.addEventListener("mousedown",()=>{
+
+  mouse.down = true
+  activateAlt()
+})
+
+window.addEventListener("mouseup",()=>{
+
+  mouse.down = false
+  deactivateAlt()
+})
+
+window.addEventListener("touchstart",()=>{
+
+  mouse.down = true
+  activateAlt()
+})
+
+window.addEventListener("touchend",()=>{
+
+  mouse.down = false
+  deactivateAlt()
+})
+
+window.addEventListener("resize",()=>{
+
+  createParticles()
+})
+
+</script>
+
 </body>
 </html>
