@@ -2,51 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>B&W P2P Roguelike v4</title>
+    <title>B&W P2P Roguelike v5 (Smooth Netcode)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body {
-            margin: 0; background-color: #111; color: #fff;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; overflow: hidden; user-select: none;
-        }
-        canvas {
-            background-color: #000; border: 2px solid #fff;
-            image-rendering: pixelated; display: none; cursor: crosshair;
-        }
-        
-        /* Главное меню (Лобби) */
-        #ui {
-            text-align: center; border: 2px solid #fff; padding: 20px; background: #000; width: 350px;
-        }
-        input, button {
-            background: #000; color: #fff; border: 1px solid #fff;
-            padding: 10px; margin: 5px; font-family: inherit; cursor: pointer; width: 80%; box-sizing: border-box;
-        }
+        body { margin: 0; background-color: #111; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+        canvas { background-color: #000; border: 2px solid #fff; image-rendering: pixelated; display: none; cursor: crosshair; }
+        #ui { text-align: center; border: 2px solid #fff; padding: 20px; background: #000; width: 350px; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; margin: 5px; font-family: inherit; cursor: pointer; width: 80%; box-sizing: border-box; }
         button:hover { background: #fff; color: #000; }
         #status { margin-top: 15px; font-size: 14px; }
-        
-        /* Игровой интерфейс (HUD поверх игры) */
-        #hud {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8); border: 2px solid #fff; padding: 10px 20px;
-            text-align: center; display: none; z-index: 100; min-width: 250px;
-        }
-        #hud-id {
-            font-weight: bold; padding: 2px 8px; border: 1px dashed #fff; 
-            cursor: pointer; transition: 0.2s; background: #222;
-        }
+        #hud { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); border: 2px solid #fff; padding: 10px 20px; text-align: center; display: none; z-index: 100; min-width: 250px; }
+        #hud-id { font-weight: bold; padding: 2px 8px; border: 1px dashed #fff; cursor: pointer; transition: 0.2s; background: #222; }
         #hud-id:hover { background: #444; }
         #hud-id:active { background: #666; border-color: #4ade80; color: #4ade80; }
         #copy-status { font-size: 12px; color: #4ade80; margin-left: 10px; opacity: 0; transition: opacity 0.3s; }
         .hud-row { margin: 5px 0; }
-        
     </style>
 </head>
 <body>
 
-    <!-- Меню -->
     <div id="ui">
         <h2>B&W ROGUELIKE</h2>
         <button id="btn-host">Создать игру</button><br><br>
@@ -55,13 +29,11 @@
         <div id="status">Ожидание...</div>
     </div>
 
-    <!-- HUD (Появляется только в игре) -->
     <div id="hud">
         <div class="hud-row">Комната: <span id="hud-id" title="Нажми, чтобы скопировать"></span> <span id="copy-status">✔</span></div>
         <div class="hud-row">Игроки: <span id="hud-count">1 / 4</span></div>
     </div>
 
-    <!-- Игра -->
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
 <script>
@@ -73,19 +45,21 @@
     const hudIdDisplay = document.getElementById('hud-id');
     const hudCountDisplay = document.getElementById('hud-count');
 
-    let peer = null, isHost = false, myId = null;
-    let gameStarted = false; 
+    let peer = null, isHost = false, myId = null, gameStarted = false; 
 
     const MAX_PLAYERS = 4;
     let connections = {}; 
     let hostConnection = null; 
+
+    // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ NETCODE ---
+    let clientInputs = {};  // Хост хранит кнопки всех клиентов
+    let targetState = null; // Клиент хранит сюда то, что прислал Хост
 
     const PLAYER_SPEED = 4;
     const BULLET_SPEED = 8;
     const FIRE_COOLDOWN = 250; 
     const PLAYER_SIZE = 10; 
 
-    // Добавили playerCount в gameState, чтобы рассылать всем
     let gameState = { players: {}, bullets: [], loot: [], playerCount: 1 };
     const input = { w: false, a: false, s: false, d: false, mouseX: 0, mouseY: 0, mouseDown: false };
 
@@ -96,10 +70,8 @@
         secure: true                     
     };
 
-    // --- ЛОГИКА HUD И КОПИРОВАНИЯ ---
     hudIdDisplay.addEventListener('click', () => {
-        const idToCopy = hudIdDisplay.innerText;
-        navigator.clipboard.writeText(idToCopy).then(() => {
+        navigator.clipboard.writeText(hudIdDisplay.innerText).then(() => {
             const copyStatus = document.getElementById('copy-status');
             copyStatus.style.opacity = '1';
             setTimeout(() => copyStatus.style.opacity = '0', 2000);
@@ -118,35 +90,34 @@
         statusDiv.innerText = "Подключение к серверу...";
         
         peer.on('open', (id) => {
-            myId = id; 
-            updateHUD(myId, 1);
+            myId = id; updateHUD(myId, 1);
             gameState.players[myId] = { x: canvas.width/2, y: canvas.height/2, score: 0, lastShot: 0 };
             for(let i=0; i<5; i++) spawnLoot();
             if (!gameStarted) startGame(); 
         });
 
         peer.on('connection', (conn) => {
-            // ПРОВЕРКА НА ЛИМИТ ИГРОКОВ (Хост + 3 клиента = 4)
             if (Object.keys(connections).length >= MAX_PLAYERS - 1) {
-                conn.on('open', () => {
-                    conn.send({ error: 'Комната заполнена (максимум 4 игрока)!' });
-                    setTimeout(() => conn.close(), 500);
-                });
+                conn.on('open', () => { conn.send({ error: 'Комната заполнена!' }); setTimeout(() => conn.close(), 500); });
                 return;
             }
 
-            // Если места есть, пускаем игрока
             connections[conn.peer] = conn; 
-            gameState.playerCount = Object.keys(connections).length + 1; // Обновляем счетчик
-            updateHUD(myId, gameState.playerCount); // Обновляем HUD у хоста
-
+            clientInputs[conn.peer] = { w: false, a: false, s: false, d: false, mouseDown: false }; // Инициализируем инпут клиента
+            
+            gameState.playerCount = Object.keys(connections).length + 1; 
+            updateHUD(myId, gameState.playerCount); 
             gameState.players[conn.peer] = { x: canvas.width/2, y: canvas.height/2, score: 0, lastShot: 0 };
             
-            conn.on('data', (data) => processClientInput(conn.peer, data));
+            conn.on('data', (data) => {
+                // Хост больше не двигает клиента сразу! Он просто запоминает, что клиент нажал
+                clientInputs[conn.peer] = data; 
+            });
             
             conn.on('close', () => {
                 delete connections[conn.peer];
                 delete gameState.players[conn.peer];
+                delete clientInputs[conn.peer];
                 gameState.playerCount = Object.keys(connections).length + 1;
                 updateHUD(myId, gameState.playerCount);
             });
@@ -163,24 +134,17 @@
         
         peer.on('open', (id) => {
             myId = id; 
-            hostConnection = peer.connect(hostId, { reliable: false });
+            hostConnection = peer.connect(hostId, { reliable: false }); // UDP режим для скорости
             
             hostConnection.on('open', () => { 
-                statusDiv.innerText = "В игре!"; 
-                updateHUD(hostId, "?"); // Сначала ставим вопрос, потом придут данные от хоста
+                statusDiv.innerText = "В игре!"; updateHUD(hostId, "?"); 
                 if (!gameStarted) startGame(); 
             });
 
             hostConnection.on('data', (data) => { 
-                // Проверяем, не выгнал ли нас хост (ошибка лимита)
-                if (data.error) {
-                    alert(data.error);
-                    location.reload(); // Перезагружаем страницу, выкидываем в меню
-                    return;
-                }
-                
-                gameState = data; 
-                updateHUD(null, gameState.playerCount); // Обновляем цифру игроков у клиента
+                if (data.error) { alert(data.error); location.reload(); return; }
+                targetState = data; // Клиент запоминает истинное состояние от сервера
+                updateHUD(null, data.playerCount); 
             }); 
         });
     };
@@ -192,88 +156,145 @@
     canvas.addEventListener('mouseup', () => input.mouseDown = false);
     canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
-        input.mouseX = e.clientX - rect.left;
-        input.mouseY = e.clientY - rect.top;
+        input.mouseX = e.clientX - rect.left; input.mouseY = e.clientY - rect.top;
     });
     window.addEventListener('blur', () => { input.w = input.a = input.s = input.d = input.mouseDown = false; });
 
-    // --- ФИЗИКА (ТОЛЬКО ХОСТ) ---
+    // --- ФИЗИКА (РАЗДЕЛЕННАЯ ДЛЯ ПРЕДСКАЗАНИЯ) ---
     function spawnLoot() {
         gameState.loot.push({ x: Math.random() * (canvas.width - 40) + 20, y: Math.random() * (canvas.height - 40) + 20 });
     }
 
-    function movePlayer(p, controls) {
+    // Логика чистого движения (нужна и хосту, и клиенту для предсказания)
+    function applyMovement(p, controls) {
+        if (!p) return;
         let dx = 0, dy = 0;
-        if(controls.w) dy -= 1;
-        if(controls.s) dy += 1;
-        if(controls.a) dx -= 1;
-        if(controls.d) dx += 1;
+        if(controls.w) dy -= 1; if(controls.s) dy += 1;
+        if(controls.a) dx -= 1; if(controls.d) dx += 1;
 
         if(dx !== 0 || dy !== 0) {
             const length = Math.sqrt(dx*dx + dy*dy);
             p.x += (dx / length) * PLAYER_SPEED;
             p.y += (dy / length) * PLAYER_SPEED;
         }
-
         p.x = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, p.x));
         p.y = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, p.y));
+    }
 
+    // Логика стрельбы (выполняет только хост)
+    function applyShooting(p, controls) {
+        if (!p) return;
         if(controls.mouseDown && Date.now() - p.lastShot > FIRE_COOLDOWN) {
             const angle = Math.atan2(controls.mouseY - p.y, controls.mouseX - p.x);
-            gameState.bullets.push({
-                x: p.x, y: p.y, vx: Math.cos(angle) * BULLET_SPEED, vy: Math.sin(angle) * BULLET_SPEED
-            });
+            gameState.bullets.push({ x: p.x, y: p.y, vx: Math.cos(angle) * BULLET_SPEED, vy: Math.sin(angle) * BULLET_SPEED });
             p.lastShot = Date.now();
         }
     }
 
-    function processClientInput(clientId, clientInput) {
-        let p = gameState.players[clientId];
-        if (p) movePlayer(p, clientInput);
-    }
-
+    // === ТИК ХОСТА ===
     function updateHostLogic() {
-        let p = gameState.players[myId];
-        if(p) movePlayer(p, input);
+        // Движение и стрельба самого хоста
+        applyMovement(gameState.players[myId], input);
+        applyShooting(gameState.players[myId], input);
 
+        // Движение и стрельба всех клиентов на основе их последних присланных кнопок
+        for (let id in clientInputs) {
+            applyMovement(gameState.players[id], clientInputs[id]);
+            applyShooting(gameState.players[id], clientInputs[id]);
+        }
+
+        // Обсчет пуль
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
             let b = gameState.bullets[i];
             b.x += b.vx; b.y += b.vy;
             if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) gameState.bullets.splice(i, 1);
         }
 
+        // Обсчет лута
         for (let id in gameState.players) {
             let player = gameState.players[id];
             for (let i = gameState.loot.length - 1; i >= 0; i--) {
                 let l = gameState.loot[i];
                 if (Math.abs(player.x - l.x) < 15 && Math.abs(player.y - l.y) < 15) {
-                    player.score += 10;
-                    gameState.loot.splice(i, 1);
-                    spawnLoot();
+                    player.score += 10; gameState.loot.splice(i, 1); spawnLoot();
                 }
             }
         }
     }
 
-    // --- ОТРИСОВКА И ЦИКЛ ---
+    // === ТИК КЛИЕНТА (Магия плавности) ===
+    function updateClientLogic() {
+        if (!targetState) return;
+
+        // При первом запуске просто копируем состояние сервера
+        if (Object.keys(gameState.players).length === 0) {
+            gameState = JSON.parse(JSON.stringify(targetState));
+            return;
+        }
+
+        // Синхронизируем игроков
+        for (let id in targetState.players) {
+            let targetP = targetState.players[id];
+            
+            if (!gameState.players[id]) {
+                gameState.players[id] = { ...targetP }; // Появился новый игрок
+            } else {
+                let localP = gameState.players[id];
+
+                if (id === myId) {
+                    // 1. ПРЕДСКАЗАНИЕ: Двигаем СЕБЯ мгновенно по своим кнопкам
+                    applyMovement(localP, input);
+                    
+                    // 2. КОРРЕКЦИЯ: Чуть-чуть притягиваемся к серверу, чтобы не улететь из-за рассинхрона
+                    localP.x += (targetP.x - localP.x) * 0.2;
+                    localP.y += (targetP.y - localP.y) * 0.2;
+                } else {
+                    // 3. ИНТЕРПОЛЯЦИЯ: Плавно доводим остальных игроков до их реальных координат (Smooth Lerp)
+                    localP.x += (targetP.x - localP.x) * 0.3;
+                    localP.y += (targetP.y - localP.y) * 0.3;
+                }
+                localP.score = targetP.score;
+            }
+        }
+
+        // Удаляем отключившихся
+        for (let id in gameState.players) {
+            if (!targetState.players[id]) delete gameState.players[id];
+        }
+
+        // Пули и лут просто заменяем (они обновляются слишком быстро)
+        gameState.bullets = targetState.bullets;
+        gameState.loot = targetState.loot;
+        gameState.playerCount = targetState.playerCount;
+    }
+
+    // --- ОТРИСОВКА И ГЛАВНЫЕ ЦИКЛЫ ---
     function startGame() {
         if (gameStarted) return; 
         gameStarted = true;
         
-        ui.style.display = 'none'; // Прячем главное меню
-        hud.style.display = 'block'; // Показываем Игровой HUD
-        canvas.style.display = 'block'; // Показываем игру
+        ui.style.display = 'none'; 
+        hud.style.display = 'block'; 
+        canvas.style.display = 'block'; 
         
+        // --- ГЛАВНЫЙ СЕРВЕРНЫЙ ТИК (60 РАЗ В СЕКУНДУ) ---
         setInterval(() => {
             if (isHost) {
+                updateHostLogic(); // Хост считает физику
+                // Хост рассылает состояние
                 for (let id in connections) {
                     if (connections[id].open) connections[id].send(gameState);
                 }
-            } else if (hostConnection && hostConnection.open) {
-                hostConnection.send(input);
+            } else {
+                updateClientLogic(); // Клиент плавно интерполирует
+                // Клиент спамит свои кнопки хосту
+                if (hostConnection && hostConnection.open) {
+                    hostConnection.send(input);
+                }
             }
-        }, 1000 / 30); 
+        }, 1000 / 60); // Ровно 60 тиков в секунду, независимо от FPS монитора!
 
+        // Отрисовка работает так быстро, как позволяет монитор (60/144+ FPS)
         gameLoop(); 
     }
 
@@ -305,8 +326,7 @@
     }
 
     function gameLoop() {
-        if (isHost) updateHostLogic();
-        draw();
+        draw(); // В gameLoop теперь ТОЛЬКО отрисовка! Физика ушла в setInterval.
         requestAnimationFrame(gameLoop);
     }
 </script>
