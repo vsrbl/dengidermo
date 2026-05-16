@@ -9,7 +9,8 @@
             margin: 0; background-color: #111; color: #fff;
             font-family: 'Courier New', Courier, monospace;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; overflow: hidden; user-select: none;
+            height: 100vh; overflow: hidden; 
+            user-select: none; /* Запрещаем случайное выделение текста */
         }
         canvas {
             background-color: #000; border: 2px solid #fff;
@@ -17,13 +18,27 @@
         }
         #ui {
             text-align: center; border: 2px solid #fff; padding: 20px; background: #000;
+            width: 350px;
         }
         input, button {
             background: #000; color: #fff; border: 1px solid #fff;
             padding: 10px; margin: 5px; font-family: inherit; cursor: pointer;
+            width: 80%; box-sizing: border-box;
         }
         button:hover { background: #fff; color: #000; }
         #status { margin-top: 15px; font-size: 14px; }
+        
+        /* Стили для рамки копирования */
+        .copy-container {
+            margin: 15px auto 5px auto; padding: 10px;
+            border: 2px dashed #fff; background: #222;
+            cursor: pointer; word-wrap: break-word;
+            font-weight: bold; transition: 0.2s;
+        }
+        .copy-container:hover { background: #333; }
+        .copy-container:active { background: #555; border-color: #4ade80; }
+        .copy-hint { font-size: 12px; color: #888; }
+        .success { color: #4ade80 !important; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -31,7 +46,7 @@
     <div id="ui">
         <h2>B&W ROGUELIKE</h2>
         <button id="btn-host">Создать игру</button><br><br>
-        <input type="text" id="input-id" placeholder="ID друга">
+        <input type="text" id="input-id" placeholder="Вставь ID друга сюда">
         <button id="btn-join">Подключиться</button>
         <div id="status">Ожидание...</div>
     </div>
@@ -46,7 +61,6 @@
 
     let peer = null, connection = null, isHost = false, myId = null;
 
-    // Константы баланса
     const PLAYER_SPEED = 4;
     const BULLET_SPEED = 8;
     const FIRE_COOLDOWN = 250; 
@@ -55,24 +69,46 @@
     let gameState = { players: {}, bullets: [], loot: [] };
     const input = { w: false, a: false, s: false, d: false, mouseX: 0, mouseY: 0, mouseDown: false };
 
-    // --- НАСТРОЙКИ ТВОЕГО ЛИЧНОГО СЕРВЕРА НА RENDER ---
+    // Твой сервер на Render
     const myPeerConfig = {
-        host: 'dengidermo-1.onrender.com', // Без https://
-        port: 443,                       // Стандартный порт для защищенного соединения
+        host: 'dengidermo-1.onrender.com', 
+        port: 443,                       
         path: '/myapp',
-        secure: true                     // Обязательно true
+        secure: true                     
     };
 
     // --- СЕТЬ (PEERJS) ---
     document.getElementById('btn-host').onclick = () => {
         isHost = true; 
-        // Подключаемся к твоему серверу
         peer = new Peer(myPeerConfig);
         
-        statusDiv.innerText = "Подключение к твоему серверу на Render...";
+        statusDiv.innerText = "Подключение к серверу...";
         
         peer.on('open', (id) => {
-            myId = id; statusDiv.innerHTML = `Твой ID: <b>${id}</b><br>Кинь его другу!`;
+            myId = id; 
+            
+            // Выводим кликабельную рамку с ID
+            statusDiv.innerHTML = `
+                Твой ID для подключения:
+                <div class="copy-container" id="copy-box">${id}</div>
+                <div class="copy-hint" id="copy-hint">Нажми на рамку, чтобы скопировать</div>
+            `;
+
+            // Обработчик клика: копируем в буфер
+            document.getElementById('copy-box').addEventListener('click', () => {
+                navigator.clipboard.writeText(id).then(() => {
+                    const hint = document.getElementById('copy-hint');
+                    hint.innerText = '✔ Скопировано в буфер!';
+                    hint.classList.add('success');
+                    
+                    // Возвращаем текст обратно через 2 секунды
+                    setTimeout(() => {
+                        hint.innerText = 'Нажми на рамку, чтобы скопировать';
+                        hint.classList.remove('success');
+                    }, 2000);
+                });
+            });
+
             gameState.players[myId] = { x: canvas.width/2 - 50, y: canvas.height/2, score: 0, lastShot: 0 };
             for(let i=0; i<5; i++) spawnLoot();
         });
@@ -85,7 +121,7 @@
         });
 
         peer.on('error', (err) => {
-            statusDiv.innerHTML = `<span style="color:red">Ошибка сервера: ${err.type}</span>`;
+            statusDiv.innerHTML = `<span style="color:red">Ошибка: ${err.type}</span>`;
             console.error(err);
         });
     };
@@ -95,7 +131,6 @@
         if (!hostId) return;
         
         isHost = false; 
-        // Подключаемся к твоему серверу
         peer = new Peer(myPeerConfig);
         
         statusDiv.innerText = "Подключение...";
@@ -107,7 +142,7 @@
         });
 
         peer.on('error', (err) => {
-            statusDiv.innerHTML = `<span style="color:red">Ошибка сервера: ${err.type}</span>`;
+            statusDiv.innerHTML = `<span style="color:red">Ошибка: ${err.type}</span>`;
             console.error(err);
         });
     };
@@ -128,7 +163,7 @@
         input.w = input.a = input.s = input.d = input.mouseDown = false;
     });
 
-    // --- ФИЗИКА И ЛОГИКА (ТОЛЬКО ХОСТ) ---
+    // --- ФИЗИКА И ЛОГИКА ---
     function spawnLoot() {
         gameState.loot.push({
             x: Math.random() * (canvas.width - 40) + 20,
