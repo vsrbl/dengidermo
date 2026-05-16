@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>B&W P2P Roguelike v3 (No Lag)</title>
+    <title>B&W P2P Roguelike v4</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body {
@@ -15,6 +15,8 @@
             background-color: #000; border: 2px solid #fff;
             image-rendering: pixelated; display: none; cursor: crosshair;
         }
+        
+        /* Главное меню (Лобби) */
         #ui {
             text-align: center; border: 2px solid #fff; padding: 20px; background: #000; width: 350px;
         }
@@ -24,18 +26,27 @@
         }
         button:hover { background: #fff; color: #000; }
         #status { margin-top: 15px; font-size: 14px; }
-        .copy-container {
-            margin: 15px auto 5px auto; padding: 10px; border: 2px dashed #fff; background: #222;
-            cursor: pointer; word-wrap: break-word; font-weight: bold; transition: 0.2s;
+        
+        /* Игровой интерфейс (HUD поверх игры) */
+        #hud {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8); border: 2px solid #fff; padding: 10px 20px;
+            text-align: center; display: none; z-index: 100; min-width: 250px;
         }
-        .copy-container:hover { background: #333; }
-        .copy-container:active { background: #555; border-color: #4ade80; }
-        .copy-hint { font-size: 12px; color: #888; }
-        .success { color: #4ade80 !important; font-weight: bold; }
+        #hud-id {
+            font-weight: bold; padding: 2px 8px; border: 1px dashed #fff; 
+            cursor: pointer; transition: 0.2s; background: #222;
+        }
+        #hud-id:hover { background: #444; }
+        #hud-id:active { background: #666; border-color: #4ade80; color: #4ade80; }
+        #copy-status { font-size: 12px; color: #4ade80; margin-left: 10px; opacity: 0; transition: opacity 0.3s; }
+        .hud-row { margin: 5px 0; }
+        
     </style>
 </head>
 <body>
 
+    <!-- Меню -->
     <div id="ui">
         <h2>B&W ROGUELIKE</h2>
         <button id="btn-host">Создать игру</button><br><br>
@@ -44,27 +55,38 @@
         <div id="status">Ожидание...</div>
     </div>
 
+    <!-- HUD (Появляется только в игре) -->
+    <div id="hud">
+        <div class="hud-row">Комната: <span id="hud-id" title="Нажми, чтобы скопировать"></span> <span id="copy-status">✔</span></div>
+        <div class="hud-row">Игроки: <span id="hud-count">1 / 4</span></div>
+    </div>
+
+    <!-- Игра -->
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ui = document.getElementById('ui');
+    const hud = document.getElementById('hud');
     const statusDiv = document.getElementById('status');
+    const hudIdDisplay = document.getElementById('hud-id');
+    const hudCountDisplay = document.getElementById('hud-count');
 
     let peer = null, isHost = false, myId = null;
-    let gameStarted = false; // Предохранитель от двойного старта
+    let gameStarted = false; 
 
-    // Сетевые переменные (Разделены для Хоста и Клиента)
-    let connections = {}; // Хост хранит здесь ВСЕХ клиентов
-    let hostConnection = null; // Клиент хранит здесь связь с Хостом
+    const MAX_PLAYERS = 4;
+    let connections = {}; 
+    let hostConnection = null; 
 
     const PLAYER_SPEED = 4;
     const BULLET_SPEED = 8;
     const FIRE_COOLDOWN = 250; 
     const PLAYER_SIZE = 10; 
 
-    let gameState = { players: {}, bullets: [], loot: [] };
+    // Добавили playerCount в gameState, чтобы рассылать всем
+    let gameState = { players: {}, bullets: [], loot: [], playerCount: 1 };
     const input = { w: false, a: false, s: false, d: false, mouseX: 0, mouseY: 0, mouseDown: false };
 
     const myPeerConfig = {
@@ -74,6 +96,21 @@
         secure: true                     
     };
 
+    // --- ЛОГИКА HUD И КОПИРОВАНИЯ ---
+    hudIdDisplay.addEventListener('click', () => {
+        const idToCopy = hudIdDisplay.innerText;
+        navigator.clipboard.writeText(idToCopy).then(() => {
+            const copyStatus = document.getElementById('copy-status');
+            copyStatus.style.opacity = '1';
+            setTimeout(() => copyStatus.style.opacity = '0', 2000);
+        });
+    });
+
+    function updateHUD(id, count) {
+        if (id) hudIdDisplay.innerText = id;
+        hudCountDisplay.innerText = count + " / " + MAX_PLAYERS;
+    }
+
     // --- СЕТЬ (PEERJS) ---
     document.getElementById('btn-host').onclick = () => {
         isHost = true; 
@@ -82,32 +119,36 @@
         
         peer.on('open', (id) => {
             myId = id; 
-            statusDiv.innerHTML = `Твой ID для подключения:<div class="copy-container" id="copy-box">${id}</div><div class="copy-hint" id="copy-hint">Нажми на рамку, чтобы скопировать</div>`;
-            document.getElementById('copy-box').addEventListener('click', () => {
-                navigator.clipboard.writeText(id).then(() => {
-                    const hint = document.getElementById('copy-hint');
-                    hint.innerText = '✔ Скопировано!'; hint.classList.add('success');
-                    setTimeout(() => { hint.innerText = 'Нажми на рамку, чтобы скопировать'; hint.classList.remove('success'); }, 2000);
-                });
-            });
-
+            updateHUD(myId, 1);
             gameState.players[myId] = { x: canvas.width/2, y: canvas.height/2, score: 0, lastShot: 0 };
             for(let i=0; i<5; i++) spawnLoot();
-            
-            if (!gameStarted) startGame(); // Хост может начать играть один!
+            if (!gameStarted) startGame(); 
         });
 
         peer.on('connection', (conn) => {
-            // Сохраняем НОВОГО клиента в общий список
+            // ПРОВЕРКА НА ЛИМИТ ИГРОКОВ (Хост + 3 клиента = 4)
+            if (Object.keys(connections).length >= MAX_PLAYERS - 1) {
+                conn.on('open', () => {
+                    conn.send({ error: 'Комната заполнена (максимум 4 игрока)!' });
+                    setTimeout(() => conn.close(), 500);
+                });
+                return;
+            }
+
+            // Если места есть, пускаем игрока
             connections[conn.peer] = conn; 
+            gameState.playerCount = Object.keys(connections).length + 1; // Обновляем счетчик
+            updateHUD(myId, gameState.playerCount); // Обновляем HUD у хоста
+
             gameState.players[conn.peer] = { x: canvas.width/2, y: canvas.height/2, score: 0, lastShot: 0 };
             
             conn.on('data', (data) => processClientInput(conn.peer, data));
             
-            // Если клиент отключился - удаляем его
             conn.on('close', () => {
                 delete connections[conn.peer];
                 delete gameState.players[conn.peer];
+                gameState.playerCount = Object.keys(connections).length + 1;
+                updateHUD(myId, gameState.playerCount);
             });
         });
     };
@@ -122,14 +163,25 @@
         
         peer.on('open', (id) => {
             myId = id; 
-            // ВАЖНО: reliable: false включает UDP-режим (без ожидания потерянных пакетов)
             hostConnection = peer.connect(hostId, { reliable: false });
             
             hostConnection.on('open', () => { 
                 statusDiv.innerText = "В игре!"; 
+                updateHUD(hostId, "?"); // Сначала ставим вопрос, потом придут данные от хоста
                 if (!gameStarted) startGame(); 
             });
-            hostConnection.on('data', (data) => { gameState = data; }); 
+
+            hostConnection.on('data', (data) => { 
+                // Проверяем, не выгнал ли нас хост (ошибка лимита)
+                if (data.error) {
+                    alert(data.error);
+                    location.reload(); // Перезагружаем страницу, выкидываем в меню
+                    return;
+                }
+                
+                gameState = data; 
+                updateHUD(null, gameState.playerCount); // Обновляем цифру игроков у клиента
+            }); 
         });
     };
 
@@ -205,26 +257,24 @@
 
     // --- ОТРИСОВКА И ЦИКЛ ---
     function startGame() {
-        if (gameStarted) return; // Защита от создания нескольких циклов
+        if (gameStarted) return; 
         gameStarted = true;
         
-        ui.style.display = 'none';
-        canvas.style.display = 'block';
+        ui.style.display = 'none'; // Прячем главное меню
+        hud.style.display = 'block'; // Показываем Игровой HUD
+        canvas.style.display = 'block'; // Показываем игру
         
-        // Сетевой цикл отправки (30 раз в секунду)
         setInterval(() => {
             if (isHost) {
-                // Хост отправляет данные ВСЕМ подключенным клиентам
                 for (let id in connections) {
                     if (connections[id].open) connections[id].send(gameState);
                 }
             } else if (hostConnection && hostConnection.open) {
-                // Клиент отправляет свои нажатия Хосту
                 hostConnection.send(input);
             }
         }, 1000 / 30); 
 
-        gameLoop(); // Запуск цикла отрисовки
+        gameLoop(); 
     }
 
     function draw() {
