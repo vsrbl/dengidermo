@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-signaling",
-  "version": "16.0.0",
+  "version": "17.0.0",
   "private": true,
   "type": "commonjs",
   "engines": { "node": "20.x" },

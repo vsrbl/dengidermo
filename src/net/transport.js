@@ -24,6 +24,7 @@ export class Transport {
     this.connected = false;
     this.pingMs = null;
     this.lastPing = 0;
+    this.closedByClient = false;
   }
 
   connectHost(roomId) {
@@ -38,12 +39,13 @@ export class Transport {
 
   openWs(onOpen) {
     this.close(false);
+    this.closedByClient = false;
     this.ws = new WebSocket(toWebSocketUrl(this.signalingUrl));
     this.ws.addEventListener("open", onOpen);
     this.ws.addEventListener("message", (e) => this.handleWs(safeJson(e.data)));
     this.ws.addEventListener("close", () => {
       this.connected = false;
-      this.callbacks.onClose?.();
+      if (!this.closedByClient) this.callbacks.onClose?.();
     });
     this.ws.addEventListener("error", () => this.callbacks.onError?.("network"));
   }
@@ -66,7 +68,11 @@ export class Transport {
     if (msg.type === "player_joined") {
       this.players.add(msg.playerId);
       this.callbacks.onPlayers?.([...this.players]);
-      if (this.role === "host" && msg.playerId !== this.playerId) this.createPeerForGuest(msg.playerId);
+      if (this.role === "host" && msg.playerId !== this.playerId) {
+        this.createPeerForGuest(msg.playerId).catch(() => {
+          this.callbacks.onPeerState?.(msg.playerId, "relay");
+        });
+      }
       return;
     }
     if (msg.type === "player_left") {
@@ -95,6 +101,10 @@ export class Transport {
   }
 
   makePeer(remoteId) {
+    if (typeof RTCPeerConnection === "undefined") {
+      this.callbacks.onPeerState?.(remoteId, "relay");
+      return null;
+    }
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });
@@ -120,6 +130,7 @@ export class Transport {
   async createPeerForGuest(guestId) {
     if (this.peers.has(guestId)) return;
     const pc = this.makePeer(guestId);
+    if (!pc) return;
     const dc = pc.createDataChannel("game");
     this.attachChannel(guestId, dc);
     const offer = await pc.createOffer();
@@ -132,6 +143,7 @@ export class Transport {
       let pc = this.peers.get(from);
       if (!pc) {
         pc = this.makePeer(from);
+        if (!pc) return;
         pc.ondatachannel = (e) => this.attachChannel(from, e.channel);
       }
       if (data.description) {
@@ -199,6 +211,7 @@ export class Transport {
   }
 
   close(sendLeave = true) {
+    this.closedByClient = true;
     if (sendLeave && this.connected) this.sendWs({ type: "leave", roomId: this.roomId });
     for (const id of [...this.peers.keys()]) this.closePeer(id);
     if (this.ws) {

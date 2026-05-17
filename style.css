@@ -231,3 +231,5 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+button:disabled { opacity: 0.45; cursor: default; }

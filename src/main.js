@@ -27,6 +27,8 @@ let playerId = null;
 let players = [];
 let pingMs = null;
 let transportMode = "LINK";
+let connecting = false;
+let connectTimer = 0;
 let hostState = null;
 let hostInputs = Object.create(null);
 let snapshot = null;
@@ -62,30 +64,83 @@ function makeTransport() {
     onData: handleNetData,
     onPing: (ms) => { pingMs = ms; },
     onPeerState: (_id, state) => { if (state === "open") transportMode = "P2P"; },
-    onError: () => ui.flashError(),
-    onClose: () => { if (running) ui.setNet({ pingMs, role, playerId, players, transportMode: "OFF" }); }
+    onError: (message) => handleConnectError(message),
+    onClose: () => handleTransportClose()
   });
 }
 
+function setConnecting(value) {
+  connecting = value;
+  ui.el.createBtn.disabled = value;
+  ui.el.joinBtn.disabled = value;
+  if (!value) {
+    window.clearTimeout(connectTimer);
+    connectTimer = 0;
+  }
+}
+
+function armConnectTimeout() {
+  window.clearTimeout(connectTimer);
+  connectTimer = window.setTimeout(() => {
+    if (!connecting || running) return;
+    transport?.close(false);
+    transport = null;
+    setConnecting(false);
+    ui.flashError("connection timeout");
+  }, 9000);
+}
+
+function beginConnect(nextTransport) {
+  transport?.close(false);
+  transport = nextTransport;
+  setConnecting(true);
+  armConnectTimeout();
+}
+
+function handleConnectError(message = "error") {
+  if (!running) {
+    transport?.close(false);
+    transport = null;
+    setConnecting(false);
+    ui.flashError(message);
+    return;
+  }
+  ui.flashError(message);
+}
+
+function handleTransportClose() {
+  if (connecting && !running) {
+    setConnecting(false);
+    ui.flashError("connection closed");
+    return;
+  }
+  if (running) ui.setNet({ pingMs, role, playerId, players, transportMode: "OFF" });
+}
+
 function startHost() {
+  if (connecting || running) return;
   const id = randomRoomId();
   ui.el.roomInput.value = id;
-  transport = makeTransport();
-  transport.connectHost(id);
+  const next = makeTransport();
+  beginConnect(next);
+  next.connectHost(id);
 }
 
 function startGuest() {
+  if (connecting || running) return;
   const id = normalizeRoomId(ui.el.roomInput.value);
   ui.el.roomInput.value = id;
   if (!isValidRoomId(id)) {
-    ui.flashError();
+    ui.flashError("bad room");
     return;
   }
-  transport = makeTransport();
-  transport.connectGuest(id);
+  const next = makeTransport();
+  beginConnect(next);
+  next.connectGuest(id);
 }
 
 function handleReady(info) {
+  setConnecting(false);
   running = true;
   role = info.role;
   roomId = info.roomId;
@@ -135,7 +190,14 @@ function handlePlayerLeft(id) {
 }
 
 function leaveGame() {
-  if (!running) return;
+  if (!running) {
+    if (connecting) {
+      transport?.close(false);
+      transport = null;
+      setConnecting(false);
+    }
+    return;
+  }
   running = false;
   role = "none";
   roomId = null;

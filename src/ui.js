@@ -27,10 +27,19 @@ export function createUi() {
     el.roomTitle.textContent = roomId || "------";
   }
 
-  function flashError() {
+  function flashError(message = "") {
     el.menuBox.classList.remove("error-flash");
     void el.menuBox.offsetWidth;
     el.menuBox.classList.add("error-flash");
+    if (message && el.menu && !el.menu.classList.contains("hidden")) {
+      const oldPlaceholder = el.roomInput.placeholder || "ID";
+      const label = String(message).replace(/_/g, " ").toUpperCase().slice(0, 18);
+      el.roomInput.placeholder = label;
+      window.clearTimeout(el.roomInput.nnPlaceholderTimer);
+      el.roomInput.nnPlaceholderTimer = window.setTimeout(() => {
+        el.roomInput.placeholder = oldPlaceholder;
+      }, 1200);
+    }
   }
 
   function flashCopied() {
