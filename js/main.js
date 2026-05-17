@@ -1,7 +1,8 @@
 import {
 
     NET_TICK,
-    PHYSICS_TICK
+    PHYSICS_TICK,
+    FIXED_DELTA
 
 } from './constants.js';
 
@@ -21,6 +22,7 @@ import {
 
 import {
 
+    applyInput,
     movePlayer
 
 } from './world.js';
@@ -54,7 +56,7 @@ setupInput();
 document.getElementById('btn-host')
 .onclick = () => {
 
-    startHost(canvas);
+    startHost();
 
     startGame();
 };
@@ -113,29 +115,51 @@ function updatePhysics() {
 
     if(isHost) {
 
+        for(const id in world.players) {
+
+            movePlayer(
+                world.players[id],
+                FIXED_DELTA
+            );
+
+            const p =
+                world.players[id];
+
+            if(!renderState.players[id]) {
+
+                renderState.players[id] = {
+
+                    x:p.x,
+                    y:p.y,
+
+                    tx:p.x,
+                    ty:p.y
+                };
+            }
+
+            renderState.players[id].tx = p.x;
+            renderState.players[id].ty = p.y;
+
+            if(id === myId) {
+
+                renderState.players[id].x = p.x;
+                renderState.players[id].y = p.y;
+            }
+        }
+
+    } else {
+
         const me =
-            world.players[myId];
+            renderState.players[myId];
 
         if(me) {
 
+            applyInput(me, input);
+
             movePlayer(
                 me,
-                input,
-                canvas,
-                1
+                FIXED_DELTA
             );
-
-            renderState.players[myId].x =
-                me.x;
-
-            renderState.players[myId].y =
-                me.y;
-
-            renderState.players[myId].tx =
-                me.x;
-
-            renderState.players[myId].ty =
-                me.y;
         }
     }
 }
@@ -148,7 +172,10 @@ function updateNetwork() {
 
     } else if(hostConnection?.open) {
 
-        hostConnection.send(input);
+        hostConnection.send({
+            type:'input',
+            input
+        });
     }
 }
 

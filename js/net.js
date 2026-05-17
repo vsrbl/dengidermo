@@ -8,7 +8,7 @@ import {
 import {
 
     createPlayer,
-    movePlayer
+    applyInput
 
 } from './world.js';
 
@@ -33,7 +33,7 @@ const PEER_CONFIG = {
     path: '/myapp'
 };
 
-export function startHost(canvas) {
+export function startHost() {
 
     isHost = true;
 
@@ -43,15 +43,17 @@ export function startHost(canvas) {
 
         myId = id;
 
-        createPlayer(id, canvas);
+        createPlayer(id);
+
+        const p = world.players[id];
 
         renderState.players[id] = {
 
-            x: canvas.width / 2,
-            y: canvas.height / 2,
+            x:p.x,
+            y:p.y,
 
-            tx: canvas.width / 2,
-            ty: canvas.height / 2
+            tx:p.x,
+            ty:p.y
         };
 
         document.getElementById('hud-id')
@@ -65,15 +67,17 @@ export function startHost(canvas) {
 
         connections[conn.peer] = conn;
 
-        createPlayer(conn.peer, canvas);
+        createPlayer(conn.peer);
+
+        const p = world.players[conn.peer];
 
         renderState.players[conn.peer] = {
 
-            x: canvas.width / 2,
-            y: canvas.height / 2,
+            x:p.x,
+            y:p.y,
 
-            tx: canvas.width / 2,
-            ty: canvas.height / 2
+            tx:p.x,
+            ty:p.y
         };
 
         document.getElementById('hud-count')
@@ -82,18 +86,18 @@ export function startHost(canvas) {
 
         conn.on('data', data => {
 
-            const p = world.players[conn.peer];
+            if(data.type !== 'input')
+                return;
 
-            if(!p) return;
+            const player =
+                world.players[conn.peer];
 
-            movePlayer(
-                p,
-                data,
-                canvas
+            if(!player) return;
+
+            applyInput(
+                player,
+                data.input
             );
-
-            renderState.players[conn.peer].tx = p.x;
-            renderState.players[conn.peer].ty = p.y;
         });
 
         conn.on('close', () => {
@@ -115,7 +119,26 @@ export function connectToHost(hostId) {
 
     peer = new Peer(PEER_CONFIG);
 
-    peer.on('open', () => {
+    peer.on('open', id => {
+
+        myId = id;
+
+        renderState.players[id] = {
+
+            x:640,
+            y:360,
+
+            tx:640,
+            ty:360,
+
+            input: {
+
+                w:false,
+                a:false,
+                s:false,
+                d:false
+            }
+        };
 
         hostConnection =
             peer.connect(hostId);
@@ -149,6 +172,14 @@ export function connectToHost(hostId) {
 
                 renderState.players[id].tx = p.x;
                 renderState.players[id].ty = p.y;
+
+                if(id !== myId) continue;
+
+                renderState.players[id].x +=
+                    (p.x - renderState.players[id].x) * 0.35;
+
+                renderState.players[id].y +=
+                    (p.y - renderState.players[id].y) * 0.35;
             }
         });
     });
@@ -156,9 +187,22 @@ export function connectToHost(hostId) {
 
 export function sendSnapshot() {
 
+    const players = {};
+
+    for(const id in world.players) {
+
+        const p = world.players[id];
+
+        players[id] = {
+
+            x:p.x,
+            y:p.y
+        };
+    }
+
     const packet = {
 
-        players: world.players,
+        players,
 
         playerCount:
             Object.keys(world.players).length

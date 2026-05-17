@@ -1,7 +1,9 @@
 import {
 
     PLAYER_SPEED,
-    PLAYER_SIZE
+    PLAYER_SIZE,
+    WORLD_WIDTH,
+    WORLD_HEIGHT
 
 } from './constants.js';
 
@@ -11,21 +13,40 @@ import {
 
 } from './entities.js';
 
-export function createPlayer(id, canvas) {
+export function createPlayer(id) {
 
     world.players[id] = {
 
-        x: canvas.width / 2,
-        y: canvas.height / 2
+        x: WORLD_WIDTH / 2,
+        y: WORLD_HEIGHT / 2,
+
+        input: {
+
+            w:false,
+            a:false,
+            s:false,
+            d:false
+        }
+    };
+}
+
+export function applyInput(player, input) {
+
+    player.input = {
+
+        w: !!input.w,
+        a: !!input.a,
+        s: !!input.s,
+        d: !!input.d
     };
 }
 
 export function movePlayer(
-    p,
-    input,
-    canvas,
-    delta = 1
+    player,
+    delta
 ) {
+
+    const input = player.input;
 
     let dx = 0;
     let dy = 0;
@@ -39,24 +60,24 @@ export function movePlayer(
 
         const len = Math.hypot(dx, dy);
 
-        p.x +=
+        player.x +=
             (dx / len) *
             PLAYER_SPEED *
             delta;
 
-        p.y +=
+        player.y +=
             (dy / len) *
             PLAYER_SPEED *
             delta;
     }
 
-    p.x = Math.max(
+    player.x = Math.max(
         PLAYER_SIZE,
-        Math.min(canvas.width - PLAYER_SIZE, p.x)
+        Math.min(WORLD_WIDTH - PLAYER_SIZE, player.x)
     );
 
-    p.y = Math.max(
+    player.y = Math.max(
         PLAYER_SIZE,
-        Math.min(canvas.height - PLAYER_SIZE, p.y)
+        Math.min(WORLD_HEIGHT - PLAYER_SIZE, player.y)
     );
 }
