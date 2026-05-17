@@ -66,10 +66,34 @@ document.getElementById('btn-join')
         .value
         .trim();
 
+    if(!hostId) return;
+
     connectToHost(hostId);
 
     startGame();
 };
+
+const hudId =
+    document.getElementById('hud-id');
+
+hudId.addEventListener('click', async () => {
+
+    const id = hudId.innerText;
+
+    if(!id || id === '-') return;
+
+    await navigator.clipboard.writeText(id);
+
+    const oldText = hudId.innerText;
+
+    hudId.innerText = 'COPIED';
+
+    setTimeout(() => {
+
+        hudId.innerText = oldText;
+
+    }, 1000);
+});
 
 let lastNetTick = 0;
 
@@ -87,6 +111,12 @@ function loop(timestamp) {
                 input,
                 canvas
             );
+
+            renderState.players[myId].x =
+                me.x;
+
+            renderState.players[myId].y =
+                me.y;
 
             renderState.players[myId].tx =
                 me.x;
@@ -110,7 +140,7 @@ function loop(timestamp) {
         }
     }
 
-    updateRenderPlayers();
+    updateRenderPlayers(myId);
 
     draw(
         ctx,
