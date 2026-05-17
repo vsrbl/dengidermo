@@ -1,5 +1,5 @@
 const http = require('http');
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 9000;
 const rooms = new Map();
@@ -17,7 +17,7 @@ function makeRoomId() {
 }
 
 function send(ws, packet) {
-    if(ws.readyState !== ws.OPEN) {
+    if(ws.readyState !== WebSocket.OPEN) {
         return;
     }
 
@@ -53,7 +53,7 @@ function cleanupSocket(ws) {
     if(ws.role === 'client') {
         room.clients.delete(ws.playerId);
 
-        if(room.host && room.host.readyState === room.host.OPEN) {
+        if(room.host && room.host.readyState === WebSocket.OPEN) {
             send(room.host, {
                 type: 'player-left',
                 playerId: ws.playerId
@@ -122,7 +122,7 @@ wss.on('connection', ws => {
             const roomId = String(packet.roomId || '').trim().toUpperCase();
             const room = rooms.get(roomId);
 
-            if(!room || !room.host || room.host.readyState !== room.host.OPEN) {
+            if(!room || !room.host || room.host.readyState !== WebSocket.OPEN) {
                 send(ws, {
                     type: 'error',
                     message: 'Room not found'
@@ -166,7 +166,7 @@ wss.on('connection', ws => {
         }
 
         if(ws.role === 'client' && packet.type === 'input') {
-            if(room.host && room.host.readyState === room.host.OPEN) {
+            if(room.host && room.host.readyState === WebSocket.OPEN) {
                 send(room.host, {
                     type: 'input',
                     playerId: ws.playerId,
