@@ -1,8 +1,6 @@
 import {
-
     renderState,
     world
-
 } from './entities.js';
 
 export function updateRenderState() {
@@ -14,7 +12,6 @@ export function updateRenderState() {
         if(!renderState.players[id]) {
 
             renderState.players[id] = {
-
                 x:p.x,
                 y:p.y
             };
@@ -36,6 +33,8 @@ export function draw(ctx, canvas) {
         canvas.width,
         canvas.height
     );
+
+    ctx.fillStyle = 'white';
 
     for(const id in renderState.players) {
 
