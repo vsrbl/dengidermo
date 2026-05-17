@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: dengidermo-1
-    env: node
-    plan: free
-    rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /health

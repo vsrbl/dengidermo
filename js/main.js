@@ -1,164 +1,259 @@
-import { CONFIG } from "./config.js";
-import { SignalingClient } from "./signaling.js";
-import { PeerConnection } from "./peer.js";
-import { startGame, applyNetworkMessage } from "./game.js";
+import {
 
-const el = {
-  playerName: document.querySelector("#playerName"),
-  roomCode: document.querySelector("#roomCode"),
-  createRoom: document.querySelector("#createRoom"),
-  joinRoom: document.querySelector("#joinRoom"),
-  sendPing: document.querySelector("#sendPing"),
-  sendInput: document.querySelector("#sendInput"),
-  serverStatus: document.querySelector("#serverStatus"),
-  roomStatus: document.querySelector("#roomStatus"),
-  playerStatus: document.querySelector("#playerStatus"),
-  roleStatus: document.querySelector("#roleStatus"),
-  p2pStatus: document.querySelector("#p2pStatus"),
-  log: document.querySelector("#log"),
-  canvas: document.querySelector("#game")
+    sendInput,
+    broadcastSnapshot,
+    startHost,
+    connectToHost,
+    leaveGame,
+    resetNetworkState,
+    isHost
+
+} from './net.js';
+
+
+const isMobileDevice =
+    window.matchMedia('(hover: none), (pointer: coarse), (max-width: 900px)').matches ||
+    navigator.maxTouchPoints > 0 ||
+    /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+if(isMobileDevice) {
+
+    document.body.classList.add('mobile-blocked');
+
+    throw new Error('only for pc');
+}
+
+const canvas =
+    document.getElementById('gameCanvas');
+
+const ctx =
+    canvas.getContext('2d');
+
+setupInput();
+
+function sendCurrentInput() {
+    sendInput(input);
+}
+
+window.addEventListener('keydown', () => {
+    setTimeout(sendCurrentInput, 0);
+});
+
+window.addEventListener('keyup', () => {
+    setTimeout(sendCurrentInput, 0);
+});
+
+window.addEventListener('blur', () => {
+    resetInput();
+    sendCurrentInput();
+});
+
+document.addEventListener('visibilitychange', () => {
+    if(document.hidden) {
+        resetInput();
+        sendCurrentInput();
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    resetInput();
+    sendCurrentInput();
+    leaveGame();
+});
+
+document.getElementById('hud-id')
+.onclick = async () => {
+
+    const roomId =
+        document.getElementById('hud-id')
+        .innerText
+        .trim();
+
+    if(!roomId || roomId === '-') {
+        return;
+    }
+
+    if(navigator.clipboard) {
+
+        await navigator.clipboard.writeText(roomId);
+        setMenuStatus('Room ID copied');
+
+        return;
+    }
+
+    const textarea =
+        document.createElement('textarea');
+
+    textarea.value = roomId;
+
+    document.body.appendChild(textarea);
+
+    textarea.select();
+
+    document.execCommand('copy');
+
+    textarea.remove();
+
+    setMenuStatus('Room ID copied');
 };
 
-let roomId = null;
-let playerId = null;
-let targetPlayerId = null;
-let isHost = false;
-let peer = null;
-let started = false;
+const hostButton = document.getElementById('btn-host');
+const joinButton = document.getElementById('btn-join');
+const roomInput = document.getElementById('input-id');
+const statusEl = document.getElementById('status');
 
-const signaling = new SignalingClient(CONFIG.signalingUrl);
-
-function log(message) {
-  const time = new Date().toLocaleTimeString();
-  el.log.textContent += `[${time}] ${message}\n`;
-  el.log.scrollTop = el.log.scrollHeight;
+function setMenuStatus(text) {
+    statusEl.innerText = text;
 }
 
-function updateStatus() {
-  el.roomStatus.textContent = roomId || "—";
-  el.playerStatus.textContent = playerId || "—";
-  el.roleStatus.textContent = roomId ? (isHost ? "HOST" : "CLIENT") : "—";
+function setMenuLocked(locked) {
+    hostButton.disabled = locked;
+    joinButton.disabled = locked;
+    roomInput.disabled = locked;
 }
 
-function ensurePeer() {
-  if (!roomId || !targetPlayerId) return null;
-  if (peer) return peer;
+function showMenu(message = '') {
+    gameStarted = false;
 
-  peer = new PeerConnection({
-    sendSignal: data => {
-      signaling.send({ type: "signal", roomId, targetPlayerId, data });
-    },
-    onOpen: () => {
-      el.p2pStatus.textContent = "open";
-      log("P2P DataChannel открыт");
-    },
-    onClose: () => {
-      el.p2pStatus.textContent = "closed";
-      log("P2P DataChannel закрыт");
-    },
-    onData: data => {
-      log(`P2P <= ${JSON.stringify(data)}`);
-      applyNetworkMessage(data, log);
+    if(animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
     }
-  });
 
-  return peer;
+    accumulator = 0;
+    resetInput();
+    resetRenderState();
+    resetNetworkState();
+
+    document.getElementById('ui')
+        .style.display = 'flex';
+
+    document.getElementById('hud')
+        .style.display = 'none';
+
+    canvas.style.display = 'none';
+
+    setMenuLocked(false);
+    setMenuStatus(message);
 }
 
-function sendGameMessage(data) {
-  return peer?.send(data) || false;
+window.addEventListener('keydown', e => {
+    if(e.code === 'Escape' && gameStarted) {
+        showMenu('Left game');
+    }
+});
+
+hostButton.onclick = async () => {
+
+    setMenuLocked(true);
+    setMenuStatus('Creating room...');
+
+    try {
+        await startHost();
+        start();
+    } catch(e) {
+        console.error(e);
+        setMenuLocked(false);
+        setMenuStatus(e?.message || 'Could not create room. Check Render.');
+    }
+};
+
+joinButton.onclick = async () => {
+
+    const hostId =
+        roomInput
+        .value
+        .trim();
+
+    if(!hostId) {
+        setMenuStatus('Enter a Host ID.');
+        return;
+    }
+
+    setMenuLocked(true);
+    setMenuStatus('Connecting...');
+
+    try {
+        await connectToHost(hostId);
+        start();
+    } catch(e) {
+        console.error(e);
+        setMenuLocked(false);
+        setMenuStatus(e?.message || 'Could not connect. Check Room ID / Render.');
+    }
+};
+
+let accumulator = 0;
+
+let previous =
+    performance.now();
+
+let lastNetworkTick = 0;
+
+let gameStarted = false;
+
+let animationFrameId = null;
+
+function tick(now) {
+
+    if(!gameStarted) {
+        animationFrameId = null;
+        return;
+    }
+
+    const frameTime =
+        Math.min(now - previous, 250);
+
+    previous = now;
+
+    accumulator += frameTime;
+
+    while(accumulator >= PHYSICS_RATE) {
+
+        sendInput(input);
+
+        if(isHost) {
+            simulateWorld(FIXED_DELTA);
+        }
+
+        accumulator -= PHYSICS_RATE;
+    }
+
+    if(now - lastNetworkTick >= NETWORK_RATE) {
+
+        lastNetworkTick = now;
+
+        if(isHost) {
+
+            broadcastSnapshot();
+        }
+    }
+
+    updateRenderState();
+
+    draw(ctx, canvas);
+
+    animationFrameId = requestAnimationFrame(tick);
 }
 
-el.createRoom.addEventListener("click", () => {
-  signaling.send({
-    type: "create-room",
-    playerName: el.playerName.value.trim() || "Host"
-  });
-});
+function start() {
 
-el.joinRoom.addEventListener("click", () => {
-  signaling.send({
-    type: "join-room",
-    roomId: el.roomCode.value.trim().toUpperCase(),
-    playerName: el.playerName.value.trim() || "Player"
-  });
-});
+    if(gameStarted) {
+        return;
+    }
 
-el.sendPing.addEventListener("click", () => {
-  const ok = sendGameMessage({ type: "ping", from: playerId, time: Date.now() });
-  log(ok ? "P2P => ping" : "P2P еще не открыт");
-});
+    gameStarted = true;
 
-el.sendInput.addEventListener("click", () => {
-  const ok = sendGameMessage({
-    type: "player-input",
-    input: { up: false, down: false, left: false, right: true, attack: false },
-    tick: Date.now()
-  });
-  log(ok ? "P2P => test input" : "P2P еще не открыт");
-});
+    document.getElementById('ui')
+        .style.display = 'none';
 
-signaling.onStatus(status => {
-  el.serverStatus.textContent = status;
-  log(`Signaling: ${status}`);
-});
+    document.getElementById('hud')
+        .style.display = 'block';
 
-signaling.onMessage(async message => {
-  log(`Signal <= ${JSON.stringify(message)}`);
+    canvas.style.display = 'block';
 
-  if (message.type === "room-created") {
-    roomId = message.roomId;
-    playerId = message.playerId;
-    isHost = true;
-    el.roomCode.value = roomId;
-    updateStatus();
-    return;
-  }
+    previous = performance.now();
+    accumulator = 0;
 
-  if (message.type === "room-joined") {
-    roomId = message.roomId;
-    playerId = message.playerId;
-    targetPlayerId = message.hostPlayerId;
-    isHost = false;
-    updateStatus();
-
-    const pc = ensurePeer();
-    await pc.createOffer();
-    return;
-  }
-
-  if (message.type === "player-joined") {
-    targetPlayerId = message.playerId;
-    ensurePeer();
-    updateStatus();
-    return;
-  }
-
-  if (message.type === "signal") {
-    targetPlayerId = message.fromPlayerId;
-    const pc = ensurePeer();
-    await pc.handleSignal(message.data);
-    return;
-  }
-
-  if (message.type === "player-left") {
-    log(`Игрок вышел: ${message.playerId}`);
-    targetPlayerId = null;
-    peer?.close();
-    peer = null;
-    el.p2pStatus.textContent = "closed";
-    return;
-  }
-
-  if (message.type === "error") {
-    log(`ОШИБКА: ${message.message}`);
-  }
-});
-
-signaling.connect();
-updateStatus();
-
-if (!started) {
-  started = true;
-  startGame(el.canvas, sendGameMessage, log);
+    animationFrameId = requestAnimationFrame(tick);
 }
