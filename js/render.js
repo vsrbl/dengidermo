@@ -5,6 +5,13 @@ import {
 
 export function updateRenderState() {
 
+    for(const id in renderState.players) {
+
+        if(!world.players[id]) {
+            delete renderState.players[id];
+        }
+    }
+
     for(const id in world.players) {
 
         const p = world.players[id];

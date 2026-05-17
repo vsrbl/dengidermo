@@ -32,6 +32,7 @@ import {
     broadcastSnapshot,
     startHost,
     connectToHost,
+    leaveGame,
     isHost
 
 } from './net.js';
@@ -55,7 +56,51 @@ const canvas =
 const ctx =
     canvas.getContext('2d');
 
+const ui =
+    document.getElementById('ui');
+
+const hud =
+    document.getElementById('hud');
+
+const statusEl =
+    document.getElementById('status');
+
+const hostButton =
+    document.getElementById('btn-host');
+
+const joinButton =
+    document.getElementById('btn-join');
+
+const roomInput =
+    document.getElementById('input-id');
+
 setupInput();
+
+function setMenuStatus(text) {
+    statusEl.innerText = text;
+}
+
+function setMenuLocked(locked) {
+    hostButton.disabled = locked;
+    joinButton.disabled = locked;
+    roomInput.disabled = locked;
+}
+
+function sendCurrentInput() {
+    sendInput(input);
+}
+
+window.addEventListener('blur', sendCurrentInput);
+document.addEventListener('visibilitychange', () => {
+    if(document.hidden) {
+        sendCurrentInput();
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    sendCurrentInput();
+    leaveGame();
+});
 
 document.getElementById('hud-id')
 .onclick = async () => {
@@ -90,29 +135,52 @@ document.getElementById('hud-id')
     textarea.remove();
 };
 
-document.getElementById('btn-host')
-.onclick = () => {
+hostButton.onclick = async () => {
 
-    startHost();
+    if(gameStarted) {
+        return;
+    }
 
-    start();
+    setMenuLocked(true);
+    setMenuStatus('Creating room...');
+
+    try {
+        await startHost();
+        start();
+    } catch(e) {
+        console.error(e);
+        setMenuLocked(false);
+        setMenuStatus('Could not create room. Try again.');
+    }
 };
 
-document.getElementById('btn-join')
-.onclick = () => {
+joinButton.onclick = async () => {
+
+    if(gameStarted) {
+        return;
+    }
 
     const hostId =
-        document.getElementById('input-id')
+        roomInput
         .value
         .trim();
 
     if(!hostId) {
+        setMenuStatus('Enter a Host ID.');
         return;
     }
 
-    connectToHost(hostId);
+    setMenuLocked(true);
+    setMenuStatus('Connecting...');
 
-    start();
+    try {
+        await connectToHost(hostId);
+        start();
+    } catch(e) {
+        console.error(e);
+        setMenuLocked(false);
+        setMenuStatus('Could not connect. Check the Host ID.');
+    }
 };
 
 let accumulator = 0;
@@ -122,10 +190,12 @@ let previous =
 
 let lastNetworkTick = 0;
 
+let gameStarted = false;
+
 function tick(now) {
 
     const frameTime =
-        now - previous;
+        Math.min(now - previous, 250);
 
     previous = now;
 
@@ -159,13 +229,19 @@ function tick(now) {
 
 function start() {
 
-    document.getElementById('ui')
-        .style.display = 'none';
+    if(gameStarted) {
+        return;
+    }
 
-    document.getElementById('hud')
-        .style.display = 'block';
+    gameStarted = true;
+
+    ui.style.display = 'none';
+
+    hud.style.display = 'block';
 
     canvas.style.display = 'block';
+
+    previous = performance.now();
 
     requestAnimationFrame(tick);
 }
