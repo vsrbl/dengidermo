@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: dengidermo-signaling
+    name: dengidermo-1
     env: node
     plan: free
     rootDir: server
