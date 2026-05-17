@@ -1,244 +1,127 @@
 import { world } from './entities.js';
 import { ensurePlayer, applyInput } from './world.js';
 
-export let socket = null;
+export let peer = null;
+export let hostConnection = null;
 export let isHost = false;
 export let myId = null;
 export const peers = {};
 
-const RELAY_URL = 'wss://dengidermo-1.onrender.com';
-
-const EMPTY_INPUT = {
-    w:false,
-    a:false,
-    s:false,
-    d:false
+const PEER_CONFIG = {
+    host: 'dengidermo-1.onrender.com',
+    secure: true,
+    port: 443,
+    path: '/myapp'
 };
 
 function setStatus(text) {
     const el = document.getElementById('status');
-
-    if(el) {
-        el.innerText = text;
-    }
-
-    console.log('[net]', text);
-}
-
-function setRoomId(id) {
-    const el = document.getElementById('hud-id');
-
-    if(el) {
-        el.innerText = id;
-    }
+    if (el) el.innerText = text;
 }
 
 function updateHud() {
-    const el = document.getElementById('hud-count');
-
-    if(el) {
-        el.innerText = String(Object.keys(world.players).length);
-    }
+    document.getElementById('hud-count').innerText = String(Object.keys(world.players).length);
 }
 
-function clonePlayers() {
-    return JSON.parse(JSON.stringify(world.players));
-}
-
-function send(packet) {
-    if(!socket || socket.readyState !== WebSocket.OPEN) {
-        return false;
-    }
-
-    socket.send(JSON.stringify(packet));
-    return true;
-}
-
-function connectSocket() {
-    return new Promise((resolve, reject) => {
-        socket = new WebSocket(RELAY_URL);
-
-        const timeout = setTimeout(() => {
-            reject(new Error('Connection timeout'));
-
-            try {
-                socket.close();
-            } catch(e) {}
-        }, 12000);
-
-        socket.onopen = () => {
-            clearTimeout(timeout);
-            resolve(socket);
-        };
-
-        socket.onerror = () => {
-            clearTimeout(timeout);
-            reject(new Error('Relay connection failed'));
-        };
-    });
-}
-
-export async function startHost() {
+export function startHost() {
     isHost = true;
-    setStatus('Creating room...');
+    peer = new Peer(PEER_CONFIG);
 
-    await connectSocket();
+    peer.on('open', id => {
+        myId = id;
+        ensurePlayer(id);
+        document.getElementById('hud-id').innerText = id;
+        setStatus(`Room ID: ${id}`);
+        updateHud();
+    });
 
-    return new Promise((resolve, reject) => {
-        let settled = false;
+    peer.on('connection', conn => {
+        peers[conn.peer] = conn;
+        ensurePlayer(conn.peer);
+        updateHud();
 
-        socket.onmessage = event => {
-            const packet = JSON.parse(event.data);
-
-            if(packet.type === 'host-ready') {
-                myId = packet.playerId || 'host';
-                ensurePlayer(myId);
-                setRoomId(packet.roomId);
-                setStatus(`Room ID: ${packet.roomId}`);
-                updateHud();
-
-                settled = true;
-                resolve(packet.roomId);
-                return;
+        conn.on('data', packet => {
+            if (packet?.type === 'input') {
+                applyInput(conn.peer, packet.input);
             }
-
-            if(packet.type === 'player-joined') {
-                peers[packet.playerId] = true;
-                ensurePlayer(packet.playerId);
-                updateHud();
-                broadcastSnapshot();
-                return;
-            }
-
-            if(packet.type === 'player-left') {
-                delete peers[packet.playerId];
-                delete world.players[packet.playerId];
-                updateHud();
-                broadcastSnapshot();
-                return;
-            }
-
-            if(packet.type === 'input') {
-                applyInput(packet.playerId, packet.input || EMPTY_INPUT);
-                return;
-            }
-
-            if(packet.type === 'error') {
-                setStatus(packet.message || 'Server error');
-
-                if(!settled) {
-                    settled = true;
-                    reject(new Error(packet.message || 'Server error'));
-                }
-            }
-        };
-
-        socket.onclose = () => {
-            setStatus('Connection closed');
-        };
-
-        send({
-            type: 'host'
         });
+
+        conn.on('close', () => {
+            delete peers[conn.peer];
+            delete world.players[conn.peer];
+            updateHud();
+        });
+    });
+
+    peer.on('error', err => {
+        console.error(err);
+        setStatus(`Error PeerJS: ${err.type || err.message}`);
     });
 }
 
-export async function connectToHost(roomId) {
+export function connectToHost(hostId) {
     isHost = false;
-    setStatus('Connecting...');
+    peer = new Peer(PEER_CONFIG);
 
-    await connectSocket();
+    peer.on('open', id => {
+        myId = id;
+        ensurePlayer(id);
+        document.getElementById('hud-id').innerText = hostId;
 
-    return new Promise((resolve, reject) => {
-        let settled = false;
+        hostConnection = peer.connect(hostId, { reliable: true });
 
-        socket.onmessage = event => {
-            const packet = JSON.parse(event.data);
-
-            if(packet.type === 'joined') {
-                myId = packet.playerId;
-                ensurePlayer(myId);
-                setRoomId(packet.roomId);
-                setStatus('Connected');
-                updateHud();
-
-                settled = true;
-                resolve(packet.roomId);
-                return;
-            }
-
-            if(packet.type === 'snapshot') {
-                world.players = packet.players || {};
-                ensurePlayer(myId);
-                updateHud();
-                return;
-            }
-
-            if(packet.type === 'host-left') {
-                setStatus('Host left');
-                return;
-            }
-
-            if(packet.type === 'error') {
-                setStatus(packet.message || 'Could not connect');
-
-                if(!settled) {
-                    settled = true;
-                    reject(new Error(packet.message || 'Could not connect'));
-                }
-            }
-        };
-
-        socket.onclose = () => {
-            setStatus('Connection closed');
-        };
-
-        send({
-            type: 'join',
-            roomId
+        hostConnection.on('open', () => {
+            setStatus('Connected');
         });
+
+        hostConnection.on('data', packet => {
+            if (packet?.type === 'snapshot') {
+                world.players = packet.players || {};
+                updateHud();
+            }
+        });
+
+        hostConnection.on('close', () => {
+            setStatus('Connection closed');
+        });
+    });
+
+    peer.on('error', err => {
+        console.error(err);
+        setStatus(`Error PeerJS: ${err.type || err.message}`);
     });
 }
 
 export function sendInput(input) {
-    if(!myId) {
+    if (!myId) return;
+
+    if (isHost) {
+        applyInput(myId, input);
         return;
     }
 
-    const safeInput = input || EMPTY_INPUT;
-
-    if(isHost) {
-        applyInput(myId, safeInput);
-        return;
+    if (hostConnection?.open) {
+        hostConnection.send({
+            type: 'input',
+            input
+        });
     }
-
-    send({
-        type: 'input',
-        input: safeInput
-    });
 }
 
 export function broadcastSnapshot() {
-    if(!isHost) {
-        return;
-    }
+    if (!isHost) return;
 
-    send({
+    const packet = {
         type: 'snapshot',
-        players: clonePlayers()
-    });
+        players: world.players
+    };
+
+    for (const id in peers) {
+        const conn = peers[id];
+        if (conn.open) {
+            conn.send(packet);
+        }
+    }
 
     updateHud();
-}
-
-export function leaveGame() {
-    if(!isHost) {
-        send({
-            type: 'leave'
-        });
-    }
-
-    try {
-        socket?.close();
-    } catch(e) {}
 }
