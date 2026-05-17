@@ -1,12 +1,8 @@
 {
-  "name": "nncckkrr-space-server",
-  "version": "1.0.0",
-  "description": "WebSocket relay server for nncckkrr.space",
-  "main": "index.js",
+  "name": "dengidermo-p2p-root",
+  "private": true,
   "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "ws": "8.18.0"
+    "dev:server": "npm --prefix server run dev",
+    "start:server": "npm --prefix server run start"
   }
 }
