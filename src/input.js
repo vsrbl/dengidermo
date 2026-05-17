@@ -8,13 +8,23 @@ const moveCodes = new Map([
   ["KeyD", "right"], ["ArrowRight", "right"]
 ]);
 
-export function createInput(canvas, { onEsc }) {
+function isEditableTarget(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || "").toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+}
+
+export function createInput(canvas, { onEsc, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
 
   function resetKeys() {
     pressed.clear();
     mouse.down = false;
+  }
+
+  function activeForKeyboard(e) {
+    return isGameActive() && !isEditableTarget(e.target);
   }
 
   function setMouseFromEvent(e) {
@@ -24,11 +34,14 @@ export function createInput(canvas, { onEsc }) {
   }
 
   window.addEventListener("keydown", (e) => {
+    if (!activeForKeyboard(e)) return;
+
     if (e.code === "Escape") {
       e.preventDefault();
       onEsc?.();
       return;
     }
+
     const key = moveCodes.get(e.code);
     if (key) {
       e.preventDefault();
@@ -41,6 +54,7 @@ export function createInput(canvas, { onEsc }) {
   });
 
   window.addEventListener("keyup", (e) => {
+    if (!isGameActive()) return;
     const key = moveCodes.get(e.code);
     if (key) pressed.delete(key);
     if (e.code === "Space" || e.code === "Enter") mouse.down = false;
@@ -50,10 +64,12 @@ export function createInput(canvas, { onEsc }) {
   document.addEventListener("visibilitychange", () => { if (document.hidden) resetKeys(); });
 
   canvas.addEventListener("mousemove", (e) => {
+    if (!isGameActive()) return;
     mouse.inside = true;
     setMouseFromEvent(e);
   });
   canvas.addEventListener("mouseenter", (e) => {
+    if (!isGameActive()) return;
     mouse.inside = true;
     setMouseFromEvent(e);
   });
@@ -62,7 +78,7 @@ export function createInput(canvas, { onEsc }) {
     mouse.down = false;
   });
   canvas.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
+    if (!isGameActive() || e.button !== 0) return;
     mouse.down = true;
     mouse.inside = true;
     setMouseFromEvent(e);

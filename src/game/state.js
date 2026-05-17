@@ -102,9 +102,12 @@ export function makeSnapshot(state) {
     projectiles: Object.values(state.projectiles).map((p) => ({
       id: p.id,
       ownerId: p.ownerId,
+      weaponId: p.weaponId,
       kind: p.kind,
       x: Math.round(p.x),
       y: Math.round(p.y),
+      vx: Math.round(p.vx),
+      vy: Math.round(p.vy),
       radius: p.radius,
       color: p.color
     })),

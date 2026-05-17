@@ -16,7 +16,7 @@ const ui = createUi();
 const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
-const input = createInput(canvas, { onEsc: leaveGame });
+const input = createInput(canvas, { onEsc: leaveGame, isGameActive: () => running });
 
 let transport = null;
 let running = false;

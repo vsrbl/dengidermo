@@ -48,6 +48,29 @@ function prune(map, ids) {
   for (const key of map.keys()) if (!ids.has(key)) map.delete(key);
 }
 
+function smoothProjectile(map, obj, dt, snapshotTick) {
+  const old = map.get(obj.id);
+  if (!old) {
+    const copy = { ...obj, _tick: snapshotTick };
+    map.set(obj.id, copy);
+    return copy;
+  }
+
+  if (old._tick !== snapshotTick) {
+    old.x = lerp(old.x, obj.x, 0.55);
+    old.y = lerp(old.y, obj.y, 0.55);
+    old._tick = snapshotTick;
+    for (const k of Object.keys(obj)) {
+      if (k !== "x" && k !== "y") old[k] = obj[k];
+    }
+    return old;
+  }
+
+  old.x += (old.vx || 0) * dt;
+  old.y += (old.vy || 0) * dt;
+  return old;
+}
+
 function drawGrid(ctx, cam) {
   ctx.fillStyle = "#050505";
   ctx.fillRect(0, 0, VIEW.w, VIEW.h);
@@ -124,9 +147,8 @@ function drawEffect(ctx, fx, cam) {
   ctx.strokeRect(Math.round(s.x - fx.r), Math.round(s.y - fx.r), Math.round(fx.r * 2), Math.round(fx.r * 2));
 }
 
-function drawPredictedProjectiles(ctx, projectiles, authIds, cam) {
+function drawPredictedProjectiles(ctx, projectiles, cam) {
   for (const p of projectiles) {
-    if (authIds.has(p.id)) continue;
     if (!isVisible(p, cam, 40)) continue;
     drawProjectile(ctx, p, cam);
   }
@@ -171,13 +193,15 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   prune(smooth.loot, lootIds);
 
   const projectileIds = new Set();
+  const predictedIds = new Set(predictedProjectiles.map((p) => p.id));
   for (const raw of snapshot.projectiles || []) {
     projectileIds.add(raw.id);
-    const p = smoothEntity(smooth.projectiles, raw, dt, raw.ownerId === localId);
+    if (raw.ownerId === localId && predictedIds.has(raw.id)) continue;
+    const p = smoothProjectile(smooth.projectiles, raw, dt, snapshot.tick);
     if (isVisible(p, cam, 50)) drawProjectile(ctx, p, cam);
   }
   prune(smooth.projectiles, projectileIds);
-  drawPredictedProjectiles(ctx, predictedProjectiles, projectileIds, cam);
+  drawPredictedProjectiles(ctx, predictedProjectiles, cam);
 
   for (const fx of snapshot.effects || []) drawEffect(ctx, fx, cam);
 
