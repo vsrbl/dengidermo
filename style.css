@@ -97,6 +97,18 @@ button:hover {
     z-index: 5;
 }
 
+#hud-id {
+
+    cursor: pointer;
+
+    user-select: none;
+}
+
+#hud-id:hover {
+
+    color: #00ff88;
+}
+
 canvas {
 
     display: none;
