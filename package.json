@@ -1,14 +1,12 @@
 {
-  "name": "nncckkrr-space-root",
-  "version": "1.0.0",
+  "name": "nncckkrr-space",
+  "version": "0.4.0",
   "private": true,
-  "description": "Root package for Render when the service is deployed from repository root.",
-  "main": "server/server.js",
+  "description": "Minimal browser roguelike room server for nncckkrr.space.",
   "type": "commonjs",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node server/server.js",
-    "build": "echo \"static site: no build step\""
+    "test": "node --check server/server.js && node --check app.js"
   },
   "engines": {
     "node": "20.x"

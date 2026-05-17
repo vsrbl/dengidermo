@@ -10,15 +10,10 @@
   <body>
     <main class="shell">
       <section id="menu" class="panel">
-        <p class="eyebrow">P2P roguelike base</p>
         <h1>nncckkrr.space</h1>
-        <p class="muted">Create a room or join with an ID.</p>
 
         <label for="roomInput">Room ID</label>
         <input id="roomInput" autocomplete="off" maxlength="12" placeholder="AB12CD" />
-
-        <label for="serverInput">Render server URL</label>
-        <input id="serverInput" autocomplete="off" spellcheck="false" />
 
         <div class="row">
           <button id="createBtn" type="button">Create game</button>
@@ -31,7 +26,7 @@
       <section id="game" class="panel hidden">
         <div class="topbar">
           <div>
-            <p class="eyebrow">room</p>
+            <p class="mini">ROOM</p>
             <h2 id="roomTitle">------</h2>
           </div>
           <div class="right">
@@ -40,12 +35,12 @@
           </div>
         </div>
 
-        <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
+        <canvas id="screen" width="480" height="270" aria-label="Game screen"></canvas>
 
         <div class="hud">
-          <span>Move: WASD / Arrows</span>
-          <span>Hit: Space</span>
-          <span id="bossHud">Boss HP: --</span>
+          <span>WASD / ARROWS</span>
+          <span>SPACE SHOOT</span>
+          <span id="gameHud">HP -- | WEAPON -- | MOBS --</span>
         </div>
       </section>
     </main>

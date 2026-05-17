@@ -1,13 +1,12 @@
 {
-  "name": "nncckkrr-signaling-server",
-  "version": "1.0.0",
+  "name": "nncckkrr-space-server",
+  "version": "0.4.0",
   "private": true,
-  "description": "Minimal WebSocket signaling server for nncckkrr.space P2P rooms.",
-  "main": "server.js",
+  "description": "Room server for nncckkrr.space.",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "test": "node --check server.js"
   },
   "engines": {
     "node": "20.x"

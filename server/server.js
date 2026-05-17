@@ -5,9 +5,11 @@ const { WebSocketServer, WebSocket } = require("ws");
 
 const PORT = Number(process.env.PORT || 10000);
 const MAX_ROOMS = Number(process.env.MAX_ROOMS || 5000);
+const MAX_PLAYERS = 4;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
+const PLAYER_IDS = ["P1", "P2", "P3", "P4"];
 
-/** @type {Map<string, { host: WebSocket | null, guest: WebSocket | null, createdAt: number }>} */
+/** @type {Map<string, { id: string, hostId: string, clients: Map<string, WebSocket>, createdAt: number }>} */
 const rooms = new Map();
 
 const server = http.createServer((req, res) => {
@@ -15,20 +17,20 @@ const server = http.createServer((req, res) => {
 
   if (path === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size, maxPlayers: MAX_PLAYERS }));
     return;
   }
 
   res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-  res.end("nncckkrr.space signaling server\n");
+  res.end("nncckkrr.space room server\n");
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 128 * 1024 });
 
 wss.on("connection", (ws) => {
   ws.isAlive = true;
   ws.roomId = null;
-  ws.role = null;
+  ws.playerId = null;
 
   ws.on("pong", () => {
     ws.isAlive = true;
@@ -42,13 +44,10 @@ wss.on("connection", (ws) => {
       send(ws, { type: "error", message: "Bad JSON." });
       return;
     }
-
     handleMessage(ws, msg);
   });
 
-  ws.on("close", () => {
-    leaveRoom(ws, false);
-  });
+  ws.on("close", () => leaveRoom(ws, false));
 });
 
 function handleMessage(ws, msg) {
@@ -67,13 +66,13 @@ function handleMessage(ws, msg) {
     return;
   }
 
-  if (msg.type === "signal") {
-    routeToPeer(ws, { type: "signal", data: msg.data });
+  if (msg.type === "input") {
+    routeInputToHost(ws, msg.input);
     return;
   }
 
-  if (msg.type === "relay") {
-    routeToPeer(ws, { type: "relay", data: msg.data });
+  if (msg.type === "state") {
+    routeStateFromHost(ws, msg.state);
     return;
   }
 
@@ -102,18 +101,16 @@ function createRoom(ws, roomId) {
   }
 
   const old = rooms.get(roomId);
-  if (old && isOpen(old.host)) {
+  if (old && old.clients.size > 0) {
     send(ws, { type: "error", message: "Room already exists." });
     return;
   }
 
   leaveRoom(ws, false);
 
-  rooms.set(roomId, { host: ws, guest: null, createdAt: Date.now() });
-  ws.roomId = roomId;
-  ws.role = "host";
-
-  send(ws, { type: "created", roomId });
+  const room = { id: roomId, hostId: "P1", clients: new Map(), createdAt: Date.now() };
+  rooms.set(roomId, room);
+  addClientToRoom(room, ws, "P1");
 }
 
 function joinRoom(ws, roomId) {
@@ -123,74 +120,123 @@ function joinRoom(ws, roomId) {
   }
 
   const room = rooms.get(roomId);
-  if (!room || !isOpen(room.host)) {
+  if (!room || room.clients.size === 0 || !room.clients.has(room.hostId)) {
     send(ws, { type: "error", message: "Room not found." });
     return;
   }
 
-  if (isOpen(room.guest)) {
+  if (room.clients.size >= MAX_PLAYERS) {
     send(ws, { type: "error", message: "Room is full." });
     return;
   }
 
   leaveRoom(ws, false);
-
-  room.guest = ws;
-  ws.roomId = roomId;
-  ws.role = "guest";
-
-  send(ws, { type: "joined", roomId });
-  send(room.host, { type: "peer-joined", roomId });
+  addClientToRoom(room, ws, firstFreePlayerId(room));
 }
 
-function routeToPeer(ws, payload) {
-  const peer = getPeer(ws);
-  if (!peer) {
-    send(ws, { type: "error", message: "Peer is not connected." });
+function addClientToRoom(room, ws, playerId) {
+  ws.roomId = room.id;
+  ws.playerId = playerId;
+  room.clients.set(playerId, ws);
+
+  const players = Array.from(room.clients.keys()).sort();
+  send(ws, {
+    type: "joined",
+    roomId: room.id,
+    playerId,
+    hostId: room.hostId,
+    players,
+    maxPlayers: MAX_PLAYERS,
+    isHost: playerId === room.hostId
+  });
+
+  broadcast(room, {
+    type: "player-joined",
+    roomId: room.id,
+    playerId,
+    hostId: room.hostId,
+    players,
+    maxPlayers: MAX_PLAYERS
+  }, playerId);
+}
+
+function firstFreePlayerId(room) {
+  for (const id of PLAYER_IDS) {
+    if (!room.clients.has(id)) return id;
+  }
+  return null;
+}
+
+function routeInputToHost(ws, input) {
+  const room = getRoom(ws);
+  if (!room || !ws.playerId) return;
+  if (ws.playerId === room.hostId) return;
+
+  const host = room.clients.get(room.hostId);
+  if (!isOpen(host)) {
+    send(ws, { type: "error", message: "Host is gone." });
     return;
   }
-  send(peer, payload);
+
+  send(host, { type: "input", from: ws.playerId, input: cleanInput(input) });
 }
 
-function getPeer(ws) {
-  if (!ws.roomId || !ws.role) return null;
-  const room = rooms.get(ws.roomId);
-  if (!room) return null;
+function routeStateFromHost(ws, state) {
+  const room = getRoom(ws);
+  if (!room || ws.playerId !== room.hostId) return;
+  broadcast(room, { type: "state", state }, ws.playerId);
+}
 
-  const peer = ws.role === "host" ? room.guest : room.host;
-  return isOpen(peer) ? peer : null;
+function cleanInput(input) {
+  return {
+    left: Boolean(input && input.left),
+    right: Boolean(input && input.right),
+    up: Boolean(input && input.up),
+    down: Boolean(input && input.down),
+    fire: Boolean(input && input.fire)
+  };
 }
 
 function leaveRoom(ws, notifySelf) {
-  if (!ws.roomId) return;
+  if (!ws.roomId || !ws.playerId) return;
 
   const roomId = ws.roomId;
-  const role = ws.role;
+  const playerId = ws.playerId;
   const room = rooms.get(roomId);
 
   ws.roomId = null;
-  ws.role = null;
+  ws.playerId = null;
 
   if (!room) return;
+  room.clients.delete(playerId);
 
-  if (room.host === ws) room.host = null;
-  if (room.guest === ws) room.guest = null;
-
-  if (role === "host") {
-    if (isOpen(room.guest)) {
-      const guest = room.guest;
-      room.guest = null;
-      guest.roomId = null;
-      guest.role = null;
-      send(guest, { type: "room-closed", roomId });
+  if (playerId === room.hostId) {
+    broadcast(room, { type: "room-closed", roomId, reason: "Host left." });
+    for (const client of room.clients.values()) {
+      client.roomId = null;
+      client.playerId = null;
     }
     rooms.delete(roomId);
-  } else if (role === "guest") {
-    if (isOpen(room.host)) send(room.host, { type: "peer-left", roomId });
-    if (!isOpen(room.host)) rooms.delete(roomId);
+  } else if (room.clients.size === 0) {
+    rooms.delete(roomId);
+  } else {
+    const players = Array.from(room.clients.keys()).sort();
+    broadcast(room, { type: "player-left", roomId, playerId, players, hostId: room.hostId });
   }
 
   if (notifySelf && isOpen(ws)) send(ws, { type: "left", roomId });
+}
+
+function getRoom(ws) {
+  if (!ws.roomId) return null;
+  return rooms.get(ws.roomId) || null;
+}
+
+function broadcast(room, payload, exceptPlayerId = null) {
+  for (const [playerId, client] of room.clients.entries()) {
+    if (playerId === exceptPlayerId) continue;
+    send(client, payload);
+  }
 }
 
 function send(ws, payload) {
@@ -218,7 +264,6 @@ const heartbeat = setInterval(() => {
       ws.terminate();
       continue;
     }
-
     ws.isAlive = false;
     ws.ping();
   }
@@ -227,9 +272,11 @@ const heartbeat = setInterval(() => {
 const janitor = setInterval(() => {
   const now = Date.now();
   for (const [roomId, room] of rooms.entries()) {
-    const empty = !isOpen(room.host) && !isOpen(room.guest);
     const stale = now - room.createdAt > 1000 * 60 * 60 * 6;
-    if (empty || stale) rooms.delete(roomId);
+    if (room.clients.size === 0 || stale) {
+      broadcast(room, { type: "room-closed", roomId, reason: "Room expired." });
+      rooms.delete(roomId);
+    }
   }
 }, 60000);
 
@@ -243,5 +290,5 @@ server.on("clientError", (_err, socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`nncckkrr.space signaling server listening on ${PORT}`);
+  console.log(`nncckkrr.space room server listening on ${PORT}`);
 });

@@ -2,9 +2,10 @@ services:
   - type: web
     name: dengidermo-1
     env: node
-    rootDir: server
     plan: free
     buildCommand: npm install --no-audit --no-fund
     startCommand: npm start
-    autoDeploy: true
     healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
