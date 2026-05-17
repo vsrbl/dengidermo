@@ -1,50 +1,51 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta http-equiv="Cache-Control" content="no-store" />
-    <title>nncckkrr.space</title>
-    <link rel="stylesheet" href="style.css?v=10" />
-  </head>
-  <body>
-    <main class="shell">
-      <section id="menu" class="panel">
-        <h1>nncckkrr.space</h1>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>nncckkrr.space</title>
+  <link rel="stylesheet" href="./style.css?v=12" />
+</head>
+<body>
+  <main id="app">
+    <section id="menu" class="screen menu-screen">
+      <div id="menuBox" class="panel">
+        <h1 class="title">nncckkrr.space</h1>
 
-        <label for="roomInput">Room ID</label>
-        <input id="roomInput" autocomplete="off" maxlength="12" placeholder="AB12CD" />
-
-        <div class="row">
-          <button id="createBtn" type="button">Create game</button>
-          <button id="joinBtn" type="button">Join game</button>
-        </div>
-      </section>
-
-      <section id="game" class="panel hidden">
-        <div class="topbar">
-          <div class="roomLine">
-            <p class="mini">ROOM</p>
-            <h2 id="roomTitle" title="Click to copy" draggable="false">------</h2>
-          </div>
-          <div class="right">
-            <p id="netStatus" class="status">Connecting...</p>
-          </div>
+        <div class="room-line menu-room-line">
+          <span class="label">ROOM</span>
+          <input id="roomInput" class="room-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="ID" />
         </div>
 
-        <canvas id="screen" width="480" height="270" aria-label="Game screen"></canvas>
-
-        <div class="hud">
-          <span>WASD / ARROWS</span>
-          <span>MOUSE AIM / FIRE</span>
-          <span>ESC EXIT</span>
-          <span id="gameHud">HP -- | WEAPON -- | MOBS --</span>
+        <div class="buttons">
+          <button id="createBtn">CREATE</button>
+          <button id="joinBtn">JOIN</button>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
 
-    <script src="config.js?v=10"></script>
-    <script src="app.js?v=10"></script>
-  </body>
+    <section id="game" class="screen game-screen hidden">
+      <canvas id="screen" width="960" height="540" aria-label="game screen"></canvas>
+      <div class="hud hud-left">
+        <div class="hud-row">
+          <span class="hud-label">ROOM</span>
+          <span id="roomTitle" class="room-copy">------</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">HP</span>
+          <span id="hpText">--</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">GUN</span>
+          <span id="weaponText">PISTOL</span>
+        </div>
+      </div>
+      <div id="netStatus" class="hud hud-right">V12 | PING -- MS | --</div>
+      <div class="esc-hint">ESC</div>
+    </section>
+  </main>
+
+  <script src="./config.js?v=12"></script>
+  <script type="module" src="./src/main.js?v=12"></script>
+</body>
 </html>

@@ -1,322 +1,155 @@
 "use strict";
 
 const http = require("http");
-const { WebSocketServer, WebSocket } = require("ws");
+const { WebSocketServer } = require("ws");
 
-const PORT = Number(process.env.PORT || 10000);
-const MAX_ROOMS = Number(process.env.MAX_ROOMS || 5000);
-const MAX_PLAYERS = 4;
+const PORT = process.env.PORT || 3000;
+const MAX_PLAYERS_DEFAULT = 4;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
-const PLAYER_IDS = ["P1", "P2", "P3", "P4"];
-const WORLD_W = 1800;
-const WORLD_H = 1200;
-const PLAYER_SIZE = 14;
-const WALL_PAD = 16;
-
-/** @type {Map<string, { id: string, hostId: string, clients: Map<string, WebSocket>, createdAt: number }>} */
 const rooms = new Map();
 
-const server = http.createServer((req, res) => {
-  const path = req.url ? req.url.split("?")[0] : "/";
-
-  if (path === "/health") {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, maxPlayers: MAX_PLAYERS }));
-    return;
-  }
-
-  res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-  res.end("nncckkrr.space room server\n");
-});
-
-const wss = new WebSocketServer({ server, maxPayload: 128 * 1024 });
-
-wss.on("connection", (ws) => {
-  ws.isAlive = true;
-  ws.roomId = null;
-  ws.playerId = null;
-
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  });
-
-  ws.on("message", (buffer) => {
-    let msg;
-    try {
-      msg = JSON.parse(buffer.toString());
-    } catch {
-      send(ws, { type: "error", message: "Bad JSON." });
-      return;
-    }
-    handleMessage(ws, msg);
-  });
-
-  ws.on("close", () => leaveRoom(ws, false));
-});
-
-function handleMessage(ws, msg) {
-  if (!msg || typeof msg !== "object") {
-    send(ws, { type: "error", message: "Bad message." });
-    return;
-  }
-
-  if (msg.type === "create") {
-    createRoom(ws, normalizeRoomId(msg.roomId));
-    return;
-  }
-
-  if (msg.type === "join") {
-    joinRoom(ws, normalizeRoomId(msg.roomId));
-    return;
-  }
-
-  if (msg.type === "input") {
-    routeInputToHost(ws, msg.input);
-    return;
-  }
-
-  if (msg.type === "state") {
-    routeStateFromHost(ws, msg.state);
-    return;
-  }
-
-  if (msg.type === "leave") {
-    leaveRoom(ws, true);
-    return;
-  }
-
-  if (msg.type === "ping") {
-    send(ws, { type: "pong", t: msg.t, now: Date.now() });
-    return;
-  }
-
-  send(ws, { type: "error", message: "Unknown message type." });
+function send(ws, msg) {
+  if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 }
 
-function createRoom(ws, roomId) {
-  if (!validRoom(roomId)) {
-    send(ws, { type: "error", message: "Invalid room ID." });
-    return;
-  }
-
-  if (rooms.size >= MAX_ROOMS && !rooms.has(roomId)) {
-    send(ws, { type: "error", message: "Server room limit reached." });
-    return;
-  }
-
-  const old = rooms.get(roomId);
-  if (old && old.clients.size > 0) {
-    send(ws, { type: "error", message: "Room already exists." });
-    return;
-  }
-
-  leaveRoom(ws, false);
-
-  const room = { id: roomId, hostId: "P1", clients: new Map(), createdAt: Date.now() };
-  rooms.set(roomId, room);
-  addClientToRoom(room, ws, "P1");
+function roomPlayers(room) {
+  return [...room.players.keys()];
 }
 
-function joinRoom(ws, roomId) {
-  if (!validRoom(roomId)) {
-    send(ws, { type: "error", message: "Invalid room ID." });
-    return;
+function broadcast(room, msg, except = null) {
+  for (const [id, player] of room.players) {
+    if (id === except) continue;
+    send(player.ws, msg);
   }
-
-  const room = rooms.get(roomId);
-  if (!room || room.clients.size === 0 || !room.clients.has(room.hostId)) {
-    send(ws, { type: "error", message: "Room not found." });
-    return;
-  }
-
-  if (room.clients.size >= MAX_PLAYERS) {
-    send(ws, { type: "error", message: "Room is full." });
-    return;
-  }
-
-  leaveRoom(ws, false);
-  addClientToRoom(room, ws, firstFreePlayerId(room));
 }
 
-function addClientToRoom(room, ws, playerId) {
-  ws.roomId = room.id;
-  ws.playerId = playerId;
-  room.clients.set(playerId, ws);
-
-  const players = Array.from(room.clients.keys()).sort();
-  send(ws, {
-    type: "joined",
-    roomId: room.id,
-    playerId,
-    hostId: room.hostId,
-    players,
-    maxPlayers: MAX_PLAYERS,
-    isHost: playerId === room.hostId
-  });
-
-  broadcast(room, {
-    type: "player-joined",
-    roomId: room.id,
-    playerId,
-    hostId: room.hostId,
-    players,
-    maxPlayers: MAX_PLAYERS
-  }, playerId);
+function cleanRooms() {
+  const now = Date.now();
+  for (const [id, room] of rooms) {
+    if (room.players.size === 0 || now - room.touched > 60 * 60 * 1000) rooms.delete(id);
+  }
 }
 
-function firstFreePlayerId(room) {
-  for (const id of PLAYER_IDS) {
-    if (!room.clients.has(id)) return id;
+function normalizeRoomId(id) {
+  return String(id || "").trim().toUpperCase().slice(0, 12);
+}
+
+function nextPlayerId(room) {
+  for (let i = 1; i <= room.maxPlayers; i += 1) {
+    const id = `p${i}`;
+    if (!room.players.has(id)) return id;
   }
   return null;
 }
 
-function routeInputToHost(ws, input) {
-  const room = getRoom(ws);
-  if (!room || !ws.playerId) return;
-  if (ws.playerId === room.hostId) return;
+function leave(ws) {
+  const room = ws.nnRoom ? rooms.get(ws.nnRoom) : null;
+  if (!room || !ws.nnPlayerId) return;
+  const id = ws.nnPlayerId;
+  room.players.delete(id);
+  room.touched = Date.now();
+  broadcast(room, { type: "player_left", playerId: id, players: roomPlayers(room) });
+  broadcast(room, { type: "players", players: roomPlayers(room) });
+  ws.nnRoom = null;
+  ws.nnPlayerId = null;
+  if (room.players.size === 0) rooms.delete(room.id);
+}
 
-  const host = room.clients.get(room.hostId);
-  if (!isOpen(host)) {
-    send(ws, { type: "error", message: "Host is gone." });
+function handleCreate(ws, msg) {
+  const roomId = normalizeRoomId(msg.roomId);
+  if (!ROOM_RE.test(roomId)) return send(ws, { type: "error", message: "bad_room" });
+  if (rooms.has(roomId)) return send(ws, { type: "error", message: "room_exists" });
+
+  const room = {
+    id: roomId,
+    hostId: "p1",
+    maxPlayers: Math.min(4, Math.max(2, Number(msg.maxPlayers) || MAX_PLAYERS_DEFAULT)),
+    players: new Map(),
+    touched: Date.now()
+  };
+  room.players.set("p1", { ws, joinedAt: Date.now() });
+  rooms.set(roomId, room);
+  ws.nnRoom = roomId;
+  ws.nnPlayerId = "p1";
+  send(ws, { type: "created", roomId, playerId: "p1", players: roomPlayers(room) });
+}
+
+function handleJoin(ws, msg) {
+  const roomId = normalizeRoomId(msg.roomId);
+  const room = rooms.get(roomId);
+  if (!room) return send(ws, { type: "error", message: "room_not_found" });
+  if (room.players.size >= room.maxPlayers) return send(ws, { type: "error", message: "room_full" });
+  const playerId = nextPlayerId(room);
+  if (!playerId) return send(ws, { type: "error", message: "room_full" });
+
+  room.players.set(playerId, { ws, joinedAt: Date.now() });
+  room.touched = Date.now();
+  ws.nnRoom = roomId;
+  ws.nnPlayerId = playerId;
+  send(ws, { type: "joined", roomId, playerId, players: roomPlayers(room) });
+  broadcast(room, { type: "player_joined", playerId, players: roomPlayers(room) }, playerId);
+  broadcast(room, { type: "players", players: roomPlayers(room) });
+}
+
+function handleSignal(ws, msg) {
+  const room = rooms.get(ws.nnRoom || normalizeRoomId(msg.roomId));
+  if (!room || !ws.nnPlayerId) return;
+  const target = room.players.get(msg.to);
+  if (!target) return;
+  room.touched = Date.now();
+  send(target.ws, { type: "signal", from: ws.nnPlayerId, data: msg.data });
+}
+
+function handleRelay(ws, msg) {
+  const room = rooms.get(ws.nnRoom || normalizeRoomId(msg.roomId));
+  if (!room || !ws.nnPlayerId) return;
+  room.touched = Date.now();
+  const packet = { type: "relay", from: ws.nnPlayerId, data: msg.data };
+
+  if (msg.to === "host") {
+    const host = room.players.get(room.hostId);
+    if (host && room.hostId !== ws.nnPlayerId) send(host.ws, packet);
     return;
   }
-
-  send(host, { type: "input", from: ws.playerId, input: cleanInput(input) });
-}
-
-function routeStateFromHost(ws, state) {
-  const room = getRoom(ws);
-  if (!room || ws.playerId !== room.hostId) return;
-  broadcast(room, { type: "state", state }, ws.playerId);
-}
-
-function cleanInput(input) {
-  const rawX = Number(input && input.aimX);
-  const rawY = Number(input && input.aimY);
-  const aimX = Number.isFinite(rawX) ? rawX : 1;
-  const aimY = Number.isFinite(rawY) ? rawY : 0;
-  const len = Math.hypot(aimX, aimY) || 1;
-  const px = Number(input && input.px);
-  const py = Number(input && input.py);
-  const rawFireSeq = Number(input && input.fireSeq);
-  const clean = {
-    left: Boolean(input && input.left),
-    right: Boolean(input && input.right),
-    up: Boolean(input && input.up),
-    down: Boolean(input && input.down),
-    fire: Boolean(input && input.fire),
-    fireSeq: Number.isFinite(rawFireSeq) ? Math.max(0, Math.floor(rawFireSeq)) : 0,
-    aimX: clamp(aimX / len, -1, 1),
-    aimY: clamp(aimY / len, -1, 1),
-    px: null,
-    py: null
-  };
-
-  if (Number.isFinite(px) && Number.isFinite(py)) {
-    clean.px = clamp(px, WALL_PAD, WORLD_W - WALL_PAD - PLAYER_SIZE);
-    clean.py = clamp(py, WALL_PAD, WORLD_H - WALL_PAD - PLAYER_SIZE);
+  if (msg.to === "all") {
+    broadcast(room, packet, ws.nnPlayerId);
+    return;
   }
-
-  return clean;
+  const target = room.players.get(msg.to);
+  if (target) send(target.ws, packet);
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function leaveRoom(ws, notifySelf) {
-  if (!ws.roomId || !ws.playerId) return;
-
-  const roomId = ws.roomId;
-  const playerId = ws.playerId;
-  const room = rooms.get(roomId);
-
-  ws.roomId = null;
-  ws.playerId = null;
-
-  if (!room) return;
-  room.clients.delete(playerId);
-
-  if (playerId === room.hostId) {
-    broadcast(room, { type: "room-closed", roomId, reason: "Host left." });
-    for (const client of room.clients.values()) {
-      client.roomId = null;
-      client.playerId = null;
-    }
-    rooms.delete(roomId);
-  } else if (room.clients.size === 0) {
-    rooms.delete(roomId);
-  } else {
-    const players = Array.from(room.clients.keys()).sort();
-    broadcast(room, { type: "player-left", roomId, playerId, players, hostId: room.hostId });
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
+    return;
   }
-
-  if (notifySelf && isOpen(ws)) send(ws, { type: "left", roomId });
-}
-
-function getRoom(ws) {
-  if (!ws.roomId) return null;
-  return rooms.get(ws.roomId) || null;
-}
-
-function broadcast(room, payload, exceptPlayerId = null) {
-  for (const [playerId, client] of room.clients.entries()) {
-    if (playerId === exceptPlayerId) continue;
-    send(client, payload);
-  }
-}
-
-function send(ws, payload) {
-  if (!isOpen(ws)) return false;
-  ws.send(JSON.stringify(payload));
-  return true;
-}
-
-function isOpen(ws) {
-  return Boolean(ws && ws.readyState === WebSocket.OPEN);
-}
-
-function normalizeRoomId(value) {
-  return String(value || "").trim().toUpperCase();
-}
-
-function validRoom(roomId) {
-  return ROOM_RE.test(roomId);
-}
-
-const heartbeat = setInterval(() => {
-  for (const ws of wss.clients) {
-    if (!ws.isAlive) {
-      leaveRoom(ws, false);
-      ws.terminate();
-      continue;
-    }
-    ws.isAlive = false;
-    ws.ping();
-  }
-}, 30000);
-
-const janitor = setInterval(() => {
-  const now = Date.now();
-  for (const [roomId, room] of rooms.entries()) {
-    const stale = now - room.createdAt > 1000 * 60 * 60 * 6;
-    if (room.clients.size === 0 || stale) {
-      broadcast(room, { type: "room-closed", roomId, reason: "Room expired." });
-      rooms.delete(roomId);
-    }
-  }
-}, 60000);
-
-wss.on("close", () => {
-  clearInterval(heartbeat);
-  clearInterval(janitor);
+  res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
+  res.end("nncckkrr signaling v12\n");
 });
 
-server.on("clientError", (_err, socket) => {
-  socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws) => {
+  ws.nnRoom = null;
+  ws.nnPlayerId = null;
+
+  ws.on("message", (raw) => {
+    let msg = null;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (!msg || !msg.type) return;
+    if (msg.type === "create") return handleCreate(ws, msg);
+    if (msg.type === "join") return handleJoin(ws, msg);
+    if (msg.type === "signal") return handleSignal(ws, msg);
+    if (msg.type === "relay") return handleRelay(ws, msg);
+    if (msg.type === "leave") return leave(ws);
+    if (msg.type === "ping") return send(ws, { type: "pong", t: msg.t });
+  });
+
+  ws.on("close", () => leave(ws));
+  ws.on("error", () => leave(ws));
 });
 
-server.listen(PORT, () => {
-  console.log(`nncckkrr.space room server listening on ${PORT}`);
-});
+setInterval(cleanRooms, 60_000).unref();
+server.listen(PORT, () => console.log(`nncckkrr signaling v12 on ${PORT}`));

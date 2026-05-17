@@ -1,15 +1,11 @@
 {
-  "name": "nncckkrr-space-server",
-  "version": "0.10.0",
+  "name": "nncckkrr-signaling",
+  "version": "12.0.0",
   "private": true,
-  "description": "Room server for nncckkrr.space.",
   "type": "commonjs",
+  "engines": { "node": "20.x" },
   "scripts": {
-    "start": "node server.js",
-    "test": "node --check server.js"
-  },
-  "engines": {
-    "node": "20.x"
+    "start": "node server.js"
   },
   "dependencies": {
     "ws": "^8.18.0"

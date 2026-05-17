@@ -1,15 +1,11 @@
 {
   "name": "nncckkrr-space",
-  "version": "0.10.0",
+  "version": "12.0.0",
   "private": true,
-  "description": "Minimal browser roguelike room server for nncckkrr.space.",
   "type": "commonjs",
+  "engines": { "node": "20.x" },
   "scripts": {
-    "start": "node server/server.js",
-    "test": "node --check server/server.js && node --check app.js"
-  },
-  "engines": {
-    "node": "20.x"
+    "start": "node server/server.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
