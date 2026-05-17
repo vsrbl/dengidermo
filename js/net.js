@@ -9,6 +9,8 @@ export const peers = {};
 
 const lastSeen = {};
 const PEER_TIMEOUT = 15000;
+const CONNECT_TIMEOUT = 7000;
+const CONNECT_ATTEMPTS = 3;
 
 const EMPTY_INPUT = {
     w:false,
@@ -98,10 +100,6 @@ function makeSnapshotPacket() {
     };
 }
 
-function sendSnapshotTo(conn) {
-    safeSend(conn, makeSnapshotPacket());
-}
-
 function sendWelcomeTo(conn) {
     const id = setPlayerIdForConn(conn, getPlayerIdFromConn(conn));
 
@@ -158,6 +156,111 @@ function rejectWithPeerError(reject, err) {
     reject(err);
 }
 
+function sendJoinAndInput() {
+    safeSend(hostConnection, {
+        type: 'join',
+        clientId: myId
+    });
+
+    safeSend(hostConnection, {
+        type: 'input',
+        clientId: myId,
+        input: EMPTY_INPUT
+    });
+}
+
+function connectDataChannel(hostId, resolve, reject, attempt = 1) {
+    setStatus(`Connecting to host... ${attempt}/${CONNECT_ATTEMPTS}`);
+
+    try {
+        hostConnection?.close();
+    } catch(e) {}
+
+    hostConnection = peer.connect(hostId, {
+        reliable: true,
+        serialization: 'json',
+        metadata: {
+            clientId: myId
+        }
+    });
+
+    let opened = false;
+
+    const timeout = setTimeout(() => {
+        if(opened) {
+            return;
+        }
+
+        try {
+            hostConnection?.close();
+        } catch(e) {}
+
+        if(attempt < CONNECT_ATTEMPTS) {
+            connectDataChannel(hostId, resolve, reject, attempt + 1);
+            return;
+        }
+
+        setStatus('Could not open connection. Check Host ID and keep host tab open.');
+        reject(new Error('Connection timeout'));
+    }, CONNECT_TIMEOUT);
+
+    hostConnection.on('open', () => {
+        opened = true;
+        clearTimeout(timeout);
+
+        sendJoinAndInput();
+
+        setStatus('Connected');
+        resolve(hostId);
+
+        setTimeout(sendJoinAndInput, 250);
+        setTimeout(sendJoinAndInput, 1000);
+    });
+
+    hostConnection.on('data', packet => {
+        if(packet?.type !== 'snapshot' && packet?.type !== 'welcome') {
+            return;
+        }
+
+        if(packet.type === 'welcome' && packet.yourId) {
+            myId = packet.yourId;
+        }
+
+        if(packet.players) {
+            world.players = packet.players;
+            updateHud();
+        }
+    });
+
+    hostConnection.on('close', () => {
+        clearTimeout(timeout);
+
+        if(!opened) {
+            return;
+        }
+
+        setStatus('Connection closed');
+    });
+
+    hostConnection.on('error', err => {
+        console.error(err);
+        clearTimeout(timeout);
+
+        if(!opened && attempt < CONNECT_ATTEMPTS) {
+            connectDataChannel(hostId, resolve, reject, attempt + 1);
+            return;
+        }
+
+        if(!opened) {
+            setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
+            reject(err);
+            return;
+        }
+
+        setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
+    });
+}
+
 export function startHost() {
     isHost = true;
     peer = new Peer(PEER_CONFIG);
@@ -180,10 +283,12 @@ export function startHost() {
         });
 
         peer.on('connection', conn => {
-            setPlayerIdForConn(conn, conn.peer);
+            const initialId = conn.metadata?.clientId || conn.peer;
+            setPlayerIdForConn(conn, initialId);
 
             conn.on('open', () => {
-                setPlayerIdForConn(conn, conn.peer);
+                const id = conn.metadata?.clientId || getPlayerIdFromConn(conn);
+                setPlayerIdForConn(conn, id);
                 sendWelcomeTo(conn);
                 broadcastSnapshot();
 
@@ -227,79 +332,33 @@ export function connectToHost(hostId) {
     return new Promise((resolve, reject) => {
         let settled = false;
 
+        const wrappedResolve = value => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            resolve(value);
+        };
+
+        const wrappedReject = error => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            reject(error);
+        };
+
         peer.on('open', id => {
             myId = id;
             setRoomId(hostId);
-            setStatus('Connecting to host...');
-
-            hostConnection = peer.connect(hostId, { reliable: true });
-
-            hostConnection.on('open', () => {
-                safeSend(hostConnection, {
-                    type: 'join',
-                    clientId: myId
-                });
-
-                safeSend(hostConnection, {
-                    type: 'input',
-                    clientId: myId,
-                    input: EMPTY_INPUT
-                });
-
-                if(!settled) {
-                    settled = true;
-                    setStatus('Connected');
-                    resolve(hostId);
-                }
-            });
-
-            hostConnection.on('data', packet => {
-                if(packet?.type !== 'snapshot' && packet?.type !== 'welcome') {
-                    return;
-                }
-
-                if(packet.type === 'welcome' && packet.yourId) {
-                    myId = packet.yourId;
-                }
-
-                if(packet.players) {
-                    world.players = packet.players;
-                    updateHud();
-                }
-
-                if(hostConnection?.open) {
-                    safeSend(hostConnection, {
-                        type: 'join',
-                        clientId: myId
-                    });
-                }
-            });
-
-            hostConnection.on('close', () => {
-                setStatus('Connection closed');
-
-                if(!settled) {
-                    settled = true;
-                    reject(new Error('Connection closed'));
-                }
-            });
-
-            hostConnection.on('error', err => {
-                if(!settled) {
-                    settled = true;
-                    rejectWithPeerError(reject, err);
-                    return;
-                }
-
-                console.error(err);
-                setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
-            });
+            connectDataChannel(hostId, wrappedResolve, wrappedReject);
         });
 
         peer.on('error', err => {
             if(!settled) {
-                settled = true;
-                rejectWithPeerError(reject, err);
+                rejectWithPeerError(wrappedReject, err);
                 return;
             }
 
