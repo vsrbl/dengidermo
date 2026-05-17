@@ -13,7 +13,9 @@ export function createUi() {
     netStatus: document.getElementById("netStatus"),
     hpText: document.getElementById("hpText"),
     weaponText: document.getElementById("weaponText"),
-    inventoryText: document.getElementById("inventoryText")
+    inventoryText: document.getElementById("inventoryText"),
+    locationText: document.getElementById("locationText"),
+    portalText: document.getElementById("portalText")
   };
 
   function showMenu() {
@@ -58,10 +60,12 @@ export function createUi() {
     el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}`;
   }
 
-  function setHud(player) {
+  function setHud(player, snapshot = null) {
     if (!player) {
       el.hpText.textContent = "--";
       el.weaponText.textContent = "--";
+      el.locationText.textContent = snapshot?.location?.name || "--";
+      el.portalText.textContent = "--";
       el.inventoryText.textContent = "--";
       return;
     }
@@ -69,6 +73,9 @@ export function createUi() {
     const active = inv.activeWeapon || player.weapon || START_WEAPON;
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
     el.weaponText.textContent = (WEAPONS[active]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
+    el.locationText.textContent = snapshot?.location?.name || "GRID 00";
+    const portal = (snapshot?.portals || [])[0];
+    el.portalText.textContent = portal ? (portal.active ? `${Math.round((portal.progress || 0) * 100)}%` : "LOCKED") : "--";
     el.inventoryText.textContent = (inv.weapons || [START_WEAPON])
       .slice(0, 9)
       .map((id, index) => `${index + 1}${id === active ? ":" : "."}${(WEAPONS[id]?.name || id).toUpperCase()}`)

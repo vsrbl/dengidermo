@@ -23,9 +23,14 @@ export function createRenderer(canvas) {
     players: new Map(),
     enemies: new Map(),
     projectiles: new Map(),
-    loot: new Map()
+    loot: new Map(),
+    portals: new Map()
   };
   return { canvas, ctx, smooth };
+}
+
+export function resetRendererSmooth(renderer) {
+  for (const map of Object.values(renderer?.smooth || {})) map.clear?.();
 }
 
 function smoothEntity(map, obj, dt, snap = false) {
@@ -71,10 +76,11 @@ function smoothProjectile(map, obj, renderDt, simDt, snapshotTick) {
   return old;
 }
 
-function drawGrid(ctx, cam) {
+function drawGrid(ctx, cam, location = null) {
   ctx.fillStyle = "#050505";
   ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-  ctx.strokeStyle = "rgba(255,255,255,0.055)";
+  const greenLoc = location?.accent === "green";
+  ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.055)" : "rgba(255,255,255,0.055)";
   ctx.lineWidth = 1;
   const step = 80;
   const startX = -((cam.x % step + step) % step);
@@ -85,8 +91,9 @@ function drawGrid(ctx, cam) {
   for (let y = startY; y < VIEW.h; y += step) {
     ctx.beginPath(); ctx.moveTo(0, Math.round(y)); ctx.lineTo(VIEW.w, Math.round(y)); ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.38)" : "rgba(255,255,255,0.35)";
   ctx.strokeRect(Math.round(-cam.x), Math.round(-cam.y), WORLD.w, WORLD.h);
+  if (location?.name) drawText(ctx, location.name, 16, 24, greenLoc ? GREEN : "#aaa", "left");
 }
 
 function screen(obj, cam) {
@@ -145,6 +152,26 @@ function drawProjectile(ctx, p, cam) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
 }
 
+
+function drawPortal(ctx, portal, cam) {
+  const s = screen(portal, cam);
+  const r = portal.radius || 50;
+  const active = !!portal.active;
+  const progress = Math.max(0, Math.min(1, portal.progress || 0));
+  ctx.strokeStyle = active ? GREEN : "rgba(255,255,255,0.36)";
+  ctx.lineWidth = active ? 3 : 2;
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  ctx.strokeRect(Math.round(s.x - r * 0.62), Math.round(s.y - r * 0.62), Math.round(r * 1.24), Math.round(r * 1.24));
+  if (active) {
+    const w = Math.round(r * 2 * progress);
+    drawRect(ctx, s.x - r, s.y + r + 8, r * 2, 5, "#222");
+    drawRect(ctx, s.x - r, s.y + r + 8, w, 5, GREEN);
+    drawText(ctx, progress > 0 ? `TEAM ${Math.round(progress * 100)}%` : "EXIT", s.x, s.y - r - 9, GREEN, "center");
+  } else {
+    drawText(ctx, "LOCKED", s.x, s.y - r - 9, "#777", "center");
+  }
+}
+
 function drawLoot(ctx, item, cam) {
   const data = LOOT[item.kind] || LOOT.heal;
   const s = screen(item, cam);
@@ -165,6 +192,16 @@ function drawEffect(ctx, fx, cam) {
     const s = screen({ x, y }, cam);
     const size = Math.max(2, Math.round(5 * (life / maxLife)));
     drawRect(ctx, s.x - size / 2, s.y - size / 2, size, size, fx.color || GREEN);
+    return;
+  }
+
+  if (fx.type === "portal") {
+    const s = screen(fx, cam);
+    const t = 1 - life / maxLife;
+    const r = (fx.radius || 80) * (0.45 + t * 0.7);
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = Math.max(1, Math.round(5 * (life / maxLife)));
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
     return;
   }
 
@@ -206,7 +243,7 @@ function drawCrosshair(ctx, mouse) {
 
 export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, renderDt, simDt = renderDt) {
   const { ctx, smooth } = renderer;
-  drawGrid(ctx, cam);
+  drawGrid(ctx, cam, snapshot?.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");
     return;
@@ -227,6 +264,14 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     if (isVisible(item, cam, 60)) drawLoot(ctx, item, cam);
   }
   prune(smooth.loot, lootIds);
+
+  const portalIds = new Set();
+  for (const raw of snapshot.portals || []) {
+    portalIds.add(raw.id);
+    const portal = smoothEntity(smooth.portals, raw, renderDt);
+    if (isVisible(portal, cam, 130)) drawPortal(ctx, portal, cam);
+  }
+  prune(smooth.portals, portalIds);
 
   const projectileIds = new Set();
   const predictedServerIds = new Set(predictedProjectiles.map((p) => p.serverId || String(p.id).replace(/:local$/, "")));

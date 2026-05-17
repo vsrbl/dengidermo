@@ -1,6 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2, norm } from "../core/math.js";
 import { ENEMIES, ENEMY_WAVES } from "../data/enemies.js";
+import { currentLocation } from "./portals.js";
 import { nextId, pushEvent } from "./state.js";
 
 function nearestAlivePlayer(state, x, y) {
@@ -50,22 +51,26 @@ export function updateSpawner(state, dt) {
   const enemyCount = Object.keys(state.enemies).length;
   state.spawnTimer -= dt;
 
-  if (!state.bossSpawned && state.time > 20) {
+  const loc = currentLocation(state);
+  const locTime = state.locationTime || 0;
+
+  if (!state.bossSpawned && locTime > 20 && ((state.locationIndex || 0) % 4 === 3 || locTime > 36)) {
     state.bossSpawned = true;
     spawnEnemy(state, "boss", WORLD.w / 2, 180);
     pushEvent(state, { type: "boss", x: WORLD.w / 2, y: 180 });
   }
 
-  const cap = 24 + playerCount * 8 + Math.min(18, Math.floor(state.time / 18));
+  const cap = Math.floor((24 + playerCount * 8 + Math.min(18, Math.floor(locTime / 18))) * (loc.spawnBoost || 1));
   if (enemyCount >= cap || state.spawnTimer > 0) return;
 
-  const batch = 2 + Math.floor(state.time / 35) + playerCount;
+  const batch = 2 + Math.floor(locTime / 35) + playerCount;
+  const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
   for (let i = 0; i < batch; i += 1) {
-    const kind = state.rng.pick(ENEMY_WAVES);
+    const kind = state.rng.pick(pool);
     spawnEnemy(state, kind);
   }
   state.wave += 1;
-  state.spawnTimer = Math.max(0.55, 2.2 - state.time * 0.006);
+  state.spawnTimer = Math.max(0.45, 2.2 - locTime * 0.006);
 }
 
 export function updateEnemies(state, dt) {

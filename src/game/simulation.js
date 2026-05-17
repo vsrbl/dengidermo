@@ -3,6 +3,7 @@ import { clamp, norm, vecToAngle } from "../core/math.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
 import { updateProjectiles } from "./projectiles.js";
+import { updatePortals } from "./portals.js";
 import { respawnPlayer } from "./state.js";
 
 export function emptyInput() {
@@ -65,12 +66,14 @@ export function updatePlayers(state, inputs, dt) {
 export function updateHostWorld(state, inputs, dt) {
   const safeDt = Math.min(0.05, dt);
   state.time += safeDt;
+  state.locationTime = (state.locationTime || 0) + safeDt;
   state.tick += 1;
   updatePlayers(state, inputs, safeDt);
   updateSpawner(state, safeDt);
   updateEnemies(state, safeDt);
   updateProjectiles(state, safeDt);
   updateLoot(state);
+  updatePortals(state, safeDt);
 
   for (const p of Object.values(state.players)) {
     if (p.hp < -10) p.hp = 0;

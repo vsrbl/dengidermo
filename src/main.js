@@ -1,7 +1,7 @@
 import { createUi, isValidRoomId, normalizeRoomId, randomRoomId } from "./ui.js";
 import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
-import { createRenderer, makePredictedProjectile, render, updatePredictedProjectiles } from "./renderer.js";
+import { createRenderer, makePredictedProjectile, render, resetRendererSmooth, updatePredictedProjectiles } from "./renderer.js";
 import { Transport } from "./net/transport.js";
 import { GAME_SPEED, INPUT_RATE, SNAPSHOT_RATE, VERSION, WORLD } from "./core/constants.js";
 import { clamp } from "./core/math.js";
@@ -37,6 +37,7 @@ let localWeapon = START_WEAPON;
 let localInventory = createInventory([START_WEAPON]);
 let predictedProjectiles = [];
 let localCooldowns = Object.create(null);
+let localLocationId = null;
 let fireSeq = 0;
 let lastInputSent = 0;
 let lastSnapshotSent = 0;
@@ -153,6 +154,7 @@ function handleReady(info) {
   pingMs = null;
   predictedProjectiles = [];
   localCooldowns = Object.create(null);
+  localLocationId = null;
   fireSeq = 0;
   localWeapon = START_WEAPON;
   localInventory = createInventory([START_WEAPON]);
@@ -166,6 +168,7 @@ function handleReady(info) {
     localInventory = ensureInventory(hostState.players[playerId]);
     localWeapon = getActiveWeaponId(hostState.players[playerId]);
     snapshot = makeSnapshot(hostState);
+    localLocationId = snapshot.location?.id || null;
   } else {
     hostState = null;
     snapshot = null;
@@ -210,6 +213,7 @@ function leaveGame() {
   predictedProjectiles = [];
   localInventory = createInventory([START_WEAPON]);
   localCooldowns = Object.create(null);
+  localLocationId = null;
   input.resetKeys();
   transport?.close(true);
   transport = null;
@@ -251,6 +255,15 @@ function handleNetData(msg, from, mode) {
 function syncLocalFromSnapshot() {
   const me = snapshot?.players?.find((p) => p.id === playerId);
   if (!me) return;
+  const nextLocationId = snapshot?.location?.id || null;
+  const locationChanged = nextLocationId && localLocationId && nextLocationId !== localLocationId;
+  if (nextLocationId && nextLocationId !== localLocationId) localLocationId = nextLocationId;
+  if (locationChanged) {
+    predictedProjectiles = [];
+    resetRendererSmooth(renderer);
+    camera.ready = false;
+    input.resetKeys();
+  }
   const oldWeapon = localWeapon;
   if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [] };
   if (!localPose) {
@@ -268,9 +281,13 @@ function syncLocalFromSnapshot() {
   localPose.skin = me.skin;
   const dx = me.x - localPose.x;
   const dy = me.y - localPose.y;
-  if (dx * dx + dy * dy > 90000) {
+  if (locationChanged || dx * dx + dy * dy > 90000) {
     localPose.x = me.x;
     localPose.y = me.y;
+    localPose.vx = 0;
+    localPose.vy = 0;
+    localPose.kx = 0;
+    localPose.ky = 0;
   }
 }
 
@@ -366,6 +383,16 @@ function updateHost(dt, now, gameNow) {
   tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
   snapshot = makeSnapshot(hostState);
+  const nextLocationId = snapshot.location?.id || null;
+  if (nextLocationId && localLocationId && nextLocationId !== localLocationId) {
+    localLocationId = nextLocationId;
+    predictedProjectiles = [];
+    resetRendererSmooth(renderer);
+    camera.ready = false;
+    input.resetKeys();
+  } else if (nextLocationId && !localLocationId) {
+    localLocationId = nextLocationId;
+  }
 
   if (now - lastSnapshotSent > 1000 / SNAPSHOT_RATE) {
     lastSnapshotSent = now;
@@ -395,7 +422,7 @@ function updateHud() {
   const me = role === "host"
     ? hostState?.players[playerId]
     : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, weapon: localWeapon, inventory: localInventory } : snapMe);
-  ui.setHud(me || { inventory: localInventory, weapon: localWeapon });
+  ui.setHud(me || { inventory: localInventory, weapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode });
 }
 

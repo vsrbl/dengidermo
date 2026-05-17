@@ -2,6 +2,7 @@ import { CENTER, PLAYER_HP, PLAYER_RADIUS, SPAWN_OFFSETS, WORLD } from "../core/
 import { clamp } from "../core/math.js";
 import { makeRng } from "../core/random.js";
 import { START_WEAPON } from "../data/weapons.js";
+import { getLocation } from "../data/locations.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 
 let entitySeq = 1;
@@ -13,15 +14,23 @@ export function nextId(prefix) {
 
 export function createGameState(roomId) {
   entitySeq = 1;
+  const location = getLocation(0);
   return {
     roomId,
     tick: 0,
     time: 0,
     rng: makeRng(roomId),
+    locationIndex: 0,
+    locationId: location.id,
+    locationName: location.name,
+    locationTime: 0,
+    portalReadyAt: location.portalDelay,
+    portalHold: location.portalHold,
     players: {},
     enemies: {},
     projectiles: {},
     loot: {},
+    portals: {},
     effects: [],
     events: [],
     spawnTimer: 0,
@@ -87,9 +96,18 @@ export function pushEvent(state, event) {
 }
 
 export function makeSnapshot(state) {
+  const location = getLocation(state.locationIndex || 0);
+  const hold = state.portalHold || location.portalHold || 1.15;
   return {
     tick: state.tick,
     time: Number(state.time.toFixed(3)),
+    location: {
+      id: state.locationId || location.id,
+      name: state.locationName || location.name,
+      index: state.locationIndex || 0,
+      time: Number((state.locationTime || 0).toFixed(2)),
+      accent: location.accent || "green"
+    },
     players: Object.values(state.players).map((p) => ({
       id: p.id,
       x: Number(p.x.toFixed(1)),
@@ -127,6 +145,16 @@ export function makeSnapshot(state) {
       kind: l.kind,
       x: Math.round(l.x),
       y: Math.round(l.y)
+    })),
+    portals: Object.values(state.portals || {}).map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      x: Math.round(p.x),
+      y: Math.round(p.y),
+      radius: p.radius,
+      active: !!p.active,
+      progress: Number(Math.max(0, Math.min(1, (p.progress || 0) / hold)).toFixed(3)),
+      targetIndex: p.targetIndex
     })),
     effects: state.effects.slice(-48).map((e) => ({ ...e })),
     events: state.events.slice(-16).map((e) => ({ ...e }))
