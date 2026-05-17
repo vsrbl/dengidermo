@@ -5,78 +5,49 @@ export const input = {
     d:false
 };
 
-function isMovementKey(code) {
-    return code === 'KeyW' ||
-        code === 'KeyA' ||
-        code === 'KeyS' ||
-        code === 'KeyD' ||
-        code === 'ArrowUp' ||
-        code === 'ArrowLeft' ||
-        code === 'ArrowDown' ||
-        code === 'ArrowRight';
-}
-
-export function resetInput() {
-    input.w = false;
-    input.a = false;
-    input.s = false;
-    input.d = false;
-}
-
-function setKey(code, value) {
-    switch(code) {
-
-        case 'KeyW':
-        case 'ArrowUp':
-            input.w = value;
-            break;
-
-        case 'KeyA':
-        case 'ArrowLeft':
-            input.a = value;
-            break;
-
-        case 'KeyS':
-        case 'ArrowDown':
-            input.s = value;
-            break;
-
-        case 'KeyD':
-        case 'ArrowRight':
-            input.d = value;
-            break;
-    }
-}
-
 export function setupInput() {
 
     window.addEventListener('keydown', e => {
 
-        if(!isMovementKey(e.code)) {
-            return;
+        switch(e.code) {
+
+            case 'KeyW':
+                input.w = true;
+                break;
+
+            case 'KeyA':
+                input.a = true;
+                break;
+
+            case 'KeyS':
+                input.s = true;
+                break;
+
+            case 'KeyD':
+                input.d = true;
+                break;
         }
-
-        e.preventDefault();
-
-        setKey(e.code, true);
     });
 
     window.addEventListener('keyup', e => {
 
-        if(!isMovementKey(e.code)) {
-            return;
-        }
+        switch(e.code) {
 
-        e.preventDefault();
+            case 'KeyW':
+                input.w = false;
+                break;
 
-        setKey(e.code, false);
-    });
+            case 'KeyA':
+                input.a = false;
+                break;
 
-    window.addEventListener('blur', resetInput);
+            case 'KeyS':
+                input.s = false;
+                break;
 
-    document.addEventListener('visibilitychange', () => {
-        if(document.hidden) {
-            resetInput();
+            case 'KeyD':
+                input.d = false;
+                break;
         }
     });
 }

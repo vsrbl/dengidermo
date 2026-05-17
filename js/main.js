@@ -32,7 +32,6 @@ import {
     broadcastSnapshot,
     startHost,
     connectToHost,
-    leaveGame,
     isHost
 
 } from './net.js';
@@ -56,59 +55,7 @@ const canvas =
 const ctx =
     canvas.getContext('2d');
 
-const ui =
-    document.getElementById('ui');
-
-const hud =
-    document.getElementById('hud');
-
-const statusEl =
-    document.getElementById('status');
-
-const hostButton =
-    document.getElementById('btn-host');
-
-const joinButton =
-    document.getElementById('btn-join');
-
-const roomInput =
-    document.getElementById('input-id');
-
 setupInput();
-
-window.addEventListener('keydown', () => {
-    setTimeout(sendCurrentInput, 0);
-});
-
-window.addEventListener('keyup', () => {
-    setTimeout(sendCurrentInput, 0);
-});
-
-function setMenuStatus(text) {
-    statusEl.innerText = text;
-}
-
-function setMenuLocked(locked) {
-    hostButton.disabled = locked;
-    joinButton.disabled = locked;
-    roomInput.disabled = locked;
-}
-
-function sendCurrentInput() {
-    sendInput(input);
-}
-
-window.addEventListener('blur', sendCurrentInput);
-document.addEventListener('visibilitychange', () => {
-    if(document.hidden) {
-        sendCurrentInput();
-    }
-});
-
-window.addEventListener('beforeunload', () => {
-    sendCurrentInput();
-    leaveGame();
-});
 
 document.getElementById('hud-id')
 .onclick = async () => {
@@ -143,52 +90,29 @@ document.getElementById('hud-id')
     textarea.remove();
 };
 
-hostButton.onclick = async () => {
+document.getElementById('btn-host')
+.onclick = () => {
 
-    if(gameStarted) {
-        return;
-    }
+    startHost();
 
-    setMenuLocked(true);
-    setMenuStatus('Creating room...');
-
-    try {
-        await startHost();
-        start();
-    } catch(e) {
-        console.error(e);
-        setMenuLocked(false);
-        setMenuStatus('Could not create room. Try again.');
-    }
+    start();
 };
 
-joinButton.onclick = async () => {
-
-    if(gameStarted) {
-        return;
-    }
+document.getElementById('btn-join')
+.onclick = () => {
 
     const hostId =
-        roomInput
+        document.getElementById('input-id')
         .value
         .trim();
 
     if(!hostId) {
-        setMenuStatus('Enter a Host ID.');
         return;
     }
 
-    setMenuLocked(true);
-    setMenuStatus('Connecting...');
+    connectToHost(hostId);
 
-    try {
-        await connectToHost(hostId);
-        start();
-    } catch(e) {
-        console.error(e);
-        setMenuLocked(false);
-        setMenuStatus(e?.message || 'Could not connect. Check the Host ID.');
-    }
+    start();
 };
 
 let accumulator = 0;
@@ -198,12 +122,10 @@ let previous =
 
 let lastNetworkTick = 0;
 
-let gameStarted = false;
-
 function tick(now) {
 
     const frameTime =
-        Math.min(now - previous, 250);
+        now - previous;
 
     previous = now;
 
@@ -237,19 +159,13 @@ function tick(now) {
 
 function start() {
 
-    if(gameStarted) {
-        return;
-    }
+    document.getElementById('ui')
+        .style.display = 'none';
 
-    gameStarted = true;
-
-    ui.style.display = 'none';
-
-    hud.style.display = 'block';
+    document.getElementById('hud')
+        .style.display = 'block';
 
     canvas.style.display = 'block';
-
-    previous = performance.now();
 
     requestAnimationFrame(tick);
 }
