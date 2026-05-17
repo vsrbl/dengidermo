@@ -54,6 +54,28 @@ function removeRemotePlayer(id) {
     updateHud();
 }
 
+function getConnectionPlayerId(conn) {
+    return conn.playerId || conn.peer;
+}
+
+function registerConnectionPlayer(conn, playerId) {
+    const id = playerId || conn.peer;
+
+    if(conn.playerId && conn.playerId !== id) {
+        delete peers[conn.playerId];
+        delete lastSeen[conn.playerId];
+        delete world.players[conn.playerId];
+    }
+
+    conn.playerId = id;
+    peers[id] = conn;
+    lastSeen[id] = performance.now();
+    ensurePlayer(id);
+    updateHud();
+
+    return id;
+}
+
 function sendSnapshotTo(conn) {
     if(!conn?.open) {
         return;
@@ -70,32 +92,32 @@ function sendWelcomeTo(conn) {
         return;
     }
 
-    ensurePlayer(conn.peer);
+    const id = registerConnectionPlayer(conn, getConnectionPlayerId(conn));
 
     conn.send({
         type: 'welcome',
-        yourId: conn.peer,
+        yourId: id,
         players: clonePlayers()
     });
 }
 
 function handleHostPacket(conn, packet) {
-    lastSeen[conn.peer] = performance.now();
+    const packetId = packet?.clientId;
+    const id = registerConnectionPlayer(conn, packetId || getConnectionPlayerId(conn));
 
     if(packet?.type === 'input') {
-        applyInput(conn.peer, packet.input || EMPTY_INPUT);
+        applyInput(id, packet.input || EMPTY_INPUT);
         sendSnapshotTo(conn);
         return;
     }
 
     if(packet?.type === 'leave') {
-        removeRemotePlayer(conn.peer);
+        removeRemotePlayer(id);
         broadcastSnapshot();
         return;
     }
 
     if(packet?.type === 'join') {
-        ensurePlayer(conn.peer);
         sendWelcomeTo(conn);
         broadcastSnapshot();
     }
@@ -146,14 +168,16 @@ export function startHost() {
         });
 
         peer.on('connection', conn => {
-            peers[conn.peer] = conn;
-            lastSeen[conn.peer] = performance.now();
-            ensurePlayer(conn.peer);
-            updateHud();
+            registerConnectionPlayer(conn, conn.peer);
 
             conn.on('open', () => {
-                lastSeen[conn.peer] = performance.now();
+                registerConnectionPlayer(conn, getConnectionPlayerId(conn));
                 sendWelcomeTo(conn);
+
+                setTimeout(() => sendWelcomeTo(conn), 250);
+                setTimeout(() => sendWelcomeTo(conn), 750);
+                setTimeout(() => sendWelcomeTo(conn), 1500);
+
                 broadcastSnapshot();
             });
 
@@ -162,12 +186,12 @@ export function startHost() {
             });
 
             conn.on('close', () => {
-                removeRemotePlayer(conn.peer);
+                removeRemotePlayer(getConnectionPlayerId(conn));
                 broadcastSnapshot();
             });
 
             conn.on('error', () => {
-                removeRemotePlayer(conn.peer);
+                removeRemotePlayer(getConnectionPlayerId(conn));
                 broadcastSnapshot();
             });
 
@@ -202,15 +226,23 @@ export function connectToHost(hostId) {
             hostConnection = peer.connect(hostId, { reliable: true });
 
             hostConnection.on('open', () => {
-                hostConnection.send({ type: 'join' });
-                hostConnection.send({ type: 'input', input: EMPTY_INPUT });
+                hostConnection.send({ type: 'join', clientId: myId });
+                hostConnection.send({ type: 'input', clientId: myId, input: EMPTY_INPUT });
 
                 setTimeout(() => {
                     if(!settled && hostConnection?.open) {
-                        hostConnection.send({ type: 'join' });
-                        hostConnection.send({ type: 'input', input: EMPTY_INPUT });
+                        hostConnection.send({ type: 'join', clientId: myId });
+                        hostConnection.send({ type: 'input', clientId: myId, input: EMPTY_INPUT });
                     }
                 }, 1000);
+
+                setTimeout(() => {
+                    if(!settled && hostConnection?.open) {
+                        settled = true;
+                        setStatus('Connected');
+                        resolve(hostId);
+                    }
+                }, 2500);
             });
 
             hostConnection.on('data', packet => {
@@ -290,6 +322,7 @@ export function sendInput(input) {
     if(hostConnection?.open) {
         hostConnection.send({
             type: 'input',
+            clientId: myId,
             input: safeInput
         });
     }
@@ -325,7 +358,7 @@ export function broadcastSnapshot() {
 export function leaveGame() {
     if(!isHost && hostConnection?.open) {
         try {
-            hostConnection.send({ type: 'leave' });
+            hostConnection.send({ type: 'leave', clientId: myId });
         } catch(e) {}
     }
 
