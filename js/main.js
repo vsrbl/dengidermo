@@ -1,35 +1,5 @@
 import {
 
-    PHYSICS_RATE,
-    NETWORK_RATE,
-    FIXED_DELTA
-
-} from './constants.js';
-
-import {
-
-    setupInput,
-    input,
-    resetInput
-
-} from './input.js';
-
-import {
-
-    simulateWorld
-
-} from './world.js';
-
-import {
-
-    updateRenderState,
-    resetRenderState,
-    draw
-
-} from './render.js';
-
-import {
-
     sendInput,
     broadcastSnapshot,
     startHost,
@@ -242,7 +212,9 @@ function tick(now) {
 
         sendInput(input);
 
-        simulateWorld(FIXED_DELTA);
+        if(isHost) {
+            simulateWorld(FIXED_DELTA);
+        }
 
         accumulator -= PHYSICS_RATE;
     }
