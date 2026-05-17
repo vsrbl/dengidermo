@@ -90,6 +90,7 @@ function handleHostPacket(conn, packet) {
 
     if(packet?.type === 'join') {
         ensurePlayer(id);
+        updateHud();
         sendSnapshotTo(conn);
         broadcastSnapshot();
         return;
@@ -114,9 +115,14 @@ function cleanupTimedOutPlayers() {
         const conn = peers[id];
         const timedOut = lastSeen[id] && now - lastSeen[id] > PEER_TIMEOUT;
 
-        if(!conn?.open || timedOut) {
+        if(!conn) {
+            removeRemotePlayer(id);
+            continue;
+        }
+
+        if(timedOut) {
             try {
-                conn?.close();
+                conn.close();
             } catch(e) {}
 
             removeRemotePlayer(id);
@@ -212,11 +218,11 @@ export function startHost() {
 
             peers[id] = conn;
             lastSeen[id] = performance.now();
-            ensurePlayer(id);
-            updateHud();
 
             conn.on('open', () => {
                 lastSeen[id] = performance.now();
+                ensurePlayer(id);
+                updateHud();
                 sendSnapshotTo(conn);
                 broadcastSnapshot();
             });
@@ -235,7 +241,6 @@ export function startHost() {
                 removeRemotePlayer(id);
                 broadcastSnapshot();
             });
-
         });
 
         peer.on('error', err => {
