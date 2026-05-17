@@ -27,7 +27,7 @@
   const INPUT_SEND_MS = 16;
   const PING_SEND_MS = 1000;
   const SNAP_DISTANCE = 520;
-  const VERSION = "v8";
+  const VERSION = "v9";
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -63,6 +63,8 @@
   let lastPingSent = 0;
   let lastPongAt = 0;
   let localPose = null;
+  let localVisualBullets = [];
+  let localShotCd = 0;
 
   const pressed = new Set();
   const inputs = Object.create(null);
@@ -88,7 +90,7 @@
     const mode = role === "host" ? "HOST" : "GUEST";
     const id = playerId || "--";
     const sync = gotFirstState ? "OK" : "WAIT";
-    netStatus.textContent = `V8 | PING ${ping} MS | ${mode} ${id} | ${playersInRoom.size}/${MAX_PLAYERS} | ${sync}`;
+    netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${playersInRoom.size}/${MAX_PLAYERS} | ${sync}`;
   }
 
   function maybePing(now) {
@@ -365,6 +367,8 @@
       } else {
         updateRenderState(dt);
         updateGuestLocalPose(dt);
+        updateLocalInput(dt);
+        updateLocalVisualBullets(dt);
         const outboundInput = withLocalPose(localInput);
         const sig = inputSignature(outboundInput);
         if (now - lastInputSent > INPUT_SEND_MS || sig !== lastSentInput) {
@@ -382,7 +386,7 @@
 
   function updateLocalInput() {
     const state = renderState || lastState;
-    const me = state && playerId ? state.players[playerId] : null;
+    const me = (role === "guest" && localPose) ? localPose : (state && playerId ? state.players[playerId] : null);
     const aim = aimVectorFor(me);
 
     localInput = {
@@ -607,6 +611,49 @@
     }
   }
 
+  function updateLocalVisualBullets(dt) {
+    if (role !== "guest") return;
+
+    localShotCd = Math.max(0, localShotCd - dt);
+    if (localPose && !localPose.dead && localInput.fire && localShotCd <= 0) {
+      spawnLocalVisualShot(localPose);
+    }
+
+    for (let i = localVisualBullets.length - 1; i >= 0; i -= 1) {
+      const b = localVisualBullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0 || b.x < -20 || b.y < -20 || b.x > WORLD.w + 20 || b.y > WORLD.h + 20) {
+        localVisualBullets.splice(i, 1);
+      }
+    }
+
+    if (localVisualBullets.length > 48) {
+      localVisualBullets.splice(0, localVisualBullets.length - 48);
+    }
+  }
+
+  function spawnLocalVisualShot(player) {
+    const weapon = WEAPONS[player.weapon] || WEAPONS.pistol;
+    localShotCd = weapon.cd;
+    const baseAngle = Math.atan2(player.aimY || 0, player.aimX || 1);
+    const pellets = weapon.pellets;
+
+    for (let i = 0; i < pellets; i += 1) {
+      const spread = pellets === 1 ? 0 : (-weapon.spread / 2) + (weapon.spread * i) / Math.max(1, pellets - 1);
+      const angle = baseAngle + spread;
+      localVisualBullets.push({
+        x: player.x + PLAYER_SIZE / 2 + Math.cos(angle) * 10,
+        y: player.y + PLAYER_SIZE / 2 + Math.sin(angle) * 10,
+        vx: Math.cos(angle) * weapon.speed,
+        vy: Math.sin(angle) * weapon.speed,
+        life: Math.min(weapon.life, 0.45),
+        size: weapon.size || 2
+      });
+    }
+  }
+
   function updateBullets(dt) {
     const bullets = lastState.bullets;
     for (let i = bullets.length - 1; i >= 0; i -= 1) {
@@ -819,7 +866,7 @@
     renderState.world = lastState.world || WORLD;
     renderState.players = smoothPlayers(renderState.players || {}, lastState.players || {}, a, dt);
     renderState.mobs = smoothArray(renderState.mobs || [], lastState.mobs || [], a, smoothMob);
-    renderState.bullets = smoothArray(renderState.bullets || [], lastState.bullets || [], Math.min(1, dt * 20), smoothBullet);
+    renderState.bullets = smoothBullets(renderState.bullets || [], lastState.bullets || [], Math.min(1, dt * 24), renderState.players || {});
     renderState.loot = smoothArray(renderState.loot || [], lastState.loot || [], a, smoothLoot);
   }
 
@@ -864,6 +911,32 @@
       out[id] = prev ? smoother(prev, next, alpha) : clone(next);
     }
     return out;
+  }
+
+  function smoothBullets(current, target, alpha, players) {
+    const prevById = new Map(current.map((item) => [item.id, item]));
+    return target
+      .filter((next) => !(role === "guest" && next.owner === playerId))
+      .map((next) => {
+        const prev = prevById.get(next.id);
+        if (prev) return smoothBullet(prev, next, alpha);
+
+        if (next.team === "player" && next.owner) {
+          const owner = players[next.owner] || (lastState && lastState.players ? lastState.players[next.owner] : null);
+          if (owner) {
+            const ax = Number(owner.aimX) || 1;
+            const ay = Number(owner.aimY) || 0;
+            const len = Math.hypot(ax, ay) || 1;
+            return {
+              ...next,
+              x: owner.x + PLAYER_SIZE / 2 + (ax / len) * 10,
+              y: owner.y + PLAYER_SIZE / 2 + (ay / len) * 10
+            };
+          }
+        }
+
+        return clone(next);
+      });
   }
 
   function smoothArray(current, target, alpha, smoother) {
@@ -984,6 +1057,7 @@
     drawWorldBorder(camera, state);
     drawLoot(camera, state);
     drawBullets(camera, state);
+    drawLocalVisualBullets(camera);
     drawMobs(camera, state);
     drawPlayers(camera, state);
     drawCrosshair();
@@ -1135,6 +1209,16 @@
     }
   }
 
+  function drawLocalVisualBullets(cam) {
+    if (role !== "guest" || !localVisualBullets.length) return;
+    ctx.fillStyle = GREEN;
+    for (const b of localVisualBullets) {
+      if (!visible(b.x, b.y, 20, cam)) continue;
+      const s = b.size || 2;
+      ctx.fillRect(worldX(b.x - s / 2, cam), worldY(b.y - s / 2, cam), s, s);
+    }
+  }
+
   function drawLoot(cam, state) {
     for (const item of state.loot) {
       if (!visible(item.x, item.y, 24, cam)) continue;
@@ -1223,6 +1307,8 @@
     updateNetStatus();
     for (const key of Object.keys(inputs)) delete inputs[key];
     localInput = emptyInput();
+    localVisualBullets = [];
+    localShotCd = 0;
 
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
@@ -1327,28 +1413,32 @@
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
-  function flashRoomTitle() {
-    roomTitle.classList.add("copying");
-    window.setTimeout(() => roomTitle.classList.remove("copying"), 120);
+  function pressRoomTitle(on) {
+    roomTitle.classList.toggle("pressed", Boolean(on));
   }
 
   roomTitle.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    flashRoomTitle();
+    pressRoomTitle(true);
   });
+  roomTitle.addEventListener("pointerup", () => pressRoomTitle(false));
+  roomTitle.addEventListener("pointerleave", () => pressRoomTitle(false));
+  roomTitle.addEventListener("blur", () => pressRoomTitle(false));
   roomTitle.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    pressRoomTitle(false);
     copyRoomId();
   });
   roomTitle.setAttribute("tabindex", "0");
   roomTitle.addEventListener("keydown", (event) => {
     if (event.code === "Enter" || event.code === "Space") {
       event.preventDefault();
-      flashRoomTitle();
+      pressRoomTitle(true);
       copyRoomId();
+      window.setTimeout(() => pressRoomTitle(false), 80);
     }
   });
 

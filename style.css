@@ -114,8 +114,7 @@ h2 {
   outline: none;
 }
 
-#roomTitle:active,
-#roomTitle.copying {
+#roomTitle.pressed {
   color: var(--green);
   border-color: var(--green);
   background: var(--green-soft);
@@ -222,9 +221,12 @@ button:active {
 }
 
 .hud span:last-child,
-#netStatus,
-#menuStatus {
+#netStatus {
   color: var(--green);
+}
+
+#menuStatus {
+  color: var(--muted);
 }
 
 @media (max-width: 560px) {
