@@ -3,6 +3,7 @@ import { WORLD } from "../core/constants.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
 import { makeProjectile } from "./projectiles.js";
+import { buildProjectileEffects } from "./effects.js";
 import { pushEvent } from "./state.js";
 
 function statMult(player, key) {
@@ -69,7 +70,8 @@ export function fireWeapon(state, playerId, payload = {}) {
       x: x + pelletDir.x * (player.radius + weapon.radius + 1),
       y: y + pelletDir.y * (player.radius + weapon.radius + 1),
       angle: pelletAngle,
-      pelletIndex: i
+      pelletIndex: i,
+      effects: buildProjectileEffects(player, weapon)
     });
     state.projectiles[pelletId] = applyProjectileStats(player, projectile);
   }

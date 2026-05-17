@@ -5,6 +5,7 @@ import { getLocation } from "../data/locations.js";
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
+import { enemyStatusSnapshot } from "./effects.js";
 
 let entitySeq = 1;
 
@@ -143,7 +144,8 @@ export function makeSnapshot(state) {
       kind: e.kind,
       x: Math.round(e.x),
       y: Math.round(e.y),
-      hp: Math.max(0, Math.round(e.hp))
+      hp: Math.max(0, Math.round(e.hp)),
+      status: enemyStatusSnapshot(e)
     })),
     projectiles: Object.values(state.projectiles).map((p) => ({
       id: p.id,

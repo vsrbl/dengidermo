@@ -125,6 +125,12 @@ function drawEnemy(ctx, e, cam) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#fff");
   drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, "#050505");
   if (e.kind === "boss") drawText(ctx, "BOSS", s.x, s.y - r - 8, GREEN, "center");
+  if (e.status?.burn) {
+    ctx.strokeStyle = "rgba(0,255,102,0.72)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r - 4), Math.round(s.y - r - 4), r * 2 + 8, r * 2 + 8);
+    drawRect(ctx, s.x + r - 3, s.y - r - 3, 4, 4, GREEN);
+  }
   const hp = Math.max(0, Math.min(1, e.hp / data.hp));
   drawRect(ctx, s.x - r, s.y + r + 5, r * 2, 3, "#333");
   drawRect(ctx, s.x - r, s.y + r + 5, r * 2 * hp, 3, GREEN);

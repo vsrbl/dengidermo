@@ -79,7 +79,7 @@ export function updateHostWorld(state, inputs, dt) {
   for (const p of Object.values(state.players)) {
     if (p.hp < -10) p.hp = 0;
     if (p.hp <= 0 && p.deadTimer === 0) p.deadTimer = 0.001;
-    p.hp = clamp(p.hp, 0, PLAYER_HP);
+    p.hp = clamp(p.hp, 0, p.maxHp || PLAYER_HP);
   }
 }
 

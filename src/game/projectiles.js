@@ -3,6 +3,7 @@ import { angleToVec, clamp, dist2, norm, segmentCircleHit } from "../core/math.j
 import { SpatialGrid } from "../core/spatialGrid.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { ENEMIES } from "../data/enemies.js";
+import { applyProjectileStatuses, cloneEffect, getEffect, resolveProjectileDamage, tickEnemyStatuses } from "./effects.js";
 import { dropLoot } from "./loot.js";
 import { pushEvent } from "./state.js";
 
@@ -61,6 +62,27 @@ function addSpark(state, x, y, amount = 3, power = 110) {
   }
 }
 
+function tickEnemyStatusDamage(state, dt) {
+  for (const enemy of Object.values(state.enemies)) {
+    const tick = tickEnemyStatuses(enemy, dt);
+    if (tick.damage > 0) {
+      enemy.hp -= tick.damage;
+      if (tick.burned && state.rng.next() < 5 * dt) {
+        addSpark(state, enemy.x, enemy.y, 1, 80);
+      }
+      if (enemy.hp <= 0) killEnemy(state, enemy);
+    }
+  }
+}
+
+function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = enemy.x, eventY = enemy.y) {
+  const hit = resolveProjectileDamage(state, projectile, baseDamage);
+  enemy.hp -= hit.amount;
+  pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical });
+  if (hit.critical) addSpark(state, eventX, eventY, 5, 190);
+  return hit;
+}
+
 function explode(state, projectile, effect) {
   const radius = (effect.radius || 80) * (projectile.explosionRadiusMult || 1);
   const damage = (effect.damage || projectile.damage) * (projectile.explosionDamageMult || 1);
@@ -71,10 +93,9 @@ function explode(state, projectile, effect) {
     const r = radius + e.radius;
     if (dist2(projectile.x, projectile.y, e.x, e.y) > r * r) continue;
     const falloff = Math.max(0.35, 1 - Math.sqrt(dist2(projectile.x, projectile.y, e.x, e.y)) / Math.max(1, r));
-    const dealt = Math.round(damage * falloff);
-    e.hp -= dealt;
+    dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y);
+    applyProjectileStatuses(projectile, e);
     addImpulse(e, projectile.x, projectile.y, force * falloff);
-    pushEvent(state, { type: "hit", x: e.x, y: e.y, amount: dealt });
     if (e.hp <= 0) killEnemy(state, e);
   }
 
@@ -92,8 +113,8 @@ function explode(state, projectile, effect) {
   pushEvent(state, { type: "explosion", x: projectile.x, y: projectile.y, radius });
 }
 
-function detonateProjectile(state, projectile, weapon) {
-  const explodeEffect = weapon.effects.find((e) => e.type === "explode");
+function detonateProjectile(state, projectile) {
+  const explodeEffect = getEffect(projectile, "explode");
   if (explodeEffect && !projectile.exploded) {
     projectile.exploded = true;
     explode(state, projectile, explodeEffect);
@@ -102,28 +123,28 @@ function detonateProjectile(state, projectile, weapon) {
 
 function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
-  enemy.hp -= projectile.damage;
+  const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
+  applyProjectileStatuses(projectile, enemy);
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
-  addSpark(state, enemy.x, enemy.y, projectile.kind === "bullet" ? 2 : 4, 120);
-  pushEvent(state, { type: "hit", x: enemy.x, y: enemy.y, amount: projectile.damage });
+  addSpark(state, enemy.x, enemy.y, hit.critical ? 6 : (projectile.kind === "bullet" ? 2 : 4), hit.critical ? 210 : 120);
   if (enemy.hp <= 0) killEnemy(state, enemy);
 
-  const explodeEffect = weapon.effects.find((e) => e.type === "explode");
+  const explodeEffect = getEffect(projectile, "explode");
   if (explodeEffect) {
-    detonateProjectile(state, projectile, weapon);
+    detonateProjectile(state, projectile);
     return true;
   }
 
-  const pierce = weapon.effects.find((e) => e.type === "pierce");
-  if (pierce && projectile.pierced < pierce.count) {
+  const pierce = getEffect(projectile, "pierce");
+  if (pierce && projectile.pierced < (pierce.count || 0)) {
     projectile.pierced += 1;
     return false;
   }
   return true;
 }
 
-function applyHoming(state, projectile, weapon, dt) {
-  const homing = weapon.effects.find((e) => e.type === "homing");
+function applyHoming(state, projectile, _weapon, dt) {
+  const homing = getEffect(projectile, "homing");
   if (!homing) return;
   const target = nearestEnemy(state, projectile, homing.acquireRange || 620);
   if (!target) return;
@@ -139,6 +160,7 @@ function applyHoming(state, projectile, weapon, dt) {
 }
 
 export function updateProjectiles(state, dt) {
+  tickEnemyStatusDamage(state, dt);
   rebuildEnemyGrid(state);
 
   for (const p of Object.values(state.projectiles)) {
@@ -176,9 +198,10 @@ export function updateProjectiles(state, dt) {
   state.effects = state.effects.filter((fx) => fx.life > 0);
 }
 
-export function makeProjectile({ id, ownerId, weaponId, x, y, angle, pelletIndex = 0 }) {
+export function makeProjectile({ id, ownerId, weaponId, x, y, angle, pelletIndex = 0, effects = null }) {
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   const dir = angleToVec(angle);
+  const projectileEffects = Array.isArray(effects) ? effects.map((effect) => cloneEffect(effect)) : (weapon.effects || []).map((effect) => cloneEffect(effect));
   return {
     id,
     ownerId,
@@ -195,6 +218,7 @@ export function makeProjectile({ id, ownerId, weaponId, x, y, angle, pelletIndex
     distance: 0,
     life: weapon.range / weapon.bulletSpeed,
     color: weapon.color,
+    effects: projectileEffects,
     pelletIndex,
     pierced: 0,
     exploded: false,

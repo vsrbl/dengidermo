@@ -60,6 +60,39 @@ export const UPGRADES = {
     weight: 3,
     maxStacks: 5,
     mods: { knockbackMult: 0.2 }
+  },
+
+  pierceCore: {
+    id: "pierceCore",
+    name: "PIERCE CORE",
+    desc: "+1 projectile pierce",
+    weight: 4,
+    maxStacks: 4,
+    effects: [
+      { type: "pierce", count: 1 }
+    ]
+  },
+
+  critChip: {
+    id: "critChip",
+    name: "CRIT CHIP",
+    desc: "+10% crit, x2 damage",
+    weight: 4,
+    maxStacks: 5,
+    effects: [
+      { type: "crit", chance: 0.1, multiplier: 2 }
+    ]
+  },
+
+  burnMark: {
+    id: "burnMark",
+    name: "BURN MARK",
+    desc: "hits add digital burn",
+    weight: 3,
+    maxStacks: 4,
+    effects: [
+      { type: "burn", dps: 7, duration: 1.8 }
+    ]
   }
 };
 
