@@ -139,6 +139,16 @@ export function startHost() {
     return new Promise((resolve, reject) => {
         let settled = false;
 
+        const timeout = setTimeout(() => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            setStatus('Could not create room. Check Render server.');
+            reject(new Error('Host creation timeout'));
+        }, CONNECT_TIMEOUT);
+
         peer.on('open', id => {
             myId = id;
             ensurePlayer(id);
@@ -148,6 +158,7 @@ export function startHost() {
             setStatus(`Room ID: ${id}`);
             updateHud();
 
+            clearTimeout(timeout);
             settled = true;
             resolve(id);
         });
@@ -185,6 +196,7 @@ export function startHost() {
 
         peer.on('error', err => {
             if(!settled) {
+                clearTimeout(timeout);
                 settled = true;
                 rejectWithPeerError(reject, err);
                 return;
