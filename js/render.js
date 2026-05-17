@@ -18,8 +18,8 @@ export function updateRenderPlayers(myId) {
 
         const p = renderState.players[id];
 
-        p.x += (p.tx - p.x) * 0.35;
-        p.y += (p.ty - p.y) * 0.35;
+        p.x += (p.tx - p.x) * 0.18;
+        p.y += (p.ty - p.y) * 0.18;
     }
 }
 
