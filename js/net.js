@@ -130,7 +130,51 @@ function rejectWithPeerError(reject, err) {
     reject(err);
 }
 
+function clearObject(obj) {
+    for(const key in obj) {
+        delete obj[key];
+    }
+}
+
+export function resetNetworkState() {
+    if(!isHost && hostConnection?.open) {
+        safeSend(hostConnection, { type: 'leave' });
+    }
+
+    for(const id in peers) {
+        try {
+            peers[id]?.close();
+        } catch(e) {}
+    }
+
+    try {
+        hostConnection?.close();
+    } catch(e) {}
+
+    try {
+        peer?.destroy();
+    } catch(e) {
+        try {
+            peer?.disconnect();
+        } catch(innerError) {}
+    }
+
+    peer = null;
+    hostConnection = null;
+    isHost = false;
+    myId = null;
+
+    clearObject(peers);
+    clearObject(lastSeen);
+    clearObject(world.players);
+
+    setRoomId('-');
+    updateHud();
+}
+
 export function startHost() {
+    resetNetworkState();
+
     isHost = true;
     peer = new Peer(PEER_CONFIG);
 
@@ -209,6 +253,8 @@ export function startHost() {
 }
 
 export function connectToHost(hostId) {
+    resetNetworkState();
+
     isHost = false;
     peer = new Peer(PEER_CONFIG);
 
@@ -350,15 +396,5 @@ export function broadcastSnapshot() {
 }
 
 export function leaveGame() {
-    if(!isHost && hostConnection?.open) {
-        safeSend(hostConnection, { type: 'leave' });
-    }
-
-    try {
-        hostConnection?.close();
-    } catch(e) {}
-
-    try {
-        peer?.disconnect();
-    } catch(e) {}
+    resetNetworkState();
 }

@@ -3,6 +3,13 @@ import {
     world
 } from './entities.js';
 
+export function resetRenderState() {
+
+    for(const id in renderState.players) {
+        delete renderState.players[id];
+    }
+}
+
 export function updateRenderState() {
 
     for(const id in renderState.players) {

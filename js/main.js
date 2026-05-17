@@ -23,6 +23,7 @@ import {
 import {
 
     updateRenderState,
+    resetRenderState,
     draw
 
 } from './render.js';
@@ -34,6 +35,7 @@ import {
     startHost,
     connectToHost,
     leaveGame,
+    resetNetworkState,
     isHost
 
 } from './net.js';
@@ -140,6 +142,37 @@ function setMenuLocked(locked) {
     roomInput.disabled = locked;
 }
 
+function showMenu(message = '') {
+    gameStarted = false;
+
+    if(animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+
+    accumulator = 0;
+    resetInput();
+    resetRenderState();
+    resetNetworkState();
+
+    document.getElementById('ui')
+        .style.display = 'flex';
+
+    document.getElementById('hud')
+        .style.display = 'none';
+
+    canvas.style.display = 'none';
+
+    setMenuLocked(false);
+    setMenuStatus(message);
+}
+
+window.addEventListener('keydown', e => {
+    if(e.code === 'Escape' && gameStarted) {
+        showMenu('Left game');
+    }
+});
+
 hostButton.onclick = async () => {
 
     setMenuLocked(true);
@@ -189,7 +222,14 @@ let lastNetworkTick = 0;
 
 let gameStarted = false;
 
+let animationFrameId = null;
+
 function tick(now) {
+
+    if(!gameStarted) {
+        animationFrameId = null;
+        return;
+    }
 
     const frameTime =
         Math.min(now - previous, 250);
@@ -221,7 +261,7 @@ function tick(now) {
 
     draw(ctx, canvas);
 
-    requestAnimationFrame(tick);
+    animationFrameId = requestAnimationFrame(tick);
 }
 
 function start() {
@@ -243,5 +283,5 @@ function start() {
     previous = performance.now();
     accumulator = 0;
 
-    requestAnimationFrame(tick);
+    animationFrameId = requestAnimationFrame(tick);
 }
