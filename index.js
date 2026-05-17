@@ -1,19 +1,65 @@
-const { PeerServer } = require('peer');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-const PORT = process.env.PORT || 9000;
+    <title>nncckkrr.space</title>
 
-const peerServer = PeerServer({
-    port: PORT,
-    path: '/myapp',
-    proxied: true,
-    corsOptions: {
-        origin: [
-            'https://nncckkrr.space',
-            'http://localhost:5500',
-            'http://127.0.0.1:5500'
-        ],
-        methods: ['GET', 'POST']
-    }
-});
+    <link rel="stylesheet" href="./style.css">
 
-console.log(`PeerJS server started on ${PORT}`);
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+
+<body>
+
+<div id="mobile-only">only for pc</div>
+
+<div id="ui">
+
+    <h1>nncckkrr.space</h1>
+
+    <button id="btn-host">
+        Create Game
+    </button>
+
+    <input
+        type="text"
+        id="input-id"
+        placeholder="Host ID"
+    >
+
+    <button id="btn-join">
+        Join Game
+    </button>
+
+    <div id="status">
+        
+    </div>
+
+</div>
+
+<div id="hud">
+
+    <div>
+        ROOM:
+        <span id="hud-id">-</span>
+    </div>
+
+    <div>
+        PLAYERS:
+        <span id="hud-count">1</span>
+    </div>
+
+</div>
+
+<canvas
+    id="gameCanvas"
+    width="1280"
+    height="720"
+></canvas>
+
+<script type="module" src="./js/main.js"></script>
+
+</body>
+</html>
