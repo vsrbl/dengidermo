@@ -1,8 +1,8 @@
 import { CENTER, PLAYER_HP, PLAYER_RADIUS, SPAWN_OFFSETS, WORLD } from "../core/constants.js";
 import { clamp } from "../core/math.js";
 import { makeRng } from "../core/random.js";
-import { START_WEAPON } from "../data/weapons.js";
 import { getLocation } from "../data/locations.js";
+import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 
 let entitySeq = 1;
@@ -61,10 +61,8 @@ export function addPlayer(state, playerId, index = 0) {
     hp: PLAYER_HP,
     maxHp: PLAYER_HP,
     radius: PLAYER_RADIUS,
-    weapon: START_WEAPON,
     inventory: createInventory([START_WEAPON]),
     skin: index % 2 ? "green" : "default",
-    nextFireAt: 0,
     cooldowns: {},
     lastInputAt: 0,
     fireSeqSeen: 0,
@@ -115,7 +113,7 @@ export function makeSnapshot(state) {
       angle: Number(p.angle.toFixed(3)),
       hp: Math.max(0, Math.round(p.hp)),
       maxHp: p.maxHp,
-      weapon: ensureInventory(p).activeWeapon,
+      activeWeapon: ensureInventory(p).activeWeapon,
       inventory: inventorySnapshot(p),
       skin: p.skin,
       vx: Number((p.vx || 0).toFixed(1)),

@@ -19,18 +19,21 @@ export function createInventory(initialWeapons = [START_WEAPON]) {
 }
 
 export function ensureInventory(player) {
-  if (!player.inventory) player.inventory = createInventory([player.weapon || START_WEAPON]);
+  if (!player.inventory) player.inventory = createInventory([START_WEAPON]);
   player.inventory.weapons = player.inventory.weapons.filter((id, index, arr) => WEAPONS[id] && arr.indexOf(id) === index);
   if (!player.inventory.weapons.length) player.inventory.weapons.push(START_WEAPON);
   if (!WEAPONS[player.inventory.activeWeapon] || !player.inventory.weapons.includes(player.inventory.activeWeapon)) {
     player.inventory.activeWeapon = player.inventory.weapons[0];
   }
-  player.weapon = player.inventory.activeWeapon;
   return player.inventory;
 }
 
 export function getActiveWeaponId(player) {
   return ensureInventory(player).activeWeapon;
+}
+
+export function getActiveWeaponDef(player) {
+  return WEAPONS[getActiveWeaponId(player)] || WEAPONS[START_WEAPON];
 }
 
 export function getWeaponList(player) {
@@ -48,7 +51,6 @@ export function giveWeapon(player, weaponId, autoEquip = true) {
   const isNew = !inventory.weapons.includes(id);
   if (isNew) inventory.weapons.push(id);
   if (autoEquip || !WEAPONS[inventory.activeWeapon]) inventory.activeWeapon = id;
-  player.weapon = inventory.activeWeapon;
   return { weaponId: id, isNew };
 }
 
@@ -57,7 +59,6 @@ export function switchWeapon(player, weaponId) {
   const inventory = ensureInventory(player);
   if (!inventory.weapons.includes(id)) return false;
   inventory.activeWeapon = id;
-  player.weapon = id;
   return true;
 }
 

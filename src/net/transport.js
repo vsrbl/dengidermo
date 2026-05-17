@@ -21,6 +21,7 @@ export class Transport {
     this.players = new Set();
     this.peers = new Map();
     this.channels = new Map();
+    this.pendingCandidates = new Map();
     this.connected = false;
     this.pingMs = null;
     this.lastPing = 0;
@@ -95,9 +96,7 @@ export class Transport {
       this.callbacks.onPing?.(this.pingMs);
       return;
     }
-    if (msg.type === "error") {
-      this.callbacks.onError?.(msg.message || "error");
-    }
+    if (msg.type === "error") this.callbacks.onError?.(msg.message || "error");
   }
 
   makePeer(remoteId) {
@@ -111,8 +110,13 @@ export class Transport {
     pc.onicecandidate = (e) => {
       if (e.candidate) this.sendSignal(remoteId, { candidate: e.candidate });
     };
-    pc.onconnectionstatechange = () => this.callbacks.onPeerState?.(remoteId, pc.connectionState);
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState || "unknown";
+      this.callbacks.onPeerState?.(remoteId, state);
+      if (state === "failed") this.callbacks.onPeerState?.(remoteId, "relay");
+    };
     this.peers.set(remoteId, pc);
+    if (!this.pendingCandidates.has(remoteId)) this.pendingCandidates.set(remoteId, []);
     return pc;
   }
 
@@ -138,6 +142,15 @@ export class Transport {
     this.sendSignal(guestId, { description: pc.localDescription });
   }
 
+  async flushPendingCandidates(remoteId, pc) {
+    const list = this.pendingCandidates.get(remoteId) || [];
+    if (!list.length || !pc.remoteDescription) return;
+    this.pendingCandidates.set(remoteId, []);
+    for (const candidate of list) {
+      try { await pc.addIceCandidate(candidate); } catch { /* keep relay fallback */ }
+    }
+  }
+
   async handleSignal(from, data) {
     try {
       let pc = this.peers.get(from);
@@ -148,14 +161,23 @@ export class Transport {
       }
       if (data.description) {
         await pc.setRemoteDescription(data.description);
+        await this.flushPendingCandidates(from, pc);
         if (data.description.type === "offer") {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           this.sendSignal(from, { description: pc.localDescription });
         }
       }
-      if (data.candidate) await pc.addIceCandidate(data.candidate);
-    } catch (err) {
+      if (data.candidate) {
+        if (pc.remoteDescription) await pc.addIceCandidate(data.candidate);
+        else {
+          const list = this.pendingCandidates.get(from) || [];
+          list.push(data.candidate);
+          this.pendingCandidates.set(from, list);
+        }
+      }
+    } catch {
+      this.callbacks.onPeerState?.(from, "relay");
       this.callbacks.onError?.("webrtc");
     }
   }
@@ -208,6 +230,7 @@ export class Transport {
     this.peers.get(id)?.close?.();
     this.channels.delete(id);
     this.peers.delete(id);
+    this.pendingCandidates.delete(id);
   }
 
   close(sendLeave = true) {

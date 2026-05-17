@@ -4,6 +4,7 @@ import { getLocation } from "../data/locations.js";
 import { nextId, pushEvent, spawnPoint } from "./state.js";
 
 const PORTAL_RADIUS = 58;
+const PORTAL_MARGIN = 12;
 
 export function currentLocation(state) {
   return getLocation(state.locationIndex || 0);
@@ -86,17 +87,17 @@ export function updatePortals(state, dt) {
   for (const portal of Object.values(state.portals)) {
     portal.active = state.locationTime >= (state.portalReadyAt ?? loc.portalDelay ?? 5);
     if (!portal.active || alive.length === 0) {
-      portal.progress = Math.max(0, portal.progress - dt * 1.4);
+      portal.progress = Math.max(0, portal.progress - dt * 0.9);
       continue;
     }
 
     const allInside = alive.every((p) => {
-      const r = portal.radius + p.radius;
+      const r = portal.radius + p.radius + PORTAL_MARGIN;
       return dist2(p.x, p.y, portal.x, portal.y) <= r * r;
     });
 
     if (allInside) portal.progress += dt;
-    else portal.progress = Math.max(0, portal.progress - dt * 1.1);
+    else portal.progress = Math.max(0, portal.progress - dt * 0.7);
 
     const need = state.portalHold ?? loc.portalHold ?? 1.15;
     if (portal.progress >= need) {

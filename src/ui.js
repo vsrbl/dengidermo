@@ -69,8 +69,8 @@ export function createUi() {
       el.inventoryText.textContent = "--";
       return;
     }
-    const inv = player.inventory || { weapons: [player.weapon || START_WEAPON], activeWeapon: player.weapon || START_WEAPON };
-    const active = inv.activeWeapon || player.weapon || START_WEAPON;
+    const inv = player.inventory || { weapons: [START_WEAPON], activeWeapon: START_WEAPON };
+    const active = inv.activeWeapon || player.activeWeapon || START_WEAPON;
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
     el.weaponText.textContent = (WEAPONS[active]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
     el.locationText.textContent = snapshot?.location?.name || "GRID 00";

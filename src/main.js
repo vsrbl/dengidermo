@@ -175,7 +175,7 @@ function handleReady(info) {
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
     localInventory = createInventory([START_WEAPON]);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, weapon: START_WEAPON, inventory: localInventory, skin: index % 2 ? "green" : "default" };
+    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
@@ -267,16 +267,16 @@ function syncLocalFromSnapshot() {
   const oldWeapon = localWeapon;
   if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [] };
   if (!localPose) {
-    localWeapon = me.inventory?.activeWeapon || me.weapon || START_WEAPON;
-    localPose = { ...me, inventory: localInventory, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
+    localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
+    localPose = { ...me, inventory: localInventory, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
     return;
   }
   localPose.hp = me.hp;
   localPose.maxHp = me.maxHp;
-  if ((me.inventory?.activeWeapon || me.weapon) && (me.inventory?.activeWeapon || me.weapon) !== oldWeapon) {
-    localWeapon = me.inventory?.activeWeapon || me.weapon;
-    }
-  localPose.weapon = localWeapon;
+  if ((me.inventory?.activeWeapon || me.activeWeapon) && (me.inventory?.activeWeapon || me.activeWeapon) !== oldWeapon) {
+    localWeapon = me.inventory?.activeWeapon || me.activeWeapon;
+  }
+  localPose.activeWeapon = localWeapon;
   localPose.inventory = localInventory;
   localPose.skin = me.skin;
   const dx = me.x - localPose.x;
@@ -329,7 +329,7 @@ function requestWeaponSlot(slot) {
   if (!weaponId) return;
   localWeapon = weaponId;
   localInventory.activeWeapon = weaponId;
-  if (localPose) { localPose.weapon = weaponId; localPose.inventory = localInventory; }
+  if (localPose) { localPose.activeWeapon = weaponId; localPose.inventory = localInventory; }
   transport?.sendToHost({ t: "weapon", slot });
 }
 
@@ -354,7 +354,7 @@ function applyLocalRecoil(pose, weapon, angle) {
 
 function tryLocalShoot(nowSec, inputState) {
   if (!localPose || !inputState.fire) return;
-  const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.weapon] ? localPose.weapon : START_WEAPON);
+  const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.activeWeapon] ? localPose.activeWeapon : START_WEAPON);
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   if (nowSec < (localCooldowns[weaponId] || 0)) return;
   localCooldowns[weaponId] = nowSec + 1 / weapon.fireRate;
@@ -421,8 +421,8 @@ function updateHud() {
   const snapMe = currentLocalPlayerFromSnapshot();
   const me = role === "host"
     ? hostState?.players[playerId]
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, weapon: localWeapon, inventory: localInventory } : snapMe);
-  ui.setHud(me || { inventory: localInventory, weapon: localWeapon }, snapshot);
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory } : snapMe);
+  ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode });
 }
 

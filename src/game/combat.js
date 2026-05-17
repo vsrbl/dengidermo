@@ -59,7 +59,6 @@ export function fireWeapon(state, playerId, payload = {}) {
   player.angle = angle;
   if (!player.cooldowns) player.cooldowns = {};
   player.cooldowns[weaponId] = state.time + 1 / weapon.fireRate;
-  player.nextFireAt = player.cooldowns[weaponId];
   pushEvent(state, { type: "shoot", playerId, weaponId, x, y, angle, fireSeq: seq });
   return true;
 }

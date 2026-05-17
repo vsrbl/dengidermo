@@ -290,7 +290,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.players || []) {
     playerIds.add(raw.id);
     const isLocal = raw.id === localId;
-    const p = isLocal && localPose ? { ...raw, ...localPose, hp: raw.hp, maxHp: raw.maxHp, weapon: raw.weapon, skin: raw.skin } : smoothEntity(smooth.players, raw, renderDt);
+    const p = isLocal && localPose ? { ...raw, ...localPose, hp: raw.hp, maxHp: raw.maxHp, activeWeapon: raw.activeWeapon, skin: raw.skin } : smoothEntity(smooth.players, raw, renderDt);
     if (isVisible(p, cam, 90)) drawPlayer(ctx, p, cam, isLocal);
   }
   prune(smooth.players, playerIds);
