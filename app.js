@@ -23,6 +23,8 @@
   const PLAYER_SIZE = 14;
   const WALL_PAD = 16;
   const GREEN = "#00ff66";
+  const STATE_SEND_MS = 40;
+  const SNAP_DISTANCE = 90;
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -53,6 +55,8 @@
   let connected = false;
   let hasCamera = false;
   let camera = { x: 0, y: 0 };
+  let gotFirstState = false;
+  let roomTitleHot = false;
 
   const pressed = new Set();
   const inputs = Object.create(null);
@@ -138,10 +142,12 @@
         if (role === "host") {
           lastState = createInitialState(Array.from(playersInRoom));
           renderState = lastState;
+          gotFirstState = true;
           setStatus("Room ready. Join anytime.");
         } else {
           renderState = null;
-          setStatus("Joined. Syncing world...");
+          gotFirstState = false;
+          setStatus("Connected.");
         }
 
         ensureLoop();
@@ -306,7 +312,7 @@
         inputs[playerId] = localInput;
         updateHostWorld(dt);
         renderState = lastState;
-        if (now - lastStateSent > 33) {
+        if (now - lastStateSent > STATE_SEND_MS) {
           lastStateSent = now;
           sendWs({ type: "state", state: packState(lastState) });
         }
@@ -666,6 +672,10 @@
 
   function receiveState(state) {
     lastState = state;
+    if (!gotFirstState) {
+      gotFirstState = true;
+      setStatus(`${playersInRoom.size}/${MAX_PLAYERS} players online.`);
+    }
     if (!renderState) {
       renderState = cloneState(state);
       const me = renderState.players[playerId] || Object.values(renderState.players)[0];
@@ -683,19 +693,55 @@
     }
     if (!renderState) renderState = cloneState(lastState);
 
-    const a = Math.min(1, dt * 24);
+    const a = Math.min(1, dt * 12);
     renderState.tick = lastState.tick;
     renderState.time = lastState.time;
     renderState.wave = lastState.wave;
     renderState.world = lastState.world || WORLD;
-    renderState.players = smoothObjectMap(renderState.players || {}, lastState.players || {}, a, smoothPlayer);
+    renderState.players = smoothPlayers(renderState.players || {}, lastState.players || {}, a, dt);
     renderState.mobs = smoothArray(renderState.mobs || [], lastState.mobs || [], a, smoothMob);
-    renderState.bullets = smoothArray(renderState.bullets || [], lastState.bullets || [], a, smoothBullet);
+    renderState.bullets = smoothArray(renderState.bullets || [], lastState.bullets || [], Math.min(1, dt * 20), smoothBullet);
     renderState.loot = smoothArray(renderState.loot || [], lastState.loot || [], a, smoothLoot);
+  }
 
-    if (role === "guest" && playerId && renderState.players[playerId]) {
-      updatePlayer(renderState.players[playerId], localInput, dt, false);
+  function smoothPlayers(current, target, alpha, dt) {
+    const out = {};
+    for (const [id, next] of Object.entries(target)) {
+      const prev = current[id];
+      if (!prev) {
+        out[id] = clone(next);
+        continue;
+      }
+      if (role === "guest" && id === playerId) {
+        out[id] = predictLocalPlayer(prev, next, dt);
+        continue;
+      }
+      out[id] = smoothPlayer(prev, next, alpha);
     }
+    return out;
+  }
+
+  function predictLocalPlayer(prev, serverPlayer, dt) {
+    const player = {
+      ...serverPlayer,
+      x: prev.x,
+      y: prev.y,
+      aimX: prev.aimX || serverPlayer.aimX || 1,
+      aimY: prev.aimY || serverPlayer.aimY || 0
+    };
+
+    const error = Math.hypot((serverPlayer.x || 0) - player.x, (serverPlayer.y || 0) - player.y);
+    if (error > SNAP_DISTANCE || serverPlayer.dead) {
+      player.x = serverPlayer.x;
+      player.y = serverPlayer.y;
+    } else if (error > 2) {
+      const fix = Math.min(0.08, dt * 4);
+      player.x = lerp(player.x, serverPlayer.x, fix);
+      player.y = lerp(player.y, serverPlayer.y, fix);
+    }
+
+    updatePlayer(player, localInput, dt, false);
+    return player;
   }
 
   function smoothObjectMap(current, target, alpha, smoother) {
@@ -841,7 +887,7 @@
       hasCamera = true;
       return;
     }
-    const a = Math.min(1, dt * 14);
+    const a = Math.min(1, dt * 18);
     camera.x = lerp(camera.x, target.x, a);
     camera.y = lerp(camera.y, target.y, a);
   }
@@ -890,8 +936,13 @@
     ctx.strokeRect(worldX(0, cam), worldY(0, cam), world.w, world.h);
   }
 
+  function visible(x, y, pad, cam) {
+    return x >= cam.x - pad && x <= cam.x + VIEW.w + pad && y >= cam.y - pad && y <= cam.y + VIEW.h + pad;
+  }
+
   function drawPlayers(cam, state) {
     for (const player of Object.values(state.players)) {
+      if (!visible(player.x, player.y, PLAYER_SIZE + 28, cam)) continue;
       const x = worldX(player.x, cam);
       const y = worldY(player.y, cam);
       const centerX = x + PLAYER_SIZE / 2;
@@ -930,6 +981,7 @@
 
   function drawMobs(cam, state) {
     for (const mob of state.mobs) {
+      if (!visible(mob.x, mob.y, mob.size + 30, cam)) continue;
       const x = worldX(mob.x - mob.size / 2, cam);
       const y = worldY(mob.y - mob.size / 2, cam);
       ctx.strokeStyle = "#fff";
@@ -962,6 +1014,7 @@
 
   function drawBullets(cam, state) {
     for (const b of state.bullets) {
+      if (!visible(b.x, b.y, 20, cam)) continue;
       ctx.fillStyle = b.team === "player" ? "#fff" : "#888";
       const s = b.size || 2;
       ctx.fillRect(worldX(b.x - s / 2, cam), worldY(b.y - s / 2, cam), s, s);
@@ -970,6 +1023,7 @@
 
   function drawLoot(cam, state) {
     for (const item of state.loot) {
+      if (!visible(item.x, item.y, 24, cam)) continue;
       const x = worldX(item.x, cam);
       const y = worldY(item.y, cam);
       ctx.strokeStyle = GREEN;
@@ -1047,6 +1101,8 @@
     pressed.clear();
     mouse.down = false;
     hasCamera = false;
+    gotFirstState = false;
+    roomTitleHot = false;
     camera = { x: 0, y: 0 };
     for (const key of Object.keys(inputs)) delete inputs[key];
     localInput = emptyInput();
@@ -1104,28 +1160,49 @@
       document.execCommand("copy");
       temp.remove();
     }
-    setStatus("Room ID copied.");
+    setStatus("Copied.");
+  }
+
+  const gameKeys = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "KeyW", "KeyA", "KeyS", "KeyD"]);
+
+  function inGame() {
+    return connected && !game.classList.contains("hidden");
+  }
+
+  function resetControls() {
+    pressed.clear();
+    mouse.down = false;
+    localInput = emptyInput();
+    if (role !== "host") sendWs({ type: "input", input: localInput });
   }
 
   window.addEventListener("keydown", (event) => {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
-      event.preventDefault();
-      pressed.add(event.code);
-    }
+    if (!inGame() || !gameKeys.has(event.code)) return;
+    event.preventDefault();
+    pressed.add(event.code);
   });
 
   window.addEventListener("keyup", (event) => {
     pressed.delete(event.code);
   });
 
+  window.addEventListener("blur", resetControls);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) resetControls();
+  });
+
   canvas.addEventListener("mousemove", updateMousePosition);
   canvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
     updateMousePosition(event);
     mouse.down = true;
-    canvas.focus();
     event.preventDefault();
   });
   window.addEventListener("mouseup", () => {
+    mouse.down = false;
+  });
+  window.addEventListener("pointercancel", resetControls);
+  canvas.addEventListener("mouseleave", () => {
     mouse.down = false;
   });
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -1134,7 +1211,11 @@
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
-  roomTitle.addEventListener("click", copyRoomId);
+  roomTitle.addEventListener("pointerenter", () => { roomTitleHot = true; });
+  roomTitle.addEventListener("pointerleave", () => { roomTitleHot = false; });
+  roomTitle.addEventListener("pointerup", (event) => {
+    if (event.button === 0 && roomTitleHot) copyRoomId();
+  });
   roomTitle.setAttribute("tabindex", "0");
   roomTitle.addEventListener("keydown", (event) => {
     if (event.code === "Enter" || event.code === "Space") {
