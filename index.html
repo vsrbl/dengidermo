@@ -1,41 +1,56 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DengiDermo</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>nncckkrr.space</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main>
-      <h1>DengiDermo</h1>
+    <main class="shell">
+      <section id="menu" class="panel">
+        <p class="eyebrow">P2P roguelike base</p>
+        <h1>nncckkrr.space</h1>
+        <p class="muted">Create a room or join with an ID.</p>
 
-      <section class="card controls">
-        <button id="createGame">Create Game</button>
-        <div class="join">
-          <input id="roomCode" placeholder="Room ID" maxlength="12" autocomplete="off" />
-          <button id="joinGame">Join Game</button>
+        <label for="roomInput">Room ID</label>
+        <input id="roomInput" autocomplete="off" maxlength="12" placeholder="AB12CD" />
+
+        <label for="serverInput">Render server URL</label>
+        <input id="serverInput" autocomplete="off" spellcheck="false" />
+
+        <div class="row">
+          <button id="createBtn" type="button">Create game</button>
+          <button id="joinBtn" type="button">Join game</button>
+        </div>
+
+        <p id="menuStatus" class="status">Offline.</p>
+      </section>
+
+      <section id="game" class="panel hidden">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">room</p>
+            <h2 id="roomTitle">------</h2>
+          </div>
+          <div class="right">
+            <p id="netStatus" class="status">Connecting...</p>
+            <button id="leaveBtn" type="button">Leave</button>
+          </div>
+        </div>
+
+        <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
+
+        <div class="hud">
+          <span>Move: WASD / Arrows</span>
+          <span>Hit: Space</span>
+          <span id="bossHud">Boss HP: --</span>
         </div>
       </section>
-
-      <section class="card status">
-        <div>Server: <b id="serverStatus">offline</b></div>
-        <div>Room: <b id="roomStatus">—</b></div>
-        <div>Role: <b id="roleStatus">—</b></div>
-        <div>P2P: <b id="p2pStatus">closed</b></div>
-      </section>
-
-      <canvas id="game" width="960" height="540"></canvas>
-
-      <section class="card help">
-        <p>WASD / arrows to move. Space to test boss damage.</p>
-        <button id="copyRoom">Copy Room ID</button>
-        <button id="ping">Ping Peer</button>
-      </section>
-
-      <pre id="log"></pre>
     </main>
 
-    <script type="module" src="js/main.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>

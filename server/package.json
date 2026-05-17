@@ -1,15 +1,18 @@
 {
-  "name": "dengidermo-1-server",
+  "name": "nncckkrr-signaling-server",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "description": "Minimal WebSocket signaling server for nncckkrr.space P2P rooms.",
+  "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
-  },
-  "dependencies": {
-    "ws": "^8.18.0"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }

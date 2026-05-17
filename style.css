@@ -1,82 +1,128 @@
+:root {
+  --bg: #000;
+  --fg: #fff;
+  --dim: #9a9a9a;
+  --line: #fff;
+  --pad: 16px;
+}
+
 * {
   box-sizing: border-box;
 }
 
-:root {
-  color-scheme: light;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #ffffff;
-  color: #000000;
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 body {
-  margin: 0;
-  background: #ffffff;
-  color: #000000;
-}
-
-main {
-  width: min(960px, calc(100% - 24px));
-  margin: 0 auto;
-  padding: 24px 0;
-}
-
-h1 {
-  margin: 0 0 16px;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
-
-.card {
-  border: 1px solid #000000;
-  padding: 12px;
-  margin-bottom: 12px;
-  background: #ffffff;
-}
-
-.controls {
+  min-height: 100vh;
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 12px;
-}
-
-.join {
-  display: grid;
-  grid-template-columns: 1fr 140px;
-  gap: 12px;
-}
-
-.status {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  font-size: 14px;
-}
-
-.status div {
-  border: 1px solid #000000;
-  padding: 8px;
+  place-items: center;
+  padding: 18px;
 }
 
 button,
 input {
-  height: 42px;
-  border: 1px solid #000000;
-  border-radius: 0;
-  background: #ffffff;
-  color: #000000;
   font: inherit;
 }
 
+.shell {
+  width: min(720px, 100%);
+}
+
+.panel {
+  border: 2px solid var(--line);
+  padding: var(--pad);
+  background: var(--bg);
+  box-shadow: 8px 8px 0 var(--fg);
+}
+
+.hidden {
+  display: none;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+}
+
+h1 {
+  font-size: clamp(38px, 10vw, 72px);
+}
+
+h2 {
+  font-size: 32px;
+}
+
+.muted,
+.status,
+.hud {
+  color: var(--dim);
+}
+
+label {
+  display: block;
+  margin: 18px 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+input {
+  width: 100%;
+  border: 2px solid var(--fg);
+  background: var(--bg);
+  color: var(--fg);
+  padding: 14px 12px;
+  outline: none;
+  text-transform: uppercase;
+}
+
+#serverInput {
+  text-transform: none;
+}
+
+input:focus,
+button:focus {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 button {
+  border: 2px solid var(--fg);
+  color: var(--fg);
+  background: var(--bg);
+  padding: 14px 12px;
   cursor: pointer;
-  font-weight: 700;
+  text-transform: uppercase;
 }
 
 button:hover {
-  background: #000000;
-  color: #ffffff;
+  background: var(--fg);
+  color: var(--bg);
 }
 
 button:disabled {
@@ -84,51 +130,50 @@ button:disabled {
   cursor: not-allowed;
 }
 
-input {
+.topbar {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.right {
+  text-align: right;
+}
+
+#screen {
   width: 100%;
-  padding: 0 10px;
+  aspect-ratio: 16 / 10;
+  display: block;
+  border: 2px solid var(--fg);
+  background: var(--bg);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
-canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid #000000;
-  margin-bottom: 12px;
-  background: #ffffff;
-}
-
-.help {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.help p {
-  flex: 1;
-  margin: 0;
-}
-
-pre {
-  min-height: 150px;
-  max-height: 220px;
-  overflow: auto;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid #000000;
-  background: #ffffff;
-  color: #000000;
-  white-space: pre-wrap;
-  font-size: 12px;
-}
-
-@media (max-width: 720px) {
-  .controls,
-  .join,
-  .status,
-  .help {
+@media (max-width: 560px) {
+  .row,
+  .topbar {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .right {
+    text-align: left;
+  }
+
+  .panel {
+    box-shadow: 5px 5px 0 var(--fg);
   }
 }
