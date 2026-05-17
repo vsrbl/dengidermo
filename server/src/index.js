@@ -17,17 +17,15 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
-function makeId(length = 6) {
+function makeId(length = 10) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let id = "";
   for (let i = 0; i < length; i++) id += alphabet[Math.floor(Math.random() * alphabet.length)];
   return id;
 }
 
-function makeRoomId() {
-  let roomId = makeId(6);
-  while (rooms.has(roomId)) roomId = makeId(6);
-  return roomId;
+function cleanRoomId(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
 }
 
 function send(socket, message) {
@@ -68,9 +66,8 @@ function cleanup(socket) {
   }
 }
 
-function safePlayerName(value, fallback) {
-  if (typeof value !== "string") return fallback;
-  return value.slice(0, 18).trim() || fallback;
+function leaveCurrentRoom(socket) {
+  if (socketToPlayer.has(socket)) cleanup(socket);
 }
 
 wss.on("connection", socket => {
@@ -85,13 +82,21 @@ wss.on("connection", socket => {
     }
 
     if (message.type === "create-room") {
-      const roomId = makeRoomId();
-      const playerId = makeId(10);
-      const player = {
-        id: playerId,
-        name: safePlayerName(message.playerName, "Host"),
-        socket
-      };
+      leaveCurrentRoom(socket);
+
+      const roomId = cleanRoomId(message.roomId);
+      if (roomId.length < 4) {
+        send(socket, { type: "error", message: "Bad room ID" });
+        return;
+      }
+
+      if (rooms.has(roomId)) {
+        send(socket, { type: "error", message: "Room already exists" });
+        return;
+      }
+
+      const playerId = makeId();
+      const player = { id: playerId, name: "Host", socket };
 
       rooms.set(roomId, {
         id: roomId,
@@ -106,7 +111,9 @@ wss.on("connection", socket => {
     }
 
     if (message.type === "join-room") {
-      const roomId = String(message.roomId || "").trim().toUpperCase();
+      leaveCurrentRoom(socket);
+
+      const roomId = cleanRoomId(message.roomId);
       const room = rooms.get(roomId);
 
       if (!room) {
@@ -119,12 +126,8 @@ wss.on("connection", socket => {
         return;
       }
 
-      const playerId = makeId(10);
-      const player = {
-        id: playerId,
-        name: safePlayerName(message.playerName, "Player"),
-        socket
-      };
+      const playerId = makeId();
+      const player = { id: playerId, name: "Player", socket };
 
       room.players.set(playerId, player);
       socketToPlayer.set(socket, { roomId, playerId });
@@ -156,7 +159,7 @@ wss.on("connection", socket => {
       }
 
       const room = rooms.get(meta.roomId);
-      if (!room || room.id !== message.roomId) {
+      if (!room || room.id !== cleanRoomId(message.roomId)) {
         send(socket, { type: "error", message: "Bad room" });
         return;
       }

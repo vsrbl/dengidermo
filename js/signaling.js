@@ -12,8 +12,9 @@ export class SignalingClient {
 
     this.socket.addEventListener("open", () => {
       this.emitStatus("online");
-      for (const message of this.queue) this.send(message);
+      const pending = [...this.queue];
       this.queue = [];
+      for (const message of pending) this.send(message);
     });
 
     this.socket.addEventListener("message", event => {
@@ -23,7 +24,6 @@ export class SignalingClient {
       } catch {
         return;
       }
-
       for (const handler of this.handlers) handler(message);
     });
 
@@ -48,9 +48,9 @@ export class SignalingClient {
   send(message) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       this.queue.push(message);
-      return;
+      return false;
     }
-
     this.socket.send(JSON.stringify(message));
+    return true;
   }
 }

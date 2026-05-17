@@ -1,52 +1,39 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DengiDermo P2P Roguelike</title>
+    <title>DengiDermo</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">P2P roguelike prototype</p>
-        <h1>DengiDermo</h1>
-        <p class="subtitle">Комнаты через Render, игровые сообщения через WebRTC DataChannel.</p>
-      </section>
+    <main>
+      <h1>DengiDermo</h1>
 
-      <section class="panel grid">
-        <div>
-          <label>Имя игрока</label>
-          <input id="playerName" value="Player" maxlength="18" />
+      <section class="card controls">
+        <button id="createGame">Create Game</button>
+        <div class="join">
+          <input id="roomCode" placeholder="Room ID" maxlength="12" autocomplete="off" />
+          <button id="joinGame">Join Game</button>
         </div>
-
-        <div>
-          <label>Код комнаты</label>
-          <input id="roomCode" placeholder="Например ABC123" maxlength="12" />
-        </div>
-
-        <button id="createRoom">Создать комнату</button>
-        <button id="joinRoom">Подключиться</button>
       </section>
 
-      <section class="panel status">
-        <div><span>Сервер:</span><b id="serverStatus">offline</b></div>
-        <div><span>Комната:</span><b id="roomStatus">—</b></div>
-        <div><span>Игрок:</span><b id="playerStatus">—</b></div>
-        <div><span>Роль:</span><b id="roleStatus">—</b></div>
-        <div><span>P2P:</span><b id="p2pStatus">closed</b></div>
+      <section class="card status">
+        <div>Server: <b id="serverStatus">offline</b></div>
+        <div>Room: <b id="roomStatus">—</b></div>
+        <div>Role: <b id="roleStatus">—</b></div>
+        <div>P2P: <b id="p2pStatus">closed</b></div>
       </section>
 
-      <section class="panel game-layout">
-        <canvas id="game" width="960" height="540"></canvas>
-        <aside>
-          <h2>Тест сети</h2>
-          <p>После подключения жми ping. Если сообщение прилетает во второй вкладке — P2P работает.</p>
-          <button id="sendPing">Send P2P Ping</button>
-          <button id="sendInput">Send Test Move</button>
-          <pre id="log"></pre>
-        </aside>
+      <canvas id="game" width="960" height="540"></canvas>
+
+      <section class="card help">
+        <p>WASD / arrows to move. Space to test boss damage.</p>
+        <button id="copyRoom">Copy Room ID</button>
+        <button id="ping">Ping Peer</button>
       </section>
+
+      <pre id="log"></pre>
     </main>
 
     <script type="module" src="js/main.js"></script>

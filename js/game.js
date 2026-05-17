@@ -1,46 +1,43 @@
 const local = { x: 180, y: 270, hp: 100 };
-const remote = { x: 760, y: 270, hp: 100 };
+const remote = { x: 760, y: 270, hp: 100, online: false };
 let bossHp = 300;
-let lastInput = { x: 0, y: 0 };
+let lastSend = 0;
 
 const keys = new Set();
 
 window.addEventListener("keydown", event => keys.add(event.key.toLowerCase()));
 window.addEventListener("keyup", event => keys.delete(event.key.toLowerCase()));
 
-export function startGame(canvas, sendGameMessage, log) {
+export function startGame(canvas, sendGameMessage) {
   const ctx = canvas.getContext("2d");
   let last = performance.now();
 
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-
-    update(dt, sendGameMessage);
+    update(dt, now, sendGameMessage);
     draw(ctx, canvas);
     requestAnimationFrame(frame);
   }
 
-  log("game loop started");
   requestAnimationFrame(frame);
 }
 
-export function applyNetworkMessage(message, log) {
+export function applyNetworkMessage(message) {
   if (message.type === "player-state") {
     remote.x = message.x;
     remote.y = message.y;
     remote.hp = message.hp;
+    remote.online = true;
     return;
   }
 
   if (message.type === "boss-hit") {
     bossHp = Math.max(0, bossHp - message.damage);
-    log(`boss took ${message.damage} damage, hp=${bossHp}`);
-    return;
   }
 }
 
-function update(dt, sendGameMessage) {
+function update(dt, now, sendGameMessage) {
   const speed = 220;
   let dx = 0;
   let dy = 0;
@@ -51,59 +48,68 @@ function update(dt, sendGameMessage) {
   if (keys.has("d") || keys.has("arrowright")) dx += 1;
 
   const len = Math.hypot(dx, dy) || 1;
-  local.x = clamp(local.x + (dx / len) * speed * dt, 28, 932);
-  local.y = clamp(local.y + (dy / len) * speed * dt, 28, 512);
-
-  if (dx !== lastInput.x || dy !== lastInput.y) {
-    lastInput = { x: dx, y: dy };
-  }
-
-  sendGameMessage({
-    type: "player-state",
-    x: Math.round(local.x),
-    y: Math.round(local.y),
-    hp: local.hp,
-    time: Date.now()
-  });
+  local.x = clamp(local.x + (dx / len) * speed * dt, 20, 940);
+  local.y = clamp(local.y + (dy / len) * speed * dt, 20, 520);
 
   if (keys.has(" ")) {
+    bossHp = Math.max(0, bossHp - 1);
     sendGameMessage({ type: "boss-hit", damage: 1, time: Date.now() });
+  }
+
+  if (now - lastSend > 66) {
+    lastSend = now;
+    sendGameMessage({
+      type: "player-state",
+      x: Math.round(local.x),
+      y: Math.round(local.y),
+      hp: local.hp,
+      time: Date.now()
+    });
   }
 }
 
 function draw(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = "#0f172a";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  for (let x = 0; x < canvas.width; x += 48) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  ctx.strokeStyle = "#dddddd";
+  for (let x = 0; x <= canvas.width; x += 48) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
   }
-  for (let y = 0; y < canvas.height; y += 48) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  for (let y = 0; y <= canvas.height; y += 48) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
   }
 
   drawBoss(ctx);
-  drawPlayer(ctx, local.x, local.y, "#14b8a6", "YOU");
-  drawPlayer(ctx, remote.x, remote.y, "#8b5cf6", "PEER");
+  drawPlayer(ctx, local.x, local.y, "YOU");
+  if (remote.online) drawPlayer(ctx, remote.x, remote.y, "PEER");
 
-  ctx.fillStyle = "#f8fafc";
-  ctx.font = "18px system-ui";
-  ctx.fillText("WASD/стрелки — движение, SPACE — тестовый удар по боссу", 24, 34);
+  ctx.fillStyle = "#000000";
+  ctx.font = "16px Arial";
+  ctx.fillText("WASD / arrows: move | Space: hit boss", 20, 28);
 }
 
-function drawPlayer(ctx, x, y, color, label) {
-  ctx.fillStyle = color;
+function drawPlayer(ctx, x, y, label) {
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(x, y, 22, 0, Math.PI * 2);
+  ctx.arc(x, y, 18, 0, Math.PI * 2);
   ctx.fill();
+  ctx.stroke();
 
-  ctx.fillStyle = "white";
-  ctx.font = "bold 13px system-ui";
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 12px Arial";
   ctx.textAlign = "center";
-  ctx.fillText(label, x, y - 32);
+  ctx.fillText(label, x, y - 28);
   ctx.textAlign = "left";
 }
 
@@ -111,20 +117,24 @@ function drawBoss(ctx) {
   const x = 480;
   const y = 270;
 
-  ctx.fillStyle = "#ef4444";
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(x, y, 62, 0, Math.PI * 2);
+  ctx.rect(x - 48, y - 48, 96, 96);
   ctx.fill();
+  ctx.stroke();
 
-  ctx.fillStyle = "#111827";
-  ctx.fillRect(x - 100, y - 94, 200, 14);
-  ctx.fillStyle = "#f97316";
-  ctx.fillRect(x - 100, y - 94, 200 * (bossHp / 300), 14);
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 100, y - 78, 200, 12);
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(x - 100, y - 78, 200 * (bossHp / 300), 12);
 
-  ctx.fillStyle = "white";
-  ctx.font = "bold 16px system-ui";
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 14px Arial";
   ctx.textAlign = "center";
-  ctx.fillText("BOSS PROTOTYPE", x, y + 6);
+  ctx.fillText("BOSS", x, y + 5);
   ctx.textAlign = "left";
 }
 
