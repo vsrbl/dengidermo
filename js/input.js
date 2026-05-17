@@ -57,7 +57,6 @@ export function setupInput() {
         }
 
         e.preventDefault();
-
         setKey(e.code, true);
     });
 
@@ -68,7 +67,6 @@ export function setupInput() {
         }
 
         e.preventDefault();
-
         setKey(e.code, false);
     });
 

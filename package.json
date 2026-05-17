@@ -1,12 +1,12 @@
 {
-  "name": "dengidermo-server",
+  "name": "nncckkrr-space-server",
   "version": "1.0.0",
-  "description": "Signaling server for a multiplayer roguelike",
+  "description": "WebSocket relay server for nncckkrr.space",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "peer": "^1.5.4"
+    "ws": "^8.18.0"
   }
 }
