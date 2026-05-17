@@ -9,8 +9,7 @@ import {
 import {
 
     setupInput,
-    input,
-    resetInput
+    input
 
 } from './input.js';
 
@@ -57,34 +56,48 @@ const canvas =
 const ctx =
     canvas.getContext('2d');
 
+const ui =
+    document.getElementById('ui');
+
+const hud =
+    document.getElementById('hud');
+
+const statusEl =
+    document.getElementById('status');
+
+const hostButton =
+    document.getElementById('btn-host');
+
+const joinButton =
+    document.getElementById('btn-join');
+
+const roomInput =
+    document.getElementById('input-id');
+
 setupInput();
+
+function setMenuStatus(text) {
+    statusEl.innerText = text;
+}
+
+function setMenuLocked(locked) {
+    hostButton.disabled = locked;
+    joinButton.disabled = locked;
+    roomInput.disabled = locked;
+}
 
 function sendCurrentInput() {
     sendInput(input);
 }
 
-window.addEventListener('keydown', () => {
-    setTimeout(sendCurrentInput, 0);
-});
-
-window.addEventListener('keyup', () => {
-    setTimeout(sendCurrentInput, 0);
-});
-
-window.addEventListener('blur', () => {
-    resetInput();
-    sendCurrentInput();
-});
-
+window.addEventListener('blur', sendCurrentInput);
 document.addEventListener('visibilitychange', () => {
     if(document.hidden) {
-        resetInput();
         sendCurrentInput();
     }
 });
 
 window.addEventListener('beforeunload', () => {
-    resetInput();
     sendCurrentInput();
     leaveGame();
 });
@@ -104,7 +117,6 @@ document.getElementById('hud-id')
     if(navigator.clipboard) {
 
         await navigator.clipboard.writeText(roomId);
-        setMenuStatus('Room ID copied');
 
         return;
     }
@@ -121,26 +133,13 @@ document.getElementById('hud-id')
     document.execCommand('copy');
 
     textarea.remove();
-
-    setMenuStatus('Room ID copied');
 };
 
-const hostButton = document.getElementById('btn-host');
-const joinButton = document.getElementById('btn-join');
-const roomInput = document.getElementById('input-id');
-const statusEl = document.getElementById('status');
-
-function setMenuStatus(text) {
-    statusEl.innerText = text;
-}
-
-function setMenuLocked(locked) {
-    hostButton.disabled = locked;
-    joinButton.disabled = locked;
-    roomInput.disabled = locked;
-}
-
 hostButton.onclick = async () => {
+
+    if(gameStarted) {
+        return;
+    }
 
     setMenuLocked(true);
     setMenuStatus('Creating room...');
@@ -151,11 +150,15 @@ hostButton.onclick = async () => {
     } catch(e) {
         console.error(e);
         setMenuLocked(false);
-        setMenuStatus(e?.message || 'Could not create room.');
+        setMenuStatus('Could not create room. Try again.');
     }
 };
 
 joinButton.onclick = async () => {
+
+    if(gameStarted) {
+        return;
+    }
 
     const hostId =
         roomInput
@@ -176,7 +179,7 @@ joinButton.onclick = async () => {
     } catch(e) {
         console.error(e);
         setMenuLocked(false);
-        setMenuStatus(e?.message || 'Could not connect.');
+        setMenuStatus('Could not connect. Check the Host ID.');
     }
 };
 
@@ -232,16 +235,13 @@ function start() {
 
     gameStarted = true;
 
-    document.getElementById('ui')
-        .style.display = 'none';
+    ui.style.display = 'none';
 
-    document.getElementById('hud')
-        .style.display = 'block';
+    hud.style.display = 'block';
 
     canvas.style.display = 'block';
 
     previous = performance.now();
-    accumulator = 0;
 
     requestAnimationFrame(tick);
 }
