@@ -1,70 +1,54 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DengiDermo P2P Roguelike</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">P2P roguelike prototype</p>
+        <h1>DengiDermo</h1>
+        <p class="subtitle">Комнаты через Render, игровые сообщения через WebRTC DataChannel.</p>
+      </section>
 
-    <title>nncckkrr.space</title>
+      <section class="panel grid">
+        <div>
+          <label>Имя игрока</label>
+          <input id="playerName" value="Player" maxlength="18" />
+        </div>
 
-    <link rel="stylesheet" href="./style.css?v=relay-debug">
-</head>
+        <div>
+          <label>Код комнаты</label>
+          <input id="roomCode" placeholder="Например ABC123" maxlength="12" />
+        </div>
 
-<body>
+        <button id="createRoom">Создать комнату</button>
+        <button id="joinRoom">Подключиться</button>
+      </section>
 
-<div id="mobile-only">only for pc</div>
+      <section class="panel status">
+        <div><span>Сервер:</span><b id="serverStatus">offline</b></div>
+        <div><span>Комната:</span><b id="roomStatus">—</b></div>
+        <div><span>Игрок:</span><b id="playerStatus">—</b></div>
+        <div><span>Роль:</span><b id="roleStatus">—</b></div>
+        <div><span>P2P:</span><b id="p2pStatus">closed</b></div>
+      </section>
 
-<div id="ui">
+      <section class="panel game-layout">
+        <canvas id="game" width="960" height="540"></canvas>
+        <aside>
+          <h2>Тест сети</h2>
+          <p>После подключения жми ping. Если сообщение прилетает во второй вкладке — P2P работает.</p>
+          <button id="sendPing">Send P2P Ping</button>
+          <button id="sendInput">Send Test Move</button>
+          <pre id="log"></pre>
+        </aside>
+      </section>
+    </main>
 
-    <h1>nncckkrr.space</h1>
-
-    <button id="btn-host">
-        Create Game
-    </button>
-
-    <input
-        type="text"
-        id="input-id"
-        placeholder="Host ID"
-    >
-
-    <button id="btn-join">
-        Join Game
-    </button>
-
-    <div id="status">
-
-    </div>
-
-</div>
-
-<div id="hud">
-
-    <div>
-        ROOM:
-        <span id="hud-id">-</span>
-    </div>
-
-    <div>
-        PLAYERS:
-        <span id="hud-count">1</span>
-    </div>
-
-    <div>
-        LEAVE:
-        <span>ESC</span>
-    </div>
-
-</div>
-
-<canvas
-    id="gameCanvas"
-    width="1280"
-    height="720"
-></canvas>
-
-<div id="version-label">relay debug version</div>
-
-<script type="module" src="./js/main.js?v=relay-debug"></script>
-
-</body>
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>
