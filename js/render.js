@@ -10,14 +10,16 @@ import {
 
 } from './constants.js';
 
-export function updateRenderPlayers() {
+export function updateRenderPlayers(myId) {
 
     for(let id in renderState.players) {
 
+        if(id === myId) continue;
+
         const p = renderState.players[id];
 
-        p.x += (p.tx - p.x) * 0.2;
-        p.y += (p.ty - p.y) * 0.2;
+        p.x += (p.tx - p.x) * 0.35;
+        p.y += (p.ty - p.y) * 0.35;
     }
 }
 
