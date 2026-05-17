@@ -8,7 +8,8 @@ export let myId = null;
 export const peers = {};
 
 const lastSeen = {};
-const PEER_TIMEOUT = 10000;
+const PEER_TIMEOUT = 15000;
+const CONNECT_TIMEOUT = 12000;
 
 const EMPTY_INPUT = {
     w:false,
@@ -26,25 +27,46 @@ const PEER_CONFIG = {
 
 function setStatus(text) {
     const el = document.getElementById('status');
-    if (el) el.innerText = text;
-}
 
-function updateHud() {
-    const count = document.getElementById('hud-count');
-    if(count) {
-        count.innerText = String(Object.keys(world.players).length);
+    if(el) {
+        el.innerText = text;
     }
+
+    console.log('[net]', text);
 }
 
 function setRoomId(id) {
-    const room = document.getElementById('hud-id');
-    if(room) {
-        room.innerText = id;
+    const el = document.getElementById('hud-id');
+
+    if(el) {
+        el.innerText = id;
+    }
+}
+
+function updateHud() {
+    const el = document.getElementById('hud-count');
+
+    if(el) {
+        el.innerText = String(Object.keys(world.players).length);
     }
 }
 
 function clonePlayers() {
     return JSON.parse(JSON.stringify(world.players));
+}
+
+function safeSend(conn, packet) {
+    if(!conn || !conn.open) {
+        return false;
+    }
+
+    try {
+        conn.send(packet);
+        return true;
+    } catch(e) {
+        console.error('[net] send failed', e);
+        return false;
+    }
 }
 
 function removeRemotePlayer(id) {
@@ -55,33 +77,33 @@ function removeRemotePlayer(id) {
 }
 
 function sendSnapshotTo(conn) {
-    if(!conn?.open) {
-        return;
-    }
-
-    conn.send({
+    safeSend(conn, {
         type: 'snapshot',
         players: clonePlayers()
     });
 }
 
 function handleHostPacket(conn, packet) {
-    lastSeen[conn.peer] = performance.now();
+    const id = conn.peer;
 
-    if(packet?.type === 'input') {
-        applyInput(conn.peer, packet.input || EMPTY_INPUT);
-        return;
-    }
+    lastSeen[id] = performance.now();
 
-    if(packet?.type === 'leave') {
-        removeRemotePlayer(conn.peer);
+    if(packet?.type === 'join') {
+        ensurePlayer(id);
+        sendSnapshotTo(conn);
         broadcastSnapshot();
         return;
     }
 
-    if(packet?.type === 'join') {
-        ensurePlayer(conn.peer);
+    if(packet?.type === 'input') {
+        applyInput(id, packet.input || EMPTY_INPUT);
         sendSnapshotTo(conn);
+        return;
+    }
+
+    if(packet?.type === 'leave') {
+        removeRemotePlayer(id);
+        broadcastSnapshot();
     }
 }
 
@@ -103,7 +125,7 @@ function cleanupTimedOutPlayers() {
 }
 
 function rejectWithPeerError(reject, err) {
-    console.error(err);
+    console.error('[net] peer error', err);
     setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
     reject(err);
 }
@@ -121,6 +143,7 @@ export function startHost() {
             myId = id;
             ensurePlayer(id);
             lastSeen[id] = performance.now();
+
             setRoomId(id);
             setStatus(`Room ID: ${id}`);
             updateHud();
@@ -130,14 +153,17 @@ export function startHost() {
         });
 
         peer.on('connection', conn => {
-            peers[conn.peer] = conn;
-            lastSeen[conn.peer] = performance.now();
-            ensurePlayer(conn.peer);
+            const id = conn.peer;
+
+            peers[id] = conn;
+            lastSeen[id] = performance.now();
+            ensurePlayer(id);
             updateHud();
 
             conn.on('open', () => {
-                lastSeen[conn.peer] = performance.now();
+                lastSeen[id] = performance.now();
                 sendSnapshotTo(conn);
+                broadcastSnapshot();
             });
 
             conn.on('data', packet => {
@@ -145,25 +171,26 @@ export function startHost() {
             });
 
             conn.on('close', () => {
-                removeRemotePlayer(conn.peer);
+                removeRemotePlayer(id);
                 broadcastSnapshot();
             });
 
-            conn.on('error', () => {
-                removeRemotePlayer(conn.peer);
+            conn.on('error', err => {
+                console.error('[net] connection error', err);
+                removeRemotePlayer(id);
                 broadcastSnapshot();
             });
 
-            sendSnapshotTo(conn);
         });
 
         peer.on('error', err => {
             if(!settled) {
+                settled = true;
                 rejectWithPeerError(reject, err);
                 return;
             }
 
-            console.error(err);
+            console.error('[net] peer error', err);
             setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
         });
     });
@@ -178,17 +205,42 @@ export function connectToHost(hostId) {
     return new Promise((resolve, reject) => {
         let settled = false;
 
+        const timeout = setTimeout(() => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            setStatus('Connection timeout');
+            reject(new Error('Connection timeout'));
+        }, CONNECT_TIMEOUT);
+
         peer.on('open', id => {
             myId = id;
             ensurePlayer(id);
-            setRoomId(hostId);
-            setStatus('Loading world...');
 
-            hostConnection = peer.connect(hostId, { reliable: true });
+            setRoomId(hostId);
+            setStatus('Connecting to host...');
+
+            hostConnection = peer.connect(hostId, {
+                reliable: true,
+                serialization: 'json'
+            });
 
             hostConnection.on('open', () => {
-                hostConnection.send({ type: 'join' });
-                hostConnection.send({ type: 'input', input: EMPTY_INPUT });
+                safeSend(hostConnection, { type: 'join' });
+                safeSend(hostConnection, { type: 'input', input: EMPTY_INPUT });
+
+                clearTimeout(timeout);
+
+                if(!settled) {
+                    settled = true;
+                    setStatus('Connected');
+                    resolve(hostId);
+                }
+
+                setTimeout(() => safeSend(hostConnection, { type: 'join' }), 300);
+                setTimeout(() => safeSend(hostConnection, { type: 'join' }), 1000);
             });
 
             hostConnection.on('data', packet => {
@@ -199,49 +251,50 @@ export function connectToHost(hostId) {
                 world.players = packet.players || {};
                 ensurePlayer(myId);
                 updateHud();
-
-                if(!settled) {
-                    settled = true;
-                    setStatus('Connected');
-                    resolve(hostId);
-                }
             });
 
             hostConnection.on('close', () => {
                 setStatus('Connection closed');
+
                 if(!settled) {
+                    clearTimeout(timeout);
                     settled = true;
                     reject(new Error('Connection closed'));
                 }
             });
 
             hostConnection.on('error', err => {
+                console.error('[net] host connection error', err);
+
                 if(!settled) {
+                    clearTimeout(timeout);
                     settled = true;
                     rejectWithPeerError(reject, err);
                     return;
                 }
 
-                console.error(err);
                 setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
             });
         });
 
         peer.on('error', err => {
             if(!settled) {
+                clearTimeout(timeout);
                 settled = true;
                 rejectWithPeerError(reject, err);
                 return;
             }
 
-            console.error(err);
+            console.error('[net] peer error', err);
             setStatus(`Connection error: ${err.type || err.message || 'unknown'}`);
         });
     });
 }
 
 export function sendInput(input) {
-    if(!myId) return;
+    if(!myId) {
+        return;
+    }
 
     const safeInput = input || EMPTY_INPUT;
 
@@ -251,16 +304,16 @@ export function sendInput(input) {
         return;
     }
 
-    if(hostConnection?.open) {
-        hostConnection.send({
-            type: 'input',
-            input: safeInput
-        });
-    }
+    safeSend(hostConnection, {
+        type: 'input',
+        input: safeInput
+    });
 }
 
 export function broadcastSnapshot() {
-    if(!isHost) return;
+    if(!isHost) {
+        return;
+    }
 
     cleanupTimedOutPlayers();
 
@@ -272,13 +325,11 @@ export function broadcastSnapshot() {
     for(const id in peers) {
         const conn = peers[id];
 
-        if(conn?.open) {
-            try {
-                conn.send(packet);
-            } catch(e) {
-                removeRemotePlayer(id);
-            }
-        } else {
+        if(!conn?.open) {
+            continue;
+        }
+
+        if(!safeSend(conn, packet)) {
             removeRemotePlayer(id);
         }
     }
@@ -288,9 +339,7 @@ export function broadcastSnapshot() {
 
 export function leaveGame() {
     if(!isHost && hostConnection?.open) {
-        try {
-            hostConnection.send({ type: 'leave' });
-        } catch(e) {}
+        safeSend(hostConnection, { type: 'leave' });
     }
 
     try {
