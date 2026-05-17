@@ -23,6 +23,8 @@ export function createGameState(roomId) {
     locationIndex: 0,
     locationId: location.id,
     locationName: location.name,
+    biomeId: location.biomeId,
+    biomeName: location.biomeName,
     locationTime: 0,
     portalReadyAt: location.portalDelay,
     portalHold: location.portalHold,
@@ -104,7 +106,10 @@ export function makeSnapshot(state) {
       name: state.locationName || location.name,
       index: state.locationIndex || 0,
       time: Number((state.locationTime || 0).toFixed(2)),
-      accent: location.accent || "green"
+      accent: location.accent || "green",
+      biomeId: location.biomeId || "grid",
+      biomeName: location.biomeName || "BLACK GRID",
+      gridStep: location.gridStep || 80
     },
     players: Object.values(state.players).map((p) => ({
       id: p.id,

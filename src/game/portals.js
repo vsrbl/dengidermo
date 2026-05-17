@@ -15,6 +15,8 @@ export function initLocation(state, index = 0) {
   state.locationIndex = index;
   state.locationId = loc.id;
   state.locationName = loc.name;
+  state.biomeId = loc.biomeId;
+  state.biomeName = loc.biomeName;
   state.locationTime = 0;
   state.portalReadyAt = loc.portalDelay;
   state.portalHold = loc.portalHold;
@@ -37,7 +39,7 @@ export function createExitPortal(state) {
     radius: PORTAL_RADIUS,
     active: false,
     progress: 0,
-    targetIndex: (state.locationIndex || 0) + 1
+    targetIndex: currentLocation(state).portalTargetIndex ?? ((state.locationIndex || 0) + 1)
   };
   return state.portals[id];
 }
@@ -52,9 +54,10 @@ function clearLocationObjects(state) {
 }
 
 export function moveTeamToNextLocation(state) {
-  const nextIndex = (state.locationIndex || 0) + 1;
+  const loc = currentLocation(state);
+  const nextIndex = loc.portalTargetIndex ?? ((state.locationIndex || 0) + 1);
   clearLocationObjects(state);
-  const loc = initLocation(state, nextIndex);
+  const nextLoc = initLocation(state, nextIndex);
 
   const ids = Object.keys(state.players).sort();
   for (const [index, id] of ids.entries()) {
@@ -72,8 +75,9 @@ export function moveTeamToNextLocation(state) {
 
   pushEvent(state, {
     type: "location",
-    locationId: loc.id,
-    locationName: loc.name,
+    locationId: nextLoc.id,
+    locationName: nextLoc.name,
+    biomeId: nextLoc.biomeId,
     x: CENTER.x,
     y: CENTER.y
   });

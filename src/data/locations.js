@@ -1,42 +1,50 @@
-export const LOCATIONS = [
-  {
-    id: "grid-00",
-    name: "GRID 00",
-    accent: "green",
-    enemyPool: ["grunt", "runner"],
-    portalDelay: 5,
-    portalHold: 1.1,
-    spawnBoost: 1
-  },
-  {
-    id: "void-01",
-    name: "VOID 01",
-    accent: "white",
-    enemyPool: ["runner", "shooter", "grunt"],
-    portalDelay: 7,
-    portalHold: 1.15,
-    spawnBoost: 1.2
-  },
-  {
-    id: "core-02",
-    name: "CORE 02",
-    accent: "green",
-    enemyPool: ["runner", "tank", "shooter"],
-    portalDelay: 8,
-    portalHold: 1.2,
-    spawnBoost: 1.45
-  },
-  {
-    id: "boss-03",
-    name: "BOSS 03",
-    accent: "green",
-    enemyPool: ["tank", "shooter", "boss"],
-    portalDelay: 10,
-    portalHold: 1.25,
-    spawnBoost: 1.8
-  }
-];
+import { getBiome } from "./biomes.js";
+import { getRoom, ROOM_SEQUENCE } from "./rooms.js";
+
+function mergeSpawn(biome, room) {
+  return {
+    ...(biome.spawn || {}),
+    ...(room.spawn || {})
+  };
+}
+
+function mergeBoss(biome, room) {
+  return {
+    ...(biome.boss || {}),
+    ...(room.boss || {})
+  };
+}
+
+export function buildLocation(room, index = 0) {
+  const biome = getBiome(room.biome);
+  const spawn = mergeSpawn(biome, room);
+  const boss = mergeBoss(biome, room);
+  const portalDelay = room.portal?.delay ?? room.portalDelay ?? biome.portalDelay ?? 6;
+  const portalHold = room.portal?.hold ?? room.portalHold ?? biome.portalHold ?? 1.15;
+  const boost = (biome.spawnBoost ?? 1) * (spawn.boost ?? room.spawnBoost ?? 1);
+
+  return {
+    id: room.id,
+    name: room.name,
+    index,
+    biomeId: biome.id,
+    biomeName: biome.name,
+    accent: room.accent || biome.accent || "green",
+    gridStep: room.gridStep || biome.gridStep || 80,
+    enemyPool: room.enemyPool || biome.enemyPool || ["grunt"],
+    lootPool: room.lootPool || biome.lootPool || ["heal"],
+    portalDelay,
+    portalHold,
+    portalTargetIndex: room.portal?.targetIndex ?? index + 1,
+    spawnBoost: boost,
+    spawn,
+    boss
+  };
+}
 
 export function getLocation(index = 0) {
-  return LOCATIONS[((index % LOCATIONS.length) + LOCATIONS.length) % LOCATIONS.length];
+  const safeIndex = ((index % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length;
+  return buildLocation(getRoom(safeIndex), safeIndex);
 }
+
+export { ROOM_SEQUENCE as LOCATIONS };

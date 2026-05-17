@@ -82,7 +82,7 @@ function drawGrid(ctx, cam, location = null) {
   const greenLoc = location?.accent === "green";
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.055)" : "rgba(255,255,255,0.055)";
   ctx.lineWidth = 1;
-  const step = 80;
+  const step = location?.gridStep || 80;
   const startX = -((cam.x % step + step) % step);
   const startY = -((cam.y % step + step) % step);
   for (let x = startX; x < VIEW.w; x += step) {

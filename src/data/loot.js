@@ -36,11 +36,13 @@ export const LOOT = {
   }
 };
 
-export function weightedLoot(rng) {
-  const entries = Object.entries(LOOT);
-  const total = entries.reduce((sum, [, item]) => sum + item.weight, 0);
+export function weightedLoot(rng, pool = null) {
+  const allowed = Array.isArray(pool) && pool.length ? new Set(pool) : null;
+  const entries = Object.entries(LOOT).filter(([id]) => !allowed || allowed.has(id));
+  const safeEntries = entries.length ? entries : Object.entries(LOOT);
+  const total = safeEntries.reduce((sum, [, item]) => sum + item.weight, 0);
   let roll = rng.range(0, total);
-  for (const [id, item] of entries) {
+  for (const [id, item] of safeEntries) {
     roll -= item.weight;
     if (roll <= 0) return id;
   }

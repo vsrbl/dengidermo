@@ -53,24 +53,38 @@ export function updateSpawner(state, dt) {
 
   const loc = currentLocation(state);
   const locTime = state.locationTime || 0;
+  const spawn = loc.spawn || {};
+  const boss = loc.boss || {};
 
-  if (!state.bossSpawned && locTime > 20 && ((state.locationIndex || 0) % 4 === 3 || locTime > 36)) {
+  if (!state.bossSpawned && boss.enabled && locTime >= (boss.spawnAt ?? 12)) {
     state.bossSpawned = true;
-    spawnEnemy(state, "boss", WORLD.w / 2, 180);
-    pushEvent(state, { type: "boss", x: WORLD.w / 2, y: 180 });
+    const x = Number.isFinite(boss.x) ? boss.x : WORLD.w / 2;
+    const y = Number.isFinite(boss.y) ? boss.y : 180;
+    spawnEnemy(state, boss.kind || "boss", x, y);
+    pushEvent(state, { type: "boss", x, y });
   }
 
-  const cap = Math.floor((24 + playerCount * 8 + Math.min(18, Math.floor(locTime / 18))) * (loc.spawnBoost || 1));
+  const capBase = spawn.capBase ?? 24;
+  const capPerPlayer = spawn.capPerPlayer ?? 8;
+  const capGrowthTime = spawn.capGrowthTime ?? 18;
+  const capGrowthMax = spawn.capGrowthMax ?? 18;
+  const capGrowth = Math.min(capGrowthMax, Math.floor(locTime / Math.max(1, capGrowthTime)));
+  const cap = Math.floor((capBase + playerCount * capPerPlayer + capGrowth) * (loc.spawnBoost || 1));
   if (enemyCount >= cap || state.spawnTimer > 0) return;
 
-  const batch = 2 + Math.floor(locTime / 35) + playerCount;
+  const batchBase = spawn.batchBase ?? 2;
+  const batchGrowthTime = spawn.batchGrowthTime ?? 35;
+  const batch = batchBase + Math.floor(locTime / Math.max(1, batchGrowthTime)) + playerCount;
   const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
   for (let i = 0; i < batch; i += 1) {
     const kind = state.rng.pick(pool);
     spawnEnemy(state, kind);
   }
   state.wave += 1;
-  state.spawnTimer = Math.max(0.45, 2.2 - locTime * 0.006);
+  const intervalBase = spawn.intervalBase ?? 2.2;
+  const intervalMin = spawn.intervalMin ?? 0.45;
+  const intervalScale = spawn.intervalScale ?? 0.006;
+  state.spawnTimer = Math.max(intervalMin, intervalBase - locTime * intervalScale);
 }
 
 export function updateEnemies(state, dt) {

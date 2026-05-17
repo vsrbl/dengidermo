@@ -1,12 +1,14 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
+import { getLocation } from "../data/locations.js";
 import { nextId, pushEvent } from "./state.js";
 import { giveWeapon } from "./inventory.js";
 
 export function dropLoot(state, x, y, chance = 0.28) {
   if (state.rng.next() > chance) return;
-  const kind = weightedLoot(state.rng);
+  const loc = getLocation(state.locationIndex || 0);
+  const kind = weightedLoot(state.rng, loc.lootPool);
   const data = LOOT[kind];
   const id = nextId("loot");
   state.loot[id] = {
