@@ -1,6 +1,7 @@
 import {
 
-    NET_TICK
+    NET_TICK,
+    PHYSICS_TICK
 
 } from './constants.js';
 
@@ -82,22 +83,33 @@ hudId.addEventListener('click', async () => {
 
     if(!id || id === '-') return;
 
-    await navigator.clipboard.writeText(id);
+    try {
 
-    const oldText = hudId.innerText;
+        await navigator.clipboard.writeText(id);
 
-    hudId.innerText = 'COPIED';
+        const oldText = hudId.innerText;
 
-    setTimeout(() => {
+        hudId.innerText = 'COPIED';
 
-        hudId.innerText = oldText;
+        setTimeout(() => {
 
-    }, 1000);
+            hudId.innerText = oldText;
+
+        }, 1000);
+
+    } catch(err) {
+
+        console.error(err);
+    }
 });
+
+let lastFrame = performance.now();
+
+let accumulator = 0;
 
 let lastNetTick = 0;
 
-function loop(timestamp) {
+function updatePhysics() {
 
     if(isHost) {
 
@@ -109,7 +121,8 @@ function loop(timestamp) {
             movePlayer(
                 me,
                 input,
-                canvas
+                canvas,
+                1
             );
 
             renderState.players[myId].x =
@@ -125,19 +138,41 @@ function loop(timestamp) {
                 me.y;
         }
     }
+}
+
+function updateNetwork() {
+
+    if(isHost) {
+
+        sendSnapshot();
+
+    } else if(hostConnection?.open) {
+
+        hostConnection.send(input);
+    }
+}
+
+function loop(timestamp) {
+
+    const deltaMs =
+        timestamp - lastFrame;
+
+    lastFrame = timestamp;
+
+    accumulator += deltaMs;
+
+    while(accumulator >= PHYSICS_TICK) {
+
+        updatePhysics();
+
+        accumulator -= PHYSICS_TICK;
+    }
 
     if(timestamp - lastNetTick >= NET_TICK) {
 
         lastNetTick = timestamp;
 
-        if(isHost) {
-
-            sendSnapshot();
-
-        } else if(hostConnection?.open) {
-
-            hostConnection.send(input);
-        }
+        updateNetwork();
     }
 
     updateRenderPlayers(myId);
