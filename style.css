@@ -45,7 +45,7 @@ button, input {
   background-size: 18px 18px;
 }
 
-.hidden { display: none; }
+.hidden { display: none !important; }
 
 .panel {
   width: min(360px, calc(100vw - 36px));
@@ -119,12 +119,21 @@ button:active {
   border-color: var(--green);
 }
 
+.menu-screen {
+  background:
+    linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px),
+    #050505;
+  background-size: 18px 18px;
+}
+
 .game-screen {
-  --bar: clamp(92px, 13vh, 156px);
+  --bar: clamp(104px, 14vh, 172px);
+  --bars: calc(var(--bar) * 2);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: var(--bar) 0;
   overflow: hidden;
   background: #000;
 }
@@ -146,8 +155,7 @@ button:active {
 
 #screen {
   width: 100vw;
-  height: auto;
-  aspect-ratio: 16 / 9;
+  height: calc(100vh - var(--bars));
   max-width: none;
   max-height: none;
   flex: 0 0 auto;
@@ -237,14 +245,14 @@ button:active {
 }
 
 @media (max-width: 640px) {
-  .game-screen { --bar: 72px; }
+  .game-screen { --bar: 80px; }
   .hud-right { display: none; }
   .hud-left { width: 210px; }
   .title { font-size: 18px; }
 }
 
 @media (max-height: 520px) {
-  .game-screen { --bar: 54px; }
+  .game-screen { --bar: 48px; }
   .esc-hint { display: none; }
 }
 
