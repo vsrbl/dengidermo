@@ -63,11 +63,21 @@ function send(packet) {
 
 function connectSocket() {
     return new Promise((resolve, reject) => {
+        let settled = false;
+
+        setStatus('Opening relay connection...');
+
         const ws = new WebSocket(RELAY_URL);
         socket = ws;
 
         const timeout = setTimeout(() => {
-            reject(new Error('Connection timeout'));
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            setStatus('Relay timeout. Is Render deployed?');
+            reject(new Error('Relay timeout. Check Render deploy.'));
 
             try {
                 ws.close();
@@ -75,13 +85,36 @@ function connectSocket() {
         }, CONNECT_TIMEOUT);
 
         ws.onopen = () => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
             clearTimeout(timeout);
+            setStatus('Relay connected');
             resolve(ws);
         };
 
         ws.onerror = () => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
             clearTimeout(timeout);
-            reject(new Error('Relay connection failed'));
+            setStatus('Relay connection failed. Check Render.');
+            reject(new Error('Relay connection failed. Check Render.'));
+        };
+
+        ws.onclose = () => {
+            if(settled) {
+                return;
+            }
+
+            settled = true;
+            clearTimeout(timeout);
+            setStatus('Relay closed before connect');
+            reject(new Error('Relay closed before connect.'));
         };
     });
 }
@@ -181,9 +214,13 @@ export async function startHost() {
             setStatus('Connection closed');
         };
 
-        send({
+        if(!send({
             type: 'host'
-        });
+        })) {
+            clearTimeout(timeout);
+            settled = true;
+            reject(new Error('Could not send host request.'));
+        }
     });
 }
 
@@ -251,10 +288,14 @@ export async function connectToHost(roomId) {
             setStatus('Connection closed');
         };
 
-        send({
+        if(!send({
             type: 'join',
             roomId
-        });
+        })) {
+            clearTimeout(timeout);
+            settled = true;
+            reject(new Error('Could not send join request.'));
+        }
     });
 }
 

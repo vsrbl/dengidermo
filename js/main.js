@@ -154,7 +154,7 @@ hostButton.onclick = async () => {
     } catch(e) {
         console.error(e);
         setMenuLocked(false);
-        setMenuStatus(e?.message || 'Could not create room.');
+        setMenuStatus(e?.message || 'Could not create room. Check Render.');
     }
 };
 
@@ -179,7 +179,7 @@ joinButton.onclick = async () => {
     } catch(e) {
         console.error(e);
         setMenuLocked(false);
-        setMenuStatus(e?.message || 'Could not connect.');
+        setMenuStatus(e?.message || 'Could not connect. Check Room ID / Render.');
     }
 };
 

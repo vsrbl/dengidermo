@@ -80,7 +80,7 @@ const server = http.createServer((req, res) => {
         'Access-Control-Allow-Origin': '*'
     });
 
-    res.end('nncckkrr.space relay server');
+    res.end('nncckkrr.space relay server: debug button fix');
 });
 
 const wss = new WebSocketServer({
