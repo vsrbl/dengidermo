@@ -45,6 +45,8 @@ export function addPlayer(state, playerId, index = 0) {
     y: p.y,
     vx: 0,
     vy: 0,
+    kx: 0,
+    ky: 0,
     angle: 0,
     hp: PLAYER_HP,
     maxHp: PLAYER_HP,
@@ -69,6 +71,8 @@ export function respawnPlayer(player, index = 0) {
   player.y = p.y;
   player.vx = 0;
   player.vy = 0;
+  player.kx = 0;
+  player.ky = 0;
   player.hp = player.maxHp;
   player.deadTimer = 0;
 }
@@ -84,13 +88,15 @@ export function makeSnapshot(state) {
     time: Number(state.time.toFixed(3)),
     players: Object.values(state.players).map((p) => ({
       id: p.id,
-      x: Math.round(p.x),
-      y: Math.round(p.y),
+      x: Number(p.x.toFixed(1)),
+      y: Number(p.y.toFixed(1)),
       angle: Number(p.angle.toFixed(3)),
       hp: Math.max(0, Math.round(p.hp)),
       maxHp: p.maxHp,
       weapon: p.weapon,
-      skin: p.skin
+      skin: p.skin,
+      vx: Number((p.vx || 0).toFixed(1)),
+      vy: Number((p.vy || 0).toFixed(1))
     })),
     enemies: Object.values(state.enemies).map((e) => ({
       id: e.id,
@@ -104,10 +110,10 @@ export function makeSnapshot(state) {
       ownerId: p.ownerId,
       weaponId: p.weaponId,
       kind: p.kind,
-      x: Math.round(p.x),
-      y: Math.round(p.y),
-      vx: Math.round(p.vx),
-      vy: Math.round(p.vy),
+      x: Number(p.x.toFixed(1)),
+      y: Number(p.y.toFixed(1)),
+      vx: Number(p.vx.toFixed(1)),
+      vy: Number(p.vy.toFixed(1)),
       radius: p.radius,
       color: p.color
     })),
@@ -117,7 +123,7 @@ export function makeSnapshot(state) {
       x: Math.round(l.x),
       y: Math.round(l.y)
     })),
-    effects: state.effects.slice(-18).map((e) => ({ ...e })),
+    effects: state.effects.slice(-48).map((e) => ({ ...e })),
     events: state.events.slice(-16).map((e) => ({ ...e }))
   };
 }

@@ -1,4 +1,5 @@
 import { VERSION, MAX_PLAYERS } from "./core/constants.js";
+import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 
 export function createUi() {
   const el = {
@@ -54,7 +55,7 @@ export function createUi() {
       return;
     }
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
-    el.weaponText.textContent = (player.weapon || "pistol").toUpperCase();
+    el.weaponText.textContent = (WEAPONS[player.weapon]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
   }
 
   el.roomTitle.addEventListener("click", async () => {

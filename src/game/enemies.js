@@ -35,6 +35,8 @@ export function spawnEnemy(state, kind, x = null, y = null) {
     y,
     vx: 0,
     vy: 0,
+    kx: 0,
+    ky: 0,
     hp: data.hp,
     maxHp: data.hp,
     radius: data.radius,
@@ -78,17 +80,24 @@ export function updateEnemies(state, dt) {
     const dir = norm(dx, dy);
     let speed = data.speed;
     if (data.behavior === "ranged" && d < 300) speed *= -0.45;
-    enemy.vx = dir.x * speed;
-    enemy.vy = dir.y * speed;
-    enemy.x = clamp(enemy.x + enemy.vx * dt, enemy.radius, WORLD.w - enemy.radius);
-    enemy.y = clamp(enemy.y + enemy.vy * dt, enemy.radius, WORLD.h - enemy.radius);
+
+    const targetVx = dir.x * speed;
+    const targetVy = dir.y * speed;
+    const t = 1 - Math.exp(-8 * dt);
+    enemy.vx += (targetVx - enemy.vx) * t;
+    enemy.vy += (targetVy - enemy.vy) * t;
+    enemy.kx = (enemy.kx || 0) * Math.exp(-6.8 * dt);
+    enemy.ky = (enemy.ky || 0) * Math.exp(-6.8 * dt);
+
+    enemy.x = clamp(enemy.x + (enemy.vx + (enemy.kx || 0)) * dt, enemy.radius, WORLD.w - enemy.radius);
+    enemy.y = clamp(enemy.y + (enemy.vy + (enemy.ky || 0)) * dt, enemy.radius, WORLD.h - enemy.radius);
 
     const touchR = enemy.radius + target.radius;
     if (dist2(enemy.x, enemy.y, target.x, target.y) <= touchR * touchR) {
       target.hp -= data.damage * dt;
       const push = norm(target.x - enemy.x, target.y - enemy.y);
-      target.x = clamp(target.x + push.x * 80 * dt, target.radius, WORLD.w - target.radius);
-      target.y = clamp(target.y + push.y * 80 * dt, target.radius, WORLD.h - target.radius);
+      target.kx = (target.kx || 0) + push.x * 70;
+      target.ky = (target.ky || 0) + push.y * 70;
     }
   }
 }

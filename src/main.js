@@ -3,9 +3,9 @@ import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
 import { createRenderer, makePredictedProjectile, render, updatePredictedProjectiles } from "./renderer.js";
 import { Transport } from "./net/transport.js";
-import { INPUT_RATE, SNAPSHOT_RATE, VERSION, WORLD } from "./core/constants.js";
+import { GAME_SPEED, INPUT_RATE, SNAPSHOT_RATE, VERSION, WORLD } from "./core/constants.js";
 import { clamp } from "./core/math.js";
-import { WEAPONS } from "./data/weapons.js";
+import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "./game/state.js";
 import { fireWeapon } from "./game/combat.js";
 import { emptyInput, makeShootPayload, movePlayer, updateHostWorld } from "./game/simulation.js";
@@ -30,7 +30,7 @@ let hostState = null;
 let hostInputs = Object.create(null);
 let snapshot = null;
 let localPose = null;
-let localWeapon = "pistol";
+let localWeapon = START_WEAPON;
 let predictedProjectiles = [];
 let localNextFireAt = 0;
 let fireSeq = 0;
@@ -94,6 +94,7 @@ function handleReady(info) {
   predictedProjectiles = [];
   localNextFireAt = 0;
   fireSeq = 0;
+  localWeapon = START_WEAPON;
   camera.ready = false;
   input.resetKeys();
 
@@ -107,7 +108,7 @@ function handleReady(info) {
     snapshot = null;
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, weapon: "pistol", skin: index % 2 ? "green" : "default" };
+    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, weapon: START_WEAPON, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
@@ -172,13 +173,18 @@ function handleNetData(msg, from, mode) {
 function syncLocalFromSnapshot() {
   const me = snapshot?.players?.find((p) => p.id === playerId);
   if (!me) return;
-  localWeapon = me.weapon || localWeapon;
+  const oldWeapon = localWeapon;
   if (!localPose) {
-    localPose = { ...me, vx: 0, vy: 0, radius: 13 };
+    localWeapon = me.weapon || START_WEAPON;
+    localPose = { ...me, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
     return;
   }
   localPose.hp = me.hp;
   localPose.maxHp = me.maxHp;
+  if (me.weapon && me.weapon !== oldWeapon) {
+    localWeapon = me.weapon;
+    localNextFireAt = 0;
+  }
   localPose.weapon = me.weapon;
   localPose.skin = me.skin;
   const dx = me.x - localPose.x;
@@ -203,22 +209,29 @@ function currentLocalPlayerFromSnapshot() {
   return snapshot?.players?.find((p) => p.id === playerId) || localPose;
 }
 
+function applyLocalRecoil(pose, weapon, angle) {
+  if (!pose || !weapon?.recoil) return;
+  pose.kx = (pose.kx || 0) - Math.cos(angle) * weapon.recoil;
+  pose.ky = (pose.ky || 0) - Math.sin(angle) * weapon.recoil;
+}
+
 function tryLocalShoot(nowSec, inputState) {
   if (!localPose || !inputState.fire) return;
-  const weaponId = localWeapon || localPose.weapon || "pistol";
-  const weapon = WEAPONS[weaponId] || WEAPONS.pistol;
+  const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.weapon] ? localPose.weapon : START_WEAPON);
+  const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   if (nowSec < localNextFireAt) return;
   localNextFireAt = nowSec + 1 / weapon.fireRate;
   fireSeq += 1;
   localPose.angle = inputState.aimAngle;
   const payload = makeShootPayload(playerId, localPose, weaponId, fireSeq);
   const baseId = `${playerId}-${fireSeq}`;
-  predictedProjectiles.push(makePredictedProjectile(baseId, playerId, weaponId, localPose));
+  predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose));
+  if (role === "guest") applyLocalRecoil(localPose, weapon, inputState.aimAngle);
   if (role === "host") fireWeapon(hostState, playerId, payload);
   else transport?.sendToHost({ t: "shoot", shoot: payload });
 }
 
-function updateHost(dt, now) {
+function updateHost(dt, now, gameNow) {
   ensureHostPlayers();
   const inputState = input.sample(localPose || hostState.players[playerId], camera);
   const me = hostState.players[playerId];
@@ -226,7 +239,8 @@ function updateHost(dt, now) {
   inputState.px = Math.round(me.x);
   inputState.py = Math.round(me.y);
   hostInputs[playerId] = inputState;
-  tryLocalShoot(now / 1000, inputState);
+  localWeapon = me.weapon || START_WEAPON;
+  tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
   snapshot = makeSnapshot(hostState);
 
@@ -236,7 +250,7 @@ function updateHost(dt, now) {
   }
 }
 
-function updateGuest(dt, now) {
+function updateGuest(dt, now, gameNow) {
   if (!localPose) return;
   const inputState = input.sample(localPose, camera);
   movePlayer(localPose, inputState, dt);
@@ -245,7 +259,7 @@ function updateGuest(dt, now) {
   localPose.y = clamp(localPose.y, localPose.radius, WORLD.h - localPose.radius);
   inputState.px = Math.round(localPose.x);
   inputState.py = Math.round(localPose.y);
-  tryLocalShoot(now / 1000, inputState);
+  tryLocalShoot(gameNow, inputState);
 
   if (now - lastInputSent > 1000 / INPUT_RATE) {
     lastInputSent = now;
@@ -261,13 +275,15 @@ function updateHud() {
 
 function loop(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000 || 0.016);
+  const gameDt = Math.min(0.05, dt * GAME_SPEED);
+  const gameNow = (now / 1000) * GAME_SPEED;
   lastFrame = now;
 
   if (running) {
     transport?.tickPing(now);
-    if (role === "host" && hostState) updateHost(dt, now);
-    if (role === "guest") updateGuest(dt, now);
-    predictedProjectiles = updatePredictedProjectiles(predictedProjectiles, dt);
+    if (role === "host" && hostState) updateHost(gameDt, now, gameNow);
+    if (role === "guest") updateGuest(gameDt, now, gameNow);
+    predictedProjectiles = updatePredictedProjectiles(predictedProjectiles, gameDt);
     updateCamera(camera, localPose || currentLocalPlayerFromSnapshot(), dt);
     render(renderer, snapshot, localPose, playerId, camera, input.mouse, predictedProjectiles, dt);
     updateHud();

@@ -1,6 +1,6 @@
 import { angleToVec, clamp } from "../core/math.js";
 import { WORLD } from "../core/constants.js";
-import { WEAPONS } from "../data/weapons.js";
+import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { makeProjectile } from "./projectiles.js";
 import { pushEvent } from "./state.js";
 
@@ -12,11 +12,11 @@ export function fireWeapon(state, playerId, payload = {}) {
   const player = state.players[playerId];
   if (!player) return false;
 
-  const weaponId = player.weapon || "pistol";
-  const weapon = WEAPONS[weaponId] || WEAPONS.pistol;
+  const weaponId = WEAPONS[player.weapon] ? player.weapon : START_WEAPON;
+  const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   if (!canFire(player, weapon, state.time)) return false;
 
-  const originMax = 110;
+  const originMax = 120;
   let x = Number.isFinite(payload.x) ? payload.x : player.x;
   let y = Number.isFinite(payload.y) ? payload.y : player.y;
   const dx = x - player.x;
@@ -29,20 +29,26 @@ export function fireWeapon(state, playerId, payload = {}) {
   y = clamp(y, 0, WORLD.h);
 
   const angle = Number.isFinite(payload.angle) ? payload.angle : player.angle;
+  const dir = angleToVec(angle);
   const seq = payload.fireSeq || Math.floor(state.time * 1000);
   const pellets = weapon.pellets || 1;
   const baseId = `${playerId}-${seq}`;
 
+  player.kx = (player.kx || 0) - dir.x * (weapon.recoil || 0);
+  player.ky = (player.ky || 0) - dir.y * (weapon.recoil || 0);
+
   for (let i = 0; i < pellets; i += 1) {
     const offset = pellets === 1 ? 0 : (i - (pellets - 1) / 2) * weapon.spread;
+    const pelletAngle = angle + offset;
+    const pelletDir = angleToVec(pelletAngle);
     const pelletId = pellets === 1 ? baseId : `${baseId}-${i}`;
     state.projectiles[pelletId] = makeProjectile({
       id: pelletId,
       ownerId: playerId,
       weaponId,
-      x: x + angleToVec(angle + offset).x * (player.radius + 4),
-      y: y + angleToVec(angle + offset).y * (player.radius + 4),
-      angle: angle + offset,
+      x: x + pelletDir.x * (player.radius + weapon.radius + 1),
+      y: y + pelletDir.y * (player.radius + weapon.radius + 1),
+      angle: pelletAngle,
       pelletIndex: i
     });
   }

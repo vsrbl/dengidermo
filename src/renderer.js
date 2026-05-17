@@ -1,6 +1,6 @@
 import { GREEN, VIEW, WORLD } from "./core/constants.js";
 import { isVisible, lerp } from "./core/math.js";
-import { WEAPONS } from "./data/weapons.js";
+import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { ENEMIES } from "./data/enemies.js";
 import { LOOT } from "./data/loot.js";
 
@@ -57,8 +57,8 @@ function smoothProjectile(map, obj, dt, snapshotTick) {
   }
 
   if (old._tick !== snapshotTick) {
-    old.x = lerp(old.x, obj.x, 0.55);
-    old.y = lerp(old.y, obj.y, 0.55);
+    old.x = lerp(old.x, obj.x, 0.82);
+    old.y = lerp(old.y, obj.y, 0.82);
     old._tick = snapshotTick;
     for (const k of Object.keys(obj)) {
       if (k !== "x" && k !== "y") old[k] = obj[k];
@@ -127,6 +127,21 @@ function drawProjectile(ctx, p, cam) {
   const s = screen(p, cam);
   const color = p.color === "green" ? GREEN : "#fff";
   const r = p.radius || 3;
+  const vx = p.vx || 0;
+  const vy = p.vy || 0;
+  const speed = Math.hypot(vx, vy) || 1;
+  const tx = -(vx / speed) * Math.min(22, speed * 0.026);
+  const ty = -(vy / speed) * Math.min(22, speed * 0.026);
+
+  if (p.kind === "rocket" || p.kind === "homing") {
+    ctx.strokeStyle = "rgba(0,255,102,0.45)";
+    ctx.lineWidth = p.kind === "rocket" ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x + tx), Math.round(s.y + ty));
+    ctx.lineTo(Math.round(s.x), Math.round(s.y));
+    ctx.stroke();
+  }
+
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
 }
 
@@ -140,11 +155,32 @@ function drawLoot(ctx, item, cam) {
 }
 
 function drawEffect(ctx, fx, cam) {
+  const life = Math.max(0, fx.life || 0);
+  const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.2);
+  const age = maxLife - life;
+
+  if (fx.type === "spark") {
+    const x = fx.x + (fx.vx || 0) * age;
+    const y = fx.y + (fx.vy || 0) * age;
+    const s = screen({ x, y }, cam);
+    const size = Math.max(2, Math.round(5 * (life / maxLife)));
+    drawRect(ctx, s.x - size / 2, s.y - size / 2, size, size, fx.color || GREEN);
+    return;
+  }
+
   if (fx.type !== "explosion") return;
   const s = screen(fx, cam);
+  const t = 1 - life / maxLife;
+  const r = fx.r * (0.35 + t * 0.85);
   ctx.strokeStyle = GREEN;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(Math.round(s.x - fx.r), Math.round(s.y - fx.r), Math.round(fx.r * 2), Math.round(fx.r * 2));
+  ctx.lineWidth = Math.max(1, Math.round(4 * (life / maxLife)));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(s.x - r * 1.2), Math.round(s.y));
+  ctx.lineTo(Math.round(s.x + r * 1.2), Math.round(s.y));
+  ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 1.2));
+  ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 1.2));
+  ctx.stroke();
 }
 
 function drawPredictedProjectiles(ctx, projectiles, cam) {
@@ -227,21 +263,30 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
 }
 
 export function makePredictedProjectile(id, playerId, weaponId, pose) {
-  const weapon = WEAPONS[weaponId] || WEAPONS.pistol;
-  return {
-    id,
-    ownerId: playerId,
-    weaponId,
-    kind: weapon.projectile,
-    x: pose.x + Math.cos(pose.angle) * 17,
-    y: pose.y + Math.sin(pose.angle) * 17,
-    vx: Math.cos(pose.angle) * weapon.bulletSpeed,
-    vy: Math.sin(pose.angle) * weapon.bulletSpeed,
-    speed: weapon.bulletSpeed,
-    radius: weapon.radius,
-    color: weapon.color,
-    life: Math.min(0.35, weapon.range / weapon.bulletSpeed)
-  };
+  const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
+  const pellets = weapon.pellets || 1;
+  const out = [];
+  for (let i = 0; i < pellets; i += 1) {
+    const offset = pellets === 1 ? 0 : (i - (pellets - 1) / 2) * weapon.spread;
+    const angle = pose.angle + offset;
+    const vx = Math.cos(angle) * weapon.bulletSpeed;
+    const vy = Math.sin(angle) * weapon.bulletSpeed;
+    out.push({
+      id: `${id}${pellets === 1 ? "" : `-${i}`}:local`,
+      ownerId: playerId,
+      weaponId,
+      kind: weapon.projectile,
+      x: pose.x + Math.cos(angle) * (pose.radius + weapon.radius + 1),
+      y: pose.y + Math.sin(angle) * (pose.radius + weapon.radius + 1),
+      vx,
+      vy,
+      speed: weapon.bulletSpeed,
+      radius: weapon.radius,
+      color: weapon.color,
+      life: weapon.projectile === "bullet" ? 0.11 : 0.16
+    });
+  }
+  return out;
 }
 
 export function updatePredictedProjectiles(projectiles, dt) {

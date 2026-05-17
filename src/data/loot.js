@@ -5,31 +5,13 @@ export const LOOT = {
     amount: 30,
     radius: 10,
     color: "green",
-    weight: 5
-  },
-
-  smg: {
-    name: "SMG",
-    type: "weapon",
-    weaponId: "smg",
-    radius: 11,
-    color: "green",
-    weight: 2
+    weight: 6
   },
 
   shotgun: {
     name: "SHOTGUN",
     type: "weapon",
     weaponId: "shotgun",
-    radius: 11,
-    color: "green",
-    weight: 2
-  },
-
-  rail: {
-    name: "RAIL",
-    type: "weapon",
-    weaponId: "rail",
     radius: 11,
     color: "green",
     weight: 1
@@ -41,16 +23,16 @@ export const LOOT = {
     weaponId: "seeker",
     radius: 11,
     color: "green",
-    weight: 1
+    weight: 3
   },
 
   rocket: {
-    name: "ROCKET",
+    name: "ROCKETGUN",
     type: "weapon",
     weaponId: "rocket",
     radius: 11,
     color: "green",
-    weight: 1
+    weight: 2
   }
 };
 

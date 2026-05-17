@@ -1,4 +1,4 @@
-import { PLAYER_HP, PLAYER_SPEED, WORLD } from "../core/constants.js";
+import { PLAYER_ACCEL, PLAYER_FRICTION, PLAYER_HP, PLAYER_SPEED, WORLD } from "../core/constants.js";
 import { clamp, norm, vecToAngle } from "../core/math.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
@@ -9,21 +9,32 @@ export function emptyInput() {
   return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false, px: null, py: null };
 }
 
+function smoothFactor(rate, dt) {
+  return 1 - Math.exp(-rate * dt);
+}
+
 export function movePlayer(player, input, dt) {
   const xAxis = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const yAxis = (input.down ? 1 : 0) - (input.up ? 1 : 0);
   const d = norm(xAxis, yAxis);
   const moving = xAxis || yAxis;
-  player.vx = moving ? d.x * PLAYER_SPEED : 0;
-  player.vy = moving ? d.y * PLAYER_SPEED : 0;
-  player.x = clamp(player.x + player.vx * dt, player.radius, WORLD.w - player.radius);
-  player.y = clamp(player.y + player.vy * dt, player.radius, WORLD.h - player.radius);
+  const targetVx = moving ? d.x * PLAYER_SPEED : 0;
+  const targetVy = moving ? d.y * PLAYER_SPEED : 0;
+  const t = smoothFactor(moving ? PLAYER_ACCEL : PLAYER_FRICTION, dt);
+
+  player.vx += (targetVx - player.vx) * t;
+  player.vy += (targetVy - player.vy) * t;
+  player.kx = (player.kx || 0) * Math.exp(-12 * dt);
+  player.ky = (player.ky || 0) * Math.exp(-12 * dt);
+
+  player.x = clamp(player.x + (player.vx + (player.kx || 0)) * dt, player.radius, WORLD.w - player.radius);
+  player.y = clamp(player.y + (player.vy + (player.ky || 0)) * dt, player.radius, WORLD.h - player.radius);
   if (Number.isFinite(input.aimAngle)) player.angle = input.aimAngle;
 }
 
 export function acceptClientPose(player, input, dt) {
   if (!Number.isFinite(input.px) || !Number.isFinite(input.py)) return;
-  const maxDrift = 42 + PLAYER_SPEED * dt * 2.2;
+  const maxDrift = 48 + PLAYER_SPEED * dt * 2.8;
   const dx = input.px - player.x;
   const dy = input.py - player.y;
   const d2 = dx * dx + dy * dy;

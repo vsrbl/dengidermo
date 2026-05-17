@@ -1,93 +1,63 @@
 export const WEAPONS = {
-  pistol: {
-    name: "PISTOL",
-    projectile: "bullet",
-    fireRate: 5.5,
-    damage: 14,
-    bulletSpeed: 760,
-    range: 760,
-    pellets: 1,
-    spread: 0,
-    radius: 4,
-    color: "white",
-    effects: []
-  },
-
-  smg: {
-    name: "SMG",
-    projectile: "bullet",
-    fireRate: 13,
-    damage: 7,
-    bulletSpeed: 720,
-    range: 650,
-    pellets: 1,
-    spread: 0.04,
-    radius: 3,
-    color: "white",
-    effects: []
-  },
-
   shotgun: {
     name: "SHOTGUN",
     projectile: "bullet",
-    fireRate: 2.2,
+    fireRate: 2.7,
     damage: 9,
-    bulletSpeed: 690,
-    range: 430,
-    pellets: 6,
-    spread: 0.34,
+    bulletSpeed: 820,
+    range: 470,
+    pellets: 7,
+    spread: 0.38,
     radius: 4,
     color: "white",
-    effects: []
-  },
-
-  rail: {
-    name: "RAIL",
-    projectile: "bullet",
-    fireRate: 1.5,
-    damage: 42,
-    bulletSpeed: 1120,
-    range: 980,
-    pellets: 1,
-    spread: 0,
-    radius: 5,
-    color: "white",
-    effects: [{ type: "pierce", count: 2 }]
+    recoil: 48,
+    knockback: 170,
+    hitPadding: 4,
+    effects: [
+      { type: "spark", count: 2 }
+    ]
   },
 
   seeker: {
     name: "SEEKER",
     projectile: "homing",
-    fireRate: 1.8,
-    damage: 20,
-    bulletSpeed: 470,
-    range: 860,
+    fireRate: 1.7,
+    damage: 18,
+    bulletSpeed: 560,
+    range: 980,
     pellets: 1,
     spread: 0,
     radius: 5,
     color: "green",
+    recoil: 36,
+    knockback: 160,
+    hitPadding: 7,
     effects: [
-      { type: "homing", strength: 7.5, target: "nearestEnemy" }
+      { type: "homing", strength: 11, acquireRange: 760, target: "nearestEnemy" },
+      { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" }
     ]
   },
 
   rocket: {
-    name: "ROCKET",
+    name: "ROCKETGUN",
     projectile: "rocket",
-    fireRate: 0.95,
-    damage: 18,
-    bulletSpeed: 430,
-    range: 720,
+    fireRate: 0.82,
+    damage: 28,
+    bulletSpeed: 540,
+    range: 900,
     pellets: 1,
     spread: 0,
-    radius: 6,
+    radius: 7,
     color: "green",
+    recoil: 112,
+    knockback: 320,
+    hitPadding: 8,
     effects: [
-      { type: "explode", radius: 90, damage: 36 },
-      { type: "screenShake", power: 5 }
+      { type: "explode", radius: 128, damage: 56, force: 460, visual: "large" },
+      { type: "screenShake", power: 7 }
     ]
   }
 };
 
-export const START_WEAPON = "pistol";
+export const START_WEAPON = "shotgun";
 export const WEAPON_IDS = Object.keys(WEAPONS);
