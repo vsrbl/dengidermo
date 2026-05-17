@@ -11,7 +11,7 @@
     "build": "echo \"static site: no build step\""
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "dependencies": {
     "ws": "^8.18.0"
