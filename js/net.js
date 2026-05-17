@@ -55,7 +55,7 @@ export function startHost() {
 
     peer.on('error', err => {
         console.error(err);
-        setStatus(`Ошибка PeerJS: ${err.type || err.message}`);
+        setStatus(`Error PeerJS: ${err.type || err.message}`);
     });
 }
 
@@ -71,7 +71,7 @@ export function connectToHost(hostId) {
         hostConnection = peer.connect(hostId, { reliable: true });
 
         hostConnection.on('open', () => {
-            setStatus('Подключено');
+            setStatus('Connectedо');
         });
 
         hostConnection.on('data', packet => {
@@ -88,7 +88,7 @@ export function connectToHost(hostId) {
 
     peer.on('error', err => {
         console.error(err);
-        setStatus(`Ошибка PeerJS: ${err.type || err.message}`);
+        setStatus(`Error PeerJS: ${err.type || err.message}`);
     });
 }
 
