@@ -157,3 +157,15 @@ canvas {
         display: none !important;
     }
 }
+
+body.mobile-blocked #mobile-only {
+
+    display: flex !important;
+}
+
+body.mobile-blocked #ui,
+body.mobile-blocked #hud,
+body.mobile-blocked canvas {
+
+    display: none !important;
+}

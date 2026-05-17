@@ -36,6 +36,19 @@ import {
 
 } from './net.js';
 
+
+const isMobileDevice =
+    window.matchMedia('(hover: none), (pointer: coarse), (max-width: 900px)').matches ||
+    navigator.maxTouchPoints > 0 ||
+    /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+if(isMobileDevice) {
+
+    document.body.classList.add('mobile-blocked');
+
+    throw new Error('only for pc');
+}
+
 const canvas =
     document.getElementById('gameCanvas');
 
