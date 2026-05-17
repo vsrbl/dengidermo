@@ -65,11 +65,26 @@ function sendSnapshotTo(conn) {
     });
 }
 
+function sendWelcomeTo(conn) {
+    if(!conn?.open) {
+        return;
+    }
+
+    ensurePlayer(conn.peer);
+
+    conn.send({
+        type: 'welcome',
+        yourId: conn.peer,
+        players: clonePlayers()
+    });
+}
+
 function handleHostPacket(conn, packet) {
     lastSeen[conn.peer] = performance.now();
 
     if(packet?.type === 'input') {
         applyInput(conn.peer, packet.input || EMPTY_INPUT);
+        sendSnapshotTo(conn);
         return;
     }
 
@@ -81,7 +96,8 @@ function handleHostPacket(conn, packet) {
 
     if(packet?.type === 'join') {
         ensurePlayer(conn.peer);
-        sendSnapshotTo(conn);
+        sendWelcomeTo(conn);
+        broadcastSnapshot();
     }
 }
 
@@ -137,7 +153,8 @@ export function startHost() {
 
             conn.on('open', () => {
                 lastSeen[conn.peer] = performance.now();
-                sendSnapshotTo(conn);
+                sendWelcomeTo(conn);
+                broadcastSnapshot();
             });
 
             conn.on('data', packet => {
@@ -154,7 +171,6 @@ export function startHost() {
                 broadcastSnapshot();
             });
 
-            sendSnapshotTo(conn);
         });
 
         peer.on('error', err => {
@@ -188,25 +204,42 @@ export function connectToHost(hostId) {
             hostConnection.on('open', () => {
                 hostConnection.send({ type: 'join' });
                 hostConnection.send({ type: 'input', input: EMPTY_INPUT });
+
+                setTimeout(() => {
+                    if(!settled && hostConnection?.open) {
+                        hostConnection.send({ type: 'join' });
+                        hostConnection.send({ type: 'input', input: EMPTY_INPUT });
+                    }
+                }, 1000);
             });
 
             hostConnection.on('data', packet => {
-                if(packet?.type !== 'snapshot') {
+                if(packet?.type !== 'snapshot' && packet?.type !== 'welcome') {
                     return;
+                }
+
+                if(packet.type === 'welcome' && packet.yourId) {
+                    myId = packet.yourId;
                 }
 
                 world.players = packet.players || {};
                 updateHud();
 
-                if(!world.players[myId]) {
-                    setStatus('Loading world...');
-                    return;
-                }
-
-                if(!settled) {
+                if(packet.type === 'welcome' && world.players[myId] && !settled) {
                     settled = true;
                     setStatus('Connected');
                     resolve(hostId);
+                    return;
+                }
+
+                if(packet.type === 'snapshot' && !settled) {
+                    if(world.players[myId]) {
+                        settled = true;
+                        setStatus('Connected');
+                        resolve(hostId);
+                    } else {
+                        setStatus('Loading world...');
+                    }
                 }
             });
 

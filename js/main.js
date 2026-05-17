@@ -76,6 +76,9 @@ const roomInput =
 
 setupInput();
 
+window.addEventListener('keydown', sendCurrentInput);
+window.addEventListener('keyup', sendCurrentInput);
+
 function setMenuStatus(text) {
     statusEl.innerText = text;
 }
@@ -192,6 +195,31 @@ let lastNetworkTick = 0;
 
 let gameStarted = false;
 
+let hostUpdateTimer = null;
+
+function runHostUpdate() {
+
+    if(!isHost) {
+        return;
+    }
+
+    sendInput(input);
+    simulateWorld(FIXED_DELTA);
+    broadcastSnapshot();
+}
+
+function startHostUpdateLoop() {
+
+    if(!isHost || hostUpdateTimer) {
+        return;
+    }
+
+    hostUpdateTimer = setInterval(
+        runHostUpdate,
+        Math.max(1, Math.round(PHYSICS_RATE))
+    );
+}
+
 function tick(now) {
 
     const frameTime =
@@ -203,11 +231,9 @@ function tick(now) {
 
     while(accumulator >= PHYSICS_RATE) {
 
-        sendInput(input);
+        if(!isHost) {
 
-        if(isHost) {
-
-            simulateWorld(FIXED_DELTA);
+            sendInput(input);
         }
 
         accumulator -= PHYSICS_RATE;
@@ -216,11 +242,6 @@ function tick(now) {
     if(now - lastNetworkTick >= NETWORK_RATE) {
 
         lastNetworkTick = now;
-
-        if(isHost) {
-
-            broadcastSnapshot();
-        }
     }
 
     updateRenderState();
@@ -245,6 +266,8 @@ function start() {
     canvas.style.display = 'block';
 
     previous = performance.now();
+
+    startHostUpdateLoop();
 
     requestAnimationFrame(tick);
 }
