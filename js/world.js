@@ -34,8 +34,8 @@ export function movePlayer(p, input, canvas) {
 
         const len = Math.hypot(dx, dy);
 
-        p.x += (dx / len) * PLAYER_SPEED;
-        p.y += (dy / len) * PLAYER_SPEED;
+        p.x += (dx / len) * PLAYER_SPEED * delta;
+        p.y += (dy / len) * PLAYER_SPEED * delta;
     }
 
     p.x = Math.max(
