@@ -1,19 +1,19 @@
 import {
 
     PLAYER_SPEED,
-    PLAYER_SIZE,
+    PLAYER_RADIUS,
     WORLD_WIDTH,
     WORLD_HEIGHT
 
 } from './constants.js';
 
-import {
+import { world } from './entities.js';
 
-    world
+export function ensurePlayer(id) {
 
-} from './entities.js';
-
-export function createPlayer(id) {
+    if(world.players[id]) {
+        return world.players[id];
+    }
 
     world.players[id] = {
 
@@ -28,11 +28,15 @@ export function createPlayer(id) {
             d:false
         }
     };
+
+    return world.players[id];
 }
 
-export function applyInput(player, input) {
+export function applyInput(id, input) {
 
-    player.input = {
+    const p = ensurePlayer(id);
+
+    p.input = {
 
         w: !!input.w,
         a: !!input.a,
@@ -41,43 +45,45 @@ export function applyInput(player, input) {
     };
 }
 
-export function movePlayer(
-    player,
-    delta
-) {
-
-    const input = player.input;
+export function simulatePlayer(player, dt) {
 
     let dx = 0;
     let dy = 0;
 
-    if(input.w) dy--;
-    if(input.s) dy++;
-    if(input.a) dx--;
-    if(input.d) dx++;
+    if(player.input.w) dy--;
+    if(player.input.s) dy++;
+    if(player.input.a) dx--;
+    if(player.input.d) dx++;
 
-    if(dx || dy) {
+    if(dx !== 0 || dy !== 0) {
 
         const len = Math.hypot(dx, dy);
 
-        player.x +=
-            (dx / len) *
-            PLAYER_SPEED *
-            delta;
+        dx /= len;
+        dy /= len;
 
-        player.y +=
-            (dy / len) *
-            PLAYER_SPEED *
-            delta;
+        player.x += dx * PLAYER_SPEED * dt;
+        player.y += dy * PLAYER_SPEED * dt;
     }
 
     player.x = Math.max(
-        PLAYER_SIZE,
-        Math.min(WORLD_WIDTH - PLAYER_SIZE, player.x)
+        PLAYER_RADIUS,
+        Math.min(WORLD_WIDTH - PLAYER_RADIUS, player.x)
     );
 
     player.y = Math.max(
-        PLAYER_SIZE,
-        Math.min(WORLD_HEIGHT - PLAYER_SIZE, player.y)
+        PLAYER_RADIUS,
+        Math.min(WORLD_HEIGHT - PLAYER_RADIUS, player.y)
     );
+}
+
+export function simulateWorld(dt) {
+
+    for(const id in world.players) {
+
+        simulatePlayer(
+            world.players[id],
+            dt
+        );
+    }
 }

@@ -7,30 +7,30 @@ import {
 
 import {
 
-    createPlayer,
+    ensurePlayer,
     applyInput
 
 } from './world.js';
+
+export let peer = null;
+
+export let hostConnection = null;
 
 export let isHost = false;
 
 export let myId = null;
 
-export let hostConnection = null;
-
-export let connections = {};
-
-let peer = null;
+export const peers = {};
 
 const PEER_CONFIG = {
 
-    host: 'dengidermo-1.onrender.com',
+    host:'dengidermo-1.onrender.com',
 
-    secure: true,
+    secure:true,
 
-    port: 443,
+    port:443,
 
-    path: '/myapp'
+    path:'/myapp'
 };
 
 export function startHost() {
@@ -43,74 +43,35 @@ export function startHost() {
 
         myId = id;
 
-        createPlayer(id);
-
-        const p = world.players[id];
-
-        renderState.players[id] = {
-
-            x:p.x,
-            y:p.y,
-
-            tx:p.x,
-            ty:p.y
-        };
+        ensurePlayer(id);
 
         document.getElementById('hud-id')
             .innerText = id;
-
-        document.getElementById('hud-count')
-            .innerText = '1';
     });
 
     peer.on('connection', conn => {
 
-        connections[conn.peer] = conn;
+        peers[conn.peer] = conn;
 
-        createPlayer(conn.peer);
+        ensurePlayer(conn.peer);
 
-        const p = world.players[conn.peer];
+        conn.on('data', packet => {
 
-        renderState.players[conn.peer] = {
-
-            x:p.x,
-            y:p.y,
-
-            tx:p.x,
-            ty:p.y
-        };
-
-        document.getElementById('hud-count')
-            .innerText =
-            Object.keys(world.players).length;
-
-        conn.on('data', data => {
-
-            if(data.type !== 'input')
+            if(packet.type !== 'input') {
                 return;
-
-            const player =
-                world.players[conn.peer];
-
-            if(!player) return;
+            }
 
             applyInput(
-                player,
-                data.input
+                conn.peer,
+                packet.input
             );
         });
 
         conn.on('close', () => {
 
-            delete connections[conn.peer];
-
+            delete peers[conn.peer];
             delete world.players[conn.peer];
-
             delete renderState.players[conn.peer];
-
-            document.getElementById('hud-count')
-                .innerText =
-                Object.keys(world.players).length;
         });
     });
 }
@@ -123,22 +84,7 @@ export function connectToHost(hostId) {
 
         myId = id;
 
-        renderState.players[id] = {
-
-            x:640,
-            y:360,
-
-            tx:640,
-            ty:360,
-
-            input: {
-
-                w:false,
-                a:false,
-                s:false,
-                d:false
-            }
-        };
+        ensurePlayer(id);
 
         hostConnection =
             peer.connect(hostId);
@@ -151,70 +97,78 @@ export function connectToHost(hostId) {
 
         hostConnection.on('data', packet => {
 
-            document.getElementById('hud-count')
-                .innerText = packet.playerCount;
+            if(packet.type !== 'snapshot') {
+                return;
+            }
 
-            for(let id in packet.players) {
+            for(const id in packet.players) {
 
-                const p = packet.players[id];
+                const incoming =
+                    packet.players[id];
 
-                if(!renderState.players[id]) {
+                ensurePlayer(id);
 
-                    renderState.players[id] = {
+                if(id === myId) {
 
-                        x:p.x,
-                        y:p.y,
+                    world.players[id].x =
+                        world.players[id].x * 0.5 +
+                        incoming.x * 0.5;
 
-                        tx:p.x,
-                        ty:p.y
-                    };
+                    world.players[id].y =
+                        world.players[id].y * 0.5 +
+                        incoming.y * 0.5;
+
+                    continue;
                 }
 
-                renderState.players[id].tx = p.x;
-                renderState.players[id].ty = p.y;
-
-                if(id !== myId) continue;
-
-                renderState.players[id].x +=
-                    (p.x - renderState.players[id].x) * 0.35;
-
-                renderState.players[id].y +=
-                    (p.y - renderState.players[id].y) * 0.35;
+                world.players[id].x = incoming.x;
+                world.players[id].y = incoming.y;
             }
         });
     });
 }
 
-export function sendSnapshot() {
+export function sendInput(input) {
 
-    const players = {};
+    if(isHost) {
+        applyInput(myId, input);
+        return;
+    }
+
+    if(!hostConnection?.open) {
+        return;
+    }
+
+    hostConnection.send({
+
+        type:'input',
+        input
+    });
+}
+
+export function broadcastSnapshot() {
+
+    const snapshot = {
+
+        type:'snapshot',
+
+        players:{}
+    };
 
     for(const id in world.players) {
 
-        const p = world.players[id];
+        snapshot.players[id] = {
 
-        players[id] = {
-
-            x:p.x,
-            y:p.y
+            x:world.players[id].x,
+            y:world.players[id].y
         };
     }
 
-    const packet = {
+    for(const id in peers) {
 
-        players,
+        if(peers[id].open) {
 
-        playerCount:
-            Object.keys(world.players).length
-    };
-
-    for(let id in connections) {
-
-        const conn = connections[id];
-
-        if(conn.open) {
-
-            conn.send(packet);
+            peers[id].send(snapshot);
         }
     }
 }

@@ -1,64 +1,56 @@
 import {
 
-    renderState
+    renderState,
+    world
 
 } from './entities.js';
 
-import {
+export function updateRenderState() {
 
-    PLAYER_SIZE
+    for(const id in world.players) {
 
-} from './constants.js';
+        const p = world.players[id];
 
-export function updateRenderPlayers(myId) {
+        if(!renderState.players[id]) {
 
-    for(let id in renderState.players) {
+            renderState.players[id] = {
 
-        if(id === myId) continue;
+                x:p.x,
+                y:p.y
+            };
+        }
 
-        const p = renderState.players[id];
+        renderState.players[id].x +=
+            (p.x - renderState.players[id].x) * 0.35;
 
-        p.x += (p.tx - p.x) * 0.18;
-        p.y += (p.ty - p.y) * 0.18;
+        renderState.players[id].y +=
+            (p.y - renderState.players[id].y) * 0.35;
     }
 }
 
-export function draw(ctx, canvas, myId) {
+export function draw(ctx, canvas) {
 
-    ctx.fillStyle = '#000';
-
-    ctx.fillRect(
+    ctx.clearRect(
         0,
         0,
         canvas.width,
         canvas.height
     );
 
-    for(let id in renderState.players) {
+    for(const id in renderState.players) {
 
         const p = renderState.players[id];
 
-        if(id === myId) {
+        ctx.beginPath();
 
-            ctx.fillStyle = '#fff';
+        ctx.arc(
+            p.x,
+            p.y,
+            10,
+            0,
+            Math.PI * 2
+        );
 
-            ctx.fillRect(
-                p.x - PLAYER_SIZE,
-                p.y - PLAYER_SIZE,
-                PLAYER_SIZE * 2,
-                PLAYER_SIZE * 2
-            );
-
-        } else {
-
-            ctx.strokeStyle = '#fff';
-
-            ctx.strokeRect(
-                p.x - PLAYER_SIZE,
-                p.y - PLAYER_SIZE,
-                PLAYER_SIZE * 2,
-                PLAYER_SIZE * 2
-            );
-        }
+        ctx.fill();
     }
 }

@@ -1,5 +1,4 @@
 export const input = {
-
     w:false,
     a:false,
     s:false,
@@ -10,21 +9,45 @@ export function setupInput() {
 
     window.addEventListener('keydown', e => {
 
-        const k = e.key.toLowerCase();
+        switch(e.code) {
 
-        if(input.hasOwnProperty(k)) {
+            case 'KeyW':
+                input.w = true;
+                break;
 
-            input[k] = true;
+            case 'KeyA':
+                input.a = true;
+                break;
+
+            case 'KeyS':
+                input.s = true;
+                break;
+
+            case 'KeyD':
+                input.d = true;
+                break;
         }
     });
 
     window.addEventListener('keyup', e => {
 
-        const k = e.key.toLowerCase();
+        switch(e.code) {
 
-        if(input.hasOwnProperty(k)) {
+            case 'KeyW':
+                input.w = false;
+                break;
 
-            input[k] = false;
+            case 'KeyA':
+                input.a = false;
+                break;
+
+            case 'KeyS':
+                input.s = false;
+                break;
+
+            case 'KeyD':
+                input.d = false;
+                break;
         }
     });
 }

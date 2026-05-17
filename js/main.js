@@ -1,47 +1,38 @@
 import {
 
-    NET_TICK,
-    PHYSICS_TICK,
+    PHYSICS_RATE,
+    NETWORK_RATE,
     FIXED_DELTA
 
 } from './constants.js';
 
 import {
 
-    input,
-    setupInput
+    setupInput,
+    input
 
 } from './input.js';
 
 import {
 
-    renderState,
-    world
-
-} from './entities.js';
-
-import {
-
-    applyInput,
-    movePlayer
+    simulateWorld
 
 } from './world.js';
 
 import {
 
-    updateRenderPlayers,
+    updateRenderState,
     draw
 
 } from './render.js';
 
 import {
 
+    sendInput,
+    broadcastSnapshot,
     startHost,
     connectToHost,
-    sendSnapshot,
-    isHost,
-    hostConnection,
-    myId
+    isHost
 
 } from './net.js';
 
@@ -58,7 +49,7 @@ document.getElementById('btn-host')
 
     startHost();
 
-    startGame();
+    start();
 };
 
 document.getElementById('btn-join')
@@ -69,151 +60,58 @@ document.getElementById('btn-join')
         .value
         .trim();
 
-    if(!hostId) return;
+    if(!hostId) {
+        return;
+    }
 
     connectToHost(hostId);
 
-    startGame();
+    start();
 };
-
-const hudId =
-    document.getElementById('hud-id');
-
-hudId.addEventListener('click', async () => {
-
-    const id = hudId.innerText;
-
-    if(!id || id === '-') return;
-
-    try {
-
-        await navigator.clipboard.writeText(id);
-
-        const oldText = hudId.innerText;
-
-        hudId.innerText = 'COPIED';
-
-        setTimeout(() => {
-
-            hudId.innerText = oldText;
-
-        }, 1000);
-
-    } catch(err) {
-
-        console.error(err);
-    }
-});
-
-let lastFrame = performance.now();
 
 let accumulator = 0;
 
-let lastNetTick = 0;
+let previous =
+    performance.now();
 
-function updatePhysics() {
+let lastNetworkTick = 0;
 
-    if(isHost) {
+function tick(now) {
 
-        for(const id in world.players) {
+    const frameTime =
+        now - previous;
 
-            movePlayer(
-                world.players[id],
-                FIXED_DELTA
-            );
+    previous = now;
 
-            const p =
-                world.players[id];
+    accumulator += frameTime;
 
-            if(!renderState.players[id]) {
+    while(accumulator >= PHYSICS_RATE) {
 
-                renderState.players[id] = {
+        sendInput(input);
 
-                    x:p.x,
-                    y:p.y,
+        simulateWorld(FIXED_DELTA);
 
-                    tx:p.x,
-                    ty:p.y
-                };
-            }
+        accumulator -= PHYSICS_RATE;
+    }
 
-            renderState.players[id].tx = p.x;
-            renderState.players[id].ty = p.y;
+    if(now - lastNetworkTick >= NETWORK_RATE) {
 
-            if(id === myId) {
+        lastNetworkTick = now;
 
-                renderState.players[id].x = p.x;
-                renderState.players[id].y = p.y;
-            }
-        }
+        if(isHost) {
 
-    } else {
-
-        const me =
-            renderState.players[myId];
-
-        if(me) {
-
-            applyInput(me, input);
-
-            movePlayer(
-                me,
-                FIXED_DELTA
-            );
+            broadcastSnapshot();
         }
     }
+
+    updateRenderState();
+
+    draw(ctx, canvas);
+
+    requestAnimationFrame(tick);
 }
 
-function updateNetwork() {
-
-    if(isHost) {
-
-        sendSnapshot();
-
-    } else if(hostConnection?.open) {
-
-        hostConnection.send({
-            type:'input',
-            input
-        });
-    }
-}
-
-function loop(timestamp) {
-
-    const deltaMs =
-        timestamp - lastFrame;
-
-    lastFrame = timestamp;
-
-    accumulator += deltaMs;
-
-    while(accumulator >= PHYSICS_TICK) {
-
-        updatePhysics();
-
-        accumulator -= PHYSICS_TICK;
-    }
-
-    if(timestamp - lastNetTick >= NET_TICK) {
-
-        lastNetTick = timestamp;
-
-        updateNetwork();
-    }
-
-    updateRenderPlayers(myId);
-
-    draw(
-        ctx,
-        canvas,
-        myId
-    );
-
-    requestAnimationFrame(loop);
-}
-
-function startGame() {
+function start() {
 
     document.getElementById('ui')
         .style.display = 'none';
@@ -223,5 +121,5 @@ function startGame() {
 
     canvas.style.display = 'block';
 
-    requestAnimationFrame(loop);
+    requestAnimationFrame(tick);
 }
