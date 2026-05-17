@@ -128,40 +128,26 @@ button:active {
 }
 
 .game-screen {
-  --bar: clamp(96px, 14vh, 168px);
-  display: flex;
+  /*
+    Real cinematic frame, not an overlay:
+    black bars are layout rows, and the canvas lives only between them.
+  */
+  --play-h: calc(100vw * 27 / 64);
+  --bar: max(0px, calc((100vh - var(--play-h)) / 2));
+  display: grid;
+  grid-template-rows: var(--bar) var(--play-h) var(--bar);
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   overflow: hidden;
   background: #000;
 }
 
-.game-screen::before,
-.game-screen::after {
-  content: "";
-  position: fixed;
-  left: 0;
-  right: 0;
-  height: var(--bar);
-  background: #000;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.game-screen::before { top: 0; }
-.game-screen::after { bottom: 0; }
-
 #screen {
-  /*
-    Cinematic viewport: full user width.
-    The canvas keeps 64:27 while the internal VIEW is 20% zoomed out.
-  */
+  grid-row: 2;
   width: 100vw;
-  height: auto;
-  aspect-ratio: 64 / 27;
+  height: var(--play-h);
   max-width: none;
   max-height: none;
-  flex: 0 0 auto;
   background: #050505;
   image-rendering: pixelated;
   cursor: none;
@@ -248,14 +234,12 @@ button:active {
 }
 
 @media (max-width: 640px) {
-  .game-screen { --bar: 80px; }
   .hud-right { display: none; }
   .hud-left { width: 210px; }
   .title { font-size: 18px; }
 }
 
 @media (max-height: 520px) {
-  .game-screen { --bar: 48px; }
   .esc-hint { display: none; }
 }
 
