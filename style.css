@@ -119,3 +119,41 @@ canvas {
 
     image-rendering: pixelated;
 }
+
+#mobile-only {
+
+    display: none;
+
+    position: fixed;
+
+    inset: 0;
+
+    background: #000;
+
+    color: #fff;
+
+    z-index: 100;
+
+    justify-content: center;
+
+    align-items: center;
+
+    font-size: 32px;
+
+    text-transform: uppercase;
+}
+
+@media (hover: none) and (pointer: coarse), (max-width: 768px) {
+
+    #mobile-only {
+
+        display: flex;
+    }
+
+    #ui,
+    #hud,
+    canvas {
+
+        display: none !important;
+    }
+}

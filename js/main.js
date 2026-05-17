@@ -44,6 +44,39 @@ const ctx =
 
 setupInput();
 
+document.getElementById('hud-id')
+.onclick = async () => {
+
+    const roomId =
+        document.getElementById('hud-id')
+        .innerText
+        .trim();
+
+    if(!roomId || roomId === '-') {
+        return;
+    }
+
+    if(navigator.clipboard) {
+
+        await navigator.clipboard.writeText(roomId);
+
+        return;
+    }
+
+    const textarea =
+        document.createElement('textarea');
+
+    textarea.value = roomId;
+
+    document.body.appendChild(textarea);
+
+    textarea.select();
+
+    document.execCommand('copy');
+
+    textarea.remove();
+};
+
 document.getElementById('btn-host')
 .onclick = () => {
 
