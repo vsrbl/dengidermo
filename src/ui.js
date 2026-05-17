@@ -70,6 +70,7 @@ export function createUi() {
   function setUpgradeMenu(choices = [], pending = false) {
     const list = Array.isArray(choices) ? choices : [];
     upgradeOpen = list.length > 0;
+    if (!upgradeOpen) upgradeHovered = false;
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
     el.upgradePanel.classList.toggle("pending", !!pending);
     el.upgradeButtons.forEach((btn, index) => {
@@ -99,7 +100,7 @@ export function createUi() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!upgradeOpen || !upgradeHovered) return;
+      if (!upgradeOpen) return;
       upgradePickHandler?.(index);
     });
   });

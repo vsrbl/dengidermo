@@ -38,6 +38,7 @@ let localWeapon = START_WEAPON;
 let localInventory = createInventory([START_WEAPON]);
 let localUpgradeChoices = [];
 let upgradePickPending = false;
+let upgradePendingAt = 0;
 let predictedProjectiles = [];
 let localCooldowns = Object.create(null);
 let localLocationId = null;
@@ -164,6 +165,7 @@ function handleReady(info) {
   localInventory = createInventory([START_WEAPON]);
   localUpgradeChoices = [];
   upgradePickPending = false;
+  upgradePendingAt = 0;
   ui.setUpgradeMenu([]);
   camera.ready = false;
   input.resetKeys();
@@ -221,6 +223,7 @@ function leaveGame() {
   localInventory = createInventory([START_WEAPON]);
   localUpgradeChoices = [];
   upgradePickPending = false;
+  upgradePendingAt = 0;
   ui.setUpgradeMenu([]);
   localCooldowns = Object.create(null);
   localLocationId = null;
@@ -281,8 +284,11 @@ function syncLocalFromSnapshot() {
   const oldWeapon = localWeapon;
   if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [...(me.inventory.passives || [])] };
   localUpgradeChoices = Array.isArray(me.upgrades?.choices) ? [...me.upgrades.choices] : [];
-  if (!localUpgradeChoices.length) upgradePickPending = false;
-  ui.setUpgradeMenu(localUpgradeChoices, upgradePickPending);
+  if (!localUpgradeChoices.length) {
+    upgradePickPending = false;
+    upgradePendingAt = 0;
+  }
+  ui.setUpgradeMenu(upgradePickPending ? [] : localUpgradeChoices, false);
   if (!localPose) {
     localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
     localPose = { ...me, inventory: localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
@@ -342,9 +348,18 @@ function applyUpgradeRequest(id, request = {}) {
 function requestUpgradeChoice(index) {
   if (!running || upgradePickPending || !localUpgradeChoices[index]) return;
   upgradePickPending = true;
-  ui.setUpgradeMenu(localUpgradeChoices, true);
+  upgradePendingAt = performance.now();
+  const pickedChoices = [...localUpgradeChoices];
+  localUpgradeChoices = [];
+  ui.setUpgradeMenu([]);
   if (role === "host") {
-    applyUpgradeRequest(playerId, { index });
+    const ok = applyUpgradeRequest(playerId, { index });
+    if (!ok) {
+      upgradePickPending = false;
+      upgradePendingAt = 0;
+      localUpgradeChoices = pickedChoices;
+      ui.setUpgradeMenu(localUpgradeChoices);
+    }
     return;
   }
   transport?.sendToHost({ t: "upgrade", index });
@@ -416,8 +431,11 @@ function updateHost(dt, now, gameNow) {
   hostInputs[playerId] = inputState;
   localInventory = ensureInventory(me);
   localUpgradeChoices = Array.isArray(me.upgrades?.choices) ? [...me.upgrades.choices] : [];
-  if (!localUpgradeChoices.length) upgradePickPending = false;
-  ui.setUpgradeMenu(localUpgradeChoices, upgradePickPending);
+  if (!localUpgradeChoices.length) {
+    upgradePickPending = false;
+    upgradePendingAt = 0;
+  }
+  ui.setUpgradeMenu(upgradePickPending ? [] : localUpgradeChoices, false);
   localWeapon = getActiveWeaponId(me);
   tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
@@ -472,6 +490,10 @@ function loop(now) {
   lastFrame = now;
 
   if (running) {
+    if (upgradePickPending && upgradePendingAt && now - upgradePendingAt > 2500) {
+      upgradePickPending = false;
+      upgradePendingAt = 0;
+    }
     transport?.tickPing(now);
     if (role === "host" && hostState) updateHost(gameDt, now, gameNow);
     if (role === "guest") updateGuest(gameDt, now, gameNow);

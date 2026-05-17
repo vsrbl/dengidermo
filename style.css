@@ -237,7 +237,7 @@ button:active {
   .hud-right { display: none; }
   .hud-left { width: 210px; }
   .title { font-size: 18px; }
-  .upgrade-panel { grid-template-columns: 1fr; top: 10px; width: min(420px, calc(100vw - 36px)); }
+  .upgrade-panel { grid-template-columns: 1fr; grid-template-rows: auto repeat(3, minmax(54px, 1fr)); top: 10px; width: min(420px, calc(100vw - 36px)); min-width: 0; min-height: 220px; }
   .upgrade-title { grid-column: 1; }
 }
 
@@ -264,11 +264,13 @@ button:active {
   left: 50%;
   top: 12px;
   transform: translateX(-50%);
-  width: min(560px, calc(100vw - 560px));
-  min-width: 360px;
+  width: min(620px, calc(100vw - 560px));
+  min-width: 390px;
+  min-height: 132px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
   padding: 10px 12px;
   border: 1px solid rgba(0,255,102,0.72);
   background: rgba(0,0,0,0.88);
@@ -286,8 +288,9 @@ button:active {
 }
 
 .upgrade-choice {
-  height: 66px;
-  padding: 7px;
+  min-height: 86px;
+  height: 100%;
+  padding: 8px;
   text-align: left;
   display: grid;
   grid-template-columns: 20px 1fr;
