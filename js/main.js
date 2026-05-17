@@ -187,7 +187,7 @@ joinButton.onclick = async () => {
     } catch(e) {
         console.error(e);
         setMenuLocked(false);
-        setMenuStatus('Could not connect. Check the Host ID.');
+        setMenuStatus(e?.message || 'Could not connect. Check the Host ID.');
     }
 };
 

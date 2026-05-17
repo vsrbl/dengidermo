@@ -1,7 +1,7 @@
 {
-  "name": "dengidermo-server",
+  "name": "nncckkrr-space-server",
   "version": "1.0.0",
-  "description": "Signaling server for a multiplayer roguelike",
+  "description": "PeerJS signaling server for nncckkrr.space",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
