@@ -153,8 +153,8 @@ button:active {
 
 #screen {
   /*
-    Cinematic viewport: full user width, wider-than-16:9 game camera.
-    This removes side bars while keeping top/bottom matte bars.
+    Cinematic viewport: full user width.
+    The canvas keeps 64:27 while the internal VIEW is 20% zoomed out.
   */
   width: 100vw;
   height: auto;

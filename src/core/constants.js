@@ -1,7 +1,7 @@
-export const VERSION = "v23";
+export const VERSION = "v24";
 export const MAX_PLAYERS = 4;
 export const WORLD = { w: 2400, h: 1600 };
-export const VIEW = { w: 1280, h: 540 };
+export const VIEW = { w: 1600, h: 675 };
 export const CENTER = { x: WORLD.w / 2, y: WORLD.h / 2 };
 export const GAME_SPEED = 2;
 export const PLAYER_RADIUS = 13;
