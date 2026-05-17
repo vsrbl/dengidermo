@@ -49,12 +49,16 @@ export function startHost(canvas) {
 
             x: canvas.width / 2,
             y: canvas.height / 2,
+
             tx: canvas.width / 2,
             ty: canvas.height / 2
         };
 
         document.getElementById('hud-id')
             .innerText = id;
+
+        document.getElementById('hud-count')
+            .innerText = '1';
     });
 
     peer.on('connection', conn => {
@@ -67,9 +71,14 @@ export function startHost(canvas) {
 
             x: canvas.width / 2,
             y: canvas.height / 2,
+
             tx: canvas.width / 2,
             ty: canvas.height / 2
         };
+
+        document.getElementById('hud-count')
+            .innerText =
+            Object.keys(world.players).length;
 
         conn.on('data', data => {
 
@@ -82,6 +91,22 @@ export function startHost(canvas) {
                 data,
                 canvas
             );
+
+            renderState.players[conn.peer].tx = p.x;
+            renderState.players[conn.peer].ty = p.y;
+        });
+
+        conn.on('close', () => {
+
+            delete connections[conn.peer];
+
+            delete world.players[conn.peer];
+
+            delete renderState.players[conn.peer];
+
+            document.getElementById('hud-count')
+                .innerText =
+                Object.keys(world.players).length;
         });
     });
 }
@@ -95,7 +120,16 @@ export function connectToHost(hostId) {
         hostConnection =
             peer.connect(hostId);
 
+        hostConnection.on('open', () => {
+
+            document.getElementById('hud-id')
+                .innerText = hostId;
+        });
+
         hostConnection.on('data', packet => {
+
+            document.getElementById('hud-count')
+                .innerText = packet.playerCount;
 
             for(let id in packet.players) {
 
@@ -107,6 +141,7 @@ export function connectToHost(hostId) {
 
                         x:p.x,
                         y:p.y,
+
                         tx:p.x,
                         ty:p.y
                     };
@@ -123,7 +158,10 @@ export function sendSnapshot() {
 
     const packet = {
 
-        players: world.players
+        players: world.players,
+
+        playerCount:
+            Object.keys(world.players).length
     };
 
     for(let id in connections) {
