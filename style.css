@@ -92,11 +92,17 @@ h2 {
   text-transform: uppercase;
 }
 
+.roomLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+}
+
 #roomTitle {
   display: inline-block;
   width: auto;
   max-width: max-content;
-  margin-top: 3px;
   padding: 2px 3px 1px;
   border: 1px solid var(--line);
   color: var(--fg);
@@ -114,7 +120,7 @@ h2 {
   outline: none;
 }
 
-#roomTitle.pressed {
+#roomTitle:active {
   color: var(--green);
   border-color: var(--green);
   background: var(--green-soft);
@@ -190,7 +196,7 @@ button:active {
 
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
@@ -238,6 +244,10 @@ button:active {
   .topbar {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .roomLine {
+    min-width: 0;
   }
 
   .right {

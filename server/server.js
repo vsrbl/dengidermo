@@ -199,12 +199,14 @@ function cleanInput(input) {
   const len = Math.hypot(aimX, aimY) || 1;
   const px = Number(input && input.px);
   const py = Number(input && input.py);
+  const rawFireSeq = Number(input && input.fireSeq);
   const clean = {
     left: Boolean(input && input.left),
     right: Boolean(input && input.right),
     up: Boolean(input && input.up),
     down: Boolean(input && input.down),
     fire: Boolean(input && input.fire),
+    fireSeq: Number.isFinite(rawFireSeq) ? Math.max(0, Math.floor(rawFireSeq)) : 0,
     aimX: clamp(aimX / len, -1, 1),
     aimY: clamp(aimY / len, -1, 1),
     px: null,

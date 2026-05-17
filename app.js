@@ -27,7 +27,7 @@
   const INPUT_SEND_MS = 16;
   const PING_SEND_MS = 1000;
   const SNAP_DISTANCE = 520;
-  const VERSION = "v9";
+  const VERSION = "v10";
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -65,6 +65,7 @@
   let localPose = null;
   let localVisualBullets = [];
   let localShotCd = 0;
+  let localFireSeq = 0;
 
   const pressed = new Set();
   const inputs = Object.create(null);
@@ -73,11 +74,11 @@
   let lastSentInput = "";
 
   function emptyInput() {
-    return { left: false, right: false, up: false, down: false, fire: false, aimX: 1, aimY: 0, px: null, py: null };
+    return { left: false, right: false, up: false, down: false, fire: false, fireSeq: 0, aimX: 1, aimY: 0, px: null, py: null };
   }
 
   function setStatus(text) {
-    menuStatus.textContent = text;
+    if (menuStatus) menuStatus.textContent = text || "";
   }
 
   function updateNetStatus() {
@@ -282,7 +283,7 @@
     game.classList.remove("hidden");
   }
 
-  function showMenu(text = "Offline.") {
+  function showMenu(text = "") {
     game.classList.add("hidden");
     menu.classList.remove("hidden");
     setStatus(text);
@@ -340,7 +341,8 @@
       hitCd: 0,
       dead: false,
       respawn: 0,
-      kills: 0
+      kills: 0,
+      lastFireSeq: 0
     };
     inputs[id] = inputs[id] || emptyInput();
   }
@@ -395,6 +397,7 @@
       up: pressed.has("ArrowUp") || pressed.has("KeyW"),
       down: pressed.has("ArrowDown") || pressed.has("KeyS"),
       fire: mouse.down || pressed.has("Space") || pressed.has("Enter"),
+      fireSeq: localFireSeq,
       aimX: aim.x,
       aimY: aim.y
     };
@@ -421,12 +424,14 @@
     const len = Math.hypot(aimX, aimY) || 1;
     const px = Number(input && input.px);
     const py = Number(input && input.py);
+    const rawFireSeq = Number(input && input.fireSeq);
     const clean = {
       left: Boolean(input && input.left),
       right: Boolean(input && input.right),
       up: Boolean(input && input.up),
       down: Boolean(input && input.down),
       fire: Boolean(input && input.fire),
+      fireSeq: Number.isFinite(rawFireSeq) ? Math.max(0, Math.floor(rawFireSeq)) : 0,
       aimX: clamp(aimX / len, -1, 1),
       aimY: clamp(aimY / len, -1, 1),
       px: null,
@@ -450,7 +455,7 @@
   }
 
   function inputSignature(input) {
-    return `${input.left ? 1 : 0}${input.right ? 1 : 0}${input.up ? 1 : 0}${input.down ? 1 : 0}${input.fire ? 1 : 0}:${Math.round(input.aimX * 100)}:${Math.round(input.aimY * 100)}:${Math.round((input.px || 0) * 10)}:${Math.round((input.py || 0) * 10)}`;
+    return `${input.left ? 1 : 0}${input.right ? 1 : 0}${input.up ? 1 : 0}${input.down ? 1 : 0}${input.fire ? 1 : 0}:${input.fireSeq || 0}:${Math.round(input.aimX * 100)}:${Math.round(input.aimY * 100)}:${Math.round((input.px || 0) * 10)}:${Math.round((input.py || 0) * 10)}`;
   }
 
   function ensureLocalPoseFromServer() {
@@ -572,7 +577,12 @@
 
     player.fireCd = Math.max(0, (Number(player.fireCd) || 0) - dt);
     player.hitCd = Math.max(0, (Number(player.hitCd) || 0) - dt);
-    if (canShoot && input.fire && player.fireCd <= 0) shootPlayerWeapon(player);
+    const newFireTap = Number(input.fireSeq || 0) > Number(player.lastFireSeq || 0);
+    const wantsShot = Boolean(input.fire || newFireTap);
+    if (canShoot && wantsShot && player.fireCd <= 0) {
+      shootPlayerWeapon(player);
+      if (newFireTap) player.lastFireSeq = Number(input.fireSeq || 0);
+    }
 
     if (!canShoot) return;
     for (let i = lastState.loot.length - 1; i >= 0; i -= 1) {
@@ -644,8 +654,8 @@
       const spread = pellets === 1 ? 0 : (-weapon.spread / 2) + (weapon.spread * i) / Math.max(1, pellets - 1);
       const angle = baseAngle + spread;
       localVisualBullets.push({
-        x: player.x + PLAYER_SIZE / 2 + Math.cos(angle) * 10,
-        y: player.y + PLAYER_SIZE / 2 + Math.sin(angle) * 10,
+        x: player.x + PLAYER_SIZE / 2,
+        y: player.y + PLAYER_SIZE / 2,
         vx: Math.cos(angle) * weapon.speed,
         vy: Math.sin(angle) * weapon.speed,
         life: Math.min(weapon.life, 0.45),
@@ -658,6 +668,8 @@
     const bullets = lastState.bullets;
     for (let i = bullets.length - 1; i >= 0; i -= 1) {
       const b = bullets[i];
+      const prevX = b.x;
+      const prevY = b.y;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
@@ -668,7 +680,17 @@
       }
 
       if (b.team === "player") {
-        const hitIndex = lastState.mobs.findIndex((mob) => dist(b.x, b.y, mob.x, mob.y) < mob.size / 2 + b.size + 2);
+        let hitIndex = -1;
+        for (let m = 0; m < lastState.mobs.length; m += 1) {
+          const mob = lastState.mobs[m];
+          const guestBonus = b.owner && b.owner !== playerId ? 8 : 3;
+          const radius = mob.size / 2 + (b.size || 2) + guestBonus;
+          if (segmentCircleHit(prevX, prevY, b.x, b.y, mob.x, mob.y, radius)) {
+            hitIndex = m;
+            break;
+          }
+        }
+
         if (hitIndex >= 0) {
           const mob = lastState.mobs[hitIndex];
           mob.hp -= b.dmg;
@@ -678,7 +700,8 @@
       } else {
         for (const player of Object.values(lastState.players)) {
           if (player.dead) continue;
-          if (dist(b.x, b.y, player.x + 7, player.y + 7) < 10 + b.size) {
+          const radius = 10 + (b.size || 2);
+          if (segmentCircleHit(prevX, prevY, b.x, b.y, player.x + 7, player.y + 7, radius)) {
             damagePlayer(player, b.dmg || 1);
             bullets.splice(i, 1);
             break;
@@ -1309,6 +1332,7 @@
     localInput = emptyInput();
     localVisualBullets = [];
     localShotCd = 0;
+    localFireSeq = 0;
 
     const url = new URL(window.location.href);
     url.searchParams.delete("room");
@@ -1337,6 +1361,17 @@
 
   function randomSpread(amount) {
     return amount ? rand(-amount / 2, amount / 2) : 0;
+  }
+
+  function segmentCircleHit(x1, y1, x2, y2, cx, cy, radius) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    if (len2 <= 0.0001) return dist(x1, y1, cx, cy) <= radius;
+    const t = clamp(((cx - x1) * dx + (cy - y1) * dy) / len2, 0, 1);
+    const px = x1 + dx * t;
+    const py = y1 + dy * t;
+    return dist(px, py, cx, cy) <= radius;
   }
 
   function dist(ax, ay, bx, by) {
@@ -1379,8 +1414,16 @@
   }
 
   window.addEventListener("keydown", (event) => {
-    if (!inGame() || !gameKeys.has(event.code)) return;
+    if (!inGame()) return;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      stopAll(true);
+      showMenu("");
+      return;
+    }
+    if (!gameKeys.has(event.code)) return;
     event.preventDefault();
+    if ((event.code === "Space" || event.code === "Enter") && !pressed.has(event.code)) localFireSeq += 1;
     pressed.add(event.code);
   });
 
@@ -1397,6 +1440,7 @@
   canvas.addEventListener("mousedown", (event) => {
     if (event.button !== 0) return;
     updateMousePosition(event);
+    localFireSeq += 1;
     mouse.down = true;
     event.preventDefault();
   });
@@ -1413,32 +1457,17 @@
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
-  function pressRoomTitle(on) {
-    roomTitle.classList.toggle("pressed", Boolean(on));
-  }
 
-  roomTitle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    pressRoomTitle(true);
-  });
-  roomTitle.addEventListener("pointerup", () => pressRoomTitle(false));
-  roomTitle.addEventListener("pointerleave", () => pressRoomTitle(false));
-  roomTitle.addEventListener("blur", () => pressRoomTitle(false));
   roomTitle.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    pressRoomTitle(false);
     copyRoomId();
   });
   roomTitle.setAttribute("tabindex", "0");
   roomTitle.addEventListener("keydown", (event) => {
     if (event.code === "Enter" || event.code === "Space") {
       event.preventDefault();
-      pressRoomTitle(true);
       copyRoomId();
-      window.setTimeout(() => pressRoomTitle(false), 80);
     }
   });
 
@@ -1452,7 +1481,7 @@
   const startRoom = new URLSearchParams(window.location.search).get("room");
   if (startRoom) {
     roomInput.value = normalizeRoomId(startRoom);
-    menuStatus.textContent = "Room link loaded. Press Join.";
+    setStatus("");
   }
 
   updateNetStatus();

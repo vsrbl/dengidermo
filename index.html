@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <title>nncckkrr.space</title>
-    <link rel="stylesheet" href="style.css?v=9" />
+    <link rel="stylesheet" href="style.css?v=10" />
   </head>
   <body>
     <main class="shell">
@@ -20,13 +20,11 @@
           <button id="createBtn" type="button">Create game</button>
           <button id="joinBtn" type="button">Join game</button>
         </div>
-
-        <p id="menuStatus" class="status">Offline.</p>
       </section>
 
       <section id="game" class="panel hidden">
         <div class="topbar">
-          <div>
+          <div class="roomLine">
             <p class="mini">ROOM</p>
             <h2 id="roomTitle" title="Click to copy" draggable="false">------</h2>
           </div>
@@ -40,12 +38,13 @@
         <div class="hud">
           <span>WASD / ARROWS</span>
           <span>MOUSE AIM / FIRE</span>
+          <span>ESC EXIT</span>
           <span id="gameHud">HP -- | WEAPON -- | MOBS --</span>
         </div>
       </section>
     </main>
 
-    <script src="config.js?v=9"></script>
-    <script src="app.js?v=9"></script>
+    <script src="config.js?v=10"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>
