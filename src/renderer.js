@@ -93,7 +93,7 @@ function drawGrid(ctx, cam, location = null) {
   }
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.38)" : "rgba(255,255,255,0.35)";
   ctx.strokeRect(Math.round(-cam.x), Math.round(-cam.y), WORLD.w, WORLD.h);
-  if (location?.name) drawText(ctx, location.name, 16, 24, greenLoc ? GREEN : "#aaa", "left");
+  if (location?.name) drawText(ctx, location.name, 16, 112, greenLoc ? GREEN : "#aaa", "left");
 }
 
 function screen(obj, cam) {

@@ -1,3 +1,5 @@
+import { VIEW } from "./constants.js";
+
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const dist2 = (ax, ay, bx, by) => {
@@ -30,5 +32,5 @@ export function segmentCircleHit(ax, ay, bx, by, cx, cy, radius) {
 }
 
 export function isVisible(obj, cam, pad = 80) {
-  return obj.x >= cam.x - pad && obj.x <= cam.x + 960 + pad && obj.y >= cam.y - pad && obj.y <= cam.y + 540 + pad;
+  return obj.x >= cam.x - pad && obj.x <= cam.x + VIEW.w + pad && obj.y >= cam.y - pad && obj.y <= cam.y + VIEW.h + pad;
 }

@@ -128,12 +128,10 @@ button:active {
 }
 
 .game-screen {
-  --bar: clamp(104px, 14vh, 172px);
-  --bars: calc(var(--bar) * 2);
+  --bar: clamp(96px, 14vh, 168px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--bar) 0;
   overflow: hidden;
   background: #000;
 }
@@ -155,14 +153,14 @@ button:active {
 
 #screen {
   /*
-    Keep the canvas at its real 16:9 ratio.
-    V21 filled width and forced height separately, which squeezed the image vertically.
+    Cinematic viewport: full user width, wider-than-16:9 game camera.
+    This removes side bars while keeping top/bottom matte bars.
   */
-  width: min(100vw, calc((100vh - var(--bars)) * 16 / 9));
+  width: 100vw;
   height: auto;
-  aspect-ratio: 16 / 9;
-  max-width: 100vw;
-  max-height: calc(100vh - var(--bars));
+  aspect-ratio: 64 / 27;
+  max-width: none;
+  max-height: none;
   flex: 0 0 auto;
   background: #050505;
   image-rendering: pixelated;
