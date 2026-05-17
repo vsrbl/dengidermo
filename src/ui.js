@@ -97,11 +97,15 @@ export function createUi() {
   el.upgradePanel.addEventListener("pointerup", (e) => e.stopPropagation());
 
   el.upgradeButtons.forEach((btn, index) => {
+    btn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!upgradeOpen || btn.disabled) return;
+      upgradePickHandler?.(index);
+    });
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!upgradeOpen) return;
-      upgradePickHandler?.(index);
     });
   });
 
