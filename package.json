@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "30.0.0",
+  "version": "31.0.0",
   "private": true,
   "type": "commonjs",
   "engines": { "node": "20.x" },

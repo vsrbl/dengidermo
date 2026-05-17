@@ -67,7 +67,7 @@ export function createUi() {
     el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}`;
   }
 
-  function setUpgradeMenu(choices = [], pending = false) {
+  function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1) {
     const list = Array.isArray(choices) ? choices : [];
     upgradeOpen = list.length > 0;
     if (!upgradeOpen) upgradeHovered = false;
@@ -76,7 +76,8 @@ export function createUi() {
     el.upgradeButtons.forEach((btn, index) => {
       const id = list[index];
       const data = UPGRADES[id];
-      btn.disabled = !id || pending;
+      btn.classList.toggle("selected", index === selectedIndex);
+      btn.disabled = !id || (pending && index !== selectedIndex);
       btn.innerHTML = data
         ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-desc">${data.desc}</span>`
         : "";
@@ -95,17 +96,25 @@ export function createUi() {
   el.upgradePanel.addEventListener("pointerleave", () => { upgradeHovered = false; });
   el.upgradePanel.addEventListener("pointerdown", (e) => e.stopPropagation());
   el.upgradePanel.addEventListener("pointerup", (e) => e.stopPropagation());
+  el.upgradePanel.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
+  el.upgradePanel.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
 
   el.upgradeButtons.forEach((btn, index) => {
     btn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
       e.stopPropagation();
-      if (!upgradeOpen || btn.disabled) return;
-      upgradePickHandler?.(index);
     });
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!upgradeOpen || btn.disabled) return;
+      btn.blur();
+      upgradePickHandler?.(index);
     });
   });
 

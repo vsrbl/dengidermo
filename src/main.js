@@ -42,6 +42,7 @@ let upgradePendingAt = 0;
 let pendingUpgradeIndex = -1;
 let pendingUpgradeKey = "";
 let pendingUpgradeLastSend = 0;
+let upgradeHideTimer = 0;
 let predictedProjectiles = [];
 let localCooldowns = Object.create(null);
 let localLocationId = null;
@@ -68,7 +69,7 @@ function boot() {
 function makeTransport() {
   return new Transport(SIGNALING_URL, {
     onReady: handleReady,
-    onPlayers: (list) => { players = list; },
+    onPlayers: (list) => { players = Array.isArray(list) ? list.slice(0, 4) : []; },
     onPlayerLeft: handlePlayerLeft,
     onData: handleNetData,
     onPing: (ms) => { pingMs = ms; },
@@ -154,7 +155,7 @@ function handleReady(info) {
   role = info.role;
   roomId = info.roomId;
   playerId = info.playerId;
-  players = info.players;
+  players = Array.isArray(info.players) ? info.players.slice(0, 4) : [info.playerId];
   lastSnapshotTick = -1;
   lastInputSent = 0;
   lastSnapshotSent = 0;
@@ -259,6 +260,7 @@ function handleNetData(msg, from, mode) {
   }
 
   if (msg.t === "state") {
+    if (!msg.snapshot || !Number.isFinite(msg.snapshot.tick)) return;
     if (msg.snapshot.tick <= lastSnapshotTick) return;
     lastSnapshotTick = msg.snapshot.tick;
     snapshot = msg.snapshot;
@@ -334,6 +336,10 @@ function applyWeaponRequest(id, request = {}) {
 
 function applyUpgradeRequest(id, request = {}) {
   if (!hostState) return false;
+  const player = hostState.players[id];
+  if (!player) return false;
+  const currentKey = upgradeChoicesKey(player.upgrades?.choices);
+  if (request.key && request.key !== currentKey) return false;
   return chooseUpgrade(hostState, id, request.index);
 }
 
@@ -348,11 +354,13 @@ function resetUpgradeUi() {
   pendingUpgradeIndex = -1;
   pendingUpgradeKey = "";
   pendingUpgradeLastSend = 0;
+  window.clearTimeout(upgradeHideTimer);
+  upgradeHideTimer = 0;
   ui.setUpgradeMenu([]);
 }
 
 function syncUpgradeChoicesFromHost(choices) {
-  const nextChoices = Array.isArray(choices) ? [...choices] : [];
+  const nextChoices = Array.isArray(choices) ? choices.filter((id) => typeof id === "string").slice(0, 3) : [];
   const nextKey = upgradeChoicesKey(nextChoices);
 
   if (!nextKey) {
@@ -397,8 +405,14 @@ function requestUpgradeChoice(index) {
   pendingUpgradeIndex = index;
   pendingUpgradeKey = key;
   pendingUpgradeLastSend = 0;
-  localUpgradeChoices = [];
-  ui.setUpgradeMenu([]);
+  ui.setUpgradeMenu(localUpgradeChoices, true, index);
+  window.clearTimeout(upgradeHideTimer);
+  upgradeHideTimer = window.setTimeout(() => {
+    if (upgradePickPending && pendingUpgradeKey === key) {
+      localUpgradeChoices = [];
+      ui.setUpgradeMenu([]);
+    }
+  }, 170);
 
   if (role === "host") {
     const ok = applyUpgradeRequest(playerId, { index, key });
