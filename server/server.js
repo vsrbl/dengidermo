@@ -8,6 +8,10 @@ const MAX_ROOMS = Number(process.env.MAX_ROOMS || 5000);
 const MAX_PLAYERS = 4;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const PLAYER_IDS = ["P1", "P2", "P3", "P4"];
+const WORLD_W = 1800;
+const WORLD_H = 1200;
+const PLAYER_SIZE = 14;
+const WALL_PAD = 16;
 
 /** @type {Map<string, { id: string, hostId: string, clients: Map<string, WebSocket>, createdAt: number }>} */
 const rooms = new Map();
@@ -82,7 +86,7 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === "ping") {
-    send(ws, { type: "pong", now: Date.now() });
+    send(ws, { type: "pong", t: msg.t, now: Date.now() });
     return;
   }
 
@@ -193,15 +197,26 @@ function cleanInput(input) {
   const aimX = Number.isFinite(rawX) ? rawX : 1;
   const aimY = Number.isFinite(rawY) ? rawY : 0;
   const len = Math.hypot(aimX, aimY) || 1;
-  return {
+  const px = Number(input && input.px);
+  const py = Number(input && input.py);
+  const clean = {
     left: Boolean(input && input.left),
     right: Boolean(input && input.right),
     up: Boolean(input && input.up),
     down: Boolean(input && input.down),
     fire: Boolean(input && input.fire),
     aimX: clamp(aimX / len, -1, 1),
-    aimY: clamp(aimY / len, -1, 1)
+    aimY: clamp(aimY / len, -1, 1),
+    px: null,
+    py: null
   };
+
+  if (Number.isFinite(px) && Number.isFinite(py)) {
+    clean.px = clamp(px, WALL_PAD, WORLD_W - WALL_PAD - PLAYER_SIZE);
+    clean.py = clamp(py, WALL_PAD, WORLD_H - WALL_PAD - PLAYER_SIZE);
+  }
+
+  return clean;
 }
 
 function clamp(value, min, max) {

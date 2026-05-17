@@ -23,8 +23,10 @@
   const PLAYER_SIZE = 14;
   const WALL_PAD = 16;
   const GREEN = "#00ff66";
-  const STATE_SEND_MS = 40;
-  const SNAP_DISTANCE = 90;
+  const STATE_SEND_MS = 33;
+  const INPUT_SEND_MS = 16;
+  const PING_SEND_MS = 1000;
+  const SNAP_DISTANCE = 260;
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -56,7 +58,9 @@
   let hasCamera = false;
   let camera = { x: 0, y: 0 };
   let gotFirstState = false;
-  let roomTitleHot = false;
+  let pingMs = null;
+  let lastPingSent = 0;
+  let lastPongAt = 0;
 
   const pressed = new Set();
   const inputs = Object.create(null);
@@ -65,12 +69,34 @@
   let lastSentInput = "";
 
   function emptyInput() {
-    return { left: false, right: false, up: false, down: false, fire: false, aimX: 1, aimY: 0 };
+    return { left: false, right: false, up: false, down: false, fire: false, aimX: 1, aimY: 0, px: null, py: null };
   }
 
   function setStatus(text) {
     menuStatus.textContent = text;
-    netStatus.textContent = text;
+  }
+
+  function updateNetStatus() {
+    if (!netStatus) return;
+    if (!connected) {
+      netStatus.textContent = "OFFLINE";
+      return;
+    }
+    const ping = pingMs === null ? "--" : String(pingMs);
+    const mode = role === "host" ? "HOST" : "GUEST";
+    const id = playerId || "--";
+    const sync = gotFirstState ? "OK" : "WAIT";
+    netStatus.textContent = `PING ${ping} MS | ${mode} ${id} | ${playersInRoom.size}/${MAX_PLAYERS} | ${sync}`;
+  }
+
+  function maybePing(now) {
+    if (!connected) return;
+    if (now - lastPingSent >= PING_SEND_MS) {
+      lastPingSent = now;
+      sendWs({ type: "ping", t: now });
+    }
+    if (lastPongAt && now - lastPongAt > 5000) pingMs = null;
+    updateNetStatus();
   }
 
   function randomRoomId() {
@@ -128,11 +154,23 @@
         return;
       }
 
+      if (msg.type === "pong") {
+        if (typeof msg.t === "number") {
+          pingMs = Math.max(0, Math.round(performance.now() - msg.t));
+          lastPongAt = performance.now();
+        }
+        updateNetStatus();
+        return;
+      }
+
       if (msg.type === "joined") {
         connected = true;
         roomId = msg.roomId;
         playerId = msg.playerId;
         role = msg.isHost ? "host" : "guest";
+        pingMs = null;
+        lastPingSent = 0;
+        lastPongAt = 0;
         playersInRoom = new Set(msg.players || [playerId]);
         inputs[playerId] = emptyInput();
         roomTitle.textContent = roomId;
@@ -150,6 +188,7 @@
           setStatus("Connected.");
         }
 
+        updateNetStatus();
         ensureLoop();
         return;
       }
@@ -158,6 +197,7 @@
         playersInRoom = new Set(msg.players || Array.from(playersInRoom).concat(msg.playerId));
         if (role === "host" && lastState) ensurePlayer(msg.playerId);
         setStatus(`${playersInRoom.size}/${MAX_PLAYERS} players online.`);
+        updateNetStatus();
         return;
       }
 
@@ -168,6 +208,7 @@
           delete inputs[msg.playerId];
         }
         setStatus(`${playersInRoom.size}/${MAX_PLAYERS} players online.`);
+        updateNetStatus();
         return;
       }
 
@@ -307,6 +348,7 @@
       lastFrame = now;
 
       updateLocalInput(dt);
+      maybePing(now);
 
       if (role === "host" && lastState) {
         inputs[playerId] = localInput;
@@ -318,10 +360,12 @@
         }
       } else {
         updateRenderState(dt);
-        if (now - lastInputSent > 16 || inputSignature(localInput) !== lastSentInput) {
+        const outboundInput = withLocalPose(localInput);
+        const sig = inputSignature(outboundInput);
+        if (now - lastInputSent > INPUT_SEND_MS || sig !== lastSentInput) {
           lastInputSent = now;
-          lastSentInput = inputSignature(localInput);
-          sendWs({ type: "input", input: localInput });
+          lastSentInput = sig;
+          sendWs({ type: "input", input: outboundInput });
         }
       }
 
@@ -366,15 +410,35 @@
     const aimX = Number.isFinite(rawX) ? rawX : 1;
     const aimY = Number.isFinite(rawY) ? rawY : 0;
     const len = Math.hypot(aimX, aimY) || 1;
-    return {
+    const px = Number(input && input.px);
+    const py = Number(input && input.py);
+    const clean = {
       left: Boolean(input && input.left),
       right: Boolean(input && input.right),
       up: Boolean(input && input.up),
       down: Boolean(input && input.down),
       fire: Boolean(input && input.fire),
       aimX: clamp(aimX / len, -1, 1),
-      aimY: clamp(aimY / len, -1, 1)
+      aimY: clamp(aimY / len, -1, 1),
+      px: null,
+      py: null
     };
+    if (Number.isFinite(px) && Number.isFinite(py)) {
+      clean.px = clamp(px, WALL_PAD, WORLD.w - WALL_PAD - PLAYER_SIZE);
+      clean.py = clamp(py, WALL_PAD, WORLD.h - WALL_PAD - PLAYER_SIZE);
+    }
+    return clean;
+  }
+
+  function withLocalPose(input) {
+    const state = renderState || lastState;
+    const me = state && playerId ? state.players[playerId] : null;
+    if (!me) return input;
+    return { ...input, px: r1(me.x), py: r1(me.y) };
+  }
+
+  function isMovingInput(input) {
+    return Boolean(input && (input.left || input.right || input.up || input.down));
   }
 
   function inputSignature(input) {
@@ -396,7 +460,11 @@
 
     for (const id of playersInRoom) ensurePlayer(id);
 
-    for (const player of Object.values(state.players)) updatePlayer(player, normalizeInput(inputs[player.id]), dt, true);
+    for (const player of Object.values(state.players)) {
+      const input = normalizeInput(inputs[player.id]);
+      const useClientPose = player.id !== playerId && input.px !== null && input.py !== null;
+      updatePlayer(player, input, dt, true, useClientPose);
+    }
     updateBullets(dt);
     updateMobs(dt);
     updateLoot(dt);
@@ -418,7 +486,7 @@
     if (state.loot.length > 50) state.loot.splice(0, state.loot.length - 50);
   }
 
-  function updatePlayer(player, input, dt, canShoot) {
+  function updatePlayer(player, input, dt, canShoot, useClientPose = false) {
     if (player.dead) {
       player.respawn -= dt;
       if (player.respawn <= 0) {
@@ -443,7 +511,10 @@
     if (input.up) dy -= 1;
     if (input.down) dy += 1;
 
-    if (dx !== 0 || dy !== 0) {
+    if (useClientPose) {
+      player.x = input.px;
+      player.y = input.py;
+    } else if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy) || 1;
       dx /= len;
       dy /= len;
@@ -675,6 +746,7 @@
     if (!gotFirstState) {
       gotFirstState = true;
       setStatus(`${playersInRoom.size}/${MAX_PLAYERS} players online.`);
+      updateNetStatus();
     }
     if (!renderState) {
       renderState = cloneState(state);
@@ -731,11 +803,11 @@
     };
 
     const error = Math.hypot((serverPlayer.x || 0) - player.x, (serverPlayer.y || 0) - player.y);
-    if (error > SNAP_DISTANCE || serverPlayer.dead) {
+    if (serverPlayer.dead || error > SNAP_DISTANCE) {
       player.x = serverPlayer.x;
       player.y = serverPlayer.y;
-    } else if (error > 2) {
-      const fix = Math.min(0.08, dt * 4);
+    } else if (!isMovingInput(localInput) && error > 1.5) {
+      const fix = Math.min(0.18, dt * 8);
       player.x = lerp(player.x, serverPlayer.x, fix);
       player.y = lerp(player.y, serverPlayer.y, fix);
     }
@@ -1102,8 +1174,11 @@
     mouse.down = false;
     hasCamera = false;
     gotFirstState = false;
-    roomTitleHot = false;
+    pingMs = null;
+    lastPingSent = 0;
+    lastPongAt = 0;
     camera = { x: 0, y: 0 };
+    updateNetStatus();
     for (const key of Object.keys(inputs)) delete inputs[key];
     localInput = emptyInput();
 
@@ -1160,7 +1235,6 @@
       document.execCommand("copy");
       temp.remove();
     }
-    setStatus("Copied.");
   }
 
   const gameKeys = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "KeyW", "KeyA", "KeyS", "KeyD"]);
@@ -1173,7 +1247,7 @@
     pressed.clear();
     mouse.down = false;
     localInput = emptyInput();
-    if (role !== "host") sendWs({ type: "input", input: localInput });
+    if (role !== "host") sendWs({ type: "input", input: withLocalPose(localInput) });
   }
 
   window.addEventListener("keydown", (event) => {
@@ -1211,10 +1285,10 @@
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
-  roomTitle.addEventListener("pointerenter", () => { roomTitleHot = true; });
-  roomTitle.addEventListener("pointerleave", () => { roomTitleHot = false; });
-  roomTitle.addEventListener("pointerup", (event) => {
-    if (event.button === 0 && roomTitleHot) copyRoomId();
+  roomTitle.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    copyRoomId();
   });
   roomTitle.setAttribute("tabindex", "0");
   roomTitle.addEventListener("keydown", (event) => {
@@ -1237,5 +1311,6 @@
     menuStatus.textContent = "Room link loaded. Press Join.";
   }
 
+  updateNetStatus();
   draw(0.016);
 })();

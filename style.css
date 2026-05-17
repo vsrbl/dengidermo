@@ -1,9 +1,10 @@
 :root {
   --bg: #000;
-  --fg: #f4f4f4;
-  --dim: #777;
-  --line: #1b1b1b;
+  --fg: #f2f2f2;
+  --muted: #686868;
+  --line: #1c1c1c;
   --green: #00ff66;
+  --green-soft: rgba(0, 255, 102, 0.12);
 }
 
 * {
@@ -16,9 +17,9 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Courier New", ui-monospace, monospace;
   font-synthesis: none;
-  text-rendering: optimizeSpeed;
+  text-rendering: geometricPrecision;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -31,9 +32,24 @@ body {
   user-select: none;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    rgba(0, 255, 102, 0.025) 3px,
+    rgba(0, 255, 102, 0.025) 4px
+  );
+}
+
 button,
 input {
   font: inherit;
+  font-weight: 900;
   letter-spacing: 0.08em;
 }
 
@@ -42,10 +58,11 @@ input {
 }
 
 .panel {
+  position: relative;
   border: 1px solid var(--fg);
   padding: 10px;
   background: var(--bg);
-  box-shadow: 0 0 0 2px #050505, 0 0 0 3px var(--line);
+  box-shadow: 0 0 0 2px #000, 0 0 0 3px var(--line);
 }
 
 .hidden {
@@ -59,36 +76,41 @@ p {
 }
 
 h1 {
-  font-size: clamp(24px, 7vw, 54px);
-  line-height: 0.9;
-  letter-spacing: -0.02em;
+  font-size: clamp(24px, 6vw, 48px);
+  line-height: 0.86;
+  letter-spacing: -0.04em;
   font-weight: 900;
   text-transform: lowercase;
+  text-shadow: 1px 0 0 currentColor;
 }
 
 h2 {
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   font-weight: 900;
+  text-transform: uppercase;
 }
 
 #roomTitle {
   display: inline-block;
   width: auto;
   max-width: max-content;
-  padding: 4px 5px 3px;
+  margin-top: 3px;
+  padding: 3px 4px 2px;
   border: 1px solid var(--line);
   color: var(--fg);
+  background: #020202;
   user-select: none;
   -webkit-user-select: none;
-  cursor: copy;
+  cursor: pointer;
 }
 
 #roomTitle:hover,
 #roomTitle:focus {
   color: var(--green);
   border-color: var(--green);
+  background: var(--green-soft);
   outline: none;
 }
 
@@ -96,11 +118,12 @@ label,
 .mini,
 .status,
 .hud {
-  color: var(--dim);
-  font-size: 11px;
-  line-height: 1.3;
-  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+  font-weight: 900;
 }
 
 label {
@@ -117,10 +140,11 @@ input {
   outline: none;
   text-transform: uppercase;
   user-select: text;
+  border-radius: 0;
 }
 
 input::placeholder {
-  color: #3a3a3a;
+  color: #353535;
 }
 
 .row {
@@ -137,6 +161,7 @@ button {
   padding: 12px 10px;
   cursor: pointer;
   text-transform: uppercase;
+  border-radius: 0;
 }
 
 button:hover,
@@ -144,11 +169,12 @@ button:focus,
 input:focus {
   color: var(--green);
   border-color: var(--green);
+  background: var(--green-soft);
   outline: none;
 }
 
 button:active {
-  transform: translateY(1px);
+  transform: translate(1px, 1px);
 }
 
 .status {
@@ -166,6 +192,7 @@ button:active {
 
 .right {
   text-align: right;
+  max-width: 58%;
 }
 
 #screen {
@@ -206,5 +233,6 @@ button:active {
 
   .right {
     text-align: left;
+    max-width: none;
   }
 }
