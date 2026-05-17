@@ -1,5 +1,6 @@
 import { VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
+import { UPGRADES } from "./data/upgrades.js";
 
 export function createUi() {
   const el = {
@@ -15,8 +16,13 @@ export function createUi() {
     weaponText: document.getElementById("weaponText"),
     inventoryText: document.getElementById("inventoryText"),
     locationText: document.getElementById("locationText"),
-    portalText: document.getElementById("portalText")
+    portalText: document.getElementById("portalText"),
+    upgradePanel: document.getElementById("upgradePanel"),
+    upgradeButtons: Array.from(document.querySelectorAll(".upgrade-choice"))
   };
+
+  let upgradePickHandler = null;
+  let upgradeOpen = false;
 
   function showMenu() {
     el.menu.classList.remove("hidden");
@@ -60,6 +66,41 @@ export function createUi() {
     el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}`;
   }
 
+  function setUpgradeMenu(choices = [], pending = false) {
+    const list = Array.isArray(choices) ? choices : [];
+    upgradeOpen = list.length > 0;
+    el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
+    el.upgradePanel.classList.toggle("pending", !!pending);
+    el.upgradeButtons.forEach((btn, index) => {
+      const id = list[index];
+      const data = UPGRADES[id];
+      btn.disabled = !id || pending;
+      btn.innerHTML = data
+        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-desc">${data.desc}</span>`
+        : "";
+    });
+  }
+
+  function onUpgradePick(handler) {
+    upgradePickHandler = handler;
+  }
+
+  function isUpgradeOpen() {
+    return upgradeOpen;
+  }
+
+  el.upgradeButtons.forEach((btn, index) => {
+    btn.addEventListener("click", () => upgradePickHandler?.(index));
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (!upgradeOpen || e.repeat) return;
+    if (/^Digit[1-3]$/.test(e.code)) {
+      e.preventDefault();
+      upgradePickHandler?.(Number(e.code.slice(5)) - 1);
+    }
+  });
+
   function setHud(player, snapshot = null) {
     if (!player) {
       el.hpText.textContent = "--";
@@ -89,7 +130,7 @@ export function createUi() {
     flashCopied();
   });
 
-  return { el, showMenu, showGame, flashError, flashCopied, setNet, setHud };
+  return { el, showMenu, showGame, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen };
 }
 
 export function randomRoomId() {

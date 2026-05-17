@@ -307,15 +307,16 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   drawCrosshair(ctx, mouse);
 }
 
-export function makePredictedProjectile(id, playerId, weaponId, pose) {
+export function makePredictedProjectile(id, playerId, weaponId, pose, stats = null) {
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   const pellets = weapon.pellets || 1;
   const out = [];
   for (let i = 0; i < pellets; i += 1) {
     const offset = pellets === 1 ? 0 : (i - (pellets - 1) / 2) * weapon.spread;
     const angle = pose.angle + offset;
-    const vx = Math.cos(angle) * weapon.bulletSpeed;
-    const vy = Math.sin(angle) * weapon.bulletSpeed;
+    const speedMult = Math.max(0.1, stats?.projectileSpeedMult || 1);
+    const vx = Math.cos(angle) * weapon.bulletSpeed * speedMult;
+    const vy = Math.sin(angle) * weapon.bulletSpeed * speedMult;
     const serverId = `${id}${pellets === 1 ? "" : `-${i}`}`;
     out.push({
       id: `${serverId}:local`,
@@ -327,13 +328,13 @@ export function makePredictedProjectile(id, playerId, weaponId, pose) {
       y: pose.y + Math.sin(angle) * (pose.radius + weapon.radius + 1),
       vx,
       vy,
-      speed: weapon.bulletSpeed,
+      speed: weapon.bulletSpeed * Math.max(0.1, stats?.projectileSpeedMult || 1),
       radius: weapon.radius,
       color: weapon.color,
       range: weapon.range,
       distance: 0,
       targetId: null,
-      life: weapon.range / weapon.bulletSpeed
+      life: weapon.range / (weapon.bulletSpeed * Math.max(0.1, stats?.projectileSpeedMult || 1))
     });
   }
   return out;

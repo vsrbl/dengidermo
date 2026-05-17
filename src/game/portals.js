@@ -2,6 +2,7 @@ import { CENTER, WORLD, GREEN } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { getLocation } from "../data/locations.js";
 import { nextId, pushEvent, spawnPoint } from "./state.js";
+import { offerUpgradesToPlayers } from "./upgrades.js";
 
 const PORTAL_RADIUS = 58;
 const PORTAL_MARGIN = 12;
@@ -73,6 +74,7 @@ export function moveTeamToNextLocation(state) {
     player.deadTimer = 0;
   }
 
+  offerUpgradesToPlayers(state, 3);
   pushEvent(state, {
     type: "location",
     locationId: nextLoc.id,

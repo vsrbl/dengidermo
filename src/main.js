@@ -10,6 +10,7 @@ import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } fr
 import { fireWeapon } from "./game/combat.js";
 import { emptyInput, makeShootPayload, movePlayer, updateHostWorld } from "./game/simulation.js";
 import { createInventory, cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "./game/inventory.js";
+import { chooseUpgrade } from "./game/upgrades.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -17,7 +18,7 @@ const ui = createUi();
 const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
-const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running });
+const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running && !ui.isUpgradeOpen() });
 
 let transport = null;
 let running = false;
@@ -35,6 +36,8 @@ let snapshot = null;
 let localPose = null;
 let localWeapon = START_WEAPON;
 let localInventory = createInventory([START_WEAPON]);
+let localUpgradeChoices = [];
+let upgradePickPending = false;
 let predictedProjectiles = [];
 let localCooldowns = Object.create(null);
 let localLocationId = null;
@@ -53,6 +56,7 @@ function boot() {
   ui.el.roomInput.addEventListener("keydown", (e) => {
     if (e.code === "Enter") startGuest();
   });
+  ui.onUpgradePick(requestUpgradeChoice);
   ui.showMenu();
   requestAnimationFrame(loop);
 }
@@ -158,6 +162,9 @@ function handleReady(info) {
   fireSeq = 0;
   localWeapon = START_WEAPON;
   localInventory = createInventory([START_WEAPON]);
+  localUpgradeChoices = [];
+  upgradePickPending = false;
+  ui.setUpgradeMenu([]);
   camera.ready = false;
   input.resetKeys();
 
@@ -175,7 +182,7 @@ function handleReady(info) {
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
     localInventory = createInventory([START_WEAPON]);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, skin: index % 2 ? "green" : "default" };
+    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
@@ -212,6 +219,9 @@ function leaveGame() {
   localPose = null;
   predictedProjectiles = [];
   localInventory = createInventory([START_WEAPON]);
+  localUpgradeChoices = [];
+  upgradePickPending = false;
+  ui.setUpgradeMenu([]);
   localCooldowns = Object.create(null);
   localLocationId = null;
   input.resetKeys();
@@ -241,6 +251,10 @@ function handleNetData(msg, from, mode) {
       applyWeaponRequest(from, msg);
       return;
     }
+    if (msg.t === "upgrade" && from) {
+      applyUpgradeRequest(from, msg);
+      return;
+    }
     return;
   }
 
@@ -265,10 +279,13 @@ function syncLocalFromSnapshot() {
     input.resetKeys();
   }
   const oldWeapon = localWeapon;
-  if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [] };
+  if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [...(me.inventory.passives || [])] };
+  localUpgradeChoices = Array.isArray(me.upgrades?.choices) ? [...me.upgrades.choices] : [];
+  if (!localUpgradeChoices.length) upgradePickPending = false;
+  ui.setUpgradeMenu(localUpgradeChoices, upgradePickPending);
   if (!localPose) {
     localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
-    localPose = { ...me, inventory: localInventory, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
+    localPose = { ...me, inventory: localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
     return;
   }
   localPose.hp = me.hp;
@@ -278,6 +295,8 @@ function syncLocalFromSnapshot() {
   }
   localPose.activeWeapon = localWeapon;
   localPose.inventory = localInventory;
+  localPose.upgrades = me.upgrades || { choices: [] };
+  localPose.stats = me.stats || localPose.stats || {};
   localPose.skin = me.skin;
   const dx = me.x - localPose.x;
   const dy = me.y - localPose.y;
@@ -313,6 +332,22 @@ function applyWeaponRequest(id, request = {}) {
   if (Number.isInteger(request.slot)) return switchWeaponSlot(player, request.slot);
   if (Number.isFinite(request.dir)) return cycleWeapon(player, request.dir > 0 ? 1 : -1);
   return false;
+}
+
+function applyUpgradeRequest(id, request = {}) {
+  if (!hostState) return false;
+  return chooseUpgrade(hostState, id, request.index);
+}
+
+function requestUpgradeChoice(index) {
+  if (!running || upgradePickPending || !localUpgradeChoices[index]) return;
+  upgradePickPending = true;
+  ui.setUpgradeMenu(localUpgradeChoices, true);
+  if (role === "host") {
+    applyUpgradeRequest(playerId, { index });
+    return;
+  }
+  transport?.sendToHost({ t: "upgrade", index });
 }
 
 function localInventoryWeapons() {
@@ -356,14 +391,15 @@ function tryLocalShoot(nowSec, inputState) {
   if (!localPose || !inputState.fire) return;
   const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.activeWeapon] ? localPose.activeWeapon : START_WEAPON);
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
+  const fireRateMult = Math.max(0.1, localPose.stats?.fireRateMult || 1);
   if (nowSec < (localCooldowns[weaponId] || 0)) return;
-  localCooldowns[weaponId] = nowSec + 1 / weapon.fireRate;
+  localCooldowns[weaponId] = nowSec + 1 / (weapon.fireRate * fireRateMult);
   fireSeq += 1;
   localPose.angle = inputState.aimAngle;
   const payload = makeShootPayload(playerId, localPose, weaponId, fireSeq);
   const baseId = `${playerId}-${fireSeq}`;
   if (role === "guest") {
-    predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose));
+    predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose, localPose.stats));
     applyLocalRecoil(localPose, weapon, inputState.aimAngle);
   }
   if (role === "host") fireWeapon(hostState, playerId, payload);
@@ -379,6 +415,9 @@ function updateHost(dt, now, gameNow) {
   inputState.py = Math.round(me.y);
   hostInputs[playerId] = inputState;
   localInventory = ensureInventory(me);
+  localUpgradeChoices = Array.isArray(me.upgrades?.choices) ? [...me.upgrades.choices] : [];
+  if (!localUpgradeChoices.length) upgradePickPending = false;
+  ui.setUpgradeMenu(localUpgradeChoices, upgradePickPending);
   localWeapon = getActiveWeaponId(me);
   tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
@@ -421,7 +460,7 @@ function updateHud() {
   const snapMe = currentLocalPlayerFromSnapshot();
   const me = role === "host"
     ? hostState?.players[playerId]
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory } : snapMe);
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {} } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode });
 }

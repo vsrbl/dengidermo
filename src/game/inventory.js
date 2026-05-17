@@ -81,6 +81,7 @@ export function inventorySnapshot(player) {
   const inventory = ensureInventory(player);
   return {
     weapons: inventory.weapons.slice(0, 9),
-    activeWeapon: inventory.activeWeapon
+    activeWeapon: inventory.activeWeapon,
+    passives: Array.isArray(inventory.passives) ? inventory.passives.slice(-18) : []
   };
 }

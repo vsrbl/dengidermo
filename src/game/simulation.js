@@ -19,8 +19,9 @@ export function movePlayer(player, input, dt) {
   const yAxis = (input.down ? 1 : 0) - (input.up ? 1 : 0);
   const d = norm(xAxis, yAxis);
   const moving = xAxis || yAxis;
-  const targetVx = moving ? d.x * PLAYER_SPEED : 0;
-  const targetVy = moving ? d.y * PLAYER_SPEED : 0;
+  const speed = PLAYER_SPEED * (player.stats?.speedMult || 1);
+  const targetVx = moving ? d.x * speed : 0;
+  const targetVy = moving ? d.y * speed : 0;
   const t = smoothFactor(moving ? PLAYER_ACCEL : PLAYER_FRICTION, dt);
 
   player.vx += (targetVx - player.vx) * t;
@@ -35,7 +36,7 @@ export function movePlayer(player, input, dt) {
 
 export function acceptClientPose(player, input, dt) {
   if (!Number.isFinite(input.px) || !Number.isFinite(input.py)) return;
-  const maxDrift = 48 + PLAYER_SPEED * dt * 2.8;
+  const maxDrift = 48 + PLAYER_SPEED * (player.stats?.speedMult || 1) * dt * 2.8;
   const dx = input.px - player.x;
   const dy = input.py - player.y;
   const d2 = dx * dx + dy * dy;

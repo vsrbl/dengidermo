@@ -5,9 +5,26 @@ import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
 import { makeProjectile } from "./projectiles.js";
 import { pushEvent } from "./state.js";
 
+function statMult(player, key) {
+  return Math.max(0.1, player.stats?.[key] || 1);
+}
+
 function canFire(player, weaponId, weapon, now) {
   const nextAt = player.cooldowns?.[weaponId] || 0;
   return now + 0.018 >= nextAt && player.hp > 0 && weapon;
+}
+
+function applyProjectileStats(player, projectile) {
+  const speedMult = statMult(player, "projectileSpeedMult");
+  const damageMult = statMult(player, "damageMult");
+  projectile.damage = Math.max(1, Math.round(projectile.damage * damageMult));
+  projectile.vx *= speedMult;
+  projectile.vy *= speedMult;
+  projectile.speed *= speedMult;
+  projectile.explosionRadiusMult = statMult(player, "explosionRadiusMult");
+  projectile.explosionDamageMult = statMult(player, "explosionDamageMult");
+  projectile.knockbackMult = statMult(player, "knockbackMult");
+  return projectile;
 }
 
 export function fireWeapon(state, playerId, payload = {}) {
@@ -45,7 +62,7 @@ export function fireWeapon(state, playerId, payload = {}) {
     const pelletAngle = angle + offset;
     const pelletDir = angleToVec(pelletAngle);
     const pelletId = pellets === 1 ? baseId : `${baseId}-${i}`;
-    state.projectiles[pelletId] = makeProjectile({
+    const projectile = makeProjectile({
       id: pelletId,
       ownerId: playerId,
       weaponId,
@@ -54,11 +71,12 @@ export function fireWeapon(state, playerId, payload = {}) {
       angle: pelletAngle,
       pelletIndex: i
     });
+    state.projectiles[pelletId] = applyProjectileStats(player, projectile);
   }
 
   player.angle = angle;
   if (!player.cooldowns) player.cooldowns = {};
-  player.cooldowns[weaponId] = state.time + 1 / weapon.fireRate;
+  player.cooldowns[weaponId] = state.time + 1 / (weapon.fireRate * statMult(player, "fireRateMult"));
   pushEvent(state, { type: "shoot", playerId, weaponId, x, y, angle, fireSeq: seq });
   return true;
 }

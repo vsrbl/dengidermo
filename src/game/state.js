@@ -4,6 +4,7 @@ import { makeRng } from "../core/random.js";
 import { getLocation } from "../data/locations.js";
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
+import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
 
 let entitySeq = 1;
 
@@ -64,6 +65,16 @@ export function addPlayer(state, playerId, index = 0) {
     maxHp: PLAYER_HP,
     radius: PLAYER_RADIUS,
     inventory: createInventory([START_WEAPON]),
+    stats: {
+      speedMult: 1,
+      fireRateMult: 1,
+      damageMult: 1,
+      projectileSpeedMult: 1,
+      explosionRadiusMult: 1,
+      explosionDamageMult: 1,
+      knockbackMult: 1
+    },
+    upgrades: { choices: [], taken: {}, pending: false },
     skin: index % 2 ? "green" : "default",
     cooldowns: {},
     lastInputAt: 0,
@@ -87,6 +98,7 @@ export function respawnPlayer(player, index = 0) {
   player.ky = 0;
   player.hp = player.maxHp;
   ensureInventory(player);
+  ensureUpgradeState(player);
   player.deadTimer = 0;
 }
 
@@ -120,6 +132,8 @@ export function makeSnapshot(state) {
       maxHp: p.maxHp,
       activeWeapon: ensureInventory(p).activeWeapon,
       inventory: inventorySnapshot(p),
+      upgrades: upgradeSnapshot(p),
+      stats: { ...(p.stats || {}) },
       skin: p.skin,
       vx: Number((p.vx || 0).toFixed(1)),
       vy: Number((p.vy || 0).toFixed(1))

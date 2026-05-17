@@ -62,9 +62,9 @@ function addSpark(state, x, y, amount = 3, power = 110) {
 }
 
 function explode(state, projectile, effect) {
-  const radius = effect.radius || 80;
-  const damage = effect.damage || projectile.damage;
-  const force = effect.force || 220;
+  const radius = (effect.radius || 80) * (projectile.explosionRadiusMult || 1);
+  const damage = (effect.damage || projectile.damage) * (projectile.explosionDamageMult || 1);
+  const force = (effect.force || 220) * (projectile.knockbackMult || 1);
 
   for (const e of enemyGrid.query(projectile.x, projectile.y, radius + 80)) {
     if (!state.enemies[e.id]) continue;
@@ -103,7 +103,7 @@ function detonateProjectile(state, projectile, weapon) {
 function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
   enemy.hp -= projectile.damage;
-  addImpulse(enemy, projectile.x, projectile.y, weapon.knockback || 120);
+  addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
   addSpark(state, enemy.x, enemy.y, projectile.kind === "bullet" ? 2 : 4, 120);
   pushEvent(state, { type: "hit", x: enemy.x, y: enemy.y, amount: projectile.damage });
   if (enemy.hp <= 0) killEnemy(state, enemy);
