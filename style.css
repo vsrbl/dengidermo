@@ -85,7 +85,7 @@ h1 {
 }
 
 h2 {
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
   letter-spacing: 0.16em;
   font-weight: 900;
@@ -97,7 +97,7 @@ h2 {
   width: auto;
   max-width: max-content;
   margin-top: 3px;
-  padding: 3px 4px 2px;
+  padding: 2px 3px 1px;
   border: 1px solid var(--line);
   color: var(--fg);
   background: #020202;
@@ -108,10 +108,17 @@ h2 {
 
 #roomTitle:hover,
 #roomTitle:focus {
+  color: var(--fg);
+  border-color: var(--line);
+  background: #020202;
+  outline: none;
+}
+
+#roomTitle:active,
+#roomTitle.copying {
   color: var(--green);
   border-color: var(--green);
   background: var(--green-soft);
-  outline: none;
 }
 
 label,

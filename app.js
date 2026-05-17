@@ -26,7 +26,8 @@
   const STATE_SEND_MS = 33;
   const INPUT_SEND_MS = 16;
   const PING_SEND_MS = 1000;
-  const SNAP_DISTANCE = 260;
+  const SNAP_DISTANCE = 520;
+  const VERSION = "v8";
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -61,6 +62,7 @@
   let pingMs = null;
   let lastPingSent = 0;
   let lastPongAt = 0;
+  let localPose = null;
 
   const pressed = new Set();
   const inputs = Object.create(null);
@@ -86,7 +88,7 @@
     const mode = role === "host" ? "HOST" : "GUEST";
     const id = playerId || "--";
     const sync = gotFirstState ? "OK" : "WAIT";
-    netStatus.textContent = `PING ${ping} MS | ${mode} ${id} | ${playersInRoom.size}/${MAX_PLAYERS} | ${sync}`;
+    netStatus.textContent = `V8 | PING ${ping} MS | ${mode} ${id} | ${playersInRoom.size}/${MAX_PLAYERS} | ${sync}`;
   }
 
   function maybePing(now) {
@@ -169,8 +171,9 @@
         playerId = msg.playerId;
         role = msg.isHost ? "host" : "guest";
         pingMs = null;
-        lastPingSent = 0;
+        lastPingSent = -PING_SEND_MS;
         lastPongAt = 0;
+        localPose = null;
         playersInRoom = new Set(msg.players || [playerId]);
         inputs[playerId] = emptyInput();
         roomTitle.textContent = roomId;
@@ -180,6 +183,7 @@
         if (role === "host") {
           lastState = createInitialState(Array.from(playersInRoom));
           renderState = lastState;
+          localPose = clone(lastState.players[playerId]);
           gotFirstState = true;
           setStatus("Room ready. Join anytime.");
         } else {
@@ -360,6 +364,7 @@
         }
       } else {
         updateRenderState(dt);
+        updateGuestLocalPose(dt);
         const outboundInput = withLocalPose(localInput);
         const sig = inputSignature(outboundInput);
         if (now - lastInputSent > INPUT_SEND_MS || sig !== lastSentInput) {
@@ -431,8 +436,7 @@
   }
 
   function withLocalPose(input) {
-    const state = renderState || lastState;
-    const me = state && playerId ? state.players[playerId] : null;
+    const me = localPose || (renderState && playerId ? renderState.players[playerId] : null) || (lastState && playerId ? lastState.players[playerId] : null);
     if (!me) return input;
     return { ...input, px: r1(me.x), py: r1(me.y) };
   }
@@ -442,7 +446,46 @@
   }
 
   function inputSignature(input) {
-    return `${input.left ? 1 : 0}${input.right ? 1 : 0}${input.up ? 1 : 0}${input.down ? 1 : 0}${input.fire ? 1 : 0}:${Math.round(input.aimX * 100)}:${Math.round(input.aimY * 100)}`;
+    return `${input.left ? 1 : 0}${input.right ? 1 : 0}${input.up ? 1 : 0}${input.down ? 1 : 0}${input.fire ? 1 : 0}:${Math.round(input.aimX * 100)}:${Math.round(input.aimY * 100)}:${Math.round((input.px || 0) * 10)}:${Math.round((input.py || 0) * 10)}`;
+  }
+
+  function ensureLocalPoseFromServer() {
+    if (!playerId) return null;
+    const serverPlayer = lastState && lastState.players ? lastState.players[playerId] : null;
+    if (!localPose && serverPlayer) {
+      localPose = clone(serverPlayer);
+    }
+    return serverPlayer;
+  }
+
+  function updateGuestLocalPose(dt) {
+    if (role !== "guest") return;
+    const serverPlayer = ensureLocalPoseFromServer();
+    if (!localPose) return;
+
+    if (serverPlayer) {
+      localPose.hp = serverPlayer.hp;
+      localPose.maxHp = serverPlayer.maxHp;
+      localPose.weapon = serverPlayer.weapon;
+      localPose.dead = Boolean(serverPlayer.dead);
+      localPose.kills = serverPlayer.kills || localPose.kills || 0;
+
+      const error = Math.hypot((serverPlayer.x || 0) - localPose.x, (serverPlayer.y || 0) - localPose.y);
+      if (localPose.dead || error > SNAP_DISTANCE) {
+        localPose.x = serverPlayer.x;
+        localPose.y = serverPlayer.y;
+      }
+    }
+
+    updatePlayer(localPose, localInput, dt, false, false);
+
+    if (!renderState) renderState = cloneState(lastState || createEmptyRenderState());
+    renderState.players = renderState.players || {};
+    renderState.players[playerId] = clone(localPose);
+  }
+
+  function createEmptyRenderState() {
+    return { tick: 0, time: 0, wave: 1, world: { w: WORLD.w, h: WORLD.h }, players: {}, mobs: [], bullets: [], loot: [] };
   }
 
   function updateHostWorld(dt) {
@@ -488,8 +531,8 @@
 
   function updatePlayer(player, input, dt, canShoot, useClientPose = false) {
     if (player.dead) {
-      player.respawn -= dt;
-      if (player.respawn <= 0) {
+      player.respawn = Math.max(0, (Number(player.respawn) || 0) - dt);
+      if (canShoot && player.respawn <= 0) {
         player.dead = false;
         player.hp = player.maxHp;
         player.x = WORLD.w / 2 + rand(-50, 50);
@@ -523,8 +566,8 @@
       player.y = clamp(player.y + dy * speed * dt, WALL_PAD, WORLD.h - WALL_PAD - PLAYER_SIZE);
     }
 
-    player.fireCd = Math.max(0, player.fireCd - dt);
-    player.hitCd = Math.max(0, player.hitCd - dt);
+    player.fireCd = Math.max(0, (Number(player.fireCd) || 0) - dt);
+    player.hitCd = Math.max(0, (Number(player.hitCd) || 0) - dt);
     if (canShoot && input.fire && player.fireCd <= 0) shootPlayerWeapon(player);
 
     if (!canShoot) return;
@@ -743,6 +786,9 @@
 
   function receiveState(state) {
     lastState = state;
+    const serverMe = state && state.players ? state.players[playerId] : null;
+    if (serverMe && !localPose) localPose = clone(serverMe);
+
     if (!gotFirstState) {
       gotFirstState = true;
       setStatus(`${playersInRoom.size}/${MAX_PLAYERS} players online.`);
@@ -750,7 +796,8 @@
     }
     if (!renderState) {
       renderState = cloneState(state);
-      const me = renderState.players[playerId] || Object.values(renderState.players)[0];
+      if (localPose && renderState.players) renderState.players[playerId] = clone(localPose);
+      const me = (playerId && renderState.players[playerId]) || Object.values(renderState.players)[0];
       if (me) {
         camera = cameraFor(me, renderState);
         hasCamera = true;
@@ -794,26 +841,20 @@
   }
 
   function predictLocalPlayer(prev, serverPlayer, dt) {
-    const player = {
-      ...serverPlayer,
-      x: prev.x,
-      y: prev.y,
-      aimX: prev.aimX || serverPlayer.aimX || 1,
-      aimY: prev.aimY || serverPlayer.aimY || 0
-    };
-
-    const error = Math.hypot((serverPlayer.x || 0) - player.x, (serverPlayer.y || 0) - player.y);
-    if (serverPlayer.dead || error > SNAP_DISTANCE) {
-      player.x = serverPlayer.x;
-      player.y = serverPlayer.y;
-    } else if (!isMovingInput(localInput) && error > 1.5) {
-      const fix = Math.min(0.18, dt * 8);
-      player.x = lerp(player.x, serverPlayer.x, fix);
-      player.y = lerp(player.y, serverPlayer.y, fix);
+    if (!localPose) localPose = clone(prev || serverPlayer);
+    if (serverPlayer) {
+      localPose.hp = serverPlayer.hp;
+      localPose.maxHp = serverPlayer.maxHp;
+      localPose.weapon = serverPlayer.weapon;
+      localPose.dead = Boolean(serverPlayer.dead);
+      localPose.kills = serverPlayer.kills || localPose.kills || 0;
+      const error = Math.hypot((serverPlayer.x || 0) - localPose.x, (serverPlayer.y || 0) - localPose.y);
+      if (localPose.dead || error > SNAP_DISTANCE) {
+        localPose.x = serverPlayer.x;
+        localPose.y = serverPlayer.y;
+      }
     }
-
-    updatePlayer(player, localInput, dt, false);
-    return player;
+    return clone(localPose);
   }
 
   function smoothObjectMap(current, target, alpha, smoother) {
@@ -935,7 +976,8 @@
       return;
     }
 
-    const me = state.players[playerId] || Object.values(state.players)[0];
+    const me = (role === "guest" && localPose) ? localPose : (state.players[playerId] || Object.values(state.players)[0]);
+    if (role === "guest" && localPose && state.players) state.players[playerId] = clone(localPose);
     updateCamera(me, state, dt || 0.016);
 
     drawGrid(camera);
@@ -1285,6 +1327,17 @@
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
+  function flashRoomTitle() {
+    roomTitle.classList.add("copying");
+    window.setTimeout(() => roomTitle.classList.remove("copying"), 120);
+  }
+
+  roomTitle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    flashRoomTitle();
+  });
   roomTitle.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1294,6 +1347,7 @@
   roomTitle.addEventListener("keydown", (event) => {
     if (event.code === "Enter" || event.code === "Space") {
       event.preventDefault();
+      flashRoomTitle();
       copyRoomId();
     }
   });
