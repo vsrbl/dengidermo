@@ -8,7 +8,7 @@ export let myId = null;
 export const peers = {};
 
 const lastSeen = {};
-const PEER_TIMEOUT = 10000;
+const PEER_TIMEOUT = 15000;
 
 const EMPTY_INPUT = {
     w:false,
@@ -26,7 +26,9 @@ const PEER_CONFIG = {
 
 function setStatus(text) {
     const el = document.getElementById('status');
-    if (el) el.innerText = text;
+    if(el) {
+        el.innerText = text;
+    }
 }
 
 function updateHud() {
@@ -47,24 +49,30 @@ function clonePlayers() {
     return JSON.parse(JSON.stringify(world.players));
 }
 
-function removeRemotePlayer(id) {
-    delete peers[id];
-    delete lastSeen[id];
-    delete world.players[id];
-    updateHud();
+function safeSend(conn, packet) {
+    if(!conn || !conn.open) {
+        return false;
+    }
+
+    try {
+        conn.send(packet);
+        return true;
+    } catch(e) {
+        return false;
+    }
 }
 
-function getConnectionPlayerId(conn) {
+function getPlayerIdFromConn(conn) {
     return conn.playerId || conn.peer;
 }
 
-function registerConnectionPlayer(conn, playerId) {
-    const id = playerId || conn.peer;
+function setPlayerIdForConn(conn, id) {
+    const oldId = conn.playerId;
 
-    if(conn.playerId && conn.playerId !== id) {
-        delete peers[conn.playerId];
-        delete lastSeen[conn.playerId];
-        delete world.players[conn.playerId];
+    if(oldId && oldId !== id) {
+        delete peers[oldId];
+        delete lastSeen[oldId];
+        delete world.players[oldId];
     }
 
     conn.playerId = id;
@@ -76,25 +84,28 @@ function registerConnectionPlayer(conn, playerId) {
     return id;
 }
 
-function sendSnapshotTo(conn) {
-    if(!conn?.open) {
-        return;
-    }
+function removeRemotePlayer(id) {
+    delete peers[id];
+    delete lastSeen[id];
+    delete world.players[id];
+    updateHud();
+}
 
-    conn.send({
+function makeSnapshotPacket() {
+    return {
         type: 'snapshot',
         players: clonePlayers()
-    });
+    };
+}
+
+function sendSnapshotTo(conn) {
+    safeSend(conn, makeSnapshotPacket());
 }
 
 function sendWelcomeTo(conn) {
-    if(!conn?.open) {
-        return;
-    }
+    const id = setPlayerIdForConn(conn, getPlayerIdFromConn(conn));
 
-    const id = registerConnectionPlayer(conn, getConnectionPlayerId(conn));
-
-    conn.send({
+    safeSend(conn, {
         type: 'welcome',
         yourId: id,
         players: clonePlayers()
@@ -102,23 +113,24 @@ function sendWelcomeTo(conn) {
 }
 
 function handleHostPacket(conn, packet) {
-    const packetId = packet?.clientId;
-    const id = registerConnectionPlayer(conn, packetId || getConnectionPlayerId(conn));
+    const id = setPlayerIdForConn(
+        conn,
+        packet?.clientId || getPlayerIdFromConn(conn)
+    );
+
+    if(packet?.type === 'join') {
+        sendWelcomeTo(conn);
+        broadcastSnapshot();
+        return;
+    }
 
     if(packet?.type === 'input') {
         applyInput(id, packet.input || EMPTY_INPUT);
-        sendSnapshotTo(conn);
         return;
     }
 
     if(packet?.type === 'leave') {
         removeRemotePlayer(id);
-        broadcastSnapshot();
-        return;
-    }
-
-    if(packet?.type === 'join') {
-        sendWelcomeTo(conn);
         broadcastSnapshot();
     }
 }
@@ -168,17 +180,15 @@ export function startHost() {
         });
 
         peer.on('connection', conn => {
-            registerConnectionPlayer(conn, conn.peer);
+            setPlayerIdForConn(conn, conn.peer);
 
             conn.on('open', () => {
-                registerConnectionPlayer(conn, getConnectionPlayerId(conn));
+                setPlayerIdForConn(conn, conn.peer);
                 sendWelcomeTo(conn);
+                broadcastSnapshot();
 
                 setTimeout(() => sendWelcomeTo(conn), 250);
-                setTimeout(() => sendWelcomeTo(conn), 750);
-                setTimeout(() => sendWelcomeTo(conn), 1500);
-
-                broadcastSnapshot();
+                setTimeout(() => sendWelcomeTo(conn), 1000);
             });
 
             conn.on('data', packet => {
@@ -186,15 +196,14 @@ export function startHost() {
             });
 
             conn.on('close', () => {
-                removeRemotePlayer(getConnectionPlayerId(conn));
+                removeRemotePlayer(getPlayerIdFromConn(conn));
                 broadcastSnapshot();
             });
 
             conn.on('error', () => {
-                removeRemotePlayer(getConnectionPlayerId(conn));
+                removeRemotePlayer(getPlayerIdFromConn(conn));
                 broadcastSnapshot();
             });
-
         });
 
         peer.on('error', err => {
@@ -221,28 +230,27 @@ export function connectToHost(hostId) {
         peer.on('open', id => {
             myId = id;
             setRoomId(hostId);
-            setStatus('Loading world...');
+            setStatus('Connecting to host...');
 
             hostConnection = peer.connect(hostId, { reliable: true });
 
             hostConnection.on('open', () => {
-                hostConnection.send({ type: 'join', clientId: myId });
-                hostConnection.send({ type: 'input', clientId: myId, input: EMPTY_INPUT });
+                safeSend(hostConnection, {
+                    type: 'join',
+                    clientId: myId
+                });
 
-                setTimeout(() => {
-                    if(!settled && hostConnection?.open) {
-                        hostConnection.send({ type: 'join', clientId: myId });
-                        hostConnection.send({ type: 'input', clientId: myId, input: EMPTY_INPUT });
-                    }
-                }, 1000);
+                safeSend(hostConnection, {
+                    type: 'input',
+                    clientId: myId,
+                    input: EMPTY_INPUT
+                });
 
-                setTimeout(() => {
-                    if(!settled && hostConnection?.open) {
-                        settled = true;
-                        setStatus('Connected');
-                        resolve(hostId);
-                    }
-                }, 2500);
+                if(!settled) {
+                    settled = true;
+                    setStatus('Connected');
+                    resolve(hostId);
+                }
             });
 
             hostConnection.on('data', packet => {
@@ -254,29 +262,22 @@ export function connectToHost(hostId) {
                     myId = packet.yourId;
                 }
 
-                world.players = packet.players || {};
-                updateHud();
-
-                if(packet.type === 'welcome' && world.players[myId] && !settled) {
-                    settled = true;
-                    setStatus('Connected');
-                    resolve(hostId);
-                    return;
+                if(packet.players) {
+                    world.players = packet.players;
+                    updateHud();
                 }
 
-                if(packet.type === 'snapshot' && !settled) {
-                    if(world.players[myId]) {
-                        settled = true;
-                        setStatus('Connected');
-                        resolve(hostId);
-                    } else {
-                        setStatus('Loading world...');
-                    }
+                if(hostConnection?.open) {
+                    safeSend(hostConnection, {
+                        type: 'join',
+                        clientId: myId
+                    });
                 }
             });
 
             hostConnection.on('close', () => {
                 setStatus('Connection closed');
+
                 if(!settled) {
                     settled = true;
                     reject(new Error('Connection closed'));
@@ -309,7 +310,9 @@ export function connectToHost(hostId) {
 }
 
 export function sendInput(input) {
-    if(!myId) return;
+    if(!myId) {
+        return;
+    }
 
     const safeInput = input || EMPTY_INPUT;
 
@@ -319,35 +322,26 @@ export function sendInput(input) {
         return;
     }
 
-    if(hostConnection?.open) {
-        hostConnection.send({
-            type: 'input',
-            clientId: myId,
-            input: safeInput
-        });
-    }
+    safeSend(hostConnection, {
+        type: 'input',
+        clientId: myId,
+        input: safeInput
+    });
 }
 
 export function broadcastSnapshot() {
-    if(!isHost) return;
+    if(!isHost) {
+        return;
+    }
 
     cleanupTimedOutPlayers();
 
-    const packet = {
-        type: 'snapshot',
-        players: clonePlayers()
-    };
+    const packet = makeSnapshotPacket();
 
     for(const id in peers) {
         const conn = peers[id];
 
-        if(conn?.open) {
-            try {
-                conn.send(packet);
-            } catch(e) {
-                removeRemotePlayer(id);
-            }
-        } else {
+        if(!safeSend(conn, packet)) {
             removeRemotePlayer(id);
         }
     }
@@ -357,9 +351,10 @@ export function broadcastSnapshot() {
 
 export function leaveGame() {
     if(!isHost && hostConnection?.open) {
-        try {
-            hostConnection.send({ type: 'leave', clientId: myId });
-        } catch(e) {}
+        safeSend(hostConnection, {
+            type: 'leave',
+            clientId: myId
+        });
     }
 
     try {
