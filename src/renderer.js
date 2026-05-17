@@ -1,5 +1,5 @@
 import { GREEN, VIEW, WORLD } from "./core/constants.js";
-import { isVisible, lerp } from "./core/math.js";
+import { dist2, isVisible, lerp, norm } from "./core/math.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { ENEMIES } from "./data/enemies.js";
 import { LOOT } from "./data/loot.js";
@@ -48,7 +48,7 @@ function prune(map, ids) {
   for (const key of map.keys()) if (!ids.has(key)) map.delete(key);
 }
 
-function smoothProjectile(map, obj, dt, snapshotTick) {
+function smoothProjectile(map, obj, renderDt, simDt, snapshotTick) {
   const old = map.get(obj.id);
   if (!old) {
     const copy = { ...obj, _tick: snapshotTick };
@@ -57,17 +57,17 @@ function smoothProjectile(map, obj, dt, snapshotTick) {
   }
 
   if (old._tick !== snapshotTick) {
-    old.x = lerp(old.x, obj.x, 0.82);
-    old.y = lerp(old.y, obj.y, 0.82);
+    const correction = obj.kind === "rocket" || obj.kind === "homing" ? 0.42 : 0.56;
+    old.x = lerp(old.x, obj.x, correction);
+    old.y = lerp(old.y, obj.y, correction);
     old._tick = snapshotTick;
     for (const k of Object.keys(obj)) {
       if (k !== "x" && k !== "y") old[k] = obj[k];
     }
-    return old;
   }
 
-  old.x += (old.vx || 0) * dt;
-  old.y += (old.vy || 0) * dt;
+  old.x += (old.vx || 0) * simDt;
+  old.y += (old.vy || 0) * simDt;
   return old;
 }
 
@@ -204,7 +204,7 @@ function drawCrosshair(ctx, mouse) {
   ctx.stroke();
 }
 
-export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, dt) {
+export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, renderDt, simDt = renderDt) {
   const { ctx, smooth } = renderer;
   drawGrid(ctx, cam);
   if (!snapshot) {
@@ -215,7 +215,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   const enemyIds = new Set();
   for (const raw of snapshot.enemies || []) {
     enemyIds.add(raw.id);
-    const e = smoothEntity(smooth.enemies, raw, dt);
+    const e = smoothEntity(smooth.enemies, raw, renderDt);
     if (isVisible(e, cam, 80)) drawEnemy(ctx, e, cam);
   }
   prune(smooth.enemies, enemyIds);
@@ -223,17 +223,17 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   const lootIds = new Set();
   for (const raw of snapshot.loot || []) {
     lootIds.add(raw.id);
-    const item = smoothEntity(smooth.loot, raw, dt);
+    const item = smoothEntity(smooth.loot, raw, renderDt);
     if (isVisible(item, cam, 60)) drawLoot(ctx, item, cam);
   }
   prune(smooth.loot, lootIds);
 
   const projectileIds = new Set();
-  const predictedIds = new Set(predictedProjectiles.map((p) => p.id));
+  const predictedServerIds = new Set(predictedProjectiles.map((p) => p.serverId || String(p.id).replace(/:local$/, "")));
   for (const raw of snapshot.projectiles || []) {
     projectileIds.add(raw.id);
-    if (raw.ownerId === localId && predictedIds.has(raw.id)) continue;
-    const p = smoothProjectile(smooth.projectiles, raw, dt, snapshot.tick);
+    if (raw.ownerId === localId && predictedServerIds.has(raw.id)) continue;
+    const p = smoothProjectile(smooth.projectiles, raw, renderDt, simDt, snapshot.tick);
     if (isVisible(p, cam, 50)) drawProjectile(ctx, p, cam);
   }
   prune(smooth.projectiles, projectileIds);
@@ -245,7 +245,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.players || []) {
     playerIds.add(raw.id);
     const isLocal = raw.id === localId;
-    const p = isLocal && localPose ? { ...raw, ...localPose, hp: raw.hp, maxHp: raw.maxHp, weapon: raw.weapon, skin: raw.skin } : smoothEntity(smooth.players, raw, dt);
+    const p = isLocal && localPose ? { ...raw, ...localPose, hp: raw.hp, maxHp: raw.maxHp, weapon: raw.weapon, skin: raw.skin } : smoothEntity(smooth.players, raw, renderDt);
     if (isVisible(p, cam, 90)) drawPlayer(ctx, p, cam, isLocal);
   }
   prune(smooth.players, playerIds);
@@ -271,8 +271,10 @@ export function makePredictedProjectile(id, playerId, weaponId, pose) {
     const angle = pose.angle + offset;
     const vx = Math.cos(angle) * weapon.bulletSpeed;
     const vy = Math.sin(angle) * weapon.bulletSpeed;
+    const serverId = `${id}${pellets === 1 ? "" : `-${i}`}`;
     out.push({
-      id: `${id}${pellets === 1 ? "" : `-${i}`}:local`,
+      id: `${serverId}:local`,
+      serverId,
       ownerId: playerId,
       weaponId,
       kind: weapon.projectile,
@@ -283,17 +285,64 @@ export function makePredictedProjectile(id, playerId, weaponId, pose) {
       speed: weapon.bulletSpeed,
       radius: weapon.radius,
       color: weapon.color,
-      life: weapon.projectile === "bullet" ? 0.11 : 0.16
+      range: weapon.range,
+      distance: 0,
+      targetId: null,
+      life: weapon.range / weapon.bulletSpeed
     });
   }
   return out;
 }
 
-export function updatePredictedProjectiles(projectiles, dt) {
+function nearestSnapshotEnemy(snapshot, projectile, maxRange) {
+  const enemies = snapshot?.enemies || [];
+  if (projectile.targetId) {
+    const locked = enemies.find((e) => e.id === projectile.targetId);
+    if (locked) return locked;
+    projectile.targetId = null;
+  }
+  let best = null;
+  let bestD = maxRange * maxRange;
+  for (const e of enemies) {
+    const d = dist2(projectile.x, projectile.y, e.x, e.y);
+    if (d < bestD) {
+      bestD = d;
+      best = e;
+    }
+  }
+  if (best) projectile.targetId = best.id;
+  return best;
+}
+
+function updatePredictedHoming(projectile, weapon, snapshot, dt) {
+  if (projectile.kind !== "homing") return;
+  const homing = weapon.effects?.find((e) => e.type === "homing");
+  if (!homing) return;
+  const target = nearestSnapshotEnemy(snapshot, projectile, homing.acquireRange || 620);
+  if (!target) return;
+  const desired = norm(target.x - projectile.x, target.y - projectile.y);
+  const current = norm(projectile.vx, projectile.vy);
+  const turn = Math.min(1, (homing.strength || 8) * dt);
+  const next = norm(current.x + (desired.x - current.x) * turn, current.y + (desired.y - current.y) * turn);
+  projectile.vx = next.x * projectile.speed;
+  projectile.vy = next.y * projectile.speed;
+}
+
+export function updatePredictedProjectiles(projectiles, dt, snapshot = null) {
   for (const p of projectiles) {
+    const weapon = WEAPONS[p.weaponId] || WEAPONS[START_WEAPON];
+    const prevX = p.x;
+    const prevY = p.y;
+    updatePredictedHoming(p, weapon, snapshot, dt);
     p.x += p.vx * dt;
     p.y += p.vy * dt;
+    p.distance = (p.distance || 0) + Math.hypot(p.x - prevX, p.y - prevY);
     p.life -= dt;
   }
-  return projectiles.filter((p) => p.life > 0);
+  return projectiles.filter((p) => (
+    p.life > 0 &&
+    (p.distance || 0) < (p.range || Infinity) &&
+    p.x >= -80 && p.x <= WORLD.w + 80 &&
+    p.y >= -80 && p.y <= WORLD.h + 80
+  ));
 }

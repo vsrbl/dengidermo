@@ -14,7 +14,7 @@ function isEditableTarget(target) {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-export function createInput(canvas, { onEsc, isGameActive = () => true } = {}) {
+export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
 
@@ -39,6 +39,18 @@ export function createInput(canvas, { onEsc, isGameActive = () => true } = {}) {
     if (e.code === "Escape") {
       e.preventDefault();
       onEsc?.();
+      return;
+    }
+
+    if (!e.repeat && /^Digit[1-9]$/.test(e.code)) {
+      e.preventDefault();
+      onWeaponSlot?.(Number(e.code.slice(5)) - 1);
+      return;
+    }
+
+    if (!e.repeat && (e.code === "KeyQ" || e.code === "KeyE")) {
+      e.preventDefault();
+      onWeaponCycle?.(e.code === "KeyQ" ? -1 : 1);
       return;
     }
 
@@ -84,6 +96,11 @@ export function createInput(canvas, { onEsc, isGameActive = () => true } = {}) {
     setMouseFromEvent(e);
   });
   window.addEventListener("mouseup", () => { mouse.down = false; });
+  canvas.addEventListener("wheel", (e) => {
+    if (!isGameActive()) return;
+    e.preventDefault();
+    onWeaponCycle?.(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
   function sample(localPose, camera) {

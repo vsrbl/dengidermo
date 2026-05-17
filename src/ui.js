@@ -12,7 +12,8 @@ export function createUi() {
     roomTitle: document.getElementById("roomTitle"),
     netStatus: document.getElementById("netStatus"),
     hpText: document.getElementById("hpText"),
-    weaponText: document.getElementById("weaponText")
+    weaponText: document.getElementById("weaponText"),
+    inventoryText: document.getElementById("inventoryText")
   };
 
   function showMenu() {
@@ -52,10 +53,17 @@ export function createUi() {
     if (!player) {
       el.hpText.textContent = "--";
       el.weaponText.textContent = "--";
+      el.inventoryText.textContent = "--";
       return;
     }
+    const inv = player.inventory || { weapons: [player.weapon || START_WEAPON], activeWeapon: player.weapon || START_WEAPON };
+    const active = inv.activeWeapon || player.weapon || START_WEAPON;
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
-    el.weaponText.textContent = (WEAPONS[player.weapon]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
+    el.weaponText.textContent = (WEAPONS[active]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
+    el.inventoryText.textContent = (inv.weapons || [START_WEAPON])
+      .slice(0, 9)
+      .map((id, index) => `${index + 1}${id === active ? ":" : "."}${(WEAPONS[id]?.name || id).toUpperCase()}`)
+      .join("  ");
   }
 
   el.roomTitle.addEventListener("click", async () => {

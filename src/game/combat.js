@@ -1,20 +1,23 @@
 import { angleToVec, clamp } from "../core/math.js";
 import { WORLD } from "../core/constants.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
+import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
 import { makeProjectile } from "./projectiles.js";
 import { pushEvent } from "./state.js";
 
-function canFire(player, weapon, now) {
-  return now + 0.018 >= player.nextFireAt && player.hp > 0 && weapon;
+function canFire(player, weaponId, weapon, now) {
+  const nextAt = player.cooldowns?.[weaponId] || 0;
+  return now + 0.018 >= nextAt && player.hp > 0 && weapon;
 }
 
 export function fireWeapon(state, playerId, payload = {}) {
   const player = state.players[playerId];
   if (!player) return false;
 
-  const weaponId = WEAPONS[player.weapon] ? player.weapon : START_WEAPON;
+  if (payload.weapon && hasWeapon(player, payload.weapon)) switchWeapon(player, payload.weapon);
+  const weaponId = getActiveWeaponId(player);
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
-  if (!canFire(player, weapon, state.time)) return false;
+  if (!canFire(player, weaponId, weapon, state.time)) return false;
 
   const originMax = 120;
   let x = Number.isFinite(payload.x) ? payload.x : player.x;
@@ -54,7 +57,9 @@ export function fireWeapon(state, playerId, payload = {}) {
   }
 
   player.angle = angle;
-  player.nextFireAt = state.time + 1 / weapon.fireRate;
+  if (!player.cooldowns) player.cooldowns = {};
+  player.cooldowns[weaponId] = state.time + 1 / weapon.fireRate;
+  player.nextFireAt = player.cooldowns[weaponId];
   pushEvent(state, { type: "shoot", playerId, weaponId, x, y, angle, fireSeq: seq });
   return true;
 }

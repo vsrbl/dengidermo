@@ -147,7 +147,7 @@ button:active {
 .hud-left {
   top: 12px;
   left: 12px;
-  width: 210px;
+  width: 260px;
 }
 
 .hud-right {
@@ -217,4 +217,17 @@ button:active {
   .hud-right { display: none; }
   .hud-left { width: 190px; }
   .title { font-size: 18px; }
+}
+
+.inventory-row {
+  grid-template-columns: 48px 1fr;
+}
+
+#inventoryText {
+  color: var(--green);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

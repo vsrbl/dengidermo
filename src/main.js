@@ -9,6 +9,7 @@ import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "./game/state.js";
 import { fireWeapon } from "./game/combat.js";
 import { emptyInput, makeShootPayload, movePlayer, updateHostWorld } from "./game/simulation.js";
+import { createInventory, cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "./game/inventory.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -16,7 +17,7 @@ const ui = createUi();
 const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
-const input = createInput(canvas, { onEsc: leaveGame, isGameActive: () => running });
+const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running });
 
 let transport = null;
 let running = false;
@@ -31,8 +32,9 @@ let hostInputs = Object.create(null);
 let snapshot = null;
 let localPose = null;
 let localWeapon = START_WEAPON;
+let localInventory = createInventory([START_WEAPON]);
 let predictedProjectiles = [];
-let localNextFireAt = 0;
+let localCooldowns = Object.create(null);
 let fireSeq = 0;
 let lastInputSent = 0;
 let lastSnapshotSent = 0;
@@ -89,12 +91,16 @@ function handleReady(info) {
   roomId = info.roomId;
   playerId = info.playerId;
   players = info.players;
+  lastSnapshotTick = -1;
+  lastInputSent = 0;
+  lastSnapshotSent = 0;
   transportMode = "RELAY";
   pingMs = null;
   predictedProjectiles = [];
-  localNextFireAt = 0;
+  localCooldowns = Object.create(null);
   fireSeq = 0;
   localWeapon = START_WEAPON;
+  localInventory = createInventory([START_WEAPON]);
   camera.ready = false;
   input.resetKeys();
 
@@ -102,13 +108,16 @@ function handleReady(info) {
     hostState = createGameState(roomId);
     addPlayer(hostState, playerId, 0);
     hostInputs[playerId] = emptyInput();
+    localInventory = ensureInventory(hostState.players[playerId]);
+    localWeapon = getActiveWeaponId(hostState.players[playerId]);
     snapshot = makeSnapshot(hostState);
   } else {
     hostState = null;
     snapshot = null;
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, weapon: START_WEAPON, skin: index % 2 ? "green" : "default" };
+    localInventory = createInventory([START_WEAPON]);
+    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, weapon: START_WEAPON, inventory: localInventory, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
@@ -137,6 +146,8 @@ function leaveGame() {
   hostInputs = Object.create(null);
   localPose = null;
   predictedProjectiles = [];
+  localInventory = createInventory([START_WEAPON]);
+  localCooldowns = Object.create(null);
   input.resetKeys();
   transport?.close(true);
   transport = null;
@@ -158,6 +169,11 @@ function handleNetData(msg, from, mode) {
         player.fireSeqSeen = msg.shoot.fireSeq;
         fireWeapon(hostState, from, msg.shoot);
       }
+      return;
+    }
+    if (msg.t === "weapon" && from) {
+      applyWeaponRequest(from, msg);
+      return;
     }
     return;
   }
@@ -174,18 +190,19 @@ function syncLocalFromSnapshot() {
   const me = snapshot?.players?.find((p) => p.id === playerId);
   if (!me) return;
   const oldWeapon = localWeapon;
+  if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [] };
   if (!localPose) {
-    localWeapon = me.weapon || START_WEAPON;
-    localPose = { ...me, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
+    localWeapon = me.inventory?.activeWeapon || me.weapon || START_WEAPON;
+    localPose = { ...me, inventory: localInventory, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
     return;
   }
   localPose.hp = me.hp;
   localPose.maxHp = me.maxHp;
-  if (me.weapon && me.weapon !== oldWeapon) {
-    localWeapon = me.weapon;
-    localNextFireAt = 0;
-  }
-  localPose.weapon = me.weapon;
+  if ((me.inventory?.activeWeapon || me.weapon) && (me.inventory?.activeWeapon || me.weapon) !== oldWeapon) {
+    localWeapon = me.inventory?.activeWeapon || me.weapon;
+    }
+  localPose.weapon = localWeapon;
+  localPose.inventory = localInventory;
   localPose.skin = me.skin;
   const dx = me.x - localPose.x;
   const dy = me.y - localPose.y;
@@ -206,7 +223,48 @@ function ensureHostPlayers() {
 }
 
 function currentLocalPlayerFromSnapshot() {
-  return snapshot?.players?.find((p) => p.id === playerId) || localPose;
+  const fromSnapshot = snapshot?.players?.find((p) => p.id === playerId);
+  if (fromSnapshot) return fromSnapshot;
+  return localPose;
+}
+
+function applyWeaponRequest(id, request = {}) {
+  const player = hostState?.players[id];
+  if (!player) return false;
+  if (Number.isInteger(request.slot)) return switchWeaponSlot(player, request.slot);
+  if (Number.isFinite(request.dir)) return cycleWeapon(player, request.dir > 0 ? 1 : -1);
+  return false;
+}
+
+function localInventoryWeapons() {
+  return Array.isArray(localInventory?.weapons) ? localInventory.weapons : [START_WEAPON];
+}
+
+function requestWeaponSlot(slot) {
+  if (!running || !Number.isInteger(slot)) return;
+  if (role === "host") {
+    applyWeaponRequest(playerId, { slot });
+    return;
+  }
+  const weaponId = localInventoryWeapons()[slot];
+  if (!weaponId) return;
+  localWeapon = weaponId;
+  localInventory.activeWeapon = weaponId;
+  if (localPose) { localPose.weapon = weaponId; localPose.inventory = localInventory; }
+  transport?.sendToHost({ t: "weapon", slot });
+}
+
+function requestWeaponCycle(dir) {
+  if (!running) return;
+  const weapons = localInventoryWeapons();
+  if (weapons.length <= 1) return;
+  if (role === "host") {
+    applyWeaponRequest(playerId, { dir });
+    return;
+  }
+  const current = Math.max(0, weapons.indexOf(localWeapon));
+  const next = (current + (dir > 0 ? 1 : -1) + weapons.length) % weapons.length;
+  requestWeaponSlot(next);
 }
 
 function applyLocalRecoil(pose, weapon, angle) {
@@ -219,14 +277,16 @@ function tryLocalShoot(nowSec, inputState) {
   if (!localPose || !inputState.fire) return;
   const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.weapon] ? localPose.weapon : START_WEAPON);
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
-  if (nowSec < localNextFireAt) return;
-  localNextFireAt = nowSec + 1 / weapon.fireRate;
+  if (nowSec < (localCooldowns[weaponId] || 0)) return;
+  localCooldowns[weaponId] = nowSec + 1 / weapon.fireRate;
   fireSeq += 1;
   localPose.angle = inputState.aimAngle;
   const payload = makeShootPayload(playerId, localPose, weaponId, fireSeq);
   const baseId = `${playerId}-${fireSeq}`;
-  predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose));
-  if (role === "guest") applyLocalRecoil(localPose, weapon, inputState.aimAngle);
+  if (role === "guest") {
+    predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose));
+    applyLocalRecoil(localPose, weapon, inputState.aimAngle);
+  }
   if (role === "host") fireWeapon(hostState, playerId, payload);
   else transport?.sendToHost({ t: "shoot", shoot: payload });
 }
@@ -239,7 +299,8 @@ function updateHost(dt, now, gameNow) {
   inputState.px = Math.round(me.x);
   inputState.py = Math.round(me.y);
   hostInputs[playerId] = inputState;
-  localWeapon = me.weapon || START_WEAPON;
+  localInventory = ensureInventory(me);
+  localWeapon = getActiveWeaponId(me);
   tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
   snapshot = makeSnapshot(hostState);
@@ -268,8 +329,11 @@ function updateGuest(dt, now, gameNow) {
 }
 
 function updateHud() {
-  const me = role === "host" ? hostState?.players[playerId] : currentLocalPlayerFromSnapshot();
-  ui.setHud(me);
+  const snapMe = currentLocalPlayerFromSnapshot();
+  const me = role === "host"
+    ? hostState?.players[playerId]
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, weapon: localWeapon, inventory: localInventory } : snapMe);
+  ui.setHud(me || { inventory: localInventory, weapon: localWeapon });
   ui.setNet({ pingMs, role, playerId, players, transportMode });
 }
 
@@ -283,9 +347,9 @@ function loop(now) {
     transport?.tickPing(now);
     if (role === "host" && hostState) updateHost(gameDt, now, gameNow);
     if (role === "guest") updateGuest(gameDt, now, gameNow);
-    predictedProjectiles = updatePredictedProjectiles(predictedProjectiles, gameDt);
+    predictedProjectiles = updatePredictedProjectiles(predictedProjectiles, gameDt, snapshot);
     updateCamera(camera, localPose || currentLocalPlayerFromSnapshot(), dt);
-    render(renderer, snapshot, localPose, playerId, camera, input.mouse, predictedProjectiles, dt);
+    render(renderer, snapshot, localPose, playerId, camera, input.mouse, predictedProjectiles, dt, gameDt);
     updateHud();
   }
 

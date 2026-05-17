@@ -2,6 +2,7 @@ import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
 import { nextId, pushEvent } from "./state.js";
+import { giveWeapon } from "./inventory.js";
 
 export function dropLoot(state, x, y, chance = 0.28) {
   if (state.rng.next() > chance) return;
@@ -28,8 +29,7 @@ export function updateLoot(state) {
         player.hp = Math.min(player.maxHp, player.hp + data.amount);
       }
       if (data.type === "weapon") {
-        player.weapon = data.weaponId;
-        player.nextFireAt = 0;
+        giveWeapon(player, data.weaponId, true);
       }
       delete state.loot[item.id];
       pushEvent(state, { type: "pickup", playerId: player.id, kind: item.kind, x: item.x, y: item.y });
