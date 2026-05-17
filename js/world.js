@@ -20,7 +20,12 @@ export function createPlayer(id, canvas) {
     };
 }
 
-export function movePlayer(p, input, canvas) {
+export function movePlayer(
+    p,
+    input,
+    canvas,
+    delta = 1
+) {
 
     let dx = 0;
     let dy = 0;
@@ -34,8 +39,15 @@ export function movePlayer(p, input, canvas) {
 
         const len = Math.hypot(dx, dy);
 
-        p.x += (dx / len) * PLAYER_SPEED * delta;
-        p.y += (dy / len) * PLAYER_SPEED * delta;
+        p.x +=
+            (dx / len) *
+            PLAYER_SPEED *
+            delta;
+
+        p.y +=
+            (dy / len) *
+            PLAYER_SPEED *
+            delta;
     }
 
     p.x = Math.max(
