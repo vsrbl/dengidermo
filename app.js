@@ -8,7 +8,6 @@
   const roomInput = $("roomInput");
   const createBtn = $("createBtn");
   const joinBtn = $("joinBtn");
-  const leaveBtn = $("leaveBtn");
   const menuStatus = $("menuStatus");
   const netStatus = $("netStatus");
   const roomTitle = $("roomTitle");
@@ -23,6 +22,7 @@
   const MAX_PLAYERS = 4;
   const PLAYER_SIZE = 14;
   const WALL_PAD = 16;
+  const GREEN = "#00ff66";
 
   const WEAPONS = {
     pistol: { label: "PISTOL", cd: 0.18, speed: 560, life: 0.75, dmg: 1, pellets: 1, spread: 0, size: 3 },
@@ -48,15 +48,20 @@
   let lastStateSent = 0;
   let lastInputSent = 0;
   let lastState = null;
+  let renderState = null;
   let playersInRoom = new Set();
   let connected = false;
+  let hasCamera = false;
+  let camera = { x: 0, y: 0 };
 
   const pressed = new Set();
   const inputs = Object.create(null);
+  const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false };
   let localInput = emptyInput();
+  let lastSentInput = "";
 
   function emptyInput() {
-    return { left: false, right: false, up: false, down: false, fire: false };
+    return { left: false, right: false, up: false, down: false, fire: false, aimX: 1, aimY: 0 };
   }
 
   function setStatus(text) {
@@ -132,9 +137,11 @@
 
         if (role === "host") {
           lastState = createInitialState(Array.from(playersInRoom));
-          setStatus("Room created. Players can join anytime.");
+          renderState = lastState;
+          setStatus("Room ready. Join anytime.");
         } else {
-          setStatus("Joined. Waiting for world state...");
+          renderState = null;
+          setStatus("Joined. Syncing world...");
         }
 
         ensureLoop();
@@ -164,7 +171,7 @@
       }
 
       if (msg.type === "state" && role !== "host") {
-        lastState = msg.state;
+        receiveState(msg.state);
         return;
       }
 
@@ -292,44 +299,80 @@
       if (!connected) return;
       const dt = Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000));
       lastFrame = now;
-      updateLocalInput();
+
+      updateLocalInput(dt);
 
       if (role === "host" && lastState) {
         inputs[playerId] = localInput;
         updateHostWorld(dt);
-        if (now - lastStateSent > 50) {
+        renderState = lastState;
+        if (now - lastStateSent > 33) {
           lastStateSent = now;
           sendWs({ type: "state", state: packState(lastState) });
         }
-      } else if (role === "guest" && now - lastInputSent > 30) {
-        lastInputSent = now;
-        sendWs({ type: "input", input: localInput });
+      } else {
+        updateRenderState(dt);
+        if (now - lastInputSent > 16 || inputSignature(localInput) !== lastSentInput) {
+          lastInputSent = now;
+          lastSentInput = inputSignature(localInput);
+          sendWs({ type: "input", input: localInput });
+        }
       }
 
-      draw();
+      draw(dt);
       loopId = requestAnimationFrame(loop);
     };
     loopId = requestAnimationFrame(loop);
   }
 
   function updateLocalInput() {
+    const state = renderState || lastState;
+    const me = state && playerId ? state.players[playerId] : null;
+    const aim = aimVectorFor(me);
+
     localInput = {
-      left: pressed.has("arrowleft") || pressed.has("a"),
-      right: pressed.has("arrowright") || pressed.has("d"),
-      up: pressed.has("arrowup") || pressed.has("w"),
-      down: pressed.has("arrowdown") || pressed.has("s"),
-      fire: pressed.has(" ") || pressed.has("enter")
+      left: pressed.has("ArrowLeft") || pressed.has("KeyA"),
+      right: pressed.has("ArrowRight") || pressed.has("KeyD"),
+      up: pressed.has("ArrowUp") || pressed.has("KeyW"),
+      down: pressed.has("ArrowDown") || pressed.has("KeyS"),
+      fire: mouse.down || pressed.has("Space") || pressed.has("Enter"),
+      aimX: aim.x,
+      aimY: aim.y
     };
   }
 
+  function aimVectorFor(player) {
+    if (!player) return { x: localInput.aimX || 1, y: localInput.aimY || 0 };
+    const wx = camera.x + mouse.x;
+    const wy = camera.y + mouse.y;
+    const px = player.x + PLAYER_SIZE / 2;
+    const py = player.y + PLAYER_SIZE / 2;
+    const dx = wx - px;
+    const dy = wy - py;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.001) return { x: player.aimX || 1, y: player.aimY || 0 };
+    return { x: dx / len, y: dy / len };
+  }
+
   function normalizeInput(input) {
+    const rawX = Number(input && input.aimX);
+    const rawY = Number(input && input.aimY);
+    const aimX = Number.isFinite(rawX) ? rawX : 1;
+    const aimY = Number.isFinite(rawY) ? rawY : 0;
+    const len = Math.hypot(aimX, aimY) || 1;
     return {
       left: Boolean(input && input.left),
       right: Boolean(input && input.right),
       up: Boolean(input && input.up),
       down: Boolean(input && input.down),
-      fire: Boolean(input && input.fire)
+      fire: Boolean(input && input.fire),
+      aimX: clamp(aimX / len, -1, 1),
+      aimY: clamp(aimY / len, -1, 1)
     };
+  }
+
+  function inputSignature(input) {
+    return `${input.left ? 1 : 0}${input.right ? 1 : 0}${input.up ? 1 : 0}${input.down ? 1 : 0}${input.fire ? 1 : 0}:${Math.round(input.aimX * 100)}:${Math.round(input.aimY * 100)}`;
   }
 
   function updateHostWorld(dt) {
@@ -347,7 +390,7 @@
 
     for (const id of playersInRoom) ensurePlayer(id);
 
-    for (const player of Object.values(state.players)) updatePlayer(player, normalizeInput(inputs[player.id]), dt);
+    for (const player of Object.values(state.players)) updatePlayer(player, normalizeInput(inputs[player.id]), dt, true);
     updateBullets(dt);
     updateMobs(dt);
     updateLoot(dt);
@@ -369,7 +412,7 @@
     if (state.loot.length > 50) state.loot.splice(0, state.loot.length - 50);
   }
 
-  function updatePlayer(player, input, dt) {
+  function updatePlayer(player, input, dt, canShoot) {
     if (player.dead) {
       player.respawn -= dt;
       if (player.respawn <= 0) {
@@ -379,6 +422,12 @@
         player.y = WORLD.h / 2 + rand(-50, 50);
       }
       return;
+    }
+
+    const aimLen = Math.hypot(input.aimX, input.aimY);
+    if (aimLen > 0.001) {
+      player.aimX = input.aimX / aimLen;
+      player.aimY = input.aimY / aimLen;
     }
 
     let dx = 0;
@@ -392,8 +441,6 @@
       const len = Math.hypot(dx, dy) || 1;
       dx /= len;
       dy /= len;
-      player.aimX = dx;
-      player.aimY = dy;
       const speed = 196;
       player.x = clamp(player.x + dx * speed * dt, WALL_PAD, WORLD.w - WALL_PAD - PLAYER_SIZE);
       player.y = clamp(player.y + dy * speed * dt, WALL_PAD, WORLD.h - WALL_PAD - PLAYER_SIZE);
@@ -401,8 +448,9 @@
 
     player.fireCd = Math.max(0, player.fireCd - dt);
     player.hitCd = Math.max(0, player.hitCd - dt);
-    if (input.fire && player.fireCd <= 0) shootPlayerWeapon(player);
+    if (canShoot && input.fire && player.fireCd <= 0) shootPlayerWeapon(player);
 
+    if (!canShoot) return;
     for (let i = lastState.loot.length - 1; i >= 0; i -= 1) {
       const item = lastState.loot[i];
       if (dist(player.x + 7, player.y + 7, item.x, item.y) > 18) continue;
@@ -616,41 +664,194 @@
     return best;
   }
 
-  function packState(state) {
-    return state;
+  function receiveState(state) {
+    lastState = state;
+    if (!renderState) {
+      renderState = cloneState(state);
+      const me = renderState.players[playerId] || Object.values(renderState.players)[0];
+      if (me) {
+        camera = cameraFor(me, renderState);
+        hasCamera = true;
+      }
+    }
   }
 
-  function draw() {
+  function updateRenderState(dt) {
+    if (!lastState) {
+      renderState = null;
+      return;
+    }
+    if (!renderState) renderState = cloneState(lastState);
+
+    const a = Math.min(1, dt * 24);
+    renderState.tick = lastState.tick;
+    renderState.time = lastState.time;
+    renderState.wave = lastState.wave;
+    renderState.world = lastState.world || WORLD;
+    renderState.players = smoothObjectMap(renderState.players || {}, lastState.players || {}, a, smoothPlayer);
+    renderState.mobs = smoothArray(renderState.mobs || [], lastState.mobs || [], a, smoothMob);
+    renderState.bullets = smoothArray(renderState.bullets || [], lastState.bullets || [], a, smoothBullet);
+    renderState.loot = smoothArray(renderState.loot || [], lastState.loot || [], a, smoothLoot);
+
+    if (role === "guest" && playerId && renderState.players[playerId]) {
+      updatePlayer(renderState.players[playerId], localInput, dt, false);
+    }
+  }
+
+  function smoothObjectMap(current, target, alpha, smoother) {
+    const out = {};
+    for (const [id, next] of Object.entries(target)) {
+      const prev = current[id];
+      out[id] = prev ? smoother(prev, next, alpha) : clone(next);
+    }
+    return out;
+  }
+
+  function smoothArray(current, target, alpha, smoother) {
+    const prevById = new Map(current.map((item) => [item.id, item]));
+    return target.map((next) => {
+      const prev = prevById.get(next.id);
+      return prev ? smoother(prev, next, alpha) : clone(next);
+    });
+  }
+
+  function smoothPlayer(prev, next, a) {
+    return {
+      ...next,
+      x: lerp(prev.x, next.x, a),
+      y: lerp(prev.y, next.y, a),
+      aimX: lerp(prev.aimX || 1, next.aimX || 1, a),
+      aimY: lerp(prev.aimY || 0, next.aimY || 0, a)
+    };
+  }
+
+  function smoothMob(prev, next, a) {
+    return { ...next, x: lerp(prev.x, next.x, a), y: lerp(prev.y, next.y, a) };
+  }
+
+  function smoothBullet(prev, next, a) {
+    return { ...next, x: lerp(prev.x, next.x, a), y: lerp(prev.y, next.y, a) };
+  }
+
+  function smoothLoot(prev, next, a) {
+    return { ...next, x: lerp(prev.x, next.x, a), y: lerp(prev.y, next.y, a) };
+  }
+
+  function cloneState(state) {
+    return {
+      tick: state.tick || 0,
+      time: state.time || 0,
+      wave: state.wave || 1,
+      world: state.world || { w: WORLD.w, h: WORLD.h },
+      players: clone(state.players || {}),
+      mobs: clone(state.mobs || []),
+      bullets: clone(state.bullets || []),
+      loot: clone(state.loot || [])
+    };
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function packState(state) {
+    const players = {};
+    for (const [id, p] of Object.entries(state.players)) {
+      players[id] = {
+        id,
+        x: r1(p.x),
+        y: r1(p.y),
+        hp: r1(p.hp),
+        maxHp: p.maxHp,
+        weapon: p.weapon,
+        aimX: r2(p.aimX || 1),
+        aimY: r2(p.aimY || 0),
+        dead: Boolean(p.dead),
+        kills: p.kills || 0
+      };
+    }
+
+    return {
+      tick: state.tick,
+      time: r2(state.time),
+      wave: state.wave,
+      world: state.world,
+      players,
+      mobs: state.mobs.map((m) => ({
+        id: m.id,
+        type: m.type,
+        x: r1(m.x),
+        y: r1(m.y),
+        hp: r1(m.hp),
+        maxHp: m.maxHp,
+        size: m.size
+      })),
+      bullets: state.bullets.map((b) => ({
+        id: b.id,
+        team: b.team,
+        owner: b.owner,
+        x: r1(b.x),
+        y: r1(b.y),
+        size: b.size
+      })),
+      loot: state.loot.map((item) => ({
+        id: item.id,
+        x: r1(item.x),
+        y: r1(item.y),
+        kind: item.kind,
+        weapon: item.weapon,
+        ttl: r1(item.ttl)
+      }))
+    };
+  }
+
+  function draw(dt) {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, VIEW.w, VIEW.h);
 
-    if (!lastState) {
+    const state = renderState || lastState;
+    if (!state) {
       drawScreenText("WAITING", VIEW.w / 2 - 28, VIEW.h / 2);
       gameHud.textContent = "HP -- | WEAPON -- | MOBS --";
       return;
     }
 
-    const me = lastState.players[playerId] || Object.values(lastState.players)[0];
-    const cam = cameraFor(me);
+    const me = state.players[playerId] || Object.values(state.players)[0];
+    updateCamera(me, state, dt || 0.016);
 
-    drawGrid(cam);
-    drawWorldBorder(cam);
-    drawLoot(cam);
-    drawBullets(cam);
-    drawMobs(cam);
-    drawPlayers(cam);
+    drawGrid(camera);
+    drawWorldBorder(camera, state);
+    drawLoot(camera, state);
+    drawBullets(camera, state);
+    drawMobs(camera, state);
+    drawPlayers(camera, state);
+    drawCrosshair();
 
     const hp = me ? `${Math.max(0, Math.ceil(me.hp))}/${me.maxHp}` : "--";
     const weapon = me ? (WEAPONS[me.weapon] || WEAPONS.pistol).label : "--";
-    gameHud.textContent = `P ${playersInRoom.size}/${MAX_PLAYERS} | HP ${hp} | ${weapon} | WAVE ${lastState.wave} | MOBS ${lastState.mobs.length}`;
+    gameHud.textContent = `P ${playersInRoom.size}/${MAX_PLAYERS} | HP ${hp} | ${weapon} | WAVE ${state.wave} | MOBS ${state.mobs.length}`;
   }
 
-  function cameraFor(player) {
+  function updateCamera(player, state, dt) {
+    if (!player) return;
+    const target = cameraFor(player, state);
+    if (!hasCamera) {
+      camera = target;
+      hasCamera = true;
+      return;
+    }
+    const a = Math.min(1, dt * 14);
+    camera.x = lerp(camera.x, target.x, a);
+    camera.y = lerp(camera.y, target.y, a);
+  }
+
+  function cameraFor(player, state = lastState) {
+    const world = (state && state.world) || WORLD;
     if (!player) return { x: 0, y: 0 };
     return {
-      x: clamp(player.x + PLAYER_SIZE / 2 - VIEW.w / 2, 0, WORLD.w - VIEW.w),
-      y: clamp(player.y + PLAYER_SIZE / 2 - VIEW.h / 2, 0, WORLD.h - VIEW.h)
+      x: clamp(player.x + PLAYER_SIZE / 2 - VIEW.w / 2, 0, world.w - VIEW.w),
+      y: clamp(player.y + PLAYER_SIZE / 2 - VIEW.h / 2, 0, world.h - VIEW.h)
     };
   }
 
@@ -663,7 +864,7 @@
   }
 
   function drawGrid(cam) {
-    ctx.strokeStyle = "#1c1c1c";
+    ctx.strokeStyle = "#151515";
     ctx.lineWidth = 1;
     const step = 48;
     const startX = Math.floor(cam.x / step) * step;
@@ -682,16 +883,29 @@
     }
   }
 
-  function drawWorldBorder(cam) {
+  function drawWorldBorder(cam, state) {
+    const world = (state && state.world) || WORLD;
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1;
-    ctx.strokeRect(worldX(0, cam), worldY(0, cam), WORLD.w, WORLD.h);
+    ctx.strokeRect(worldX(0, cam), worldY(0, cam), world.w, world.h);
   }
 
-  function drawPlayers(cam) {
-    for (const player of Object.values(lastState.players)) {
+  function drawPlayers(cam, state) {
+    for (const player of Object.values(state.players)) {
       const x = worldX(player.x, cam);
       const y = worldY(player.y, cam);
+      const centerX = x + PLAYER_SIZE / 2;
+      const centerY = y + PLAYER_SIZE / 2;
+
+      if (!player.dead) {
+        ctx.strokeStyle = player.id === playerId ? GREEN : "#fff";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + (player.aimX || 1) * 18, centerY + (player.aimY || 0) * 18);
+        ctx.stroke();
+      }
+
       if (player.dead) {
         ctx.strokeStyle = "#555";
         ctx.strokeRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
@@ -709,13 +923,13 @@
         ctx.strokeRect(x, y, PLAYER_SIZE, PLAYER_SIZE);
       }
 
-      drawSmallText(player.id, x - 1, y - 6);
+      drawSmallText(player.id, x - 1, y - 6, player.id === playerId ? GREEN : "#fff");
       drawBar(x, y + PLAYER_SIZE + 4, PLAYER_SIZE, 3, player.hp / player.maxHp);
     }
   }
 
-  function drawMobs(cam) {
-    for (const mob of lastState.mobs) {
+  function drawMobs(cam, state) {
+    for (const mob of state.mobs) {
       const x = worldX(mob.x - mob.size / 2, cam);
       const y = worldY(mob.y - mob.size / 2, cam);
       ctx.strokeStyle = "#fff";
@@ -746,19 +960,19 @@
     }
   }
 
-  function drawBullets(cam) {
-    for (const b of lastState.bullets) {
+  function drawBullets(cam, state) {
+    for (const b of state.bullets) {
       ctx.fillStyle = b.team === "player" ? "#fff" : "#888";
       const s = b.size || 2;
       ctx.fillRect(worldX(b.x - s / 2, cam), worldY(b.y - s / 2, cam), s, s);
     }
   }
 
-  function drawLoot(cam) {
-    for (const item of lastState.loot) {
+  function drawLoot(cam, state) {
+    for (const item of state.loot) {
       const x = worldX(item.x, cam);
       const y = worldY(item.y, cam);
-      ctx.strokeStyle = "#fff";
+      ctx.strokeStyle = GREEN;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x, y - 6);
@@ -767,8 +981,19 @@
       ctx.lineTo(x - 6, y);
       ctx.closePath();
       ctx.stroke();
-      drawSmallText(item.kind === "heal" ? "+" : item.weapon[0].toUpperCase(), x - 3, y + 3);
+      drawSmallText(item.kind === "heal" ? "+" : item.weapon[0].toUpperCase(), x - 3, y + 3, GREEN);
     }
+  }
+
+  function drawCrosshair() {
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x - 4, mouse.y);
+    ctx.lineTo(mouse.x + 4, mouse.y);
+    ctx.moveTo(mouse.x, mouse.y - 4);
+    ctx.lineTo(mouse.x, mouse.y + 4);
+    ctx.stroke();
   }
 
   function drawBar(x, y, w, h, value) {
@@ -780,8 +1005,8 @@
     ctx.fillRect(x, y, Math.max(0, Math.floor(w * v)), h);
   }
 
-  function drawSmallText(text, x, y) {
-    ctx.fillStyle = "#fff";
+  function drawSmallText(text, x, y, color = "#fff") {
+    ctx.fillStyle = color;
     ctx.font = "8px monospace";
     ctx.fillText(text, x, y);
   }
@@ -813,11 +1038,16 @@
     roomId = null;
     playerId = null;
     lastState = null;
+    renderState = null;
     lastFrame = 0;
     lastStateSent = 0;
     lastInputSent = 0;
+    lastSentInput = "";
     playersInRoom = new Set();
     pressed.clear();
+    mouse.down = false;
+    hasCamera = false;
+    camera = { x: 0, y: 0 };
     for (const key of Object.keys(inputs)) delete inputs[key];
     localInput = emptyInput();
 
@@ -828,6 +1058,18 @@
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * clamp(t, 0, 1);
+  }
+
+  function r1(value) {
+    return Math.round(Number(value || 0) * 10) / 10;
+  }
+
+  function r2(value) {
+    return Math.round(Number(value || 0) * 100) / 100;
   }
 
   function rand(min, max) {
@@ -842,25 +1084,63 @@
     return Math.hypot(ax - bx, ay - by);
   }
 
+  function updateMousePosition(event) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = clamp(((event.clientX - rect.left) / rect.width) * VIEW.w, 0, VIEW.w);
+    mouse.y = clamp(((event.clientY - rect.top) / rect.height) * VIEW.h, 0, VIEW.h);
+  }
+
+  async function copyRoomId() {
+    if (!roomId) return;
+    try {
+      await navigator.clipboard.writeText(roomId);
+    } catch {
+      const temp = document.createElement("textarea");
+      temp.value = roomId;
+      temp.style.position = "fixed";
+      temp.style.left = "-999px";
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      temp.remove();
+    }
+    setStatus("Room ID copied.");
+  }
+
   window.addEventListener("keydown", (event) => {
-    const k = event.key.toLowerCase();
-    if (["arrowleft", "arrowright", "arrowup", "arrowdown", " ", "enter", "w", "a", "s", "d"].includes(k)) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
       event.preventDefault();
-      pressed.add(k);
+      pressed.add(event.code);
     }
   });
 
   window.addEventListener("keyup", (event) => {
-    pressed.delete(event.key.toLowerCase());
+    pressed.delete(event.code);
   });
+
+  canvas.addEventListener("mousemove", updateMousePosition);
+  canvas.addEventListener("mousedown", (event) => {
+    updateMousePosition(event);
+    mouse.down = true;
+    canvas.focus();
+    event.preventDefault();
+  });
+  window.addEventListener("mouseup", () => {
+    mouse.down = false;
+  });
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
   window.addEventListener("beforeunload", () => stopAll(true));
 
   createBtn.addEventListener("click", createGame);
   joinBtn.addEventListener("click", joinGame);
-  leaveBtn.addEventListener("click", () => {
-    stopAll(true);
-    showMenu("Offline.");
+  roomTitle.addEventListener("click", copyRoomId);
+  roomTitle.setAttribute("tabindex", "0");
+  roomTitle.addEventListener("keydown", (event) => {
+    if (event.code === "Enter" || event.code === "Space") {
+      event.preventDefault();
+      copyRoomId();
+    }
   });
 
   roomInput.addEventListener("input", () => {
@@ -876,5 +1156,5 @@
     menuStatus.textContent = "Room link loaded. Press Join.";
   }
 
-  draw();
+  draw(0.016);
 })();

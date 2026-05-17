@@ -188,13 +188,24 @@ function routeStateFromHost(ws, state) {
 }
 
 function cleanInput(input) {
+  const rawX = Number(input && input.aimX);
+  const rawY = Number(input && input.aimY);
+  const aimX = Number.isFinite(rawX) ? rawX : 1;
+  const aimY = Number.isFinite(rawY) ? rawY : 0;
+  const len = Math.hypot(aimX, aimY) || 1;
   return {
     left: Boolean(input && input.left),
     right: Boolean(input && input.right),
     up: Boolean(input && input.up),
     down: Boolean(input && input.down),
-    fire: Boolean(input && input.fire)
+    fire: Boolean(input && input.fire),
+    aimX: clamp(aimX / len, -1, 1),
+    aimY: clamp(aimY / len, -1, 1)
   };
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function leaveRoom(ws, notifySelf) {
