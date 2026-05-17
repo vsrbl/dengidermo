@@ -23,6 +23,7 @@ export function createUi() {
 
   let upgradePickHandler = null;
   let upgradeOpen = false;
+  let upgradeHovered = false;
 
   function showMenu() {
     el.menu.classList.remove("hidden");
@@ -89,16 +90,18 @@ export function createUi() {
     return upgradeOpen;
   }
 
-  el.upgradeButtons.forEach((btn, index) => {
-    btn.addEventListener("click", () => upgradePickHandler?.(index));
-  });
+  el.upgradePanel.addEventListener("pointerenter", () => { upgradeHovered = true; });
+  el.upgradePanel.addEventListener("pointerleave", () => { upgradeHovered = false; });
+  el.upgradePanel.addEventListener("pointerdown", (e) => e.stopPropagation());
+  el.upgradePanel.addEventListener("pointerup", (e) => e.stopPropagation());
 
-  window.addEventListener("keydown", (e) => {
-    if (!upgradeOpen || e.repeat) return;
-    if (/^Digit[1-3]$/.test(e.code)) {
+  el.upgradeButtons.forEach((btn, index) => {
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
-      upgradePickHandler?.(Number(e.code.slice(5)) - 1);
-    }
+      e.stopPropagation();
+      if (!upgradeOpen || !upgradeHovered) return;
+      upgradePickHandler?.(index);
+    });
   });
 
   function setHud(player, snapshot = null) {
@@ -130,7 +133,7 @@ export function createUi() {
     flashCopied();
   });
 
-  return { el, showMenu, showGame, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen };
+  return { el, showMenu, showGame, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen, isUpgradeHovered: () => upgradeHovered };
 }
 
 export function randomRoomId() {

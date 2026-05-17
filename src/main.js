@@ -18,7 +18,7 @@ const ui = createUi();
 const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
-const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running && !ui.isUpgradeOpen() });
+const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running });
 
 let transport = null;
 let running = false;
