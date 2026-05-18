@@ -56,6 +56,19 @@ function addImpulse(enemy, fromX, fromY, force) {
   enemy.ky = (enemy.ky || 0) + d.y * force;
 }
 
+
+function addShake(state, power = 0.2, life = 0.08) {
+  const p = Math.max(0, Math.min(3, Number.isFinite(power) ? power : 0));
+  if (p <= 0) return;
+  const l = Math.max(0.03, Math.min(0.22, Number.isFinite(life) ? life : 0.08));
+  state.effects.push({
+    type: "shake",
+    power: p,
+    life: l,
+    maxLife: l
+  });
+}
+
 function addSpark(state, x, y, amount = 3, power = 110, color = GREEN) {
   for (let i = 0; i < amount; i += 1) {
     const a = state.rng.range(0, Math.PI * 2);
@@ -92,6 +105,8 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
   healProjectileOwner(state, projectile, done);
   pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical, sourceId: projectile.ownerId });
   if (hit.critical) addSpark(state, eventX, eventY, 5, 190);
+  const hitShake = getEffect(projectile, "hitShake");
+  if (hitShake) addShake(state, (hitShake.power || 0.18) * (hit.critical ? 1.35 : 1), hitShake.life || 0.08);
   return hit;
 }
 
@@ -235,12 +250,7 @@ function fireExpireEffects(state, projectile) {
 
   const shake = getEffect(projectile, "screenShake");
   if (shake?.power > 0) {
-    state.effects.push({
-      type: "shake",
-      power: Math.min(14, shake.power),
-      life: 0.18,
-      maxLife: 0.18
-    });
+    addShake(state, Math.min(14, shake.power), 0.18);
   }
 }
 
@@ -269,15 +279,32 @@ function applyProjectileHit(state, projectile, enemy) {
 
   if (enemy.hp <= 0) killEnemy(state, enemy, projectile);
 
+  const pierce = getEffect(projectile, "pierce");
+  const canPierce = pierce && projectile.pierced < (pierce.count || 0);
   const explodeEffect = getEffect(projectile, "explode");
+
+  // Explosive projectiles used to terminate before pierce could do real work.
+  // That made combinations like SEEKER + PIERCE feel visual-only: the first
+  // impact drew the green explosion, but the projectile never carried damage
+  // through to the next target. Impact explosions now resolve immediately,
+  // while the projectile may continue if pierce still has charges. Split/cluster
+  // stay reserved for the final expire path, so rocket upgrades do not fan out
+  // on every pierced enemy.
+  if (explodeEffect && canPierce) {
+    explode(state, projectile, explodeEffect);
+    projectile.pierced += 1;
+    projectile.targetId = null;
+    return false;
+  }
+
   if (explodeEffect) {
     fireExpireEffects(state, projectile);
     return true;
   }
 
-  const pierce = getEffect(projectile, "pierce");
-  if (pierce && projectile.pierced < (pierce.count || 0)) {
+  if (canPierce) {
     projectile.pierced += 1;
+    projectile.targetId = null;
     return false;
   }
   return true;

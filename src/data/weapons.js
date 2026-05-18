@@ -7,14 +7,15 @@ export const WEAPONS = {
     bulletSpeed: 820,
     range: 470,
     pellets: 7,
-    spread: 0.38,
+    spread: 0.115,
     radius: 4,
     color: "white",
     recoil: 48,
     knockback: 170,
     hitPadding: 4,
     effects: [
-      { type: "spark", count: 2 }
+      { type: "spark", count: 2 },
+      { type: "hitShake", power: 0.18, life: 0.08 }
     ]
   },
 
@@ -34,7 +35,8 @@ export const WEAPONS = {
     hitPadding: 7,
     effects: [
       { type: "homing", strength: 11, acquireRange: 760, target: "nearestEnemy" },
-      { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" }
+      { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" },
+      { type: "hitShake", power: 0.35, life: 0.09 }
     ]
   },
 
@@ -54,6 +56,7 @@ export const WEAPONS = {
     hitPadding: 8,
     effects: [
       { type: "explode", radius: 128, damage: 56, force: 460, visual: "large" },
+      { type: "hitShake", power: 0.5, life: 0.1 },
       { type: "screenShake", power: 7 }
     ]
   }

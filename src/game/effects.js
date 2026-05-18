@@ -50,6 +50,7 @@ export const EFFECT_DEFS = Object.freeze({
 
   // Visual-only data hooks are intentionally harmless.
   spark: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { count: "sum" } },
+  hitShake: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { power: "max", life: "max" } },
   screenShake: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { power: "max" } }
 });
 
