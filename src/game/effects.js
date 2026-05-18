@@ -42,11 +42,11 @@ export const EFFECT_DEFS = Object.freeze({
   // Player/world systems. Some are scaffolding now; callers can ask the same API later.
   shield: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { charges: "sum", cooldown: "min" } },
   magnet: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ATTRACT], merge: { radius: "sum", force: "sum" } },
-  luck: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ROLL], merge: { dropChance: "sumClamp", rare: "sumClamp" }, clamp: { dropChance: [0, 0.85], rare: [0, 1] } },
+  luck: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ROLL], merge: { dropChance: "sumClamp", rare: "sumClamp" }, clamp: { dropChance: [0, 0.85], rare: [0, 1] }, reservedFields: { rare: "future loot value / rarity weighting" } },
   teleportDash: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { distance: "max", cooldown: "min", invuln: "max" } },
   afterimage: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { duration: "max", count: "sum" } },
-  orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max" } },
-  drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", fireRate: "sum" } },
+  orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max" }, implemented: false, reservedFor: "v36 companions" },
+  drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", fireRate: "sum" }, implemented: false, reservedFor: "v36 companions" },
   homingCore: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_UPDATE], merge: { strength: "sum", acquireRange: "max" } },
 
   // Visual-only data hooks are intentionally harmless.
@@ -55,7 +55,7 @@ export const EFFECT_DEFS = Object.freeze({
   screenShake: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { power: "max" } }
 });
 
-const NON_STACK_FIELDS = new Set(["type", "scope", "hooks", "hook", "trigger", "target", "visual", "color", "id", "source", "status", "weaponIds", "projectileKinds", "tags"]);
+const NON_STACK_FIELDS = new Set(["type", "scope", "hooks", "hook", "trigger", "target", "visual", "color", "id", "source", "status", "weaponIds", "projectileKinds", "tags", "reservedFields", "reservedFor", "implemented", "rareReservedFor"]);
 
 function numberOr(value, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
@@ -214,6 +214,87 @@ export function effectsForHook(entity, hook) {
   return getEffects(entity).filter((effect) => effectHooks(effect).includes(hook));
 }
 
+export function createEffectContext(base = {}) {
+  const ctx = {
+    state: null,
+    sourcePlayer: null,
+    sourceId: null,
+    weaponId: null,
+    projectile: null,
+    enemy: null,
+    target: null,
+    damage: 0,
+    critical: false,
+    hit: null,
+    position: null,
+    normal: null,
+    tags: [],
+    rng: null,
+    commands: [],
+    ...base
+  };
+  if (!Array.isArray(ctx.tags)) ctx.tags = ctx.tags ? [ctx.tags] : [];
+  if (!Array.isArray(ctx.commands)) ctx.commands = [];
+  ctx.queue = (command) => queueEffectCommand(ctx, command);
+  return ctx;
+}
+
+export function queueEffectCommand(ctx, command) {
+  if (!ctx || !command || typeof command.type !== "string") return null;
+  const queued = { ...command };
+  ctx.commands.push(queued);
+  return queued;
+}
+
+export function runEffectHook(entity, hook, context = {}, handlers = {}) {
+  const ctx = context.commands ? context : createEffectContext(context);
+  for (const effect of effectsForHook(entity, hook)) {
+    const handler = handlers[effect.type] || handlers["*"];
+    if (!handler) continue;
+    const result = handler(effect, ctx);
+    if (Array.isArray(result)) {
+      for (const command of result) queueEffectCommand(ctx, command);
+    } else if (result && typeof result.type === "string") {
+      queueEffectCommand(ctx, result);
+    }
+  }
+  return ctx;
+}
+
+export function effectCommand(type, data = {}) {
+  return { type, ...data };
+}
+
+export const DAMAGE_TAGS = Object.freeze({
+  DIRECT: "direct",
+  PROJECTILE: "projectile",
+  EXPLOSION: "explosion",
+  CHAIN: "chain",
+  STATUS: "status",
+  BURN: "burn",
+  POISON: "poison",
+  FREEZE: "freeze"
+});
+
+export function dealDamage(_state, target, spec = {}) {
+  if (!target || !Number.isFinite(spec.amount)) {
+    return { amount: 0, done: 0, killed: false, sourceId: spec.sourceId || null, tags: spec.tags || [] };
+  }
+  const amount = Math.max(0, spec.amount);
+  const before = Math.max(0, target.hp || 0);
+  target.hp -= amount;
+  const done = Math.min(before, amount);
+  return {
+    amount,
+    done,
+    killed: target.hp <= 0,
+    sourceId: spec.sourceId || null,
+    weaponId: spec.weaponId || null,
+    projectileId: spec.projectileId || null,
+    tags: Array.isArray(spec.tags) ? spec.tags : []
+  };
+}
+
 export function ownerPlayer(state, source) {
   const id = typeof source === "string" ? source : source?.ownerId;
   return id ? state?.players?.[id] || null : null;
@@ -223,42 +304,53 @@ export function sourceId(source) {
   return typeof source === "string" ? source : source?.ownerId || source?.id || null;
 }
 
-export function resolveProjectileDamage(state, projectile, baseDamage, enemy = null) {
-  let amount = Math.max(0, numberOr(baseDamage, 0));
+export function resolveProjectileDamage(state, projectile, baseDamage, enemy = null, tags = []) {
   const owner = ownerPlayer(state, projectile);
+  const ctx = createEffectContext({
+    state,
+    sourcePlayer: owner,
+    sourceId: sourceId(projectile),
+    weaponId: projectile?.weaponId || null,
+    projectile,
+    enemy,
+    target: enemy,
+    damage: Math.max(0, numberOr(baseDamage, 0)),
+    critical: false,
+    tags,
+    rng: state?.rng || null
+  });
 
-  const berserk = getEffect(projectile, "berserk");
-  if (berserk && owner) {
-    const hpRatio = owner.hp / Math.max(1, owner.maxHp || owner.hp || 1);
-    if (hpRatio <= numberOr(berserk.threshold, 0.35)) amount *= 1 + numberOr(berserk.damage, 0);
-  }
-
-  const aura = getEffect(projectile, "teamAura");
-  if (aura && owner) {
-    const radius = numberOr(aura.radius, 180);
-    let nearby = 0;
-    for (const player of Object.values(state.players || {})) {
-      if (player.id === owner.id || player.hp <= 0) continue;
-      if (dist2(owner.x, owner.y, player.x, player.y) <= radius * radius) nearby += 1;
+  runEffectHook(projectile, EFFECT_HOOKS.PROJECTILE_DAMAGE, ctx, {
+    berserk(effect, c) {
+      if (!c.sourcePlayer) return;
+      const hpRatio = c.sourcePlayer.hp / Math.max(1, c.sourcePlayer.maxHp || c.sourcePlayer.hp || 1);
+      if (hpRatio <= numberOr(effect.threshold, 0.35)) c.damage *= 1 + numberOr(effect.damage, 0);
+    },
+    teamAura(effect, c) {
+      if (!c.sourcePlayer) return;
+      const radius = numberOr(effect.radius, 180);
+      let nearby = 0;
+      for (const player of Object.values(c.state?.players || {})) {
+        if (player.id === c.sourcePlayer.id || player.hp <= 0) continue;
+        if (dist2(c.sourcePlayer.x, c.sourcePlayer.y, player.x, player.y) <= radius * radius) nearby += 1;
+      }
+      if (nearby > 0) c.damage *= 1 + numberOr(effect.damage, 0) * nearby;
+    },
+    crit(effect, c) {
+      const chance = clamp(numberOr(effect.chance, 0), 0, 0.85);
+      const multiplier = Math.max(1, numberOr(effect.multiplier, 2));
+      if (chance > 0 && c.rng?.next && c.rng.next() < chance) {
+        c.damage *= multiplier;
+        c.critical = true;
+      }
     }
-    if (nearby > 0) amount *= 1 + numberOr(aura.damage, 0) * nearby;
-  }
-
-  const crit = getEffect(projectile, "crit");
-  let critical = false;
-  if (crit) {
-    const chance = clamp(numberOr(crit.chance, 0), 0, 0.85);
-    const multiplier = Math.max(1, numberOr(crit.multiplier, 2));
-    if (chance > 0 && state?.rng?.next && state.rng.next() < chance) {
-      amount *= multiplier;
-      critical = true;
-    }
-  }
+  });
 
   return {
-    amount: Math.max(1, Math.round(amount)),
-    critical,
-    enemyId: enemy?.id || null
+    amount: Math.max(1, Math.round(ctx.damage)),
+    critical: !!ctx.critical,
+    enemyId: enemy?.id || null,
+    tags: ctx.tags
   };
 }
 
@@ -290,14 +382,23 @@ function applyStatus(enemy, type, data, source) {
   return status[type];
 }
 
+export function applyStatusToEnemy(enemy, type, data, source) {
+  return applyStatus(enemy, type, data, source);
+}
+
 export function applyProjectileStatuses(projectile, enemy) {
+  const ctx = createEffectContext({ projectile, enemy, target: enemy, sourceId: sourceId(projectile) });
+  runEffectHook(projectile, EFFECT_HOOKS.PROJECTILE_HIT, ctx, {
+    burn(effect, c) { c.queue(effectCommand("status", { status: "burn", target: c.enemy, effect, source: c.projectile })); },
+    poison(effect, c) { c.queue(effectCommand("status", { status: "poison", target: c.enemy, effect, source: c.projectile })); },
+    freeze(effect, c) { c.queue(effectCommand("status", { status: "freeze", target: c.enemy, effect, source: c.projectile })); }
+  });
+
   const applied = [];
-  for (const type of ["burn", "poison", "freeze"]) {
-    const effect = getEffect(projectile, type);
-    if (effect) {
-      const status = applyStatus(enemy, type, effect, projectile);
-      applied.push({ type, status, effect });
-    }
+  for (const command of ctx.commands) {
+    if (command.type !== "status" || !command.target || !command.status) continue;
+    const status = applyStatus(command.target, command.status, command.effect || {}, command.source || projectile);
+    applied.push({ type: command.status, status, effect: command.effect });
   }
   return applied;
 }
@@ -365,9 +466,12 @@ export function enemySlowMult(enemy) {
   return Math.max(0.15, 1 - Math.max(freeze, poison));
 }
 
-export function healProjectileOwner(state, projectile, damageDone) {
+export function healProjectileOwner(state, projectile, damageDone, tags = []) {
   const lifesteal = getEffect(projectile, "lifesteal");
   if (!lifesteal || damageDone <= 0) return 0;
+  const safeTags = Array.isArray(tags) ? tags : [];
+  const canSteal = safeTags.some((tag) => [DAMAGE_TAGS.DIRECT, DAMAGE_TAGS.EXPLOSION, DAMAGE_TAGS.CHAIN].includes(tag)) && !safeTags.includes(DAMAGE_TAGS.STATUS);
+  if (!canSteal) return 0;
   const owner = ownerPlayer(state, projectile);
   if (!owner || owner.hp <= 0) return 0;
   const heal = damageDone * clamp(numberOr(lifesteal.percent, 0), 0, 0.5);

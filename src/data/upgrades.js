@@ -228,7 +228,7 @@ export const UPGRADES = {
     weight: 2,
     maxStacks: 4,
     effects: [
-      { type: "luck", scope: "player", dropChance: 0.045, rare: 0.08 }
+      { type: "luck", scope: "player", dropChance: 0.045, rare: 0.08, rareReservedFor: "future loot value / rarity weighting" }
     ]
   },
 
@@ -262,7 +262,7 @@ export const UPGRADES = {
   lifesteal: {
     id: "lifesteal",
     name: "LIFESTEAL",
-    desc: "heal from damage dealt",
+    desc: "heal from direct/chain/explosion damage",
     rarity: "rare",
     tags: ["projectile", "sustain"],
     weight: 2,

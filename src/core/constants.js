@@ -1,4 +1,4 @@
-export const VERSION = "v35";
+export const VERSION = "v35.1";
 export const MAX_PLAYERS = 4;
 export const WORLD = { w: 2400, h: 1600 };
 export const VIEW = { w: 1600, h: 675 };
