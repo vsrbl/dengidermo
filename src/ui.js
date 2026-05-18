@@ -1,6 +1,7 @@
 import { VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { RARITY_META, UPGRADES } from "./data/upgrades.js";
+import { normalizePlayerName } from "./core/names.js";
 
 export function createUi() {
   const el = {
@@ -255,15 +256,6 @@ export function randomRoomId() {
 
 export function normalizeRoomId(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
-}
-
-export function normalizePlayerName(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^A-Z0-9_-]/g, "")
-    .slice(0, 12);
 }
 
 export function isValidRoomId(value) {

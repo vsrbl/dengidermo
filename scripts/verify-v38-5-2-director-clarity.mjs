@@ -30,9 +30,9 @@ function fresh(seed = 'V38-5-2') {
 }
 
 test('v38.6 director clarity patch is registered', () => {
-  assert.equal(VERSION, 'v38.6.2');
-  assert.equal(pkg.version, '38.6.2');
-  assert.equal(serverPkg.version, '38.6.2');
+  assert.equal(VERSION, 'v38.6.3');
+  assert.equal(pkg.version, '38.6.3');
+  assert.equal(serverPkg.version, '38.6.3');
   assert.match(pkg.scripts['check:all'], /check:v38-5-2/, 'check:v38-5-2 should be part of check:all');
   assert.match(encounterSrc, /ENCOUNTER_OBJECTIVES/, 'encounter objective registry missing');
   assert.match(directorReadSrc, /objectiveFor/, 'director objective resolver missing');

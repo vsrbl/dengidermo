@@ -1,4 +1,4 @@
-export const VERSION = "v38.6.2";
+export const VERSION = "v38.6.3";
 export const MAX_PLAYERS = 4;
 export const WORLD = { w: 2400, h: 1600 };
 export const VIEW = { w: 1600, h: 675 };
@@ -12,6 +12,11 @@ export const PLAYER_HP = 100;
 export const SNAPSHOT_RATE = 40;
 export const INPUT_RATE = 60;
 export const PING_RATE_MS = 1000;
+export const CONNECT_TIMEOUT_MS = 9000;
+export const DASH_DENIAL_RECONCILE_MS = 700;
+export const UPGRADE_HIDE_MS = 170;
+export const UPGRADE_RESEND_MS = 900;
+export const UPGRADE_TIMEOUT_MS = 8000;
 export const GREEN = "#00ff66";
 export const RED = "#ff3048";
 export const SPAWN_OFFSETS = [

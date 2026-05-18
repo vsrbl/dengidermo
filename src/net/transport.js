@@ -85,10 +85,10 @@ export class Transport {
     }
     if (msg.type === "player_joined") {
       const joinedId = msg.playerId;
-      const wasKnown = this.players.has(joinedId);
+      const replacedExistingSlot = !!joinedId && this.players.has(joinedId);
       if (this.role === "host" && joinedId && joinedId !== this.playerId) {
-        if (wasKnown) this.callbacks.onPlayerLeft?.(joinedId);
         this.closePeer(joinedId);
+        if (replacedExistingSlot) this.callbacks.onPlayerReplaced?.(joinedId);
       }
       if (Array.isArray(msg.players)) this.players = new Set(msg.players);
       else this.players.add(joinedId);
@@ -279,11 +279,7 @@ export class Transport {
     if (sendLeave && this.connected) this.sendLeaveNotice();
     for (const id of [...this.peers.keys()]) this.closePeer(id);
     if (ws) {
-      const doClose = () => {
-        try { ws.onclose = null; ws.close(); } catch { /* socket may already be closed */ }
-      };
-      if (sendLeave && ws.readyState === WebSocket.OPEN) setTimeout(doClose, 50);
-      else doClose();
+      try { ws.onclose = null; ws.close(); } catch { /* socket may already be closed */ }
     }
     this.ws = null;
     this.connected = false;

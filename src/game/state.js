@@ -1,5 +1,6 @@
 import { CENTER, PLAYER_HP, PLAYER_RADIUS, SPAWN_OFFSETS, WORLD } from "../core/constants.js";
 import { clamp } from "../core/math.js";
+import { displayPlayerName } from "../core/names.js";
 import { makeRng } from "../core/random.js";
 import { getLocation } from "../data/locations.js";
 import { START_WEAPON } from "../data/weapons.js";
@@ -61,21 +62,11 @@ export function spawnPoint(index = 0) {
   };
 }
 
-function displayName(name, fallback) {
-  const clean = String(name || "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^A-Z0-9_-]/g, "")
-    .slice(0, 12);
-  return clean || fallback;
-}
-
 export function addPlayer(state, playerId, index = 0, options = {}) {
   const p = spawnPoint(index);
   state.players[playerId] = {
     id: playerId,
-    name: displayName(options.name, playerId.toUpperCase()),
+    name: displayPlayerName(options.name, playerId.toUpperCase()),
     x: p.x,
     y: p.y,
     vx: 0,

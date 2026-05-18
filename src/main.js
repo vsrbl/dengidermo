@@ -1,9 +1,10 @@
-import { createUi, isValidRoomId, normalizePlayerName, normalizeRoomId, randomRoomId } from "./ui.js";
+import { createUi, isValidRoomId, normalizeRoomId, randomRoomId } from "./ui.js";
+import { normalizePlayerName } from "./core/names.js";
 import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
 import { createRenderer, makePredictedProjectile, render, resetRendererSmooth, updatePredictedProjectiles } from "./renderer.js";
 import { Transport } from "./net/transport.js";
-import { GAME_SPEED, INPUT_RATE, SNAPSHOT_RATE, VERSION, WORLD } from "./core/constants.js";
+import { CONNECT_TIMEOUT_MS, DASH_DENIAL_RECONCILE_MS, GAME_SPEED, INPUT_RATE, SNAPSHOT_RATE, UPGRADE_HIDE_MS, UPGRADE_RESEND_MS, UPGRADE_TIMEOUT_MS, VERSION, WORLD } from "./core/constants.js";
 import { clamp } from "./core/math.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "./game/state.js";
@@ -88,6 +89,7 @@ function makeTransport() {
       setPlayerNames(names);
     },
     onPlayerLeft: handlePlayerLeft,
+    onPlayerReplaced: handlePlayerReplaced,
     onData: handleNetData,
     onPing: (ms) => { pingMs = ms; },
     onPeerState: (_id, state) => { if (state === "open") transportMode = "P2P"; },
@@ -114,7 +116,7 @@ function armConnectTimeout() {
     transport = null;
     setConnecting(false);
     ui.flashError("connection timeout");
-  }, 9000);
+  }, CONNECT_TIMEOUT_MS);
 }
 
 function beginConnect(nextTransport) {
@@ -253,6 +255,11 @@ function handlePlayerLeft(id) {
   dropRemotePlayer(id);
 }
 
+function handlePlayerReplaced(id) {
+  if (role !== "host") return;
+  dropRemotePlayer(id);
+}
+
 function leaveGame() {
   if (!running) {
     if (connecting) {
@@ -262,7 +269,6 @@ function leaveGame() {
     }
     return;
   }
-  const leavingRole = role;
   running = false;
   role = "none";
   roomId = null;
@@ -281,7 +287,6 @@ function leaveGame() {
   localLocationId = null;
   abilitySeq = 0;
   input.resetKeys();
-  if (leavingRole === "guest") transport?.sendLeaveNotice?.();
   transport?.close(true);
   transport = null;
   ui.showMenu();
@@ -369,7 +374,7 @@ function syncLocalFromSnapshot() {
   const dy = me.y - localPose.y;
   const d2 = dx * dx + dy * dy;
   const dashPredictionAge = localPose._localDashPredictedAt ? performance.now() - localPose._localDashPredictedAt : 0;
-  const staleDeniedDash = localPose._localDashPredictedAt && dashPredictionAge > 700 && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
+  const staleDeniedDash = localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
   if (locationChanged || staleDeniedDash || d2 > 90000) {
     localPose.x = me.x;
     localPose.y = me.y;
@@ -493,7 +498,7 @@ function requestUpgradeChoice(index) {
       localUpgradeChoices = [];
       ui.setUpgradeMenu([]);
     }
-  }, 170);
+  }, UPGRADE_HIDE_MS);
 
   if (role === "host") {
     const ok = applyUpgradeRequest(playerId, { index, key });
@@ -652,10 +657,10 @@ function loop(now) {
   lastFrame = now;
 
   if (running) {
-    if (upgradePickPending && pendingUpgradeIndex >= 0 && now - pendingUpgradeLastSend > 900) {
+    if (upgradePickPending && pendingUpgradeIndex >= 0 && now - pendingUpgradeLastSend > UPGRADE_RESEND_MS) {
       sendPendingUpgradeRequest(now);
     }
-    if (upgradePickPending && upgradePendingAt && now - upgradePendingAt > 8000) {
+    if (upgradePickPending && upgradePendingAt && now - upgradePendingAt > UPGRADE_TIMEOUT_MS) {
       resetUpgradeUi();
     }
     transport?.tickPing(now);
