@@ -27,6 +27,8 @@ export function createUi() {
   let upgradeOpen = false;
   let upgradeHovered = false;
   let lastUpgradeSignature = "";
+  let revealSignature = "";
+  let revealUntil = 0;
 
   function showMenu() {
     el.menu.classList.remove("hidden");
@@ -80,17 +82,31 @@ export function createUi() {
       const meta = offerMeta[id] || {};
       return `${id || "-"}:${meta.rarity || "-"}:${meta.nextStack || 0}:${(meta.hints || []).join("/")}`;
     }).join("|");
+    const now = performance.now();
     const shouldReveal = list.length > 0 && signature !== lastUpgradeSignature && !pending;
+    if (shouldReveal) {
+      const maxRevealMs = list.reduce((max, id, index) => {
+        const data = UPGRADES[id];
+        const meta = offerMeta[id] || {};
+        const rarity = meta.rarity || data?.rarity || "common";
+        const rarityMeta = RARITY_META[rarity] || RARITY_META.common;
+        return Math.max(max, index * 220 + (rarityMeta.revealDelayMs || 0) + (rarityMeta.revealDurationMs || 260));
+      }, 0);
+      revealSignature = signature;
+      revealUntil = now + maxRevealMs + 320;
+    }
+    const revealActive = list.length > 0 && signature === revealSignature && now < revealUntil && !pending;
     upgradeOpen = list.length > 0;
-    if (!upgradeOpen) upgradeHovered = false;
+    if (!upgradeOpen) {
+      upgradeHovered = false;
+      revealSignature = "";
+      revealUntil = 0;
+    }
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
     el.upgradePanel.classList.toggle("pending", !!pending);
+    el.upgradePanel.classList.toggle("reveal-seq", revealActive);
     if (shouldReveal) {
-      el.upgradePanel.classList.remove("reveal-seq");
       void el.upgradePanel.offsetWidth;
-      el.upgradePanel.classList.add("reveal-seq");
-    } else if (!upgradeOpen) {
-      el.upgradePanel.classList.remove("reveal-seq");
     }
     el.upgradeButtons.forEach((btn, index) => {
       const id = list[index];
@@ -101,12 +117,12 @@ export function createUi() {
       const rarityLabel = rarityMeta.label || rarity.toUpperCase();
       const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "SINGLE";
       const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
-      btn.className = `upgrade-choice rarity-${rarity}${shouldReveal && id ? " reveal" : ""}`;
+      btn.className = `upgrade-choice rarity-${rarity}${revealActive && id ? " reveal" : ""}`;
       btn.classList.toggle("selected", index === selectedIndex);
       btn.disabled = !id || (pending && index !== selectedIndex);
       btn.dataset.rarity = rarity;
       btn.dataset.slot = String(index + 1);
-      btn.style.setProperty("--reveal-delay", `${index * 180 + (rarityMeta.revealDelayMs || 0)}ms`);
+      btn.style.setProperty("--reveal-delay", `${index * 220 + (rarityMeta.revealDelayMs || 0)}ms`);
       btn.style.setProperty("--reveal-duration", `${rarityMeta.revealDurationMs || 220}ms`);
       btn.style.setProperty("--reveal-rise", `${rarityMeta.revealRise || 10}px`);
       btn.style.setProperty("--rarity-accent", rarityMeta.color || "#d8d8d8");

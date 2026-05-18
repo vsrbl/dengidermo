@@ -75,6 +75,9 @@ test('synergy rules are data-driven and influence offers without UI hardcoding',
   assert.match(uiSrc, /upgrade-rarity/, 'UI does not render rarity badge');
   assert.match(uiSrc, /upgrade-particles/, 'UI does not render reveal particles');
   assert.match(uiSrc, /reveal-seq/, 'UI does not use sequential reveal flow');
+  assert.match(uiSrc, /revealUntil/, 'UI reveal state is not persisted across repeated snapshots');
+  assert.match(uiSrc, /revealActive/, 'UI does not keep reveal classes alive during delayed animations');
+  assert.match(uiSrc, /index \* 220/, 'UI reveal is not clearly staggered left-to-right');
   const { state, p } = base('SYNERGY-OFFER');
   p.upgrades.taken.burnMark = 1;
   const chain = synergyOfferMeta(p, 'chainFork', UPGRADES.chainFork);
