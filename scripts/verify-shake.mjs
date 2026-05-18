@@ -37,7 +37,7 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('shotgun pellet hits aggregate into one subtle shake impulse', () => {
+test('shotgun pellet hits aggregate into one visible controlled shake impulse', () => {
   const { state } = fresh('shotgun');
   const boss = spawnEnemy(state, 'boss', 640, 500);
   const before = boss.hp;
@@ -45,7 +45,7 @@ test('shotgun pellet hits aggregate into one subtle shake impulse', () => {
   const watched = runProjectiles(state, 0.35);
   assert.ok(boss.hp < before, 'shotgun did not hit the boss');
   assert.ok(watched.maxShakeCount <= 1, `pellet hits spawned too many simultaneous shake effects: ${watched.maxShakeCount}`);
-  assert.ok(watched.maxShake > 0 && watched.maxShake < 0.85, `shotgun aggregate shake is crooked/too strong: ${watched.maxShake}`);
+  assert.ok(watched.maxShake >= 2 && watched.maxShake <= 12, `shotgun aggregate shake is not visible/controlled: ${watched.maxShake}`);
 });
 
 test('shake runtime effects carry stable ids for renderer de-duplication', () => {
@@ -63,7 +63,8 @@ test('rocket explosion shake is clamped and not linearly stacked', () => {
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'rocket', fireSeq: 1 }), true);
   const watched = runProjectiles(state, 0.8);
   assert.ok(watched.maxShake > 0, 'rocket did not produce shake');
-  assert.ok(watched.maxShake <= 3.45, `rocket shake exceeded clamp: ${watched.maxShake}`);
+  assert.ok(watched.maxShake >= 6, `rocket shake is too weak to be visible: ${watched.maxShake}`);
+  assert.ok(watched.maxShake <= 12.1, `rocket shake exceeded clamp: ${watched.maxShake}`);
 });
 
 test('renderer consumes shake locally instead of summing snapshot power every frame', () => {
@@ -72,6 +73,8 @@ test('renderer consumes shake locally instead of summing snapshot power every fr
   assert.match(rendererSrc, /function ingestCameraShake/, 'renderer local shake ingest missing');
   assert.match(rendererSrc, /Math\.hypot\(shake\.power/, 'renderer does not combine shake as energy');
   assert.match(rendererSrc, /cameraWithShake\(cam, renderer, snapshot, renderDt\)/, 'render path is not using renderer-local shake state');
+  assert.match(rendererSrc, /const SHAKE_RENDER_MAX = 12/, 'renderer shake cap is too low / not visible enough');
+  assert.match(rendererSrc, /const SHAKE_DECAY = 10\.5/, 'renderer shake decay is not the tuned visible value');
 });
 
 let failed = 0;

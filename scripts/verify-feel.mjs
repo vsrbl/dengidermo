@@ -58,11 +58,11 @@ test('hitShake is a registered projectile hit effect', () => {
   for (const [weaponId, weapon] of Object.entries(WEAPONS)) {
     const shake = weapon.effects?.find((effect) => effect.type === 'hitShake');
     assert.ok(shake, `${weaponId} has no hitShake effect`);
-    assert.ok(shake.power > 0 && shake.power <= 0.8, `${weaponId} hitShake power out of small-impact range`);
+    assert.ok(shake.power >= 2 && shake.power <= 6, `${weaponId} hitShake power out of visible-impact range: ${shake.power}`);
   }
 });
 
-test('shotgun hit creates small runtime camera shake and still deals damage', () => {
+test('shotgun hit creates visible controlled runtime camera shake and still deals damage', () => {
   const { state } = fresh('shotgun');
   const e = spawnEnemy(state, 'boss', 640, 500);
   const before = e.hp;
@@ -71,10 +71,10 @@ test('shotgun hit creates small runtime camera shake and still deals damage', ()
   const watched = runAndWatchShake(state, 0.45);
   assert.ok(e.hp < before, `shotgun did not damage boss (${before} -> ${e.hp})`);
   assert.ok(watched.saw, 'shotgun hit did not create runtime shake');
-  assert.ok(watched.maxPower > 0 && watched.maxPower < 3, `shotgun shake is not subtle: ${watched.maxPower}`);
+  assert.ok(watched.maxPower >= 2 && watched.maxPower <= 12, `shotgun shake is not visible/controlled: ${watched.maxPower}`);
 });
 
-test('seeker and rocket hits also keep small impact shake without replacing explosion shake', () => {
+test('seeker and rocket hits also create visible impact shake without replacing explosion shake', () => {
   for (const weaponId of ['seeker', 'rocket']) {
     const { state } = fresh(weaponId);
     spawnEnemy(state, 'boss', weaponId === 'seeker' ? 700 : 700, 500);

@@ -211,8 +211,8 @@ function drawLoot(ctx, item, cam) {
 }
 
 
-const SHAKE_RENDER_MAX = 3.6;
-const SHAKE_DECAY = 18;
+const SHAKE_RENDER_MAX = 12;
+const SHAKE_DECAY = 10.5;
 
 function ensureShakeState(renderer) {
   if (!renderer.shake) renderer.shake = { power: 0, time: 0, seed: 0, seen: new Set() };
@@ -235,7 +235,7 @@ function ingestCameraShake(renderer, snapshot, dt) {
 
     const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.12);
     const lifeFrac = Math.max(0, Math.min(1, (fx.life || 0) / maxLife));
-    const impulse = Math.max(0, Math.min(SHAKE_RENDER_MAX, (fx.power || 0) * Math.max(0.25, lifeFrac)));
+    const impulse = Math.max(0, Math.min(SHAKE_RENDER_MAX, (fx.power || 0) * Math.max(0.45, lifeFrac)));
     if (impulse <= 0) continue;
 
     shake.power = Math.min(SHAKE_RENDER_MAX, Math.hypot(shake.power || 0, impulse));
@@ -248,7 +248,7 @@ function ingestCameraShake(renderer, snapshot, dt) {
 
   if (shake.power > 0) {
     shake.power *= Math.exp(-SHAKE_DECAY * safeDt);
-    if (shake.power < 0.015) shake.power = 0;
+    if (shake.power < 0.05) shake.power = 0;
   }
   return shake;
 }

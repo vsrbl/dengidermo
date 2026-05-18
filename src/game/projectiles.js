@@ -57,12 +57,12 @@ function addImpulse(enemy, fromX, fromY, force) {
 }
 
 
-const SHAKE_MAX_POWER = 3.4;
+const SHAKE_MAX_POWER = 12;
 
-function addShake(state, power = 0.2, life = 0.08) {
+function addShake(state, power = 2.5, life = 0.12) {
   const p = Math.max(0, Math.min(SHAKE_MAX_POWER, Number.isFinite(power) ? power : 0));
   if (p <= 0) return;
-  const l = Math.max(0.03, Math.min(0.24, Number.isFinite(life) ? life : 0.08));
+  const l = Math.max(0.05, Math.min(0.32, Number.isFinite(life) ? life : 0.12));
 
   // Multiple pellets can hit during the same host tick. Pushing one camera
   // shake per pellet made shotgun hits and chained effects stack into a
@@ -177,7 +177,7 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
     state.effects.push({ type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
   }
   const hitShake = getEffect(projectile, "hitShake");
-  if (hitShake) addShake(state, (hitShake.power || 0.18) * (hit.critical ? 1.35 : 1), hitShake.life || 0.08);
+  if (hitShake) addShake(state, (hitShake.power || 2.5) * (hit.critical ? 1.25 : 1), hitShake.life || 0.12);
   return hit;
 }
 
@@ -322,7 +322,7 @@ function fireExpireEffects(state, projectile) {
 
   const shake = getEffect(projectile, "screenShake");
   if (shake?.power > 0) {
-    addShake(state, Math.min(14, shake.power), 0.18);
+    addShake(state, Math.min(12, shake.power), shake.life || 0.22);
   }
 }
 
@@ -431,7 +431,7 @@ function handleWallOrEnd(state, projectile) {
         maxLife: 0.16,
         color: GREEN
       });
-      addShake(state, 0.12, 0.06);
+      addShake(state, 2.2, 0.09);
       return false;
     }
   }

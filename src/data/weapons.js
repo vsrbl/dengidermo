@@ -15,7 +15,7 @@ export const WEAPONS = {
     hitPadding: 4,
     effects: [
       { type: "spark", count: 2 },
-      { type: "hitShake", power: 0.18, life: 0.08 }
+      { type: "hitShake", power: 2.6, life: 0.12 }
     ]
   },
 
@@ -36,7 +36,7 @@ export const WEAPONS = {
     effects: [
       { type: "homing", strength: 11, acquireRange: 760, target: "nearestEnemy" },
       { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" },
-      { type: "hitShake", power: 0.35, life: 0.09 }
+      { type: "hitShake", power: 4.2, life: 0.13 }
     ]
   },
 
@@ -56,8 +56,8 @@ export const WEAPONS = {
     hitPadding: 8,
     effects: [
       { type: "explode", radius: 128, damage: 56, force: 460, visual: "large" },
-      { type: "hitShake", power: 0.5, life: 0.1 },
-      { type: "screenShake", power: 7 }
+      { type: "hitShake", power: 5.6, life: 0.14 },
+      { type: "screenShake", power: 10.5 }
     ]
   }
 };
