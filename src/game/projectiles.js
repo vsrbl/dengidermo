@@ -6,7 +6,6 @@ import { ENEMIES } from "../data/enemies.js";
 import {
   DAMAGE_TAGS,
   EFFECT_HOOKS,
-  applyProjectileStatuses,
   cloneEffect,
   createEffectContext,
   dealDamage,
@@ -18,6 +17,7 @@ import {
   sourceId,
   tickEnemyStatuses
 } from "./effects.js";
+import { addSpark, executeEffectCommands } from "./effectCommands.js";
 import { dropLoot } from "./loot.js";
 import { nextId, pushEvent } from "./state.js";
 
@@ -52,23 +52,23 @@ function killEnemy(state, enemy, source = null, hit = null) {
   const data = ENEMIES[enemy.kind];
   const sid = sourceId(source);
 
-  // v35.1: projectile kills have a formal hook now. No current upgrade uses it
-  // yet, but future on-kill effects should attach here instead of branching
-  // inside projectile collision code.
+  // v35.2: projectile kills are a real hook point. Commands returned by
+  // future on-kill effects are executed before the enemy is removed.
   if (source && typeof source === "object") {
-    const ctx = createEffectContext({
-      state,
-      projectile: source,
-      sourceId: sid,
-      weaponId: source.weaponId || null,
+    runProjectileHook(state, source, EFFECT_HOOKS.PROJECTILE_KILL, {
       enemy,
       target: enemy,
       hit,
       position: { x: enemy.x, y: enemy.y },
-      tags: hit?.tags || [],
-      rng: state.rng
+      tags: hit?.tags || []
+    }, {
+      spark(effect, c) {
+        return effectCommand("spark", { x: c.position.x, y: c.position.y, amount: effect.count ?? 4, power: 145 });
+      },
+      hitShake(effect, c) {
+        return effectCommand("shake", { power: effect.power || 2.5, life: effect.life || 0.12 });
+      }
     });
-    runEffectHook(source, EFFECT_HOOKS.PROJECTILE_KILL, ctx, {});
   }
 
   dropLoot(state, enemy.x, enemy.y, enemy.kind === "boss" ? 1 : 0.32, sid);
@@ -80,54 +80,6 @@ function addImpulse(enemy, fromX, fromY, force) {
   const d = norm(enemy.x - fromX, enemy.y - fromY);
   enemy.kx = (enemy.kx || 0) + d.x * force;
   enemy.ky = (enemy.ky || 0) + d.y * force;
-}
-
-
-const SHAKE_MAX_POWER = 12;
-
-function addShake(state, power = 2.5, life = 0.12) {
-  const p = Math.max(0, Math.min(SHAKE_MAX_POWER, Number.isFinite(power) ? power : 0));
-  if (p <= 0) return;
-  const l = Math.max(0.05, Math.min(0.32, Number.isFinite(life) ? life : 0.12));
-
-  // Multiple shake sources can land during the same host tick. Aggregate
-  // impulses per tick and combine them as energy, not as a linear sum.
-  // Renderer then consumes each aggregate shake once and decays it locally.
-  const tick = state.tick || 0;
-  const existing = state.effects.find((fx) => fx.type === "shake" && fx.tick === tick);
-  if (existing) {
-    const current = Math.max(0, existing.power || 0);
-    existing.power = Math.min(SHAKE_MAX_POWER, Math.hypot(current, p));
-    existing.life = Math.max(existing.life || 0, l);
-    existing.maxLife = Math.max(existing.maxLife || 0, l);
-    return;
-  }
-
-  state.effects.push({
-    id: nextId("sh"),
-    type: "shake",
-    tick,
-    power: p,
-    life: l,
-    maxLife: l
-  });
-}
-
-function addSpark(state, x, y, amount = 3, power = 110, color = GREEN) {
-  for (let i = 0; i < amount; i += 1) {
-    const a = state.rng.range(0, Math.PI * 2);
-    const v = state.rng.range(power * 0.45, power);
-    state.effects.push({
-      type: "spark",
-      x: Math.round(x),
-      y: Math.round(y),
-      vx: Math.round(Math.cos(a) * v),
-      vy: Math.round(Math.sin(a) * v),
-      life: 0.18,
-      maxLife: 0.18,
-      color
-    });
-  }
 }
 
 function statusColor(type) {
@@ -166,28 +118,18 @@ function addStatusBurst(state, x, y, applied) {
   }
 }
 
-function executeEffectCommands(state, commands, ctx = {}) {
-  for (const command of commands || []) {
-    if (!command || typeof command.type !== "string") continue;
-    if (command.type === "spark") {
-      addSpark(state, command.x ?? ctx.position?.x ?? 0, command.y ?? ctx.position?.y ?? 0, command.amount ?? 3, command.power ?? 110, command.color ?? GREEN);
-    } else if (command.type === "shake") {
-      addShake(state, command.power ?? 2.5, command.life ?? 0.12);
-    } else if (command.type === "visual" && command.event) {
-      state.effects.push(command.event);
-    } else if (command.type === "chainLightning") {
-      chainLightning(state, ctx.projectile, ctx.enemy, command.effect);
-    } else if (command.type === "explode") {
-      explode(state, ctx.projectile, command.effect, command.x, command.y);
-    } else if (command.type === "splitRockets") {
-      spawnSplitProjectiles(state, ctx.projectile, command.effect);
-    } else if (command.type === "clusterBomb") {
-      spawnClusterExplosions(state, ctx.projectile, command.effect);
-    }
-  }
+
+
+function projectileCommandHandlers() {
+  return {
+    chainLightning(command, ctx) { chainLightning(ctx.state, ctx.projectile, ctx.enemy, command.effect); },
+    explode(command, ctx) { explode(ctx.state, ctx.projectile, command.effect, command.x, command.y); },
+    splitRockets(command, ctx) { spawnSplitProjectiles(ctx.state, ctx.projectile, command.effect); },
+    clusterBomb(command, ctx) { spawnClusterExplosions(ctx.state, ctx.projectile, command.effect); }
+  };
 }
 
-function runProjectileHook(state, projectile, hook, context, handlers) {
+function runProjectileHook(state, projectile, hook, context, effectHandlers = {}, commandHandlers = projectileCommandHandlers()) {
   const ctx = createEffectContext({
     state,
     projectile,
@@ -196,33 +138,41 @@ function runProjectileHook(state, projectile, hook, context, handlers) {
     rng: state.rng,
     ...context
   });
-  runEffectHook(projectile, hook, ctx, handlers);
-  executeEffectCommands(state, ctx.commands, ctx);
+  runEffectHook(projectile, hook, ctx, effectHandlers);
+  executeEffectCommands(state, ctx.commands, ctx, commandHandlers);
   return ctx;
 }
 
 function tickEnemyStatusDamage(state, dt) {
   for (const enemy of Object.values(state.enemies)) {
     const tick = tickEnemyStatuses(enemy, dt);
-    if (tick.damage > 0) {
+    const statusTicks = tick.ticks?.length ? tick.ticks : (tick.damage > 0 ? [{ damage: tick.damage, sourceId: tick.sources?.[0] || null, tags: [DAMAGE_TAGS.STATUS] }] : []);
+
+    for (const statusHit of statusTicks) {
+      if (!state.enemies[enemy.id] || !(statusHit.damage > 0)) continue;
       const damage = dealDamage(state, enemy, {
-        amount: tick.damage,
-        sourceId: tick.sources?.[0] || null,
-        tags: [DAMAGE_TAGS.STATUS]
+        amount: statusHit.damage,
+        sourceId: statusHit.sourceId || null,
+        tags: statusHit.tags || [DAMAGE_TAGS.STATUS]
       });
-      if (tick.active && state.rng.next() < 5 * dt) addSpark(state, enemy.x, enemy.y, 1, 80);
-      if (tick.active && state.rng.next() < 2.2 * dt) {
-        state.effects.push({
-          type: "statusTick",
-          x: Math.round(enemy.x),
-          y: Math.round(enemy.y),
-          r: 18 + Math.min(16, tick.damage * 1.5),
-          color: tick.sources?.length ? GREEN : "#ffffff",
-          life: 0.16,
-          maxLife: 0.16
-        });
+      if (damage.killed) {
+        killEnemy(state, enemy, statusHit.sourceId || null, damage);
+        break;
       }
-      if (damage.killed) killEnemy(state, enemy, tick.sources?.[0] || null, damage);
+    }
+
+    if (!state.enemies[enemy.id]) continue;
+    if (tick.active && state.rng.next() < 5 * dt) addSpark(state, enemy.x, enemy.y, 1, 80);
+    if (tick.active && state.rng.next() < 2.2 * dt) {
+      state.effects.push({
+        type: "statusTick",
+        x: Math.round(enemy.x),
+        y: Math.round(enemy.y),
+        r: 18 + Math.min(16, tick.damage * 1.5),
+        color: tick.sources?.length ? GREEN : "#ffffff",
+        life: 0.16,
+        maxLife: 0.16
+      });
     }
   }
 }
@@ -243,21 +193,50 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
     addSpark(state, eventX, eventY, 5, 190);
     state.effects.push({ type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
   }
+  hit.damage = damage;
+  return hit;
+}
+
+function runProjectileHitEffects(state, projectile, enemy, hit, position, options = {}) {
+  const handlers = {};
+
+  if (options.hitShake !== false) {
+    handlers.hitShake = (effect, c) => effectCommand("shake", {
+      power: (effect.power || 2.5) * (c.hit?.critical ? 1.25 : 1),
+      life: effect.life || 0.12
+    });
+  }
+
+  if (options.spark !== false) {
+    handlers.spark = (effect, c) => {
+      const fallback = c.projectile.kind === "bullet" ? 2 : 4;
+      const amount = c.hit?.critical ? Math.max(6, (effect.count ?? fallback) + 3) : (effect.count ?? fallback);
+      return effectCommand("spark", { x: c.position.x, y: c.position.y, amount, power: c.hit?.critical ? 210 : 120 });
+    };
+  }
+
+  if (options.chain !== false) {
+    handlers.chainLightning = (effect) => effectCommand("chainLightning", { effect });
+  }
+
+  if (options.status !== false) {
+    handlers.burn = (effect, c) => effectCommand("status", { status: "burn", target: c.enemy, effect, source: c.projectile });
+    handlers.poison = (effect, c) => effectCommand("status", { status: "poison", target: c.enemy, effect, source: c.projectile });
+    handlers.freeze = (effect, c) => effectCommand("status", { status: "freeze", target: c.enemy, effect, source: c.projectile });
+  }
+
   const ctx = runProjectileHook(state, projectile, EFFECT_HOOKS.PROJECTILE_HIT, {
     enemy,
     target: enemy,
     hit,
-    damage,
-    position: { x: eventX, y: eventY },
-    tags: hit.tags
-  }, {
-    hitShake(effect, c) {
-      return effectCommand("shake", { power: (effect.power || 2.5) * (c.hit?.critical ? 1.25 : 1), life: effect.life || 0.12 });
-    }
-  });
-  hit.commands = ctx.commands;
-  hit.damage = damage;
-  return hit;
+    damage: hit.damage,
+    position,
+    tags: hit.tags || []
+  }, handlers);
+
+  if (ctx.appliedStatuses?.length) addStatusBurst(state, position.x, position.y, ctx.appliedStatuses);
+  hit.commands = [...(hit.commands || []), ...ctx.commands];
+  return ctx;
 }
 
 function explode(state, projectile, effect, x = projectile.x, y = projectile.y) {
@@ -272,7 +251,7 @@ function explode(state, projectile, effect, x = projectile.x, y = projectile.y) 
     if (d2 > r * r) continue;
     const falloff = Math.max(0.35, 1 - Math.sqrt(d2) / Math.max(1, r));
     const explosionHit = dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.EXPLOSION]);
-    addStatusBurst(state, e.x, e.y, applyProjectileStatuses(projectile, e));
+    runProjectileHitEffects(state, projectile, e, explosionHit, { x: e.x, y: e.y }, { spark: false, chain: false, status: true, hitShake: true });
     addImpulse(e, x, y, force * falloff);
     if (e.hp <= 0) killEnemy(state, e, projectile, explosionHit.damage || explosionHit);
   }
@@ -311,6 +290,7 @@ function chainLightning(state, projectile, firstEnemy, effect) {
     if (!best) break;
     hit.add(best.id);
     const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.CHAIN]);
+    runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: false, hitShake: true });
     state.effects.push({
       type: "chain",
       amount: Math.round(chainHit.amount),
@@ -421,25 +401,8 @@ function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
   registerHit(projectile, enemy);
   const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
-  addStatusBurst(state, enemy.x, enemy.y, applyProjectileStatuses(projectile, enemy));
+  runProjectileHitEffects(state, projectile, enemy, hit, { x: enemy.x, y: enemy.y }, { spark: true, chain: true, status: true, hitShake: true });
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
-
-  runProjectileHook(state, projectile, EFFECT_HOOKS.PROJECTILE_HIT, {
-    enemy,
-    target: enemy,
-    hit,
-    position: { x: enemy.x, y: enemy.y },
-    tags: hit.tags || []
-  }, {
-    spark(effect, c) {
-      const fallback = c.projectile.kind === "bullet" ? 2 : 4;
-      const amount = c.hit?.critical ? Math.max(6, (effect.count ?? fallback) + 3) : (effect.count ?? fallback);
-      return effectCommand("spark", { x: c.position.x, y: c.position.y, amount, power: c.hit?.critical ? 210 : 120 });
-    },
-    chainLightning(effect) {
-      return effectCommand("chainLightning", { effect });
-    }
-  });
 
   if (enemy.hp <= 0) killEnemy(state, enemy, projectile, hit.damage || hit);
 
@@ -512,41 +475,44 @@ function handleWallOrEnd(state, projectile) {
   if (!out && !exhausted) return false;
 
   if (out) {
-    const ricochet = getEffect(projectile, "ricochet");
-    if (ricochet && projectile.ricocheted < (ricochet.count || 0)) {
-      projectile.ricocheted += 1;
-      projectile.x = clamp(projectile.x, 0, WORLD.w);
-      projectile.y = clamp(projectile.y, 0, WORLD.h);
-      if (outX) projectile.vx *= -1;
-      if (outY) projectile.vy *= -1;
-      projectile.targetId = null;
-      projectile.hitIds = {};
-      addSpark(state, projectile.x, projectile.y, 5, 165);
-      const ctx = createEffectContext({
-        state,
-        projectile,
-        sourceId: sourceId(projectile),
-        weaponId: projectile.weaponId || null,
-        position: { x: projectile.x, y: projectile.y },
-        normal: { x: outX ? -Math.sign(projectile.vx || 1) : 0, y: outY ? -Math.sign(projectile.vy || 1) : 0 },
-        rng: state.rng
-      });
-      ctx.queue(effectCommand("visual", {
-        event: {
-          type: "ricochet",
-          x: Math.round(projectile.x),
-          y: Math.round(projectile.y),
-          vx: Math.round(projectile.vx),
-          vy: Math.round(projectile.vy),
-          life: 0.16,
-          maxLife: 0.16,
-          color: GREEN
-        }
-      }));
-      ctx.queue(effectCommand("shake", { power: 2.2, life: 0.09, source: "ricochet" }));
-      executeEffectCommands(state, ctx.commands, ctx);
-      return false;
-    }
+    const ctx = runProjectileHook(state, projectile, EFFECT_HOOKS.PROJECTILE_WALL, {
+      position: { x: clamp(projectile.x, 0, WORLD.w), y: clamp(projectile.y, 0, WORLD.h) },
+      normal: { x: outX ? -Math.sign(projectile.vx || 1) : 0, y: outY ? -Math.sign(projectile.vy || 1) : 0 },
+      outX,
+      outY,
+      didRicochet: false
+    }, {
+      ricochet(effect, c) {
+        const count = Math.max(0, Math.floor(effect.count || 0));
+        if (c.projectile.ricocheted >= count) return null;
+        c.projectile.ricocheted += 1;
+        c.projectile.x = c.position.x;
+        c.projectile.y = c.position.y;
+        if (c.outX) c.projectile.vx *= -1;
+        if (c.outY) c.projectile.vy *= -1;
+        c.projectile.targetId = null;
+        c.projectile.hitIds = {};
+        c.didRicochet = true;
+        return [
+          effectCommand("spark", { x: c.projectile.x, y: c.projectile.y, amount: 5, power: 165 }),
+          effectCommand("visual", {
+            event: {
+              type: "ricochet",
+              x: Math.round(c.projectile.x),
+              y: Math.round(c.projectile.y),
+              vx: Math.round(c.projectile.vx),
+              vy: Math.round(c.projectile.vy),
+              life: 0.16,
+              maxLife: 0.16,
+              color: GREEN
+            }
+          }),
+          effectCommand("shake", { power: 2.2, life: 0.09, source: "ricochet" })
+        ];
+      }
+    });
+
+    if (ctx.didRicochet) return false;
   }
 
   fireExpireEffects(state, projectile);

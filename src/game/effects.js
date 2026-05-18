@@ -403,24 +403,31 @@ export function applyProjectileStatuses(projectile, enemy) {
   return applied;
 }
 
+function statusDamageTag(type) {
+  if (type === "burn") return DAMAGE_TAGS.BURN;
+  if (type === "poison") return DAMAGE_TAGS.POISON;
+  if (type === "freeze") return DAMAGE_TAGS.FREEZE;
+  return type;
+}
+
 function tickStatus(enemy, type, dt, fallbackDps = 0) {
   const status = enemy.status?.[type];
-  if (!status || status.t <= 0) return { damage: 0, active: false, sourceId: null };
+  if (!status || status.t <= 0) return { type, damage: 0, active: false, sourceId: null, tags: [DAMAGE_TAGS.STATUS, statusDamageTag(type)] };
   status.t -= dt;
   status.tick = (status.tick || 0) + dt;
   const damage = Math.max(0, numberOr(status.dps, fallbackDps)) * dt;
-  const active = status.t > 0;
   const sid = status.sourceId || null;
   if (status.t <= 0) delete enemy.status[type];
-  return { damage, active: true, sourceId: sid };
+  return { type, damage, active: true, sourceId: sid, tags: [DAMAGE_TAGS.STATUS, statusDamageTag(type)] };
 }
 
 export function tickEnemyStatuses(enemy, dt) {
-  if (!enemy?.status) return { damage: 0, active: false, slowMult: 1, sources: [] };
+  if (!enemy?.status) return { damage: 0, active: false, slowMult: 1, sources: [], ticks: [] };
 
   let damage = 0;
   let active = false;
   const sources = [];
+  const ticks = [];
   const burn = tickStatus(enemy, "burn", dt);
   const poison = tickStatus(enemy, "poison", dt);
   const freeze = enemy.status.freeze;
@@ -430,6 +437,7 @@ export function tickEnemyStatuses(enemy, dt) {
     damage += tick.damage;
     active = true;
     if (tick.sourceId) sources.push(tick.sourceId);
+    if (tick.damage > 0) ticks.push(tick);
   }
 
   let slow = 0;
@@ -444,7 +452,7 @@ export function tickEnemyStatuses(enemy, dt) {
   if (poisonStatus) slow = Math.max(slow, numberOr(poisonStatus.slow, 0));
 
   if (!Object.keys(enemy.status).length) delete enemy.status;
-  return { damage, active, slowMult: Math.max(0.15, 1 - slow), sources: [...new Set(sources)] };
+  return { damage, active, slowMult: Math.max(0.15, 1 - slow), sources: [...new Set(sources)], ticks };
 }
 
 export function enemyStatusSnapshot(enemy) {

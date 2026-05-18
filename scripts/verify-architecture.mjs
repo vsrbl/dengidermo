@@ -11,6 +11,7 @@ import { VERSION } from '../src/core/constants.js';
 
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
+const effectCommandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
@@ -48,17 +49,18 @@ test('effect dispatcher API is real and returns queued commands', () => {
 });
 
 test('projectile hooks are routed through the dispatcher/command layer', () => {
-  for (const hook of ['PROJECTILE_UPDATE', 'PROJECTILE_HIT', 'PROJECTILE_EXPIRE', 'PROJECTILE_KILL']) {
+  for (const hook of ['PROJECTILE_UPDATE', 'PROJECTILE_HIT', 'PROJECTILE_EXPIRE', 'PROJECTILE_KILL', 'PROJECTILE_WALL']) {
     assert.match(projectilesSrc, new RegExp(`EFFECT_HOOKS\\.${hook}`), `${hook} is not referenced by projectile code`);
   }
   assert.match(projectilesSrc, /function runProjectileHook/, 'projectile hook wrapper missing');
-  assert.match(projectilesSrc, /function executeEffectCommands/, 'effect command executor missing');
-  assert.match(projectilesSrc, /runEffectHook\(source, EFFECT_HOOKS\.PROJECTILE_KILL/, 'projectile kill hook is not wired');
+  assert.match(effectCommandsSrc, /export function executeEffectCommands/, 'shared effect command executor missing');
+  assert.doesNotMatch(projectilesSrc, /function executeEffectCommands/, 'effect command executor drifted back into projectiles.js');
+  assert.match(projectilesSrc, /runProjectileHook\(state, source, EFFECT_HOOKS\.PROJECTILE_KILL/, 'projectile kill hook is not wired through command execution');
 });
 
 test('central damage pipeline is used for projectile and status damage', () => {
   assert.match(projectilesSrc, /dealDamage\(state, enemy, \{[\s\S]*projectileId/s, 'projectile damage does not use dealDamage()');
-  assert.match(projectilesSrc, /tags: \[DAMAGE_TAGS\.STATUS\]/, 'status damage is not tagged through dealDamage()');
+  assert.match(projectilesSrc, /tags: statusHit\.tags \|\| \[DAMAGE_TAGS\.STATUS\]/, 'status damage is not tagged through dealDamage()');
   const target = { hp: 10 };
   const hit = dealDamage(null, target, { amount: 3, sourceId: 'p1', tags: ['test'] });
   assert.equal(target.hp, 7);
@@ -73,7 +75,7 @@ test('lifesteal description matches current non-status behavior', () => {
   const e = spawnEnemy(state, 'boss', 640, 500);
   e.status = { burn: { t: 1, dps: 80, sourceId: 'p1', stacks: 1 } };
   run(state, 0.5);
-  assert.equal(p.hp, 20, 'status damage should not trigger lifesteal in v35.1');
+  assert.equal(p.hp, 20, 'status damage should not trigger lifesteal in v35.2');
 });
 
 test('direct projectile lifesteal still works after damage pipeline refactor', () => {
@@ -103,10 +105,10 @@ test('effect defs have hooks and future-only defs are explicit', () => {
 });
 
 test('version strings are aligned across frontend/package/server', () => {
-  assert.equal(VERSION, 'v35.1');
-  assert.equal(pkg.version, '35.1.0');
-  assert.equal(serverPkg.version, '35.1.0');
-  assert.match(serverSrc, /v35\.1/, 'server banner is stale');
+  assert.equal(VERSION, 'v35.2');
+  assert.equal(pkg.version, '35.2.0');
+  assert.equal(serverPkg.version, '35.2.0');
+  assert.match(serverSrc, /v35\.2/, 'server banner is stale');
   assert.doesNotMatch(serverSrc, /v33\.1/, 'old server banner leaked through');
 });
 
