@@ -72,6 +72,9 @@ test('synergy rules are data-driven and influence offers without UI hardcoding',
   assert.match(synergiesSrc, /ARCHITECTURE GUARD: synergy rules are data/, 'synergy guard missing');
   assert.match(gameUpgradesSrc, /rollUpgradeOffer/, 'game upgrade offers do not use economy offer generator');
   assert.match(uiSrc, /upgrade-meta/, 'UI does not render rarity/synergy metadata');
+  assert.match(uiSrc, /upgrade-rarity/, 'UI does not render rarity badge');
+  assert.match(uiSrc, /upgrade-particles/, 'UI does not render reveal particles');
+  assert.match(uiSrc, /reveal-seq/, 'UI does not use sequential reveal flow');
   const { state, p } = base('SYNERGY-OFFER');
   p.upgrades.taken.burnMark = 1;
   const chain = synergyOfferMeta(p, 'chainFork', UPGRADES.chainFork);

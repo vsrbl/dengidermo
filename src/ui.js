@@ -85,12 +85,12 @@ export function createUi() {
     if (!upgradeOpen) upgradeHovered = false;
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
     el.upgradePanel.classList.toggle("pending", !!pending);
-    el.upgradePanel.classList.toggle("reveal-seq", shouldReveal);
     if (shouldReveal) {
-      void el.upgradePanel.offsetWidth;
       el.upgradePanel.classList.remove("reveal-seq");
       void el.upgradePanel.offsetWidth;
       el.upgradePanel.classList.add("reveal-seq");
+    } else if (!upgradeOpen) {
+      el.upgradePanel.classList.remove("reveal-seq");
     }
     el.upgradeButtons.forEach((btn, index) => {
       const id = list[index];
@@ -99,18 +99,22 @@ export function createUi() {
       const rarity = meta.rarity || data?.rarity || "common";
       const rarityMeta = RARITY_META[rarity] || RARITY_META.common;
       const rarityLabel = rarityMeta.label || rarity.toUpperCase();
-      const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "ONE-SHOT";
+      const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "SINGLE";
       const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
       btn.className = `upgrade-choice rarity-${rarity}${shouldReveal && id ? " reveal" : ""}`;
       btn.classList.toggle("selected", index === selectedIndex);
       btn.disabled = !id || (pending && index !== selectedIndex);
       btn.dataset.rarity = rarity;
-      btn.style.setProperty("--reveal-delay", `${index * 80 + (rarityMeta.revealDelayMs || 0)}ms`);
+      btn.dataset.slot = String(index + 1);
+      btn.style.setProperty("--reveal-delay", `${index * 180 + (rarityMeta.revealDelayMs || 0)}ms`);
       btn.style.setProperty("--reveal-duration", `${rarityMeta.revealDurationMs || 220}ms`);
       btn.style.setProperty("--reveal-rise", `${rarityMeta.revealRise || 10}px`);
       btn.style.setProperty("--rarity-accent", rarityMeta.color || "#d8d8d8");
+      btn.style.setProperty("--reveal-jitter", `${rarityMeta.revealJitter || 2}px`);
+      btn.style.setProperty("--particle-opacity", `${rarityMeta.particleOpacity || 0.18}`);
+      btn.style.setProperty("--particle-scale", `${rarityMeta.particleScale || 1}`);
       btn.innerHTML = data
-        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name-row"><span class="upgrade-name">${data.name}</span><span class="upgrade-rarity">${rarityLabel}</span></span><span class="upgrade-meta">${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
+        ? `<span class="upgrade-fx" aria-hidden="true"></span><span class="upgrade-particles" aria-hidden="true"></span><span class="upgrade-key">${index + 1}</span><span class="upgrade-name-row"><span class="upgrade-name">${data.name}</span><span class="upgrade-rarity">${rarityLabel}</span></span><span class="upgrade-meta">${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
         : "";
     });
     lastUpgradeSignature = upgradeOpen ? signature : "";

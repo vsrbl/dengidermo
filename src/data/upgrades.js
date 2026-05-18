@@ -330,12 +330,12 @@ export const UPGRADES = {
 export const UPGRADE_IDS = Object.keys(UPGRADES);
 export const UPGRADE_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "corrupted"];
 export const RARITY_META = Object.freeze({
-  common: { id: "common", label: "COMMON", weight: 1, color: "#d8d8d8", uiClass: "common", revealDurationMs: 180, revealDelayMs: 0, revealRise: 8 },
-  uncommon: { id: "uncommon", label: "UNCOMMON", weight: 0.64, color: "#2dd4bf", uiClass: "uncommon", revealDurationMs: 230, revealDelayMs: 18, revealRise: 10 },
-  rare: { id: "rare", label: "RARE", weight: 0.32, color: "#6f8cff", uiClass: "rare", revealDurationMs: 280, revealDelayMs: 26, revealRise: 12 },
-  epic: { id: "epic", label: "EPIC", weight: 0.16, color: "#c45cff", uiClass: "epic", revealDurationMs: 340, revealDelayMs: 34, revealRise: 15 },
-  legendary: { id: "legendary", label: "LEGENDARY", weight: 0.075, color: "#ff9a1f", uiClass: "legendary", revealDurationMs: 420, revealDelayMs: 44, revealRise: 18 },
-  corrupted: { id: "corrupted", label: "CORRUPTED", weight: 0.045, color: "#ff3048", uiClass: "corrupted", revealDurationMs: 380, revealDelayMs: 38, revealRise: 16, reservedFor: "future cursed upgrades" }
+  common: { id: "common", label: "COMMON", weight: 1, color: "#d8d8d8", uiClass: "common", revealDurationMs: 220, revealDelayMs: 0, revealRise: 8, revealJitter: 1.5, particleOpacity: 0.08, particleScale: 0.72 },
+  uncommon: { id: "uncommon", label: "UNCOMMON", weight: 0.64, color: "#2dd4bf", uiClass: "uncommon", revealDurationMs: 260, revealDelayMs: 16, revealRise: 10, revealJitter: 2.2, particleOpacity: 0.12, particleScale: 0.86 },
+  rare: { id: "rare", label: "RARE", weight: 0.32, color: "#6f8cff", uiClass: "rare", revealDurationMs: 320, revealDelayMs: 24, revealRise: 12, revealJitter: 3, particleOpacity: 0.16, particleScale: 1 },
+  epic: { id: "epic", label: "EPIC", weight: 0.16, color: "#c45cff", uiClass: "epic", revealDurationMs: 380, revealDelayMs: 34, revealRise: 15, revealJitter: 4.4, particleOpacity: 0.22, particleScale: 1.16 },
+  legendary: { id: "legendary", label: "LEGENDARY", weight: 0.075, color: "#ff9a1f", uiClass: "legendary", revealDurationMs: 460, revealDelayMs: 44, revealRise: 18, revealJitter: 5.8, particleOpacity: 0.28, particleScale: 1.35 },
+  corrupted: { id: "corrupted", label: "CORRUPTED", weight: 0.045, color: "#ff3048", uiClass: "corrupted", revealDurationMs: 410, revealDelayMs: 38, revealRise: 16, revealJitter: 5, particleOpacity: 0.25, particleScale: 1.2, reservedFor: "future cursed upgrades" }
 });
 export const UPGRADE_TAGS = Array.from(new Set(Object.values(UPGRADES).flatMap((u) => u.tags || []))).sort();
 
