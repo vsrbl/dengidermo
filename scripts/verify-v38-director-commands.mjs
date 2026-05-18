@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGameState, addPlayer } from '../src/game/state.js';
 import { spawnEnemy, updateSpawner } from '../src/game/enemies.js';
-import { directorSnapshot } from '../src/game/director.js';
+import { directorSnapshot, forceDirectorSpawnTimer } from '../src/game/director.js';
 import {
   DIRECTOR_COMMAND_TYPES,
   directorEventCommand,
@@ -28,8 +28,8 @@ function fresh(seed = 'V38-2-COMMANDS') {
   return state;
 }
 
-test('v38.5.1 command layer is registered', () => {
-  assert.equal(pkg.version, '38.5.1');
+test('v38.5.2 command layer is registered', () => {
+  assert.equal(pkg.version, '38.5.2');
   assert.match(commandSrc, /DIRECTOR_COMMAND_TYPES/, 'director command type registry missing');
   assert.match(commandSrc, /executeDirectorCommands/, 'director command executor missing');
   assert.match(directorSrc, /directorSpawnEnemyCommand/, 'director should plan spawn commands');
@@ -92,7 +92,7 @@ test('director pressure waves flow through command executor', () => {
   const state = fresh('V38-2-PRESSURE-COMMANDS');
   state.locationTime = 2.0;
   for (let i = 0; i < 4; i += 1) {
-    state.spawnTimer = 0;
+    forceDirectorSpawnTimer(state, 0);
     updateSpawner(state, 0.25);
     state.locationTime += 0.25;
   }
@@ -108,7 +108,7 @@ test('boss room objective uses boss spawn command and portal gate survives comma
   const state = fresh('V38-2-BOSS-FLOW');
   initLocation(state, 3);
   state.locationTime = 4.2;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 0.25);
   let snap = directorSnapshot(state);
 
@@ -130,7 +130,7 @@ test('cleanup remains non-spawning after command extraction', () => {
   for (let i = 0; i < 5; i += 1) spawnEnemy(state, 'grunt', 100 + i * 30, 120);
   const before = Object.keys(state.enemies).length;
   state.locationTime = (state.portalReadyAt || 5) + 1;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 1);
   const snap = directorSnapshot(state);
 
@@ -145,4 +145,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.1 director command checks passed`);
+console.log(`All ${results.length} v38.5.2 director command checks passed`);

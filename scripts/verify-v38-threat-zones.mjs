@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { WORLD } from '../src/core/constants.js';
 import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
 import { spawnEnemy, updateSpawner } from '../src/game/enemies.js';
-import { directorSnapshot } from '../src/game/director.js';
+import { directorSnapshot, forceDirectorSpawnTimer } from '../src/game/director.js';
 import { directorSpawnEnemyCommand, executeDirectorCommands } from '../src/game/directorCommands.js';
 import { chooseSpawnZone, resolveSpawnPoint, SPAWN_ZONE_IDS } from '../src/game/spawnZones.js';
 import { threatSnapshot, updateThreatAnalyzer } from '../src/game/threat.js';
@@ -29,8 +29,8 @@ function fresh(seed = 'V38-4-ZONES') {
   return state;
 }
 
-test('v38.5.1 threat and spawn zone modules are registered', () => {
-  assert.equal(pkg.version, '38.5.1');
+test('v38.5.2 threat and spawn zone modules are registered', () => {
+  assert.equal(pkg.version, '38.5.2');
   assert.match(packageSrc, /check:v38-4/, 'check:v38-4 should be part of package scripts');
   assert.match(directorSrc, /updateThreatAnalyzer/, 'director should read threat analyzer output');
   assert.match(directorSrc, /chooseSpawnZone/, 'director should choose spawn zones for spawn commands');
@@ -106,7 +106,7 @@ test('director pressure waves tag enemies with zone and expose threat snapshot',
   const state = fresh('V38-4-DIRECTOR-ZONE-FLOW');
   state.locationTime = 2.2;
   updateSpawner(state, 0.25);
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 0.25);
   const enemies = Object.values(state.enemies);
   const snap = directorSnapshot(state);
@@ -126,4 +126,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.1 threat + spawn zone checks passed`);
+console.log(`All ${results.length} v38.5.2 threat + spawn zone checks passed`);

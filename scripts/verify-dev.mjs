@@ -4,6 +4,7 @@ import { createGameState, addPlayer, makeSnapshot } from "../src/game/state.js";
 import { applyDevCommand, applyDevPlayerGuards, areDevSpawnsPaused, devEnemyDamageMult, devEnemySpeedMult, hasDevMode } from "../src/game/dev.js";
 import { spawnEnemy, updateSpawner } from "../src/game/enemies.js";
 import { updateHostWorld, emptyInput } from "../src/game/simulation.js";
+import { forceDirectorSpawnTimer } from '../src/game/director.js';
 
 function makeDevState(room = "DEVTEST") {
   const config = readDevConfig(`https://nncckkrr.space/#dev=void-v33-test&calm=1`);
@@ -54,7 +55,7 @@ run("calm profile keeps a real but lower threat pressure phase", () => {
   assert.ok(devEnemyDamageMult(state) > 0 && devEnemyDamageMult(state) < 1);
   state.locationTime = 1.0;
   for (let i = 0; i < 24; i += 1) {
-    state.spawnTimer = 0;
+    forceDirectorSpawnTimer(state, 0);
     updateSpawner(state, 0.2);
   }
   const count = Object.keys(state.enemies).length;
@@ -68,7 +69,7 @@ run("spawn pause stops new enemies without freezing the world", () => {
   applyDevCommand(state, "toggle-spawns");
   assert.equal(areDevSpawnsPaused(state), true);
   state.locationTime = 1.0;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 1);
   assert.equal(Object.keys(state.enemies).length, 0);
   state.time += 1;

@@ -26,6 +26,11 @@ function mergeSpawnZones(biome, room) {
   return room.spawnZones || biome.spawnZones || ["edge_far", "edge_flank", "edge_random"];
 }
 
+function resolveObjective(biome, room, boss) {
+  const raw = room.objective || biome.objective || (boss?.enabled ? "boss" : "clear");
+  return ["clear", "survive", "boss"].includes(raw) ? raw : "clear";
+}
+
 export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex) {
   const biome = getBiome(room.biome);
   const spawn = mergeSpawn(biome, room);
@@ -36,6 +41,7 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex)
   const boost = (biome.spawnBoost ?? 1) * (spawn.boost ?? room.spawnBoost ?? 1);
   const encounterId = room.encounter || room.encounterId || biome.encounter || biome.encounterId || "grid_intro_pressure";
   const spawnZones = mergeSpawnZones(biome, room);
+  const objective = resolveObjective(biome, room, boss);
 
   return {
     id: room.id,
@@ -50,6 +56,7 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex)
     enemyPool: room.enemyPool || biome.enemyPool || ["grunt"],
     lootPool: room.lootPool || biome.lootPool || ["heal"],
     encounterId,
+    objective,
     portalDelay,
     portalHold,
     portalTargetIndex: room.portal?.targetIndex ?? runDepth + 1,

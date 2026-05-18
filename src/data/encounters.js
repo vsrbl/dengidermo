@@ -1,3 +1,9 @@
+export const ENCOUNTER_OBJECTIVES = Object.freeze({
+  CLEAR: "clear",
+  SURVIVE: "survive",
+  BOSS: "boss"
+});
+
 export const ENCOUNTER_STAGE_WHEN = Object.freeze({
   BEFORE_CALM_END: "beforeCalmEnd",
   BEFORE_BOSS_SPAWN: "beforeBossSpawn",
@@ -11,6 +17,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
   grid_intro_pressure: Object.freeze({
     id: "grid_intro_pressure",
     name: "GRID INTRO PRESSURE",
+    objective: ENCOUNTER_OBJECTIVES.CLEAR,
     director: Object.freeze({
       calmRatio: 0.24,
       eliteRatio: 0.6,
@@ -72,6 +79,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
   void_pressure: Object.freeze({
     id: "void_pressure",
     name: "VOID PRESSURE",
+    objective: ENCOUNTER_OBJECTIVES.SURVIVE,
     director: Object.freeze({
       calmRatio: 0.18,
       eliteRatio: 0.54,
@@ -133,6 +141,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
   core_elite_pressure: Object.freeze({
     id: "core_elite_pressure",
     name: "CORE ELITE PRESSURE",
+    objective: ENCOUNTER_OBJECTIVES.CLEAR,
     director: Object.freeze({
       calmRatio: 0.16,
       eliteRatio: 0.48,
@@ -195,6 +204,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
   boss_objective: Object.freeze({
     id: "boss_objective",
     name: "BOSS OBJECTIVE",
+    objective: ENCOUNTER_OBJECTIVES.BOSS,
     director: Object.freeze({
       calmRatio: 0.2,
       eliteRatio: 0.5,

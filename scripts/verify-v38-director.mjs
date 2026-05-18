@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
 import { spawnEnemy, updateSpawner } from '../src/game/enemies.js';
-import { canOpenPortal, directorSnapshot } from '../src/game/director.js';
+import { canOpenPortal, directorSnapshot, forceDirectorSpawnTimer } from '../src/game/director.js';
 import { initLocation, updatePortals } from '../src/game/portals.js';
 import { getLocation } from '../src/data/locations.js';
 import { readDevConfig } from '../src/dev/mode.js';
@@ -28,13 +28,13 @@ function fresh(seed = 'V38-DIRECTOR') {
 
 function tickSpawnerAt(state, time, dt = 0.25) {
   state.locationTime = time;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, dt);
   return directorSnapshot(state);
 }
 
-test('v38.5.1 version and director module are registered', () => {
-  assert.equal(pkg.version, '38.5.1');
+test('v38.5.2 version and director module are registered', () => {
+  assert.equal(pkg.version, '38.5.2');
   assert.match(enemiesSrc, /updateDirectorSpawner\(state, dt, spawnEnemy\)/, 'enemies.js should delegate pacing to director.js');
   assert.match(simulationSrc, /updateSpawner\(state, safeDt\)/, 'host simulation should still tick the spawner path');
   assert.match(directorSrc, /PHASE_POLICIES/, 'director phase contracts missing');
@@ -63,9 +63,9 @@ test('initial room uses the same spawn start delay as transitioned rooms', () =>
 test('director creates pressure waves under budget and cap', () => {
   const state = fresh('V38-PRESSURE');
   state.locationTime = 2.0;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   for (let i = 0; i < 6; i += 1) {
-    state.spawnTimer = 0;
+    forceDirectorSpawnTimer(state, 0);
     updateSpawner(state, 0.25);
     state.locationTime += 0.25;
   }
@@ -108,7 +108,7 @@ test('elite moment is one-shot and location-scaled', () => {
   const state = fresh('V38-ELITE');
   initLocation(state, 2);
   state.locationTime = 5.0;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 0.25);
   const snap = directorSnapshot(state);
   assert.equal(snap.eliteSpawned, true, 'elite moment did not trigger in pressure phase');
@@ -144,7 +144,7 @@ test('dev calm profile modifies director cap instead of bypassing it', () => {
   addPlayer(state, 'p1', 0);
   state.locationTime = 1.0;
   for (let i = 0; i < 18; i += 1) {
-    state.spawnTimer = 0;
+    forceDirectorSpawnTimer(state, 0);
     updateSpawner(state, 0.2);
   }
   const snap = directorSnapshot(state);
@@ -156,7 +156,7 @@ test('dev calm profile modifies director cap instead of bypassing it', () => {
 test('snapshot exposes lightweight director debug state and phase contracts', () => {
   const state = fresh('V38-SNAPSHOT');
   state.locationTime = 2.0;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 0.25);
   const snap = makeSnapshot(state);
   assert.ok(snap.director, 'snapshot missing director state');
@@ -172,4 +172,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.1 director hardening checks passed`);
+console.log(`All ${results.length} v38.5.2 director hardening checks passed`);

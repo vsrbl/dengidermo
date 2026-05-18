@@ -91,7 +91,15 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
     director.spentBudget = (director.spentBudget || 0) + cost;
   }
   if (command.markBossSpawned) state.bossSpawned = true;
-  if (command.markEliteSpawned && director) director.eliteSpawned = true;
+  if (director) {
+    if (command.markEliteSpawned) director.eliteSpawned = true;
+    director.lastSpawn = {
+      kind: command.kind,
+      role: command.role || "wave",
+      zone: command.zone || enemy.spawnZone || null,
+      at: Number((state.locationTime || 0).toFixed(3))
+    };
+  }
 
   summary.executed += 1;
   summary.spawned += 1;

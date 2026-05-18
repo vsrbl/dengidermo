@@ -12,6 +12,7 @@ export function createUi() {
     joinBtn: document.getElementById("joinBtn"),
     roomTitle: document.getElementById("roomTitle"),
     netStatus: document.getElementById("netStatus"),
+    directorDebug: document.getElementById("directorDebug"),
     hpText: document.getElementById("hpText"),
     weaponText: document.getElementById("weaponText"),
     inventoryText: document.getElementById("inventoryText"),
@@ -161,7 +162,41 @@ export function createUi() {
     });
   });
 
+  function setDirectorDebug(snapshot = null) {
+    if (!el.directorDebug) return;
+    const dev = snapshot?.dev || null;
+    const director = snapshot?.director || null;
+    const show = !!dev?.enabled && !!director;
+    el.directorDebug.classList.toggle("hidden", !show);
+    if (!show) {
+      el.directorDebug.textContent = "";
+      return;
+    }
+
+    const threat = director.threat || {};
+    const last = director.lastSpawn || {};
+    const enemies = Array.isArray(snapshot?.enemies) ? snapshot.enemies.length : 0;
+    const gate = `${director.canSpawn ? "SPAWN" : "NO-SPAWN"}/${director.canOpenPortal ? "PORTAL" : "LOCK"}`;
+    const objective = String(director.objective || "?").toUpperCase();
+    const phase = String(director.phase || "?").toUpperCase();
+    const stage = String(director.stageId || "-").toUpperCase();
+    const budget = `${director.budget ?? 0}/${director.totalBudget ?? 0}`;
+    const threatLine = `THR P:${Number(threat.pressure || 0).toFixed(2)} R:${Number(threat.relief || 0).toFixed(2)} D:${Number(threat.dominance || 0).toFixed(2)} K:${Number(threat.killRate || 0).toFixed(2)}`;
+    const multLine = `MUL I:${Number(threat.intensityMult || 1).toFixed(2)} C:${Number(threat.capMult || 1).toFixed(2)} B:${Number(threat.batchMult || 1).toFixed(2)} T:${Number(threat.intervalMult || 1).toFixed(2)}`;
+    const spawnLine = `LAST ${String(last.role || "-").toUpperCase()} ${String(last.kind || "-").toUpperCase()} @ ${String(last.zone || "-").toUpperCase()}`;
+    el.directorDebug.textContent = [
+      `DIR ${phase} / ${stage}`,
+      `OBJ ${objective} | ${gate}`,
+      `EN ${enemies}/${director.enemyCap ?? "?"} | CLEAN ${director.cleanupThreshold ?? "?"}`,
+      `BUD ${budget} | WAVE ${director.wave ?? 0}`,
+      threatLine,
+      multLine,
+      spawnLine
+    ].join("\n");
+  }
+
   function setHud(player, snapshot = null) {
+    setDirectorDebug(snapshot);
     if (!player) {
       el.hpText.textContent = "--";
       el.weaponText.textContent = "--";

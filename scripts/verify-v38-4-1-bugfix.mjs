@@ -6,6 +6,7 @@ import { spawnEnemy, updateSpawner } from '../src/game/enemies.js';
 import { createExitPortal, initLocation, updatePortals } from '../src/game/portals.js';
 import { directorSpawnEnemyCommand, executeDirectorCommands } from '../src/game/directorCommands.js';
 import { resetThreatAnalyzer } from '../src/game/threat.js';
+import { forceDirectorSpawnTimer } from '../src/game/director.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const threatSrc = readFileSync(new URL('../src/game/threat.js', import.meta.url), 'utf8');
@@ -43,8 +44,8 @@ function forcePortalTransition(state) {
   updatePortals(state, 0.02);
 }
 
-test('v38.5.1 bugfix pass is registered', () => {
-  assert.equal(pkg.version, '38.5.1');
+test('v38.5.2 bugfix pass is registered', () => {
+  assert.equal(pkg.version, '38.5.2');
   assert.match(threatSrc, /resetThreatAnalyzer/, 'threat reset helper should exist');
   assert.match(roomFlowSrc, /clearLocationRuntimeObjects/, 'portal transition clear should go through runtime reset helper');
   assert.match(runtimeResetSrc, /resetThreatAnalyzer/, 'runtime reset helper should reset threat');
@@ -86,7 +87,7 @@ test('dev spawn pause blocks boss spawn commands', () => {
   const state = dev('V38-4-1-PAUSE-BOSS', { spawnsPaused: true });
   initLocation(state, 3);
   state.locationTime = 5;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
 
   updateSpawner(state, 0.25);
 
@@ -138,4 +139,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.1 bugfix checks passed`);
+console.log(`All ${results.length} v38.5.2 bugfix checks passed`);

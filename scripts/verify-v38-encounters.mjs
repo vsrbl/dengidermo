@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
 import { spawnEnemy, updateSpawner } from '../src/game/enemies.js';
-import { directorSnapshot } from '../src/game/director.js';
+import { directorSnapshot, forceDirectorSpawnTimer } from '../src/game/director.js';
 import { getEncounterPlan, ENCOUNTER_PLANS } from '../src/data/encounters.js';
 import { getLocation } from '../src/data/locations.js';
 import { initLocation } from '../src/game/portals.js';
@@ -26,13 +26,13 @@ function fresh(seed = 'V38-4-ENCOUNTERS') {
 
 function snapAt(state, time, dt = 0.25) {
   state.locationTime = time;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, dt);
   return directorSnapshot(state);
 }
 
-test('v38.5.1 encounter plans are registered and checked', () => {
-  assert.equal(pkg.version, '38.5.1');
+test('v38.5.2 encounter plans are registered and checked', () => {
+  assert.equal(pkg.version, '38.5.2');
   assert.match(packageSrc, /check:v38-3/, 'check:v38-3 should be part of package scripts');
   assert.ok(ENCOUNTER_PLANS.grid_intro_pressure, 'grid encounter plan missing');
   assert.ok(ENCOUNTER_PLANS.void_pressure, 'void encounter plan missing');
@@ -126,7 +126,7 @@ test('boss objective is an encounter plan with arrival, fight, aftershock and po
 test('snapshot exposes encounter and stage for lightweight debug UI', () => {
   const state = fresh('V38-4-SNAPSHOT');
   state.locationTime = 2;
-  state.spawnTimer = 0;
+  forceDirectorSpawnTimer(state, 0);
   updateSpawner(state, 0.25);
   const snap = makeSnapshot(state);
   assert.equal(snap.director.encounterId, 'grid_intro_pressure');
@@ -140,4 +140,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.1 encounter plan checks passed`);
+console.log(`All ${results.length} v38.5.2 encounter plan checks passed`);
