@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
+import { moveTeamToNextLocation } from '../src/game/portals.js';
 import { spawnEnemy } from '../src/game/enemies.js';
 import { updateCompanions } from '../src/game/companions.js';
 import { updateHostWorld } from '../src/game/simulation.js';
@@ -81,6 +82,24 @@ test('companion kills use shared enemy finalizer for loot/events', () => {
   assert.ok(!state.enemies[enemy.id], 'dead enemy was not removed');
   assert.ok(state.events.some((ev) => ev.type === 'kill' && ev.sourceId === 'p1'), 'companion kill did not push shared kill event');
   assert.match(enemyDeathSrc, /finishEnemyKill/, 'shared enemy finalizer missing');
+});
+
+
+test('portal transition resets live companion entities to prevent cross-room jumps', () => {
+  const { state, p } = base('COMPANION-PORTAL-RESET');
+  p.upgrades.taken.drone = 1;
+  p.upgrades.taken.orbital = 1;
+  tick(state, 0.4);
+  const before = Object.values(state.companions || {});
+  assert.ok(before.length >= 2, 'companions did not exist before portal transition');
+  const previousIds = new Set(before.map((c) => c.id));
+  moveTeamToNextLocation(state);
+  assert.deepEqual(Object.keys(state.companions || {}), [], 'live companions must be cleared during room transition');
+  tick(state, 0.05);
+  const after = Object.values(state.companions || {});
+  assert.ok(after.length >= 2, 'companions should be recreated after transition from player upgrades');
+  assert.ok(after.every((c) => !previousIds.has(c.id)), 'recreated companions need fresh ids so renderer smoothing cannot interpolate from old room');
+  assert.ok(after.every((c) => Math.hypot(c.x - p.x, c.y - p.y) < 170), 'recreated companions should start near owner/orbit after transition');
 });
 
 test('companion damage is tagged and does not use player damage tag', () => {

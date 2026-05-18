@@ -47,8 +47,15 @@ export function createExitPortal(state) {
 }
 
 function clearLocationObjects(state) {
+  // ARCHITECTURE GUARD: location-scoped runtime entities must be reset on
+  // room transitions. Companions are player-owned, but their live entity
+  // positions are location-scoped render/game state; keeping them here makes
+  // renderer smoothing interpolate from the old room to the new spawn point
+  // and causes drones/orbitals to visibly jump across the screen. Upgrades
+  // remain on players, so companions are recreated next tick at the owner.
   state.enemies = {};
   state.projectiles = {};
+  state.companions = {};
   state.loot = {};
   state.effects = [];
   state.events = [];
