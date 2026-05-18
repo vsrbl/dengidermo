@@ -1,6 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, norm } from "../core/math.js";
 import { buildPlayerEffects, getEffect } from "./effects.js";
+import { pushVisualEffect } from "./effectCommands.js";
 
 const DASH_DEFAULT_DISTANCE = 210;
 const DASH_DEFAULT_COOLDOWN = 3.6;
@@ -105,7 +106,7 @@ function addDashVisuals(state, player, movement, config) {
     const t = count <= 1 ? 0 : i / Math.max(1, count - 1);
     const x = movement.before.x + (movement.after.x - movement.before.x) * t;
     const y = movement.before.y + (movement.after.y - movement.before.y) * t;
-    state.effects.push({
+    pushVisualEffect(state, {
       id: `ai${state.tick}-${player.id}-${i}`,
       type: "afterimage",
       playerId: player.id,
@@ -118,7 +119,7 @@ function addDashVisuals(state, player, movement, config) {
       localIndex: i
     });
   }
-  state.effects.push({
+  pushVisualEffect(state, {
     id: `db${state.tick}-${player.id}`,
     type: "dashBurst",
     playerId: player.id,

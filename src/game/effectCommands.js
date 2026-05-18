@@ -4,6 +4,17 @@ import { applyStatusToEnemy } from "./effects.js";
 
 const SHAKE_MAX_POWER = 12;
 
+export function pushVisualEffect(state, event = {}) {
+  // ARCHITECTURE GUARD: gameplay systems should emit render-only feedback
+  // through this helper/command executor, not by ad-hoc state.effects.push().
+  // This keeps visuals separate from damage/world authority and makes future
+  // replay/snapshot filtering safer.
+  if (!state || !event || typeof event.type !== "string") return null;
+  const fx = { ...event };
+  state.effects.push(fx);
+  return fx;
+}
+
 export function addShake(state, power = 2.5, life = 0.12, source = null) {
   const p = Math.max(0, Math.min(SHAKE_MAX_POWER, Number.isFinite(power) ? power : 0));
   if (p <= 0) return null;
@@ -36,7 +47,7 @@ export function addShake(state, power = 2.5, life = 0.12, source = null) {
     maxLife: l
   };
   if (source) fx.source = source;
-  state.effects.push(fx);
+  pushVisualEffect(state, fx);
   return fx;
 }
 
@@ -44,7 +55,7 @@ export function addSpark(state, x, y, amount = 3, power = 110, color = GREEN) {
   for (let i = 0; i < amount; i += 1) {
     const a = state.rng.range(0, Math.PI * 2);
     const v = state.rng.range(power * 0.45, power);
-    state.effects.push({
+    pushVisualEffect(state, {
       type: "spark",
       x: Math.round(x),
       y: Math.round(y),
@@ -77,7 +88,7 @@ export function executeEffectCommands(state, commands, ctx = {}, handlers = {}) 
     } else if (command.type === "shake") {
       addShake(state, command.power ?? 2.5, command.life ?? 0.12, command.source || null);
     } else if (command.type === "visual" && command.event) {
-      state.effects.push(command.event);
+      pushVisualEffect(state, command.event);
     } else if (command.type === "status" && command.target && command.status) {
       const status = applyStatusToEnemy(command.target, command.status, command.effect || {}, command.source || ctx.projectile || ctx.sourceId || null);
       if (!Array.isArray(ctx.appliedStatuses)) ctx.appliedStatuses = [];

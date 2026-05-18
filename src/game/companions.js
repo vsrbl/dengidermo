@@ -7,6 +7,7 @@ import {
   runPlayerHook
 } from "./effects.js";
 import { finishEnemyKill } from "./enemyDeath.js";
+import { pushVisualEffect } from "./effectCommands.js";
 import { nextId, pushEvent } from "./state.js";
 
 const COMPANION_LIMIT = 8;
@@ -172,7 +173,7 @@ function damageEnemyWithCompanion(state, companion, enemy, amount, x = enemy.x, 
     amount: damage.done,
     tags: damage.tags
   });
-  state.effects.push({
+  pushVisualEffect(state, {
     type: companion.kind === "drone" ? "droneBeam" : "orbitalHit",
     companionId: companion.id,
     x: Math.round(companion.x),

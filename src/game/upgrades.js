@@ -1,6 +1,7 @@
 import { PLAYER_HP } from "../core/constants.js";
 import { getUpgrade, rollUpgradeChoices } from "../data/upgrades.js";
 import { ensureInventory } from "./inventory.js";
+import { healPlayer } from "./effects.js";
 
 const DEFAULT_STATS = Object.freeze({
   speedMult: 1,
@@ -38,7 +39,7 @@ function addPassive(player, upgradeId) {
   inventory.passives.push(upgradeId);
 }
 
-export function applyUpgrade(player, upgradeId) {
+export function applyUpgrade(player, upgradeId, state = null) {
   const upgrade = getUpgrade(upgradeId);
   if (!upgrade) return false;
   const upgrades = ensureUpgradeState(player);
@@ -55,9 +56,9 @@ export function applyUpgrade(player, upgradeId) {
   if (mods.knockbackMult) player.stats.knockbackMult += mods.knockbackMult;
   if (mods.maxHp) {
     player.maxHp = Math.max(1, (player.maxHp || PLAYER_HP) + mods.maxHp);
-    player.hp = Math.min(player.maxHp, (player.hp || player.maxHp) + (mods.heal || mods.maxHp));
+    healPlayer(state, player, { amount: mods.heal || mods.maxHp, sourceType: "upgrade", tags: ["upgrade", upgradeId], allowRevive: false });
   } else if (mods.heal) {
-    player.hp = Math.min(player.maxHp || PLAYER_HP, (player.hp || 0) + mods.heal);
+    healPlayer(state, player, { amount: mods.heal, sourceType: "upgrade", tags: ["upgrade", upgradeId], allowRevive: false });
   }
 
   upgrades.taken[upgradeId] = stacks + 1;
@@ -85,7 +86,7 @@ export function chooseUpgrade(state, playerId, choiceIndex) {
   const index = Number(choiceIndex);
   if (!Number.isInteger(index) || index < 0 || index >= upgrades.choices.length) return false;
   const upgradeId = upgrades.choices[index];
-  const ok = applyUpgrade(player, upgradeId);
+  const ok = applyUpgrade(player, upgradeId, state);
   if (!ok) return false;
   upgrades.choices = [];
   upgrades.pending = false;

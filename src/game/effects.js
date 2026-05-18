@@ -12,6 +12,7 @@ export const EFFECT_HOOKS = Object.freeze({
   ENEMY_STATUS_TICK: "enemy:statusTick",
   PLAYER_TICK: "player:tick",
   PLAYER_DAMAGE: "player:damage",
+  PLAYER_HEAL: "player:heal",
   PLAYER_HIT: "player:hit",
   LOOT_ROLL: "loot:roll",
   LOOT_ATTRACT: "loot:attract"
@@ -281,7 +282,8 @@ export const DAMAGE_TAGS = Object.freeze({
   BURN: "burn",
   POISON: "poison",
   FREEZE: "freeze",
-  COMPANION: "companion"
+  COMPANION: "companion",
+  HEAL: "heal"
 });
 
 export function dealDamage(_state, target, spec = {}) {
@@ -430,6 +432,8 @@ function tickStatus(enemy, type, dt, fallbackDps = 0) {
 }
 
 export function tickEnemyStatuses(enemy, dt) {
+  // Deprecated low-level status timer/damage reducer. Runtime callers should use
+  // runEnemyStatusTickPipeline() so ENEMY_STATUS_TICK hooks remain observable.
   if (!enemy?.status) return { damage: 0, active: false, slowMult: 1, sources: [], ticks: [] };
 
   let damage = 0;
@@ -462,6 +466,46 @@ export function tickEnemyStatuses(enemy, dt) {
   if (!Object.keys(enemy.status).length) delete enemy.status;
   return { damage, active, slowMult: Math.max(0.15, 1 - slow), sources: [...new Set(sources)], ticks };
 }
+export function statusEffectsForEnemy(enemy) {
+  return Object.entries(enemy?.status || {}).map(([type, status]) => ({
+    type,
+    scope: "enemy",
+    hooks: [EFFECT_HOOKS.ENEMY_STATUS_TICK],
+    sourceId: status.sourceId || null,
+    dps: status.dps || 0,
+    slow: status.slow || 0,
+    stacks: status.stacks || 0,
+    t: status.t || 0
+  }));
+}
+
+export function runEnemyStatusHook(state, enemy, hook, context = {}, handlers = {}) {
+  const entity = { effects: statusEffectsForEnemy(enemy) };
+  const ctx = createEffectContext({
+    state,
+    enemy,
+    target: enemy,
+    sourceId: context.sourceId || null,
+    rng: state?.rng || null,
+    ...context
+  });
+  runEffectHook(entity, hook, ctx, handlers);
+  return ctx;
+}
+
+export function runEnemyStatusTickPipeline(state, enemy, dt) {
+  // ARCHITECTURE GUARD: status ticking must remain visible to ENEMY_STATUS_TICK.
+  // Future burn-spread, poison-cloud, freeze-shatter and status-kill effects
+  // should hook here instead of manually walking enemy.status in projectiles.js.
+  const tick = tickEnemyStatuses(enemy, dt);
+  const ctx = runEnemyStatusHook(state, enemy, EFFECT_HOOKS.ENEMY_STATUS_TICK, { dt, tick }, {
+    burn(_effect, c) { c.hasBurn = true; },
+    poison(_effect, c) { c.hasPoison = true; },
+    freeze(_effect, c) { c.hasFreeze = true; }
+  });
+  return { ...tick, ctx };
+}
+
 
 export function enemyStatusSnapshot(enemy) {
   if (!enemy?.status) return null;
@@ -491,8 +535,12 @@ export function healProjectileOwner(state, projectile, damageDone, tags = []) {
   const owner = ownerPlayer(state, projectile);
   if (!owner || owner.hp <= 0) return 0;
   const heal = damageDone * clamp(numberOr(lifesteal.percent, 0), 0, 0.5);
-  owner.hp = Math.min(owner.maxHp || owner.hp, owner.hp + heal);
-  return heal;
+  return healPlayer(state, owner, {
+    amount: heal,
+    sourceId: projectile.ownerId,
+    sourceType: "lifesteal",
+    tags: [DAMAGE_TAGS.HEAL, "lifesteal"]
+  }).done;
 }
 
 export function ensurePlayerEffects(player) {
@@ -630,6 +678,54 @@ export function dealPlayerDamage(state, player, spec = {}) {
     tags: resolved.tags
   });
   return { ...hit, ...resolved, done: hit.done, killed: hit.killed };
+}
+
+export function resolvePlayerHeal(state, player, spec = {}) {
+  const baseAmount = Math.max(0, numberOr(spec.amount, 0));
+  const tags = Array.isArray(spec.tags) ? [...spec.tags] : [];
+  if (!tags.includes(DAMAGE_TAGS.HEAL)) tags.push(DAMAGE_TAGS.HEAL);
+
+  const ctx = runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_HEAL, {
+    amount: baseAmount,
+    originalAmount: baseAmount,
+    tags,
+    sourceId: spec.sourceId || null,
+    sourceType: spec.sourceType || null,
+    allowRevive: !!spec.allowRevive,
+    minHp: Number.isFinite(spec.minHp) ? spec.minHp : 0
+  }, spec.handlers || {});
+
+  return {
+    amount: Math.max(0, ctx.amount || 0),
+    originalAmount: baseAmount,
+    sourceId: spec.sourceId || null,
+    sourceType: spec.sourceType || null,
+    allowRevive: !!ctx.allowRevive,
+    minHp: Math.max(0, ctx.minHp || 0),
+    tags: ctx.tags
+  };
+}
+
+export function healPlayer(state, player, spec = {}) {
+  // ARCHITECTURE GUARD: every gameplay heal must go through this function.
+  // Do not write `player.hp += ...` / `Math.min(maxHp, hp + ...)` in systems.
+  // Future overheal, anti-heal, team-heal and healing aura rules attach to PLAYER_HEAL.
+  if (!player || !(spec.amount > 0)) return { amount: 0, done: 0, sourceId: spec.sourceId || null, tags: spec.tags || [] };
+  const resolved = resolvePlayerHeal(state, player, spec);
+  const maxHp = Math.max(1, player.maxHp || player.hp || 1);
+  const before = Math.max(0, player.hp || 0);
+  if (before <= 0 && !resolved.allowRevive) {
+    return { ...resolved, done: 0, amount: resolved.amount, blocked: true, blockedBy: "dead" };
+  }
+  const base = Math.max(before, resolved.minHp || 0);
+  const after = clamp(base + resolved.amount, 0, maxHp);
+  player.hp = after;
+  return {
+    ...resolved,
+    done: Math.max(0, after - before),
+    hp: after,
+    maxHp
+  };
 }
 
 export function applyShieldDamage(player, damage) {

@@ -2,7 +2,7 @@ import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
 import { getLocation } from "../data/locations.js";
-import { attractLootToPlayer, buildPlayerEffects, resolveLootRoll } from "./effects.js";
+import { attractLootToPlayer, buildPlayerEffects, healPlayer, resolveLootRoll } from "./effects.js";
 import { nextId, pushEvent } from "./state.js";
 import { giveWeapon } from "./inventory.js";
 
@@ -38,7 +38,7 @@ export function updateLoot(state, dt = 0.016) {
       const r = player.radius + data.radius + 4;
       if (dist2(player.x, player.y, item.x, item.y) > r * r) continue;
       if (data.type === "heal") {
-        player.hp = Math.min(player.maxHp, player.hp + data.amount);
+        healPlayer(state, player, { amount: data.amount, sourceType: "loot", tags: ["loot", item.kind] });
       }
       if (data.type === "weapon") {
         giveWeapon(player, data.weaponId, true);

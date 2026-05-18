@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "36.1.0",
+  "version": "36.2.0",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -10,7 +10,7 @@
     "start": "node server/server.js",
     "check:effects": "node scripts/verify-effects.mjs",
     "check:dev": "node scripts/verify-dev.mjs",
-    "check:all": "npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34 && npm run check:shake && npm run check:v35 && npm run check:hooks && npm run check:v35-3 && npm run check:architecture && npm run check:v36",
+    "check:all": "npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34 && npm run check:shake && npm run check:v35 && npm run check:hooks && npm run check:v35-3 && npm run check:architecture && npm run check:v36 && npm run check:v36-2",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
     "check:v34": "node scripts/verify-v34-pack.mjs",
@@ -19,7 +19,8 @@
     "check:architecture": "node scripts/verify-architecture.mjs",
     "check:hooks": "node scripts/verify-hook-pipeline.mjs",
     "check:v35-3": "node scripts/verify-v35-3-architecture.mjs",
-    "check:v36": "node scripts/verify-v36-companions.mjs"
+    "check:v36": "node scripts/verify-v36-companions.mjs",
+    "check:v36-2": "node scripts/verify-v36-2-polish.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

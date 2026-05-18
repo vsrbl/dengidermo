@@ -14,9 +14,9 @@ import {
   resolveProjectileDamage,
   runEffectHook,
   sourceId,
-  tickEnemyStatuses
+  runEnemyStatusTickPipeline
 } from "./effects.js";
-import { addSpark, executeEffectCommands } from "./effectCommands.js";
+import { addSpark, executeEffectCommands, pushVisualEffect } from "./effectCommands.js";
 import { finishEnemyKill } from "./enemyDeath.js";
 import { nextId, pushEvent } from "./state.js";
 
@@ -85,7 +85,7 @@ function statusColor(type) {
 }
 
 function addDamageText(state, x, y, amount, critical = false) {
-  state.effects.push({
+  pushVisualEffect(state, {
     type: "damageText",
     x: Math.round(x),
     y: Math.round(y - (critical ? 18 : 12)),
@@ -100,7 +100,7 @@ function addDamageText(state, x, y, amount, critical = false) {
 function addStatusBurst(state, x, y, applied) {
   for (const item of applied || []) {
     const color = statusColor(item.type);
-    state.effects.push({
+    pushVisualEffect(state, {
       type: "statusBurst",
       status: item.type,
       x: Math.round(x),
@@ -141,7 +141,7 @@ function runProjectileHook(state, projectile, hook, context, effectHandlers = {}
 
 function tickEnemyStatusDamage(state, dt) {
   for (const enemy of Object.values(state.enemies)) {
-    const tick = tickEnemyStatuses(enemy, dt);
+    const tick = runEnemyStatusTickPipeline(state, enemy, dt);
     const statusTicks = tick.ticks?.length ? tick.ticks : (tick.damage > 0 ? [{ damage: tick.damage, sourceId: tick.sources?.[0] || null, tags: [DAMAGE_TAGS.STATUS] }] : []);
 
     for (const statusHit of statusTicks) {
@@ -160,7 +160,7 @@ function tickEnemyStatusDamage(state, dt) {
     if (!state.enemies[enemy.id]) continue;
     if (tick.active && state.rng.next() < 5 * dt) addSpark(state, enemy.x, enemy.y, 1, 80);
     if (tick.active && state.rng.next() < 2.2 * dt) {
-      state.effects.push({
+      pushVisualEffect(state, {
         type: "statusTick",
         x: Math.round(enemy.x),
         y: Math.round(enemy.y),
@@ -187,7 +187,7 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
   addDamageText(state, eventX, eventY, hit.amount, hit.critical);
   if (hit.critical) {
     addSpark(state, eventX, eventY, 5, 190);
-    state.effects.push({ type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
+    pushVisualEffect(state, { type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
   }
   hit.damage = damage;
   return hit;
@@ -253,7 +253,7 @@ function explode(state, projectile, effect, x = projectile.x, y = projectile.y) 
   }
 
   const life = effect.visual === "large" ? 0.36 : 0.24;
-  state.effects.push({
+  pushVisualEffect(state, {
     type: "explosion",
     x: Math.round(x),
     y: Math.round(y),
@@ -287,7 +287,7 @@ function chainLightning(state, projectile, firstEnemy, effect) {
     hit.add(best.id);
     const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.CHAIN]);
     runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: false, hitShake: true });
-    state.effects.push({
+    pushVisualEffect(state, {
       type: "chain",
       amount: Math.round(chainHit.amount),
       x: Math.round(from.x),

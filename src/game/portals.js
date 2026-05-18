@@ -3,6 +3,8 @@ import { clamp, dist2 } from "../core/math.js";
 import { getLocation } from "../data/locations.js";
 import { nextId, pushEvent, spawnPoint } from "./state.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
+import { healPlayer } from "./effects.js";
+import { pushVisualEffect } from "./effectCommands.js";
 import { devPortalDelay, devPortalHold } from "./dev.js";
 
 const PORTAL_RADIUS = 58;
@@ -78,7 +80,7 @@ export function moveTeamToNextLocation(state) {
     player.vy = 0;
     player.kx = 0;
     player.ky = 0;
-    player.hp = clamp(player.hp + 18, 1, player.maxHp || 100);
+    healPlayer(state, player, { amount: 18, sourceType: "portal", tags: ["portal"], allowRevive: true, minHp: 1 });
     player.deadTimer = 0;
   }
 
@@ -116,7 +118,7 @@ export function updatePortals(state, dt) {
     const need = state.portalHold ?? loc.portalHold ?? 1.15;
     if (portal.progress >= need) {
       portal.progress = need;
-      state.effects.push({
+      pushVisualEffect(state, {
         type: "portal",
         x: portal.x,
         y: portal.y,
