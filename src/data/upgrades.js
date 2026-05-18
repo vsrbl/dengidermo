@@ -186,7 +186,7 @@ export const UPGRADES = {
     id: "splitRockets",
     name: "SPLIT ROCKETS",
     desc: "rockets split on detonation",
-    rarity: "rare",
+    rarity: "epic",
     tags: ["weapon", "rocket", "explosion"],
     weight: 1,
     maxStacks: 2,
@@ -199,7 +199,7 @@ export const UPGRADES = {
     id: "clusterBomb",
     name: "CLUSTER BOMB",
     desc: "explosions spawn fragments",
-    rarity: "rare",
+    rarity: "legendary",
     tags: ["weapon", "rocket", "explosion"],
     weight: 1,
     maxStacks: 2,
@@ -251,7 +251,7 @@ export const UPGRADES = {
     id: "teleportDash",
     name: "TELEPORT DASH",
     desc: "SHIFT blink + afterimage",
-    rarity: "rare",
+    rarity: "legendary",
     tags: ["player", "movement", "active", "dash"],
     weight: 2,
     maxStacks: 1,
@@ -264,7 +264,7 @@ export const UPGRADES = {
     id: "orbital",
     name: "ORBITAL",
     desc: "small satellite damages nearby enemies",
-    rarity: "rare",
+    rarity: "epic",
     tags: ["player", "companion", "orbital", "damage"],
     weight: 2,
     maxStacks: 3,
@@ -277,7 +277,7 @@ export const UPGRADES = {
     id: "drone",
     name: "DRONE",
     desc: "auto-shooter companion",
-    rarity: "rare",
+    rarity: "epic",
     tags: ["player", "companion", "drone", "auto-shooter"],
     weight: 2,
     maxStacks: 3,
@@ -328,12 +328,14 @@ export const UPGRADES = {
 };
 
 export const UPGRADE_IDS = Object.keys(UPGRADES);
-export const UPGRADE_RARITIES = ["common", "uncommon", "rare", "corrupted"];
+export const UPGRADE_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "corrupted"];
 export const RARITY_META = Object.freeze({
-  common: { id: "common", label: "COMMON", weight: 1, color: "white" },
-  uncommon: { id: "uncommon", label: "UNCOMMON", weight: 0.68, color: "green" },
-  rare: { id: "rare", label: "RARE", weight: 0.34, color: "green" },
-  corrupted: { id: "corrupted", label: "CORRUPTED", weight: 0.08, color: "red", reservedFor: "future cursed upgrades" }
+  common: { id: "common", label: "COMMON", weight: 1, color: "#d8d8d8", uiClass: "common", revealDurationMs: 180, revealDelayMs: 0, revealRise: 8 },
+  uncommon: { id: "uncommon", label: "UNCOMMON", weight: 0.64, color: "#2dd4bf", uiClass: "uncommon", revealDurationMs: 230, revealDelayMs: 18, revealRise: 10 },
+  rare: { id: "rare", label: "RARE", weight: 0.32, color: "#6f8cff", uiClass: "rare", revealDurationMs: 280, revealDelayMs: 26, revealRise: 12 },
+  epic: { id: "epic", label: "EPIC", weight: 0.16, color: "#c45cff", uiClass: "epic", revealDurationMs: 340, revealDelayMs: 34, revealRise: 15 },
+  legendary: { id: "legendary", label: "LEGENDARY", weight: 0.075, color: "#ff9a1f", uiClass: "legendary", revealDurationMs: 420, revealDelayMs: 44, revealRise: 18 },
+  corrupted: { id: "corrupted", label: "CORRUPTED", weight: 0.045, color: "#ff3048", uiClass: "corrupted", revealDurationMs: 380, revealDelayMs: 38, revealRise: 16, reservedFor: "future cursed upgrades" }
 });
 export const UPGRADE_TAGS = Array.from(new Set(Object.values(UPGRADES).flatMap((u) => u.tags || []))).sort();
 
@@ -362,10 +364,12 @@ export function canOfferUpgrade(player, id) {
 function rarityWeight(upgrade, state = null) {
   const rarity = upgrade?.rarity || "common";
   const base = RARITY_META[rarity]?.weight ?? 1;
-  const depth = Math.max(0, Math.min(12, state?.locationIndex || 0));
+  const depth = Math.max(0, Math.min(16, state?.locationIndex || 0));
+  if (rarity === "legendary") return base * (1 + depth * 0.1);
+  if (rarity === "epic") return base * (1 + depth * 0.075);
   if (rarity === "rare") return base * (1 + depth * 0.055);
-  if (rarity === "uncommon") return base * (1 + depth * 0.025);
-  if (rarity === "common") return base * Math.max(0.72, 1 - depth * 0.018);
+  if (rarity === "uncommon") return base * (1 + depth * 0.03);
+  if (rarity === "common") return base * Math.max(0.66, 1 - depth * 0.02);
   return base;
 }
 

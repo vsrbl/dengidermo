@@ -152,4 +152,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v37 on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v37.1 on ${PORT}`));

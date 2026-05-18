@@ -10,6 +10,13 @@
   --line: #f3f3f3;
   --green: #00ff66;
   --red: #ff3048;
+  --rarity-common: #d8d8d8;
+  --rarity-uncommon: #2dd4bf;
+  --rarity-rare: #6f8cff;
+  --rarity-epic: #c45cff;
+  --rarity-legendary: #ff9a1f;
+  --rarity-corrupted: #ff3048;
+  --upgrade-hover: rgba(255,255,255,0.08);
 }
 
 * { box-sizing: border-box; }
@@ -288,36 +295,79 @@ button:active {
 }
 
 .upgrade-choice {
-  min-height: 86px;
+  --rarity-accent: var(--rarity-common);
+  min-height: 92px;
   height: 100%;
-  padding: 8px;
+  padding: 8px 9px 8px 10px;
   text-align: left;
   display: grid;
   grid-template-columns: 20px 1fr;
-  grid-template-rows: 18px 16px 1fr;
-  gap: 1px 8px;
+  grid-template-rows: 20px 16px 1fr;
+  gap: 3px 8px;
   align-items: start;
-  border-color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.28);
+  border-left: 3px solid var(--rarity-accent);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.025);
+  position: relative;
+  overflow: hidden;
+  transition: transform 90ms steps(2, end), border-color 110ms linear, background 110ms linear, box-shadow 120ms linear;
+}
+
+.upgrade-choice::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent 28%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms linear;
 }
 
 .upgrade-choice:hover,
 .upgrade-choice:active,
 .upgrade-choice:focus {
-  color: var(--green);
-  border-color: var(--green);
+  color: var(--fg);
+  border-color: rgba(255,255,255,0.86);
   outline: none;
+  background: linear-gradient(180deg, var(--upgrade-hover), rgba(255,255,255,0.02));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 3px 3px 0 rgba(0,0,0,0.95);
+  transform: translate(-1px, -1px);
+}
+
+.upgrade-choice:hover::after,
+.upgrade-choice:active::after,
+.upgrade-choice:focus::after {
+  opacity: 1;
 }
 
 .upgrade-key {
   grid-row: 1 / 4;
-  color: var(--green);
+  color: var(--rarity-accent);
   font-size: 14px;
+  line-height: 1;
+}
+
+.upgrade-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .upgrade-name {
   color: var(--fg);
   font-size: 11px;
   letter-spacing: 1px;
+}
+
+.upgrade-rarity {
+  color: var(--rarity-accent);
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .upgrade-desc {
@@ -330,33 +380,60 @@ button:active {
 
 .upgrade-meta {
   grid-column: 2;
-  color: #777;
+  color: rgba(255,255,255,0.58);
   font-size: 9px;
   letter-spacing: 1px;
   line-height: 1.1;
   text-transform: uppercase;
 }
 
-.upgrade-choice.rarity-uncommon .upgrade-meta,
-.upgrade-choice.rarity-rare .upgrade-meta { color: var(--green); }
-.upgrade-choice.rarity-rare { border-color: rgba(0,255,102,0.72); }
-.upgrade-choice.rarity-corrupted .upgrade-meta { color: var(--red); }
+.upgrade-choice.rarity-common { --rarity-accent: var(--rarity-common); }
+.upgrade-choice.rarity-uncommon { --rarity-accent: var(--rarity-uncommon); }
+.upgrade-choice.rarity-rare { --rarity-accent: var(--rarity-rare); }
+.upgrade-choice.rarity-epic { --rarity-accent: var(--rarity-epic); }
+.upgrade-choice.rarity-legendary { --rarity-accent: var(--rarity-legendary); }
+.upgrade-choice.rarity-corrupted { --rarity-accent: var(--rarity-corrupted); }
 
 .upgrade-panel.pending {
   opacity: 0.62;
 }
 
+.upgrade-choice.reveal {
+  animation: upgradeReveal var(--reveal-duration, 220ms) steps(4, end) var(--reveal-delay, 0ms) 1 backwards;
+}
 
 .upgrade-choice.selected {
-  color: var(--green);
-  border-color: var(--green);
-  background: rgba(0,255,102,0.12);
+  color: var(--fg);
+  border-color: var(--rarity-accent);
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 0 16px rgba(255,255,255,0.08);
   animation: upgradeSelect 170ms steps(2, end) 1;
+}
+
+@keyframes upgradeReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--reveal-rise, 10px)) scale(0.975);
+    filter: brightness(1);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+    filter: brightness(1.14);
+    box-shadow: 0 0 18px rgba(255,255,255,0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.025);
+  }
 }
 
 @keyframes upgradeSelect {
   0% { transform: translate(0, 0); box-shadow: 0 0 0 #000; }
-  35% { transform: translate(-2px, 0); box-shadow: 4px 0 0 rgba(0,255,102,0.32); }
+  35% { transform: translate(-2px, 0); box-shadow: 4px 0 0 rgba(255,255,255,0.24); }
   70% { transform: translate(2px, 0); }
   100% { transform: translate(0, 0); box-shadow: 0 0 0 #000; }
 }

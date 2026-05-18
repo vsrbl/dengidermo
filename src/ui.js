@@ -26,6 +26,7 @@ export function createUi() {
   let upgradePickHandler = null;
   let upgradeOpen = false;
   let upgradeHovered = false;
+  let lastUpgradeSignature = "";
 
   function showMenu() {
     el.menu.classList.remove("hidden");
@@ -75,25 +76,44 @@ export function createUi() {
   function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1, offers = {}) {
     const list = Array.isArray(choices) ? choices : [];
     const offerMeta = offers && typeof offers === "object" ? offers : {};
+    const signature = list.map((id) => {
+      const meta = offerMeta[id] || {};
+      return `${id || "-"}:${meta.rarity || "-"}:${meta.nextStack || 0}:${(meta.hints || []).join("/")}`;
+    }).join("|");
+    const shouldReveal = list.length > 0 && signature !== lastUpgradeSignature && !pending;
     upgradeOpen = list.length > 0;
     if (!upgradeOpen) upgradeHovered = false;
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
     el.upgradePanel.classList.toggle("pending", !!pending);
+    el.upgradePanel.classList.toggle("reveal-seq", shouldReveal);
+    if (shouldReveal) {
+      void el.upgradePanel.offsetWidth;
+      el.upgradePanel.classList.remove("reveal-seq");
+      void el.upgradePanel.offsetWidth;
+      el.upgradePanel.classList.add("reveal-seq");
+    }
     el.upgradeButtons.forEach((btn, index) => {
       const id = list[index];
       const data = UPGRADES[id];
       const meta = offerMeta[id] || {};
       const rarity = meta.rarity || data?.rarity || "common";
-      const rarityLabel = RARITY_META[rarity]?.label || rarity.toUpperCase();
-      const stackText = meta.maxStacks > 1 ? ` ${meta.nextStack || 1}/${meta.maxStacks}` : "";
+      const rarityMeta = RARITY_META[rarity] || RARITY_META.common;
+      const rarityLabel = rarityMeta.label || rarity.toUpperCase();
+      const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "ONE-SHOT";
       const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
-      btn.className = `upgrade-choice rarity-${rarity}`;
+      btn.className = `upgrade-choice rarity-${rarity}${shouldReveal && id ? " reveal" : ""}`;
       btn.classList.toggle("selected", index === selectedIndex);
       btn.disabled = !id || (pending && index !== selectedIndex);
+      btn.dataset.rarity = rarity;
+      btn.style.setProperty("--reveal-delay", `${index * 80 + (rarityMeta.revealDelayMs || 0)}ms`);
+      btn.style.setProperty("--reveal-duration", `${rarityMeta.revealDurationMs || 220}ms`);
+      btn.style.setProperty("--reveal-rise", `${rarityMeta.revealRise || 10}px`);
+      btn.style.setProperty("--rarity-accent", rarityMeta.color || "#d8d8d8");
       btn.innerHTML = data
-        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-meta">${rarityLabel}${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
+        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name-row"><span class="upgrade-name">${data.name}</span><span class="upgrade-rarity">${rarityLabel}</span></span><span class="upgrade-meta">${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
         : "";
     });
+    lastUpgradeSignature = upgradeOpen ? signature : "";
   }
 
   function onUpgradePick(handler) {
