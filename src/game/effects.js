@@ -43,7 +43,7 @@ export const EFFECT_DEFS = Object.freeze({
   shield: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { charges: "sum", cooldown: "min" } },
   magnet: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ATTRACT], merge: { radius: "sum", force: "sum" } },
   luck: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ROLL], merge: { dropChance: "sumClamp", rare: "sumClamp" }, clamp: { dropChance: [0, 0.85], rare: [0, 1] } },
-  teleportDash: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { distance: "max", cooldown: "min" } },
+  teleportDash: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { distance: "max", cooldown: "min", invuln: "max" } },
   afterimage: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { duration: "max", count: "sum" } },
   orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max" } },
   drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", fireRate: "sum" } },
@@ -381,6 +381,7 @@ export function playerEffectValue(player, type, key, fallback = 0) {
 }
 
 export function applyShieldDamage(player, damage) {
+  if ((player?.effectState?.dash?.invulnLeft || 0) > 0) return 0;
   const shield = getEffect({ effects: buildPlayerEffects(player) }, "shield");
   if (!shield || damage <= 0) return damage;
   const chargesMax = Math.max(0, Math.floor(numberOr(shield.charges, 0)));

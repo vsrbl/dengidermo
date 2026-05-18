@@ -245,6 +245,20 @@ export const UPGRADES = {
     ]
   },
 
+  teleportDash: {
+    id: "teleportDash",
+    name: "TELEPORT DASH",
+    desc: "SHIFT blink + afterimage",
+    rarity: "rare",
+    tags: ["player", "movement", "active", "dash"],
+    weight: 2,
+    maxStacks: 1,
+    effects: [
+      { type: "teleportDash", scope: "player", distance: 210, cooldown: 3.6, invuln: 0.14 },
+      { type: "afterimage", scope: "player", duration: 0.28, count: 3 }
+    ]
+  },
+
   lifesteal: {
     id: "lifesteal",
     name: "LIFESTEAL",

@@ -17,6 +17,7 @@ export function createUi() {
     inventoryText: document.getElementById("inventoryText"),
     locationText: document.getElementById("locationText"),
     portalText: document.getElementById("portalText"),
+    dashText: document.getElementById("dashText"),
     upgradePanel: document.getElementById("upgradePanel"),
     upgradeButtons: Array.from(document.querySelectorAll(".upgrade-choice"))
   };
@@ -128,6 +129,7 @@ export function createUi() {
       el.weaponText.textContent = "--";
       el.locationText.textContent = snapshot?.location?.name || "--";
       el.portalText.textContent = "--";
+      if (el.dashText) el.dashText.textContent = "--";
       el.inventoryText.textContent = "--";
       return;
     }
@@ -138,6 +140,12 @@ export function createUi() {
     el.locationText.textContent = snapshot?.location?.name || "GRID 00";
     const portal = (snapshot?.portals || [])[0];
     el.portalText.textContent = portal ? (portal.active ? `${Math.round((portal.progress || 0) * 100)}%` : "LOCKED") : "--";
+    const dash = player.ability?.dash || null;
+    if (el.dashText) {
+      el.dashText.textContent = dash?.available
+        ? (dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`)
+        : "--";
+    }
     el.inventoryText.textContent = (inv.weapons || [START_WEAPON])
       .slice(0, 9)
       .map((id, index) => `${index + 1}${id === active ? ":" : "."}${(WEAPONS[id]?.name || id).toUpperCase()}`)

@@ -13,6 +13,7 @@ import { createInventory, cycleWeapon, ensureInventory, getActiveWeaponId, switc
 import { chooseUpgrade } from "./game/upgrades.js";
 import { readDevConfig } from "./dev/mode.js";
 import { applyDevCommand, hasDevMode } from "./game/dev.js";
+import { canPredictDash, performDash, predictLocalDash } from "./game/abilities.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -21,7 +22,7 @@ const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
 const devConfig = readDevConfig(window.location);
-const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, onDevCommand: requestDevCommand, isGameActive: () => running });
+const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, onDevCommand: requestDevCommand, onAbility: requestAbility, isGameActive: () => running });
 
 let transport = null;
 let running = false;
@@ -50,6 +51,7 @@ let predictedProjectiles = [];
 let localCooldowns = Object.create(null);
 let localLocationId = null;
 let fireSeq = 0;
+let abilitySeq = 0;
 let lastInputSent = 0;
 let lastSnapshotSent = 0;
 let lastFrame = performance.now();
@@ -168,6 +170,7 @@ function handleReady(info) {
   localCooldowns = Object.create(null);
   localLocationId = null;
   fireSeq = 0;
+  abilitySeq = 0;
   localWeapon = START_WEAPON;
   localInventory = createInventory([START_WEAPON]);
   resetUpgradeUi();
@@ -188,7 +191,7 @@ function handleReady(info) {
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
     localInventory = createInventory([START_WEAPON]);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, skin: index % 2 ? "green" : "default" };
+    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
@@ -228,6 +231,7 @@ function leaveGame() {
   resetUpgradeUi();
   localCooldowns = Object.create(null);
   localLocationId = null;
+  abilitySeq = 0;
   input.resetKeys();
   transport?.close(true);
   transport = null;
@@ -257,6 +261,10 @@ function handleNetData(msg, from, mode) {
     }
     if (msg.t === "upgrade" && from) {
       applyUpgradeRequest(from, msg);
+      return;
+    }
+    if (msg.t === "ability" && from) {
+      applyAbilityRequest(from, msg);
       return;
     }
     return;
@@ -300,16 +308,22 @@ function syncLocalFromSnapshot() {
   localPose.inventory = localInventory;
   localPose.upgrades = me.upgrades || { choices: [] };
   localPose.stats = me.stats || localPose.stats || {};
+  localPose.ability = me.ability || null;
   localPose.skin = me.skin;
+  if ((me.ability?.dash?.cooldownLeft || 0) > 0) localPose._localDashPredictedAt = 0;
   const dx = me.x - localPose.x;
   const dy = me.y - localPose.y;
-  if (locationChanged || dx * dx + dy * dy > 90000) {
+  const d2 = dx * dx + dy * dy;
+  const dashPredictionAge = localPose._localDashPredictedAt ? performance.now() - localPose._localDashPredictedAt : 0;
+  const staleDeniedDash = localPose._localDashPredictedAt && dashPredictionAge > 700 && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
+  if (locationChanged || staleDeniedDash || d2 > 90000) {
     localPose.x = me.x;
     localPose.y = me.y;
     localPose.vx = 0;
     localPose.vy = 0;
     localPose.kx = 0;
     localPose.ky = 0;
+    localPose._localDashPredictedAt = 0;
   }
 }
 
@@ -344,6 +358,13 @@ function applyUpgradeRequest(id, request = {}) {
   const currentKey = upgradeChoicesKey(player.upgrades?.choices);
   if (request.key && request.key !== currentKey) return false;
   return chooseUpgrade(hostState, id, request.index);
+}
+
+function applyAbilityRequest(id, request = {}) {
+  if (!hostState || request.ability !== "dash") return false;
+  const inputState = request.input && typeof request.input === "object" ? request.input : (hostInputs[id] || emptyInput());
+  const result = performDash(hostState, id, inputState, { seq: request.seq });
+  return !!result.ok;
 }
 
 function upgradeChoicesKey(choices) {
@@ -430,6 +451,25 @@ function requestUpgradeChoice(index) {
 
 function localInventoryWeapons() {
   return Array.isArray(localInventory?.weapons) ? localInventory.weapons : [START_WEAPON];
+}
+
+function requestAbility(ability) {
+  if (!running || ability !== "dash") return;
+  const pose = localPose || currentLocalPlayerFromSnapshot();
+  if (!pose) return;
+  const inputState = input.sample(pose, camera);
+  abilitySeq += 1;
+
+  if (role === "host") {
+    applyAbilityRequest(playerId, { ability: "dash", input: inputState, seq: abilitySeq });
+    snapshot = makeSnapshot(hostState);
+    return;
+  }
+
+  const nowSec = (performance.now() / 1000) * GAME_SPEED;
+  if (!canPredictDash(localPose, nowSec)) return;
+  predictLocalDash(localPose, inputState, nowSec);
+  transport?.sendToHost({ t: "ability", ability: "dash", input: inputState, seq: abilitySeq });
 }
 
 function requestDevCommand(command) {
@@ -542,8 +582,8 @@ function updateGuest(dt, now, gameNow) {
 function updateHud() {
   const snapMe = currentLocalPlayerFromSnapshot();
   const me = role === "host"
-    ? hostState?.players[playerId]
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {} } : snapMe);
+    ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null } : null)
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }

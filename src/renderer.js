@@ -337,6 +337,39 @@ function drawEffect(ctx, fx, cam) {
     return;
   }
 
+  if (fx.type === "afterimage") {
+    const s = screen(fx, cam);
+    const t = life / maxLife;
+    const r = 13;
+    ctx.globalAlpha = Math.max(0.12, Math.min(0.46, t * 0.42));
+    ctx.strokeStyle = fx.skin === "green" ? GREEN : "#ffffff";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+    const ax = Math.cos(fx.angle || 0);
+    const ay = Math.sin(fx.angle || 0);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x), Math.round(s.y));
+    ctx.lineTo(Math.round(s.x + ax * 20), Math.round(s.y + ay * 20));
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  if (fx.type === "dashBurst") {
+    const s = screen(fx, cam);
+    const t = 1 - life / maxLife;
+    const r = 18 + t * 30;
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = Math.max(1, Math.round(3 * (life / maxLife)));
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+    const d = norm(fx.vx || 1, fx.vy || 0);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x - d.x * 28), Math.round(s.y - d.y * 28));
+    ctx.lineTo(Math.round(s.x + d.x * 12), Math.round(s.y + d.y * 12));
+    ctx.stroke();
+    return;
+  }
+
   if (fx.type !== "explosion") return;
   const s = screen(fx, cam);
   const t = 1 - life / maxLife;

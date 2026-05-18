@@ -6,6 +6,7 @@ import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
 import { enemyStatusSnapshot } from "./effects.js";
+import { abilitySnapshot } from "./abilities.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
 
 let entitySeq = 1;
@@ -141,6 +142,7 @@ export function makeSnapshot(state) {
       upgrades: upgradeSnapshot(p),
       stats: { ...(p.stats || {}) },
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
+      ability: abilitySnapshot(p),
       skin: p.skin,
       vx: Number((p.vx || 0).toFixed(1)),
       vy: Number((p.vy || 0).toFixed(1))

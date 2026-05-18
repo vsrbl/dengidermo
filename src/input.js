@@ -14,7 +14,7 @@ function isEditableTarget(target) {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, isGameActive = () => true } = {}) {
+export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, onAbility, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
 
@@ -57,6 +57,12 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
         onDevCommand?.(command);
         return;
       }
+    }
+
+    if (!e.repeat && (e.code === "ShiftLeft" || e.code === "ShiftRight")) {
+      e.preventDefault();
+      onAbility?.("dash");
+      return;
     }
 
     if (!e.repeat && /^Digit[1-9]$/.test(e.code)) {

@@ -6,6 +6,7 @@ import { updateProjectiles } from "./projectiles.js";
 import { updatePortals } from "./portals.js";
 import { respawnPlayer } from "./state.js";
 import { tickPlayerEffects } from "./effects.js";
+import { tickActiveAbilities } from "./abilities.js";
 import { applyDevPlayerGuards, tickDevMode } from "./dev.js";
 
 export function emptyInput() {
@@ -72,7 +73,10 @@ export function updateHostWorld(state, inputs, dt) {
   state.locationTime = (state.locationTime || 0) + safeDt;
   state.tick += 1;
   tickDevMode(state, safeDt);
-  for (const p of Object.values(state.players)) tickPlayerEffects(p, safeDt);
+  for (const p of Object.values(state.players)) {
+    tickPlayerEffects(p, safeDt);
+    tickActiveAbilities(p, safeDt);
+  }
   updatePlayers(state, inputs, safeDt);
   updateSpawner(state, safeDt);
   updateEnemies(state, safeDt);
