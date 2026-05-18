@@ -9,6 +9,7 @@ export const BIOMES = {
     portalDelay: 5,
     portalHold: 1.1,
     spawnBoost: 1,
+    encounter: "grid_intro_pressure",
     spawn: {
       capBase: 24,
       capPerPlayer: 8,
@@ -34,6 +35,7 @@ export const BIOMES = {
     portalDelay: 7,
     portalHold: 1.15,
     spawnBoost: 1.18,
+    encounter: "void_pressure",
     spawn: {
       capBase: 26,
       capPerPlayer: 8,
@@ -59,6 +61,7 @@ export const BIOMES = {
     portalDelay: 8,
     portalHold: 1.2,
     spawnBoost: 1.42,
+    encounter: "core_elite_pressure",
     spawn: {
       capBase: 28,
       capPerPlayer: 9,
@@ -84,6 +87,7 @@ export const BIOMES = {
     portalDelay: 10,
     portalHold: 1.25,
     spawnBoost: 1.7,
+    encounter: "boss_objective",
     spawn: {
       capBase: 30,
       capPerPlayer: 10,

@@ -30,6 +30,7 @@ export function buildLocation(room, index = 0) {
   const portalDelay = room.portal?.delay ?? room.portalDelay ?? biome.portalDelay ?? 6;
   const portalHold = room.portal?.hold ?? room.portalHold ?? biome.portalHold ?? 1.15;
   const boost = (biome.spawnBoost ?? 1) * (spawn.boost ?? room.spawnBoost ?? 1);
+  const encounterId = room.encounter || room.encounterId || biome.encounter || biome.encounterId || "grid_intro_pressure";
 
   return {
     id: room.id,
@@ -41,6 +42,7 @@ export function buildLocation(room, index = 0) {
     gridStep: room.gridStep || biome.gridStep || 80,
     enemyPool: room.enemyPool || biome.enemyPool || ["grunt"],
     lootPool: room.lootPool || biome.lootPool || ["heal"],
+    encounterId,
     portalDelay,
     portalHold,
     portalTargetIndex: room.portal?.targetIndex ?? index + 1,

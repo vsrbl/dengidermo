@@ -191,6 +191,8 @@ export function makeSnapshot(state) {
     effects: state.effects.slice(-48).map((e) => ({ ...e })),
     events: state.events.slice(-16).map((e) => ({ ...e })),
     director: state.director ? {
+      encounterId: state.director.encounterId,
+      stageId: state.director.stageId,
       phase: state.director.phase,
       intensity: state.director.intensity,
       enemyCap: state.director.enemyCap,

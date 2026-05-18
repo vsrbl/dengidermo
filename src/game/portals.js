@@ -103,7 +103,7 @@ export function updatePortals(state, dt) {
   const loc = currentLocation(state);
 
   for (const portal of Object.values(state.portals)) {
-    // v38.1: portal activation is gated by the director phase contract,
+    // v38.3: portal activation is gated by the director phase contract,
     // not raw room time. This keeps cleanup/boss objectives authoritative.
     portal.active = canOpenPortal(state);
     if (!portal.active || alive.length === 0) {
