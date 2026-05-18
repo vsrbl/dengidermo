@@ -2,7 +2,6 @@ import { WORLD, GREEN } from "../core/constants.js";
 import { angleToVec, clamp, dist2, norm, segmentCircleHit } from "../core/math.js";
 import { SpatialGrid } from "../core/spatialGrid.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
-import { ENEMIES } from "../data/enemies.js";
 import {
   DAMAGE_TAGS,
   EFFECT_HOOKS,
@@ -18,7 +17,7 @@ import {
   tickEnemyStatuses
 } from "./effects.js";
 import { addSpark, executeEffectCommands } from "./effectCommands.js";
-import { dropLoot } from "./loot.js";
+import { finishEnemyKill } from "./enemyDeath.js";
 import { nextId, pushEvent } from "./state.js";
 
 const enemyGrid = new SpatialGrid(112);
@@ -49,11 +48,10 @@ function nearestEnemy(state, projectile, maxRange = 620) {
 
 function killEnemy(state, enemy, source = null, hit = null) {
   if (!state.enemies[enemy.id]) return;
-  const data = ENEMIES[enemy.kind];
-  const sid = sourceId(source);
 
-  // v35.2: projectile kills are a real hook point. Commands returned by
-  // future on-kill effects are executed before the enemy is removed.
+  // v36: projectile on-kill hooks run before the shared enemy finalizer.
+  // ARCHITECTURE GUARD: do not delete enemies directly here; finishEnemyKill()
+  // owns drop/score/event cleanup so companions and future systems stay aligned.
   if (source && typeof source === "object") {
     runProjectileHook(state, source, EFFECT_HOOKS.PROJECTILE_KILL, {
       enemy,
@@ -71,9 +69,7 @@ function killEnemy(state, enemy, source = null, hit = null) {
     });
   }
 
-  dropLoot(state, enemy.x, enemy.y, enemy.kind === "boss" ? 1 : 0.32, sid);
-  pushEvent(state, { type: "kill", kind: enemy.kind, x: enemy.x, y: enemy.y, score: data.score, sourceId: sid });
-  delete state.enemies[enemy.id];
+  finishEnemyKill(state, enemy, source, hit);
 }
 
 function addImpulse(enemy, fromX, fromY, force) {

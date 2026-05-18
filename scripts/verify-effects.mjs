@@ -7,7 +7,7 @@ import { updateLoot } from '../src/game/loot.js';
 import { updateHostWorld } from '../src/game/simulation.js';
 import { UPGRADES } from '../src/data/upgrades.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { EFFECT_DEFS, buildProjectileEffects, resolveProjectileDamage, applyShieldDamage, tickPlayerEffects } from '../src/game/effects.js';
+import { DAMAGE_TAGS, EFFECT_DEFS, buildProjectileEffects, resolveProjectileDamage, dealPlayerDamage, tickPlayerEffects } from '../src/game/effects.js';
 import { giveWeapon, switchWeapon } from '../src/game/inventory.js';
 
 function fresh(seed='TST') {
@@ -77,11 +77,11 @@ test('crit and lifesteal are source-owned and deterministic when rng is low', ()
 });
 
 test('shield blocks damage and recharges', () => {
-  const { p } = fresh();
+  const { state, p } = fresh();
   take(p, 'shield');
   tickPlayerEffects(p, 0.016);
-  const afterBlock = applyShieldDamage(p, 10);
-  assert.equal(afterBlock, 0);
+  const afterBlock = dealPlayerDamage(state, p, { amount: 10, tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH] });
+  assert.equal(afterBlock.done, 0);
   assert.equal(p.effectState.shield.charges, 0);
   tickPlayerEffects(p, 8);
   assert.equal(p.effectState.shield.charges, 1);

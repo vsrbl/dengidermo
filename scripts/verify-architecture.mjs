@@ -75,7 +75,7 @@ test('lifesteal description matches current non-status behavior', () => {
   const e = spawnEnemy(state, 'boss', 640, 500);
   e.status = { burn: { t: 1, dps: 80, sourceId: 'p1', stacks: 1 } };
   run(state, 0.5);
-  assert.equal(p.hp, 20, 'status damage should not trigger lifesteal in v35.2');
+  assert.equal(p.hp, 20, 'status damage should not trigger lifesteal in v36');
 });
 
 test('direct projectile lifesteal still works after damage pipeline refactor', () => {
@@ -91,10 +91,8 @@ test('reserved fields are marked intentionally, not forgotten', () => {
   const luck = UPGRADES.luck.effects.find((effect) => effect.type === 'luck');
   assert.equal(luck.rareReservedFor, 'future loot value / rarity weighting');
   assert.equal(EFFECT_DEFS.luck.reservedFields.rare, 'future loot value / rarity weighting');
-  assert.equal(EFFECT_DEFS.orbital.implemented, false);
-  assert.equal(EFFECT_DEFS.orbital.reservedFor, 'v36 companions');
-  assert.equal(EFFECT_DEFS.drone.implemented, false);
-  assert.equal(EFFECT_DEFS.drone.reservedFor, 'v36 companions');
+  assert.ok(!('implemented' in EFFECT_DEFS.orbital) || EFFECT_DEFS.orbital.implemented !== false, 'orbital must be implemented in v36');
+  assert.ok(!('implemented' in EFFECT_DEFS.drone) || EFFECT_DEFS.drone.implemented !== false, 'drone must be implemented in v36');
 });
 
 test('effect defs have hooks and future-only defs are explicit', () => {
@@ -105,10 +103,10 @@ test('effect defs have hooks and future-only defs are explicit', () => {
 });
 
 test('version strings are aligned across frontend/package/server', () => {
-  assert.equal(VERSION, 'v35.2');
-  assert.equal(pkg.version, '35.2.0');
-  assert.equal(serverPkg.version, '35.2.0');
-  assert.match(serverSrc, /v35\.2/, 'server banner is stale');
+  assert.equal(VERSION, 'v36');
+  assert.equal(pkg.version, '36.0.0');
+  assert.equal(serverPkg.version, '36.0.0');
+  assert.match(serverSrc, /v36/, 'server banner is stale');
   assert.doesNotMatch(serverSrc, /v33\.1/, 'old server banner leaked through');
 });
 

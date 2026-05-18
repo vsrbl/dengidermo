@@ -3,7 +3,7 @@ import { clamp, dist2, norm } from "../core/math.js";
 import { ENEMIES, ENEMY_WAVES } from "../data/enemies.js";
 import { currentLocation } from "./portals.js";
 import { nextId, pushEvent } from "./state.js";
-import { applyShieldDamage, enemySlowMult } from "./effects.js";
+import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "./effects.js";
 import { areDevSpawnsPaused, devEnemyDamageMult, devEnemySpeedMult, devSpawnBatch, devSpawnCap, devSpawnInterval } from "./dev.js";
 
 function nearestAlivePlayer(state, x, y) {
@@ -117,7 +117,15 @@ export function updateEnemies(state, dt) {
 
     const touchR = enemy.radius + target.radius;
     if (dist2(enemy.x, enemy.y, target.x, target.y) <= touchR * touchR) {
-      target.hp -= applyShieldDamage(target, data.damage * devEnemyDamageMult(state) * dt);
+      // ARCHITECTURE GUARD: player damage must flow through dealPlayerDamage().
+      // Never mutate player.hp directly here; future armor/thorns/aura hooks depend on this contract.
+      dealPlayerDamage(state, target, {
+        amount: data.damage * devEnemyDamageMult(state) * dt,
+        sourceId: enemy.id,
+        sourceType: "enemyTouch",
+        enemyId: enemy.id,
+        tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH]
+      });
       const push = norm(target.x - enemy.x, target.y - enemy.y);
       target.kx = (target.kx || 0) + push.x * 70;
       target.ky = (target.ky || 0) + push.y * 70;

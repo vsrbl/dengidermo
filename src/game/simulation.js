@@ -3,6 +3,7 @@ import { clamp, norm, vecToAngle } from "../core/math.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
 import { updateProjectiles } from "./projectiles.js";
+import { updateCompanions } from "./companions.js";
 import { updatePortals } from "./portals.js";
 import { respawnPlayer } from "./state.js";
 import { tickPlayerEffects } from "./effects.js";
@@ -74,12 +75,13 @@ export function updateHostWorld(state, inputs, dt) {
   state.tick += 1;
   tickDevMode(state, safeDt);
   for (const p of Object.values(state.players)) {
-    tickPlayerEffects(p, safeDt);
+    tickPlayerEffects(p, safeDt, state);
     tickActiveAbilities(p, safeDt);
   }
   updatePlayers(state, inputs, safeDt);
   updateSpawner(state, safeDt);
   updateEnemies(state, safeDt);
+  updateCompanions(state, safeDt);
   updateProjectiles(state, safeDt);
   updateLoot(state, safeDt);
   updatePortals(state, safeDt);

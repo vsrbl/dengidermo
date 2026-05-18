@@ -11,6 +11,8 @@ export const EFFECT_HOOKS = Object.freeze({
   PROJECTILE_WALL: "projectile:wall",
   ENEMY_STATUS_TICK: "enemy:statusTick",
   PLAYER_TICK: "player:tick",
+  PLAYER_DAMAGE: "player:damage",
+  PLAYER_HIT: "player:hit",
   LOOT_ROLL: "loot:roll",
   LOOT_ATTRACT: "loot:attract"
 });
@@ -39,14 +41,16 @@ export const EFFECT_DEFS = Object.freeze({
   splitRockets: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", damage: "sum", speed: "max" } },
   clusterBomb: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", radius: "max", damage: "sum" } },
 
-  // Player/world systems. Some are scaffolding now; callers can ask the same API later.
-  shield: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { charges: "sum", cooldown: "min" } },
+  // Player/world systems. These run through the same hook dispatcher as projectile effects.
+  // ARCHITECTURE GUARD: do not add direct player/loot gameplay mutations in callers;
+  // add a hook + handler here, then route through runPlayerHook()/runLootHook().
+  shield: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK, EFFECT_HOOKS.PLAYER_DAMAGE], merge: { charges: "sum", cooldown: "min" } },
   magnet: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ATTRACT], merge: { radius: "sum", force: "sum" } },
   luck: { scope: "player", hooks: [EFFECT_HOOKS.LOOT_ROLL], merge: { dropChance: "sumClamp", rare: "sumClamp" }, clamp: { dropChance: [0, 0.85], rare: [0, 1] }, reservedFields: { rare: "future loot value / rarity weighting" } },
-  teleportDash: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { distance: "max", cooldown: "min", invuln: "max" } },
+  teleportDash: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK, EFFECT_HOOKS.PLAYER_DAMAGE], merge: { distance: "max", cooldown: "min", invuln: "max" } },
   afterimage: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { duration: "max", count: "sum" } },
-  orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max" }, implemented: false, reservedFor: "v36 companions" },
-  drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", fireRate: "sum" }, implemented: false, reservedFor: "v36 companions" },
+  orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max", orbitSpeed: "max", hitCooldown: "min" }, tags: ["companion", "contact"] },
+  drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max", range: "max", fireRate: "sum", orbitSpeed: "max" }, tags: ["companion", "auto-shooter"] },
   homingCore: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_UPDATE], merge: { strength: "sum", acquireRange: "max" } },
 
   // Visual-only data hooks are intentionally harmless.
@@ -271,9 +275,13 @@ export const DAMAGE_TAGS = Object.freeze({
   EXPLOSION: "explosion",
   CHAIN: "chain",
   STATUS: "status",
+  PLAYER: "player",
+  ENEMY: "enemy",
+  TOUCH: "touch",
   BURN: "burn",
   POISON: "poison",
-  FREEZE: "freeze"
+  FREEZE: "freeze",
+  COMPANION: "companion"
 });
 
 export function dealDamage(_state, target, spec = {}) {
@@ -487,64 +495,208 @@ export function healProjectileOwner(state, projectile, damageDone, tags = []) {
   return heal;
 }
 
+export function ensurePlayerEffects(player) {
+  if (!player) return [];
+  player.effects = buildPlayerEffects(player);
+  if (!player.effectState) player.effectState = {};
+  return player.effects;
+}
+
+export function runPlayerHook(state, player, hook, context = {}, handlers = {}) {
+  ensurePlayerEffects(player);
+  const ctx = createEffectContext({
+    state,
+    player,
+    sourcePlayer: player,
+    sourceId: player?.id || null,
+    target: player,
+    rng: state?.rng || null,
+    ...context
+  });
+  runEffectHook(player, hook, ctx, handlers);
+  return ctx;
+}
+
+export function runLootHook(state, player, item, hook, context = {}, handlers = {}) {
+  ensurePlayerEffects(player);
+  const ctx = createEffectContext({
+    state,
+    player,
+    item,
+    sourcePlayer: player,
+    sourceId: player?.id || null,
+    target: item,
+    rng: state?.rng || null,
+    ...context
+  });
+  runEffectHook(player, hook, ctx, handlers);
+  return ctx;
+}
+
 export function playerEffectValue(player, type, key, fallback = 0) {
+  // Read-only helper for UI/tests/introspection. Runtime gameplay should prefer
+  // hook resolvers such as resolveLootRoll(), resolvePlayerDamage(), etc.
   const effect = getEffect({ effects: buildPlayerEffects(player) }, type);
   return effect ? numberOr(effect[key], fallback) : fallback;
 }
 
-export function applyShieldDamage(player, damage) {
-  if ((player?.effectState?.dash?.invulnLeft || 0) > 0) return 0;
-  const shield = getEffect({ effects: buildPlayerEffects(player) }, "shield");
-  if (!shield || damage <= 0) return damage;
-  const chargesMax = Math.max(0, Math.floor(numberOr(shield.charges, 0)));
-  if (!player.effectState) player.effectState = {};
-  const state = player.effectState.shield || { charges: chargesMax, cooldownLeft: 0 };
+function blockPlayerDamage(ctx, reason) {
+  ctx.blocked = true;
+  ctx.blockedBy = reason;
+  ctx.damage = 0;
+  return ctx;
+}
+
+function tickShieldState(player, shield, dt) {
+  const max = Math.max(0, Math.floor(numberOr(shield.charges, 0)));
+  const state = player.effectState.shield || { charges: max, cooldownLeft: 0 };
+  state.charges = Math.min(max, state.charges ?? max);
+  state.grace = Math.max(0, (state.grace || 0) - dt);
+  if (state.charges < max) {
+    state.cooldownLeft = Math.max(0, (state.cooldownLeft || 0) - dt);
+    if (state.cooldownLeft <= 0) {
+      state.charges += 1;
+      state.cooldownLeft = state.charges < max ? numberOr(shield.cooldown, 8) : 0;
+    }
+  }
+  player.effectState.shield = state;
+}
+
+function absorbWithShield(ctx, effect) {
+  if (!ctx.player || !(ctx.damage > 0)) return;
+  const chargesMax = Math.max(0, Math.floor(numberOr(effect.charges, 0)));
+  const state = ctx.player.effectState.shield || { charges: chargesMax, cooldownLeft: 0 };
+  state.charges = Math.min(chargesMax, state.charges ?? chargesMax);
   if (state.grace > 0) {
-    player.effectState.shield = state;
-    return 0;
+    ctx.player.effectState.shield = state;
+    blockPlayerDamage(ctx, "shield-grace");
+    return;
   }
   if (state.charges > 0) {
     state.charges -= 1;
-    state.cooldownLeft = numberOr(shield.cooldown, 8);
+    state.cooldownLeft = numberOr(effect.cooldown, 8);
     state.grace = 0.35;
-    player.effectState.shield = state;
-    return 0;
+    ctx.player.effectState.shield = state;
+    blockPlayerDamage(ctx, "shield");
+    return;
   }
-  player.effectState.shield = state;
-  return damage;
+  ctx.player.effectState.shield = state;
 }
 
-export function tickPlayerEffects(player, dt) {
-  player.effects = buildPlayerEffects(player);
-  if (!player.effectState) player.effectState = {};
+export function resolvePlayerDamage(state, player, spec = {}) {
+  const baseAmount = Math.max(0, numberOr(spec.amount, 0));
+  const tags = Array.isArray(spec.tags) ? [...spec.tags] : [];
+  if (!tags.includes(DAMAGE_TAGS.PLAYER)) tags.push(DAMAGE_TAGS.PLAYER);
 
-  const shield = getEffect(player, "shield");
-  if (shield) {
-    const max = Math.max(0, Math.floor(numberOr(shield.charges, 0)));
-    const state = player.effectState.shield || { charges: max, cooldownLeft: 0 };
-    state.charges = Math.min(max, state.charges ?? max);
-    state.grace = Math.max(0, (state.grace || 0) - dt);
-    if (state.charges < max) {
-      state.cooldownLeft = Math.max(0, (state.cooldownLeft || 0) - dt);
-      if (state.cooldownLeft <= 0) {
-        state.charges += 1;
-        state.cooldownLeft = state.charges < max ? numberOr(shield.cooldown, 8) : 0;
-      }
+  const ctx = runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_DAMAGE, {
+    damage: baseAmount,
+    originalDamage: baseAmount,
+    tags,
+    sourceId: spec.sourceId || null,
+    sourceType: spec.sourceType || null,
+    enemyId: spec.enemyId || null,
+    blocked: false,
+    blockedBy: null
+  }, {
+    teleportDash(_effect, c) {
+      if ((c.player?.effectState?.dash?.invulnLeft || 0) > 0) blockPlayerDamage(c, "dash-invuln");
+    },
+    shield(effect, c) {
+      absorbWithShield(c, effect);
     }
-    player.effectState.shield = state;
-  }
+  });
+
+  return {
+    amount: Math.max(0, ctx.damage || 0),
+    originalAmount: baseAmount,
+    blocked: !!ctx.blocked,
+    blockedBy: ctx.blockedBy || null,
+    reducedBy: Math.max(0, baseAmount - Math.max(0, ctx.damage || 0)),
+    sourceId: spec.sourceId || null,
+    sourceType: spec.sourceType || null,
+    enemyId: spec.enemyId || null,
+    tags: ctx.tags
+  };
 }
 
-export function attractLootToPlayer(player, item, dt) {
-  const magnet = getEffect(player, "magnet");
-  if (!magnet || player.hp <= 0) return;
-  const radius = Math.max(0, numberOr(magnet.radius, 0));
-  if (!radius) return;
+export function dealPlayerDamage(state, player, spec = {}) {
+  // ARCHITECTURE GUARD: every damage source that targets a player must go
+  // through this function. Do not write `player.hp -= ...` in gameplay systems.
+  // Add/modify player mitigation through PLAYER_DAMAGE hook handlers instead.
+  const resolved = resolvePlayerDamage(state, player, spec);
+  const hit = dealDamage(state, player, {
+    amount: resolved.amount,
+    sourceId: resolved.sourceId,
+    tags: resolved.tags
+  });
+  return { ...hit, ...resolved, done: hit.done, killed: hit.killed };
+}
+
+export function applyShieldDamage(player, damage) {
+  // Deprecated compatibility wrapper for older tests/imports. Runtime code must
+  // call dealPlayerDamage() so source/tags/hooks stay visible and extensible.
+  return resolvePlayerDamage(null, player, {
+    amount: damage,
+    sourceType: "legacy-shield-wrapper",
+    tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH]
+  }).amount;
+}
+
+export function tickPlayerEffects(player, dt, state = null) {
+  runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_TICK, { dt }, {
+    shield(effect, c) {
+      tickShieldState(c.player, effect, c.dt || 0);
+    }
+  });
+}
+
+export function resolveLootRoll(state, player, spec = {}) {
+  const baseChance = Math.max(0, numberOr(spec.chance, 0));
+  const ctx = runLootHook(state, player, null, EFFECT_HOOKS.LOOT_ROLL, {
+    chance: baseChance,
+    baseChance,
+    rareBonus: 0,
+    tags: ["loot", "roll"]
+  }, {
+    luck(effect, c) {
+      c.chance += numberOr(effect.dropChance, 0);
+      // Reserved by design: tracked for future loot value / rarity weighting,
+      // but v36 still uses the existing weightedLoot table unchanged.
+      c.rareBonus += numberOr(effect.rare, 0);
+    }
+  });
+
+  return {
+    chance: clamp(ctx.chance, 0, 1),
+    baseChance,
+    rareBonus: clamp(ctx.rareBonus || 0, 0, 1),
+    tags: ctx.tags
+  };
+}
+
+export function attractLootToPlayer(player, item, dt, state = null) {
+  if (!player || !item || player.hp <= 0) return null;
+
+  const ctx = runLootHook(state, player, item, EFFECT_HOOKS.LOOT_ATTRACT, {
+    dt,
+    radius: 0,
+    force: 0
+  }, {
+    magnet(effect, c) {
+      c.radius += numberOr(effect.radius, 0);
+      c.force += numberOr(effect.force, 0);
+    }
+  });
+
+  const radius = Math.max(0, ctx.radius || 0);
+  if (!radius) return ctx;
   const d2 = dist2(player.x, player.y, item.x, item.y);
-  if (d2 > radius * radius) return;
+  if (d2 > radius * radius) return ctx;
   const d = norm(player.x - item.x, player.y - item.y);
-  const force = Math.max(40, numberOr(magnet.force, 420));
+  const force = Math.max(40, ctx.force || 420);
   const proximity = 1 - Math.min(1, Math.sqrt(d2) / radius);
   item.x = clamp(item.x + d.x * force * (0.25 + proximity) * dt, 8, WORLD.w - 8);
   item.y = clamp(item.y + d.y * force * (0.25 + proximity) * dt, 8, WORLD.h - 8);
+  ctx.moved = true;
+  return ctx;
 }

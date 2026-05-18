@@ -7,6 +7,7 @@ import { createInventory, ensureInventory, inventorySnapshot } from "./inventory
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
 import { enemyStatusSnapshot } from "./effects.js";
 import { abilitySnapshot } from "./abilities.js";
+import { companionSnapshot, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
 
 let entitySeq = 1;
@@ -35,6 +36,7 @@ export function createGameState(roomId, options = {}) {
     players: {},
     enemies: {},
     projectiles: {},
+    companions: {},
     loot: {},
     portals: {},
     effects: [],
@@ -143,6 +145,7 @@ export function makeSnapshot(state) {
       stats: { ...(p.stats || {}) },
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
       ability: abilitySnapshot(p),
+      companions: companionSummary(p, state),
       skin: p.skin,
       vx: Number((p.vx || 0).toFixed(1)),
       vy: Number((p.vy || 0).toFixed(1))
@@ -167,6 +170,7 @@ export function makeSnapshot(state) {
       radius: p.radius,
       color: p.color
     })),
+    companions: Object.values(state.companions || {}).map((c) => companionSnapshot(c)),
     loot: Object.values(state.loot).map((l) => ({
       id: l.id,
       kind: l.kind,

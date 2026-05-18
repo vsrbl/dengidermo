@@ -582,8 +582,8 @@ function updateGuest(dt, now, gameNow) {
 function updateHud() {
   const snapMe = currentLocalPlayerFromSnapshot();
   const me = role === "host"
-    ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null } : null)
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null } : snapMe);
+    ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }

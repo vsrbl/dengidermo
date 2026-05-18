@@ -3,7 +3,7 @@ import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
 import { emptyInput, updateHostWorld } from '../src/game/simulation.js';
 import { applyUpgrade } from '../src/game/upgrades.js';
 import { UPGRADES } from '../src/data/upgrades.js';
-import { EFFECT_DEFS, applyShieldDamage } from '../src/game/effects.js';
+import { DAMAGE_TAGS, EFFECT_DEFS, dealPlayerDamage } from '../src/game/effects.js';
 import { canPredictDash, dashConfig, performDash, predictLocalDash } from '../src/game/abilities.js';
 
 function fresh() {
@@ -79,9 +79,9 @@ run('dash invulnerability blocks touch damage briefly', () => {
   const { state, p } = fresh();
   applyUpgrade(p, 'teleportDash');
   performDash(state, 'p1', { right: true }, { seq: 1 });
-  assert.equal(applyShieldDamage(p, 25), 0);
+  assert.equal(dealPlayerDamage(state, p, { amount: 25, tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH] }).done, 0);
   for (let i = 0; i < 30; i += 1) updateHostWorld(state, { p1: emptyInput() }, 1 / 60);
-  assert.equal(applyShieldDamage(p, 25), 25);
+  assert.equal(dealPlayerDamage(state, p, { amount: 25, tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH] }).done, 25);
 });
 
 run('guest prediction only works from ability snapshot', () => {

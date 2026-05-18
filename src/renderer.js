@@ -23,6 +23,7 @@ export function createRenderer(canvas) {
     players: new Map(),
     enemies: new Map(),
     projectiles: new Map(),
+    companions: new Map(),
     loot: new Map(),
     portals: new Map()
   };
@@ -179,6 +180,25 @@ function drawProjectile(ctx, p, cam) {
   }
 
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
+}
+
+function drawCompanion(ctx, c, cam) {
+  const s = screen(c, cam);
+  const r = c.kind === "orbital" ? 8 : 9;
+  ctx.strokeStyle = c.kind === "orbital" ? GREEN : "#ffffff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+  if (c.kind === "drone") {
+    drawRect(ctx, s.x - 2, s.y - 2, 4, 4, GREEN);
+    const ax = Math.cos(c.angle || 0);
+    const ay = Math.sin(c.angle || 0);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x), Math.round(s.y));
+    ctx.lineTo(Math.round(s.x + ax * 13), Math.round(s.y + ay * 13));
+    ctx.stroke();
+  } else {
+    drawRect(ctx, s.x - 3, s.y - 3, 6, 6, GREEN);
+  }
 }
 
 
@@ -370,6 +390,29 @@ function drawEffect(ctx, fx, cam) {
     return;
   }
 
+  if (fx.type === "droneBeam") {
+    const a = screen(fx, cam);
+    const b = screen({ x: fx.x2, y: fx.y2 }, cam);
+    ctx.strokeStyle = fx.color || GREEN;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(a.x), Math.round(a.y));
+    ctx.lineTo(Math.round(b.x), Math.round(b.y));
+    ctx.stroke();
+    drawRect(ctx, b.x - 3, b.y - 3, 6, 6, GREEN);
+    return;
+  }
+
+  if (fx.type === "orbitalHit") {
+    const s = screen({ x: fx.x2 || fx.x, y: fx.y2 || fx.y }, cam);
+    const t = 1 - life / maxLife;
+    const r = (fx.r || 14) * (0.45 + t * 0.8);
+    ctx.strokeStyle = fx.color || GREEN;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+    return;
+  }
+
   if (fx.type !== "explosion") return;
   const s = screen(fx, cam);
   const t = 1 - life / maxLife;
@@ -449,6 +492,14 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   }
   prune(smooth.projectiles, projectileIds);
   drawPredictedProjectiles(ctx, predictedProjectiles, renderCam);
+
+  const companionIds = new Set();
+  for (const raw of snapshot.companions || []) {
+    companionIds.add(raw.id);
+    const c = smoothEntity(smooth.companions, raw, renderDt);
+    if (isVisible(c, renderCam, 60)) drawCompanion(ctx, c, renderCam);
+  }
+  prune(smooth.companions, companionIds);
 
   for (const fx of snapshot.effects || []) drawEffect(ctx, fx, renderCam);
 

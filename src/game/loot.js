@@ -2,15 +2,16 @@ import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
 import { getLocation } from "../data/locations.js";
-import { attractLootToPlayer, buildPlayerEffects, playerEffectValue } from "./effects.js";
+import { attractLootToPlayer, buildPlayerEffects, resolveLootRoll } from "./effects.js";
 import { nextId, pushEvent } from "./state.js";
 import { giveWeapon } from "./inventory.js";
 
 export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {
   const source = sourcePlayerId ? state.players?.[sourcePlayerId] : null;
-  const luckBonus = source ? playerEffectValue(source, "luck", "dropChance", 0) : 0;
-  const finalChance = Math.max(0, Math.min(1, chance + luckBonus));
-  if (state.rng.next() > finalChance) return;
+  // ARCHITECTURE GUARD: loot economy modifiers must flow through LOOT_ROLL.
+  // Do not hand-read luck/magnet values here; add loot effects via hooks.
+  const roll = source ? resolveLootRoll(state, source, { chance }) : { chance };
+  if (state.rng.next() > roll.chance) return;
 
   const loc = getLocation(state.locationIndex || 0);
   const kind = weightedLoot(state.rng, loc.lootPool);
@@ -30,7 +31,7 @@ export function updateLoot(state, dt = 0.016) {
     player.effects = buildPlayerEffects(player);
     if (player.hp <= 0) continue;
 
-    for (const item of Object.values(state.loot)) attractLootToPlayer(player, item, dt);
+    for (const item of Object.values(state.loot)) attractLootToPlayer(player, item, dt, state);
 
     for (const item of Object.values(state.loot)) {
       const data = LOOT[item.kind];

@@ -18,6 +18,7 @@ export function createUi() {
     locationText: document.getElementById("locationText"),
     portalText: document.getElementById("portalText"),
     dashText: document.getElementById("dashText"),
+    companionText: document.getElementById("companionText"),
     upgradePanel: document.getElementById("upgradePanel"),
     upgradeButtons: Array.from(document.querySelectorAll(".upgrade-choice"))
   };
@@ -130,6 +131,7 @@ export function createUi() {
       el.locationText.textContent = snapshot?.location?.name || "--";
       el.portalText.textContent = "--";
       if (el.dashText) el.dashText.textContent = "--";
+      if (el.companionText) el.companionText.textContent = "--";
       el.inventoryText.textContent = "--";
       return;
     }
@@ -145,6 +147,13 @@ export function createUi() {
       el.dashText.textContent = dash?.available
         ? (dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`)
         : "--";
+    }
+    if (el.companionText) {
+      const comp = player.companions || null;
+      const parts = [];
+      if (comp?.orbital) parts.push(`ORB ${comp.orbital}`);
+      if (comp?.drone) parts.push(`DRN ${comp.drone}`);
+      el.companionText.textContent = parts.length ? parts.join(" ") : "--";
     }
     el.inventoryText.textContent = (inv.weapons || [START_WEAPON])
       .slice(0, 9)

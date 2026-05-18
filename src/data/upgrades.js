@@ -258,6 +258,32 @@ export const UPGRADES = {
       { type: "afterimage", scope: "player", duration: 0.28, count: 3 }
     ]
   },
+  orbital: {
+    id: "orbital",
+    name: "ORBITAL",
+    desc: "small satellite damages nearby enemies",
+    rarity: "rare",
+    tags: ["player", "companion", "orbital", "damage"],
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "orbital", scope: "player", count: 1, damage: 7, radius: 78, orbitSpeed: 1.35, hitCooldown: 0.38 }
+    ]
+  },
+
+  drone: {
+    id: "drone",
+    name: "DRONE",
+    desc: "auto-shooter companion",
+    rarity: "rare",
+    tags: ["player", "companion", "drone", "auto-shooter"],
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "drone", scope: "player", count: 1, damage: 8, radius: 54, range: 540, fireRate: 0.82, orbitSpeed: 0.72 }
+    ]
+  },
+
 
   lifesteal: {
     id: "lifesteal",
