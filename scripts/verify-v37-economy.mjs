@@ -17,6 +17,7 @@ const gameUpgradesSrc = readFileSync(new URL('../src/game/upgrades.js', import.m
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
 const companionsSrc = readFileSync(new URL('../src/game/companions.js', import.meta.url), 'utf8');
 const uiSrc = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+const styleSrc = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 
 const results = [];
 function test(name, fn) {
@@ -75,6 +76,11 @@ test('synergy rules are data-driven and influence offers without UI hardcoding',
   assert.match(uiSrc, /upgrade-rarity/, 'UI does not render rarity badge');
   assert.match(uiSrc, /upgrade-particles/, 'UI does not render reveal particles');
   assert.match(uiSrc, /reveal-seq/, 'UI does not use sequential reveal flow');
+  assert.match(uiSrc, /index \* 220/, 'UI reveal is not staggered left-to-right');
+  for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary']) {
+    assert.match(uiSrc, new RegExp(`reveal-\\$\\{rarity\\}`), 'UI does not attach rarity-specific reveal classes');
+    assert.match(styleSrc, new RegExp(`upgradeReveal${rarity[0].toUpperCase()}${rarity.slice(1)}`), `${rarity} has no unique reveal animation`);
+  }
   assert.match(uiSrc, /revealUntil/, 'UI reveal state is not persisted across repeated snapshots');
   assert.match(uiSrc, /revealActive/, 'UI does not keep reveal classes alive during delayed animations');
   assert.match(uiSrc, /index \* 220/, 'UI reveal is not clearly staggered left-to-right');

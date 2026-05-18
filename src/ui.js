@@ -117,7 +117,7 @@ export function createUi() {
       const rarityLabel = rarityMeta.label || rarity.toUpperCase();
       const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "SINGLE";
       const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
-      btn.className = `upgrade-choice rarity-${rarity}${revealActive && id ? " reveal" : ""}`;
+      btn.className = `upgrade-choice rarity-${rarity}${revealActive && id ? ` reveal reveal-${rarity}` : ""}`;
       btn.classList.toggle("selected", index === selectedIndex);
       btn.disabled = !id || (pending && index !== selectedIndex);
       btn.dataset.rarity = rarity;
@@ -130,7 +130,7 @@ export function createUi() {
       btn.style.setProperty("--particle-opacity", `${rarityMeta.particleOpacity || 0.18}`);
       btn.style.setProperty("--particle-scale", `${rarityMeta.particleScale || 1}`);
       btn.innerHTML = data
-        ? `<span class="upgrade-fx" aria-hidden="true"></span><span class="upgrade-particles" aria-hidden="true"></span><span class="upgrade-key">${index + 1}</span><span class="upgrade-name-row"><span class="upgrade-name">${data.name}</span><span class="upgrade-rarity">${rarityLabel}</span></span><span class="upgrade-meta">${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
+        ? `<span class="upgrade-fx" aria-hidden="true"></span><span class="upgrade-particles" aria-hidden="true"></span><span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-desc">${data.desc}</span><span class="upgrade-meta"><span class="upgrade-rarity">${rarityLabel}</span>${stackText ? ` · ${stackText}` : ""}${hint ? ` · ${hint}` : ""}</span>`
         : "";
     });
     lastUpgradeSignature = upgradeOpen ? signature : "";
