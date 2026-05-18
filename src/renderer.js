@@ -26,11 +26,18 @@ export function createRenderer(canvas) {
     loot: new Map(),
     portals: new Map()
   };
-  return { canvas, ctx, smooth };
+  const shake = { power: 0, time: 0, seed: 0, seen: new Set() };
+  return { canvas, ctx, smooth, shake };
 }
 
 export function resetRendererSmooth(renderer) {
   for (const map of Object.values(renderer?.smooth || {})) map.clear?.();
+  if (renderer?.shake) {
+    renderer.shake.power = 0;
+    renderer.shake.time = 0;
+    renderer.shake.seed = 0;
+    renderer.shake.seen?.clear?.();
+  }
 }
 
 function smoothEntity(map, obj, dt, snap = false) {
@@ -204,20 +211,60 @@ function drawLoot(ctx, item, cam) {
 }
 
 
-function cameraWithShake(cam, snapshot) {
-  let power = 0;
+const SHAKE_RENDER_MAX = 3.6;
+const SHAKE_DECAY = 18;
+
+function ensureShakeState(renderer) {
+  if (!renderer.shake) renderer.shake = { power: 0, time: 0, seed: 0, seen: new Set() };
+  if (!renderer.shake.seen) renderer.shake.seen = new Set();
+  return renderer.shake;
+}
+
+function ingestCameraShake(renderer, snapshot, dt) {
+  const shake = ensureShakeState(renderer);
+  const safeDt = Math.max(0, Math.min(0.05, Number.isFinite(dt) ? dt : 0));
+  shake.time += safeDt;
+
+  let index = 0;
   for (const fx of snapshot?.effects || []) {
     if (fx.type !== "shake") continue;
-    const life = Math.max(0, fx.life || 0);
-    const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.18);
-    power += (fx.power || 0) * (life / maxLife);
+    const id = fx.id || `legacy:${snapshot?.tick || 0}:${index}`;
+    index += 1;
+    if (shake.seen.has(id)) continue;
+    shake.seen.add(id);
+
+    const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.12);
+    const lifeFrac = Math.max(0, Math.min(1, (fx.life || 0) / maxLife));
+    const impulse = Math.max(0, Math.min(SHAKE_RENDER_MAX, (fx.power || 0) * Math.max(0.25, lifeFrac)));
+    if (impulse <= 0) continue;
+
+    shake.power = Math.min(SHAKE_RENDER_MAX, Math.hypot(shake.power || 0, impulse));
+    shake.seed = (shake.seed + impulse * 17.31 + (snapshot?.tick || 0) * 0.011) % 1000;
   }
+
+  if (shake.seen.size > 160) {
+    shake.seen = new Set(Array.from(shake.seen).slice(-96));
+  }
+
+  if (shake.power > 0) {
+    shake.power *= Math.exp(-SHAKE_DECAY * safeDt);
+    if (shake.power < 0.015) shake.power = 0;
+  }
+  return shake;
+}
+
+function cameraWithShake(cam, renderer, snapshot, dt) {
+  const shake = ingestCameraShake(renderer, snapshot, dt);
+  const power = Math.max(0, Math.min(SHAKE_RENDER_MAX, shake.power || 0));
   if (power <= 0) return cam;
-  const t = (snapshot?.time || 0) * 97.13;
+  const t = shake.time;
+  const seed = shake.seed || 0;
+  const x = (Math.sin(t * 72.7 + seed) + Math.sin(t * 127.1 + seed * 0.37)) * 0.5 * power;
+  const y = (Math.cos(t * 81.9 + seed * 0.71) + Math.sin(t * 109.3 + seed * 1.13)) * 0.5 * power;
   return {
     ...cam,
-    x: cam.x + Math.sin(t) * power,
-    y: cam.y + Math.cos(t * 1.37) * power
+    x: cam.x + x,
+    y: cam.y + y
   };
 }
 
@@ -328,7 +375,7 @@ function drawCrosshair(ctx, mouse) {
 
 export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, renderDt, simDt = renderDt) {
   const { ctx, smooth } = renderer;
-  const renderCam = snapshot ? cameraWithShake(cam, snapshot) : cam;
+  const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt) : cam;
   drawGrid(ctx, renderCam, snapshot?.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");

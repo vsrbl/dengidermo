@@ -57,12 +57,32 @@ function addImpulse(enemy, fromX, fromY, force) {
 }
 
 
+const SHAKE_MAX_POWER = 3.4;
+
 function addShake(state, power = 0.2, life = 0.08) {
-  const p = Math.max(0, Math.min(3, Number.isFinite(power) ? power : 0));
+  const p = Math.max(0, Math.min(SHAKE_MAX_POWER, Number.isFinite(power) ? power : 0));
   if (p <= 0) return;
-  const l = Math.max(0.03, Math.min(0.22, Number.isFinite(life) ? life : 0.08));
+  const l = Math.max(0.03, Math.min(0.24, Number.isFinite(life) ? life : 0.08));
+
+  // Multiple pellets can hit during the same host tick. Pushing one camera
+  // shake per pellet made shotgun hits and chained effects stack into a
+  // crooked, network-jittery camera. Aggregate shake impulses per tick and
+  // combine them as energy, not as a linear sum. Renderer then consumes each
+  // aggregate shake once and decays it locally.
+  const tick = state.tick || 0;
+  const existing = state.effects.find((fx) => fx.type === "shake" && fx.tick === tick);
+  if (existing) {
+    const current = Math.max(0, existing.power || 0);
+    existing.power = Math.min(SHAKE_MAX_POWER, Math.hypot(current, p));
+    existing.life = Math.max(existing.life || 0, l);
+    existing.maxLife = Math.max(existing.maxLife || 0, l);
+    return;
+  }
+
   state.effects.push({
+    id: nextId("sh"),
     type: "shake",
+    tick,
     power: p,
     life: l,
     maxLife: l

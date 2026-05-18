@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "34.0.0",
+  "version": "34.1.0",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -10,10 +10,11 @@
     "start": "node server/server.js",
     "check:effects": "node scripts/verify-effects.mjs",
     "check:dev": "node scripts/verify-dev.mjs",
-    "check:all": "npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34",
+    "check:all": "npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34 && npm run check:shake",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
-    "check:v34": "node scripts/verify-v34-pack.mjs"
+    "check:v34": "node scripts/verify-v34-pack.mjs",
+    "check:shake": "node scripts/verify-shake.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"
