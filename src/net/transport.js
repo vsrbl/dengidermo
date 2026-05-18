@@ -19,6 +19,7 @@ export class Transport {
     this.playerId = null;
     this.role = "none";
     this.players = new Set();
+    this.names = new Map();
     this.peers = new Map();
     this.channels = new Map();
     this.pendingCandidates = new Map();
@@ -28,14 +29,14 @@ export class Transport {
     this.closedByClient = false;
   }
 
-  connectHost(roomId) {
+  connectHost(roomId, options = {}) {
     this.role = "host";
-    this.openWs(() => this.sendWs({ type: "create", roomId, maxPlayers: MAX_PLAYERS }));
+    this.openWs(() => this.sendWs({ type: "create", roomId, maxPlayers: MAX_PLAYERS, name: options.name || "" }));
   }
 
-  connectGuest(roomId) {
+  connectGuest(roomId, options = {}) {
     this.role = "guest";
-    this.openWs(() => this.sendWs({ type: "join", roomId }));
+    this.openWs(() => this.sendWs({ type: "join", roomId, name: options.name || "" }));
   }
 
   openWs(onOpen) {
@@ -51,6 +52,20 @@ export class Transport {
     this.ws.addEventListener("error", () => this.callbacks.onError?.("network"));
   }
 
+  namesObject() {
+    const names = {};
+    for (const [id, name] of this.names) names[id] = name;
+    return names;
+  }
+
+  syncNames(names) {
+    if (!names || typeof names !== "object") return;
+    this.names.clear();
+    for (const [id, name] of Object.entries(names)) {
+      if (this.players.has(id)) this.names.set(id, String(name || id).slice(0, 12));
+    }
+  }
+
   handleWs(msg) {
     if (!msg || !msg.type) return;
     if (msg.type === "created" || msg.type === "joined") {
@@ -58,29 +73,41 @@ export class Transport {
       this.playerId = msg.playerId;
       this.connected = true;
       this.players = new Set(msg.players || [msg.playerId]);
-      this.callbacks.onReady?.({ role: this.role, roomId: this.roomId, playerId: this.playerId, players: [...this.players] });
+      this.syncNames(msg.names);
+      this.callbacks.onReady?.({ role: this.role, roomId: this.roomId, playerId: this.playerId, players: [...this.players], names: this.namesObject() });
       return;
     }
     if (msg.type === "players") {
       this.players = new Set(msg.players || []);
-      this.callbacks.onPlayers?.([...this.players]);
+      this.syncNames(msg.names);
+      this.callbacks.onPlayers?.([...this.players], this.namesObject());
       return;
     }
     if (msg.type === "player_joined") {
-      this.players.add(msg.playerId);
-      this.callbacks.onPlayers?.([...this.players]);
-      if (this.role === "host" && msg.playerId !== this.playerId) {
-        this.createPeerForGuest(msg.playerId).catch(() => {
-          this.callbacks.onPeerState?.(msg.playerId, "relay");
+      const joinedId = msg.playerId;
+      const wasKnown = this.players.has(joinedId);
+      if (this.role === "host" && joinedId && joinedId !== this.playerId) {
+        if (wasKnown) this.callbacks.onPlayerLeft?.(joinedId);
+        this.closePeer(joinedId);
+      }
+      if (Array.isArray(msg.players)) this.players = new Set(msg.players);
+      else this.players.add(joinedId);
+      this.syncNames(msg.names);
+      this.callbacks.onPlayers?.([...this.players], this.namesObject());
+      if (this.role === "host" && joinedId !== this.playerId) {
+        this.createPeerForGuest(joinedId).catch(() => {
+          this.callbacks.onPeerState?.(joinedId, "relay");
         });
       }
       return;
     }
     if (msg.type === "player_left") {
-      this.players.delete(msg.playerId);
+      if (Array.isArray(msg.players)) this.players = new Set(msg.players);
+      else this.players.delete(msg.playerId);
       this.closePeer(msg.playerId);
+      this.syncNames(msg.names);
       this.callbacks.onPlayerLeft?.(msg.playerId);
-      this.callbacks.onPlayers?.([...this.players]);
+      this.callbacks.onPlayers?.([...this.players], this.namesObject());
       return;
     }
     if (msg.type === "signal") {
@@ -89,6 +116,12 @@ export class Transport {
     }
     if (msg.type === "relay") {
       this.callbacks.onData?.(msg.data, msg.from, "relay");
+      return;
+    }
+    if (msg.type === "room_closed") {
+      this.connected = false;
+      this.callbacks.onPlayerLeft?.("p1");
+      this.callbacks.onError?.(msg.reason || "room_closed");
       return;
     }
     if (msg.type === "pong") {
@@ -190,9 +223,10 @@ export class Transport {
     this.sendWs({ type: "signal", roomId: this.roomId, to, data });
   }
 
-  sendToHost(data) {
+  sendToHost(data, options = {}) {
+    const preferRelay = !!options.preferRelay;
     const dc = this.channels.get("p1");
-    if (dc?.readyState === "open") {
+    if (!preferRelay && dc?.readyState === "open") {
       dc.send(JSON.stringify(data));
       return "p2p";
     }
@@ -233,16 +267,27 @@ export class Transport {
     this.pendingCandidates.delete(id);
   }
 
+  sendLeaveNotice() {
+    if (!this.connected || !this.roomId) return;
+    if (this.role === "guest") this.sendToHost({ t: "leave" }, { preferRelay: true });
+    this.sendWs({ type: "leave", roomId: this.roomId });
+  }
+
   close(sendLeave = true) {
     this.closedByClient = true;
-    if (sendLeave && this.connected) this.sendWs({ type: "leave", roomId: this.roomId });
+    const ws = this.ws;
+    if (sendLeave && this.connected) this.sendLeaveNotice();
     for (const id of [...this.peers.keys()]) this.closePeer(id);
-    if (this.ws) {
-      this.ws.onclose = null;
-      this.ws.close();
+    if (ws) {
+      const doClose = () => {
+        try { ws.onclose = null; ws.close(); } catch { /* socket may already be closed */ }
+      };
+      if (sendLeave && ws.readyState === WebSocket.OPEN) setTimeout(doClose, 50);
+      else doClose();
     }
     this.ws = null;
     this.connected = false;
     this.players.clear();
+    this.names.clear();
   }
 }

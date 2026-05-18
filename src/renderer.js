@@ -128,7 +128,7 @@ function drawPlayer(ctx, p, cam, isLocal) {
   const hp = Math.max(0, Math.min(1, p.hp / (p.maxHp || 100)));
   drawRect(ctx, s.x - hpW / 2, s.y - 24, hpW, 3, "#333");
   drawRect(ctx, s.x - hpW / 2, s.y - 24, hpW * hp, 3, hp > 0.35 ? GREEN : "#ff3048");
-  drawText(ctx, p.id, s.x, s.y + 30, isLocal ? GREEN : "#777", "center");
+  drawText(ctx, String(p.name || p.id).slice(0, 12), s.x, s.y + 30, isLocal ? GREEN : "#777", "center");
 }
 
 function drawEnemy(ctx, e, cam) {

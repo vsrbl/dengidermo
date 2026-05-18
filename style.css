@@ -79,6 +79,8 @@ button, input {
   gap: 12px;
 }
 
+.menu-name-line { margin-bottom: 10px; }
+
 .label,
 .hud-label {
   color: var(--muted);
@@ -98,6 +100,8 @@ button, input {
   text-transform: uppercase;
   letter-spacing: 2px;
 }
+
+.name-input { letter-spacing: 1px; }
 
 .room-input:focus {
   border-color: var(--green);

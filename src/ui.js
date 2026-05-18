@@ -7,6 +7,7 @@ export function createUi() {
     menu: document.getElementById("menu"),
     game: document.getElementById("game"),
     menuBox: document.getElementById("menuBox"),
+    nameInput: document.getElementById("nameInput"),
     roomInput: document.getElementById("roomInput"),
     createBtn: document.getElementById("createBtn"),
     joinBtn: document.getElementById("joinBtn"),
@@ -64,16 +65,18 @@ export function createUi() {
     setTimeout(() => el.roomTitle.classList.remove("copy-flash"), 220);
   }
 
-  function setNet({ pingMs, role, playerId, players, transportMode, dev = null }) {
+  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
     const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
     const id = playerId || "--";
+    const names = playerNames && typeof playerNames === "object" ? playerNames : {};
+    const name = names[id] || id;
     const count = Array.isArray(players) ? players.length : 0;
     const tr = transportMode || "LINK";
     const devText = dev?.enabled
       ? ` | DEV ${dev.calm ? "CALM" : "FULL"}${dev.spawnsPaused ? " SPAWN-OFF" : ""}${dev.god ? " GOD" : ""}${dev.flash ? ` | ${dev.flash}` : ""}`
       : "";
-    el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}${devText}`;
+    el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${name}(${id}) | ${count}/${MAX_PLAYERS} | ${tr}${devText}`;
   }
 
   function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1, offers = {}) {
@@ -252,6 +255,15 @@ export function randomRoomId() {
 
 export function normalizeRoomId(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
+}
+
+export function normalizePlayerName(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Z0-9_-]/g, "")
+    .slice(0, 12);
 }
 
 export function isValidRoomId(value) {

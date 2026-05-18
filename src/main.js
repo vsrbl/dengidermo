@@ -1,4 +1,4 @@
-import { createUi, isValidRoomId, normalizeRoomId, randomRoomId } from "./ui.js";
+import { createUi, isValidRoomId, normalizePlayerName, normalizeRoomId, randomRoomId } from "./ui.js";
 import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
 import { createRenderer, makePredictedProjectile, render, resetRendererSmooth, updatePredictedProjectiles } from "./renderer.js";
@@ -29,7 +29,9 @@ let running = false;
 let role = "none";
 let roomId = null;
 let playerId = null;
+let playerName = "";
 let players = [];
+let playerNames = {};
 let pingMs = null;
 let transportMode = "LINK";
 let connecting = false;
@@ -59,6 +61,12 @@ let lastFrame = performance.now();
 let lastSnapshotTick = -1;
 
 function boot() {
+  const savedName = normalizePlayerName(localStorage.getItem("nncckkrr.name") || "");
+  if (savedName) ui.el.nameInput.value = savedName;
+  ui.el.nameInput.addEventListener("input", () => {
+    ui.el.nameInput.value = normalizePlayerName(ui.el.nameInput.value);
+    localStorage.setItem("nncckkrr.name", ui.el.nameInput.value);
+  });
   ui.el.roomInput.addEventListener("input", () => {
     ui.el.roomInput.value = normalizeRoomId(ui.el.roomInput.value);
   });
@@ -75,7 +83,10 @@ function boot() {
 function makeTransport() {
   return new Transport(SIGNALING_URL, {
     onReady: handleReady,
-    onPlayers: (list) => { players = Array.isArray(list) ? list.slice(0, 4) : []; },
+    onPlayers: (list, names) => {
+      players = Array.isArray(list) ? list.slice(0, 4) : [];
+      setPlayerNames(names);
+    },
     onPlayerLeft: handlePlayerLeft,
     onData: handleNetData,
     onPing: (ms) => { pingMs = ms; },
@@ -130,16 +141,39 @@ function handleTransportClose() {
     ui.flashError("connection closed");
     return;
   }
-  if (running) ui.setNet({ pingMs, role, playerId, players, transportMode: "OFF" });
+  if (running) ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode: "OFF" });
+}
+
+function currentMenuName() {
+  const name = normalizePlayerName(ui.el.nameInput.value);
+  ui.el.nameInput.value = name;
+  if (name) localStorage.setItem("nncckkrr.name", name);
+  return name;
+}
+
+function setPlayerNames(names = {}) {
+  playerNames = names && typeof names === "object" ? { ...names } : {};
+}
+
+function playerDisplayName(id) {
+  return playerNames[id] || id?.toUpperCase?.() || "PLAYER";
+}
+
+function applyHostPlayerNames() {
+  if (!hostState) return;
+  for (const id of Object.keys(hostState.players)) {
+    hostState.players[id].name = playerDisplayName(id);
+  }
 }
 
 function startHost() {
   if (connecting || running) return;
   const id = randomRoomId();
+  const name = currentMenuName();
   ui.el.roomInput.value = id;
   const next = makeTransport();
   beginConnect(next);
-  next.connectHost(id);
+  next.connectHost(id, { name });
 }
 
 function startGuest() {
@@ -150,9 +184,10 @@ function startGuest() {
     ui.flashError("bad room");
     return;
   }
+  const name = currentMenuName();
   const next = makeTransport();
   beginConnect(next);
-  next.connectGuest(id);
+  next.connectGuest(id, { name });
 }
 
 function handleReady(info) {
@@ -162,6 +197,8 @@ function handleReady(info) {
   roomId = info.roomId;
   playerId = info.playerId;
   players = Array.isArray(info.players) ? info.players.slice(0, 4) : [info.playerId];
+  setPlayerNames(info.names);
+  playerName = playerDisplayName(playerId);
   lastSnapshotTick = -1;
   lastInputSent = 0;
   lastSnapshotSent = 0;
@@ -180,7 +217,7 @@ function handleReady(info) {
 
   if (role === "host") {
     hostState = createGameState(roomId, { dev: devConfig.enabled ? devConfig : null });
-    addPlayer(hostState, playerId, 0);
+    addPlayer(hostState, playerId, 0, { name: playerName });
     hostInputs[playerId] = emptyInput();
     localInventory = ensureInventory(hostState.players[playerId]);
     localWeapon = getActiveWeaponId(hostState.players[playerId]);
@@ -192,11 +229,19 @@ function handleReady(info) {
     const index = Math.max(0, players.indexOf(playerId));
     const p = spawnPoint(index);
     localInventory = createInventory([START_WEAPON]);
-    localPose = { id: playerId, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
+    localPose = { id: playerId, name: playerName, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
   }
 
   ui.showGame(roomId);
-  ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
+  ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
+}
+
+function dropRemotePlayer(id) {
+  if (!id || id === playerId) return;
+  players = players.filter((player) => player !== id);
+  delete playerNames[id];
+  if (hostState) removePlayer(hostState, id);
+  delete hostInputs[id];
 }
 
 function handlePlayerLeft(id) {
@@ -205,8 +250,7 @@ function handlePlayerLeft(id) {
     ui.flashError();
     return;
   }
-  if (hostState) removePlayer(hostState, id);
-  delete hostInputs[id];
+  dropRemotePlayer(id);
 }
 
 function leaveGame() {
@@ -218,11 +262,14 @@ function leaveGame() {
     }
     return;
   }
+  const leavingRole = role;
   running = false;
   role = "none";
   roomId = null;
   playerId = null;
   players = [];
+  playerNames = {};
+  playerName = "";
   snapshot = null;
   hostState = null;
   hostInputs = Object.create(null);
@@ -234,6 +281,7 @@ function leaveGame() {
   localLocationId = null;
   abilitySeq = 0;
   input.resetKeys();
+  if (leavingRole === "guest") transport?.sendLeaveNotice?.();
   transport?.close(true);
   transport = null;
   ui.showMenu();
@@ -244,6 +292,10 @@ function handleNetData(msg, from, mode) {
   transportMode = mode === "p2p" ? "P2P" : "RELAY";
 
   if (role === "host") {
+    if (msg.t === "leave" && from) {
+      dropRemotePlayer(from);
+      return;
+    }
     if (msg.t === "input" && from) {
       hostInputs[from] = msg.input || emptyInput();
       return;
@@ -310,6 +362,7 @@ function syncLocalFromSnapshot() {
   localPose.upgrades = me.upgrades || { choices: [] };
   localPose.stats = me.stats || localPose.stats || {};
   localPose.ability = me.ability || null;
+  localPose.name = me.name || playerDisplayName(playerId);
   localPose.skin = me.skin;
   if ((me.ability?.dash?.cooldownLeft || 0) > 0) localPose._localDashPredictedAt = 0;
   const dx = me.x - localPose.x;
@@ -331,8 +384,9 @@ function syncLocalFromSnapshot() {
 function ensureHostPlayers() {
   if (!hostState) return;
   for (const [index, id] of players.entries()) {
-    if (!hostState.players[id]) addPlayer(hostState, id, index);
+    if (!hostState.players[id]) addPlayer(hostState, id, index, { name: playerDisplayName(id) });
   }
+  applyHostPlayerNames();
   for (const id of Object.keys(hostState.players)) {
     if (!players.includes(id)) removePlayer(hostState, id);
   }
@@ -588,7 +642,7 @@ function updateHud() {
     ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
     : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices, offers: localUpgradeOffers }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
-  ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
+  ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }
 
 function loop(now) {

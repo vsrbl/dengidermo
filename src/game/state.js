@@ -61,10 +61,21 @@ export function spawnPoint(index = 0) {
   };
 }
 
-export function addPlayer(state, playerId, index = 0) {
+function displayName(name, fallback) {
+  const clean = String(name || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Z0-9_-]/g, "")
+    .slice(0, 12);
+  return clean || fallback;
+}
+
+export function addPlayer(state, playerId, index = 0, options = {}) {
   const p = spawnPoint(index);
   state.players[playerId] = {
     id: playerId,
+    name: displayName(options.name, playerId.toUpperCase()),
     x: p.x,
     y: p.y,
     vx: 0,
@@ -134,6 +145,7 @@ export function makeSnapshot(state) {
     },
     players: Object.values(state.players).map((p) => ({
       id: p.id,
+      name: p.name || p.id.toUpperCase(),
       x: Number(p.x.toFixed(1)),
       y: Number(p.y.toFixed(1)),
       angle: Number(p.angle.toFixed(3)),
