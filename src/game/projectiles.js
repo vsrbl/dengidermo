@@ -86,12 +86,59 @@ function addSpark(state, x, y, amount = 3, power = 110, color = GREEN) {
   }
 }
 
+function statusColor(type) {
+  if (type === "freeze") return "#ffffff";
+  if (type === "poison") return GREEN;
+  return "#ff3048";
+}
+
+function addDamageText(state, x, y, amount, critical = false) {
+  state.effects.push({
+    type: "damageText",
+    x: Math.round(x),
+    y: Math.round(y - (critical ? 18 : 12)),
+    vy: critical ? -34 : -24,
+    text: `${critical ? "!" : ""}${Math.max(1, Math.round(amount))}`,
+    color: critical ? GREEN : "#ffffff",
+    life: critical ? 0.42 : 0.3,
+    maxLife: critical ? 0.42 : 0.3
+  });
+}
+
+function addStatusBurst(state, x, y, applied) {
+  for (const item of applied || []) {
+    const color = statusColor(item.type);
+    state.effects.push({
+      type: "statusBurst",
+      status: item.type,
+      x: Math.round(x),
+      y: Math.round(y),
+      r: item.type === "freeze" ? 34 : 26,
+      color,
+      life: 0.22,
+      maxLife: 0.22
+    });
+    addSpark(state, x, y, item.type === "freeze" ? 3 : 2, item.type === "burn" ? 150 : 115, color);
+  }
+}
+
 function tickEnemyStatusDamage(state, dt) {
   for (const enemy of Object.values(state.enemies)) {
     const tick = tickEnemyStatuses(enemy, dt);
     if (tick.damage > 0) {
       enemy.hp -= tick.damage;
       if (tick.active && state.rng.next() < 5 * dt) addSpark(state, enemy.x, enemy.y, 1, 80);
+      if (tick.active && state.rng.next() < 2.2 * dt) {
+        state.effects.push({
+          type: "statusTick",
+          x: Math.round(enemy.x),
+          y: Math.round(enemy.y),
+          r: 18 + Math.min(16, tick.damage * 1.5),
+          color: tick.sources?.length ? GREEN : "#ffffff",
+          life: 0.16,
+          maxLife: 0.16
+        });
+      }
       if (enemy.hp <= 0) killEnemy(state, enemy, tick.sources?.[0] || null);
     }
   }
@@ -104,7 +151,11 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
   const done = Math.min(before, hit.amount);
   healProjectileOwner(state, projectile, done);
   pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical, sourceId: projectile.ownerId });
-  if (hit.critical) addSpark(state, eventX, eventY, 5, 190);
+  addDamageText(state, eventX, eventY, hit.amount, hit.critical);
+  if (hit.critical) {
+    addSpark(state, eventX, eventY, 5, 190);
+    state.effects.push({ type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
+  }
   const hitShake = getEffect(projectile, "hitShake");
   if (hitShake) addShake(state, (hitShake.power || 0.18) * (hit.critical ? 1.35 : 1), hitShake.life || 0.08);
   return hit;
@@ -122,7 +173,7 @@ function explode(state, projectile, effect, x = projectile.x, y = projectile.y) 
     if (d2 > r * r) continue;
     const falloff = Math.max(0.35, 1 - Math.sqrt(d2) / Math.max(1, r));
     dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y);
-    applyProjectileStatuses(projectile, e);
+    addStatusBurst(state, e.x, e.y, applyProjectileStatuses(projectile, e));
     addImpulse(e, x, y, force * falloff);
     if (e.hp <= 0) killEnemy(state, e, projectile);
   }
@@ -160,9 +211,10 @@ function chainLightning(state, projectile, firstEnemy, effect) {
     }
     if (!best) break;
     hit.add(best.id);
-    dealProjectileDamage(state, projectile, best, damage, best.x, best.y);
+    const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y);
     state.effects.push({
       type: "chain",
+      amount: Math.round(chainHit.amount),
       x: Math.round(from.x),
       y: Math.round(from.y),
       x2: Math.round(best.x),
@@ -267,7 +319,7 @@ function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
   registerHit(projectile, enemy);
   const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
-  applyProjectileStatuses(projectile, enemy);
+  addStatusBurst(state, enemy.x, enemy.y, applyProjectileStatuses(projectile, enemy));
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
 
   const spark = getEffect(projectile, "spark");
@@ -348,7 +400,18 @@ function handleWallOrEnd(state, projectile) {
       if (outY) projectile.vy *= -1;
       projectile.targetId = null;
       projectile.hitIds = {};
-      addSpark(state, projectile.x, projectile.y, 3, 150);
+      addSpark(state, projectile.x, projectile.y, 5, 165);
+      state.effects.push({
+        type: "ricochet",
+        x: Math.round(projectile.x),
+        y: Math.round(projectile.y),
+        vx: Math.round(projectile.vx),
+        vy: Math.round(projectile.vy),
+        life: 0.16,
+        maxLife: 0.16,
+        color: GREEN
+      });
+      addShake(state, 0.12, 0.06);
       return false;
     }
   }

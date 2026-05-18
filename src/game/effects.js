@@ -20,21 +20,22 @@ export const EFFECT_DEFS = Object.freeze({
   homing: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_UPDATE], merge: { strength: "sum", acquireRange: "max" } },
 
   // Hit resolution.
-  crit: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_DAMAGE], merge: { chance: "sumClamp", multiplier: "max" }, clamp: { chance: [0, 0.85] } },
-  pierce: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { count: "sum" } },
-  ricochet: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_WALL], merge: { count: "sum" } },
+  crit: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_DAMAGE], merge: { chance: "sumClamp", multiplier: "max" }, clamp: { chance: [0, 0.85] }, tags: ["damage", "hit"] },
+  pierce: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { count: "sum" }, tags: ["projectile", "hit"] },
+  ricochet: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_WALL], merge: { count: "sum" }, tags: ["projectile", "wall"] },
   lifesteal: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_DAMAGE], merge: { percent: "sumClamp" }, clamp: { percent: [0, 0.5] } },
   berserk: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_DAMAGE], merge: { damage: "sum", threshold: "min" } },
   teamAura: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_DAMAGE], merge: { damage: "sum", radius: "max" } },
 
-  // Status effects.
-  burn: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { dps: "sum", duration: "max" } },
-  poison: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { dps: "sum", duration: "max", slow: "max" } },
-  freeze: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { slow: "max", duration: "max" } },
+  // Status effects. Statuses are host-authoritative: hit applies a timed status,
+  // ENEMY_STATUS_TICK resolves real damage/slow, snapshot only mirrors state.
+  burn: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { dps: "sum", duration: "max" }, tags: ["status", "damage", "fire"] },
+  poison: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { dps: "sum", duration: "max", slow: "max" }, tags: ["status", "damage", "slow"] },
+  freeze: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.ENEMY_STATUS_TICK], status: true, merge: { slow: "max", duration: "max" }, tags: ["status", "slow", "control"] },
 
   // Projectile fan-out / area mechanics.
   explode: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { radius: "max", damage: "sum", force: "sum" } },
-  chainLightning: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { jumps: "sum", damage: "sum", range: "max", falloff: "max" } },
+  chainLightning: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { jumps: "sum", damage: "sum", range: "max", falloff: "max" }, tags: ["projectile", "chain", "damage"] },
   splitRockets: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", damage: "sum", speed: "max" } },
   clusterBomb: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", radius: "max", damage: "sum" } },
 
@@ -54,7 +55,7 @@ export const EFFECT_DEFS = Object.freeze({
   screenShake: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { power: "max" } }
 });
 
-const NON_STACK_FIELDS = new Set(["type", "scope", "hooks", "hook", "trigger", "target", "visual", "color", "id", "source", "status", "weaponIds", "projectileKinds"]);
+const NON_STACK_FIELDS = new Set(["type", "scope", "hooks", "hook", "trigger", "target", "visual", "color", "id", "source", "status", "weaponIds", "projectileKinds", "tags"]);
 
 function numberOr(value, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
@@ -268,21 +269,37 @@ function ensureEnemyStatus(enemy) {
 
 function applyStatus(enemy, type, data, source) {
   const status = ensureEnemyStatus(enemy);
-  const prev = status[type] || { t: 0, tick: 0, dps: 0, slow: 0, sourceId: null };
+  const prev = status[type] || { t: 0, tick: 0, dps: 0, slow: 0, stacks: 0, sourceId: null };
+  const duration = Math.max(0.05, numberOr(data.duration, prev.t || 1));
+  const nextStacks = Math.min(9, Math.max(1, numberOr(prev.stacks, 0) + 1));
+
+  // Re-applying a status should feel meaningful without exploding balance:
+  // refresh duration, add a small overlap window, and give DoTs a light stack bonus.
+  const overlap = Math.min(duration * 0.22, numberOr(prev.t, 0) * 0.35);
+  const baseDps = Math.max(numberOr(prev.dps, 0), numberOr(data.dps, 0));
+  const stackDps = (type === "burn" || type === "poison") ? numberOr(data.dps, 0) * 0.18 * Math.max(0, nextStacks - 1) : 0;
+
   status[type] = {
-    t: Math.max(numberOr(prev.t, 0), numberOr(data.duration, prev.t || 1)),
-    dps: Math.max(numberOr(prev.dps, 0), numberOr(data.dps, 0)),
+    t: Math.min(duration * 1.65, Math.max(numberOr(prev.t, 0), duration) + overlap),
+    dps: baseDps + stackDps,
     slow: Math.max(numberOr(prev.slow, 0), numberOr(data.slow, 0)),
     tick: numberOr(prev.tick, 0),
+    stacks: nextStacks,
     sourceId: sourceId(source) || prev.sourceId || null
   };
+  return status[type];
 }
 
 export function applyProjectileStatuses(projectile, enemy) {
+  const applied = [];
   for (const type of ["burn", "poison", "freeze"]) {
     const effect = getEffect(projectile, type);
-    if (effect) applyStatus(enemy, type, effect, projectile);
+    if (effect) {
+      const status = applyStatus(enemy, type, effect, projectile);
+      applied.push({ type, status, effect });
+    }
   }
+  return applied;
 }
 
 function tickStatus(enemy, type, dt, fallbackDps = 0) {
@@ -334,7 +351,11 @@ export function enemyStatusSnapshot(enemy) {
   return {
     burn: enemy.status.burn ? Number(Math.max(0, enemy.status.burn.t || 0).toFixed(2)) : 0,
     poison: enemy.status.poison ? Number(Math.max(0, enemy.status.poison.t || 0).toFixed(2)) : 0,
-    freeze: enemy.status.freeze ? Number(Math.max(0, enemy.status.freeze.t || 0).toFixed(2)) : 0
+    freeze: enemy.status.freeze ? Number(Math.max(0, enemy.status.freeze.t || 0).toFixed(2)) : 0,
+    slow: Number((1 - enemySlowMult(enemy)).toFixed(2)),
+    burnStacks: enemy.status.burn?.stacks || 0,
+    poisonStacks: enemy.status.poison?.stacks || 0,
+    freezeStacks: enemy.status.freeze?.stacks || 0
   };
 }
 

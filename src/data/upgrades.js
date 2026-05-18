@@ -3,6 +3,8 @@ export const UPGRADES = {
     id: "overclock",
     name: "OVERCLOCK",
     desc: "+14% fire rate",
+    rarity: "common",
+    tags: ["stat", "fire-rate"],
     weight: 6,
     maxStacks: 6,
     mods: { fireRateMult: 0.14 }
@@ -12,6 +14,8 @@ export const UPGRADES = {
     id: "lightFrame",
     name: "LIGHT FRAME",
     desc: "+12% move speed",
+    rarity: "common",
+    tags: ["stat", "movement"],
     weight: 6,
     maxStacks: 6,
     mods: { speedMult: 0.12 }
@@ -21,6 +25,8 @@ export const UPGRADES = {
     id: "heavyPayload",
     name: "HEAVY PAYLOAD",
     desc: "+15% damage",
+    rarity: "common",
+    tags: ["stat", "damage"],
     weight: 5,
     maxStacks: 6,
     mods: { damageMult: 0.15 }
@@ -30,6 +36,8 @@ export const UPGRADES = {
     id: "fastRounds",
     name: "FAST ROUNDS",
     desc: "+15% projectile speed",
+    rarity: "common",
+    tags: ["stat", "projectile"],
     weight: 4,
     maxStacks: 5,
     mods: { projectileSpeedMult: 0.15 }
@@ -39,6 +47,8 @@ export const UPGRADES = {
     id: "blastCore",
     name: "BLAST CORE",
     desc: "+18% explosions",
+    rarity: "common",
+    tags: ["stat", "explosion"],
     weight: 4,
     maxStacks: 5,
     mods: { explosionRadiusMult: 0.18, explosionDamageMult: 0.12 }
@@ -48,6 +58,8 @@ export const UPGRADES = {
     id: "extraHeart",
     name: "EXTRA HEART",
     desc: "+22 max HP, heal 22",
+    rarity: "common",
+    tags: ["stat", "survival"],
     weight: 5,
     maxStacks: 5,
     mods: { maxHp: 22, heal: 22 }
@@ -57,6 +69,8 @@ export const UPGRADES = {
     id: "hardKick",
     name: "HARD KICK",
     desc: "+20% knockback",
+    rarity: "common",
+    tags: ["stat", "knockback"],
     weight: 3,
     maxStacks: 5,
     mods: { knockbackMult: 0.2 }
@@ -66,6 +80,8 @@ export const UPGRADES = {
     id: "pierceCore",
     name: "PIERCE CORE",
     desc: "+1 projectile pierce",
+    rarity: "uncommon",
+    tags: ["projectile", "hit", "bullet"],
     weight: 4,
     maxStacks: 4,
     effects: [
@@ -77,6 +93,8 @@ export const UPGRADES = {
     id: "critChip",
     name: "CRIT CHIP",
     desc: "+10% crit, x2 damage",
+    rarity: "uncommon",
+    tags: ["projectile", "damage", "crit"],
     weight: 4,
     maxStacks: 5,
     effects: [
@@ -88,6 +106,8 @@ export const UPGRADES = {
     id: "burnMark",
     name: "BURN MARK",
     desc: "hits add digital burn",
+    rarity: "uncommon",
+    tags: ["projectile", "status", "burn"],
     weight: 3,
     maxStacks: 4,
     effects: [
@@ -99,6 +119,8 @@ export const UPGRADES = {
     id: "ricochetCore",
     name: "RICOCHET CORE",
     desc: "shots bounce from walls",
+    rarity: "uncommon",
+    tags: ["projectile", "wall", "bounce"],
     weight: 3,
     maxStacks: 3,
     effects: [
@@ -110,6 +132,8 @@ export const UPGRADES = {
     id: "chainFork",
     name: "CHAIN FORK",
     desc: "hits arc to another enemy",
+    rarity: "rare",
+    tags: ["projectile", "chain", "damage"],
     weight: 2,
     maxStacks: 3,
     effects: [
@@ -121,6 +145,8 @@ export const UPGRADES = {
     id: "poisonLeak",
     name: "POISON LEAK",
     desc: "hits add slow poison",
+    rarity: "uncommon",
+    tags: ["projectile", "status", "poison", "slow"],
     weight: 2,
     maxStacks: 4,
     effects: [
@@ -132,6 +158,8 @@ export const UPGRADES = {
     id: "freezeByte",
     name: "FREEZE BYTE",
     desc: "hits slow enemies",
+    rarity: "uncommon",
+    tags: ["projectile", "status", "freeze", "control"],
     weight: 2,
     maxStacks: 3,
     effects: [
@@ -143,6 +171,8 @@ export const UPGRADES = {
     id: "homingCore",
     name: "HOMING CORE",
     desc: "+homing strength",
+    rarity: "rare",
+    tags: ["weapon", "seeker", "homing"],
     weight: 2,
     maxStacks: 4,
     effects: [
@@ -154,6 +184,8 @@ export const UPGRADES = {
     id: "splitRockets",
     name: "SPLIT ROCKETS",
     desc: "rockets split on detonation",
+    rarity: "rare",
+    tags: ["weapon", "rocket", "explosion"],
     weight: 1,
     maxStacks: 2,
     effects: [
@@ -165,6 +197,8 @@ export const UPGRADES = {
     id: "clusterBomb",
     name: "CLUSTER BOMB",
     desc: "explosions spawn fragments",
+    rarity: "rare",
+    tags: ["weapon", "rocket", "explosion"],
     weight: 1,
     maxStacks: 2,
     effects: [
@@ -176,6 +210,8 @@ export const UPGRADES = {
     id: "magnet",
     name: "MAGNET",
     desc: "loot drifts toward you",
+    rarity: "common",
+    tags: ["loot", "player", "utility"],
     weight: 3,
     maxStacks: 4,
     effects: [
@@ -187,6 +223,8 @@ export const UPGRADES = {
     id: "luck",
     name: "LUCK",
     desc: "+loot drop chance",
+    rarity: "uncommon",
+    tags: ["loot", "economy"],
     weight: 2,
     maxStacks: 4,
     effects: [
@@ -198,6 +236,8 @@ export const UPGRADES = {
     id: "shield",
     name: "SHIELD",
     desc: "blocks one touch hit",
+    rarity: "uncommon",
+    tags: ["player", "defense"],
     weight: 2,
     maxStacks: 2,
     effects: [
@@ -209,6 +249,8 @@ export const UPGRADES = {
     id: "lifesteal",
     name: "LIFESTEAL",
     desc: "heal from damage dealt",
+    rarity: "rare",
+    tags: ["projectile", "sustain"],
     weight: 2,
     maxStacks: 3,
     effects: [
@@ -220,6 +262,8 @@ export const UPGRADES = {
     id: "berserk",
     name: "BERSERK",
     desc: "+damage at low HP",
+    rarity: "rare",
+    tags: ["player", "damage", "low-hp"],
     weight: 2,
     maxStacks: 3,
     effects: [
@@ -231,6 +275,8 @@ export const UPGRADES = {
     id: "teamAura",
     name: "TEAM AURA",
     desc: "+damage near allies",
+    rarity: "rare",
+    tags: ["team", "damage"],
     weight: 2,
     maxStacks: 3,
     effects: [
@@ -240,9 +286,19 @@ export const UPGRADES = {
 };
 
 export const UPGRADE_IDS = Object.keys(UPGRADES);
+export const UPGRADE_RARITIES = ["common", "uncommon", "rare"];
+export const UPGRADE_TAGS = Array.from(new Set(Object.values(UPGRADES).flatMap((u) => u.tags || []))).sort();
 
 export function getUpgrade(id) {
   return UPGRADES[id] || null;
+}
+
+export function upgradeHasTag(id, tag) {
+  return !!UPGRADES[id]?.tags?.includes(tag);
+}
+
+export function upgradesByTag(tag) {
+  return UPGRADE_IDS.filter((id) => upgradeHasTag(id, tag));
 }
 
 function stackCount(player, id) {
