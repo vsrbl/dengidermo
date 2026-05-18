@@ -294,8 +294,8 @@ button:active {
   text-align: left;
   display: grid;
   grid-template-columns: 20px 1fr;
-  grid-template-rows: 22px 1fr;
-  gap: 2px 8px;
+  grid-template-rows: 18px 16px 1fr;
+  gap: 1px 8px;
   align-items: start;
   border-color: rgba(255,255,255,0.55);
 }
@@ -309,7 +309,7 @@ button:active {
 }
 
 .upgrade-key {
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
   color: var(--green);
   font-size: 14px;
 }
@@ -321,11 +321,26 @@ button:active {
 }
 
 .upgrade-desc {
+  grid-column: 2;
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 1px;
   line-height: 1.2;
 }
+
+.upgrade-meta {
+  grid-column: 2;
+  color: #777;
+  font-size: 9px;
+  letter-spacing: 1px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.upgrade-choice.rarity-uncommon .upgrade-meta,
+.upgrade-choice.rarity-rare .upgrade-meta { color: var(--green); }
+.upgrade-choice.rarity-rare { border-color: rgba(0,255,102,0.72); }
+.upgrade-choice.rarity-corrupted .upgrade-meta { color: var(--red); }
 
 .upgrade-panel.pending {
   opacity: 0.62;

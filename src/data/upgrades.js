@@ -1,3 +1,5 @@
+import { synergyOfferMeta } from "./synergies.js";
+
 export const UPGRADES = {
   overclock: {
     id: "overclock",
@@ -326,7 +328,13 @@ export const UPGRADES = {
 };
 
 export const UPGRADE_IDS = Object.keys(UPGRADES);
-export const UPGRADE_RARITIES = ["common", "uncommon", "rare"];
+export const UPGRADE_RARITIES = ["common", "uncommon", "rare", "corrupted"];
+export const RARITY_META = Object.freeze({
+  common: { id: "common", label: "COMMON", weight: 1, color: "white" },
+  uncommon: { id: "uncommon", label: "UNCOMMON", weight: 0.68, color: "green" },
+  rare: { id: "rare", label: "RARE", weight: 0.34, color: "green" },
+  corrupted: { id: "corrupted", label: "CORRUPTED", weight: 0.08, color: "red", reservedFor: "future cursed upgrades" }
+});
 export const UPGRADE_TAGS = Array.from(new Set(Object.values(UPGRADES).flatMap((u) => u.tags || []))).sort();
 
 export function getUpgrade(id) {
@@ -341,34 +349,83 @@ export function upgradesByTag(tag) {
   return UPGRADE_IDS.filter((id) => upgradeHasTag(id, tag));
 }
 
-function stackCount(player, id) {
-  return player.upgrades?.taken?.[id] || 0;
+export function stackCount(player, id) {
+  return player?.upgrades?.taken?.[id] || 0;
 }
 
-function canOffer(player, id) {
+export function canOfferUpgrade(player, id) {
   const upgrade = getUpgrade(id);
   if (!upgrade) return false;
   return stackCount(player, id) < (upgrade.maxStacks || 1);
 }
 
-export function rollUpgradeChoices(rng, player, count = 3) {
-  const pool = UPGRADE_IDS.filter((id) => canOffer(player, id));
+function rarityWeight(upgrade, state = null) {
+  const rarity = upgrade?.rarity || "common";
+  const base = RARITY_META[rarity]?.weight ?? 1;
+  const depth = Math.max(0, Math.min(12, state?.locationIndex || 0));
+  if (rarity === "rare") return base * (1 + depth * 0.055);
+  if (rarity === "uncommon") return base * (1 + depth * 0.025);
+  if (rarity === "common") return base * Math.max(0.72, 1 - depth * 0.018);
+  return base;
+}
+
+function repeatPenalty(player, id) {
+  const offered = player?.upgrades?.offered?.[id] || 0;
+  const stacks = stackCount(player, id);
+  return Math.pow(0.82, offered) * Math.pow(0.74, stacks);
+}
+
+export function scoreUpgradeCandidate(player, id, state = null) {
+  const upgrade = getUpgrade(id);
+  if (!upgrade || !canOfferUpgrade(player, id)) return { score: 0, hints: [], synergyIds: [] };
+  const synergy = synergyOfferMeta(player, id, upgrade);
+  const score = Math.max(0, (upgrade.weight || 1) * rarityWeight(upgrade, state) * repeatPenalty(player, id) * synergy.multiplier);
+  return {
+    score,
+    rarity: upgrade.rarity || "common",
+    hints: synergy.hints || [],
+    synergyIds: synergy.synergyIds || [],
+    nextStack: stackCount(player, id) + 1,
+    maxStacks: upgrade.maxStacks || 1
+  };
+}
+
+function weightedPick(rng, scored) {
+  const total = scored.reduce((sum, item) => sum + item.score, 0);
+  if (!(total > 0)) return scored[0]?.id || null;
+  let roll = rng.range(0, total);
+  for (const item of scored) {
+    roll -= item.score;
+    if (roll <= 0) return item.id;
+  }
+  return scored.at(-1)?.id || null;
+}
+
+export function rollUpgradeOffer(rng, player, count = 3, state = null) {
+  const pool = UPGRADE_IDS.filter((id) => canOfferUpgrade(player, id));
   const choices = [];
+  const offers = {};
 
   while (choices.length < count && pool.length) {
-    const total = pool.reduce((sum, id) => sum + (UPGRADES[id].weight || 1), 0);
-    let roll = rng.range(0, total);
-    let picked = pool[0];
-    for (const id of pool) {
-      roll -= UPGRADES[id].weight || 1;
-      if (roll <= 0) {
-        picked = id;
-        break;
-      }
-    }
+    const scored = pool.map((id) => ({ id, ...scoreUpgradeCandidate(player, id, state) })).filter((item) => item.score > 0);
+    if (!scored.length) break;
+    const picked = weightedPick(rng, scored);
+    if (!picked) break;
+    const meta = scoreUpgradeCandidate(player, picked, state);
     choices.push(picked);
+    offers[picked] = {
+      rarity: meta.rarity,
+      hints: meta.hints,
+      synergyIds: meta.synergyIds,
+      nextStack: meta.nextStack,
+      maxStacks: meta.maxStacks
+    };
     pool.splice(pool.indexOf(picked), 1);
   }
 
-  return choices;
+  return { choices, offers };
+}
+
+export function rollUpgradeChoices(rng, player, count = 3, state = null) {
+  return rollUpgradeOffer(rng, player, count, state).choices;
 }

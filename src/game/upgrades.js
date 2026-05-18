@@ -1,5 +1,6 @@
 import { PLAYER_HP } from "../core/constants.js";
-import { getUpgrade, rollUpgradeChoices } from "../data/upgrades.js";
+import { getUpgrade, rollUpgradeOffer } from "../data/upgrades.js";
+import { activeSynergies } from "../data/synergies.js";
 import { ensureInventory } from "./inventory.js";
 import { healPlayer } from "./effects.js";
 
@@ -18,8 +19,10 @@ export function ensureUpgradeState(player) {
   for (const [key, value] of Object.entries(DEFAULT_STATS)) {
     if (!Number.isFinite(player.stats[key])) player.stats[key] = value;
   }
-  if (!player.upgrades) player.upgrades = { choices: [], taken: {}, pending: false };
+  if (!player.upgrades) player.upgrades = { choices: [], taken: {}, offered: {}, offers: {}, pending: false };
   if (!player.upgrades.taken) player.upgrades.taken = {};
+  if (!player.upgrades.offered) player.upgrades.offered = {};
+  if (!player.upgrades.offers) player.upgrades.offers = {};
   if (!Array.isArray(player.upgrades.choices)) player.upgrades.choices = [];
   ensureInventory(player);
   return player.upgrades;
@@ -29,7 +32,9 @@ export function upgradeSnapshot(player) {
   const upgrades = ensureUpgradeState(player);
   return {
     choices: upgrades.choices.slice(0, 3),
-    taken: { ...upgrades.taken }
+    taken: { ...upgrades.taken },
+    offers: { ...(upgrades.offers || {}) },
+    synergies: activeSynergies(player).map((rule) => rule.id)
   };
 }
 
@@ -68,7 +73,10 @@ export function applyUpgrade(player, upgradeId, state = null) {
 
 export function offerUpgradeChoices(state, player, count = 3) {
   const upgrades = ensureUpgradeState(player);
-  upgrades.choices = rollUpgradeChoices(state.rng, player, count);
+  const offer = rollUpgradeOffer(state.rng, player, count, state);
+  upgrades.choices = offer.choices;
+  upgrades.offers = offer.offers;
+  for (const id of upgrades.choices) upgrades.offered[id] = (upgrades.offered[id] || 0) + 1;
   upgrades.pending = upgrades.choices.length > 0;
   return upgrades.choices;
 }
@@ -89,6 +97,7 @@ export function chooseUpgrade(state, playerId, choiceIndex) {
   const ok = applyUpgrade(player, upgradeId, state);
   if (!ok) return false;
   upgrades.choices = [];
+  upgrades.offers = {};
   upgrades.pending = false;
   if (state.events) {
     state.events.push({ id: `up${state.tick}-${playerId}`, t: state.time, type: "upgrade", playerId, upgradeId });

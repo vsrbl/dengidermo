@@ -286,7 +286,8 @@ function chainLightning(state, projectile, firstEnemy, effect) {
     if (!best) break;
     hit.add(best.id);
     const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.CHAIN]);
-    runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: false, hitShake: true });
+    const chainStatus = getEffect(projectile, "chainStatus");
+    runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: !!chainStatus, hitShake: true });
     pushVisualEffect(state, {
       type: "chain",
       amount: Math.round(chainHit.amount),

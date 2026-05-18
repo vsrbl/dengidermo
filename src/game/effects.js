@@ -1,6 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { dist2, norm } from "../core/math.js";
 import { getUpgrade } from "../data/upgrades.js";
+import { synergyEffectsForPlayer } from "../data/synergies.js";
 
 export const EFFECT_HOOKS = Object.freeze({
   PROJECTILE_UPDATE: "projectile:update",
@@ -39,6 +40,7 @@ export const EFFECT_DEFS = Object.freeze({
   // Projectile fan-out / area mechanics.
   explode: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT, EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { radius: "max", damage: "sum", force: "sum" } },
   chainLightning: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { jumps: "sum", damage: "sum", range: "max", falloff: "max" }, tags: ["projectile", "chain", "damage"] },
+  chainStatus: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_HIT], merge: { statusScale: "max" }, tags: ["synergy", "chain", "status"] },
   splitRockets: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", damage: "sum", speed: "max" } },
   clusterBomb: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_EXPIRE], merge: { count: "sum", radius: "max", damage: "sum" } },
 
@@ -52,6 +54,7 @@ export const EFFECT_DEFS = Object.freeze({
   afterimage: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { duration: "max", count: "sum" } },
   orbital: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max", orbitSpeed: "max", hitCooldown: "min" }, tags: ["companion", "contact"] },
   drone: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { count: "sum", damage: "sum", radius: "max", range: "max", fireRate: "sum", orbitSpeed: "max" }, tags: ["companion", "auto-shooter"] },
+  companionBoost: { scope: "player", hooks: [EFFECT_HOOKS.PLAYER_TICK], merge: { damageMult: "sum", hitCooldownMult: "sum", rangeMult: "sum" }, tags: ["synergy", "companion"] },
   homingCore: { scope: "projectile", hooks: [EFFECT_HOOKS.PROJECTILE_UPDATE], merge: { strength: "sum", acquireRange: "max" } },
 
   // Visual-only data hooks are intentionally harmless.
@@ -177,6 +180,10 @@ export function playerUpgradeEffects(player, scope = null) {
     }
   }
 
+  // v37 synergy effects are derived data. They merge through the same effect
+  // pipeline as normal upgrades, so future weird builds do not need direct
+  // combat/companion conditionals.
+  out.push(...synergyEffectsForPlayer(player, scope));
   return out;
 }
 

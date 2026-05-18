@@ -83,7 +83,7 @@ export function addPlayer(state, playerId, index = 0) {
       explosionDamageMult: 1,
       knockbackMult: 1
     },
-    upgrades: { choices: [], taken: {}, pending: false },
+    upgrades: { choices: [], taken: {}, offered: {}, offers: {}, pending: false },
     skin: index % 2 ? "green" : "default",
     cooldowns: {},
     lastInputAt: 0,

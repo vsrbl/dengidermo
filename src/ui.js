@@ -1,6 +1,6 @@
 import { VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
-import { UPGRADES } from "./data/upgrades.js";
+import { RARITY_META, UPGRADES } from "./data/upgrades.js";
 
 export function createUi() {
   const el = {
@@ -72,8 +72,9 @@ export function createUi() {
     el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}${devText}`;
   }
 
-  function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1) {
+  function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1, offers = {}) {
     const list = Array.isArray(choices) ? choices : [];
+    const offerMeta = offers && typeof offers === "object" ? offers : {};
     upgradeOpen = list.length > 0;
     if (!upgradeOpen) upgradeHovered = false;
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
@@ -81,10 +82,16 @@ export function createUi() {
     el.upgradeButtons.forEach((btn, index) => {
       const id = list[index];
       const data = UPGRADES[id];
+      const meta = offerMeta[id] || {};
+      const rarity = meta.rarity || data?.rarity || "common";
+      const rarityLabel = RARITY_META[rarity]?.label || rarity.toUpperCase();
+      const stackText = meta.maxStacks > 1 ? ` ${meta.nextStack || 1}/${meta.maxStacks}` : "";
+      const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
+      btn.className = `upgrade-choice rarity-${rarity}`;
       btn.classList.toggle("selected", index === selectedIndex);
       btn.disabled = !id || (pending && index !== selectedIndex);
       btn.innerHTML = data
-        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-desc">${data.desc}</span>`
+        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-meta">${rarityLabel}${stackText}${hint ? ` · ${hint}` : ""}</span><span class="upgrade-desc">${data.desc}</span>`
         : "";
     });
   }

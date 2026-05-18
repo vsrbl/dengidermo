@@ -31,7 +31,8 @@ function ensureStore(state) {
 
 function desiredCompanionsForPlayer(state, player, dt) {
   const desired = [];
-  runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_TICK, { dt, desiredCompanions: desired }, {
+  const companionBoost = { damageMult: 0, hitCooldownMult: 0, rangeMult: 0 };
+  runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_TICK, { dt, desiredCompanions: desired, companionBoost }, {
     orbital(effect, c) {
       const count = Math.max(0, Math.min(COMPANION_LIMIT, Math.floor(finiteOr(effect.count, 0))));
       for (let i = 0; i < count; i += 1) {
@@ -62,8 +63,22 @@ function desiredCompanionsForPlayer(state, player, dt) {
           orbitSpeed: clamp(finiteOr(effect.orbitSpeed, 0.72), 0.1, 3.5)
         });
       }
+    },
+    companionBoost(effect, c) {
+      c.companionBoost.damageMult += finiteOr(effect.damageMult, 0);
+      c.companionBoost.hitCooldownMult += finiteOr(effect.hitCooldownMult, 0);
+      c.companionBoost.rangeMult += finiteOr(effect.rangeMult, 0);
     }
   });
+
+  const damageScale = Math.max(0.15, 1 + companionBoost.damageMult);
+  const cooldownScale = Math.max(0.25, 1 + companionBoost.hitCooldownMult);
+  const rangeScale = Math.max(0.4, 1 + companionBoost.rangeMult);
+  for (const spec of desired) {
+    spec.damage *= damageScale;
+    if (spec.hitCooldown) spec.hitCooldown *= cooldownScale;
+    if (spec.range) spec.range *= rangeScale;
+  }
   return desired;
 }
 

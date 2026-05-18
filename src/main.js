@@ -41,6 +41,7 @@ let localPose = null;
 let localWeapon = START_WEAPON;
 let localInventory = createInventory([START_WEAPON]);
 let localUpgradeChoices = [];
+let localUpgradeOffers = {};
 let upgradePickPending = false;
 let upgradePendingAt = 0;
 let pendingUpgradeIndex = -1;
@@ -293,7 +294,7 @@ function syncLocalFromSnapshot() {
   }
   const oldWeapon = localWeapon;
   if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [...(me.inventory.passives || [])] };
-  syncUpgradeChoicesFromHost(me.upgrades?.choices);
+  syncUpgradeChoicesFromHost(me.upgrades?.choices, me.upgrades?.offers);
   if (!localPose) {
     localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
     localPose = { ...me, inventory: localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
@@ -373,6 +374,7 @@ function upgradeChoicesKey(choices) {
 
 function resetUpgradeUi() {
   localUpgradeChoices = [];
+  localUpgradeOffers = {};
   upgradePickPending = false;
   upgradePendingAt = 0;
   pendingUpgradeIndex = -1;
@@ -383,7 +385,7 @@ function resetUpgradeUi() {
   ui.setUpgradeMenu([]);
 }
 
-function syncUpgradeChoicesFromHost(choices) {
+function syncUpgradeChoicesFromHost(choices, offers = {}) {
   const nextChoices = Array.isArray(choices) ? choices.filter((id) => typeof id === "string").slice(0, 3) : [];
   const nextKey = upgradeChoicesKey(nextChoices);
 
@@ -405,12 +407,13 @@ function syncUpgradeChoicesFromHost(choices) {
   }
 
   localUpgradeChoices = nextChoices;
+  localUpgradeOffers = offers && typeof offers === "object" ? offers : {};
   upgradePickPending = false;
   upgradePendingAt = 0;
   pendingUpgradeIndex = -1;
   pendingUpgradeKey = "";
   pendingUpgradeLastSend = 0;
-  ui.setUpgradeMenu(localUpgradeChoices, false);
+  ui.setUpgradeMenu(localUpgradeChoices, false, -1, localUpgradeOffers);
 }
 
 function sendPendingUpgradeRequest(now = performance.now()) {
@@ -429,7 +432,7 @@ function requestUpgradeChoice(index) {
   pendingUpgradeIndex = index;
   pendingUpgradeKey = key;
   pendingUpgradeLastSend = 0;
-  ui.setUpgradeMenu(localUpgradeChoices, true, index);
+  ui.setUpgradeMenu(localUpgradeChoices, true, index, localUpgradeOffers);
   window.clearTimeout(upgradeHideTimer);
   upgradeHideTimer = window.setTimeout(() => {
     if (upgradePickPending && pendingUpgradeKey === key) {
@@ -540,7 +543,7 @@ function updateHost(dt, now, gameNow) {
   inputState.py = Math.round(me.y);
   hostInputs[playerId] = inputState;
   localInventory = ensureInventory(me);
-  syncUpgradeChoicesFromHost(me.upgrades?.choices);
+  syncUpgradeChoicesFromHost(me.upgrades?.choices, me.upgrades?.offers);
   localWeapon = getActiveWeaponId(me);
   tryLocalShoot(gameNow, inputState);
   updateHostWorld(hostState, hostInputs, dt);
@@ -583,7 +586,7 @@ function updateHud() {
   const snapMe = currentLocalPlayerFromSnapshot();
   const me = role === "host"
     ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
+    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices, offers: localUpgradeOffers }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
   ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }
