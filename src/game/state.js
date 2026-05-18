@@ -41,7 +41,7 @@ export function createGameState(roomId, options = {}) {
     portals: {},
     effects: [],
     events: [],
-    spawnTimer: 0,
+    spawnTimer: location.director?.spawnStartDelay ?? 0.8,
     wave: 0,
     bossSpawned: false,
     director: null
@@ -197,7 +197,9 @@ export function makeSnapshot(state) {
       budget: Math.round(state.director.budget || 0),
       totalBudget: Math.round(state.director.totalBudget || 0),
       wave: state.director.wave || 0,
-      eliteSpawned: !!state.director.eliteSpawned
+      eliteSpawned: !!state.director.eliteSpawned,
+      canSpawn: !!state.director.policy?.canSpawn,
+      canOpenPortal: !!state.director.policy?.canOpenPortal
     } : null,
     dev: devSnapshot(state)
   };

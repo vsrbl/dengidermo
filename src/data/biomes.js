@@ -20,7 +20,8 @@ export const BIOMES = {
       intervalMin: 0.45,
       intervalScale: 0.006
     },
-    boss: { enabled: false }
+    boss: { enabled: false },
+    director: { spawnStartDelay: 0.8 }
   },
 
   void: {
@@ -44,7 +45,8 @@ export const BIOMES = {
       intervalMin: 0.42,
       intervalScale: 0.0065
     },
-    boss: { enabled: false }
+    boss: { enabled: false },
+    director: { spawnStartDelay: 0.8, cleanupCapMult: 0.25 }
   },
 
   core: {
@@ -68,7 +70,8 @@ export const BIOMES = {
       intervalMin: 0.4,
       intervalScale: 0.007
     },
-    boss: { enabled: false }
+    boss: { enabled: false },
+    director: { spawnStartDelay: 0.8, cleanupCapMult: 0.22 }
   },
 
   boss: {
@@ -92,7 +95,8 @@ export const BIOMES = {
       intervalMin: 0.38,
       intervalScale: 0.0075
     },
-    boss: { enabled: true, kind: "boss", spawnAt: 12, x: 1200, y: 180 }
+    boss: { enabled: true, kind: "boss", spawnAt: 4, x: 1200, y: 180 },
+    director: { spawnStartDelay: 0.8, bossCapMult: 0.44, cleanupEnemyBase: 0, cleanupEnemyPerPlayer: 0 }
   }
 };
 

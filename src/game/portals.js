@@ -6,7 +6,7 @@ import { offerUpgradesToPlayers } from "./upgrades.js";
 import { healPlayer } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { devPortalDelay, devPortalHold } from "./dev.js";
-import { resetDirectorState } from "./director.js";
+import { canOpenPortal, resetDirectorState } from "./director.js";
 
 const PORTAL_RADIUS = 58;
 const PORTAL_MARGIN = 12;
@@ -25,7 +25,7 @@ export function initLocation(state, index = 0) {
   state.locationTime = 0;
   state.portalReadyAt = devPortalDelay(state, loc.portalDelay);
   state.portalHold = devPortalHold(state, loc.portalHold);
-  state.spawnTimer = 0.8;
+  state.spawnTimer = loc.director?.spawnStartDelay ?? 0.8;
   state.wave = 0;
   state.bossSpawned = false;
   resetDirectorState(state, loc);
@@ -103,7 +103,9 @@ export function updatePortals(state, dt) {
   const loc = currentLocation(state);
 
   for (const portal of Object.values(state.portals)) {
-    portal.active = state.locationTime >= (state.portalReadyAt ?? loc.portalDelay ?? 5);
+    // v38.1: portal activation is gated by the director phase contract,
+    // not raw room time. This keeps cleanup/boss objectives authoritative.
+    portal.active = canOpenPortal(state);
     if (!portal.active || alive.length === 0) {
       portal.progress = Math.max(0, portal.progress - dt * 0.9);
       continue;

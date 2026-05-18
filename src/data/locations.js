@@ -15,10 +15,18 @@ function mergeBoss(biome, room) {
   };
 }
 
+function mergeDirector(biome, room) {
+  return {
+    ...(biome.director || {}),
+    ...(room.director || {})
+  };
+}
+
 export function buildLocation(room, index = 0) {
   const biome = getBiome(room.biome);
   const spawn = mergeSpawn(biome, room);
   const boss = mergeBoss(biome, room);
+  const director = mergeDirector(biome, room);
   const portalDelay = room.portal?.delay ?? room.portalDelay ?? biome.portalDelay ?? 6;
   const portalHold = room.portal?.hold ?? room.portalHold ?? biome.portalHold ?? 1.15;
   const boost = (biome.spawnBoost ?? 1) * (spawn.boost ?? room.spawnBoost ?? 1);
@@ -38,7 +46,8 @@ export function buildLocation(room, index = 0) {
     portalTargetIndex: room.portal?.targetIndex ?? index + 1,
     spawnBoost: boost,
     spawn,
-    boss
+    boss,
+    director
   };
 }
 

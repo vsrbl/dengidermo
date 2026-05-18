@@ -23,8 +23,9 @@ export const ROOM_SEQUENCE = [
     id: "boss-03",
     name: "BOSS 03",
     biome: "boss",
-    portal: { delay: 10, hold: 1.25 },
-    boss: { enabled: true, kind: "boss", spawnAt: 10, x: 1200, y: 180 }
+    portal: { delay: 18, hold: 1.25 },
+    boss: { enabled: true, kind: "boss", spawnAt: 4, x: 1200, y: 180 },
+    director: { bossCapMult: 0.44, cleanupEnemyBase: 0, cleanupEnemyPerPlayer: 0 }
   }
 ];
 
