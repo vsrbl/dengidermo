@@ -364,7 +364,8 @@ export function canOfferUpgrade(player, id) {
 function rarityWeight(upgrade, state = null) {
   const rarity = upgrade?.rarity || "common";
   const base = RARITY_META[rarity]?.weight ?? 1;
-  const depth = Math.max(0, Math.min(16, state?.locationIndex || 0));
+  const rawDepth = Number.isFinite(state?.runDepth) ? state.runDepth : (state?.locationIndex || 0);
+  const depth = Math.max(0, Math.min(16, rawDepth));
   if (rarity === "legendary") return base * (1 + depth * 0.1);
   if (rarity === "epic") return base * (1 + depth * 0.075);
   if (rarity === "rare") return base * (1 + depth * 0.055);

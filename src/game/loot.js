@@ -13,7 +13,7 @@ export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {
   const roll = source ? resolveLootRoll(state, source, { chance }) : { chance };
   if (state.rng.next() > roll.chance) return;
 
-  const loc = getLocation(state.locationIndex || 0);
+  const loc = getLocation(Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0));
   const kind = weightedLoot(state.rng, loc.lootPool);
   const data = LOOT[kind];
   const id = nextId("loot");

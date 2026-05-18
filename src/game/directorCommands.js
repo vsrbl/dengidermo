@@ -1,3 +1,4 @@
+import { ENEMIES } from "../data/enemies.js";
 import { pushEvent } from "./state.js";
 
 export const DIRECTOR_COMMAND_TYPES = Object.freeze({
@@ -43,8 +44,31 @@ function count(summary, bucket, key) {
   summary[bucket][key] = (summary[bucket][key] || 0) + 1;
 }
 
+function enemyCount(state) {
+  return Object.keys(state.enemies || {}).length;
+}
+
+function commandCost(command) {
+  return Math.max(0, Number(command.cost) || 0);
+}
+
+function canExecuteSpawnCommand(state, director, command, handlers) {
+  if (!command.kind || !ENEMIES[command.kind]) return false;
+  if (typeof handlers.spawnEnemy !== "function") return false;
+  if (director?.policy && director.policy.canSpawn === false) return false;
+
+  if (Number.isFinite(director?.enemyCap) && enemyCount(state) >= director.enemyCap) return false;
+
+  if (command.budgeted !== false) {
+    const budget = Number.isFinite(director?.budget) ? director.budget : Infinity;
+    if (budget < commandCost(command)) return false;
+  }
+
+  return true;
+}
+
 function spawnEnemyFromCommand(state, director, command, handlers, summary) {
-  if (!command.kind || typeof handlers.spawnEnemy !== "function") {
+  if (!canExecuteSpawnCommand(state, director, command, handlers)) {
     summary.failed += 1;
     return null;
   }
@@ -61,7 +85,7 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
     return null;
   }
 
-  const cost = Math.max(0, Number(command.cost) || 0);
+  const cost = commandCost(command);
   if (director && command.budgeted !== false) {
     director.budget = Math.max(0, (director.budget || 0) - cost);
     director.spentBudget = (director.spentBudget || 0) + cost;

@@ -28,8 +28,8 @@ function fresh(seed = 'V38-2-COMMANDS') {
   return state;
 }
 
-test('v38.4 command layer is registered', () => {
-  assert.equal(pkg.version, '38.4.0');
+test('v38.5.1 command layer is registered', () => {
+  assert.equal(pkg.version, '38.5.1');
   assert.match(commandSrc, /DIRECTOR_COMMAND_TYPES/, 'director command type registry missing');
   assert.match(commandSrc, /executeDirectorCommands/, 'director command executor missing');
   assert.match(directorSrc, /directorSpawnEnemyCommand/, 'director should plan spawn commands');
@@ -145,4 +145,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.4 director command checks passed`);
+console.log(`All ${results.length} v38.5.1 director command checks passed`);

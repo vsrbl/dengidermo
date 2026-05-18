@@ -1,4 +1,5 @@
 import { PLAYER_HP } from "../core/constants.js";
+import { clearHostileRuntime } from "./runtimeReset.js";
 
 const DEV_FLASH_TIME = 1.35;
 const CALM = Object.freeze({
@@ -131,9 +132,7 @@ export function applyDevCommand(state, command) {
   }
 
   if (cmd === "clear-hostiles") {
-    state.enemies = {};
-    state.projectiles = {};
-    state.effects = [];
+    clearHostileRuntime(state);
     flash(state, "CLEAR HOSTILES");
     return true;
   }

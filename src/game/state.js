@@ -26,6 +26,8 @@ export function createGameState(roomId, options = {}) {
     tick: 0,
     time: 0,
     rng: makeRng(roomId),
+    runDepth: 0,
+    roomSequenceIndex: location.sequenceIndex || 0,
     locationIndex: 0,
     locationId: location.id,
     locationName: location.name,
@@ -119,7 +121,8 @@ export function pushEvent(state, event) {
 }
 
 export function makeSnapshot(state) {
-  const location = getLocation(state.locationIndex || 0);
+  const depth = Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0);
+  const location = getLocation(depth);
   const hold = state.portalHold || location.portalHold || 1.15;
   return {
     tick: state.tick,
@@ -127,7 +130,9 @@ export function makeSnapshot(state) {
     location: {
       id: state.locationId || location.id,
       name: state.locationName || location.name,
-      index: state.locationIndex || 0,
+      index: depth,
+      runDepth: depth,
+      roomSequenceIndex: Number.isFinite(state.roomSequenceIndex) ? state.roomSequenceIndex : (location.sequenceIndex || location.index || 0),
       time: Number((state.locationTime || 0).toFixed(2)),
       accent: location.accent || "green",
       biomeId: location.biomeId || "grid",
@@ -187,11 +192,14 @@ export function makeSnapshot(state) {
       radius: p.radius,
       active: !!p.active,
       progress: Number(Math.max(0, Math.min(1, (p.progress || 0) / hold)).toFixed(3)),
-      targetIndex: p.targetIndex
+      targetIndex: p.targetIndex,
+      targetDepth: p.targetDepth ?? p.targetIndex
     })),
     effects: state.effects.slice(-48).map((e) => ({ ...e })),
     events: state.events.slice(-16).map((e) => ({ ...e })),
     director: state.director ? {
+      runDepth: state.director.runDepth,
+      roomSequenceIndex: state.director.roomSequenceIndex,
       encounterId: state.director.encounterId,
       stageId: state.director.stageId,
       phase: state.director.phase,

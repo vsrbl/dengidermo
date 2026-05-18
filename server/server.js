@@ -126,7 +126,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
-  res.end("nncckkrr signaling v38.4\n");
+  res.end("nncckkrr signaling v38.5.1\n");
 });
 
 const wss = new WebSocketServer({ server });
@@ -152,4 +152,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.4 on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.5.1 on ${PORT}`));

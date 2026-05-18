@@ -26,7 +26,7 @@ function mergeSpawnZones(biome, room) {
   return room.spawnZones || biome.spawnZones || ["edge_far", "edge_flank", "edge_random"];
 }
 
-export function buildLocation(room, index = 0) {
+export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex) {
   const biome = getBiome(room.biome);
   const spawn = mergeSpawn(biome, room);
   const boss = mergeBoss(biome, room);
@@ -40,7 +40,9 @@ export function buildLocation(room, index = 0) {
   return {
     id: room.id,
     name: room.name,
-    index,
+    index: sequenceIndex,
+    sequenceIndex,
+    runDepth,
     biomeId: biome.id,
     biomeName: biome.name,
     accent: room.accent || biome.accent || "green",
@@ -50,7 +52,8 @@ export function buildLocation(room, index = 0) {
     encounterId,
     portalDelay,
     portalHold,
-    portalTargetIndex: room.portal?.targetIndex ?? index + 1,
+    portalTargetIndex: room.portal?.targetIndex ?? runDepth + 1,
+    portalTargetDepth: room.portal?.targetDepth ?? room.portal?.targetIndex ?? runDepth + 1,
     spawnBoost: boost,
     spawnZones,
     spawn,
@@ -59,9 +62,10 @@ export function buildLocation(room, index = 0) {
   };
 }
 
-export function getLocation(index = 0) {
-  const safeIndex = ((index % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length;
-  return buildLocation(getRoom(safeIndex), safeIndex);
+export function getLocation(runDepth = 0) {
+  const safeDepth = Number.isFinite(runDepth) ? runDepth : 0;
+  const safeIndex = ((safeDepth % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length;
+  return buildLocation(getRoom(safeIndex), safeIndex, safeDepth);
 }
 
 export { ROOM_SEQUENCE as LOCATIONS };

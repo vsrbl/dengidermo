@@ -31,8 +31,8 @@ function snapAt(state, time, dt = 0.25) {
   return directorSnapshot(state);
 }
 
-test('v38.4 encounter plans are registered and checked', () => {
-  assert.equal(pkg.version, '38.4.0');
+test('v38.5.1 encounter plans are registered and checked', () => {
+  assert.equal(pkg.version, '38.5.1');
   assert.match(packageSrc, /check:v38-3/, 'check:v38-3 should be part of package scripts');
   assert.ok(ENCOUNTER_PLANS.grid_intro_pressure, 'grid encounter plan missing');
   assert.ok(ENCOUNTER_PLANS.void_pressure, 'void encounter plan missing');
@@ -140,4 +140,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.4 encounter plan checks passed`);
+console.log(`All ${results.length} v38.5.1 encounter plan checks passed`);

@@ -85,6 +85,11 @@ export function updateThreatAnalyzer(state, dt = 0, director = null, loc = null)
   return state.threat;
 }
 
+export function resetThreatAnalyzer(state) {
+  state.threat = null;
+  return null;
+}
+
 export function threatSnapshot(state) {
   const threat = state.threat;
   if (!threat) return null;

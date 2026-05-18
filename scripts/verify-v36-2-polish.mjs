@@ -23,6 +23,7 @@ const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.ur
 const commandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 const lootSrc = readFileSync(new URL('../src/game/loot.js', import.meta.url), 'utf8');
 const portalsSrc = readFileSync(new URL('../src/game/portals.js', import.meta.url), 'utf8');
+const roomFlowSrc = readFileSync(new URL('../src/game/roomFlow.js', import.meta.url), 'utf8');
 const upgradesSrc = readFileSync(new URL('../src/game/upgrades.js', import.meta.url), 'utf8');
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
 const companionsSrc = readFileSync(new URL('../src/game/companions.js', import.meta.url), 'utf8');
@@ -53,7 +54,7 @@ test('healPlayer is the single gameplay healing path for loot, portals, upgrades
   assert.match(effectsSrc, /export function healPlayer/, 'healPlayer() missing');
   assert.match(effectsSrc, /EFFECT_HOOKS\.PLAYER_HEAL/, 'PLAYER_HEAL hook missing from healing pipeline');
   assert.match(lootSrc, /healPlayer\(state, player/, 'loot healing bypasses healPlayer()');
-  assert.match(portalsSrc, /healPlayer\(state, player/, 'portal healing bypasses healPlayer()');
+  assert.match(roomFlowSrc, /healPlayer\(state, player/, 'portal healing bypasses healPlayer()');
   assert.match(upgradesSrc, /healPlayer\(state, player/, 'upgrade healing bypasses healPlayer()');
   assert.match(effectsSrc, /sourceType: "lifesteal"/, 'lifesteal healing bypasses healPlayer()');
   assert.doesNotMatch(runtimeSrc, /\.hp\s*=\s*Math\.min\([^\n]*(\.hp|hp \+)/, 'runtime still has direct capped healing');
