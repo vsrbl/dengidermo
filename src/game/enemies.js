@@ -1,7 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2, norm } from "../core/math.js";
 import { ENEMIES } from "../data/enemies.js";
-import { nextId } from "./state.js";
+import { nextId } from "./entityIds.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "./effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "./dev.js";
 import { updateDirectorSpawner } from "./director.js";

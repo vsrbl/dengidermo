@@ -29,8 +29,8 @@ function fresh(seed = 'V38-4-ZONES') {
   return state;
 }
 
-test('v38.5.2 threat and spawn zone modules are registered', () => {
-  assert.equal(pkg.version, '38.5.2');
+test('v38.6 threat and spawn zone modules are registered', () => {
+  assert.equal(pkg.version, '38.6');
   assert.match(packageSrc, /check:v38-4/, 'check:v38-4 should be part of package scripts');
   assert.match(directorSrc, /updateThreatAnalyzer/, 'director should read threat analyzer output');
   assert.match(directorSrc, /chooseSpawnZone/, 'director should choose spawn zones for spawn commands');
@@ -126,4 +126,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.2 threat + spawn zone checks passed`);
+console.log(`All ${results.length} v38.6 threat + spawn zone checks passed`);

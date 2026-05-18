@@ -1,191 +1,30 @@
 import { WORLD } from "../core/constants.js";
 import { ENEMIES, ENEMY_WAVES } from "../data/enemies.js";
-import { ENCOUNTER_OBJECTIVES, getEncounterPlan } from "../data/encounters.js";
-import { getLocation } from "../data/locations.js";
-import { areDevSpawnsPaused, devSpawnBatch, devSpawnCap, devSpawnInterval } from "./dev.js";
+import { areDevSpawnsPaused, devSpawnBatch, devSpawnInterval } from "./dev.js";
 import { directorEventCommand, directorSpawnEnemyCommand, executeDirectorCommands } from "./directorCommands.js";
 import { chooseSpawnZone } from "./spawnZones.js";
-import { threatSnapshot, updateThreatAnalyzer } from "./threat.js";
+import { updateThreatAnalyzer } from "./threat.js";
+import {
+  DEFAULT_DIRECTOR,
+  DIRECTOR_PHASES,
+  PHASE_POLICIES,
+  cleanupThreshold,
+  computeCap,
+  encounterPlanFor,
+  eliteRatioFor,
+  getDirectorConfig,
+  livingPlayerCount,
+  locationForState,
+  objectiveFor,
+  readDirectorEvaluation,
+  resolveMultiplier,
+  runDepthFor,
+  roomSequenceIndexFor,
+  stageMultiplier,
+  totalBudgetFor
+} from "./directorRead.js";
 
-export const DIRECTOR_PHASES = Object.freeze({
-  CALM: "calm",
-  PRESSURE: "pressure",
-  BOSS: "boss",
-  CLEANUP: "cleanup",
-  PORTAL: "portal"
-});
-
-export const PHASE_POLICIES = Object.freeze({
-  [DIRECTOR_PHASES.CALM]: Object.freeze({ canSpawn: true, canOpenPortal: false }),
-  [DIRECTOR_PHASES.PRESSURE]: Object.freeze({ canSpawn: true, canOpenPortal: false }),
-  [DIRECTOR_PHASES.BOSS]: Object.freeze({ canSpawn: true, canOpenPortal: false }),
-  [DIRECTOR_PHASES.CLEANUP]: Object.freeze({ canSpawn: false, canOpenPortal: false }),
-  [DIRECTOR_PHASES.PORTAL]: Object.freeze({ canSpawn: false, canOpenPortal: true })
-});
-
-const DEFAULT_DIRECTOR = Object.freeze({
-  calmRatio: 0.22,
-  eliteRatio: 0.58,
-  cleanupCapMult: 0.32,
-  rewardCapMult: 0.32,
-  portalCapMult: 0.16,
-  bossCapMult: 0.52,
-  budgetBase: 18,
-  budgetPerPlayer: 7,
-  budgetPerRoom: 5,
-  minPressureBudget: 12,
-  spawnStartDelay: 0.8,
-  cleanupEnemyPerPlayer: 1,
-  cleanupEnemyBase: 2
-});
-
-function livingPlayerCount(state) {
-  const players = Object.values(state.players || {});
-  const alive = players.filter((p) => p.hp > 0).length;
-  return Math.max(1, alive || players.length || 1);
-}
-
-function locationForState(state) {
-  return getLocation(Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0));
-}
-
-function runDepthFor(state) {
-  return Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0);
-}
-
-function roomSequenceIndexFor(state, loc) {
-  return Number.isFinite(state.roomSequenceIndex) ? state.roomSequenceIndex : (loc.sequenceIndex || loc.index || 0);
-}
-
-function encounterPlanFor(loc) {
-  return getEncounterPlan(loc.encounterId);
-}
-
-function getDirectorConfig(loc) {
-  const plan = encounterPlanFor(loc);
-  const raw = { ...DEFAULT_DIRECTOR, ...(plan.director || {}), ...(loc.director || {}) };
-  if (raw.cleanupCapMult === undefined && raw.rewardCapMult !== undefined) raw.cleanupCapMult = raw.rewardCapMult;
-  return raw;
-}
-
-function clamp01(value) {
-  return Math.max(0, Math.min(1, value));
-}
-
-function objectiveFor(loc) {
-  const plan = encounterPlanFor(loc);
-  const raw = loc.objective || plan.objective || (isBossRoom(loc) ? ENCOUNTER_OBJECTIVES.BOSS : ENCOUNTER_OBJECTIVES.CLEAR);
-  return Object.values(ENCOUNTER_OBJECTIVES).includes(raw) ? raw : ENCOUNTER_OBJECTIVES.CLEAR;
-}
-
-function bossKind(loc) {
-  return loc.boss?.kind || "boss";
-}
-
-function isBossRoom(loc) {
-  return !!loc.boss?.enabled;
-}
-
-function hasLiveBoss(state, loc) {
-  if (!isBossRoom(loc)) return false;
-  const kind = bossKind(loc);
-  return Object.values(state.enemies || {}).some((enemy) => enemy.kind === kind || enemy.kind === "boss");
-}
-
-function bossObjectiveComplete(state, loc) {
-  if (!isBossRoom(loc)) return true;
-  return !!state.bossSpawned && !hasLiveBoss(state, loc);
-}
-
-function cleanupThreshold(state, cfg, loc) {
-  const objective = objectiveFor(loc);
-  if (objective === ENCOUNTER_OBJECTIVES.CLEAR || objective === ENCOUNTER_OBJECTIVES.BOSS) return 0;
-
-  const players = livingPlayerCount(state);
-  return Math.max(0, Math.floor((cfg.cleanupEnemyBase ?? 2) + players * (cfg.cleanupEnemyPerPlayer ?? 1)));
-}
-
-function bossSpawnTime(loc) {
-  return loc.boss?.spawnAt ?? 12;
-}
-
-function calmEndFor(state, loc, cfg) {
-  const portalAt = state.portalReadyAt ?? loc.portalDelay ?? 6;
-  return Math.max(0.8, Math.min(portalAt * cfg.calmRatio, portalAt - 1.1));
-}
-
-function pressureProgress(state, loc, cfg) {
-  const t = state.locationTime || 0;
-  const portalAt = state.portalReadyAt ?? loc.portalDelay ?? 6;
-  const calmEnd = calmEndFor(state, loc, cfg);
-  return clamp01((t - calmEnd) / Math.max(0.1, portalAt - calmEnd));
-}
-
-function encounterMarkers(state, loc, cfg) {
-  const t = state.locationTime || 0;
-  const portalAt = state.portalReadyAt ?? loc.portalDelay ?? 6;
-  const bossAt = bossSpawnTime(loc);
-  const bossRoom = isBossRoom(loc);
-  const enemyCount = Object.keys(state.enemies || {}).length;
-  const bossDone = bossObjectiveComplete(state, loc);
-  const cleanupDone = t >= portalAt && bossDone && enemyCount <= cleanupThreshold(state, cfg, loc);
-  return {
-    beforeCalmEnd: t < calmEndFor(state, loc, cfg),
-    beforeBossSpawn: bossRoom && t < bossAt,
-    bossActive: bossRoom && t >= bossAt && !bossDone,
-    beforePortal: t < portalAt,
-    cleanupRequired: t >= portalAt && !cleanupDone,
-    portalReady: cleanupDone
-  };
-}
-
-function stageMatches(stage, markers) {
-  if (!stage?.when) return false;
-  return !!markers[stage.when];
-}
-
-function selectEncounterStage(state, loc, cfg) {
-  const plan = encounterPlanFor(loc);
-  const stages = Array.isArray(plan.stages) ? plan.stages : [];
-  const markers = encounterMarkers(state, loc, cfg);
-  return stages.find((stage) => stageMatches(stage, markers)) || stages.at(-1) || null;
-}
-
-function phaseFor(state, loc, cfg) {
-  const stage = selectEncounterStage(state, loc, cfg);
-  return stage?.phase || DIRECTOR_PHASES.CLEANUP;
-}
-
-function policyForStage(stage) {
-  const fallback = PHASE_POLICIES[stage?.phase] || PHASE_POLICIES[DIRECTOR_PHASES.CLEANUP];
-  return {
-    canSpawn: stage?.canSpawn ?? fallback.canSpawn,
-    canOpenPortal: stage?.canOpenPortal ?? fallback.canOpenPortal
-  };
-}
-
-function intensityFor(state, loc, cfg, stage, threat = {}) {
-  const roomScale = 1 + Math.min(0.55, runDepthFor(state) * 0.075);
-  const intensity = stage?.intensity || {};
-  const base = Number.isFinite(intensity.base) ? intensity.base : 0.18;
-  const ramp = Number.isFinite(intensity.ramp) ? intensity.ramp : 0;
-  const threatMult = Number.isFinite(threat.intensityMult) ? threat.intensityMult : 1;
-  return (base + pressureProgress(state, loc, cfg) * ramp) * roomScale * threatMult;
-}
-
-function totalBudgetFor(state, loc, cfg) {
-  const players = livingPlayerCount(state);
-  const roomDepth = runDepthFor(state);
-  const base = cfg.budgetBase + players * cfg.budgetPerPlayer + roomDepth * cfg.budgetPerRoom;
-  const boosted = Math.round(base * (loc.spawnBoost || 1));
-  return Math.max(cfg.minPressureBudget, boosted);
-}
-
-function eliteRatioFor(loc, cfg) {
-  const plan = encounterPlanFor(loc);
-  if (plan.elite?.enabled === false) return null;
-  return Number.isFinite(plan.elite?.ratio) ? plan.elite.ratio : cfg.eliteRatio;
-}
+export { canOpenPortal, directorSnapshot, readDirectorEvaluation } from "./directorRead.js";
 
 export function createDirectorState(state, loc = locationForState(state)) {
   const cfg = getDirectorConfig(loc);
@@ -232,41 +71,6 @@ function ensureDirectorState(state, loc = locationForState(state)) {
     return resetDirectorState(state, loc);
   }
   return state.director;
-}
-
-function stageMultiplier(stage, field, fallback) {
-  const value = stage?.[field];
-  if (value === "intensity") return value;
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function resolveMultiplier(value, intensity) {
-  if (value === "intensity") return intensity;
-  return Number.isFinite(value) ? value : 1;
-}
-
-function computeCap(state, loc, director, stage, intensity, cfg, threat = {}) {
-  const spawn = loc.spawn || {};
-  const players = livingPlayerCount(state);
-  const locTime = state.locationTime || 0;
-  const capBase = spawn.capBase ?? 24;
-  const capPerPlayer = spawn.capPerPlayer ?? 8;
-  const capGrowthTime = spawn.capGrowthTime ?? 18;
-  const capGrowthMax = spawn.capGrowthMax ?? 18;
-  const capGrowth = Math.min(capGrowthMax, Math.floor(locTime / Math.max(1, capGrowthTime)));
-  const fallback = stage?.phase === DIRECTOR_PHASES.BOSS
-    ? cfg.bossCapMult
-    : stage?.phase === DIRECTOR_PHASES.CLEANUP
-      ? cfg.cleanupCapMult
-      : stage?.phase === DIRECTOR_PHASES.PORTAL
-        ? cfg.portalCapMult
-        : stage?.phase === DIRECTOR_PHASES.PRESSURE
-          ? "intensity"
-          : 0.42;
-  const phaseMult = resolveMultiplier(stageMultiplier(stage, "capMult", fallback), intensity);
-  const threatCapMult = Number.isFinite(threat.capMult) ? threat.capMult : 1;
-  const normalCap = Math.floor((capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult * threatCapMult);
-  return devSpawnCap(state, Math.max(players + 2, normalCap));
 }
 
 function computeBatch(state, loc, stage, intensity, threat = {}) {
@@ -385,7 +189,7 @@ function planEliteCommand(state, loc, director, phase, enemyCount, stage, threat
 }
 
 function syncLegacySpawnFields(state, director) {
-  // v38.5.2 cleanup: state.spawnTimer/state.wave are legacy mirrors kept
+  // v38.6 cleanup: state.spawnTimer/state.wave are legacy mirrors kept
   // for older checks and debug tooling. Director remains the runtime source
   // of truth for pacing. New code should read state.director.spawnTimer.
   state.spawnTimer = director.spawnTimer;
@@ -399,28 +203,6 @@ export function forceDirectorSpawnTimer(state, value = 0) {
   director.spawnTimer = Number.isFinite(value) ? value : 0;
   syncLegacySpawnFields(state, director);
   return director;
-}
-
-export function readDirectorEvaluation(state, loc = locationForState(state), director = null, options = {}) {
-  const cfg = options.cfg || getDirectorConfig(loc);
-  const threat = options.threat || state.threat || {};
-  const readDirector = director || state.director || createDirectorState(state, loc);
-  const stage = selectEncounterStage(state, loc, cfg);
-  const phase = stage?.phase || phaseFor(state, loc, cfg);
-  const intensity = intensityFor(state, loc, cfg, stage, threat);
-  const policy = policyForStage(stage);
-  const enemyCap = computeCap(state, loc, readDirector, stage, intensity, cfg, threat);
-  return {
-    encounterId: encounterPlanFor(loc).id,
-    objective: objectiveFor(loc),
-    stage,
-    stageId: stage?.id || null,
-    phase,
-    intensity,
-    enemyCap,
-    policy,
-    threat
-  };
 }
 
 function updateDirectorPhase(state, loc, cfg, director, options = {}) {
@@ -457,7 +239,7 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
   const cfg = getDirectorConfig(loc);
   const director = ensureDirectorState(state, loc);
 
-  // v38.5.2: state.spawnTimer is a legacy mirror only. Do not let stale
+  // v38.6: state.spawnTimer is a legacy mirror only. Do not let stale
   // snapshot/test/debug mirrors overwrite the director runtime timer here.
 
   const threat = updateThreatAnalyzer(state, dt, director, loc);
@@ -521,43 +303,3 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
   syncLegacySpawnFields(state, director);
 }
 
-function readDirectorForSnapshot(state, loc) {
-  const plan = encounterPlanFor(loc);
-  const director = state.director;
-  if (director && director.runDepth === runDepthFor(state) && director.locationId === loc.id && director.encounterId === plan.id) {
-    return director;
-  }
-  return createDirectorState(state, loc);
-}
-
-export function canOpenPortal(state) {
-  const loc = locationForState(state);
-  const director = readDirectorForSnapshot(state, loc);
-  const evaluation = readDirectorEvaluation(state, loc, director, { threat: state.threat || {} });
-  return !!evaluation.policy?.canOpenPortal;
-}
-
-export function directorSnapshot(state) {
-  const loc = locationForState(state);
-  const director = readDirectorForSnapshot(state, loc);
-  const evaluation = readDirectorEvaluation(state, loc, director, { threat: state.threat || {} });
-  return {
-    runDepth: director.runDepth,
-    roomSequenceIndex: director.roomSequenceIndex,
-    encounterId: evaluation.encounterId,
-    objective: evaluation.objective,
-    stageId: evaluation.stageId,
-    phase: evaluation.phase,
-    intensity: Number(evaluation.intensity.toFixed(3)),
-    enemyCap: evaluation.enemyCap,
-    cleanupThreshold: cleanupThreshold(state, getDirectorConfig(loc), loc),
-    budget: Math.round(director.budget),
-    totalBudget: Math.round(director.totalBudget),
-    wave: director.wave,
-    eliteSpawned: !!director.eliteSpawned,
-    canSpawn: !!evaluation.policy?.canSpawn,
-    canOpenPortal: !!evaluation.policy?.canOpenPortal,
-    lastSpawn: director.lastSpawn || null,
-    threat: threatSnapshot(state)
-  };
-}

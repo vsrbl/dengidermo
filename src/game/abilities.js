@@ -2,6 +2,7 @@ import { WORLD } from "../core/constants.js";
 import { clamp, norm } from "../core/math.js";
 import { buildPlayerEffects, getEffect } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
+import { pushEvent } from "./events.js";
 
 const DASH_DEFAULT_DISTANCE = 210;
 const DASH_DEFAULT_COOLDOWN = 3.6;
@@ -148,10 +149,7 @@ export function performDash(state, playerId, input = {}, request = {}) {
   dash.flash = 0.22;
   if (seq) dash.seqSeen = seq;
   addDashVisuals(state, player, movement, cfg);
-  if (Array.isArray(state.events)) {
-    state.events.push({ id: `dash${state.tick}-${playerId}-${seq || 0}`, t: state.time || 0, type: "dash", playerId, x: player.x, y: player.y });
-    if (state.events.length > 32) state.events.splice(0, state.events.length - 32);
-  }
+  pushEvent(state, { type: "dash", playerId, x: player.x, y: player.y });
   return { ok: true, movement, config: cfg };
 }
 

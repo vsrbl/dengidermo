@@ -3,7 +3,8 @@ import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
 import { getLocation } from "../data/locations.js";
 import { attractLootToPlayer, buildPlayerEffects, healPlayer, resolveLootRoll } from "./effects.js";
-import { nextId, pushEvent } from "./state.js";
+import { nextId } from "./entityIds.js";
+import { pushEvent } from "./events.js";
 import { giveWeapon } from "./inventory.js";
 
 export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {

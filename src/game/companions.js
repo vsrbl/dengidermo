@@ -8,7 +8,8 @@ import {
 } from "./effects.js";
 import { finishEnemyKill } from "./enemyDeath.js";
 import { pushVisualEffect } from "./effectCommands.js";
-import { nextId, pushEvent } from "./state.js";
+import { nextId } from "./entityIds.js";
+import { pushEvent } from "./events.js";
 
 const COMPANION_LIMIT = 8;
 const ORBITAL_DEFAULT_RADIUS = 74;

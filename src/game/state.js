@@ -9,17 +9,15 @@ import { enemyStatusSnapshot } from "./effects.js";
 import { abilitySnapshot } from "./abilities.js";
 import { companionSnapshot, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
-import { threatSnapshot } from "./threat.js";
+import { directorSnapshot } from "./directorRead.js";
+import { nextId, resetEntityIds } from "./entityIds.js";
+import { pushEvent } from "./events.js";
 
-let entitySeq = 1;
-
-export function nextId(prefix) {
-  entitySeq += 1;
-  return `${prefix}${entitySeq}`;
-}
+export { nextId } from "./entityIds.js";
+export { pushEvent } from "./events.js";
 
 export function createGameState(roomId, options = {}) {
-  entitySeq = 1;
+  resetEntityIds();
   const location = getLocation(0);
   const state = {
     roomId,
@@ -115,11 +113,6 @@ export function respawnPlayer(player, index = 0) {
   player.deadTimer = 0;
 }
 
-export function pushEvent(state, event) {
-  state.events.push({ id: nextId("ev"), t: state.time, ...event });
-  if (state.events.length > 32) state.events.splice(0, state.events.length - 32);
-}
-
 export function makeSnapshot(state) {
   const depth = Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0);
   const location = getLocation(depth);
@@ -197,25 +190,7 @@ export function makeSnapshot(state) {
     })),
     effects: state.effects.slice(-48).map((e) => ({ ...e })),
     events: state.events.slice(-16).map((e) => ({ ...e })),
-    director: state.director ? {
-      runDepth: state.director.runDepth,
-      roomSequenceIndex: state.director.roomSequenceIndex,
-      encounterId: state.director.encounterId,
-      objective: state.director.objective || null,
-      stageId: state.director.stageId,
-      phase: state.director.phase,
-      intensity: state.director.intensity,
-      enemyCap: state.director.enemyCap,
-      cleanupThreshold: Number.isFinite(state.director.cleanupThreshold) ? state.director.cleanupThreshold : undefined,
-      budget: Math.round(state.director.budget || 0),
-      totalBudget: Math.round(state.director.totalBudget || 0),
-      wave: state.director.wave || 0,
-      eliteSpawned: !!state.director.eliteSpawned,
-      canSpawn: !!state.director.policy?.canSpawn,
-      canOpenPortal: !!state.director.policy?.canOpenPortal,
-      lastSpawn: state.director.lastSpawn || null,
-      threat: threatSnapshot(state)
-    } : null,
+    director: directorSnapshot(state),
     dev: devSnapshot(state)
   };
 }

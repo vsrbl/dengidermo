@@ -1,5 +1,5 @@
 import { ENEMIES } from "../data/enemies.js";
-import { pushEvent } from "./state.js";
+import { pushEvent } from "./events.js";
 
 export const DIRECTOR_COMMAND_TYPES = Object.freeze({
   SPAWN_ENEMY: "spawnEnemy",

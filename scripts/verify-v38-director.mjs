@@ -8,6 +8,7 @@ import { getLocation } from '../src/data/locations.js';
 import { readDevConfig } from '../src/dev/mode.js';
 
 const directorSrc = readFileSync(new URL('../src/game/director.js', import.meta.url), 'utf8');
+const directorReadSrc = readFileSync(new URL('../src/game/directorRead.js', import.meta.url), 'utf8');
 const enemiesSrc = readFileSync(new URL('../src/game/enemies.js', import.meta.url), 'utf8');
 const portalsSrc = readFileSync(new URL('../src/game/portals.js', import.meta.url), 'utf8');
 const locationsSrc = readFileSync(new URL('../src/data/locations.js', import.meta.url), 'utf8');
@@ -33,13 +34,14 @@ function tickSpawnerAt(state, time, dt = 0.25) {
   return directorSnapshot(state);
 }
 
-test('v38.5.2 version and director module are registered', () => {
-  assert.equal(pkg.version, '38.5.2');
+test('v38.6 version and director module are registered', () => {
+  assert.equal(pkg.version, '38.6');
   assert.match(enemiesSrc, /updateDirectorSpawner\(state, dt, spawnEnemy\)/, 'enemies.js should delegate pacing to director.js');
   assert.match(simulationSrc, /updateSpawner\(state, safeDt\)/, 'host simulation should still tick the spawner path');
-  assert.match(directorSrc, /PHASE_POLICIES/, 'director phase contracts missing');
+  assert.match(`${directorSrc}
+${directorReadSrc}`, /PHASE_POLICIES/, 'director phase contracts missing');
   assert.match(directorSrc, /canOpenPortal/, 'director portal gate missing');
-  assert.match(directorSrc, /bossObjectiveComplete/, 'boss objective gate missing');
+  assert.match(directorReadSrc, /bossObjectiveComplete/, 'boss objective gate missing');
   assert.match(portalsSrc, /portal\.active = canOpenPortal\(state\)/, 'portals should be director-gated');
   assert.match(locationsSrc, /mergeDirector/, 'location builder should merge director config from data');
 });
@@ -172,4 +174,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.2 director hardening checks passed`);
+console.log(`All ${results.length} v38.6 director hardening checks passed`);

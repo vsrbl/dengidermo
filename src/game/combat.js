@@ -4,7 +4,7 @@ import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
 import { makeProjectile } from "./projectiles.js";
 import { buildProjectileEffects } from "./effects.js";
-import { pushEvent } from "./state.js";
+import { pushEvent } from "./events.js";
 
 function statMult(player, key) {
   return Math.max(0.1, player.stats?.[key] || 1);

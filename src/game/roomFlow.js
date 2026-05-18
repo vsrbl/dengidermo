@@ -4,7 +4,9 @@ import { devPortalDelay, devPortalHold } from "./dev.js";
 import { resetDirectorState } from "./director.js";
 import { healPlayer } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
-import { nextId, pushEvent, spawnPoint } from "./state.js";
+import { nextId } from "./entityIds.js";
+import { pushEvent } from "./events.js";
+import { spawnPoint } from "./state.js";
 import { clearLocationRuntimeObjects } from "./runtimeReset.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
 

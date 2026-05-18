@@ -44,8 +44,8 @@ function forcePortalTransition(state) {
   updatePortals(state, 0.02);
 }
 
-test('v38.5.2 bugfix pass is registered', () => {
-  assert.equal(pkg.version, '38.5.2');
+test('v38.6 bugfix pass is registered', () => {
+  assert.equal(pkg.version, '38.6');
   assert.match(threatSrc, /resetThreatAnalyzer/, 'threat reset helper should exist');
   assert.match(roomFlowSrc, /clearLocationRuntimeObjects/, 'portal transition clear should go through runtime reset helper');
   assert.match(runtimeResetSrc, /resetThreatAnalyzer/, 'runtime reset helper should reset threat');
@@ -139,4 +139,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.2 bugfix checks passed`);
+console.log(`All ${results.length} v38.6 bugfix checks passed`);

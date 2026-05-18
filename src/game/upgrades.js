@@ -3,6 +3,7 @@ import { getUpgrade, rollUpgradeOffer } from "../data/upgrades.js";
 import { activeSynergies } from "../data/synergies.js";
 import { ensureInventory } from "./inventory.js";
 import { healPlayer } from "./effects.js";
+import { pushEvent } from "./events.js";
 
 const DEFAULT_STATS = Object.freeze({
   speedMult: 1,
@@ -99,9 +100,6 @@ export function chooseUpgrade(state, playerId, choiceIndex) {
   upgrades.choices = [];
   upgrades.offers = {};
   upgrades.pending = false;
-  if (state.events) {
-    state.events.push({ id: `up${state.tick}-${playerId}`, t: state.time, type: "upgrade", playerId, upgradeId });
-    if (state.events.length > 32) state.events.splice(0, state.events.length - 32);
-  }
+  pushEvent(state, { type: "upgrade", playerId, upgradeId });
   return true;
 }

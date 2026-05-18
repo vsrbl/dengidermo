@@ -1,6 +1,6 @@
 import { ENEMIES } from "../data/enemies.js";
 import { dropLoot } from "./loot.js";
-import { pushEvent } from "./state.js";
+import { pushEvent } from "./events.js";
 import { sourceId } from "./effects.js";
 
 export function finishEnemyKill(state, enemy, source = null, hit = null) {

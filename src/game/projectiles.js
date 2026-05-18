@@ -18,7 +18,8 @@ import {
 } from "./effects.js";
 import { addSpark, executeEffectCommands, pushVisualEffect } from "./effectCommands.js";
 import { finishEnemyKill } from "./enemyDeath.js";
-import { nextId, pushEvent } from "./state.js";
+import { nextId } from "./entityIds.js";
+import { pushEvent } from "./events.js";
 
 const enemyGrid = new SpatialGrid(112);
 const CHILD_DEPTH_MAX = 2;

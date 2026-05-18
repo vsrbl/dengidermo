@@ -14,6 +14,7 @@ const htmlSrc = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const styleSrc = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
 const uiSrc = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
 const directorSrc = readFileSync(new URL('../src/game/director.js', import.meta.url), 'utf8');
+const directorReadSrc = readFileSync(new URL('../src/game/directorRead.js', import.meta.url), 'utf8');
 const encounterSrc = readFileSync(new URL('../src/data/encounters.js', import.meta.url), 'utf8');
 
 const results = [];
@@ -28,14 +29,14 @@ function fresh(seed = 'V38-5-2') {
   return state;
 }
 
-test('v38.5.2 director clarity patch is registered', () => {
-  assert.equal(VERSION, 'v38.5.2');
-  assert.equal(pkg.version, '38.5.2');
-  assert.equal(serverPkg.version, '38.5.2');
+test('v38.6 director clarity patch is registered', () => {
+  assert.equal(VERSION, 'v38.6');
+  assert.equal(pkg.version, '38.6');
+  assert.equal(serverPkg.version, '38.6');
   assert.match(pkg.scripts['check:all'], /check:v38-5-2/, 'check:v38-5-2 should be part of check:all');
   assert.match(encounterSrc, /ENCOUNTER_OBJECTIVES/, 'encounter objective registry missing');
-  assert.match(directorSrc, /objectiveFor/, 'director objective resolver missing');
-  assert.match(directorSrc, /cleanupThreshold\(state, cfg, loc\)/, 'cleanup threshold should be objective-aware');
+  assert.match(directorReadSrc, /objectiveFor/, 'director objective resolver missing');
+  assert.match(directorReadSrc, /cleanupThreshold\(state, cfg, loc\)/, 'cleanup threshold should be objective-aware');
 });
 
 test('encounter and location data expose explicit objectives', () => {
@@ -141,4 +142,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.5.2 director clarity checks passed`);
+console.log(`All ${results.length} v38.6 director clarity checks passed`);
