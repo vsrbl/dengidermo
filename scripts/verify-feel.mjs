@@ -17,11 +17,6 @@ function fresh(weaponId = 'shotgun') {
   return { state, p };
 }
 
-function runProjectiles(state, seconds = 1, dt = 1 / 240) {
-  const steps = Math.ceil(seconds / dt);
-  for (let i = 0; i < steps; i += 1) updateProjectiles(state, dt);
-}
-
 function runAndWatchShake(state, seconds = 1, dt = 1 / 240) {
   const steps = Math.ceil(seconds / dt);
   let saw = false;
@@ -52,37 +47,41 @@ test('shotgun spread is tight enough for a compact cone', () => {
   assert.ok(totalCone >= 0.45, `total cone too narrow / loses shotgun identity: ${totalCone}`);
 });
 
-test('hitShake is a registered projectile hit effect', () => {
+test('camera shake is intentionally rocket-only for now', () => {
   assert.ok(EFFECT_DEFS.hitShake, 'missing hitShake effect definition');
   assert.ok(EFFECT_DEFS.hitShake.hooks.includes('projectile:hit'), 'hitShake is not attached to projectile hit hook');
-  for (const [weaponId, weapon] of Object.entries(WEAPONS)) {
-    const shake = weapon.effects?.find((effect) => effect.type === 'hitShake');
-    assert.ok(shake, `${weaponId} has no hitShake effect`);
-    assert.ok(shake.power >= 2 && shake.power <= 6, `${weaponId} hitShake power out of visible-impact range: ${shake.power}`);
-  }
+  assert.equal(WEAPONS.shotgun.effects?.some((effect) => effect.type === 'hitShake'), false, 'shotgun should not have hitShake right now');
+  assert.equal(WEAPONS.seeker.effects?.some((effect) => effect.type === 'hitShake'), false, 'seeker should not have hitShake right now');
+  const rocketHitShake = WEAPONS.rocket.effects?.find((effect) => effect.type === 'hitShake');
+  const rocketScreenShake = WEAPONS.rocket.effects?.find((effect) => effect.type === 'screenShake');
+  assert.ok(rocketHitShake, 'rocket has no hitShake effect');
+  assert.ok(rocketHitShake.power >= 5 && rocketHitShake.power <= 7, `rocket hitShake power out of range: ${rocketHitShake.power}`);
+  assert.ok(rocketScreenShake, 'rocket has no screenShake effect');
+  assert.ok(rocketScreenShake.power >= 9 && rocketScreenShake.power <= 12, `rocket screenShake power out of range: ${rocketScreenShake.power}`);
 });
 
-test('shotgun hit creates visible controlled runtime camera shake and still deals damage', () => {
-  const { state } = fresh('shotgun');
-  const e = spawnEnemy(state, 'boss', 640, 500);
-  const before = e.hp;
-  const ok = fireWeapon(state, 'p1', { angle: 0, weapon: 'shotgun', fireSeq: 1 });
-  assert.equal(ok, true, 'shotgun failed to fire');
-  const watched = runAndWatchShake(state, 0.45);
-  assert.ok(e.hp < before, `shotgun did not damage boss (${before} -> ${e.hp})`);
-  assert.ok(watched.saw, 'shotgun hit did not create runtime shake');
-  assert.ok(watched.maxPower >= 2 && watched.maxPower <= 12, `shotgun shake is not visible/controlled: ${watched.maxPower}`);
-});
-
-test('seeker and rocket hits also create visible impact shake without replacing explosion shake', () => {
-  for (const weaponId of ['seeker', 'rocket']) {
+test('shotgun and seeker hits deal damage without camera shake', () => {
+  for (const weaponId of ['shotgun', 'seeker']) {
     const { state } = fresh(weaponId);
-    spawnEnemy(state, 'boss', weaponId === 'seeker' ? 700 : 700, 500);
-    const ok = fireWeapon(state, 'p1', { angle: 0, weapon: weaponId, fireSeq: 2 });
+    const e = spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    const before = e.hp;
+    const ok = fireWeapon(state, 'p1', { angle: 0, weapon: weaponId, fireSeq: 1 });
     assert.equal(ok, true, `${weaponId} failed to fire`);
-    const watched = runAndWatchShake(state, weaponId === 'rocket' ? 1.8 : 1.2);
-    assert.ok(watched.saw, `${weaponId} hit did not create shake`);
+    const watched = runAndWatchShake(state, weaponId === 'shotgun' ? 0.45 : 1.2);
+    assert.ok(e.hp < before, `${weaponId} did not damage boss (${before} -> ${e.hp})`);
+    assert.equal(watched.saw, false, `${weaponId} should not create camera shake right now`);
+    assert.equal(watched.maxPower, 0, `${weaponId} created unexpected shake power: ${watched.maxPower}`);
   }
+});
+
+test('rocket hit/explosion creates visible controlled runtime camera shake', () => {
+  const { state } = fresh('rocket');
+  spawnEnemy(state, 'boss', 700, 500);
+  const ok = fireWeapon(state, 'p1', { angle: 0, weapon: 'rocket', fireSeq: 2 });
+  assert.equal(ok, true, 'rocket failed to fire');
+  const watched = runAndWatchShake(state, 1.8);
+  assert.ok(watched.saw, 'rocket hit/explosion did not create shake');
+  assert.ok(watched.maxPower >= 6 && watched.maxPower <= 12.1, `rocket shake is not visible/controlled: ${watched.maxPower}`);
 });
 
 let failed = 0;

@@ -14,8 +14,7 @@ export const WEAPONS = {
     knockback: 170,
     hitPadding: 4,
     effects: [
-      { type: "spark", count: 2 },
-      { type: "hitShake", power: 2.6, life: 0.12 }
+      { type: "spark", count: 2 }
     ]
   },
 
@@ -35,8 +34,7 @@ export const WEAPONS = {
     hitPadding: 7,
     effects: [
       { type: "homing", strength: 11, acquireRange: 760, target: "nearestEnemy" },
-      { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" },
-      { type: "hitShake", power: 4.2, life: 0.13 }
+      { type: "explode", radius: 42, damage: 16, force: 190, visual: "small" }
     ]
   },
 

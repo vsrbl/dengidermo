@@ -64,11 +64,9 @@ function addShake(state, power = 2.5, life = 0.12) {
   if (p <= 0) return;
   const l = Math.max(0.05, Math.min(0.32, Number.isFinite(life) ? life : 0.12));
 
-  // Multiple pellets can hit during the same host tick. Pushing one camera
-  // shake per pellet made shotgun hits and chained effects stack into a
-  // crooked, network-jittery camera. Aggregate shake impulses per tick and
-  // combine them as energy, not as a linear sum. Renderer then consumes each
-  // aggregate shake once and decays it locally.
+  // Multiple shake sources can land during the same host tick. Aggregate
+  // impulses per tick and combine them as energy, not as a linear sum.
+  // Renderer then consumes each aggregate shake once and decays it locally.
   const tick = state.tick || 0;
   const existing = state.effects.find((fx) => fx.type === "shake" && fx.tick === tick);
   if (existing) {

@@ -37,24 +37,26 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('shotgun pellet hits aggregate into one visible controlled shake impulse', () => {
+test('shotgun pellet hits do damage but do not create camera shake', () => {
   const { state } = fresh('shotgun');
   const boss = spawnEnemy(state, 'boss', 640, 500);
   const before = boss.hp;
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'shotgun', fireSeq: 1 }), true);
   const watched = runProjectiles(state, 0.35);
   assert.ok(boss.hp < before, 'shotgun did not hit the boss');
-  assert.ok(watched.maxShakeCount <= 1, `pellet hits spawned too many simultaneous shake effects: ${watched.maxShakeCount}`);
-  assert.ok(watched.maxShake >= 2 && watched.maxShake <= 12, `shotgun aggregate shake is not visible/controlled: ${watched.maxShake}`);
+  assert.equal(watched.maxShakeCount, 0, `shotgun spawned shake effects: ${watched.maxShakeCount}`);
+  assert.equal(watched.maxShake, 0, `shotgun created unexpected shake power: ${watched.maxShake}`);
 });
 
-test('shake runtime effects carry stable ids for renderer de-duplication', () => {
+test('seeker impact/explosion does damage but does not create camera shake', () => {
   const { state } = fresh('seeker');
-  spawnEnemy(state, 'boss', 700, 500);
+  const boss = spawnEnemy(state, 'boss', 700, 500);
+  const before = boss.hp;
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'seeker', fireSeq: 1 }), true);
-  const watched = runProjectiles(state, 0.6);
-  assert.ok(watched.shakeIds.size > 0, 'no shake effects were produced');
-  assert.equal(watched.shakeIds.size, new Set(watched.shakeIds).size, 'shake ids were not stable/unique');
+  const watched = runProjectiles(state, 0.8);
+  assert.ok(boss.hp < before, 'seeker did not damage the boss');
+  assert.equal(watched.maxShakeCount, 0, `seeker spawned shake effects: ${watched.maxShakeCount}`);
+  assert.equal(watched.maxShake, 0, `seeker created unexpected shake power: ${watched.maxShake}`);
 });
 
 test('rocket explosion shake is clamped and not linearly stacked', () => {
@@ -65,6 +67,7 @@ test('rocket explosion shake is clamped and not linearly stacked', () => {
   assert.ok(watched.maxShake > 0, 'rocket did not produce shake');
   assert.ok(watched.maxShake >= 6, `rocket shake is too weak to be visible: ${watched.maxShake}`);
   assert.ok(watched.maxShake <= 12.1, `rocket shake exceeded clamp: ${watched.maxShake}`);
+  assert.ok(watched.shakeIds.size > 0, 'rocket shake effects had no stable ids');
 });
 
 test('renderer consumes shake locally instead of summing snapshot power every frame', () => {
