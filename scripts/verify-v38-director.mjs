@@ -33,8 +33,8 @@ function tickSpawnerAt(state, time, dt = 0.25) {
   return directorSnapshot(state);
 }
 
-test('v38.3 version and director module are registered', () => {
-  assert.equal(pkg.version, '38.3.0');
+test('v38.4 version and director module are registered', () => {
+  assert.equal(pkg.version, '38.4.0');
   assert.match(enemiesSrc, /updateDirectorSpawner\(state, dt, spawnEnemy\)/, 'enemies.js should delegate pacing to director.js');
   assert.match(simulationSrc, /updateSpawner\(state, safeDt\)/, 'host simulation should still tick the spawner path');
   assert.match(directorSrc, /PHASE_POLICIES/, 'director phase contracts missing');
@@ -172,4 +172,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.3 director hardening checks passed`);
+console.log(`All ${results.length} v38.4 director hardening checks passed`);

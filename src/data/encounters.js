@@ -23,6 +23,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "boot-calm",
         phase: "calm",
+        spawnZones: Object.freeze(["edge_far", "edge_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_CALM_END,
         canSpawn: true,
         canOpenPortal: false,
@@ -34,6 +35,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "grid-pressure",
         phase: "pressure",
+        spawnZones: Object.freeze(["edge_far", "edge_flank", "edge_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
         canSpawn: true,
         canOpenPortal: false,
@@ -82,6 +84,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "void-breath",
         phase: "calm",
+        spawnZones: Object.freeze(["edge_far", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_CALM_END,
         canSpawn: true,
         canOpenPortal: false,
@@ -93,6 +96,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "void-surge",
         phase: "pressure",
+        spawnZones: Object.freeze(["edge_far", "edge_flank", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
         canSpawn: true,
         canOpenPortal: false,
@@ -142,6 +146,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "core-scan",
         phase: "calm",
+        spawnZones: Object.freeze(["edge_far", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_CALM_END,
         canSpawn: true,
         canOpenPortal: false,
@@ -153,6 +158,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "core-crush",
         phase: "pressure",
+        spawnZones: Object.freeze(["edge_flank", "corner_random", "edge_far"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
         canSpawn: true,
         canOpenPortal: false,
@@ -203,6 +209,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "boss-arrival",
         phase: "calm",
+        spawnZones: Object.freeze(["edge_far", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_BOSS_SPAWN,
         canSpawn: true,
         canOpenPortal: false,
@@ -214,6 +221,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "boss-fight",
         phase: "boss",
+        spawnZones: Object.freeze(["edge_far", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BOSS_ACTIVE,
         canSpawn: true,
         canOpenPortal: false,
@@ -225,6 +233,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
       Object.freeze({
         id: "boss-aftershock",
         phase: "pressure",
+        spawnZones: Object.freeze(["edge_far", "edge_flank", "corner_random"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
         canSpawn: true,
         canOpenPortal: false,

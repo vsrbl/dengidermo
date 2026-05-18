@@ -22,6 +22,10 @@ function mergeDirector(biome, room) {
   };
 }
 
+function mergeSpawnZones(biome, room) {
+  return room.spawnZones || biome.spawnZones || ["edge_far", "edge_flank", "edge_random"];
+}
+
 export function buildLocation(room, index = 0) {
   const biome = getBiome(room.biome);
   const spawn = mergeSpawn(biome, room);
@@ -31,6 +35,7 @@ export function buildLocation(room, index = 0) {
   const portalHold = room.portal?.hold ?? room.portalHold ?? biome.portalHold ?? 1.15;
   const boost = (biome.spawnBoost ?? 1) * (spawn.boost ?? room.spawnBoost ?? 1);
   const encounterId = room.encounter || room.encounterId || biome.encounter || biome.encounterId || "grid_intro_pressure";
+  const spawnZones = mergeSpawnZones(biome, room);
 
   return {
     id: room.id,
@@ -47,6 +52,7 @@ export function buildLocation(room, index = 0) {
     portalHold,
     portalTargetIndex: room.portal?.targetIndex ?? index + 1,
     spawnBoost: boost,
+    spawnZones,
     spawn,
     boss,
     director

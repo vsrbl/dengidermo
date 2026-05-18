@@ -5,6 +5,7 @@ import { nextId } from "./state.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "./effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "./dev.js";
 import { updateDirectorSpawner } from "./director.js";
+import { resolveSpawnPoint } from "./spawnZones.js";
 
 function nearestAlivePlayer(state, x, y) {
   let best = null;
@@ -20,22 +21,23 @@ function nearestAlivePlayer(state, x, y) {
   return best;
 }
 
-export function spawnEnemy(state, kind, x = null, y = null) {
+export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
   const data = ENEMIES[kind];
   if (!data) return null;
   const id = nextId("en");
+  let spawnZone = options.zone || null;
   if (x === null || y === null) {
-    const side = state.rng.int(0, 3);
-    if (side === 0) { x = state.rng.range(80, WORLD.w - 80); y = 80; }
-    if (side === 1) { x = WORLD.w - 80; y = state.rng.range(80, WORLD.h - 80); }
-    if (side === 2) { x = state.rng.range(80, WORLD.w - 80); y = WORLD.h - 80; }
-    if (side === 3) { x = 80; y = state.rng.range(80, WORLD.h - 80); }
+    const point = resolveSpawnPoint(state, spawnZone || "edge_random");
+    x = point.x;
+    y = point.y;
+    spawnZone = spawnZone || "edge_random";
   }
   state.enemies[id] = {
     id,
     kind,
     x,
     y,
+    spawnZone,
     vx: 0,
     vy: 0,
     kx: 0,

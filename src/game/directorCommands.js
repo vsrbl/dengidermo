@@ -14,7 +14,8 @@ export function directorSpawnEnemyCommand({
   budgeted = true,
   markBossSpawned = false,
   markEliteSpawned = false,
-  event = null
+  event = null,
+  zone = null
 }) {
   return {
     type: DIRECTOR_COMMAND_TYPES.SPAWN_ENEMY,
@@ -26,7 +27,8 @@ export function directorSpawnEnemyCommand({
     budgeted,
     markBossSpawned,
     markEliteSpawned,
-    event
+    event,
+    zone
   };
 }
 
@@ -51,7 +53,8 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
     state,
     command.kind,
     Number.isFinite(command.x) ? command.x : null,
-    Number.isFinite(command.y) ? command.y : null
+    Number.isFinite(command.y) ? command.y : null,
+    { zone: command.zone || null }
   );
   if (!enemy) {
     summary.failed += 1;

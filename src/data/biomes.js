@@ -10,6 +10,7 @@ export const BIOMES = {
     portalHold: 1.1,
     spawnBoost: 1,
     encounter: "grid_intro_pressure",
+    spawnZones: ["edge_far", "edge_flank", "edge_random"],
     spawn: {
       capBase: 24,
       capPerPlayer: 8,
@@ -36,6 +37,7 @@ export const BIOMES = {
     portalHold: 1.15,
     spawnBoost: 1.18,
     encounter: "void_pressure",
+    spawnZones: ["edge_far", "edge_flank", "corner_random"],
     spawn: {
       capBase: 26,
       capPerPlayer: 8,
@@ -62,6 +64,7 @@ export const BIOMES = {
     portalHold: 1.2,
     spawnBoost: 1.42,
     encounter: "core_elite_pressure",
+    spawnZones: ["edge_flank", "corner_random", "edge_far"],
     spawn: {
       capBase: 28,
       capPerPlayer: 9,
@@ -88,6 +91,7 @@ export const BIOMES = {
     portalHold: 1.25,
     spawnBoost: 1.7,
     encounter: "boss_objective",
+    spawnZones: ["edge_far", "corner_random", "edge_flank"],
     spawn: {
       capBase: 30,
       capPerPlayer: 10,

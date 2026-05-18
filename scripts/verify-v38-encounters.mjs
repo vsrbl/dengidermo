@@ -18,7 +18,7 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-function fresh(seed = 'V38-3-ENCOUNTERS') {
+function fresh(seed = 'V38-4-ENCOUNTERS') {
   const state = createGameState(seed);
   addPlayer(state, 'p1', 0);
   return state;
@@ -31,8 +31,8 @@ function snapAt(state, time, dt = 0.25) {
   return directorSnapshot(state);
 }
 
-test('v38.3 encounter plans are registered and checked', () => {
-  assert.equal(pkg.version, '38.3.0');
+test('v38.4 encounter plans are registered and checked', () => {
+  assert.equal(pkg.version, '38.4.0');
   assert.match(packageSrc, /check:v38-3/, 'check:v38-3 should be part of package scripts');
   assert.ok(ENCOUNTER_PLANS.grid_intro_pressure, 'grid encounter plan missing');
   assert.ok(ENCOUNTER_PLANS.void_pressure, 'void encounter plan missing');
@@ -56,7 +56,7 @@ test('director selects stage from encounter plan data instead of hardcoded phase
 });
 
 test('grid encounter flows calm -> pressure -> cleanup -> portal through stage ids', () => {
-  const state = fresh('V38-3-GRID-FLOW');
+  const state = fresh('V38-4-GRID-FLOW');
   let snap = snapAt(state, 0.2);
   assert.equal(snap.encounterId, 'grid_intro_pressure');
   assert.equal(snap.phase, 'calm');
@@ -86,7 +86,7 @@ test('non-grid rooms use distinct encounter plans and tuning', () => {
   assert.notEqual(voidPlan.stages[1].id, corePlan.stages[1].id);
   assert.ok(corePlan.director.budgetBase > voidPlan.director.budgetBase, 'core plan should be tuned heavier than void');
 
-  const state = fresh('V38-3-CORE-FLOW');
+  const state = fresh('V38-4-CORE-FLOW');
   initLocation(state, 2);
   const snap = snapAt(state, 2.0);
   assert.equal(snap.encounterId, 'core_elite_pressure');
@@ -95,7 +95,7 @@ test('non-grid rooms use distinct encounter plans and tuning', () => {
 });
 
 test('boss objective is an encounter plan with arrival, fight, aftershock and portal stages', () => {
-  const state = fresh('V38-3-BOSS-FLOW');
+  const state = fresh('V38-4-BOSS-FLOW');
   initLocation(state, 3);
   const loc = getLocation(3);
 
@@ -124,7 +124,7 @@ test('boss objective is an encounter plan with arrival, fight, aftershock and po
 });
 
 test('snapshot exposes encounter and stage for lightweight debug UI', () => {
-  const state = fresh('V38-3-SNAPSHOT');
+  const state = fresh('V38-4-SNAPSHOT');
   state.locationTime = 2;
   state.spawnTimer = 0;
   updateSpawner(state, 0.25);
@@ -140,4 +140,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.3 encounter plan checks passed`);
+console.log(`All ${results.length} v38.4 encounter plan checks passed`);

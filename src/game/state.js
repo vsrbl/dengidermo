@@ -9,6 +9,7 @@ import { enemyStatusSnapshot } from "./effects.js";
 import { abilitySnapshot } from "./abilities.js";
 import { companionSnapshot, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
+import { threatSnapshot } from "./threat.js";
 
 let entitySeq = 1;
 
@@ -201,7 +202,8 @@ export function makeSnapshot(state) {
       wave: state.director.wave || 0,
       eliteSpawned: !!state.director.eliteSpawned,
       canSpawn: !!state.director.policy?.canSpawn,
-      canOpenPortal: !!state.director.policy?.canOpenPortal
+      canOpenPortal: !!state.director.policy?.canOpenPortal,
+      threat: threatSnapshot(state)
     } : null,
     dev: devSnapshot(state)
   };

@@ -4,6 +4,8 @@ import { getEncounterPlan } from "../data/encounters.js";
 import { getLocation } from "../data/locations.js";
 import { areDevSpawnsPaused, devSpawnBatch, devSpawnCap, devSpawnInterval } from "./dev.js";
 import { directorEventCommand, directorSpawnEnemyCommand, executeDirectorCommands } from "./directorCommands.js";
+import { chooseSpawnZone } from "./spawnZones.js";
+import { threatSnapshot, updateThreatAnalyzer } from "./threat.js";
 
 export const DIRECTOR_PHASES = Object.freeze({
   CALM: "calm",
@@ -145,12 +147,13 @@ function policyForStage(stage) {
   };
 }
 
-function intensityFor(state, loc, cfg, stage) {
+function intensityFor(state, loc, cfg, stage, threat = {}) {
   const roomScale = 1 + Math.min(0.55, (state.locationIndex || 0) * 0.075);
   const intensity = stage?.intensity || {};
   const base = Number.isFinite(intensity.base) ? intensity.base : 0.18;
   const ramp = Number.isFinite(intensity.ramp) ? intensity.ramp : 0;
-  return (base + pressureProgress(state, loc, cfg) * ramp) * roomScale;
+  const threatMult = Number.isFinite(threat.intensityMult) ? threat.intensityMult : 1;
+  return (base + pressureProgress(state, loc, cfg) * ramp) * roomScale * threatMult;
 }
 
 function totalBudgetFor(state, loc, cfg) {
@@ -221,7 +224,7 @@ function resolveMultiplier(value, intensity) {
   return Number.isFinite(value) ? value : 1;
 }
 
-function computeCap(state, loc, director, stage, intensity, cfg) {
+function computeCap(state, loc, director, stage, intensity, cfg, threat = {}) {
   const spawn = loc.spawn || {};
   const players = livingPlayerCount(state);
   const locTime = state.locationTime || 0;
@@ -240,11 +243,12 @@ function computeCap(state, loc, director, stage, intensity, cfg) {
           ? "intensity"
           : 0.42;
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "capMult", fallback), intensity);
-  const normalCap = Math.floor((capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult);
+  const threatCapMult = Number.isFinite(threat.capMult) ? threat.capMult : 1;
+  const normalCap = Math.floor((capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult * threatCapMult);
   return devSpawnCap(state, Math.max(players + 2, normalCap));
 }
 
-function computeBatch(state, loc, stage, intensity) {
+function computeBatch(state, loc, stage, intensity, threat = {}) {
   const spawn = loc.spawn || {};
   const players = livingPlayerCount(state);
   const locTime = state.locationTime || 0;
@@ -259,10 +263,11 @@ function computeBatch(state, loc, stage, intensity) {
         ? 0.55
         : 0;
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "batchMult", fallback), Math.max(0.75, intensity));
-  return devSpawnBatch(state, Math.max(1, Math.round(pressureBatch * phaseMult)));
+  const threatBatchMult = Number.isFinite(threat.batchMult) ? threat.batchMult : 1;
+  return devSpawnBatch(state, Math.max(1, Math.round(pressureBatch * phaseMult * threatBatchMult)));
 }
 
-function computeInterval(state, loc, stage, intensity) {
+function computeInterval(state, loc, stage, intensity, threat = {}) {
   const spawn = loc.spawn || {};
   const locTime = state.locationTime || 0;
   const intervalBase = spawn.intervalBase ?? 2.2;
@@ -276,7 +281,8 @@ function computeInterval(state, loc, stage, intensity) {
     if (Number.isFinite(interval.min)) phaseMult = Math.max(interval.min, phaseMult);
     if (Number.isFinite(interval.max)) phaseMult = Math.min(interval.max, phaseMult);
   }
-  return devSpawnInterval(state, pressureInterval * phaseMult);
+  const threatIntervalMult = Number.isFinite(threat.intervalMult) ? threat.intervalMult : 1;
+  return devSpawnInterval(state, pressureInterval * phaseMult * threatIntervalMult);
 }
 
 function enemyCost(kind) {
@@ -321,7 +327,8 @@ function makeBudgetedSpawnCommand(kind, options = {}) {
     budgeted: options.budgeted !== false,
     markBossSpawned: !!options.markBossSpawned,
     markEliteSpawned: !!options.markEliteSpawned,
-    event: options.event || null
+    event: options.event || null,
+    zone: options.zone || null
   });
 }
 
@@ -341,7 +348,7 @@ function planBossSpawnCommand(state, loc) {
   });
 }
 
-function planEliteCommand(state, loc, director, phase, enemyCount) {
+function planEliteCommand(state, loc, director, phase, enemyCount, stage, threat) {
   const locTime = state.locationTime || 0;
   if (director.eliteSpawned || phase !== DIRECTOR_PHASES.PRESSURE || locTime < director.eliteMomentAt) return null;
   if (enemyCount >= Math.max(1, director.enemyCap - 1)) return null;
@@ -350,6 +357,7 @@ function planEliteCommand(state, loc, director, phase, enemyCount) {
   if (!kind) return null;
   return makeBudgetedSpawnCommand(kind, {
     role: "elite",
+    zone: chooseSpawnZone(state, loc, stage, threat, "elite"),
     markEliteSpawned: true,
     event: { type: "director", phase: "elite", enemy: kind }
   });
@@ -361,14 +369,15 @@ function syncLegacySpawnFields(state, director) {
 }
 
 function updateDirectorPhase(state, loc, cfg, director, options = {}) {
+  const threat = options.threat || state.threat || {};
   const stage = selectEncounterStage(state, loc, cfg);
   const phase = stage?.phase || phaseFor(state, loc, cfg);
-  const intensity = intensityFor(state, loc, cfg, stage);
+  const intensity = intensityFor(state, loc, cfg, stage, threat);
   const policy = policyForStage(stage);
   director.encounterId = encounterPlanFor(loc).id;
   director.stageId = stage?.id || null;
   director.intensity = Number(intensity.toFixed(3));
-  director.enemyCap = computeCap(state, loc, director, stage, intensity, cfg);
+  director.enemyCap = computeCap(state, loc, director, stage, intensity, cfg, threat);
   director.policy = policy;
 
   if (phase !== director.phase || director.stageId !== director.lastStageId) {
@@ -396,15 +405,16 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
     director.spawnTimer = state.spawnTimer;
   }
 
+  const threat = updateThreatAnalyzer(state, dt, director, loc);
   const phaseCommands = [];
-  let { phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director, { commands: phaseCommands });
+  let { phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director, { commands: phaseCommands, threat });
   director.spawnTimer -= dt;
 
   const bossCommand = planBossSpawnCommand(state, loc);
   if (bossCommand) phaseCommands.push(bossCommand);
   executeCommands(state, director, phaseCommands, spawnEnemy);
 
-  ({ phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director));
+  ({ phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director, { threat }));
 
   if (areDevSpawnsPaused(state)) {
     syncLegacySpawnFields(state, director);
@@ -418,12 +428,12 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
     return;
   }
 
-  const eliteCommand = planEliteCommand(state, loc, director, phase, enemyCount);
+  const eliteCommand = planEliteCommand(state, loc, director, phase, enemyCount, stage, threat);
   if (eliteCommand) {
     const summary = executeCommands(state, director, [eliteCommand], spawnEnemy);
     if ((summary.spawnedByRole.elite || 0) > 0) {
       director.wave += 1;
-      director.spawnTimer = computeInterval(state, loc, stage, intensity) * 1.15;
+      director.spawnTimer = computeInterval(state, loc, stage, intensity, threat) * 1.15;
     }
     syncLegacySpawnFields(state, director);
     return;
@@ -434,7 +444,7 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
     return;
   }
 
-  const batch = computeBatch(state, loc, stage, intensity);
+  const batch = computeBatch(state, loc, stage, intensity, threat);
   const commands = [];
   const availableSlots = Math.max(0, director.enemyCap - enemyCount);
   const want = Math.min(batch, availableSlots);
@@ -445,13 +455,13 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
     if (!kind) break;
     const cost = enemyCost(kind);
     if (virtualBudget < cost) break;
-    commands.push(makeBudgetedSpawnCommand(kind, { role: "wave" }));
+    commands.push(makeBudgetedSpawnCommand(kind, { role: "wave", zone: chooseSpawnZone(state, loc, stage, threat, "wave") }));
     virtualBudget -= cost;
   }
 
   const summary = executeCommands(state, director, commands, spawnEnemy);
   if ((summary.spawnedByRole.wave || 0) > 0) director.wave += 1;
-  director.spawnTimer = computeInterval(state, loc, stage, intensity);
+  director.spawnTimer = computeInterval(state, loc, stage, intensity, threat);
   syncLegacySpawnFields(state, director);
 }
 
@@ -459,7 +469,7 @@ export function canOpenPortal(state) {
   const loc = locationForState(state);
   const cfg = getDirectorConfig(loc);
   const director = ensureDirectorState(state, loc);
-  updateDirectorPhase(state, loc, cfg, director);
+  updateDirectorPhase(state, loc, cfg, director, { threat: state.threat || {} });
   return !!director.policy?.canOpenPortal;
 }
 
@@ -467,7 +477,7 @@ export function directorSnapshot(state) {
   const loc = locationForState(state);
   const cfg = getDirectorConfig(loc);
   const director = ensureDirectorState(state, loc);
-  updateDirectorPhase(state, loc, cfg, director);
+  updateDirectorPhase(state, loc, cfg, director, { threat: state.threat || {} });
   return {
     encounterId: director.encounterId,
     stageId: director.stageId,
@@ -479,6 +489,7 @@ export function directorSnapshot(state) {
     wave: director.wave,
     eliteSpawned: !!director.eliteSpawned,
     canSpawn: !!director.policy?.canSpawn,
-    canOpenPortal: !!director.policy?.canOpenPortal
+    canOpenPortal: !!director.policy?.canOpenPortal,
+    threat: threatSnapshot(state)
   };
 }

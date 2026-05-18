@@ -4,6 +4,7 @@ export const ROOM_SEQUENCE = [
     name: "GRID 00",
     biome: "grid",
     encounter: "grid_intro_pressure",
+    spawnZones: ["edge_far", "edge_random"],
     portal: { delay: 5, hold: 1.1 }
   },
   {
@@ -11,6 +12,7 @@ export const ROOM_SEQUENCE = [
     name: "VOID 01",
     biome: "void",
     encounter: "void_pressure",
+    spawnZones: ["edge_far", "edge_flank", "corner_random"],
     portal: { delay: 7, hold: 1.15 },
     spawn: { boost: 1.04 }
   },
@@ -19,6 +21,7 @@ export const ROOM_SEQUENCE = [
     name: "CORE 02",
     biome: "core",
     encounter: "core_elite_pressure",
+    spawnZones: ["edge_flank", "corner_random", "edge_far"],
     portal: { delay: 8, hold: 1.2 },
     enemyPool: ["runner", "tank", "shooter"]
   },
@@ -27,6 +30,7 @@ export const ROOM_SEQUENCE = [
     name: "BOSS 03",
     biome: "boss",
     encounter: "boss_objective",
+    spawnZones: ["edge_far", "corner_random"],
     portal: { delay: 18, hold: 1.25 },
     boss: { enabled: true, kind: "boss", spawnAt: 4, x: 1200, y: 180 },
     director: { bossCapMult: 0.44, cleanupEnemyBase: 0, cleanupEnemyPerPlayer: 0 }
