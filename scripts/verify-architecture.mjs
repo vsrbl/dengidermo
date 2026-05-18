@@ -69,7 +69,7 @@ test('central damage pipeline is used for projectile and status damage', () => {
 });
 
 test('lifesteal description matches current non-status behavior', () => {
-  assert.match(UPGRADES.lifesteal.desc, /direct\/chain\/explosion/i, 'lifesteal description must exclude DoT/status healing');
+  assert.match(UPGRADES.lifesteal.desc, /weapon damage/i, 'lifesteal description must stay short and exclude DoT/status healing');
   const { state, p } = fresh('shotgun', ['lifesteal']);
   p.hp = 20;
   const e = spawnEnemy(state, 'boss', 640, 500);
@@ -103,10 +103,10 @@ test('effect defs have hooks and future-only defs are explicit', () => {
 });
 
 test('version strings are aligned across frontend/package/server', () => {
-  assert.equal(VERSION, 'v37.4');
-  assert.equal(pkg.version, '37.4.0');
-  assert.equal(serverPkg.version, '37.4.0');
-  assert.match(serverSrc, /v37\.4/, 'server banner is stale');
+  assert.equal(VERSION, 'v37.5');
+  assert.equal(pkg.version, '37.5.0');
+  assert.equal(serverPkg.version, '37.5.0');
+  assert.match(serverSrc, /v37\.5/, 'server banner is stale');
   assert.doesNotMatch(serverSrc, /v33\.1/, 'old server banner leaked through');
 });
 

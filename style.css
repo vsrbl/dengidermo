@@ -362,50 +362,6 @@ button:active {
   color: var(--rarity-accent);
 }
 
-.upgrade-fx,
-.upgrade-particles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1;
-}
-
-.upgrade-fx {
-  border: 1px solid var(--rarity-accent);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
-}
-
-.upgrade-particles::before,
-.upgrade-particles::after {
-  content: "";
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  left: 22px;
-  top: 18px;
-  background: var(--rarity-accent);
-  opacity: var(--particle-opacity);
-  box-shadow:
-    26px -5px 0 var(--rarity-accent),
-    54px 2px 0 var(--rarity-accent),
-    92px -3px 0 var(--rarity-accent),
-    132px 5px 0 var(--rarity-accent);
-  transform: scale(var(--particle-scale));
-}
-
-.upgrade-particles::after {
-  top: auto;
-  bottom: 15px;
-  left: 38px;
-  width: 2px;
-  height: 2px;
-  box-shadow:
-    22px -6px 0 var(--rarity-accent),
-    76px -2px 0 var(--rarity-accent),
-    118px -8px 0 var(--rarity-accent);
-}
-
 .upgrade-choice.rarity-common { --rarity-accent: var(--rarity-common); }
 .upgrade-choice.rarity-uncommon { --rarity-accent: var(--rarity-uncommon); }
 .upgrade-choice.rarity-rare { --rarity-accent: var(--rarity-rare); }
@@ -417,34 +373,8 @@ button:active {
   opacity: 0.62;
 }
 
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-common {
-  animation: upgradeRevealCommon var(--reveal-duration, 220ms) steps(2, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-uncommon {
-  animation: upgradeRevealUncommon var(--reveal-duration, 260ms) steps(3, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-rare {
-  animation: upgradeRevealRare var(--reveal-duration, 320ms) steps(4, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-epic {
-  animation: upgradeRevealEpic var(--reveal-duration, 380ms) steps(5, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-legendary,
-.upgrade-panel.reveal-seq .upgrade-choice.reveal-corrupted {
-  animation: upgradeRevealLegendary var(--reveal-duration, 460ms) steps(6, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal .upgrade-fx {
-  animation: upgradeFxBurst calc(var(--reveal-duration, 260ms) + 130ms) steps(3, end) var(--reveal-delay, 0ms) 1 both;
-}
-
-.upgrade-panel.reveal-seq .upgrade-choice.reveal .upgrade-particles::before,
-.upgrade-panel.reveal-seq .upgrade-choice.reveal .upgrade-particles::after {
-  animation: upgradeParticles calc(var(--reveal-duration, 260ms) + 180ms) linear var(--reveal-delay, 0ms) 1 both;
+.upgrade-panel.reveal-seq .upgrade-choice.reveal {
+  animation: upgradeReveal var(--reveal-duration, 220ms) steps(2, end) var(--reveal-delay, 0ms) 1 both;
 }
 
 .upgrade-choice.selected {
@@ -454,58 +384,10 @@ button:active {
   animation: upgradeSelect 170ms steps(2, end) 1;
 }
 
-@keyframes upgradeRevealCommon {
+@keyframes upgradeReveal {
   0% { opacity: 0; transform: translateY(7px); }
   50% { opacity: 1; transform: translateY(-1px); }
   100% { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes upgradeRevealUncommon {
-  0% { opacity: 0; transform: translateY(9px); }
-  28% { opacity: 1; transform: translateY(-2px) translateX(-1px); }
-  58% { transform: translateY(1px) translateX(1px); }
-  100% { opacity: 1; transform: translateY(0) translateX(0); }
-}
-
-@keyframes upgradeRevealRare {
-  0% { opacity: 0; transform: translateY(12px) scale(0.985); filter: brightness(1); }
-  20% { opacity: 1; transform: translateY(-3px) translateX(-2px) scale(1.01); }
-  42% { transform: translateY(1px) translateX(2px); }
-  64% { transform: translateY(-1px) translateX(-1px); filter: brightness(1.12); }
-  100% { opacity: 1; transform: translateY(0) translateX(0) scale(1); filter: brightness(1); }
-}
-
-@keyframes upgradeRevealEpic {
-  0% { opacity: 0; transform: translateY(15px) scale(0.97); filter: brightness(1); }
-  16% { opacity: 1; transform: translateY(-4px) translateX(-3px) scale(1.018); }
-  31% { transform: translateY(2px) translateX(3px); }
-  46% { transform: translateY(-2px) translateX(-2px); filter: brightness(1.18); }
-  66% { transform: translateY(1px) translateX(1px); }
-  100% { opacity: 1; transform: translateY(0) translateX(0) scale(1); filter: brightness(1); }
-}
-
-@keyframes upgradeRevealLegendary {
-  0% { opacity: 0; transform: translateY(18px) scale(0.955); filter: brightness(1); }
-  12% { opacity: 1; transform: translateY(-5px) translateX(-4px) scale(1.025); }
-  24% { transform: translateY(3px) translateX(4px); }
-  36% { transform: translateY(-3px) translateX(-3px); filter: brightness(1.24); }
-  50% { transform: translateY(2px) translateX(3px); }
-  68% { transform: translateY(-1px) translateX(-1px); }
-  100% { opacity: 1; transform: translateY(0) translateX(0) scale(1); filter: brightness(1); }
-}
-
-@keyframes upgradeFxBurst {
-  0% { opacity: 0; }
-  18% { opacity: 1; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 12px rgba(255,255,255,0.04); }
-  58% { opacity: 0.72; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.035), 0 0 6px rgba(255,255,255,0.03); }
-  100% { opacity: 0; box-shadow: none; }
-}
-
-@keyframes upgradeParticles {
-  0% { opacity: 0; transform: translateY(8px) scale(calc(0.6 * var(--particle-scale))); }
-  18% { opacity: var(--particle-opacity); }
-  58% { opacity: calc(var(--particle-opacity) * 0.75); transform: translateY(-3px) translateX(4px) scale(var(--particle-scale)); }
-  100% { opacity: 0; transform: translateY(-10px) translateX(8px) scale(calc(1.15 * var(--particle-scale))); }
 }
 
 @keyframes upgradeSelect {

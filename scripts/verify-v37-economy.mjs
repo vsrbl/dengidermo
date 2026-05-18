@@ -74,16 +74,14 @@ test('synergy rules are data-driven and influence offers without UI hardcoding',
   assert.match(gameUpgradesSrc, /rollUpgradeOffer/, 'game upgrade offers do not use economy offer generator');
   assert.match(uiSrc, /upgrade-meta/, 'UI does not render rarity/synergy metadata');
   assert.match(uiSrc, /upgrade-rarity/, 'UI does not render rarity badge');
-  assert.match(uiSrc, /upgrade-particles/, 'UI does not render reveal particles');
   assert.match(uiSrc, /reveal-seq/, 'UI does not use sequential reveal flow');
-  assert.match(uiSrc, /index \* 220/, 'UI reveal is not staggered left-to-right');
-  for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary']) {
-    assert.match(uiSrc, new RegExp(`reveal-\\$\\{rarity\\}`), 'UI does not attach rarity-specific reveal classes');
-    assert.match(styleSrc, new RegExp(`upgradeReveal${rarity[0].toUpperCase()}${rarity.slice(1)}`), `${rarity} has no unique reveal animation`);
-  }
+  assert.doesNotMatch(uiSrc, /reveal-\$\{rarity\}|upgrade-particles|upgrade-fx/, 'UI should use one lightweight reveal animation for every rarity');
+  assert.match(uiSrc, /index \* 180/, 'UI reveal is not staggered left-to-right');
+  assert.match(styleSrc, /@keyframes upgradeReveal/, 'shared lightweight reveal animation is missing');
+  assert.doesNotMatch(styleSrc, /upgradeRevealRare|upgradeRevealEpic|upgradeRevealLegendary/, 'rarity-specific reveal animations should not exist in v37.5');
   assert.match(uiSrc, /revealUntil/, 'UI reveal state is not persisted across repeated snapshots');
   assert.match(uiSrc, /revealActive/, 'UI does not keep reveal classes alive during delayed animations');
-  assert.match(uiSrc, /index \* 220/, 'UI reveal is not clearly staggered left-to-right');
+  assert.match(uiSrc, /index \* 180/, 'UI reveal is not clearly staggered left-to-right');
   const { state, p } = base('SYNERGY-OFFER');
   p.upgrades.taken.burnMark = 1;
   const chain = synergyOfferMeta(p, 'chainFork', UPGRADES.chainFork);
