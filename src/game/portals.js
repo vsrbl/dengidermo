@@ -6,6 +6,7 @@ import { offerUpgradesToPlayers } from "./upgrades.js";
 import { healPlayer } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { devPortalDelay, devPortalHold } from "./dev.js";
+import { resetDirectorState } from "./director.js";
 
 const PORTAL_RADIUS = 58;
 const PORTAL_MARGIN = 12;
@@ -27,6 +28,7 @@ export function initLocation(state, index = 0) {
   state.spawnTimer = 0.8;
   state.wave = 0;
   state.bossSpawned = false;
+  resetDirectorState(state, loc);
   state.portals = {};
   createExitPortal(state);
   return loc;

@@ -1,10 +1,10 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2, norm } from "../core/math.js";
-import { ENEMIES, ENEMY_WAVES } from "../data/enemies.js";
-import { currentLocation } from "./portals.js";
-import { nextId, pushEvent } from "./state.js";
+import { ENEMIES } from "../data/enemies.js";
+import { nextId } from "./state.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "./effects.js";
-import { areDevSpawnsPaused, devEnemyDamageMult, devEnemySpeedMult, devSpawnBatch, devSpawnCap, devSpawnInterval } from "./dev.js";
+import { devEnemyDamageMult, devEnemySpeedMult } from "./dev.js";
+import { updateDirectorSpawner } from "./director.js";
 
 function nearestAlivePlayer(state, x, y) {
   let best = null;
@@ -49,46 +49,8 @@ export function spawnEnemy(state, kind, x = null, y = null) {
 }
 
 export function updateSpawner(state, dt) {
-  const playerCount = Math.max(1, Object.keys(state.players).length);
-  const enemyCount = Object.keys(state.enemies).length;
-  state.spawnTimer -= dt;
-  if (areDevSpawnsPaused(state)) return;
-
-  const loc = currentLocation(state);
-  const locTime = state.locationTime || 0;
-  const spawn = loc.spawn || {};
-  const boss = loc.boss || {};
-
-  if (!state.bossSpawned && boss.enabled && locTime >= (boss.spawnAt ?? 12)) {
-    state.bossSpawned = true;
-    const x = Number.isFinite(boss.x) ? boss.x : WORLD.w / 2;
-    const y = Number.isFinite(boss.y) ? boss.y : 180;
-    spawnEnemy(state, boss.kind || "boss", x, y);
-    pushEvent(state, { type: "boss", x, y });
-  }
-
-  const capBase = spawn.capBase ?? 24;
-  const capPerPlayer = spawn.capPerPlayer ?? 8;
-  const capGrowthTime = spawn.capGrowthTime ?? 18;
-  const capGrowthMax = spawn.capGrowthMax ?? 18;
-  const capGrowth = Math.min(capGrowthMax, Math.floor(locTime / Math.max(1, capGrowthTime)));
-  const normalCap = Math.floor((capBase + playerCount * capPerPlayer + capGrowth) * (loc.spawnBoost || 1));
-  const cap = devSpawnCap(state, normalCap);
-  if (enemyCount >= cap || state.spawnTimer > 0) return;
-
-  const batchBase = spawn.batchBase ?? 2;
-  const batchGrowthTime = spawn.batchGrowthTime ?? 35;
-  const batch = devSpawnBatch(state, batchBase + Math.floor(locTime / Math.max(1, batchGrowthTime)) + playerCount);
-  const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
-  for (let i = 0; i < batch; i += 1) {
-    const kind = state.rng.pick(pool);
-    spawnEnemy(state, kind);
-  }
-  state.wave += 1;
-  const intervalBase = spawn.intervalBase ?? 2.2;
-  const intervalMin = spawn.intervalMin ?? 0.45;
-  const intervalScale = spawn.intervalScale ?? 0.006;
-  state.spawnTimer = devSpawnInterval(state, Math.max(intervalMin, intervalBase - locTime * intervalScale));
+  // v38: enemies.js owns enemy entities and movement; room pacing decisions live in director.js.
+  updateDirectorSpawner(state, dt, spawnEnemy);
 }
 
 export function updateEnemies(state, dt) {

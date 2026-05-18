@@ -48,11 +48,11 @@ run("dev state is host-owned and visible in snapshot only as status", () => {
   assert.equal("access" in snap.dev, false);
 });
 
-run("calm profile keeps a real but lower threat game", () => {
+run("calm profile keeps a real but lower threat pressure phase", () => {
   const state = makeDevState();
   assert.ok(devEnemySpeedMult(state) > 0 && devEnemySpeedMult(state) < 1);
   assert.ok(devEnemyDamageMult(state) > 0 && devEnemyDamageMult(state) < 1);
-  state.locationTime = 120;
+  state.locationTime = 1.0;
   for (let i = 0; i < 24; i += 1) {
     state.spawnTimer = 0;
     updateSpawner(state, 0.2);
@@ -60,13 +60,14 @@ run("calm profile keeps a real but lower threat game", () => {
   const count = Object.keys(state.enemies).length;
   assert.ok(count >= 1, `expected enemies, got ${count}`);
   assert.ok(count <= 10, `calm cap exceeded: ${count}`);
+  assert.equal(state.director.phase, "pressure");
 });
 
 run("spawn pause stops new enemies without freezing the world", () => {
   const state = makeDevState();
   applyDevCommand(state, "toggle-spawns");
   assert.equal(areDevSpawnsPaused(state), true);
-  state.locationTime = 99;
+  state.locationTime = 1.0;
   state.spawnTimer = 0;
   updateSpawner(state, 1);
   assert.equal(Object.keys(state.enemies).length, 0);
