@@ -3,11 +3,20 @@ import { angleToVec, clamp, dist2, norm, segmentCircleHit } from "../core/math.j
 import { SpatialGrid } from "../core/spatialGrid.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { ENEMIES } from "../data/enemies.js";
-import { applyProjectileStatuses, cloneEffect, getEffect, resolveProjectileDamage, tickEnemyStatuses } from "./effects.js";
+import {
+  applyProjectileStatuses,
+  cloneEffect,
+  getEffect,
+  healProjectileOwner,
+  resolveProjectileDamage,
+  sourceId,
+  tickEnemyStatuses
+} from "./effects.js";
 import { dropLoot } from "./loot.js";
-import { pushEvent } from "./state.js";
+import { nextId, pushEvent } from "./state.js";
 
 const enemyGrid = new SpatialGrid(112);
+const CHILD_DEPTH_MAX = 2;
 
 function rebuildEnemyGrid(state) {
   enemyGrid.clear();
@@ -21,6 +30,7 @@ function nearestEnemy(state, projectile, maxRange = 620) {
   let bestD = maxRange * maxRange;
   for (const e of enemyGrid.query(projectile.x, projectile.y, maxRange)) {
     if (!state.enemies[e.id]) continue;
+    if (projectile.hitIds?.[e.id]) continue;
     const d = dist2(projectile.x, projectile.y, e.x, e.y);
     if (d < bestD) {
       bestD = d;
@@ -31,11 +41,12 @@ function nearestEnemy(state, projectile, maxRange = 620) {
   return best;
 }
 
-function killEnemy(state, enemy) {
+function killEnemy(state, enemy, source = null) {
   if (!state.enemies[enemy.id]) return;
   const data = ENEMIES[enemy.kind];
-  dropLoot(state, enemy.x, enemy.y, enemy.kind === "boss" ? 1 : 0.32);
-  pushEvent(state, { type: "kill", kind: enemy.kind, x: enemy.x, y: enemy.y, score: data.score });
+  const sid = sourceId(source);
+  dropLoot(state, enemy.x, enemy.y, enemy.kind === "boss" ? 1 : 0.32, sid);
+  pushEvent(state, { type: "kill", kind: enemy.kind, x: enemy.x, y: enemy.y, score: data.score, sourceId: sid });
   delete state.enemies[enemy.id];
 }
 
@@ -45,7 +56,7 @@ function addImpulse(enemy, fromX, fromY, force) {
   enemy.ky = (enemy.ky || 0) + d.y * force;
 }
 
-function addSpark(state, x, y, amount = 3, power = 110) {
+function addSpark(state, x, y, amount = 3, power = 110, color = GREEN) {
   for (let i = 0; i < amount; i += 1) {
     const a = state.rng.range(0, Math.PI * 2);
     const v = state.rng.range(power * 0.45, power);
@@ -57,7 +68,7 @@ function addSpark(state, x, y, amount = 3, power = 110) {
       vy: Math.round(Math.sin(a) * v),
       life: 0.18,
       maxLife: 0.18,
-      color: GREEN
+      color
     });
   }
 }
@@ -67,71 +78,200 @@ function tickEnemyStatusDamage(state, dt) {
     const tick = tickEnemyStatuses(enemy, dt);
     if (tick.damage > 0) {
       enemy.hp -= tick.damage;
-      if (tick.burned && state.rng.next() < 5 * dt) {
-        addSpark(state, enemy.x, enemy.y, 1, 80);
-      }
-      if (enemy.hp <= 0) killEnemy(state, enemy);
+      if (tick.active && state.rng.next() < 5 * dt) addSpark(state, enemy.x, enemy.y, 1, 80);
+      if (enemy.hp <= 0) killEnemy(state, enemy, tick.sources?.[0] || null);
     }
   }
 }
 
 function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = enemy.x, eventY = enemy.y) {
-  const hit = resolveProjectileDamage(state, projectile, baseDamage);
+  const hit = resolveProjectileDamage(state, projectile, baseDamage, enemy);
+  const before = Math.max(0, enemy.hp || 0);
   enemy.hp -= hit.amount;
-  pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical });
+  const done = Math.min(before, hit.amount);
+  healProjectileOwner(state, projectile, done);
+  pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical, sourceId: projectile.ownerId });
   if (hit.critical) addSpark(state, eventX, eventY, 5, 190);
   return hit;
 }
 
-function explode(state, projectile, effect) {
+function explode(state, projectile, effect, x = projectile.x, y = projectile.y) {
   const radius = (effect.radius || 80) * (projectile.explosionRadiusMult || 1);
   const damage = (effect.damage || projectile.damage) * (projectile.explosionDamageMult || 1);
   const force = (effect.force || 220) * (projectile.knockbackMult || 1);
 
-  for (const e of enemyGrid.query(projectile.x, projectile.y, radius + 80)) {
+  for (const e of enemyGrid.query(x, y, radius + 80)) {
     if (!state.enemies[e.id]) continue;
     const r = radius + e.radius;
-    if (dist2(projectile.x, projectile.y, e.x, e.y) > r * r) continue;
-    const falloff = Math.max(0.35, 1 - Math.sqrt(dist2(projectile.x, projectile.y, e.x, e.y)) / Math.max(1, r));
+    const d2 = dist2(x, y, e.x, e.y);
+    if (d2 > r * r) continue;
+    const falloff = Math.max(0.35, 1 - Math.sqrt(d2) / Math.max(1, r));
     dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y);
     applyProjectileStatuses(projectile, e);
-    addImpulse(e, projectile.x, projectile.y, force * falloff);
-    if (e.hp <= 0) killEnemy(state, e);
+    addImpulse(e, x, y, force * falloff);
+    if (e.hp <= 0) killEnemy(state, e, projectile);
   }
 
   const life = effect.visual === "large" ? 0.36 : 0.24;
   state.effects.push({
     type: "explosion",
-    x: Math.round(projectile.x),
-    y: Math.round(projectile.y),
+    x: Math.round(x),
+    y: Math.round(y),
     r: radius,
     life,
     maxLife: life,
     color: GREEN
   });
-  addSpark(state, projectile.x, projectile.y, effect.visual === "large" ? 14 : 7, effect.visual === "large" ? 260 : 170);
-  pushEvent(state, { type: "explosion", x: projectile.x, y: projectile.y, radius });
+  addSpark(state, x, y, effect.visual === "large" ? 14 : 7, effect.visual === "large" ? 260 : 170);
+  pushEvent(state, { type: "explosion", x, y, radius, sourceId: projectile.ownerId });
 }
 
-function detonateProjectile(state, projectile) {
+function chainLightning(state, projectile, firstEnemy, effect) {
+  const jumps = Math.max(0, Math.floor(effect.jumps || 0));
+  if (!jumps || !firstEnemy) return;
+  const range = effect.range || 260;
+  const falloff = Math.max(0.1, Math.min(1, effect.falloff || 0.72));
+  let damage = effect.damage || Math.max(4, projectile.damage * 0.55);
+  let from = firstEnemy;
+  const hit = new Set([firstEnemy.id]);
+
+  for (let i = 0; i < jumps; i += 1) {
+    let best = null;
+    let bestD = range * range;
+    for (const e of enemyGrid.query(from.x, from.y, range)) {
+      if (!state.enemies[e.id] || hit.has(e.id)) continue;
+      const d = dist2(from.x, from.y, e.x, e.y);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    if (!best) break;
+    hit.add(best.id);
+    dealProjectileDamage(state, projectile, best, damage, best.x, best.y);
+    state.effects.push({
+      type: "chain",
+      x: Math.round(from.x),
+      y: Math.round(from.y),
+      x2: Math.round(best.x),
+      y2: Math.round(best.y),
+      life: 0.14,
+      maxLife: 0.14,
+      color: GREEN
+    });
+    if (best.hp <= 0) killEnemy(state, best, projectile);
+    from = best;
+    damage *= falloff;
+  }
+}
+
+function spawnSplitProjectiles(state, projectile, effect) {
+  const depth = projectile.childDepth || 0;
+  if (depth >= CHILD_DEPTH_MAX) return;
+  const count = Math.max(0, Math.min(12, Math.floor(effect.count || 0)));
+  if (!count) return;
+  const baseAngle = Math.atan2(projectile.vy || 0, projectile.vx || 1);
+  const spread = effect.spread ?? Math.PI * 0.92;
+  const speed = effect.speed || projectile.speed * 0.82;
+  const damage = effect.damage || projectile.damage * 0.45;
+  const childEffects = (projectile.effects || [])
+    .filter((e) => e.type !== "splitRockets")
+    .map((e) => cloneEffect(e));
+
+  for (let i = 0; i < count; i += 1) {
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const angle = baseAngle - spread / 2 + spread * t;
+    const dir = angleToVec(angle);
+    const id = nextId("pr");
+    state.projectiles[id] = {
+      ...projectile,
+      id,
+      x: projectile.x + dir.x * 14,
+      y: projectile.y + dir.y * 14,
+      vx: dir.x * speed,
+      vy: dir.y * speed,
+      speed,
+      damage,
+      radius: Math.max(3, projectile.radius * 0.68),
+      distance: 0,
+      range: Math.min(projectile.range || 520, effect.range || 460),
+      life: Math.min(projectile.life || 0.55, 0.75),
+      effects: childEffects,
+      hitIds: {},
+      pierced: 0,
+      ricocheted: 0,
+      exploded: false,
+      expiredEffectsFired: false,
+      childDepth: depth + 1,
+      targetId: null
+    };
+  }
+}
+
+function spawnClusterExplosions(state, projectile, effect) {
+  const count = Math.max(0, Math.min(16, Math.floor(effect.count || 0)));
+  if (!count) return;
+  const radius = effect.radius || 46;
+  const damage = effect.damage || projectile.damage * 0.42;
+  for (let i = 0; i < count; i += 1) {
+    const a = state.rng.range(0, Math.PI * 2);
+    const d = state.rng.range(18, effect.spread || 120);
+    explode(state, projectile, { type: "explode", radius, damage, force: effect.force || 110, visual: "small" }, projectile.x + Math.cos(a) * d, projectile.y + Math.sin(a) * d);
+  }
+}
+
+function fireExpireEffects(state, projectile) {
+  if (projectile.expiredEffectsFired) return;
+  projectile.expiredEffectsFired = true;
+
   const explodeEffect = getEffect(projectile, "explode");
   if (explodeEffect && !projectile.exploded) {
     projectile.exploded = true;
     explode(state, projectile, explodeEffect);
   }
+
+  const split = getEffect(projectile, "splitRockets");
+  if (split) spawnSplitProjectiles(state, projectile, split);
+
+  const cluster = getEffect(projectile, "clusterBomb");
+  if (cluster) spawnClusterExplosions(state, projectile, cluster);
+
+  const shake = getEffect(projectile, "screenShake");
+  if (shake?.power > 0) {
+    state.effects.push({
+      type: "shake",
+      power: Math.min(14, shake.power),
+      life: 0.18,
+      maxLife: 0.18
+    });
+  }
+}
+
+function registerHit(projectile, enemy) {
+  if (!projectile.hitIds) projectile.hitIds = {};
+  projectile.hitIds[enemy.id] = true;
+}
+
+function canHit(projectile, enemy) {
+  return !projectile.hitIds?.[enemy.id];
 }
 
 function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
+  registerHit(projectile, enemy);
   const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
   applyProjectileStatuses(projectile, enemy);
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
-  addSpark(state, enemy.x, enemy.y, hit.critical ? 6 : (projectile.kind === "bullet" ? 2 : 4), hit.critical ? 210 : 120);
-  if (enemy.hp <= 0) killEnemy(state, enemy);
+
+  const spark = getEffect(projectile, "spark");
+  const sparkCount = spark?.count ?? (projectile.kind === "bullet" ? 2 : 4);
+  addSpark(state, enemy.x, enemy.y, hit.critical ? Math.max(6, sparkCount + 3) : sparkCount, hit.critical ? 210 : 120);
+
+  const chain = getEffect(projectile, "chainLightning");
+  if (chain) chainLightning(state, projectile, enemy, chain);
+
+  if (enemy.hp <= 0) killEnemy(state, enemy, projectile);
 
   const explodeEffect = getEffect(projectile, "explode");
   if (explodeEffect) {
-    detonateProjectile(state, projectile);
+    fireExpireEffects(state, projectile);
     return true;
   }
 
@@ -144,8 +284,13 @@ function applyProjectileHit(state, projectile, enemy) {
 }
 
 function applyHoming(state, projectile, _weapon, dt) {
-  const homing = getEffect(projectile, "homing");
-  if (!homing) return;
+  const baseHoming = getEffect(projectile, "homing");
+  const core = getEffect(projectile, "homingCore");
+  if (!baseHoming && !core) return;
+  const homing = {
+    strength: (baseHoming?.strength || 0) + (core?.strength || 0),
+    acquireRange: Math.max(baseHoming?.acquireRange || 0, core?.acquireRange || 0, 620)
+  };
   const target = nearestEnemy(state, projectile, homing.acquireRange || 620);
   if (!target) return;
 
@@ -159,6 +304,32 @@ function applyHoming(state, projectile, _weapon, dt) {
   projectile.vy = nd.y * projectile.speed;
 }
 
+function handleWallOrEnd(state, projectile) {
+  const outX = projectile.x < 0 || projectile.x > WORLD.w;
+  const outY = projectile.y < 0 || projectile.y > WORLD.h;
+  const out = outX || outY;
+  const exhausted = projectile.life <= 0 || projectile.distance >= projectile.range;
+  if (!out && !exhausted) return false;
+
+  if (out) {
+    const ricochet = getEffect(projectile, "ricochet");
+    if (ricochet && projectile.ricocheted < (ricochet.count || 0)) {
+      projectile.ricocheted += 1;
+      projectile.x = clamp(projectile.x, 0, WORLD.w);
+      projectile.y = clamp(projectile.y, 0, WORLD.h);
+      if (outX) projectile.vx *= -1;
+      if (outY) projectile.vy *= -1;
+      projectile.targetId = null;
+      projectile.hitIds = {};
+      addSpark(state, projectile.x, projectile.y, 3, 150);
+      return false;
+    }
+  }
+
+  fireExpireEffects(state, projectile);
+  return true;
+}
+
 export function updateProjectiles(state, dt) {
   tickEnemyStatusDamage(state, dt);
   rebuildEnemyGrid(state);
@@ -168,7 +339,7 @@ export function updateProjectiles(state, dt) {
     const prevX = p.x;
     const prevY = p.y;
 
-    if (p.kind === "homing") applyHoming(state, p, weapon, dt);
+    applyHoming(state, p, weapon, dt);
 
     p.x += p.vx * dt;
     p.y += p.vy * dt;
@@ -179,18 +350,14 @@ export function updateProjectiles(state, dt) {
     const sweep = Math.hypot(p.x - prevX, p.y - prevY);
     const range = p.radius + sweep + 64;
     for (const e of enemyGrid.query(p.x, p.y, range)) {
-      if (!state.enemies[e.id]) continue;
+      if (!state.enemies[e.id] || !canHit(p, e)) continue;
       const hitRadius = e.radius + p.radius + (weapon.hitPadding || 3);
       if (!segmentCircleHit(prevX, prevY, p.x, p.y, e.x, e.y, hitRadius)) continue;
       remove = applyProjectileHit(state, p, e);
       if (remove) break;
     }
 
-    const ended = p.x < 0 || p.x > WORLD.w || p.y < 0 || p.y > WORLD.h || p.life <= 0 || p.distance >= p.range;
-    if (ended) {
-      detonateProjectile(state, p, weapon);
-      remove = true;
-    }
+    if (!remove) remove = handleWallOrEnd(state, p);
     if (remove) delete state.projectiles[p.id];
   }
 
@@ -221,7 +388,11 @@ export function makeProjectile({ id, ownerId, weaponId, x, y, angle, pelletIndex
     effects: projectileEffects,
     pelletIndex,
     pierced: 0,
+    ricocheted: 0,
     exploded: false,
-    targetId: null
+    expiredEffectsFired: false,
+    targetId: null,
+    hitIds: {},
+    childDepth: 0
   };
 }

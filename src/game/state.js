@@ -6,6 +6,7 @@ import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
 import { enemyStatusSnapshot } from "./effects.js";
+import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
 
 let entitySeq = 1;
 
@@ -14,10 +15,10 @@ export function nextId(prefix) {
   return `${prefix}${entitySeq}`;
 }
 
-export function createGameState(roomId) {
+export function createGameState(roomId, options = {}) {
   entitySeq = 1;
   const location = getLocation(0);
-  return {
+  const state = {
     roomId,
     tick: 0,
     time: 0,
@@ -41,6 +42,10 @@ export function createGameState(roomId) {
     wave: 0,
     bossSpawned: false
   };
+  installDevMode(state, options.dev);
+  state.portalReadyAt = devPortalDelay(state, location.portalDelay);
+  state.portalHold = devPortalHold(state, location.portalHold);
+  return state;
 }
 
 export function spawnPoint(index = 0) {
@@ -135,6 +140,7 @@ export function makeSnapshot(state) {
       inventory: inventorySnapshot(p),
       upgrades: upgradeSnapshot(p),
       stats: { ...(p.stats || {}) },
+      shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
       skin: p.skin,
       vx: Number((p.vx || 0).toFixed(1)),
       vy: Number((p.vy || 0).toFixed(1))
@@ -176,6 +182,7 @@ export function makeSnapshot(state) {
       targetIndex: p.targetIndex
     })),
     effects: state.effects.slice(-48).map((e) => ({ ...e })),
-    events: state.events.slice(-16).map((e) => ({ ...e }))
+    events: state.events.slice(-16).map((e) => ({ ...e })),
+    dev: devSnapshot(state)
   };
 }

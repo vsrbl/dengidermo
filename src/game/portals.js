@@ -3,6 +3,7 @@ import { clamp, dist2 } from "../core/math.js";
 import { getLocation } from "../data/locations.js";
 import { nextId, pushEvent, spawnPoint } from "./state.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
+import { devPortalDelay, devPortalHold } from "./dev.js";
 
 const PORTAL_RADIUS = 58;
 const PORTAL_MARGIN = 12;
@@ -19,8 +20,8 @@ export function initLocation(state, index = 0) {
   state.biomeId = loc.biomeId;
   state.biomeName = loc.biomeName;
   state.locationTime = 0;
-  state.portalReadyAt = loc.portalDelay;
-  state.portalHold = loc.portalHold;
+  state.portalReadyAt = devPortalDelay(state, loc.portalDelay);
+  state.portalHold = devPortalHold(state, loc.portalHold);
   state.spawnTimer = 0.8;
   state.wave = 0;
   state.bossSpawned = false;

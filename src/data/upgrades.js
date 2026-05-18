@@ -93,6 +93,149 @@ export const UPGRADES = {
     effects: [
       { type: "burn", dps: 7, duration: 1.8 }
     ]
+  },
+
+  ricochetCore: {
+    id: "ricochetCore",
+    name: "RICOCHET CORE",
+    desc: "shots bounce from walls",
+    weight: 3,
+    maxStacks: 3,
+    effects: [
+      { type: "ricochet", count: 1 }
+    ]
+  },
+
+  chainFork: {
+    id: "chainFork",
+    name: "CHAIN FORK",
+    desc: "hits arc to another enemy",
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "chainLightning", jumps: 1, damage: 8, range: 230, falloff: 0.72 }
+    ]
+  },
+
+  poisonLeak: {
+    id: "poisonLeak",
+    name: "POISON LEAK",
+    desc: "hits add slow poison",
+    weight: 2,
+    maxStacks: 4,
+    effects: [
+      { type: "poison", dps: 4, duration: 2.4, slow: 0.08 }
+    ]
+  },
+
+  freezeByte: {
+    id: "freezeByte",
+    name: "FREEZE BYTE",
+    desc: "hits slow enemies",
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "freeze", duration: 1.15, slow: 0.18 }
+    ]
+  },
+
+  homingCore: {
+    id: "homingCore",
+    name: "HOMING CORE",
+    desc: "+homing strength",
+    weight: 2,
+    maxStacks: 4,
+    effects: [
+      { type: "homingCore", weaponIds: ["seeker"], strength: 2.5, acquireRange: 100 }
+    ]
+  },
+
+  splitRockets: {
+    id: "splitRockets",
+    name: "SPLIT ROCKETS",
+    desc: "rockets split on detonation",
+    weight: 1,
+    maxStacks: 2,
+    effects: [
+      { type: "splitRockets", weaponIds: ["rocket"], count: 2, damage: 10, speed: 520, range: 420 }
+    ]
+  },
+
+  clusterBomb: {
+    id: "clusterBomb",
+    name: "CLUSTER BOMB",
+    desc: "explosions spawn fragments",
+    weight: 1,
+    maxStacks: 2,
+    effects: [
+      { type: "clusterBomb", weaponIds: ["rocket"], count: 3, radius: 38, damage: 12, spread: 118 }
+    ]
+  },
+
+  magnet: {
+    id: "magnet",
+    name: "MAGNET",
+    desc: "loot drifts toward you",
+    weight: 3,
+    maxStacks: 4,
+    effects: [
+      { type: "magnet", scope: "player", radius: 90, force: 260 }
+    ]
+  },
+
+  luck: {
+    id: "luck",
+    name: "LUCK",
+    desc: "+loot drop chance",
+    weight: 2,
+    maxStacks: 4,
+    effects: [
+      { type: "luck", scope: "player", dropChance: 0.045, rare: 0.08 }
+    ]
+  },
+
+  shield: {
+    id: "shield",
+    name: "SHIELD",
+    desc: "blocks one touch hit",
+    weight: 2,
+    maxStacks: 2,
+    effects: [
+      { type: "shield", scope: "player", charges: 1, cooldown: 7.5 }
+    ]
+  },
+
+  lifesteal: {
+    id: "lifesteal",
+    name: "LIFESTEAL",
+    desc: "heal from damage dealt",
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "lifesteal", percent: 0.035 }
+    ]
+  },
+
+  berserk: {
+    id: "berserk",
+    name: "BERSERK",
+    desc: "+damage at low HP",
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "berserk", damage: 0.18, threshold: 0.36 }
+    ]
+  },
+
+  teamAura: {
+    id: "teamAura",
+    name: "TEAM AURA",
+    desc: "+damage near allies",
+    weight: 2,
+    maxStacks: 3,
+    effects: [
+      { type: "teamAura", damage: 0.08, radius: 210 }
+    ]
   }
 };
 

@@ -1,11 +1,14 @@
 {
   "name": "nncckkrr-space",
-  "version": "33.0.0",
+  "version": "33.3.0",
   "private": true,
   "type": "commonjs",
   "engines": { "node": "20.x" },
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "check:effects": "node scripts/verify-effects.mjs",
+    "check:dev": "node scripts/verify-dev.mjs",
+    "check:all": "npm run check:effects && npm run check:dev"
   },
   "dependencies": {
     "ws": "^8.18.0"

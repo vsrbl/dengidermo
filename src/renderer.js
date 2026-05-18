@@ -110,6 +110,11 @@ function drawPlayer(ctx, p, cam, isLocal) {
   const ax = Math.cos(p.angle || 0);
   const ay = Math.sin(p.angle || 0);
   drawRect(ctx, s.x + ax * 16 - 2, s.y + ay * 16 - 2, 4, 4, isLocal ? GREEN : "#fff");
+  if (p.shield?.charges > 0) {
+    ctx.strokeStyle = "rgba(0,255,102,0.62)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r - 5), Math.round(s.y - r - 5), r * 2 + 10, r * 2 + 10);
+  }
 
   const hpW = 28;
   const hp = Math.max(0, Math.min(1, p.hp / (p.maxHp || 100)));
@@ -125,11 +130,14 @@ function drawEnemy(ctx, e, cam) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#fff");
   drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, "#050505");
   if (e.kind === "boss") drawText(ctx, "BOSS", s.x, s.y - r - 8, GREEN, "center");
-  if (e.status?.burn) {
-    ctx.strokeStyle = "rgba(0,255,102,0.72)";
+  if (e.status?.burn || e.status?.poison || e.status?.freeze) {
+    ctx.strokeStyle = e.status?.freeze ? "rgba(255,255,255,0.78)" : "rgba(0,255,102,0.72)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(Math.round(s.x - r - 4), Math.round(s.y - r - 4), r * 2 + 8, r * 2 + 8);
-    drawRect(ctx, s.x + r - 3, s.y - r - 3, 4, 4, GREEN);
+    const pad = e.status?.poison ? 6 : 4;
+    ctx.strokeRect(Math.round(s.x - r - pad), Math.round(s.y - r - pad), r * 2 + pad * 2, r * 2 + pad * 2);
+    if (e.status?.burn) drawRect(ctx, s.x + r - 3, s.y - r - 3, 4, 4, GREEN);
+    if (e.status?.poison) drawRect(ctx, s.x - r - 1, s.y - r - 3, 4, 4, GREEN);
+    if (e.status?.freeze) drawRect(ctx, s.x - 2, s.y - r - 5, 4, 4, "#fff");
   }
   const hp = Math.max(0, Math.min(1, e.hp / data.hp));
   drawRect(ctx, s.x - r, s.y + r + 5, r * 2, 3, "#333");
@@ -187,6 +195,24 @@ function drawLoot(ctx, item, cam) {
   drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
 }
 
+
+function cameraWithShake(cam, snapshot) {
+  let power = 0;
+  for (const fx of snapshot?.effects || []) {
+    if (fx.type !== "shake") continue;
+    const life = Math.max(0, fx.life || 0);
+    const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.18);
+    power += (fx.power || 0) * (life / maxLife);
+  }
+  if (power <= 0) return cam;
+  const t = (snapshot?.time || 0) * 97.13;
+  return {
+    ...cam,
+    x: cam.x + Math.sin(t) * power,
+    y: cam.y + Math.cos(t * 1.37) * power
+  };
+}
+
 function drawEffect(ctx, fx, cam) {
   const life = Math.max(0, fx.life || 0);
   const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.2);
@@ -208,6 +234,18 @@ function drawEffect(ctx, fx, cam) {
     ctx.strokeStyle = GREEN;
     ctx.lineWidth = Math.max(1, Math.round(5 * (life / maxLife)));
     ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+    return;
+  }
+
+  if (fx.type === "chain") {
+    const a = screen(fx, cam);
+    const b = screen({ x: fx.x2, y: fx.y2 }, cam);
+    ctx.strokeStyle = fx.color || GREEN;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(a.x), Math.round(a.y));
+    ctx.lineTo(Math.round(b.x), Math.round(b.y));
+    ctx.stroke();
     return;
   }
 
@@ -249,7 +287,8 @@ function drawCrosshair(ctx, mouse) {
 
 export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, renderDt, simDt = renderDt) {
   const { ctx, smooth } = renderer;
-  drawGrid(ctx, cam, snapshot?.location);
+  const renderCam = snapshot ? cameraWithShake(cam, snapshot) : cam;
+  drawGrid(ctx, renderCam, snapshot?.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");
     return;
@@ -259,7 +298,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.enemies || []) {
     enemyIds.add(raw.id);
     const e = smoothEntity(smooth.enemies, raw, renderDt);
-    if (isVisible(e, cam, 80)) drawEnemy(ctx, e, cam);
+    if (isVisible(e, renderCam, 80)) drawEnemy(ctx, e, renderCam);
   }
   prune(smooth.enemies, enemyIds);
 
@@ -267,7 +306,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.loot || []) {
     lootIds.add(raw.id);
     const item = smoothEntity(smooth.loot, raw, renderDt);
-    if (isVisible(item, cam, 60)) drawLoot(ctx, item, cam);
+    if (isVisible(item, renderCam, 60)) drawLoot(ctx, item, renderCam);
   }
   prune(smooth.loot, lootIds);
 
@@ -275,7 +314,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.portals || []) {
     portalIds.add(raw.id);
     const portal = smoothEntity(smooth.portals, raw, renderDt);
-    if (isVisible(portal, cam, 130)) drawPortal(ctx, portal, cam);
+    if (isVisible(portal, renderCam, 130)) drawPortal(ctx, portal, renderCam);
   }
   prune(smooth.portals, portalIds);
 
@@ -285,25 +324,25 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     projectileIds.add(raw.id);
     if (raw.ownerId === localId && predictedServerIds.has(raw.id)) continue;
     const p = smoothProjectile(smooth.projectiles, raw, renderDt, simDt, snapshot.tick);
-    if (isVisible(p, cam, 50)) drawProjectile(ctx, p, cam);
+    if (isVisible(p, renderCam, 50)) drawProjectile(ctx, p, renderCam);
   }
   prune(smooth.projectiles, projectileIds);
-  drawPredictedProjectiles(ctx, predictedProjectiles, cam);
+  drawPredictedProjectiles(ctx, predictedProjectiles, renderCam);
 
-  for (const fx of snapshot.effects || []) drawEffect(ctx, fx, cam);
+  for (const fx of snapshot.effects || []) drawEffect(ctx, fx, renderCam);
 
   const playerIds = new Set();
   for (const raw of snapshot.players || []) {
     playerIds.add(raw.id);
     const isLocal = raw.id === localId;
     const p = isLocal && localPose ? { ...raw, ...localPose, hp: raw.hp, maxHp: raw.maxHp, activeWeapon: raw.activeWeapon, skin: raw.skin } : smoothEntity(smooth.players, raw, renderDt);
-    if (isVisible(p, cam, 90)) drawPlayer(ctx, p, cam, isLocal);
+    if (isVisible(p, renderCam, 90)) drawPlayer(ctx, p, renderCam, isLocal);
   }
   prune(smooth.players, playerIds);
 
   if (localPose && mouse.inside) {
-    const sx = localPose.x - cam.x;
-    const sy = localPose.y - cam.y;
+    const sx = localPose.x - renderCam.x;
+    const sy = localPose.y - renderCam.y;
     ctx.strokeStyle = "rgba(0,255,102,0.34)";
     ctx.beginPath();
     ctx.moveTo(Math.round(sx), Math.round(sy));

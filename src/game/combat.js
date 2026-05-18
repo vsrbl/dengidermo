@@ -71,7 +71,7 @@ export function fireWeapon(state, playerId, payload = {}) {
       y: y + pelletDir.y * (player.radius + weapon.radius + 1),
       angle: pelletAngle,
       pelletIndex: i,
-      effects: buildProjectileEffects(player, weapon)
+      effects: buildProjectileEffects(player, weapon, weaponId)
     });
     state.projectiles[pelletId] = applyProjectileStats(player, projectile);
   }

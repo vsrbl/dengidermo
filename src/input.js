@@ -14,7 +14,7 @@ function isEditableTarget(target) {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, isGameActive = () => true } = {}) {
+export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
 
@@ -40,6 +40,23 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, isGame
       e.preventDefault();
       onEsc?.();
       return;
+    }
+
+
+    if (!e.repeat) {
+      const devHotkeys = {
+        F6: "toggle-spawns",
+        F7: "clear-hostiles",
+        F8: "toggle-god",
+        F9: "toggle-calm",
+        F10: "ready-portal"
+      };
+      const command = devHotkeys[e.code];
+      if (command) {
+        e.preventDefault();
+        onDevCommand?.(command);
+        return;
+      }
     }
 
     if (!e.repeat && /^Digit[1-9]$/.test(e.code)) {

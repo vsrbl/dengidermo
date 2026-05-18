@@ -3,6 +3,8 @@ import { clamp, dist2, norm } from "../core/math.js";
 import { ENEMIES, ENEMY_WAVES } from "../data/enemies.js";
 import { currentLocation } from "./portals.js";
 import { nextId, pushEvent } from "./state.js";
+import { applyShieldDamage, enemySlowMult } from "./effects.js";
+import { areDevSpawnsPaused, devEnemyDamageMult, devEnemySpeedMult, devSpawnBatch, devSpawnCap, devSpawnInterval } from "./dev.js";
 
 function nearestAlivePlayer(state, x, y) {
   let best = null;
@@ -50,6 +52,7 @@ export function updateSpawner(state, dt) {
   const playerCount = Math.max(1, Object.keys(state.players).length);
   const enemyCount = Object.keys(state.enemies).length;
   state.spawnTimer -= dt;
+  if (areDevSpawnsPaused(state)) return;
 
   const loc = currentLocation(state);
   const locTime = state.locationTime || 0;
@@ -69,12 +72,13 @@ export function updateSpawner(state, dt) {
   const capGrowthTime = spawn.capGrowthTime ?? 18;
   const capGrowthMax = spawn.capGrowthMax ?? 18;
   const capGrowth = Math.min(capGrowthMax, Math.floor(locTime / Math.max(1, capGrowthTime)));
-  const cap = Math.floor((capBase + playerCount * capPerPlayer + capGrowth) * (loc.spawnBoost || 1));
+  const normalCap = Math.floor((capBase + playerCount * capPerPlayer + capGrowth) * (loc.spawnBoost || 1));
+  const cap = devSpawnCap(state, normalCap);
   if (enemyCount >= cap || state.spawnTimer > 0) return;
 
   const batchBase = spawn.batchBase ?? 2;
   const batchGrowthTime = spawn.batchGrowthTime ?? 35;
-  const batch = batchBase + Math.floor(locTime / Math.max(1, batchGrowthTime)) + playerCount;
+  const batch = devSpawnBatch(state, batchBase + Math.floor(locTime / Math.max(1, batchGrowthTime)) + playerCount);
   const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
   for (let i = 0; i < batch; i += 1) {
     const kind = state.rng.pick(pool);
@@ -84,7 +88,7 @@ export function updateSpawner(state, dt) {
   const intervalBase = spawn.intervalBase ?? 2.2;
   const intervalMin = spawn.intervalMin ?? 0.45;
   const intervalScale = spawn.intervalScale ?? 0.006;
-  state.spawnTimer = Math.max(intervalMin, intervalBase - locTime * intervalScale);
+  state.spawnTimer = devSpawnInterval(state, Math.max(intervalMin, intervalBase - locTime * intervalScale));
 }
 
 export function updateEnemies(state, dt) {
@@ -97,7 +101,7 @@ export function updateEnemies(state, dt) {
     const dy = target.y - enemy.y;
     const d = Math.hypot(dx, dy) || 1;
     const dir = norm(dx, dy);
-    let speed = data.speed;
+    let speed = data.speed * enemySlowMult(enemy) * devEnemySpeedMult(state);
     if (data.behavior === "ranged" && d < 300) speed *= -0.45;
 
     const targetVx = dir.x * speed;
@@ -113,7 +117,7 @@ export function updateEnemies(state, dt) {
 
     const touchR = enemy.radius + target.radius;
     if (dist2(enemy.x, enemy.y, target.x, target.y) <= touchR * touchR) {
-      target.hp -= data.damage * dt;
+      target.hp -= applyShieldDamage(target, data.damage * devEnemyDamageMult(state) * dt);
       const push = norm(target.x - enemy.x, target.y - enemy.y);
       target.kx = (target.kx || 0) + push.x * 70;
       target.ky = (target.ky || 0) + push.y * 70;

@@ -58,13 +58,16 @@ export function createUi() {
     setTimeout(() => el.roomTitle.classList.remove("copy-flash"), 220);
   }
 
-  function setNet({ pingMs, role, playerId, players, transportMode }) {
+  function setNet({ pingMs, role, playerId, players, transportMode, dev = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
     const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
     const id = playerId || "--";
     const count = Array.isArray(players) ? players.length : 0;
     const tr = transportMode || "LINK";
-    el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}`;
+    const devText = dev?.enabled
+      ? ` | DEV ${dev.calm ? "CALM" : "FULL"}${dev.spawnsPaused ? " SPAWN-OFF" : ""}${dev.god ? " GOD" : ""}${dev.flash ? ` | ${dev.flash}` : ""}`
+      : "";
+    el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${id} | ${count}/${MAX_PLAYERS} | ${tr}${devText}`;
   }
 
   function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1) {

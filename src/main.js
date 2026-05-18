@@ -11,6 +11,8 @@ import { fireWeapon } from "./game/combat.js";
 import { emptyInput, makeShootPayload, movePlayer, updateHostWorld } from "./game/simulation.js";
 import { createInventory, cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "./game/inventory.js";
 import { chooseUpgrade } from "./game/upgrades.js";
+import { readDevConfig } from "./dev/mode.js";
+import { applyDevCommand, hasDevMode } from "./game/dev.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -18,7 +20,8 @@ const ui = createUi();
 const canvas = document.getElementById("screen");
 const renderer = createRenderer(canvas);
 const camera = createCamera();
-const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, isGameActive: () => running });
+const devConfig = readDevConfig(window.location);
+const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, onDevCommand: requestDevCommand, isGameActive: () => running });
 
 let transport = null;
 let running = false;
@@ -172,7 +175,7 @@ function handleReady(info) {
   input.resetKeys();
 
   if (role === "host") {
-    hostState = createGameState(roomId);
+    hostState = createGameState(roomId, { dev: devConfig.enabled ? devConfig : null });
     addPlayer(hostState, playerId, 0);
     hostInputs[playerId] = emptyInput();
     localInventory = ensureInventory(hostState.players[playerId]);
@@ -189,7 +192,7 @@ function handleReady(info) {
   }
 
   ui.showGame(roomId);
-  ui.setNet({ pingMs, role, playerId, players, transportMode });
+  ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }
 
 function handlePlayerLeft(id) {
@@ -429,6 +432,13 @@ function localInventoryWeapons() {
   return Array.isArray(localInventory?.weapons) ? localInventory.weapons : [START_WEAPON];
 }
 
+function requestDevCommand(command) {
+  if (!running || role !== "host" || !hasDevMode(hostState)) return;
+  applyDevCommand(hostState, command);
+  snapshot = makeSnapshot(hostState);
+  transport?.broadcast({ t: "state", snapshot });
+}
+
 function requestWeaponSlot(slot) {
   if (!running || !Number.isInteger(slot)) return;
   if (role === "host") {
@@ -535,7 +545,7 @@ function updateHud() {
     ? hostState?.players[playerId]
     : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices }, stats: localPose.stats || {} } : snapMe);
   ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
-  ui.setNet({ pingMs, role, playerId, players, transportMode });
+  ui.setNet({ pingMs, role, playerId, players, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
 }
 
 function loop(now) {
