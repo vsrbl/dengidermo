@@ -3,7 +3,8 @@ export const ROOM_MODIFIER_IDS = Object.freeze({
   VOID_DRIFT: "void_drift",
   CORE_PRESSURE: "core_pressure",
   BOSS_LOCK: "boss_lock",
-  REWARD_CACHE: "reward_cache"
+  REWARD_CACHE: "reward_cache",
+  STATIC_FIELD: "static_field"
 });
 
 export const ROOM_MODIFIERS = Object.freeze({
@@ -46,6 +47,28 @@ export const ROOM_MODIFIERS = Object.freeze({
     category: "identity",
     tags: Object.freeze(["rare", "reward", "identity"]),
     hooks: Object.freeze({})
+  }),
+  [ROOM_MODIFIER_IDS.STATIC_FIELD]: Object.freeze({
+    id: ROOM_MODIFIER_IDS.STATIC_FIELD,
+    name: "STATIC FIELD",
+    description: "cursed event field: enemies move faster, healing is reduced, background signal shifts",
+    category: "cursed",
+    tags: Object.freeze(["rare", "event", "cursed", "static"]),
+    hooks: Object.freeze({
+      "room:enter": Object.freeze([
+        Object.freeze({ type: "emitEvent", event: Object.freeze({ type: "room_modifier", text: "STATIC FIELD ONLINE" }) })
+      ]),
+      "enemy:update": Object.freeze([
+        Object.freeze({ type: "scale", field: "speedMult", factor: 1.1, max: 1.6 })
+      ]),
+      "player:heal": Object.freeze([
+        Object.freeze({ type: "scale", field: "amount", factor: 0.55, min: 0 })
+      ]),
+      "render:background": Object.freeze([
+        Object.freeze({ type: "set", field: "accent", value: "white" }),
+        Object.freeze({ type: "set", field: "gridStep", value: 52 })
+      ])
+    })
   })
 });
 

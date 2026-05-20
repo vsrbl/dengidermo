@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.0.1",
-  "buildId": "v39.0.1-20260520",
+  "version": "v39.0.2",
+  "buildId": "v39.0.2-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v39-0-1.js?v=39.0.1",
-  "style": "./style.css?v=39.0.1",
-  "config": "./config.js?v=39.0.1",
+  "entry": "./src/main.v39-0-2.js?v=39.0.2",
+  "style": "./style.css?v=39.0.2",
+  "config": "./config.js?v=39.0.2",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.0.1 rare reward room: first-loop reward cache via runPlanner rare rule and reward encounter contract"
+  "notes": "v39.0.2 cursed event room: first-loop static field via runPlanner rare rule and real room modifier hooks"
 }

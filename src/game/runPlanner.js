@@ -18,6 +18,13 @@ export const RARE_ROOM_RULES = Object.freeze([
     resolvedRoomId: "reward-cache-00",
     rare: true,
     when: Object.freeze({ loopIndex: 1, roomInLoop: 0 })
+  }),
+  Object.freeze({
+    id: "first_loop_static_field",
+    kind: "replace",
+    resolvedRoomId: "static-field-00",
+    rare: true,
+    when: Object.freeze({ loopIndex: 1, roomInLoop: 2 })
   })
 ]);
 

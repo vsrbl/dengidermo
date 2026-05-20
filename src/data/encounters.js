@@ -244,6 +244,72 @@ export const ENCOUNTER_PLANS = Object.freeze({
     ])
   }),
 
+
+  static_field_event: Object.freeze({
+    id: "static_field_event",
+    name: "STATIC FIELD EVENT",
+    objective: ENCOUNTER_OBJECTIVES.CLEAR,
+    director: Object.freeze({
+      calmRatio: 0.2,
+      eliteRatio: 0.58,
+      cleanupCapMult: 0.24,
+      portalCapMult: 0.14,
+      budgetBase: 18,
+      budgetPerPlayer: 6,
+      budgetPerRoom: 4,
+      minPressureBudget: 10
+    }),
+    elite: Object.freeze({ ratio: 0.58 }),
+    stages: Object.freeze([
+      Object.freeze({
+        id: "static-field-warmup",
+        phase: "calm",
+        spawnZones: Object.freeze(["edge_far", "corner_random"]),
+        when: ENCOUNTER_STAGE_WHEN.BEFORE_CALM_END,
+        canSpawn: true,
+        canOpenPortal: false,
+        intensity: Object.freeze({ base: 0.28, ramp: 0 }),
+        capMult: 0.42,
+        batchMult: 0.55,
+        interval: Object.freeze({ mult: 1.22 })
+      }),
+      Object.freeze({
+        id: "static-field-pressure",
+        phase: "pressure",
+        spawnZones: Object.freeze(["edge_far", "edge_flank", "corner_random"]),
+        when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
+        canSpawn: true,
+        canOpenPortal: false,
+        intensity: Object.freeze({ base: 0.58, ramp: 0.66 }),
+        capMult: "intensity",
+        batchMult: "intensity",
+        interval: Object.freeze({ base: 1.08, intensityScale: -0.26, min: 0.62 })
+      }),
+      Object.freeze({
+        id: "static-field-cleanup",
+        phase: "cleanup",
+        when: ENCOUNTER_STAGE_WHEN.CLEANUP_REQUIRED,
+        canSpawn: false,
+        canOpenPortal: false,
+        intensity: Object.freeze({ base: 0.14, ramp: 0 }),
+        capMult: 0.22,
+        batchMult: 0,
+        interval: Object.freeze({ mult: 9 })
+      }),
+      Object.freeze({
+        id: "static-field-portal",
+        phase: "portal",
+        when: ENCOUNTER_STAGE_WHEN.PORTAL_READY,
+        canSpawn: false,
+        canOpenPortal: true,
+        intensity: Object.freeze({ base: 0.05, ramp: 0 }),
+        capMult: 0.12,
+        batchMult: 0,
+        interval: Object.freeze({ mult: 9 })
+      })
+    ])
+  }),
+
   boss_objective: Object.freeze({
     id: "boss_objective",
     name: "BOSS OBJECTIVE",

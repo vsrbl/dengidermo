@@ -94,6 +94,21 @@ export const RARE_ROOMS = [
       cleanupCapMult: 0,
       portalCapMult: 0
     }
+  },
+  {
+    id: "static-field-00",
+    name: "STATIC FIELD 00",
+    category: "cursed",
+    tags: ["rare", "event", "cursed", "static", "clear"],
+    layout: "open_arena",
+    modifiers: ["static_field"],
+    biome: "void",
+    encounter: "static_field_event",
+    objective: "clear",
+    spawnZones: ["edge_far", "edge_flank", "corner_random"],
+    portal: { delay: 8, hold: 1.15 },
+    enemyPool: ["runner", "shooter", "tank"],
+    spawn: { boost: 0.92 }
   }
 ];
 

@@ -6,9 +6,8 @@ import { beginRoomTransition, currentLocation } from '../src/game/roomFlow.js';
 import { RARE_ROOM_RULES, getLocationFromRoomPlan, resolveRoomPlan } from '../src/game/runPlanner.js';
 
 assert.equal(ROOM_SEQUENCE.length, 4, 'base room sequence length should remain stable');
-assert.equal(RARE_ROOMS.length, 1, 'one controlled rare room should be registered outside base cadence');
-assert.equal(RARE_ROOM_RULES.length, 1, 'rare room rule should be active after content begins');
-assert.equal(RARE_ROOM_RULES[0].id, 'first_loop_reward_cache');
+assert.deepEqual(RARE_ROOMS.map((room) => room.id), ['reward-cache-00', 'static-field-00'], 'controlled rare rooms should be registered outside base cadence');
+assert.deepEqual(RARE_ROOM_RULES.map((rule) => rule.id), ['first_loop_reward_cache', 'first_loop_static_field'], 'rare room rules should stay explicit after content begins');
 
 const ids = [];
 const baseIds = [];
@@ -22,12 +21,19 @@ for (let depth = 0; depth < 10; depth += 1) {
   layouts.push(loc.layoutId);
   rules.push(plan.ruleId);
 }
-assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'reward-cache-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01']);
+assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'reward-cache-00', 'void-01', 'static-field-00', 'boss-03', 'grid-00', 'void-01']);
 assert.deepEqual(baseIds, ['grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01']);
-assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena']);
-assert.deepEqual(rules, [null, null, null, null, 'first_loop_reward_cache', null, null, null, null, null]);
+assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena']);
+assert.deepEqual(rules, [null, null, null, null, 'first_loop_reward_cache', null, 'first_loop_static_field', null, null, null]);
 for (const room of [...ROOM_SEQUENCE, ...RARE_ROOMS]) assert.ok(room.layout, `${room.id} should keep explicit layout identity`);
-for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks || {}, {}, `${modifier.id} should stay identity-only until modifier content pass`);
+for (const modifier of Object.values(ROOM_MODIFIERS)) {
+  if (modifier.id === 'static_field') {
+    assert.equal(modifier.category, 'cursed', 'static_field is the first real room modifier');
+    assert.ok(Object.keys(modifier.hooks || {}).length > 0, 'static_field should use room modifier hooks');
+    continue;
+  }
+  assert.deepEqual(modifier.hooks || {}, {}, `${modifier.id} should stay identity-only in this pass`);
+}
 
 const state = createGameState('ROOMIDENTITY-DOMAIN');
 const firstPlan = state.roomPlan;
@@ -61,10 +67,26 @@ assert.equal(state.roomPlan.roomSequenceIndex, 1);
 assert.equal(state.roomPlan.baseRoomId, 'void-01');
 assert.equal(state.roomPlan.resolvedRoomId, 'void-01');
 assert.equal(state.roomPlan.layoutId, 'open_arena');
-const snap = makeSnapshot(state);
+let snap = makeSnapshot(state);
 assert.equal(snap.location.baseRoomId, state.roomPlan.baseRoomId);
 assert.equal(snap.location.resolvedRoomId, state.roomPlan.resolvedRoomId);
 assert.equal(snap.location.layoutId, state.roomPlan.layoutId);
 assert.equal(snap.location.ruleId, null);
+beginRoomTransition(state, 'verify-room-identity', { offerUpgrades: false });
+assert.equal(state.runDepth, 6);
+assert.equal(state.roomPlan.loopIndex, 1);
+assert.equal(state.roomPlan.roomInLoop, 2);
+assert.equal(state.roomPlan.roomSequenceIndex, 2);
+assert.equal(state.roomPlan.baseRoomId, 'core-02');
+assert.equal(state.roomPlan.resolvedRoomId, 'static-field-00');
+assert.equal(state.roomPlan.ruleId, 'first_loop_static_field');
+assert.equal(state.roomPlan.rare, true);
+assert.equal(state.roomPlan.category, 'cursed');
+assert.equal(state.roomPlan.layoutId, 'open_arena');
+snap = makeSnapshot(state);
+assert.equal(snap.location.baseRoomId, 'core-02');
+assert.equal(snap.location.resolvedRoomId, 'static-field-00');
+assert.equal(snap.location.ruleId, 'first_loop_static_field');
+assert.equal(snap.location.modifiers[0]?.id, 'static_field');
 
 console.log('room identity domain verification passed');

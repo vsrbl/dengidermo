@@ -7,12 +7,12 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-0-1.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-0-1.js";
-import { createSessionRuntime } from "./app/session.v39-0-1.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-0-1.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-0-1.js";
-import { createDevControls } from "./app/devControls.v39-0-1.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-0-2.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-0-2.js";
+import { createSessionRuntime } from "./app/session.v39-0-2.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-0-2.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-0-2.js";
+import { createDevControls } from "./app/devControls.v39-0-2.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 

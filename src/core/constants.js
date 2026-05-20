@@ -1,5 +1,5 @@
-export const VERSION = "v39.0.1";
-export const BUILD_ID = "v39.0.1-20260520";
+export const VERSION = "v39.0.2";
+export const BUILD_ID = "v39.0.2-20260520";
 export const RELEASE_CHANNEL = "prod";
 export const SIGNALING_PROTOCOL_VERSION = 2;
 export const SERVER_HELLO_TIMEOUT_MS = 900;
