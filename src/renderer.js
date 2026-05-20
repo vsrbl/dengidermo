@@ -6,6 +6,7 @@ import { LOOT } from "./data/loot.js";
 import { firstSolidWallHitInLocation, roomGeometrySnapshot } from "./game/roomGeometry.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooksForLocation } from "./game/roomModifiers.js";
 import { drawEffect } from "./render/effectRenderers.js";
+import { drawEnemySprite } from "./render/enemyRenderers.js";
 
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -171,8 +172,7 @@ function drawEnemy(ctx, e, cam) {
   const data = ENEMIES[e.kind] || ENEMIES.grunt;
   const s = screen(e, cam);
   const r = data.radius;
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#fff");
-  drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, "#050505");
+  drawEnemySprite(ctx, e, data, s);
   if (e.kind === "boss") drawText(ctx, "BOSS", s.x, s.y - r - 8, GREEN, "center");
   if (e.status?.burn || e.status?.poison || e.status?.freeze) {
     const frozen = !!e.status?.freeze;

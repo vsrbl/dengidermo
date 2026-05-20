@@ -107,7 +107,7 @@ export const RARE_ROOMS = [
     objective: "clear",
     spawnZones: ["edge_far", "edge_flank", "corner_random"],
     portal: { delay: 8, hold: 1.15 },
-    enemyPool: ["runner", "charger", "shooter", "tank"],
+    enemyPool: ["runner", "charger", "bomber", "shooter", "tank"],
     spawn: { boost: 0.92 }
   }
 ];

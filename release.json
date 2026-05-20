@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.0.3",
-  "buildId": "v39.0.3-20260520",
+  "version": "v39.0.4",
+  "buildId": "v39.0.4-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v39-0-3.js?v=39.0.3",
-  "style": "./style.css?v=39.0.3",
-  "config": "./config.js?v=39.0.3",
+  "entry": "./src/main.v39-0-4.js?v=39.0.4",
+  "style": "./style.css?v=39.0.4",
+  "config": "./config.js?v=39.0.4",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.0.3 charger enemy: behavior-registry enemy with telegraph dash, enabled only in static field pool"
+  "notes": "v39.0.4 bomber enemy + enemy visual pass: new bomber behavior and refreshed enemy silhouettes in static field content"
 }

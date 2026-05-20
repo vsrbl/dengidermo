@@ -36,7 +36,7 @@ function drawPortal(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
   const r = (fx.radius || 80) * (0.45 + t * 0.7);
-  ctx.strokeStyle = GREEN;
+  ctx.strokeStyle = fx.color || GREEN;
   ctx.lineWidth = Math.max(1, Math.round(5 * (life / maxLife)));
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
 }
@@ -135,6 +135,17 @@ function drawChargeTelegraph(ctx, fx, cam) {
 }
 
 
+
+function drawBomberFuse(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const r = (fx.r || 26) * (0.72 + t * 0.48);
+  ctx.strokeStyle = fx.color || "#ff3048";
+  ctx.lineWidth = Math.max(1, Math.round(3 * (life / maxLife)));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, fx.color || "#ff3048");
+}
+
 function drawDroneBeam(ctx, fx, cam) {
   const a = screen(fx, cam);
   const b = screen({ x: fx.x2, y: fx.y2 }, cam);
@@ -160,7 +171,7 @@ function drawExplosion(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
   const r = fx.r * (0.35 + t * 0.85);
-  ctx.strokeStyle = GREEN;
+  ctx.strokeStyle = fx.color || GREEN;
   ctx.lineWidth = Math.max(1, Math.round(4 * (life / maxLife)));
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
   ctx.beginPath();
@@ -185,6 +196,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   afterimage: drawAfterimage,
   dashBurst: drawDashBurst,
   chargeTelegraph: drawChargeTelegraph,
+  bomberFuse: drawBomberFuse,
   droneBeam: drawDroneBeam,
   orbitalHit: drawOrbitalHit,
   explosion: drawExplosion,

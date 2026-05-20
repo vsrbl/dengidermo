@@ -6,6 +6,8 @@ export const ENEMIES = {
     radius: 13,
     damage: 8,
     behavior: "chase",
+    renderStyle: "grunt",
+    accentColor: "white",
     score: 1
   },
 
@@ -16,6 +18,8 @@ export const ENEMIES = {
     radius: 10,
     damage: 6,
     behavior: "chase",
+    renderStyle: "runner",
+    accentColor: "white",
     score: 1
   },
 
@@ -26,6 +30,8 @@ export const ENEMIES = {
     radius: 22,
     damage: 15,
     behavior: "chase",
+    renderStyle: "tank",
+    accentColor: "white",
     score: 3
   },
 
@@ -36,6 +42,8 @@ export const ENEMIES = {
     radius: 14,
     damage: 7,
     behavior: "ranged",
+    renderStyle: "shooter",
+    accentColor: "green",
     score: 2
   },
 
@@ -46,6 +54,8 @@ export const ENEMIES = {
     radius: 15,
     damage: 8,
     behavior: "charger",
+    renderStyle: "charger",
+    accentColor: "red",
     score: 2,
     charge: {
       acquireRange: 520,
@@ -61,6 +71,27 @@ export const ENEMIES = {
     }
   },
 
+  bomber: {
+    name: "BOMBER",
+    hp: 42,
+    speed: 68,
+    radius: 14,
+    damage: 8,
+    behavior: "bomber",
+    renderStyle: "bomber",
+    accentColor: "red",
+    score: 2,
+    bomb: {
+      triggerRange: 88,
+      fuse: 0.72,
+      explosionRadius: 88,
+      explosionDamage: 24,
+      knockback: 420,
+      telegraphEvery: 0.12,
+      chaseSpeedScale: 0.92
+    }
+  },
+
   boss: {
     name: "BOSS",
     hp: 520,
@@ -68,6 +99,8 @@ export const ENEMIES = {
     radius: 42,
     damage: 22,
     behavior: "boss",
+    renderStyle: "boss",
+    accentColor: "green",
     score: 20
   }
 };
