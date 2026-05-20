@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "38.14.5",
+  "version": "38.14.6",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -23,13 +23,13 @@
     "check:pre-content": "node scripts/verify-pre-content-audit.mjs",
     "check:legacy-critical": "npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:shake && npm run check:hooks",
     "check:test-suite": "node scripts/verify-test-suite-wiring.mjs",
-    "check:v38-14-5": "node scripts/verify-v38-14-5-scripts-suite-slimming.mjs",
-    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:legacy-critical && npm run check:pre-content && npm run check:test-suite && npm run check:v38-14-5",
+    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:legacy-critical && npm run check:pre-content && npm run check:test-suite && npm run check:v38-14-6",
     "check:dev": "node scripts/verify-dev.mjs",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
     "check:shake": "node scripts/verify-shake.mjs",
-    "check:hooks": "node scripts/verify-hook-pipeline.mjs"
+    "check:hooks": "node scripts/verify-hook-pipeline.mjs",
+    "check:v38-14-6": "node scripts/verify-v38-14-6-signaling-disconnect.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

@@ -5,13 +5,15 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v38.14.5";
-const SERVER_BUILD_ID = "v38.14.5-20260520";
+const SERVER_VERSION = "v38.14.6";
+const SERVER_BUILD_ID = "v38.14.6-20260520";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
 const RATE_WINDOW_MS = 1000;
 const RATE_LIMIT_PER_WINDOW = 120;
+const HEARTBEAT_INTERVAL_MS = 4_000;
+const HEARTBEAT_TIMEOUT_MS = 9_000;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const rooms = new Map();
@@ -25,11 +27,17 @@ function send(ws, msg) {
   if (isOpen(ws)) ws.send(JSON.stringify(msg));
 }
 
+function markSocketAlive(ws) {
+  ws.nnAlive = true;
+  ws.nnLastSeen = Date.now();
+}
+
 function closeAbusiveSocket(ws, code = 1008, reason = "policy") {
   try { ws.close(code, reason); } catch { /* socket may already be closed */ }
 }
 
 function acceptMessage(ws, raw) {
+  markSocketAlive(ws);
   const size = typeof raw === "string" ? Buffer.byteLength(raw) : raw?.length || 0;
   if (size > MAX_MESSAGE_BYTES) {
     closeAbusiveSocket(ws, 1009, "message_too_large");
@@ -48,42 +56,90 @@ function acceptMessage(ws, raw) {
   return true;
 }
 
-function pruneClosedPlayers(room) {
-  if (!room) return [];
-  const removed = [];
-  for (const [id, player] of room.players) {
-    if (!isOpen(player.ws)) {
-      room.players.delete(id);
-      removed.push(id);
-    }
-  }
-  if (removed.length) room.touched = Date.now();
-  return removed;
-}
-
-function roomPlayers(room) {
-  pruneClosedPlayers(room);
+function rawRoomPlayers(room) {
   return [...room.players.keys()];
 }
 
-function roomNames(room) {
-  pruneClosedPlayers(room);
+function rawRoomNames(room) {
   const names = {};
   for (const [id, player] of room.players) names[id] = player.name || id.toUpperCase();
   return names;
 }
 
-function broadcast(room, msg, except = null) {
-  pruneClosedPlayers(room);
+function sendToRoom(room, msg, except = null) {
   for (const [id, player] of room.players) {
     if (id === except) continue;
     send(player.ws, msg);
   }
 }
 
+function detachPlayer(room, playerId) {
+  const player = room?.players?.get(playerId);
+  if (!room || !player) return false;
+  player.ws.nnRoom = null;
+  player.ws.nnPlayerId = null;
+  room.players.delete(playerId);
+  room.touched = Date.now();
+  return true;
+}
+
+function notifyPlayerLeft(room, playerId, reason = "left") {
+  sendToRoom(room, { type: "player_left", playerId, reason, players: rawRoomPlayers(room), names: rawRoomNames(room) });
+}
+
+function closeRoom(room, reason = "host_left") {
+  if (!room) return;
+  sendToRoom(room, { type: "room_closed", reason });
+  for (const player of room.players.values()) {
+    player.ws.nnRoom = null;
+    player.ws.nnPlayerId = null;
+  }
+  room.players.clear();
+  rooms.delete(room.id);
+}
+
+function pruneClosedPlayers(room) {
+  if (!room) return [];
+  const removed = [];
+  for (const [id, player] of room.players) {
+    if (!isOpen(player.ws)) removed.push(id);
+  }
+  if (!removed.length) return removed;
+
+  if (removed.includes(room.hostId)) {
+    detachPlayer(room, room.hostId);
+    closeRoom(room, "host_missing");
+    return removed;
+  }
+
+  for (const id of removed) {
+    if (detachPlayer(room, id)) notifyPlayerLeft(room, id, "stale_socket");
+  }
+  if (room.players.size === 0) rooms.delete(room.id);
+  return removed;
+}
+
+function roomPlayers(room) {
+  pruneClosedPlayers(room);
+  return rawRoomPlayers(room);
+}
+
+function roomNames(room) {
+  pruneClosedPlayers(room);
+  return rawRoomNames(room);
+}
+
+function broadcast(room, msg, except = null) {
+  pruneClosedPlayers(room);
+  if (!rooms.has(room.id)) return;
+  sendToRoom(room, msg, except);
+}
+
 function cleanRooms() {
   const now = Date.now();
   for (const [id, room] of rooms) {
+    pruneClosedPlayers(room);
+    if (!rooms.has(id)) continue;
     if (room.players.size === 0 || now - room.touched > 60 * 60 * 1000) rooms.delete(id);
   }
 }
@@ -110,37 +166,29 @@ function nextPlayerId(room) {
   return null;
 }
 
-function closeRoom(room, reason = "host_left") {
-  if (!room) return;
-  broadcast(room, { type: "room_closed", reason });
-  for (const player of room.players.values()) {
-    player.ws.nnRoom = null;
-    player.ws.nnPlayerId = null;
-  }
-  rooms.delete(room.id);
-}
-
 function leave(ws) {
   const room = ws.nnRoom ? rooms.get(ws.nnRoom) : null;
-  if (!room || !ws.nnPlayerId) return;
+  if (!room || !ws.nnPlayerId) {
+    ws.nnRoom = null;
+    ws.nnPlayerId = null;
+    return;
+  }
   const id = ws.nnPlayerId;
-  room.players.delete(id);
-  room.touched = Date.now();
-  ws.nnRoom = null;
-  ws.nnPlayerId = null;
   if (id === room.hostId) {
+    detachPlayer(room, id);
     closeRoom(room, "host_left");
     return;
   }
-  broadcast(room, { type: "player_left", playerId: id, players: roomPlayers(room), names: roomNames(room) });
+  if (!detachPlayer(room, id)) return;
+  notifyPlayerLeft(room, id, "left");
   if (room.players.size === 0) rooms.delete(room.id);
 }
 
 function handleCreate(ws, msg) {
-  if (ws.nnRoom || ws.nnPlayerId) leave(ws);
   const roomId = normalizeRoomId(msg.roomId);
   if (!ROOM_RE.test(roomId)) return send(ws, { type: "error", message: "bad_room" });
   if (rooms.has(roomId)) return send(ws, { type: "error", message: "room_exists" });
+  if (ws.nnRoom || ws.nnPlayerId) leave(ws);
 
   const room = {
     id: roomId,
@@ -157,19 +205,21 @@ function handleCreate(ws, msg) {
 }
 
 function handleJoin(ws, msg) {
-  if (ws.nnRoom || ws.nnPlayerId) leave(ws);
   const roomId = normalizeRoomId(msg.roomId);
+  if (!ROOM_RE.test(roomId)) return send(ws, { type: "error", message: "bad_room" });
   const room = rooms.get(roomId);
   if (!room) return send(ws, { type: "error", message: "room_not_found" });
   pruneClosedPlayers(room);
+  if (!rooms.has(roomId)) return send(ws, { type: "error", message: "room_not_found" });
   const host = room.players.get(room.hostId);
   if (!isOpen(host?.ws)) {
     closeRoom(room, "host_missing");
     return send(ws, { type: "error", message: "room_not_found" });
   }
-  if (room.players.size >= room.maxPlayers) return send(ws, { type: "error", message: "room_full" });
-  const playerId = nextPlayerId(room);
+  if (room.players.size >= room.maxPlayers && ws.nnRoom !== roomId) return send(ws, { type: "error", message: "room_full" });
+  const playerId = ws.nnRoom === roomId && ws.nnPlayerId ? ws.nnPlayerId : nextPlayerId(room);
   if (!playerId) return send(ws, { type: "error", message: "room_full" });
+  if ((ws.nnRoom || ws.nnPlayerId) && ws.nnRoom !== roomId) leave(ws);
 
   room.players.set(playerId, { ws, joinedAt: Date.now(), name: normalizePlayerName(msg.name, playerId.toUpperCase()) });
   room.touched = Date.now();
@@ -228,7 +278,10 @@ wss.on("connection", (ws) => {
   ws.nnPlayerId = null;
   ws.nnRateWindowStart = Date.now();
   ws.nnRateCount = 0;
+  markSocketAlive(ws);
   send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION });
+
+  ws.on("pong", () => markSocketAlive(ws));
 
   ws.on("message", (raw) => {
     if (!acceptMessage(ws, raw)) return;
@@ -247,5 +300,19 @@ wss.on("connection", (ws) => {
   ws.on("error", () => leave(ws));
 });
 
+function heartbeatClients() {
+  const now = Date.now();
+  for (const ws of wss.clients) {
+    if (ws.readyState !== ws.OPEN) continue;
+    if (ws.nnAlive === false && now - (ws.nnLastSeen || 0) > HEARTBEAT_TIMEOUT_MS) {
+      try { ws.terminate(); } catch { /* socket may already be closed */ }
+      continue;
+    }
+    ws.nnAlive = false;
+    try { ws.ping(); } catch { try { ws.terminate(); } catch { /* socket may already be closed */ } }
+  }
+}
+
+setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.14.5 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.14.6 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

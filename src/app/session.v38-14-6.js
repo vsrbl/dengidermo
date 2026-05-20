@@ -98,7 +98,17 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     return app.playerNames[id] || id?.toUpperCase?.() || "PLAYER";
   }
 
+  function bindWindowLifecycle() {
+    const closeActiveTransport = () => {
+      if (!app.running && !app.connecting) return;
+      app.transport?.close(true);
+    };
+    window.addEventListener("pagehide", closeActiveTransport);
+    window.addEventListener("beforeunload", closeActiveTransport);
+  }
+
   function bindMenu() {
+    bindWindowLifecycle();
     const savedName = normalizePlayerName(localStorage.getItem("nncckkrr.name") || "");
     if (savedName) app.ui.el.nameInput.value = savedName;
     app.ui.el.nameInput.addEventListener("input", () => {

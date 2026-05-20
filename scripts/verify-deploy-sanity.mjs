@@ -56,13 +56,13 @@ for (const name of ['session', 'clientRuntime', 'hostRuntime', 'upgradeClient', 
   assert.ok(entry.includes(`./app/${name}.v${suffix}.js`), `entry must import current ${name} module`);
 }
 
-for (const stale of ['v38.13.', 'v38.14.1', 'v38.14.2', 'v38.14.3', 'v38.14.4']) {
+for (const stale of ['v38.13.', 'v38.14.1', 'v38.14.2', 'v38.14.3', 'v38.14.4', 'v38.14.5']) {
   assertNoRuntimeStaleVersion('index.html', stale);
   assertNoRuntimeStaleVersion('src/core/constants.js', stale);
   assertNoRuntimeStaleVersion('server/server.js', stale);
   assertNoRuntimeStaleVersion('release.json', stale);
 }
-for (const staleSuffix of ['38-13-7', '38-13-8', '38-14-1', '38-14-2', '38-14-3', '38-14-4']) {
+for (const staleSuffix of ['38-13-7', '38-13-8', '38-14-1', '38-14-2', '38-14-3', '38-14-4', '38-14-5']) {
   assert.ok(!exists(`src/main.v${staleSuffix}.js`), `stale versioned entry should not ship: src/main.v${staleSuffix}.js`);
   for (const name of ['session', 'clientRuntime', 'hostRuntime', 'upgradeClient', 'devControls', 'releaseIntegrity']) {
     assert.ok(!exists(`src/app/${name}.v${staleSuffix}.js`), `stale versioned module should not ship: ${name}.v${staleSuffix}.js`);

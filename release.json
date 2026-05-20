@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v38.14.5",
-  "buildId": "v38.14.5-20260520",
+  "version": "v38.14.6",
+  "buildId": "v38.14.6-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v38-14-5.js?v=38.14.5",
-  "style": "./style.css?v=38.14.5",
-  "config": "./config.js?v=38.14.5",
+  "entry": "./src/main.v38-14-6.js?v=38.14.6",
+  "style": "./style.css?v=38.14.6",
+  "config": "./config.js?v=38.14.6",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "scripts suite slimming and test-suite wiring hardening"
+  "notes": "signaling disconnect hardening and immediate host removal notification"
 }
