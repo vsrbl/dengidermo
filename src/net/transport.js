@@ -52,15 +52,6 @@ export class Transport {
       globalThis.clearTimeout(this.helloTimer);
       this.helloTimer = globalThis.setTimeout(() => {
         if (this.helloReady || this.closedByClient) return;
-        const action = this.pendingOpenAction;
-        if (action) {
-          // Compatibility path for the currently deployed pre-handshake v38 server.
-          // It is still guarded by the outer connect timeout and must reach created/joined.
-          this.helloReady = true;
-          this.pendingOpenAction = null;
-          action();
-          return;
-        }
         this.callbacks.onError?.("server_mismatch");
         this.close(false);
       }, SERVER_HELLO_TIMEOUT_MS);

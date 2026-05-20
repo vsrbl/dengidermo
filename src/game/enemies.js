@@ -2,7 +2,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { nextId } from "./entityIds.js";
 import { updateDirectorSpawner } from "./director.js";
 import { resolveSpawnPoint } from "./spawnZones.js";
-import { resolveSpawnPointInState, roomGeometrySnapshot } from "./roomGeometry.js";
+import { resolveSpawnPointInState, roomGeometrySnapshotForState } from "./roomGeometry.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import { nearestAlivePlayer, resolveEnemyBehavior } from "./enemyBehaviors.js";
 
@@ -75,7 +75,7 @@ export function updateSpawner(state, dt) {
 }
 
 export function updateEnemies(state, dt) {
-  const geometry = roomGeometrySnapshot({ layoutId: state.layoutId });
+  const geometry = roomGeometrySnapshotForState(state);
   for (const enemy of Object.values(state.enemies)) {
     const data = ENEMIES[enemy.kind];
     const target = nearestAlivePlayer(state, enemy.x, enemy.y);

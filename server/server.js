@@ -5,9 +5,13 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v38.13.8";
-const SERVER_BUILD_ID = "v38.13.8-20260520";
+const SERVER_VERSION = "v38.14.5";
+const SERVER_BUILD_ID = "v38.14.5-20260520";
+const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
+const MAX_MESSAGE_BYTES = 64 * 1024;
+const RATE_WINDOW_MS = 1000;
+const RATE_LIMIT_PER_WINDOW = 120;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const rooms = new Map();
@@ -19,6 +23,29 @@ function isOpen(ws) {
 
 function send(ws, msg) {
   if (isOpen(ws)) ws.send(JSON.stringify(msg));
+}
+
+function closeAbusiveSocket(ws, code = 1008, reason = "policy") {
+  try { ws.close(code, reason); } catch { /* socket may already be closed */ }
+}
+
+function acceptMessage(ws, raw) {
+  const size = typeof raw === "string" ? Buffer.byteLength(raw) : raw?.length || 0;
+  if (size > MAX_MESSAGE_BYTES) {
+    closeAbusiveSocket(ws, 1009, "message_too_large");
+    return false;
+  }
+  const now = Date.now();
+  if (!ws.nnRateWindowStart || now - ws.nnRateWindowStart > RATE_WINDOW_MS) {
+    ws.nnRateWindowStart = now;
+    ws.nnRateCount = 0;
+  }
+  ws.nnRateCount += 1;
+  if (ws.nnRateCount > RATE_LIMIT_PER_WINDOW) {
+    closeAbusiveSocket(ws, 1008, "rate_limited");
+    return false;
+  }
+  return true;
 }
 
 function pruneClosedPlayers(room) {
@@ -187,7 +214,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/health") {
     for (const room of rooms.values()) pruneClosedPlayers(room);
     res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, buildId: SERVER_BUILD_ID, protocol: SIGNALING_PROTOCOL_VERSION, startedAt: serverStartedAt, now: new Date().toISOString() }));
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION, startedAt: serverStartedAt, now: new Date().toISOString() }));
     return;
   }
   res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*", "cache-control": "no-store" });
@@ -199,12 +226,15 @@ const wss = new WebSocketServer({ server });
 wss.on("connection", (ws) => {
   ws.nnRoom = null;
   ws.nnPlayerId = null;
-  send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, protocol: SIGNALING_PROTOCOL_VERSION });
+  ws.nnRateWindowStart = Date.now();
+  ws.nnRateCount = 0;
+  send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION });
 
   ws.on("message", (raw) => {
+    if (!acceptMessage(ws, raw)) return;
     let msg = null;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
-    if (!msg || !msg.type) return;
+    if (!msg || typeof msg.type !== "string") return;
     if (msg.type === "create") return handleCreate(ws, msg);
     if (msg.type === "join") return handleJoin(ws, msg);
     if (msg.type === "signal") return handleSignal(ws, msg);
@@ -218,4 +248,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.8 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.14.5 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

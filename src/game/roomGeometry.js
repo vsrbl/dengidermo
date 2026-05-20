@@ -26,8 +26,17 @@ export function roomLayoutForLocation(loc) {
   return layoutSnapshot(loc?.layoutId || loc?.layout || DEFAULT_LAYOUT_ID);
 }
 
+export function roomLayoutIdForState(state) {
+  return state?.roomPlan?.layoutId || state?.layoutId || DEFAULT_LAYOUT_ID;
+}
+
+export function roomLayoutMirrorMatchesState(state) {
+  if (!state?.roomPlan?.layoutId || !state?.layoutId) return true;
+  return state.layoutId === state.roomPlan.layoutId;
+}
+
 export function roomLayoutForState(state) {
-  return layoutSnapshot(state?.layoutId || DEFAULT_LAYOUT_ID);
+  return layoutSnapshot(roomLayoutIdForState(state));
 }
 
 export function roomBoundsForLocation(loc) {
@@ -75,6 +84,10 @@ export function roomGeometryIdentity(loc) {
   return layoutIdentitySnapshot(layout.id || loc?.layoutId || DEFAULT_LAYOUT_ID);
 }
 
+export function roomGeometryIdentityForState(state) {
+  return layoutIdentitySnapshot(roomLayoutIdForState(state));
+}
+
 
 export function roomGeometryIdentityMatches(loc) {
   if (!loc?.layoutId || !Number.isFinite(loc.layoutVersion) || typeof loc.geometryHash !== "string") return false;
@@ -82,16 +95,27 @@ export function roomGeometryIdentityMatches(loc) {
   return loc.layoutVersion === expected.layoutVersion && loc.geometryHash === expected.geometryHash;
 }
 
-export function roomGeometrySnapshot(loc) {
-  const layout = roomLayoutForLocation(loc);
+function geometrySnapshotFromLayout(layout, identity) {
   return {
-    ...roomGeometryIdentity(loc),
+    ...identity,
     bounds: { ...(layout.bounds || DEFAULT_BOUNDS) },
-    walls: solidWallsForLocation(loc),
+    walls: (layout.walls || [])
+      .map(rectSnapshot)
+      .filter((wall) => wall.kind === "solid" && wall.shape === "rect" && wall.w > 0 && wall.h > 0),
     hazards: [...(layout.hazards || [])],
     spawnAnchors: [...(layout.spawnAnchors || [])].map((a) => ({ ...a, tags: [...(a.tags || [])] })),
-    portal: { ...(layout.portal || portalPointForLocation(loc)) }
+    portal: { ...(layout.portal || { x: WORLD.w - 190, y: CENTER.y }) }
   };
+}
+
+export function roomGeometrySnapshot(loc) {
+  const layout = roomLayoutForLocation(loc);
+  return geometrySnapshotFromLayout(layout, roomGeometryIdentity(loc));
+}
+
+export function roomGeometrySnapshotForState(state) {
+  const layout = roomLayoutForState(state);
+  return geometrySnapshotFromLayout(layout, roomGeometryIdentityForState(state));
 }
 
 function pointInsideExpandedRect(x, y, rect, radius = 0) {
@@ -261,11 +285,11 @@ export function sweepCircleInLocation(locOrGeometry, x, y, dx, dy, radius = 0) {
 }
 
 export function moveCircleInState(state, x, y, dx, dy, radius = 0, options = {}) {
-  return moveCircleInLocation(roomGeometrySnapshot({ layout: roomLayoutForState(state) }), x, y, dx, dy, radius, options);
+  return moveCircleInLocation(roomGeometrySnapshotForState(state), x, y, dx, dy, radius, options);
 }
 
 export function sweepCircleInState(state, x, y, dx, dy, radius = 0) {
-  return sweepCircleInLocation(roomGeometrySnapshot({ layout: roomLayoutForState(state) }), x, y, dx, dy, radius);
+  return sweepCircleInLocation(roomGeometrySnapshotForState(state), x, y, dx, dy, radius);
 }
 
 function segmentExpandedRectHit(ax, ay, bx, by, rect, radius = 0) {
@@ -320,7 +344,7 @@ export function firstSolidWallHitInLocation(locOrGeometry, ax, ay, bx, by, radiu
 }
 
 export function firstSolidWallHitInState(state, ax, ay, bx, by, radius = 0) {
-  return firstSolidWallHitInLocation(roomGeometrySnapshot({ layout: roomLayoutForState(state) }), ax, ay, bx, by, radius);
+  return firstSolidWallHitInLocation(roomGeometrySnapshotForState(state), ax, ay, bx, by, radius);
 }
 
 
@@ -347,7 +371,7 @@ export function canPlaceSpawnPointInState(state, geometry, x, y, radius = 12, op
 }
 
 export function resolveSpawnPointInState(state, point, radius = 12, options = {}) {
-  const geometry = options.geometry || roomGeometrySnapshot({ layout: roomLayoutForState(state) });
+  const geometry = options.geometry || roomGeometrySnapshotForState(state);
   const clearance = Number.isFinite(options.clearance) ? options.clearance : SPAWN_CLEARANCE;
   if (canPlaceSpawnPointInState(state, geometry, point.x, point.y, radius, options)) return { x: point.x, y: point.y, adjusted: false };
 

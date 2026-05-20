@@ -17,6 +17,8 @@ function assertContains(src, needle, label) {
 
 const pkg = readJson('package.json');
 const serverPkg = readJson('server/package.json');
+const srcPkg = readJson('src/package.json');
+const releaseManifest = readJson('release.json');
 const constants = read('src/core/constants.js');
 const server = read('server/server.js');
 const index = read('index.html');
@@ -27,11 +29,17 @@ const session = read(`src/app/session.v${entrySuffix}.js`);
 
 assert.equal(pkg.version, expectedPackageVersion, 'root package version must match frontend VERSION');
 assert.equal(serverPkg.version, expectedPackageVersion, 'server package version must match frontend VERSION');
+assert.equal(srcPkg.version, expectedPackageVersion, 'src package version must match frontend VERSION');
+assert.equal(releaseManifest.version, VERSION, 'release.json version must match frontend VERSION');
+assert.equal(releaseManifest.buildId, BUILD_ID, 'release.json buildId must match frontend BUILD_ID');
+assert.equal(releaseManifest.protocol, SIGNALING_PROTOCOL_VERSION, 'release.json protocol must match frontend protocol');
+assert.equal(releaseManifest.entry, `./src/main.v${entrySuffix}.js?v=${expectedPackageVersion}`, 'release.json entry must match current versioned entry');
 assertContains(constants, `export const BUILD_ID = "${BUILD_ID}"`, 'constants');
 assertContains(constants, `export const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`, 'constants');
 assert.match(index, new RegExp(`V${versionRe.replace(/^v/, '')}`, 'i'), 'index HUD must expose version');
 assertContains(index, `content="${BUILD_ID}"`, 'index build meta');
 assertContains(index, `content="${SIGNALING_PROTOCOL_VERSION}"`, 'index protocol meta');
+assertContains(index, `name="nncckkrr-release-manifest" content="./release.json?v=${expectedPackageVersion}"`, 'index release manifest meta');
 assertContains(index, `style.css?v=${expectedPackageVersion}`, 'index style cache query');
 assertContains(index, `config.js?v=${expectedPackageVersion}`, 'index config cache query');
 assertContains(index, `src/main.v${entrySuffix}.js?v=${expectedPackageVersion}`, 'index module cache query');
@@ -40,9 +48,10 @@ assertContains(server, `const SERVER_BUILD_ID = "${BUILD_ID}"`, 'server build');
 assertContains(server, `const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`, 'server protocol');
 assert.match(server, /url\.pathname === "\/health"/, 'server /health must tolerate query strings');
 assertContains(server, 'buildId: SERVER_BUILD_ID', 'server health build');
+assertContains(server, 'channel: SERVER_RELEASE_CHANNEL', 'server health channel');
 assertContains(server, 'protocol: SIGNALING_PROTOCOL_VERSION', 'server health protocol');
 assertContains(server, 'cache-control', 'server no-store headers');
-assertContains(server, 'type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, protocol: SIGNALING_PROTOCOL_VERSION', 'server hello contract');
+assertContains(server, 'type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION', 'server hello contract');
 assertContains(entry, 'checkReleaseIntegrity', 'entry release health check');
 assertContains(entry, 'initialReleaseState', 'entry release initial state');
 assertContains(entry, `./app/releaseIntegrity.v${entrySuffix}.js`, 'entry versioned release module');

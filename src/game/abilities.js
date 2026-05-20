@@ -1,6 +1,6 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, norm } from "../core/math.js";
-import { roomGeometrySnapshot, sweepCircleInLocation } from "./roomGeometry.js";
+import { roomGeometrySnapshot, roomGeometrySnapshotForState, sweepCircleInLocation } from "./roomGeometry.js";
 import { buildPlayerEffects, getEffect } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
@@ -152,7 +152,7 @@ export function performDash(state, playerId, input = {}, request = {}) {
   if (seq && seq <= (dash.seqSeen || 0)) return { ok: false, reason: "old-seq" };
   if ((dash.cooldownLeft || 0) > 0) return { ok: false, reason: "cooldown" };
 
-  const movement = applyDashMovement(player, input, cfg, { layoutId: state.layoutId });
+  const movement = applyDashMovement(player, input, cfg, roomGeometrySnapshotForState(state));
   dash.cooldownLeft = cfg.cooldown;
   dash.invulnLeft = cfg.invuln;
   dash.flash = 0.22;

@@ -3,7 +3,7 @@ import { clamp } from "../core/math.js";
 import { displayPlayerName } from "../core/names.js";
 import { makeRng } from "../core/random.js";
 import { getLocationFromRoomPlan, getPlannedLocationForState, resolveRoomPlan } from "./runPlanner.js";
-import { clampCircleToLocation, roomGeometryIdentity, roomGeometrySnapshot } from "./roomGeometry.js";
+import { clampCircleToLocation, roomGeometryIdentityForState, roomGeometrySnapshot, roomLayoutIdForState } from "./roomGeometry.js";
 import { enterRoomModifierRuntime, roomModifierSnapshots } from "./roomModifiers.js";
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
@@ -77,7 +77,7 @@ export function spawnPoint(index = 0, loc = null, radius = PLAYER_RADIUS) {
 }
 
 export function addPlayer(state, playerId, index = 0, options = {}) {
-  const p = spawnPoint(index, { layoutId: state.layoutId });
+  const p = spawnPoint(index, { layoutId: roomLayoutIdForState(state) });
   state.players[playerId] = {
     id: playerId,
     name: displayPlayerName(options.name, playerId.toUpperCase()),
@@ -134,8 +134,8 @@ export function makeSnapshot(state) {
   const location = getPlannedLocationForState(state, fallbackDepth);
   const plan = state.roomPlan || location.plan || null;
   const depth = Number.isFinite(plan?.runDepth) ? plan.runDepth : (Number.isFinite(location.runDepth) ? location.runDepth : fallbackDepth);
-  const layoutId = plan?.layoutId || state.layoutId || location.layoutId || "open_arena";
-  const geometry = roomGeometryIdentity({ layoutId });
+  const layoutId = roomLayoutIdForState(state) || location.layoutId || "open_arena";
+  const geometry = roomGeometryIdentityForState(state);
   const hold = state.portalHold || location.portalHold || 1.15;
   return {
     tick: state.tick,

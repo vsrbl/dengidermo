@@ -1,9 +1,7 @@
-export const VERSION = "v38.13.8";
-export const BUILD_ID = "v38.13.8-20260520";
+export const VERSION = "v38.14.5";
+export const BUILD_ID = "v38.14.5-20260520";
 export const RELEASE_CHANNEL = "prod";
 export const SIGNALING_PROTOCOL_VERSION = 2;
-// Compatibility alias for cached pre-v38.13.8 app modules. New code imports START_WEAPON from src/data/weapons.js.
-export const START_WEAPON = "shotgun";
 export const SERVER_HELLO_TIMEOUT_MS = 900;
 export const MAX_PLAYERS = 4;
 export const WORLD = { w: 2400, h: 1600 };
