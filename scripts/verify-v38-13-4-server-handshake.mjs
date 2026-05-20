@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
-import { VERSION } from '../src/core/constants.js';
+import { SIGNALING_PROTOCOL_VERSION, SERVER_HELLO_TIMEOUT_MS, VERSION } from '../src/core/constants.js';
 import * as effects from '../src/game/effects.js';
 import { Transport } from '../src/net/transport.js';
 
@@ -28,6 +28,7 @@ function makeSignalingServer() {
   const wss = new WebSocketServer({ port: 0 });
   const rooms = new Map();
   wss.on('connection', (ws) => {
+    ws.send(JSON.stringify({ type: 'hello', version: VERSION, protocol: SIGNALING_PROTOCOL_VERSION }));
     ws.on('message', (raw) => {
       let msg = null;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -47,7 +48,9 @@ await test('v38.13.4 versions are aligned across frontend package server and cac
   assert.equal(VERSION, 'v38.13.4');
   assert.equal(pkg.version, '38.13.4');
   assert.equal(serverPkg.version, '38.13.4');
-  assert.match(serverSrc, /nncckkrr signaling v38\.13\.4/);
+  assert.match(serverSrc, /SERVER_VERSION = \"v38\.13\.4\"/);
+  assert.match(serverSrc, /SIGNALING_PROTOCOL_VERSION = 2/);
+  assert.match(serverSrc, /type: \"hello\"/);
   assert.match(indexHtml, /main\.js\?v=38\.13\.4/);
   assert.match(indexHtml, /config\.js\?v=38\.13\.4/);
   assert.match(indexHtml, /style\.css\?v=38\.13\.4/);
@@ -114,7 +117,7 @@ await test('CREATE room transport handshake still reaches onReady instead of sil
     onReady(info) { ready = info; },
     onError(message) { throw new Error(`transport error: ${message}`); }
   });
-  transport.connectHost('FIX133', { name: 'HOST' });
+  transport.connectHost('FIX134', { name: 'HOST' });
   const start = Date.now();
   while (!ready && Date.now() - start < 1000) {
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -123,8 +126,37 @@ await test('CREATE room transport handshake still reaches onReady instead of sil
   await new Promise((resolve) => wss.close(resolve));
   assert.ok(ready, 'create room did not produce onReady');
   assert.equal(ready.role, 'host');
-  assert.equal(ready.roomId, 'FIX133');
+  assert.equal(ready.roomId, 'FIX134');
   assert.equal(ready.playerId, 'p1');
+});
+
+
+await test('old signaling server without hello fails loudly as server_mismatch instead of silent create-room hang', async () => {
+  const oldServer = new WebSocketServer({ port: 0 });
+  let receivedCreate = false;
+  oldServer.on('connection', (ws) => {
+    ws.on('message', (raw) => {
+      let msg = null;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (msg.type === 'create') receivedCreate = true;
+    });
+  });
+  await new Promise((resolve) => oldServer.once('listening', resolve));
+  const { port } = oldServer.address();
+  let error = null;
+  const transport = new Transport(`http://127.0.0.1:${port}`, {
+    onReady() { throw new Error('old server unexpectedly reached ready'); },
+    onError(message) { error = message; }
+  });
+  transport.connectHost('OLD134', { name: 'HOST' });
+  const start = Date.now();
+  while (!error && Date.now() - start < SERVER_HELLO_TIMEOUT_MS + 1000) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  transport.close(false);
+  await new Promise((resolve) => oldServer.close(resolve));
+  assert.equal(error, 'server_mismatch');
+  assert.equal(receivedCreate, false, 'client should not send create before protocol hello');
 });
 
 let failed = 0;
@@ -133,4 +165,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.4 effects split and create-room checks passed`);
+console.log(`All ${results.length} v38.13.4 effects split and server-handshake checks passed`);

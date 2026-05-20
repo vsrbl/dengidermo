@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, PING_RATE_MS } from "../core/constants.js";
+import { MAX_PLAYERS, PING_RATE_MS, SERVER_HELLO_TIMEOUT_MS, SIGNALING_PROTOCOL_VERSION } from "../core/constants.js";
 
 function toWebSocketUrl(url) {
   const u = new URL(url);
@@ -27,6 +27,9 @@ export class Transport {
     this.pingMs = null;
     this.lastPing = 0;
     this.closedByClient = false;
+    this.helloReady = false;
+    this.pendingOpenAction = null;
+    this.helloTimer = 0;
   }
 
   connectHost(roomId, options = {}) {
@@ -42,10 +45,23 @@ export class Transport {
   openWs(onOpen) {
     this.close(false);
     this.closedByClient = false;
+    this.helloReady = false;
+    this.pendingOpenAction = typeof onOpen === "function" ? onOpen : null;
     this.ws = new WebSocket(toWebSocketUrl(this.signalingUrl));
-    this.ws.addEventListener("open", onOpen);
+    this.ws.addEventListener("open", () => {
+      globalThis.clearTimeout(this.helloTimer);
+      this.helloTimer = globalThis.setTimeout(() => {
+        if (this.helloReady || this.closedByClient) return;
+        this.callbacks.onError?.("server_mismatch");
+        this.close(false);
+      }, SERVER_HELLO_TIMEOUT_MS);
+    });
     this.ws.addEventListener("message", (e) => this.handleWs(safeJson(e.data)));
     this.ws.addEventListener("close", () => {
+      globalThis.clearTimeout(this.helloTimer);
+      this.helloTimer = 0;
+      this.pendingOpenAction = null;
+      this.helloReady = false;
       this.connected = false;
       if (!this.closedByClient) this.callbacks.onClose?.();
     });
@@ -68,6 +84,21 @@ export class Transport {
 
   handleWs(msg) {
     if (!msg || !msg.type) return;
+    if (msg.type === "hello") {
+      const protocol = Number(msg.protocol || 0);
+      if (protocol !== SIGNALING_PROTOCOL_VERSION) {
+        this.callbacks.onError?.("server_mismatch");
+        this.close(false);
+        return;
+      }
+      this.helloReady = true;
+      globalThis.clearTimeout(this.helloTimer);
+      this.helloTimer = 0;
+      const action = this.pendingOpenAction;
+      this.pendingOpenAction = null;
+      action?.();
+      return;
+    }
     if (msg.type === "created" || msg.type === "joined") {
       this.roomId = msg.roomId;
       this.playerId = msg.playerId;
@@ -275,6 +306,10 @@ export class Transport {
 
   close(sendLeave = true) {
     this.closedByClient = true;
+    globalThis.clearTimeout(this.helloTimer);
+    this.helloTimer = 0;
+    this.pendingOpenAction = null;
+    this.helloReady = false;
     const ws = this.ws;
     if (sendLeave && this.connected) this.sendLeaveNotice();
     for (const id of [...this.peers.keys()]) this.closePeer(id);

@@ -17,7 +17,7 @@ const transport = read("src/net/transport.js");
 const server = read("server/server.js");
 const constants = read("src/core/constants.js");
 
-mustInclude(constants, 'VERSION = "v38.13.3"', "v38.13.3 frontend version");
+mustInclude(constants, 'VERSION = "v38.13.4"', "v38.13.4 frontend version");
 mustInclude(main, 'if (msg.t === "leave" && from)', "host app-level leave handling");
 mustInclude(main, "session.dropRemotePlayer(from);", "host removes app-level leaver");
 mustInclude(transport, "sendLeaveNotice()", "transport explicit leave notice");
@@ -29,6 +29,6 @@ mustInclude(transport, 'if (msg.type === "room_closed")', "room closed handling"
 mustInclude(server, "function pruneClosedPlayers(room)", "server stale socket pruning");
 mustInclude(server, "if (ws.nnRoom || ws.nnPlayerId) leave(ws);", "server rejoins leave old session first");
 mustInclude(server, "closeRoom(room, \"host_missing\")", "server rejects hostless rooms");
-mustInclude(server, 'nncckkrr signaling v38.13.3', "v38.13.3 server banner");
+mustInclude(server, 'nncckkrr signaling v38.13.4', "v38.13.4 server banner");
 
-console.log("v38.13.3 session lifecycle checks passed");
+console.log("v38.13.4 session lifecycle checks passed");

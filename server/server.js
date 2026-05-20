@@ -5,6 +5,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
+const SERVER_VERSION = "v38.13.4";
+const SIGNALING_PROTOCOL_VERSION = 2;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const rooms = new Map();
@@ -182,11 +184,11 @@ const server = http.createServer((req, res) => {
   if (req.url === "/health") {
     for (const room of rooms.values()) pruneClosedPlayers(room);
     res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, protocol: SIGNALING_PROTOCOL_VERSION }));
     return;
   }
   res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
-  res.end("nncckkrr signaling v38.13.3\n");
+  res.end(`nncckkrr signaling ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION}\n`);
 });
 
 const wss = new WebSocketServer({ server });
@@ -194,6 +196,7 @@ const wss = new WebSocketServer({ server });
 wss.on("connection", (ws) => {
   ws.nnRoom = null;
   ws.nnPlayerId = null;
+  send(ws, { type: "hello", version: SERVER_VERSION, protocol: SIGNALING_PROTOCOL_VERSION });
 
   ws.on("message", (raw) => {
     let msg = null;
@@ -212,4 +215,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.3 on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.4 on ${PORT}`));

@@ -41,8 +41,8 @@ function forcePortalTransition(state) {
 }
 
 test('v38.6 room flow module is registered', () => {
-  assert.equal(VERSION, 'v38.13.3');
-  assert.equal(pkg.version, '38.13.3');
+  assert.equal(VERSION, 'v38.13.4');
+  assert.equal(pkg.version, '38.13.4');
   assert.match(roomFlowSrc, /beginRoomTransition/, 'room flow transition entrypoint missing');
   assert.match(roomFlowSrc, /clearLocationRuntime/, 'official runtime reset pipeline missing');
   assert.match(portalsSrc, /beginRoomTransition/, 'portals should delegate transition orchestration to roomFlow');
