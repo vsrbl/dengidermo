@@ -1,6 +1,6 @@
 import { clamp } from "../core/math.js";
-import { DASH_DENIAL_RECONCILE_MS, GAME_SPEED, INPUT_RATE, START_WEAPON, WORLD } from "../core/constants.js";
-import { WEAPONS } from "../data/weapons.js";
+import { DASH_DENIAL_RECONCILE_MS, GAME_SPEED, INPUT_RATE, WORLD } from "../core/constants.js";
+import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { makePredictedProjectile, resetRendererSmooth } from "../renderer.js";
 import { fireWeapon } from "../game/combat.js";
 import { makeShootPayload, movePlayer } from "../game/simulation.js";

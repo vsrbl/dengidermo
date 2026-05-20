@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "38.13.5",
+  "version": "38.13.6",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -10,7 +10,7 @@
     "start": "node server/server.js",
     "check:effects": "node scripts/verify-effects.mjs",
     "check:dev": "node scripts/verify-dev.mjs",
-    "check:all": "npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34 && npm run check:shake && npm run check:v35 && npm run check:hooks && npm run check:v35-3 && npm run check:architecture && npm run check:v36 && npm run check:v36-2 && npm run check:v37 && npm run check:ui && npm run check:v38-1 && npm run check:v38-2 && npm run check:v38-3 && npm run check:v38-4 && npm run check:v38-4-1 && npm run check:v38-5 && npm run check:v38-5-1 && npm run check:v38-5-2 && npm run check:v38-6 && npm run check:v38-6-1 && npm run check:v38-6-2 && npm run check:v38-6-3 && npm run check:v38-7 && npm run check:v38-8 && npm run check:v38-8-1 && npm run check:v38-8-2 && npm run check:v38-9 && npm run check:v38-9-1 && npm run check:v38-10 && npm run check:v38-11 && npm run check:v38-12 && npm run check:v38-13-1 && npm run check:v38-13-2 && npm run check:v38-13-3 && npm run check:v38-13-4 && npm run check:v38-13-5",
+    "check:all": "npm run check:modules && npm run check:effects && npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:v34 && npm run check:shake && npm run check:v35 && npm run check:hooks && npm run check:v35-3 && npm run check:architecture && npm run check:v36 && npm run check:v36-2 && npm run check:v37 && npm run check:ui && npm run check:v38-1 && npm run check:v38-2 && npm run check:v38-3 && npm run check:v38-4 && npm run check:v38-4-1 && npm run check:v38-5 && npm run check:v38-5-1 && npm run check:v38-5-2 && npm run check:v38-6 && npm run check:v38-6-1 && npm run check:v38-6-2 && npm run check:v38-6-3 && npm run check:v38-7 && npm run check:v38-8 && npm run check:v38-8-1 && npm run check:v38-8-2 && npm run check:v38-9 && npm run check:v38-9-1 && npm run check:v38-10 && npm run check:v38-11 && npm run check:v38-12 && npm run check:v38-13-1 && npm run check:v38-13-2 && npm run check:v38-13-3 && npm run check:v38-13-4 && npm run check:v38-13-5 && npm run check:v38-13-6",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
     "check:v34": "node scripts/verify-v34-pack.mjs",
@@ -49,7 +49,9 @@
     "check:v38-13-2": "node scripts/verify-v38-13-2-projectile-behavior-helpers.mjs",
     "check:v38-13-3": "node scripts/verify-v38-13-3-effects-split-and-connect.mjs",
     "check:v38-13-4": "node scripts/verify-v38-13-4-server-handshake.mjs",
-    "check:v38-13-5": "node scripts/verify-v38-13-5-connect-visibility.mjs"
+    "check:v38-13-5": "node scripts/verify-v38-13-5-connect-visibility.mjs",
+    "check:modules": "node scripts/verify-module-exports.mjs",
+    "check:v38-13-6": "node scripts/verify-v38-13-6-browser-module-integrity.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

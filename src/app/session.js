@@ -1,6 +1,7 @@
 import { isValidRoomId, normalizeRoomId, randomRoomId } from "../ui.js";
 import { normalizePlayerName } from "../core/names.js";
-import { CONNECT_TIMEOUT_MS, START_WEAPON } from "../core/constants.js";
+import { CONNECT_TIMEOUT_MS } from "../core/constants.js";
+import { START_WEAPON } from "../data/weapons.js";
 import { createInventory } from "../game/inventory.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "../game/state.js";
 import { emptyInput } from "../game/simulation.js";

@@ -33,16 +33,16 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('v38.13.5 is registered', () => {
-  assert.equal(VERSION, 'v38.13.5');
-  assert.equal(pkg.version, '38.13.5');
-  assert.equal(serverPkg.version, '38.13.5');
+test('v38.13.6 is registered', () => {
+  assert.equal(VERSION, 'v38.13.6');
+  assert.equal(pkg.version, '38.13.6');
+  assert.equal(serverPkg.version, '38.13.6');
   assert.match(pkg.scripts['check:all'], /check:v38-8/);
 });
 
 test('baseline rooms still use open arena and do not change gameplay geometry', () => {
   for (const room of ROOM_SEQUENCE) {
-    assert.equal(room.layout, 'open_arena', `${room.id} should not silently switch layouts in v38.13.5 foundation`);
+    assert.equal(room.layout, 'open_arena', `${room.id} should not silently switch layouts in v38.13.6 foundation`);
   }
   const snap = makeSnapshot(createGameState('V38-8-BASELINE'));
   assert.equal(snap.location.layoutId, 'open_arena');
@@ -167,4 +167,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.5 room geometry checks passed`);
+console.log(`All ${results.length} v38.13.6 room geometry checks passed`);

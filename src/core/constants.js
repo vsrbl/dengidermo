@@ -1,4 +1,4 @@
-export const VERSION = "v38.13.5";
+export const VERSION = "v38.13.6";
 export const SIGNALING_PROTOCOL_VERSION = 2;
 export const SERVER_HELLO_TIMEOUT_MS = 900;
 export const MAX_PLAYERS = 4;

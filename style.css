@@ -456,3 +456,23 @@ button:disabled { opacity: 0.45; cursor: default; }
 .menu-status.error {
   color: var(--red);
 }
+
+
+.boot-error {
+  position: fixed;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  padding: 14px 16px;
+  border: 2px solid var(--red);
+  background: #050000;
+  color: var(--red);
+  font-size: 12px;
+  line-height: 1.45;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  box-shadow: 6px 6px 0 #000;
+  white-space: pre-wrap;
+  user-select: text;
+}

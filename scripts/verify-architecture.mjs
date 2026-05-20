@@ -105,10 +105,10 @@ test('effect defs have hooks and future-only defs are explicit', () => {
 });
 
 test('version strings are aligned across frontend/package/server', () => {
-  assert.equal(VERSION, 'v38.13.5');
-  assert.equal(pkg.version, '38.13.5');
-  assert.equal(serverPkg.version, '38.13.5');
-  assert.match(serverSrc, /v38\.13\.5/, 'server banner is stale');
+  assert.equal(VERSION, 'v38.13.6');
+  assert.equal(pkg.version, '38.13.6');
+  assert.equal(serverPkg.version, '38.13.6');
+  assert.match(serverSrc, /v38\.13\.6/, 'server banner is stale');
   assert.doesNotMatch(serverSrc, /v33\.1/, 'old server banner leaked through');
 });
 
