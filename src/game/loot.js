@@ -1,7 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { LOOT, weightedLoot } from "../data/loot.js";
-import { getLocation } from "../data/locations.js";
+import { getPlannedLocationForState } from "./runPlanner.js";
 import { attractLootToPlayer, buildPlayerEffects, healPlayer, resolveLootRoll } from "./effects.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
@@ -14,7 +14,7 @@ export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {
   const roll = source ? resolveLootRoll(state, source, { chance }) : { chance };
   if (state.rng.next() > roll.chance) return;
 
-  const loc = getLocation(Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0));
+  const loc = getPlannedLocationForState(state);
   const kind = weightedLoot(state.rng, loc.lootPool);
   const data = LOOT[kind];
   const id = nextId("loot");

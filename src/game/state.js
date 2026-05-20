@@ -2,7 +2,9 @@ import { CENTER, PLAYER_HP, PLAYER_RADIUS, SPAWN_OFFSETS, WORLD } from "../core/
 import { clamp } from "../core/math.js";
 import { displayPlayerName } from "../core/names.js";
 import { makeRng } from "../core/random.js";
-import { getLocation } from "../data/locations.js";
+import { getLocationFromRoomPlan, getPlannedLocationForState, resolveRoomPlan } from "./runPlanner.js";
+import { clampCircleToLocation, roomGeometryIdentity, roomGeometrySnapshot } from "./roomGeometry.js";
+import { enterRoomModifierRuntime, roomModifierSnapshots } from "./roomModifiers.js";
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory, ensureInventory, inventorySnapshot } from "./inventory.js";
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
@@ -19,15 +21,22 @@ export { pushEvent } from "./events.js";
 
 export function createGameState(roomId, options = {}) {
   resetEntityIds();
-  const location = getLocation(0);
+  const roomPlan = resolveRoomPlan(0, { seed: roomId, createdAt: 0 });
+  const location = getLocationFromRoomPlan(roomPlan);
   const state = {
     roomId,
     tick: 0,
     time: 0,
     rng: makeRng(roomId),
-    runDepth: 0,
+    roomPlan,
+    runDepth: roomPlan.runDepth,
+    loopIndex: location.loopIndex || 0,
+    roomInLoop: location.roomInLoop || 0,
     roomSequenceIndex: location.sequenceIndex || 0,
     locationIndex: 0,
+    roomCategory: location.category || "normal",
+    layoutId: location.layoutId || "open_arena",
+    roomModifierIds: [...(location.modifierIds || [])],
     locationId: location.id,
     locationName: location.name,
     biomeId: location.biomeId,
@@ -46,24 +55,29 @@ export function createGameState(roomId, options = {}) {
     spawnTimer: location.director?.spawnStartDelay ?? 0.8,
     wave: 0,
     bossSpawned: false,
-    director: null
+    director: null,
+    roomModifierRuntime: null
   };
+  enterRoomModifierRuntime(state, location, { reason: "create", runDepth: roomPlan.runDepth });
   installDevMode(state, options.dev);
   state.portalReadyAt = devPortalDelay(state, location.portalDelay);
   state.portalHold = devPortalHold(state, location.portalHold);
   return state;
 }
 
-export function spawnPoint(index = 0) {
+export function spawnPoint(index = 0, loc = null, radius = PLAYER_RADIUS) {
   const off = SPAWN_OFFSETS[index % SPAWN_OFFSETS.length];
-  return {
+  const point = {
     x: clamp(CENTER.x + off.x, 24, WORLD.w - 24),
     y: clamp(CENTER.y + off.y, 24, WORLD.h - 24)
   };
+  if (!loc) return point;
+  const clamped = clampCircleToLocation(roomGeometrySnapshot(loc), point.x, point.y, radius);
+  return { x: clamped.x, y: clamped.y };
 }
 
 export function addPlayer(state, playerId, index = 0, options = {}) {
-  const p = spawnPoint(index);
+  const p = spawnPoint(index, { layoutId: state.layoutId });
   state.players[playerId] = {
     id: playerId,
     name: displayPlayerName(options.name, playerId.toUpperCase()),
@@ -101,8 +115,8 @@ export function removePlayer(state, playerId) {
   delete state.players[playerId];
 }
 
-export function respawnPlayer(player, index = 0) {
-  const p = spawnPoint(index);
+export function respawnPlayer(player, index = 0, loc = null) {
+  const p = spawnPoint(index, loc, player.radius || PLAYER_RADIUS);
   player.x = p.x;
   player.y = p.y;
   player.vx = 0;
@@ -116,22 +130,38 @@ export function respawnPlayer(player, index = 0) {
 }
 
 export function makeSnapshot(state) {
-  const depth = Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0);
-  const location = getLocation(depth);
+  const fallbackDepth = Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0);
+  const location = getPlannedLocationForState(state, fallbackDepth);
+  const plan = state.roomPlan || location.plan || null;
+  const depth = Number.isFinite(plan?.runDepth) ? plan.runDepth : (Number.isFinite(location.runDepth) ? location.runDepth : fallbackDepth);
+  const layoutId = plan?.layoutId || state.layoutId || location.layoutId || "open_arena";
+  const geometry = roomGeometryIdentity({ layoutId });
   const hold = state.portalHold || location.portalHold || 1.15;
   return {
     tick: state.tick,
     time: Number(state.time.toFixed(3)),
     location: {
-      id: state.locationId || location.id,
-      name: state.locationName || location.name,
+      id: location.id || state.locationId,
+      name: location.name || state.locationName,
       index: depth,
       runDepth: depth,
-      roomSequenceIndex: Number.isFinite(state.roomSequenceIndex) ? state.roomSequenceIndex : (location.sequenceIndex || location.index || 0),
+      loopIndex: Number.isFinite(plan?.loopIndex) ? plan.loopIndex : (Number.isFinite(state.loopIndex) ? state.loopIndex : (location.loopIndex || 0)),
+      roomInLoop: Number.isFinite(plan?.roomInLoop) ? plan.roomInLoop : (Number.isFinite(state.roomInLoop) ? state.roomInLoop : (location.roomInLoop || 0)),
+      roomSequenceIndex: Number.isFinite(plan?.roomSequenceIndex) ? plan.roomSequenceIndex : (Number.isFinite(state.roomSequenceIndex) ? state.roomSequenceIndex : (location.sequenceIndex || location.index || 0)),
+      baseRoomId: plan?.baseRoomId || location.baseRoomId || location.id,
+      resolvedRoomId: plan?.resolvedRoomId || plan?.roomId || location.id,
+      ruleId: plan?.ruleId || null,
+      seed: plan?.seed || null,
+      category: plan?.category || state.roomCategory || location.category || "normal",
+      tags: [...(location.tags || [])],
+      layoutId: geometry.layoutId,
+      layoutVersion: geometry.layoutVersion,
+      geometryHash: geometry.geometryHash,
+      modifiers: roomModifierSnapshots(location),
       time: Number((state.locationTime || 0).toFixed(2)),
       accent: location.accent || "green",
-      biomeId: location.biomeId || "grid",
-      biomeName: location.biomeName || "BLACK GRID",
+      biomeId: location.biomeId || state.biomeId || "grid",
+      biomeName: location.biomeName || state.biomeName || "BLACK GRID",
       gridStep: location.gridStep || 80
     },
     players: Object.values(state.players).map((p) => ({

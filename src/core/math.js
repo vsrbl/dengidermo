@@ -19,7 +19,7 @@ export const approach = (a, b, maxStep) => {
   return a + Math.sign(b - a) * maxStep;
 };
 
-export function segmentCircleHit(ax, ay, bx, by, cx, cy, radius) {
+export function segmentCircleHitT(ax, ay, bx, by, cx, cy, radius) {
   const abx = bx - ax;
   const aby = by - ay;
   const acx = cx - ax;
@@ -28,7 +28,11 @@ export function segmentCircleHit(ax, ay, bx, by, cx, cy, radius) {
   const t = clamp((acx * abx + acy * aby) / ab2, 0, 1);
   const px = ax + abx * t;
   const py = ay + aby * t;
-  return dist2(px, py, cx, cy) <= radius * radius;
+  return dist2(px, py, cx, cy) <= radius * radius ? t : null;
+}
+
+export function segmentCircleHit(ax, ay, bx, by, cx, cy, radius) {
+  return segmentCircleHitT(ax, ay, bx, by, cx, cy, radius) !== null;
 }
 
 export function isVisible(obj, cam, pad = 80) {

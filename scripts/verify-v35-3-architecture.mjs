@@ -17,9 +17,12 @@ import {
 
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
 const enemiesSrc = readFileSync(new URL('../src/game/enemies.js', import.meta.url), 'utf8');
+const enemyBehaviorsSrc = readFileSync(new URL('../src/game/enemyBehaviors.js', import.meta.url), 'utf8');
+const enemyRuntimeSrc = `${enemiesSrc}
+${enemyBehaviorsSrc}`;
 const lootSrc = readFileSync(new URL('../src/game/loot.js', import.meta.url), 'utf8');
 const simulationSrc = readFileSync(new URL('../src/game/simulation.js', import.meta.url), 'utf8');
-const runtimeGameSrc = ['enemies.js', 'loot.js', 'simulation.js', 'projectiles.js', 'abilities.js', 'portals.js', 'upgrades.js']
+const runtimeGameSrc = ['enemies.js', 'enemyBehaviors.js', 'loot.js', 'simulation.js', 'projectiles.js', 'abilities.js', 'portals.js', 'upgrades.js']
   .map((name) => `${name}\n${readFileSync(new URL(`../src/game/${name}`, import.meta.url), 'utf8')}`)
   .join('\n---\n');
 
@@ -43,9 +46,9 @@ test('player damage is routed through the unified player damage pipeline', () =>
   assert.match(effectsSrc, /EFFECT_HOOKS\.PLAYER_DAMAGE/, 'PLAYER_DAMAGE hook is not used by effects.js');
   assert.ok(EFFECT_DEFS.shield.hooks.includes(EFFECT_HOOKS.PLAYER_DAMAGE), 'shield must listen to PLAYER_DAMAGE');
   assert.ok(EFFECT_DEFS.teleportDash.hooks.includes(EFFECT_HOOKS.PLAYER_DAMAGE), 'dash invuln must listen to PLAYER_DAMAGE');
-  assert.match(enemiesSrc, /dealPlayerDamage\(state, target, \{/, 'enemy touch damage does not call dealPlayerDamage()');
-  assert.doesNotMatch(enemiesSrc, /target\.hp\s*[-+]?=/, 'enemies.js directly mutates player hp');
-  assert.match(enemiesSrc, /ARCHITECTURE GUARD: player damage must flow through dealPlayerDamage/, 'enemy damage guard comment missing');
+  assert.match(enemyRuntimeSrc, /dealPlayerDamage\(state, target, \{/, 'enemy touch damage does not call dealPlayerDamage()');
+  assert.doesNotMatch(enemyRuntimeSrc, /target\.hp\s*[-+]?=/, 'enemy runtime directly mutates player hp');
+  assert.match(enemyRuntimeSrc, /ARCHITECTURE GUARD: player damage must flow through dealPlayerDamage/, 'enemy damage guard comment missing');
 });
 
 test('shield and dash mitigation resolve through PLAYER_DAMAGE hooks', () => {

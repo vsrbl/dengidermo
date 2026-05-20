@@ -1,5 +1,6 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
+import { canPlaceSpawnPointInState, resolveSpawnPointInState, roomGeometrySnapshot, roomLayoutForState } from "./roomGeometry.js";
 
 export const SPAWN_ZONE_IDS = Object.freeze({
   EDGE_RANDOM: "edge_random",
@@ -16,6 +17,7 @@ export const SPAWN_ZONE_IDS = Object.freeze({
 
 const EDGE_MARGIN = 80;
 const CORNER_MARGIN = 120;
+const DIRECTION_TAGS = Object.freeze([SPAWN_ZONE_IDS.NORTH, SPAWN_ZONE_IDS.SOUTH, SPAWN_ZONE_IDS.EAST, SPAWN_ZONE_IDS.WEST]);
 
 function alivePlayers(state) {
   return Object.values(state.players || {}).filter((p) => p.hp > 0);
@@ -68,7 +70,7 @@ function cornerPoint(state) {
   };
 }
 
-export function resolveSpawnPoint(state, zoneId = SPAWN_ZONE_IDS.EDGE_RANDOM) {
+function rawSpawnPoint(state, zoneId = SPAWN_ZONE_IDS.EDGE_RANDOM) {
   const zone = zoneId || SPAWN_ZONE_IDS.EDGE_RANDOM;
   if (zone === SPAWN_ZONE_IDS.NORTH || zone === SPAWN_ZONE_IDS.SOUTH || zone === SPAWN_ZONE_IDS.EAST || zone === SPAWN_ZONE_IDS.WEST) {
     return edgePoint(state, zone);
@@ -82,6 +84,89 @@ export function resolveSpawnPoint(state, zoneId = SPAWN_ZONE_IDS.EDGE_RANDOM) {
   if (zone === SPAWN_ZONE_IDS.EDGE_FLANK) return edgePoint(state, state.rng.pick(sides.slice(1, 3)) || sides[0]);
   if (zone === SPAWN_ZONE_IDS.NEAR_TEAM_EDGE) return edgePoint(state, sides.at(-1) || SPAWN_ZONE_IDS.NORTH);
   return edgePoint(state, state.rng.pick([SPAWN_ZONE_IDS.NORTH, SPAWN_ZONE_IDS.SOUTH, SPAWN_ZONE_IDS.EAST, SPAWN_ZONE_IDS.WEST]));
+}
+
+function tagsFor(anchor) {
+  return new Set([anchor.id, ...(anchor.tags || [])].filter(Boolean).map((tag) => String(tag).toLowerCase()));
+}
+
+function hasAnyTag(anchor, tags = []) {
+  const set = tagsFor(anchor);
+  return tags.some((tag) => set.has(String(tag).toLowerCase()));
+}
+
+function hasAllTags(anchor, tags = []) {
+  if (!tags.length) return true;
+  const set = tagsFor(anchor);
+  return tags.every((tag) => set.has(String(tag).toLowerCase()));
+}
+
+function anchorMatchesZone(anchor, zoneId, role = "wave", options = {}) {
+  if (options.anchorId && anchor.id === options.anchorId) return true;
+  if (Array.isArray(options.anchorTags) && options.anchorTags.length && hasAllTags(anchor, options.anchorTags)) return true;
+
+  const zone = zoneId || SPAWN_ZONE_IDS.EDGE_RANDOM;
+  if (role === "boss" || zone === SPAWN_ZONE_IDS.BOSS_ANCHOR) return hasAnyTag(anchor, ["boss", "boss_anchor"]);
+  if (DIRECTION_TAGS.includes(zone)) return hasAnyTag(anchor, [zone]);
+  if (zone === SPAWN_ZONE_IDS.CORNER_RANDOM) return hasAnyTag(anchor, ["corner"]);
+  if (zone === SPAWN_ZONE_IDS.EDGE_FLANK) return hasAnyTag(anchor, ["flank", "side", "lane", "edge"]);
+  if (zone === SPAWN_ZONE_IDS.EDGE_FAR || zone === SPAWN_ZONE_IDS.NEAR_TEAM_EDGE || zone === SPAWN_ZONE_IDS.EDGE_RANDOM) return hasAnyTag(anchor, ["edge"]);
+  return false;
+}
+
+function anchorDistanceFromTeam(state, anchor) {
+  const center = teamCenter(state);
+  return dist2(anchor.x, anchor.y, center.x, center.y);
+}
+
+function chooseAnchor(state, anchors, zoneId, role = "wave", options = {}) {
+  if (!anchors.length) return null;
+  if (options.anchorId) return anchors.find((anchor) => anchor.id === options.anchorId) || null;
+
+  const zone = zoneId || SPAWN_ZONE_IDS.EDGE_RANDOM;
+  if (role === "boss" || zone === SPAWN_ZONE_IDS.BOSS_ANCHOR) return anchors[0];
+
+  if (zone === SPAWN_ZONE_IDS.EDGE_FAR) {
+    return anchors.slice().sort((a, b) => anchorDistanceFromTeam(state, b) - anchorDistanceFromTeam(state, a))[0] || null;
+  }
+
+  if (zone === SPAWN_ZONE_IDS.NEAR_TEAM_EDGE) {
+    return anchors.slice().sort((a, b) => anchorDistanceFromTeam(state, a) - anchorDistanceFromTeam(state, b))[0] || null;
+  }
+
+  if (zone === SPAWN_ZONE_IDS.EDGE_FLANK) {
+    const sorted = anchors.slice().sort((a, b) => anchorDistanceFromTeam(state, b) - anchorDistanceFromTeam(state, a));
+    const middle = sorted.slice(1, Math.max(2, sorted.length - 1));
+    return state.rng.pick(middle.length ? middle : sorted) || sorted[0] || null;
+  }
+
+  return state.rng.pick(anchors) || anchors[0] || null;
+}
+
+function resolveAnchorSpawnPoint(state, zoneId, radius = 12, options = {}) {
+  const geometry = options.geometry || roomGeometrySnapshot({ layout: roomLayoutForState(state) });
+  const role = options.role || "wave";
+  const anchors = (geometry.spawnAnchors || [])
+    .filter((anchor) => anchorMatchesZone(anchor, zoneId, role, options))
+    .filter((anchor) => canPlaceSpawnPointInState(state, geometry, anchor.x, anchor.y, radius, options));
+  const anchor = chooseAnchor(state, anchors, zoneId, role, options);
+  if (!anchor) return null;
+  return {
+    x: anchor.x,
+    y: anchor.y,
+    adjusted: false,
+    fromAnchor: true,
+    anchorId: anchor.id,
+    anchorTags: [...(anchor.tags || [])]
+  };
+}
+
+export function resolveSpawnPoint(state, zoneId = SPAWN_ZONE_IDS.EDGE_RANDOM, radius = 12, options = {}) {
+  const geometry = options.geometry || roomGeometrySnapshot({ layout: roomLayoutForState(state) });
+  const anchorPoint = resolveAnchorSpawnPoint(state, zoneId, radius, { ...options, geometry });
+  if (anchorPoint) return anchorPoint;
+
+  return resolveSpawnPointInState(state, rawSpawnPoint(state, zoneId), radius, { ...options, geometry });
 }
 
 function stageZones(stage, loc) {

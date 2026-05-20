@@ -45,7 +45,7 @@ function forcePortalTransition(state) {
 }
 
 test('v38.6 bugfix pass is registered', () => {
-  assert.equal(pkg.version, '38.6.3');
+  assert.equal(pkg.version, '38.13.2');
   assert.match(threatSrc, /resetThreatAnalyzer/, 'threat reset helper should exist');
   assert.match(roomFlowSrc, /clearLocationRuntimeObjects/, 'portal transition clear should go through runtime reset helper');
   assert.match(runtimeResetSrc, /resetThreatAnalyzer/, 'runtime reset helper should reset threat');

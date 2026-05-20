@@ -1,674 +1,142 @@
-import { createUi, isValidRoomId, normalizeRoomId, randomRoomId } from "./ui.js";
-import { normalizePlayerName } from "./core/names.js";
+import { createUi } from "./ui.js";
 import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
-import { createRenderer, makePredictedProjectile, render, resetRendererSmooth, updatePredictedProjectiles } from "./renderer.js";
-import { Transport } from "./net/transport.js";
-import { CONNECT_TIMEOUT_MS, DASH_DENIAL_RECONCILE_MS, GAME_SPEED, INPUT_RATE, SNAPSHOT_RATE, UPGRADE_HIDE_MS, UPGRADE_RESEND_MS, UPGRADE_TIMEOUT_MS, VERSION, WORLD } from "./core/constants.js";
-import { clamp } from "./core/math.js";
-import { START_WEAPON, WEAPONS } from "./data/weapons.js";
-import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "./game/state.js";
-import { fireWeapon } from "./game/combat.js";
-import { emptyInput, makeShootPayload, movePlayer, updateHostWorld } from "./game/simulation.js";
-import { createInventory, cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "./game/inventory.js";
-import { chooseUpgrade } from "./game/upgrades.js";
+import { createRenderer, render, updatePredictedProjectiles } from "./renderer.js";
+import { GAME_SPEED, START_WEAPON, VERSION } from "./core/constants.js";
+import { createInventory } from "./game/inventory.js";
+import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { applyDevCommand, hasDevMode } from "./game/dev.js";
-import { canPredictDash, performDash, predictLocalDash } from "./game/abilities.js";
+import { createUpgradeClient } from "./app/upgradeClient.js";
+import { createSessionRuntime } from "./app/session.js";
+import { createHostRuntime } from "./app/hostRuntime.js";
+import { createClientRuntime } from "./app/clientRuntime.js";
+import { createDevControls } from "./app/devControls.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
-const ui = createUi();
-const canvas = document.getElementById("screen");
-const renderer = createRenderer(canvas);
-const camera = createCamera();
-const devConfig = readDevConfig(window.location);
-const input = createInput(canvas, { onEsc: leaveGame, onWeaponSlot: requestWeaponSlot, onWeaponCycle: requestWeaponCycle, onDevCommand: requestDevCommand, onAbility: requestAbility, isGameActive: () => running });
+function createAppState() {
+  const ui = createUi();
+  const canvas = document.getElementById("screen");
+  const renderer = createRenderer(canvas);
+  const camera = createCamera();
 
-let transport = null;
-let running = false;
-let role = "none";
-let roomId = null;
-let playerId = null;
-let playerName = "";
-let players = [];
-let playerNames = {};
-let pingMs = null;
-let transportMode = "LINK";
-let connecting = false;
-let connectTimer = 0;
-let hostState = null;
-let hostInputs = Object.create(null);
-let snapshot = null;
-let localPose = null;
-let localWeapon = START_WEAPON;
-let localInventory = createInventory([START_WEAPON]);
-let localUpgradeChoices = [];
-let localUpgradeOffers = {};
-let upgradePickPending = false;
-let upgradePendingAt = 0;
-let pendingUpgradeIndex = -1;
-let pendingUpgradeKey = "";
-let pendingUpgradeLastSend = 0;
-let upgradeHideTimer = 0;
-let predictedProjectiles = [];
-let localCooldowns = Object.create(null);
-let localLocationId = null;
-let fireSeq = 0;
-let abilitySeq = 0;
-let lastInputSent = 0;
-let lastSnapshotSent = 0;
-let lastFrame = performance.now();
-let lastSnapshotTick = -1;
+  return {
+    ui,
+    canvas,
+    renderer,
+    camera,
+    devConfig: readDevConfig(window.location),
+    input: null,
+    transport: null,
+    running: false,
+    role: "none",
+    roomId: null,
+    playerId: null,
+    playerName: "",
+    players: [],
+    playerNames: {},
+    pingMs: null,
+    transportMode: "LINK",
+    connecting: false,
+    connectTimer: 0,
+    hostState: null,
+    hostInputs: Object.create(null),
+    snapshot: null,
+    localPose: null,
+    localWeapon: START_WEAPON,
+    localInventory: createInventory([START_WEAPON]),
+    localUpgradeChoices: [],
+    localUpgradeOffers: {},
+    upgradePickPending: false,
+    upgradePendingAt: 0,
+    pendingUpgradeIndex: -1,
+    pendingUpgradeKey: "",
+    pendingUpgradeLastSend: 0,
+    upgradeHideTimer: 0,
+    predictedProjectiles: [],
+    localCooldowns: Object.create(null),
+    localLocationId: null,
+    fireSeq: 0,
+    abilitySeq: 0,
+    lastInputSent: 0,
+    lastSnapshotSent: 0,
+    lastFrame: performance.now(),
+    lastSnapshotTick: -1
+  };
+}
+
+const app = createAppState();
+let hostRuntime = null;
+let clientRuntime = null;
+
+const upgradeClient = createUpgradeClient(app, {
+  applyUpgradeRequest: (id, request) => hostRuntime?.applyUpgradeRequest(id, request)
+});
+
+const sessionRuntime = createSessionRuntime(app, {
+  signalingUrl: SIGNALING_URL,
+  devConfig: app.devConfig,
+  onNetData: handleNetData
+});
+
+hostRuntime = createHostRuntime(app, { session: sessionRuntime, upgrades: upgradeClient });
+clientRuntime = createClientRuntime(app, { session: sessionRuntime, host: hostRuntime, upgrades: upgradeClient });
+const devControls = createDevControls(app);
+
+sessionRuntime.wire({ host: hostRuntime, upgrades: upgradeClient });
+hostRuntime.wire({ client: clientRuntime });
+
+app.input = createInput(app.canvas, {
+  onEsc: () => sessionRuntime.leaveGame(),
+  onWeaponSlot: (slot) => clientRuntime.requestWeaponSlot(slot),
+  onWeaponCycle: (dir) => clientRuntime.requestWeaponCycle(dir),
+  onDevCommand: (command) => devControls.request(command),
+  onAbility: (ability) => clientRuntime.requestAbility(ability),
+  isGameActive: () => app.running
+});
 
 function boot() {
-  const savedName = normalizePlayerName(localStorage.getItem("nncckkrr.name") || "");
-  if (savedName) ui.el.nameInput.value = savedName;
-  ui.el.nameInput.addEventListener("input", () => {
-    ui.el.nameInput.value = normalizePlayerName(ui.el.nameInput.value);
-    localStorage.setItem("nncckkrr.name", ui.el.nameInput.value);
-  });
-  ui.el.roomInput.addEventListener("input", () => {
-    ui.el.roomInput.value = normalizeRoomId(ui.el.roomInput.value);
-  });
-  ui.el.createBtn.addEventListener("click", () => startHost());
-  ui.el.joinBtn.addEventListener("click", () => startGuest());
-  ui.el.roomInput.addEventListener("keydown", (e) => {
-    if (e.code === "Enter") startGuest();
-  });
-  ui.onUpgradePick(requestUpgradeChoice);
-  ui.showMenu();
+  sessionRuntime.bindMenu();
+  app.ui.onUpgradePick((index) => upgradeClient.requestChoice(index));
+  app.ui.showMenu();
   requestAnimationFrame(loop);
-}
-
-function makeTransport() {
-  return new Transport(SIGNALING_URL, {
-    onReady: handleReady,
-    onPlayers: (list, names) => {
-      players = Array.isArray(list) ? list.slice(0, 4) : [];
-      setPlayerNames(names);
-    },
-    onPlayerLeft: handlePlayerLeft,
-    onPlayerReplaced: handlePlayerReplaced,
-    onData: handleNetData,
-    onPing: (ms) => { pingMs = ms; },
-    onPeerState: (_id, state) => { if (state === "open") transportMode = "P2P"; },
-    onError: (message) => handleConnectError(message),
-    onClose: () => handleTransportClose()
-  });
-}
-
-function setConnecting(value) {
-  connecting = value;
-  ui.el.createBtn.disabled = value;
-  ui.el.joinBtn.disabled = value;
-  if (!value) {
-    window.clearTimeout(connectTimer);
-    connectTimer = 0;
-  }
-}
-
-function armConnectTimeout() {
-  window.clearTimeout(connectTimer);
-  connectTimer = window.setTimeout(() => {
-    if (!connecting || running) return;
-    transport?.close(false);
-    transport = null;
-    setConnecting(false);
-    ui.flashError("connection timeout");
-  }, CONNECT_TIMEOUT_MS);
-}
-
-function beginConnect(nextTransport) {
-  transport?.close(false);
-  transport = nextTransport;
-  setConnecting(true);
-  armConnectTimeout();
-}
-
-function handleConnectError(message = "error") {
-  if (!running) {
-    transport?.close(false);
-    transport = null;
-    setConnecting(false);
-    ui.flashError(message);
-    return;
-  }
-  ui.flashError(message);
-}
-
-function handleTransportClose() {
-  if (connecting && !running) {
-    setConnecting(false);
-    ui.flashError("connection closed");
-    return;
-  }
-  if (running) ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode: "OFF" });
-}
-
-function currentMenuName() {
-  const name = normalizePlayerName(ui.el.nameInput.value);
-  ui.el.nameInput.value = name;
-  if (name) localStorage.setItem("nncckkrr.name", name);
-  return name;
-}
-
-function setPlayerNames(names = {}) {
-  playerNames = names && typeof names === "object" ? { ...names } : {};
-}
-
-function playerDisplayName(id) {
-  return playerNames[id] || id?.toUpperCase?.() || "PLAYER";
-}
-
-function applyHostPlayerNames() {
-  if (!hostState) return;
-  for (const id of Object.keys(hostState.players)) {
-    hostState.players[id].name = playerDisplayName(id);
-  }
-}
-
-function startHost() {
-  if (connecting || running) return;
-  const id = randomRoomId();
-  const name = currentMenuName();
-  ui.el.roomInput.value = id;
-  const next = makeTransport();
-  beginConnect(next);
-  next.connectHost(id, { name });
-}
-
-function startGuest() {
-  if (connecting || running) return;
-  const id = normalizeRoomId(ui.el.roomInput.value);
-  ui.el.roomInput.value = id;
-  if (!isValidRoomId(id)) {
-    ui.flashError("bad room");
-    return;
-  }
-  const name = currentMenuName();
-  const next = makeTransport();
-  beginConnect(next);
-  next.connectGuest(id, { name });
-}
-
-function handleReady(info) {
-  setConnecting(false);
-  running = true;
-  role = info.role;
-  roomId = info.roomId;
-  playerId = info.playerId;
-  players = Array.isArray(info.players) ? info.players.slice(0, 4) : [info.playerId];
-  setPlayerNames(info.names);
-  playerName = playerDisplayName(playerId);
-  lastSnapshotTick = -1;
-  lastInputSent = 0;
-  lastSnapshotSent = 0;
-  transportMode = "RELAY";
-  pingMs = null;
-  predictedProjectiles = [];
-  localCooldowns = Object.create(null);
-  localLocationId = null;
-  fireSeq = 0;
-  abilitySeq = 0;
-  localWeapon = START_WEAPON;
-  localInventory = createInventory([START_WEAPON]);
-  resetUpgradeUi();
-  camera.ready = false;
-  input.resetKeys();
-
-  if (role === "host") {
-    hostState = createGameState(roomId, { dev: devConfig.enabled ? devConfig : null });
-    addPlayer(hostState, playerId, 0, { name: playerName });
-    hostInputs[playerId] = emptyInput();
-    localInventory = ensureInventory(hostState.players[playerId]);
-    localWeapon = getActiveWeaponId(hostState.players[playerId]);
-    snapshot = makeSnapshot(hostState);
-    localLocationId = snapshot.location?.id || null;
-  } else {
-    hostState = null;
-    snapshot = null;
-    const index = Math.max(0, players.indexOf(playerId));
-    const p = spawnPoint(index);
-    localInventory = createInventory([START_WEAPON]);
-    localPose = { id: playerId, name: playerName, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
-  }
-
-  ui.showGame(roomId);
-  ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
-}
-
-function dropRemotePlayer(id) {
-  if (!id || id === playerId) return;
-  players = players.filter((player) => player !== id);
-  delete playerNames[id];
-  if (hostState) removePlayer(hostState, id);
-  delete hostInputs[id];
-}
-
-function handlePlayerLeft(id) {
-  if (role === "guest" && id === "p1") {
-    leaveGame();
-    ui.flashError();
-    return;
-  }
-  dropRemotePlayer(id);
-}
-
-function handlePlayerReplaced(id) {
-  if (role !== "host") return;
-  dropRemotePlayer(id);
-}
-
-function leaveGame() {
-  if (!running) {
-    if (connecting) {
-      transport?.close(false);
-      transport = null;
-      setConnecting(false);
-    }
-    return;
-  }
-  running = false;
-  role = "none";
-  roomId = null;
-  playerId = null;
-  players = [];
-  playerNames = {};
-  playerName = "";
-  snapshot = null;
-  hostState = null;
-  hostInputs = Object.create(null);
-  localPose = null;
-  predictedProjectiles = [];
-  localInventory = createInventory([START_WEAPON]);
-  resetUpgradeUi();
-  localCooldowns = Object.create(null);
-  localLocationId = null;
-  abilitySeq = 0;
-  input.resetKeys();
-  transport?.close(true);
-  transport = null;
-  ui.showMenu();
 }
 
 function handleNetData(msg, from, mode) {
   if (!msg || !msg.t) return;
-  transportMode = mode === "p2p" ? "P2P" : "RELAY";
+  app.transportMode = mode === "p2p" ? "P2P" : "RELAY";
 
-  if (role === "host") {
-    if (msg.t === "leave" && from) {
-      dropRemotePlayer(from);
-      return;
-    }
-    if (msg.t === "input" && from) {
-      hostInputs[from] = msg.input || emptyInput();
-      return;
-    }
-    if (msg.t === "shoot" && from) {
-      const player = hostState?.players[from];
-      if (player && msg.shoot && msg.shoot.fireSeq > player.fireSeqSeen) {
-        player.fireSeqSeen = msg.shoot.fireSeq;
-        fireWeapon(hostState, from, msg.shoot);
-      }
-      return;
-    }
-    if (msg.t === "weapon" && from) {
-      applyWeaponRequest(from, msg);
-      return;
-    }
-    if (msg.t === "upgrade" && from) {
-      applyUpgradeRequest(from, msg);
-      return;
-    }
-    if (msg.t === "ability" && from) {
-      applyAbilityRequest(from, msg);
-      return;
-    }
+  if (app.role === "host") {
+    hostRuntime.handleNetData(msg, from);
     return;
   }
 
-  if (msg.t === "state") {
-    if (!msg.snapshot || !Number.isFinite(msg.snapshot.tick)) return;
-    if (msg.snapshot.tick <= lastSnapshotTick) return;
-    lastSnapshotTick = msg.snapshot.tick;
-    snapshot = msg.snapshot;
-    syncLocalFromSnapshot();
-  }
-}
-
-function syncLocalFromSnapshot() {
-  const me = snapshot?.players?.find((p) => p.id === playerId);
-  if (!me) return;
-  const nextLocationId = snapshot?.location?.id || null;
-  const locationChanged = nextLocationId && localLocationId && nextLocationId !== localLocationId;
-  if (nextLocationId && nextLocationId !== localLocationId) localLocationId = nextLocationId;
-  if (locationChanged) {
-    predictedProjectiles = [];
-    resetRendererSmooth(renderer);
-    camera.ready = false;
-    input.resetKeys();
-  }
-  const oldWeapon = localWeapon;
-  if (me.inventory) localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [...(me.inventory.passives || [])] };
-  syncUpgradeChoicesFromHost(me.upgrades?.choices, me.upgrades?.offers);
-  if (!localPose) {
-    localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
-    localPose = { ...me, inventory: localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
-    return;
-  }
-  localPose.hp = me.hp;
-  localPose.maxHp = me.maxHp;
-  if ((me.inventory?.activeWeapon || me.activeWeapon) && (me.inventory?.activeWeapon || me.activeWeapon) !== oldWeapon) {
-    localWeapon = me.inventory?.activeWeapon || me.activeWeapon;
-  }
-  localPose.activeWeapon = localWeapon;
-  localPose.inventory = localInventory;
-  localPose.upgrades = me.upgrades || { choices: [] };
-  localPose.stats = me.stats || localPose.stats || {};
-  localPose.ability = me.ability || null;
-  localPose.name = me.name || playerDisplayName(playerId);
-  localPose.skin = me.skin;
-  if ((me.ability?.dash?.cooldownLeft || 0) > 0) localPose._localDashPredictedAt = 0;
-  const dx = me.x - localPose.x;
-  const dy = me.y - localPose.y;
-  const d2 = dx * dx + dy * dy;
-  const dashPredictionAge = localPose._localDashPredictedAt ? performance.now() - localPose._localDashPredictedAt : 0;
-  const staleDeniedDash = localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
-  if (locationChanged || staleDeniedDash || d2 > 90000) {
-    localPose.x = me.x;
-    localPose.y = me.y;
-    localPose.vx = 0;
-    localPose.vy = 0;
-    localPose.kx = 0;
-    localPose.ky = 0;
-    localPose._localDashPredictedAt = 0;
-  }
-}
-
-function ensureHostPlayers() {
-  if (!hostState) return;
-  for (const [index, id] of players.entries()) {
-    if (!hostState.players[id]) addPlayer(hostState, id, index, { name: playerDisplayName(id) });
-  }
-  applyHostPlayerNames();
-  for (const id of Object.keys(hostState.players)) {
-    if (!players.includes(id)) removePlayer(hostState, id);
-  }
-}
-
-function currentLocalPlayerFromSnapshot() {
-  const fromSnapshot = snapshot?.players?.find((p) => p.id === playerId);
-  if (fromSnapshot) return fromSnapshot;
-  return localPose;
-}
-
-function applyWeaponRequest(id, request = {}) {
-  const player = hostState?.players[id];
-  if (!player) return false;
-  if (Number.isInteger(request.slot)) return switchWeaponSlot(player, request.slot);
-  if (Number.isFinite(request.dir)) return cycleWeapon(player, request.dir > 0 ? 1 : -1);
-  return false;
-}
-
-function applyUpgradeRequest(id, request = {}) {
-  if (!hostState) return false;
-  const player = hostState.players[id];
-  if (!player) return false;
-  const currentKey = upgradeChoicesKey(player.upgrades?.choices);
-  if (request.key && request.key !== currentKey) return false;
-  return chooseUpgrade(hostState, id, request.index);
-}
-
-function applyAbilityRequest(id, request = {}) {
-  if (!hostState || request.ability !== "dash") return false;
-  const inputState = request.input && typeof request.input === "object" ? request.input : (hostInputs[id] || emptyInput());
-  const result = performDash(hostState, id, inputState, { seq: request.seq });
-  return !!result.ok;
-}
-
-function upgradeChoicesKey(choices) {
-  return Array.isArray(choices) && choices.length ? choices.join("|") : "";
-}
-
-function resetUpgradeUi() {
-  localUpgradeChoices = [];
-  localUpgradeOffers = {};
-  upgradePickPending = false;
-  upgradePendingAt = 0;
-  pendingUpgradeIndex = -1;
-  pendingUpgradeKey = "";
-  pendingUpgradeLastSend = 0;
-  window.clearTimeout(upgradeHideTimer);
-  upgradeHideTimer = 0;
-  ui.setUpgradeMenu([]);
-}
-
-function syncUpgradeChoicesFromHost(choices, offers = {}) {
-  const nextChoices = Array.isArray(choices) ? choices.filter((id) => typeof id === "string").slice(0, 3) : [];
-  const nextKey = upgradeChoicesKey(nextChoices);
-
-  if (!nextKey) {
-    resetUpgradeUi();
-    return;
-  }
-
-  if (upgradePickPending && nextKey === pendingUpgradeKey) {
-    localUpgradeChoices = [];
-    ui.setUpgradeMenu([]);
-    return;
-  }
-
-  if (pendingUpgradeKey && nextKey === pendingUpgradeKey) {
-    localUpgradeChoices = [];
-    ui.setUpgradeMenu([]);
-    return;
-  }
-
-  localUpgradeChoices = nextChoices;
-  localUpgradeOffers = offers && typeof offers === "object" ? offers : {};
-  upgradePickPending = false;
-  upgradePendingAt = 0;
-  pendingUpgradeIndex = -1;
-  pendingUpgradeKey = "";
-  pendingUpgradeLastSend = 0;
-  ui.setUpgradeMenu(localUpgradeChoices, false, -1, localUpgradeOffers);
-}
-
-function sendPendingUpgradeRequest(now = performance.now()) {
-  if (role !== "guest" || pendingUpgradeIndex < 0) return;
-  pendingUpgradeLastSend = now;
-  transport?.sendToHost({ t: "upgrade", index: pendingUpgradeIndex, key: pendingUpgradeKey });
-}
-
-function requestUpgradeChoice(index) {
-  if (!running || upgradePickPending || !localUpgradeChoices[index]) return;
-  const key = upgradeChoicesKey(localUpgradeChoices);
-  if (!key) return;
-
-  upgradePickPending = true;
-  upgradePendingAt = performance.now();
-  pendingUpgradeIndex = index;
-  pendingUpgradeKey = key;
-  pendingUpgradeLastSend = 0;
-  ui.setUpgradeMenu(localUpgradeChoices, true, index, localUpgradeOffers);
-  window.clearTimeout(upgradeHideTimer);
-  upgradeHideTimer = window.setTimeout(() => {
-    if (upgradePickPending && pendingUpgradeKey === key) {
-      localUpgradeChoices = [];
-      ui.setUpgradeMenu([]);
-    }
-  }, UPGRADE_HIDE_MS);
-
-  if (role === "host") {
-    const ok = applyUpgradeRequest(playerId, { index, key });
-    if (!ok) {
-      resetUpgradeUi();
-    }
-    return;
-  }
-
-  sendPendingUpgradeRequest(upgradePendingAt);
-}
-
-function localInventoryWeapons() {
-  return Array.isArray(localInventory?.weapons) ? localInventory.weapons : [START_WEAPON];
-}
-
-function requestAbility(ability) {
-  if (!running || ability !== "dash") return;
-  const pose = localPose || currentLocalPlayerFromSnapshot();
-  if (!pose) return;
-  const inputState = input.sample(pose, camera);
-  abilitySeq += 1;
-
-  if (role === "host") {
-    applyAbilityRequest(playerId, { ability: "dash", input: inputState, seq: abilitySeq });
-    snapshot = makeSnapshot(hostState);
-    return;
-  }
-
-  const nowSec = (performance.now() / 1000) * GAME_SPEED;
-  if (!canPredictDash(localPose, nowSec)) return;
-  predictLocalDash(localPose, inputState, nowSec);
-  transport?.sendToHost({ t: "ability", ability: "dash", input: inputState, seq: abilitySeq });
-}
-
-function requestDevCommand(command) {
-  if (!running || role !== "host" || !hasDevMode(hostState)) return;
-  applyDevCommand(hostState, command);
-  snapshot = makeSnapshot(hostState);
-  transport?.broadcast({ t: "state", snapshot });
-}
-
-function requestWeaponSlot(slot) {
-  if (!running || !Number.isInteger(slot)) return;
-  if (role === "host") {
-    applyWeaponRequest(playerId, { slot });
-    return;
-  }
-  const weaponId = localInventoryWeapons()[slot];
-  if (!weaponId) return;
-  localWeapon = weaponId;
-  localInventory.activeWeapon = weaponId;
-  if (localPose) { localPose.activeWeapon = weaponId; localPose.inventory = localInventory; }
-  transport?.sendToHost({ t: "weapon", slot });
-}
-
-function requestWeaponCycle(dir) {
-  if (!running) return;
-  const weapons = localInventoryWeapons();
-  if (weapons.length <= 1) return;
-  if (role === "host") {
-    applyWeaponRequest(playerId, { dir });
-    return;
-  }
-  const current = Math.max(0, weapons.indexOf(localWeapon));
-  const next = (current + (dir > 0 ? 1 : -1) + weapons.length) % weapons.length;
-  requestWeaponSlot(next);
-}
-
-function applyLocalRecoil(pose, weapon, angle) {
-  if (!pose || !weapon?.recoil) return;
-  pose.kx = (pose.kx || 0) - Math.cos(angle) * weapon.recoil;
-  pose.ky = (pose.ky || 0) - Math.sin(angle) * weapon.recoil;
-}
-
-function tryLocalShoot(nowSec, inputState) {
-  if (!localPose || !inputState.fire) return;
-  const weaponId = WEAPONS[localWeapon] ? localWeapon : (WEAPONS[localPose.activeWeapon] ? localPose.activeWeapon : START_WEAPON);
-  const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
-  const fireRateMult = Math.max(0.1, localPose.stats?.fireRateMult || 1);
-  if (nowSec < (localCooldowns[weaponId] || 0)) return;
-  localCooldowns[weaponId] = nowSec + 1 / (weapon.fireRate * fireRateMult);
-  fireSeq += 1;
-  localPose.angle = inputState.aimAngle;
-  const payload = makeShootPayload(playerId, localPose, weaponId, fireSeq);
-  const baseId = `${playerId}-${fireSeq}`;
-  if (role === "guest") {
-    predictedProjectiles.push(...makePredictedProjectile(baseId, playerId, weaponId, localPose, localPose.stats));
-    applyLocalRecoil(localPose, weapon, inputState.aimAngle);
-  }
-  if (role === "host") fireWeapon(hostState, playerId, payload);
-  else transport?.sendToHost({ t: "shoot", shoot: payload });
-}
-
-function updateHost(dt, now, gameNow) {
-  ensureHostPlayers();
-  const inputState = input.sample(localPose || hostState.players[playerId], camera);
-  const me = hostState.players[playerId];
-  localPose = me;
-  inputState.px = Math.round(me.x);
-  inputState.py = Math.round(me.y);
-  hostInputs[playerId] = inputState;
-  localInventory = ensureInventory(me);
-  syncUpgradeChoicesFromHost(me.upgrades?.choices, me.upgrades?.offers);
-  localWeapon = getActiveWeaponId(me);
-  tryLocalShoot(gameNow, inputState);
-  updateHostWorld(hostState, hostInputs, dt);
-  snapshot = makeSnapshot(hostState);
-  const nextLocationId = snapshot.location?.id || null;
-  if (nextLocationId && localLocationId && nextLocationId !== localLocationId) {
-    localLocationId = nextLocationId;
-    predictedProjectiles = [];
-    resetRendererSmooth(renderer);
-    camera.ready = false;
-    input.resetKeys();
-  } else if (nextLocationId && !localLocationId) {
-    localLocationId = nextLocationId;
-  }
-
-  if (now - lastSnapshotSent > 1000 / SNAPSHOT_RATE) {
-    lastSnapshotSent = now;
-    transport?.broadcast({ t: "state", snapshot });
-  }
-}
-
-function updateGuest(dt, now, gameNow) {
-  if (!localPose) return;
-  const inputState = input.sample(localPose, camera);
-  movePlayer(localPose, inputState, dt);
-  localPose.angle = inputState.aimAngle;
-  localPose.x = clamp(localPose.x, localPose.radius, WORLD.w - localPose.radius);
-  localPose.y = clamp(localPose.y, localPose.radius, WORLD.h - localPose.radius);
-  inputState.px = Math.round(localPose.x);
-  inputState.py = Math.round(localPose.y);
-  tryLocalShoot(gameNow, inputState);
-
-  if (now - lastInputSent > 1000 / INPUT_RATE) {
-    lastInputSent = now;
-    transport?.sendToHost({ t: "input", input: inputState });
-  }
+  clientRuntime.handleNetData(msg);
 }
 
 function updateHud() {
-  const snapMe = currentLocalPlayerFromSnapshot();
-  const me = role === "host"
-    ? (hostState?.players[playerId] ? { ...hostState.players[playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
-    : (localPose ? { ...snapMe, hp: snapMe?.hp ?? localPose.hp, maxHp: snapMe?.maxHp ?? localPose.maxHp, activeWeapon: localWeapon, inventory: localInventory, upgrades: { choices: localUpgradeChoices, offers: localUpgradeOffers }, stats: localPose.stats || {}, ability: localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
-  ui.setHud(me || { inventory: localInventory, activeWeapon: localWeapon }, snapshot);
-  ui.setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev: snapshot?.dev || (role === "host" ? makeSnapshot(hostState)?.dev : null) });
+  const snapMe = clientRuntime.currentLocalPlayerFromSnapshot();
+  const me = app.role === "host"
+    ? (app.hostState?.players[app.playerId] ? { ...app.hostState.players[app.playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
+    : (app.localPose ? { ...snapMe, hp: snapMe?.hp ?? app.localPose.hp, maxHp: snapMe?.maxHp ?? app.localPose.maxHp, activeWeapon: app.localWeapon, inventory: app.localInventory, upgrades: { choices: app.localUpgradeChoices, offers: app.localUpgradeOffers }, stats: app.localPose.stats || {}, ability: app.localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
+  app.ui.setHud(me || { inventory: app.localInventory, activeWeapon: app.localWeapon }, app.snapshot);
+  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null) });
 }
 
 function loop(now) {
-  const dt = Math.min(0.05, (now - lastFrame) / 1000 || 0.016);
+  const dt = Math.min(0.05, (now - app.lastFrame) / 1000 || 0.016);
   const gameDt = Math.min(0.05, dt * GAME_SPEED);
   const gameNow = (now / 1000) * GAME_SPEED;
-  lastFrame = now;
+  app.lastFrame = now;
 
-  if (running) {
-    if (upgradePickPending && pendingUpgradeIndex >= 0 && now - pendingUpgradeLastSend > UPGRADE_RESEND_MS) {
-      sendPendingUpgradeRequest(now);
-    }
-    if (upgradePickPending && upgradePendingAt && now - upgradePendingAt > UPGRADE_TIMEOUT_MS) {
-      resetUpgradeUi();
-    }
-    transport?.tickPing(now);
-    if (role === "host" && hostState) updateHost(gameDt, now, gameNow);
-    if (role === "guest") updateGuest(gameDt, now, gameNow);
-    predictedProjectiles = updatePredictedProjectiles(predictedProjectiles, gameDt, snapshot);
-    updateCamera(camera, localPose || currentLocalPlayerFromSnapshot(), dt);
-    render(renderer, snapshot, localPose, playerId, camera, input.mouse, predictedProjectiles, dt, gameDt);
+  if (app.running) {
+    upgradeClient.tick(now);
+    app.transport?.tickPing(now);
+    if (app.role === "host" && app.hostState) hostRuntime.update(gameDt, now, gameNow);
+    if (app.role === "guest") clientRuntime.updateGuest(gameDt, now, gameNow);
+    app.predictedProjectiles = updatePredictedProjectiles(app.predictedProjectiles, gameDt, app.snapshot);
+    updateCamera(app.camera, app.localPose || clientRuntime.currentLocalPlayerFromSnapshot(), dt);
+    render(app.renderer, app.snapshot, app.localPose, app.playerId, app.camera, app.input.mouse, app.predictedProjectiles, dt, gameDt);
     updateHud();
   }
 

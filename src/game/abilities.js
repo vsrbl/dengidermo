@@ -1,5 +1,6 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, norm } from "../core/math.js";
+import { roomGeometrySnapshot, sweepCircleInLocation } from "./roomGeometry.js";
 import { buildPlayerEffects, getEffect } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
@@ -85,12 +86,20 @@ function dashDirection(input = {}, player = {}) {
   return { x: Math.cos(angle), y: Math.sin(angle) };
 }
 
-export function applyDashMovement(player, input, config) {
+export function applyDashMovement(player, input, config, loc = null) {
   const dir = dashDirection(input, player);
   const before = { x: player.x, y: player.y };
   const radius = player.radius || 13;
-  player.x = clamp(player.x + dir.x * config.distance, radius, WORLD.w - radius);
-  player.y = clamp(player.y + dir.y * config.distance, radius, WORLD.h - radius);
+  const targetX = player.x + dir.x * config.distance;
+  const targetY = player.y + dir.y * config.distance;
+  if (loc) {
+    const swept = sweepCircleInLocation(roomGeometrySnapshot(loc), player.x, player.y, dir.x * config.distance, dir.y * config.distance, radius);
+    player.x = swept.x;
+    player.y = swept.y;
+  } else {
+    player.x = clamp(targetX, radius, WORLD.w - radius);
+    player.y = clamp(targetY, radius, WORLD.h - radius);
+  }
   player.vx = 0;
   player.vy = 0;
   player.kx = dir.x * 68;
@@ -143,7 +152,7 @@ export function performDash(state, playerId, input = {}, request = {}) {
   if (seq && seq <= (dash.seqSeen || 0)) return { ok: false, reason: "old-seq" };
   if ((dash.cooldownLeft || 0) > 0) return { ok: false, reason: "cooldown" };
 
-  const movement = applyDashMovement(player, input, cfg);
+  const movement = applyDashMovement(player, input, cfg, { layoutId: state.layoutId });
   dash.cooldownLeft = cfg.cooldown;
   dash.invulnLeft = cfg.invuln;
   dash.flash = 0.22;
@@ -161,14 +170,14 @@ export function canPredictDash(player, nowSec = 0) {
   return true;
 }
 
-export function predictLocalDash(player, input = {}, nowSec = 0) {
+export function predictLocalDash(player, input = {}, nowSec = 0, loc = null) {
   const dash = player?.ability?.dash;
   if (!dash?.available) return false;
   const cfg = {
     distance: clamp(finiteOr(dash.distance, DASH_DEFAULT_DISTANCE), 40, DASH_MAX_DISTANCE),
     cooldown: Math.max(DASH_MIN_COOLDOWN, finiteOr(dash.cooldown, DASH_DEFAULT_COOLDOWN))
   };
-  applyDashMovement(player, input, cfg);
+  applyDashMovement(player, input, cfg, loc);
   player._localDashLockUntil = nowSec + cfg.cooldown;
   player._localDashPredictedAt = typeof performance !== "undefined" ? performance.now() : 0;
   if (!player.ability) player.ability = {};

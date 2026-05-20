@@ -16,7 +16,9 @@ export function directorSpawnEnemyCommand({
   markBossSpawned = false,
   markEliteSpawned = false,
   event = null,
-  zone = null
+  zone = null,
+  anchorId = null,
+  anchorTags = null
 }) {
   return {
     type: DIRECTOR_COMMAND_TYPES.SPAWN_ENEMY,
@@ -29,7 +31,9 @@ export function directorSpawnEnemyCommand({
     markBossSpawned,
     markEliteSpawned,
     event,
-    zone
+    zone,
+    anchorId,
+    anchorTags: Array.isArray(anchorTags) ? [...anchorTags] : null
   };
 }
 
@@ -78,7 +82,12 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
     command.kind,
     Number.isFinite(command.x) ? command.x : null,
     Number.isFinite(command.y) ? command.y : null,
-    { zone: command.zone || null }
+    {
+      zone: command.zone || null,
+      role: command.role || "wave",
+      anchorId: command.anchorId || null,
+      anchorTags: command.anchorTags || null
+    }
   );
   if (!enemy) {
     summary.failed += 1;

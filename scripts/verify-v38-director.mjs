@@ -35,7 +35,7 @@ function tickSpawnerAt(state, time, dt = 0.25) {
 }
 
 test('v38.6 version and director module are registered', () => {
-  assert.equal(pkg.version, '38.6.3');
+  assert.equal(pkg.version, '38.13.2');
   assert.match(enemiesSrc, /updateDirectorSpawner\(state, dt, spawnEnemy\)/, 'enemies.js should delegate pacing to director.js');
   assert.match(simulationSrc, /updateSpawner\(state, safeDt\)/, 'host simulation should still tick the spawner path');
   assert.match(`${directorSrc}

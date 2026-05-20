@@ -2,6 +2,7 @@ import { WORLD } from "../core/constants.js";
 import { dist2, norm } from "../core/math.js";
 import { getUpgrade } from "../data/upgrades.js";
 import { synergyEffectsForPlayer } from "../data/synergies.js";
+import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 
 export const EFFECT_HOOKS = Object.freeze({
   PROJECTILE_UPDATE: "projectile:update",
@@ -363,11 +364,13 @@ export function resolveProjectileDamage(state, projectile, baseDamage, enemy = n
     }
   });
 
+  const roomCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PROJECTILE_DAMAGE, ctx);
+
   return {
-    amount: Math.max(1, Math.round(ctx.damage)),
-    critical: !!ctx.critical,
+    amount: Math.max(1, Math.round(roomCtx.damage)),
+    critical: !!roomCtx.critical,
     enemyId: enemy?.id || null,
-    tags: ctx.tags
+    tags: roomCtx.tags
   };
 }
 
@@ -661,16 +664,18 @@ export function resolvePlayerDamage(state, player, spec = {}) {
     }
   });
 
+  const roomCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PLAYER_DAMAGE, ctx);
+
   return {
-    amount: Math.max(0, ctx.damage || 0),
+    amount: Math.max(0, roomCtx.damage || 0),
     originalAmount: baseAmount,
-    blocked: !!ctx.blocked,
-    blockedBy: ctx.blockedBy || null,
-    reducedBy: Math.max(0, baseAmount - Math.max(0, ctx.damage || 0)),
+    blocked: !!roomCtx.blocked,
+    blockedBy: roomCtx.blockedBy || null,
+    reducedBy: Math.max(0, baseAmount - Math.max(0, roomCtx.damage || 0)),
     sourceId: spec.sourceId || null,
     sourceType: spec.sourceType || null,
     enemyId: spec.enemyId || null,
-    tags: ctx.tags
+    tags: roomCtx.tags
   };
 }
 
@@ -702,14 +707,16 @@ export function resolvePlayerHeal(state, player, spec = {}) {
     minHp: Number.isFinite(spec.minHp) ? spec.minHp : 0
   }, spec.handlers || {});
 
+  const roomCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PLAYER_HEAL, ctx);
+
   return {
-    amount: Math.max(0, ctx.amount || 0),
+    amount: Math.max(0, roomCtx.amount || 0),
     originalAmount: baseAmount,
     sourceId: spec.sourceId || null,
     sourceType: spec.sourceType || null,
-    allowRevive: !!ctx.allowRevive,
-    minHp: Math.max(0, ctx.minHp || 0),
-    tags: ctx.tags
+    allowRevive: !!roomCtx.allowRevive,
+    minHp: Math.max(0, roomCtx.minHp || 0),
+    tags: roomCtx.tags
   };
 }
 
@@ -769,11 +776,13 @@ export function resolveLootRoll(state, player, spec = {}) {
     }
   });
 
+  const roomCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.LOOT_ROLL, ctx);
+
   return {
-    chance: clamp(ctx.chance, 0, 1),
+    chance: clamp(roomCtx.chance, 0, 1),
     baseChance,
-    rareBonus: clamp(ctx.rareBonus || 0, 0, 1),
-    tags: ctx.tags
+    rareBonus: clamp(roomCtx.rareBonus || 0, 0, 1),
+    tags: roomCtx.tags
   };
 }
 

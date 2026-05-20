@@ -7,7 +7,11 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
 const htmlSrc = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const uiSrc = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
-const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const mainSrc = [
+  readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/app/session.js', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/app/hostRuntime.js', import.meta.url), 'utf8')
+].join('\n');
 const transportSrc = readFileSync(new URL('../src/net/transport.js', import.meta.url), 'utf8');
 const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
 const stateSrc = readFileSync(new URL('../src/game/state.js', import.meta.url), 'utf8');
@@ -19,12 +23,12 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('v38.6.3 is registered', () => {
-  assert.equal(VERSION, 'v38.6.3');
-  assert.equal(pkg.version, '38.6.3');
-  assert.equal(serverPkg.version, '38.6.3');
-  assert.match(htmlSrc, /V38\.6\.3/);
-  assert.match(serverSrc, /nncckkrr signaling v38\.6\.3/);
+test('v38.13.2 is registered', () => {
+  assert.equal(VERSION, 'v38.13.2');
+  assert.equal(pkg.version, '38.13.2');
+  assert.equal(serverPkg.version, '38.13.2');
+  assert.match(htmlSrc, /V38\.13\.2/);
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.2/);
   assert.match(pkg.scripts['check:all'], /check:v38-6-2/);
 });
 
@@ -57,9 +61,9 @@ test('join lifecycle no longer emits a redundant players broadcast', () => {
 test('host snapshots carry display names only as presentation metadata', () => {
   assert.match(stateSrc, /name: displayPlayerName\(options\.name/);
   assert.match(stateSrc, /name: p\.name \|\| p\.id\.toUpperCase\(\)/);
-  assert.match(mainSrc, /addPlayer\(hostState, id, index, \{ name: playerDisplayName\(id\) \}\)/);
+  assert.match(mainSrc, /addPlayer\(app\.hostState, id, index, \{ name: session\.playerDisplayName\(id\) \}\)/);
   assert.match(mainSrc, /applyHostPlayerNames\(\)/);
-  assert.match(mainSrc, /players = players\.filter\(\(player\) => player !== id\)/);
+  assert.match(mainSrc, /app\.players = app\.players\.filter\(\(player\) => player !== id\)/);
   assert.match(rendererSrc, /String\(p\.name \|\| p\.id\)\.slice\(0, 12\)/);
 
   const state = createGameState('NAME-TEST');
@@ -81,4 +85,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.6.3 player name checks passed`);
+console.log(`All ${results.length} v38.13.2 player name checks passed`);

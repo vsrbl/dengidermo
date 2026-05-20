@@ -1,5 +1,7 @@
 import { PLAYER_ACCEL, PLAYER_FRICTION, PLAYER_HP, PLAYER_SPEED, WORLD } from "../core/constants.js";
 import { clamp, norm, vecToAngle } from "../core/math.js";
+import { moveCircleInLocation, roomGeometrySnapshot, sweepCircleInLocation } from "./roomGeometry.js";
+import { currentLocation } from "./roomFlow.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
 import { updateProjectiles } from "./projectiles.js";
@@ -18,7 +20,7 @@ function smoothFactor(rate, dt) {
   return 1 - Math.exp(-rate * dt);
 }
 
-export function movePlayer(player, input, dt) {
+export function movePlayer(player, input, dt, loc = null) {
   const xAxis = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const yAxis = (input.down ? 1 : 0) - (input.up ? 1 : 0);
   const d = norm(xAxis, yAxis);
@@ -33,37 +35,54 @@ export function movePlayer(player, input, dt) {
   player.kx = (player.kx || 0) * Math.exp(-12 * dt);
   player.ky = (player.ky || 0) * Math.exp(-12 * dt);
 
-  player.x = clamp(player.x + (player.vx + (player.kx || 0)) * dt, player.radius, WORLD.w - player.radius);
-  player.y = clamp(player.y + (player.vy + (player.ky || 0)) * dt, player.radius, WORLD.h - player.radius);
+  const dx = (player.vx + (player.kx || 0)) * dt;
+  const dy = (player.vy + (player.ky || 0)) * dt;
+  if (loc) {
+    const moved = moveCircleInLocation(roomGeometrySnapshot(loc), player.x, player.y, dx, dy, player.radius);
+    player.x = moved.x;
+    player.y = moved.y;
+    if (moved.hitX) player.vx = 0;
+    if (moved.hitY) player.vy = 0;
+  } else {
+    player.x = clamp(player.x + dx, player.radius, WORLD.w - player.radius);
+    player.y = clamp(player.y + dy, player.radius, WORLD.h - player.radius);
+  }
   if (Number.isFinite(input.aimAngle)) player.angle = input.aimAngle;
 }
 
-export function acceptClientPose(player, input, dt) {
+export function acceptClientPose(player, input, dt, loc = null) {
   if (!Number.isFinite(input.px) || !Number.isFinite(input.py)) return;
   const maxDrift = 48 + PLAYER_SPEED * (player.stats?.speedMult || 1) * dt * 2.8;
   const dx = input.px - player.x;
   const dy = input.py - player.y;
   const d2 = dx * dx + dy * dy;
   if (d2 <= maxDrift * maxDrift) {
-    player.x = clamp(input.px, player.radius, WORLD.w - player.radius);
-    player.y = clamp(input.py, player.radius, WORLD.h - player.radius);
+    if (loc) {
+      const swept = sweepCircleInLocation(roomGeometrySnapshot(loc), player.x, player.y, input.px - player.x, input.py - player.y, player.radius);
+      player.x = swept.x;
+      player.y = swept.y;
+    } else {
+      player.x = clamp(input.px, player.radius, WORLD.w - player.radius);
+      player.y = clamp(input.py, player.radius, WORLD.h - player.radius);
+    }
   }
 }
 
 export function updatePlayers(state, inputs, dt) {
   const ids = Object.keys(state.players).sort();
+  const loc = currentLocation(state);
   for (const [index, id] of ids.entries()) {
     const player = state.players[id];
     const input = inputs[id] || emptyInput();
 
     if (player.hp <= 0) {
       player.deadTimer += dt;
-      if (player.deadTimer >= 1.2) respawnPlayer(player, index);
+      if (player.deadTimer >= 1.2) respawnPlayer(player, index, loc);
       continue;
     }
 
-    movePlayer(player, input, dt);
-    if (id !== "p1") acceptClientPose(player, input, dt);
+    movePlayer(player, input, dt, loc);
+    if (id !== "p1") acceptClientPose(player, input, dt, loc);
     if (player.hp <= 0) player.deadTimer = 0;
   }
 }

@@ -2,6 +2,10 @@ export const ROOM_SEQUENCE = [
   {
     id: "grid-00",
     name: "GRID 00",
+    category: "normal",
+    tags: ["grid", "starter", "clear"],
+    layout: "open_arena",
+    modifiers: ["grid_static"],
     biome: "grid",
     encounter: "grid_intro_pressure",
     objective: "clear",
@@ -11,6 +15,10 @@ export const ROOM_SEQUENCE = [
   {
     id: "void-01",
     name: "VOID 01",
+    category: "normal",
+    tags: ["void", "survive", "pressure"],
+    layout: "open_arena",
+    modifiers: ["void_drift"],
     biome: "void",
     encounter: "void_pressure",
     objective: "survive",
@@ -21,6 +29,10 @@ export const ROOM_SEQUENCE = [
   {
     id: "core-02",
     name: "CORE 02",
+    category: "normal",
+    tags: ["core", "clear", "elite"],
+    layout: "open_arena",
+    modifiers: ["core_pressure"],
     biome: "core",
     encounter: "core_elite_pressure",
     objective: "clear",
@@ -31,6 +43,10 @@ export const ROOM_SEQUENCE = [
   {
     id: "boss-03",
     name: "BOSS 03",
+    category: "boss",
+    tags: ["boss", "lockdown", "objective"],
+    layout: "open_arena",
+    modifiers: ["boss_lock"],
     biome: "boss",
     encounter: "boss_objective",
     objective: "boss",
@@ -43,6 +59,10 @@ export const ROOM_SEQUENCE = [
 
 export function getRoom(index = 0) {
   return ROOM_SEQUENCE[((index % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length];
+}
+
+export function getRoomById(roomId) {
+  return ROOM_SEQUENCE.find((room) => room.id === roomId) || null;
 }
 
 export function roomIndexById(roomId) {

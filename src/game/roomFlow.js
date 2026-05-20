@@ -1,5 +1,6 @@
-import { CENTER, GREEN, WORLD } from "../core/constants.js";
-import { getLocation } from "../data/locations.js";
+import { CENTER, GREEN } from "../core/constants.js";
+import { getLocationFromRoomPlan, getPlannedLocationForState, normalizeRoomPlan, resolveRoomPlan } from "./runPlanner.js";
+import { portalPointForLocation, roomGeometryIdentity } from "./roomGeometry.js";
 import { devPortalDelay, devPortalHold } from "./dev.js";
 import { resetDirectorState } from "./director.js";
 import { healPlayer } from "./effects.js";
@@ -9,6 +10,7 @@ import { pushEvent } from "./events.js";
 import { spawnPoint } from "./state.js";
 import { clearLocationRuntimeObjects } from "./runtimeReset.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
+import { enterRoomModifierRuntime, exitRoomModifierRuntime } from "./roomModifiers.js";
 
 export const PORTAL_RADIUS = 58;
 export const PORTAL_MARGIN = 12;
@@ -24,15 +26,24 @@ export function currentRunDepth(state) {
 }
 
 export function currentLocation(state) {
-  return getLocation(currentRunDepth(state));
+  return getPlannedLocationForState(state, currentRunDepth(state));
 }
 
-function applyLocationFields(state, loc) {
+function applyLocationFields(state, loc, plan = loc?.plan || null) {
+  const normalizedPlan = normalizeRoomPlan(plan, Number.isFinite(loc?.runDepth) ? loc.runDepth : currentRunDepth(state), { seed: state?.roomId || null });
   // v38.5: locationIndex remains a legacy alias for run depth so older tests
   // and snapshots keep working. roomSequenceIndex is the data-room index.
-  state.runDepth = Number.isFinite(loc.runDepth) ? loc.runDepth : currentRunDepth(state);
+  // v38.9: roomPlan is now the persistent source of room identity; these
+  // scalar fields are compatibility mirrors for older systems and HUD/debug.
+  state.roomPlan = normalizedPlan;
+  state.runDepth = normalizedPlan.runDepth;
   state.locationIndex = state.runDepth;
-  state.roomSequenceIndex = Number.isFinite(loc.sequenceIndex) ? loc.sequenceIndex : loc.index || 0;
+  state.roomSequenceIndex = normalizedPlan.roomSequenceIndex;
+  state.loopIndex = normalizedPlan.loopIndex;
+  state.roomInLoop = normalizedPlan.roomInLoop;
+  state.roomCategory = normalizedPlan.category || loc.category || "normal";
+  state.layoutId = normalizedPlan.layoutId || loc.layoutId || "open_arena";
+  state.roomModifierIds = [...(normalizedPlan.modifierIds || loc.modifierIds || [])];
   state.locationId = loc.id;
   state.locationName = loc.name;
   state.biomeId = loc.biomeId;
@@ -43,11 +54,12 @@ export function createExitPortal(state) {
   if (!state.portals) state.portals = {};
   const loc = currentLocation(state);
   const id = nextId("pt");
+  const portalPoint = portalPointForLocation(loc);
   state.portals[id] = {
     id,
     kind: "exit",
-    x: WORLD.w - 190,
-    y: CENTER.y,
+    x: portalPoint.x,
+    y: portalPoint.y,
     radius: PORTAL_RADIUS,
     active: false,
     progress: 0,
@@ -66,8 +78,13 @@ export function clearLocationRuntime(state, options = {}) {
 }
 
 export function enterLocation(state, runDepth = 0, options = {}) {
-  const loc = getLocation(runDepth);
-  applyLocationFields(state, loc);
+  const plan = normalizeRoomPlan(
+    options.roomPlan || resolveRoomPlan(runDepth, { seed: state?.roomId || null, createdAt: state?.tick || 0 }),
+    runDepth,
+    { seed: state?.roomId || null, createdAt: state?.tick || 0 }
+  );
+  const loc = getLocationFromRoomPlan(plan);
+  applyLocationFields(state, loc, plan);
   state.locationTime = 0;
   state.portalReadyAt = devPortalDelay(state, loc.portalDelay);
   state.portalHold = devPortalHold(state, loc.portalHold);
@@ -75,6 +92,7 @@ export function enterLocation(state, runDepth = 0, options = {}) {
   state.wave = 0;
   state.bossSpawned = false;
   resetDirectorState(state, loc);
+  enterRoomModifierRuntime(state, loc, { reason: options.reason || "enter", runDepth: plan.runDepth });
   if (options.createPortal !== false) createExitPortal(state);
   return loc;
 }
@@ -89,7 +107,7 @@ function repositionAndReviveTeam(state) {
   const ids = Object.keys(state.players || {}).sort();
   for (const [index, id] of ids.entries()) {
     const player = state.players[id];
-    const p = spawnPoint(index);
+    const p = spawnPoint(index, currentLocation(state), player.radius || 13);
     player.x = p.x;
     player.y = p.y;
     player.vx = 0;
@@ -106,20 +124,31 @@ export function beginRoomTransition(state, reason = "portal", options = {}) {
   const nextDepth = Number.isFinite(options.nextRunDepth) ? options.nextRunDepth : fromDepth + 1;
   const transitionFx = options.fx || null;
 
+  const fromLoc = currentLocation(state);
+  exitRoomModifierRuntime(state, fromLoc, { reason, nextRunDepth: nextDepth });
   clearLocationRuntime(state);
-  const nextLoc = enterLocation(state, nextDepth, { createPortal: true });
+  const nextLoc = enterLocation(state, nextDepth, { createPortal: true, reason });
   repositionAndReviveTeam(state);
 
   if (options.offerUpgrades !== false) offerUpgradesToPlayers(state, options.offerCount || 3);
 
+  const geometry = roomGeometryIdentity(nextLoc);
   pushEvent(state, {
     type: "location",
     reason,
     runDepth: nextDepth,
     roomSequenceIndex: nextLoc.sequenceIndex,
+    baseRoomId: state.roomPlan?.baseRoomId || nextLoc.baseRoomId || nextLoc.id,
+    resolvedRoomId: state.roomPlan?.resolvedRoomId || nextLoc.id,
+    ruleId: state.roomPlan?.ruleId || null,
     locationId: nextLoc.id,
     locationName: nextLoc.name,
     biomeId: nextLoc.biomeId,
+    category: nextLoc.category || "normal",
+    layoutId: geometry.layoutId,
+    layoutVersion: geometry.layoutVersion,
+    geometryHash: geometry.geometryHash,
+    modifiers: [...(nextLoc.modifierIds || [])],
     x: CENTER.x,
     y: CENTER.y
   });

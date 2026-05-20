@@ -5,7 +5,12 @@ import { displayPlayerName, normalizePlayerName } from '../src/core/names.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
-const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const mainSrc = [
+  readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/app/session.js', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/app/clientRuntime.js', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/app/upgradeClient.js', import.meta.url), 'utf8')
+].join('\n');
 const transportSrc = readFileSync(new URL('../src/net/transport.js', import.meta.url), 'utf8');
 const stateSrc = readFileSync(new URL('../src/game/state.js', import.meta.url), 'utf8');
 const uiSrc = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
@@ -19,11 +24,11 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('v38.6.3 is registered', () => {
-  assert.equal(VERSION, 'v38.6.3');
-  assert.equal(pkg.version, '38.6.3');
-  assert.equal(serverPkg.version, '38.6.3');
-  assert.match(serverSrc, /nncckkrr signaling v38\.6\.3/);
+test('v38.13.2 is registered', () => {
+  assert.equal(VERSION, 'v38.13.2');
+  assert.equal(pkg.version, '38.13.2');
+  assert.equal(serverPkg.version, '38.13.2');
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.2/);
   assert.match(pkg.scripts['check:all'], /check:v38-6-3/);
 });
 
@@ -77,4 +82,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.6.3 cleanup-only checks passed`);
+console.log(`All ${results.length} v38.13.2 cleanup-only checks passed`);

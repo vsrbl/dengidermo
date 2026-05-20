@@ -30,9 +30,9 @@ function fresh(seed = 'V38-5-1') {
 }
 
 test('v38.6 cleanup patch is registered', () => {
-  assert.equal(VERSION, 'v38.6.3');
-  assert.equal(pkg.version, '38.6.3');
-  assert.equal(serverPkg.version, '38.6.3');
+  assert.equal(VERSION, 'v38.13.2');
+  assert.equal(pkg.version, '38.13.2');
+  assert.equal(serverPkg.version, '38.13.2');
   assert.match(runtimeResetSrc, /clearHostileRuntime/, 'hostile runtime reset helper missing');
   assert.match(runtimeResetSrc, /clearLocationRuntimeObjects/, 'location runtime reset helper missing');
   assert.match(devSrc, /clearHostileRuntime\(state\)/, 'dev clear-hostiles should use official hostile reset helper');

@@ -4,6 +4,7 @@ import { areDevSpawnsPaused, devSpawnBatch, devSpawnInterval } from "./dev.js";
 import { directorEventCommand, directorSpawnEnemyCommand, executeDirectorCommands } from "./directorCommands.js";
 import { chooseSpawnZone } from "./spawnZones.js";
 import { updateThreatAnalyzer } from "./threat.js";
+import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import {
   DEFAULT_DIRECTOR,
   DIRECTOR_PHASES,
@@ -89,7 +90,15 @@ function computeBatch(state, loc, stage, intensity, threat = {}) {
         : 0;
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "batchMult", fallback), Math.max(0.75, intensity));
   const threatBatchMult = Number.isFinite(threat.batchMult) ? threat.batchMult : 1;
-  return devSpawnBatch(state, Math.max(1, Math.round(pressureBatch * phaseMult * threatBatchMult)));
+  const rawBatch = devSpawnBatch(state, Math.max(1, Math.round(pressureBatch * phaseMult * threatBatchMult)));
+  const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_SPAWN, {
+    batch: rawBatch,
+    canSpawn: true,
+    phase: stage?.phase || null,
+    intensity,
+    location: loc
+  }, { location: loc });
+  return ctx.canSpawn === false ? 0 : Math.max(0, Math.round(ctx.batch));
 }
 
 function computeInterval(state, loc, stage, intensity, threat = {}) {
@@ -107,7 +116,15 @@ function computeInterval(state, loc, stage, intensity, threat = {}) {
     if (Number.isFinite(interval.max)) phaseMult = Math.min(interval.max, phaseMult);
   }
   const threatIntervalMult = Number.isFinite(threat.intervalMult) ? threat.intervalMult : 1;
-  return devSpawnInterval(state, pressureInterval * phaseMult * threatIntervalMult);
+  const rawInterval = devSpawnInterval(state, pressureInterval * phaseMult * threatIntervalMult);
+  const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_SPAWN, {
+    interval: rawInterval,
+    canSpawn: true,
+    phase: stage?.phase || null,
+    intensity,
+    location: loc
+  }, { location: loc });
+  return Math.max(0.05, ctx.interval || rawInterval);
 }
 
 function enemyCost(kind) {
@@ -153,7 +170,9 @@ function makeBudgetedSpawnCommand(kind, options = {}) {
     markBossSpawned: !!options.markBossSpawned,
     markEliteSpawned: !!options.markEliteSpawned,
     event: options.event || null,
-    zone: options.zone || null
+    zone: options.zone || null,
+    anchorId: options.anchorId || null,
+    anchorTags: options.anchorTags || null
   });
 }
 
@@ -161,15 +180,14 @@ function planBossSpawnCommand(state, loc) {
   const boss = loc.boss || {};
   const locTime = state.locationTime || 0;
   if (state.bossSpawned || !boss.enabled || locTime < (boss.spawnAt ?? 12)) return null;
-  const x = Number.isFinite(boss.x) ? boss.x : WORLD.w / 2;
-  const y = Number.isFinite(boss.y) ? boss.y : 180;
   return makeBudgetedSpawnCommand(boss.kind || "boss", {
     role: "boss",
-    x,
-    y,
+    zone: "boss_anchor",
+    anchorId: boss.anchorId || null,
+    anchorTags: Array.isArray(boss.anchorTags) ? boss.anchorTags : ["boss"],
     budgeted: false,
     markBossSpawned: true,
-    event: { type: "boss", x, y }
+    event: { type: "boss" }
   });
 }
 

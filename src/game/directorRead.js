@@ -1,7 +1,8 @@
 import { ENCOUNTER_OBJECTIVES, getEncounterPlan } from "../data/encounters.js";
-import { getLocation } from "../data/locations.js";
+import { getPlannedLocationForState } from "./runPlanner.js";
 import { devSpawnCap } from "./dev.js";
 import { threatSnapshot } from "./threat.js";
+import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 
 export const DIRECTOR_PHASES = Object.freeze({
   CALM: "calm",
@@ -42,7 +43,7 @@ export function livingPlayerCount(state) {
 }
 
 export function locationForState(state) {
-  return getLocation(Number.isFinite(state.runDepth) ? state.runDepth : (state.locationIndex || 0));
+  return getPlannedLocationForState(state);
 }
 
 export function runDepthFor(state) {
@@ -174,7 +175,14 @@ export function totalBudgetFor(state, loc, cfg) {
   const roomDepth = runDepthFor(state);
   const base = cfg.budgetBase + players * cfg.budgetPerPlayer + roomDepth * cfg.budgetPerRoom;
   const boosted = Math.round(base * (loc.spawnBoost || 1));
-  return Math.max(cfg.minPressureBudget, boosted);
+  const minimum = cfg.minPressureBudget;
+  const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_BUDGET, {
+    budget: Math.max(minimum, boosted),
+    totalBudget: Math.max(minimum, boosted),
+    baseBudget: base,
+    location: loc
+  }, { location: loc });
+  return Math.max(minimum, Math.round(ctx.budget));
 }
 
 export function eliteRatioFor(loc, cfg) {
@@ -215,7 +223,14 @@ export function computeCap(state, loc, director, stage, intensity, cfg, threat =
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "capMult", fallback), intensity);
   const threatCapMult = Number.isFinite(threat.capMult) ? threat.capMult : 1;
   const normalCap = Math.floor((capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult * threatCapMult);
-  return devSpawnCap(state, Math.max(players + 2, normalCap));
+  const capped = devSpawnCap(state, Math.max(players + 2, normalCap));
+  const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_CAP, {
+    enemyCap: capped,
+    phase: stage?.phase || null,
+    intensity,
+    location: loc
+  }, { location: loc });
+  return Math.max(0, Math.round(ctx.enemyCap));
 }
 
 function createDirectorReadState(state, loc) {
@@ -259,7 +274,14 @@ export function readDirectorEvaluation(state, loc = locationForState(state), dir
   const stage = selectEncounterStage(state, loc, cfg);
   const phase = stage?.phase || phaseFor(state, loc, cfg);
   const intensity = intensityFor(state, loc, cfg, stage, threat);
-  const policy = policyForStage(stage);
+  const basePolicy = policyForStage(stage);
+  const portalCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PORTAL_OPEN, {
+    canOpen: !!basePolicy.canOpenPortal,
+    phase,
+    stageId: stage?.id || null,
+    location: loc
+  }, { location: loc });
+  const policy = { ...basePolicy, canOpenPortal: !!portalCtx.canOpen };
   const enemyCap = computeCap(state, loc, readDirector, stage, intensity, cfg, threat);
   return {
     encounterId: encounterPlanFor(loc).id,

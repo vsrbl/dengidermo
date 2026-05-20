@@ -10,6 +10,8 @@ import { UPGRADES } from '../src/data/upgrades.js';
 import { VERSION } from '../src/core/constants.js';
 
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
+const projectileHelpersSrc = readFileSync(new URL('../src/game/projectileBehaviors.js', import.meta.url), 'utf8');
+const projectileLogicSrc = `${projectilesSrc}\n${projectileHelpersSrc}`;
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
 const effectCommandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
@@ -50,7 +52,7 @@ test('effect dispatcher API is real and returns queued commands', () => {
 
 test('projectile hooks are routed through the dispatcher/command layer', () => {
   for (const hook of ['PROJECTILE_UPDATE', 'PROJECTILE_HIT', 'PROJECTILE_EXPIRE', 'PROJECTILE_KILL', 'PROJECTILE_WALL']) {
-    assert.match(projectilesSrc, new RegExp(`EFFECT_HOOKS\\.${hook}`), `${hook} is not referenced by projectile code`);
+    assert.match(projectileLogicSrc, new RegExp(`EFFECT_HOOKS\\.${hook}`), `${hook} is not referenced by projectile code`);
   }
   assert.match(projectilesSrc, /function runProjectileHook/, 'projectile hook wrapper missing');
   assert.match(effectCommandsSrc, /export function executeEffectCommands/, 'shared effect command executor missing');
@@ -103,16 +105,16 @@ test('effect defs have hooks and future-only defs are explicit', () => {
 });
 
 test('version strings are aligned across frontend/package/server', () => {
-  assert.equal(VERSION, 'v38.6.3');
-  assert.equal(pkg.version, '38.6.3');
-  assert.equal(serverPkg.version, '38.6.3');
-  assert.match(serverSrc, /v38\.6/, 'server banner is stale');
+  assert.equal(VERSION, 'v38.13.2');
+  assert.equal(pkg.version, '38.13.2');
+  assert.equal(serverPkg.version, '38.13.2');
+  assert.match(serverSrc, /v38\.13\.2/, 'server banner is stale');
   assert.doesNotMatch(serverSrc, /v33\.1/, 'old server banner leaked through');
 });
 
 test('ricochet wall shake remains intentional and command-based', () => {
-  assert.match(projectilesSrc, /source: "ricochet"/, 'ricochet shake source is not explicit');
-  assert.match(projectilesSrc, /effectCommand\("shake", \{ power: 2\.2, life: 0\.09, source: "ricochet" \}\)/, 'ricochet shake is not command based');
+  assert.match(projectileLogicSrc, /source: "ricochet"/, 'ricochet shake source is not explicit');
+  assert.match(projectileLogicSrc, /effectCommand\("shake", \{ power: 2\.2, life: 0\.09, source: "ricochet" \}\)/, 'ricochet shake is not command based');
 });
 
 let failed = 0;

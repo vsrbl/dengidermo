@@ -3,6 +3,9 @@ import { dist2, isVisible, lerp, norm } from "./core/math.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { ENEMIES } from "./data/enemies.js";
 import { LOOT } from "./data/loot.js";
+import { firstSolidWallHitInLocation, roomGeometrySnapshot } from "./game/roomGeometry.js";
+import { ROOM_MODIFIER_HOOKS, runRoomModifierHooksForLocation } from "./game/roomModifiers.js";
+import { drawEffect } from "./render/effectRenderers.js";
 
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -85,12 +88,16 @@ function smoothProjectile(map, obj, renderDt, simDt, snapshotTick) {
 }
 
 function drawGrid(ctx, cam, location = null) {
+  const background = runRoomModifierHooksForLocation(location, ROOM_MODIFIER_HOOKS.RENDER_BACKGROUND, {
+    accent: location?.accent || "green",
+    gridStep: location?.gridStep || 80
+  });
   ctx.fillStyle = "#050505";
   ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-  const greenLoc = location?.accent === "green";
+  const greenLoc = background.accent === "green";
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.055)" : "rgba(255,255,255,0.055)";
   ctx.lineWidth = 1;
-  const step = location?.gridStep || 80;
+  const step = background.gridStep || 80;
   const startX = -((cam.x % step + step) % step);
   const startY = -((cam.y % step + step) % step);
   for (let x = startX; x < VIEW.w; x += step) {
@@ -102,6 +109,35 @@ function drawGrid(ctx, cam, location = null) {
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.38)" : "rgba(255,255,255,0.35)";
   ctx.strokeRect(Math.round(-cam.x), Math.round(-cam.y), WORLD.w, WORLD.h);
   if (location?.name) drawText(ctx, location.name, 16, 112, greenLoc ? GREEN : "#aaa", "left");
+}
+
+
+function drawRoomGeometry(ctx, cam, location = null) {
+  const geometry = location ? roomGeometrySnapshot(location) : null;
+  const walls = geometry?.walls || [];
+  if (!walls.length) return;
+
+  for (const wall of walls) {
+    const x = Math.round(wall.x - cam.x);
+    const y = Math.round(wall.y - cam.y);
+    const w = Math.round(wall.w);
+    const h = Math.round(wall.h);
+    if (x > VIEW.w + 80 || y > VIEW.h + 80 || x + w < -80 || y + h < -80) continue;
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = wall.tags?.includes?.("divider") ? "rgba(0,255,102,0.34)" : "rgba(255,255,255,0.44)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, h);
+    if (w >= 42 && h >= 26) {
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.beginPath();
+      ctx.moveTo(x + 6, y + 6);
+      ctx.lineTo(x + w - 6, y + h - 6);
+      ctx.moveTo(x + w - 6, y + 6);
+      ctx.lineTo(x + 6, y + h - 6);
+      ctx.stroke();
+    }
+  }
 }
 
 function screen(obj, cam) {
@@ -288,146 +324,6 @@ function cameraWithShake(cam, renderer, snapshot, dt) {
   };
 }
 
-function drawEffect(ctx, fx, cam) {
-  const life = Math.max(0, fx.life || 0);
-  const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.2);
-  const age = maxLife - life;
-
-  if (fx.type === "spark") {
-    const x = fx.x + (fx.vx || 0) * age;
-    const y = fx.y + (fx.vy || 0) * age;
-    const s = screen({ x, y }, cam);
-    const size = Math.max(2, Math.round(5 * (life / maxLife)));
-    drawRect(ctx, s.x - size / 2, s.y - size / 2, size, size, fx.color || GREEN);
-    return;
-  }
-
-  if (fx.type === "portal") {
-    const s = screen(fx, cam);
-    const t = 1 - life / maxLife;
-    const r = (fx.radius || 80) * (0.45 + t * 0.7);
-    ctx.strokeStyle = GREEN;
-    ctx.lineWidth = Math.max(1, Math.round(5 * (life / maxLife)));
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-    return;
-  }
-
-  if (fx.type === "chain") {
-    const a = screen(fx, cam);
-    const b = screen({ x: fx.x2, y: fx.y2 }, cam);
-    ctx.strokeStyle = fx.color || GREEN;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(Math.round(a.x), Math.round(a.y));
-    ctx.lineTo(Math.round(b.x), Math.round(b.y));
-    ctx.stroke();
-    if (fx.amount) drawText(ctx, String(fx.amount), (a.x + b.x) / 2, (a.y + b.y) / 2 - 5, GREEN, "center");
-    return;
-  }
-
-  if (fx.type === "damageText") {
-    const y = fx.y + (fx.vy || -24) * age;
-    const s = screen({ x: fx.x, y }, cam);
-    drawText(ctx, fx.text || "1", s.x, s.y, fx.color || "#fff", "center");
-    return;
-  }
-
-  if (fx.type === "critFlash" || fx.type === "statusBurst" || fx.type === "statusTick") {
-    const s = screen(fx, cam);
-    const t = 1 - life / maxLife;
-    const r = (fx.r || 26) * (0.42 + t * 0.82);
-    ctx.strokeStyle = fx.color || GREEN;
-    ctx.lineWidth = Math.max(1, Math.round(3 * (life / maxLife)));
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-    if (fx.type === "statusBurst" && fx.status) drawText(ctx, fx.status.slice(0, 3).toUpperCase(), s.x, s.y - r - 4, fx.color || GREEN, "center");
-    return;
-  }
-
-  if (fx.type === "ricochet") {
-    const s = screen(fx, cam);
-    const vx = fx.vx || 1;
-    const vy = fx.vy || 0;
-    const d = norm(vx, vy);
-    ctx.strokeStyle = fx.color || GREEN;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(Math.round(s.x - d.x * 16), Math.round(s.y - d.y * 16));
-    ctx.lineTo(Math.round(s.x + d.x * 16), Math.round(s.y + d.y * 16));
-    ctx.stroke();
-    return;
-  }
-
-  if (fx.type === "afterimage") {
-    const s = screen(fx, cam);
-    const t = life / maxLife;
-    const r = 13;
-    ctx.globalAlpha = Math.max(0.12, Math.min(0.46, t * 0.42));
-    ctx.strokeStyle = fx.skin === "green" ? GREEN : "#ffffff";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
-    const ax = Math.cos(fx.angle || 0);
-    const ay = Math.sin(fx.angle || 0);
-    ctx.beginPath();
-    ctx.moveTo(Math.round(s.x), Math.round(s.y));
-    ctx.lineTo(Math.round(s.x + ax * 20), Math.round(s.y + ay * 20));
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    return;
-  }
-
-  if (fx.type === "dashBurst") {
-    const s = screen(fx, cam);
-    const t = 1 - life / maxLife;
-    const r = 18 + t * 30;
-    ctx.strokeStyle = GREEN;
-    ctx.lineWidth = Math.max(1, Math.round(3 * (life / maxLife)));
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-    const d = norm(fx.vx || 1, fx.vy || 0);
-    ctx.beginPath();
-    ctx.moveTo(Math.round(s.x - d.x * 28), Math.round(s.y - d.y * 28));
-    ctx.lineTo(Math.round(s.x + d.x * 12), Math.round(s.y + d.y * 12));
-    ctx.stroke();
-    return;
-  }
-
-  if (fx.type === "droneBeam") {
-    const a = screen(fx, cam);
-    const b = screen({ x: fx.x2, y: fx.y2 }, cam);
-    ctx.strokeStyle = fx.color || GREEN;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(Math.round(a.x), Math.round(a.y));
-    ctx.lineTo(Math.round(b.x), Math.round(b.y));
-    ctx.stroke();
-    drawRect(ctx, b.x - 3, b.y - 3, 6, 6, GREEN);
-    return;
-  }
-
-  if (fx.type === "orbitalHit") {
-    const s = screen({ x: fx.x2 || fx.x, y: fx.y2 || fx.y }, cam);
-    const t = 1 - life / maxLife;
-    const r = (fx.r || 14) * (0.45 + t * 0.8);
-    ctx.strokeStyle = fx.color || GREEN;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-    return;
-  }
-
-  if (fx.type !== "explosion") return;
-  const s = screen(fx, cam);
-  const t = 1 - life / maxLife;
-  const r = fx.r * (0.35 + t * 0.85);
-  ctx.strokeStyle = GREEN;
-  ctx.lineWidth = Math.max(1, Math.round(4 * (life / maxLife)));
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-  ctx.beginPath();
-  ctx.moveTo(Math.round(s.x - r * 1.2), Math.round(s.y));
-  ctx.lineTo(Math.round(s.x + r * 1.2), Math.round(s.y));
-  ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 1.2));
-  ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 1.2));
-  ctx.stroke();
-}
-
 function drawPredictedProjectiles(ctx, projectiles, cam) {
   for (const p of projectiles) {
     if (!isVisible(p, cam, 40)) continue;
@@ -453,6 +349,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   const { ctx, smooth } = renderer;
   const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt) : cam;
   drawGrid(ctx, renderCam, snapshot?.location);
+  drawRoomGeometry(ctx, renderCam, snapshot?.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");
     return;
@@ -600,6 +497,14 @@ export function updatePredictedProjectiles(projectiles, dt, snapshot = null) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.distance = (p.distance || 0) + Math.hypot(p.x - prevX, p.y - prevY);
+    if (snapshot?.location) {
+      const wallHit = firstSolidWallHitInLocation(snapshot.location.geometry || snapshot.location, prevX, prevY, p.x, p.y, p.radius || 0);
+      if (wallHit) {
+        p.x = wallHit.x;
+        p.y = wallHit.y;
+        p.life = 0;
+      }
+    }
     p.life -= dt;
   }
   return projectiles.filter((p) => (
