@@ -47,10 +47,10 @@ function customGeometry() {
   };
 }
 
-test('v38.13.7 is registered as spawn-anchor placement authority foundation', () => {
-  assert.equal(VERSION, 'v38.13.7');
-  assert.equal(pkg.version, '38.13.7');
-  assert.equal(serverPkg.version, '38.13.7');
+test('v38.13.8 is registered as spawn-anchor placement authority foundation', () => {
+  assert.equal(VERSION, 'v38.13.8');
+  assert.equal(pkg.version, '38.13.8');
+  assert.equal(serverPkg.version, '38.13.8');
   assert.equal(LAYOUT_VERSION, 2);
   assert.match(pkg.scripts['check:all'], /check:v38-9-1/);
 });
@@ -145,4 +145,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.7 spawn anchor checks passed`);
+console.log(`All ${results.length} v38.13.8 spawn anchor checks passed`);

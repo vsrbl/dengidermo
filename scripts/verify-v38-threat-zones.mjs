@@ -30,7 +30,7 @@ function fresh(seed = 'V38-4-ZONES') {
 }
 
 test('v38.6 threat and spawn zone modules are registered', () => {
-  assert.equal(pkg.version, '38.13.7');
+  assert.equal(pkg.version, '38.13.8');
   assert.match(packageSrc, /check:v38-4/, 'check:v38-4 should be part of package scripts');
   assert.match(directorSrc, /updateThreatAnalyzer/, 'director should read threat analyzer output');
   assert.match(directorSrc, /chooseSpawnZone/, 'director should choose spawn zones for spawn commands');

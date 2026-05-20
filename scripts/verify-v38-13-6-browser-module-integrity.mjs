@@ -13,13 +13,13 @@ const serverPkg = readJson('server/package.json');
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
-test('v38.13.7 is registered everywhere', () => {
-  assert.equal(VERSION, 'v38.13.7');
-  assert.equal(pkg.version, '38.13.7');
-  assert.equal(serverPkg.version, '38.13.7');
-  assert.match(read('server/server.js'), /SERVER_VERSION = "v38\.13\.7"/);
-  assert.match(read('index.html'), /V38\.13\.7/);
-  assert.match(read('index.html'), /src\/main(?:\.v38-13-7)?\.js\?v=38\.13\.7/);
+test('v38.13.8 is registered everywhere', () => {
+  assert.equal(VERSION, 'v38.13.8');
+  assert.equal(pkg.version, '38.13.8');
+  assert.equal(serverPkg.version, '38.13.8');
+  assert.match(read('server/server.js'), /SERVER_VERSION = "v38\.13\.8"/);
+  assert.match(read('index.html'), /V38\.13\.8/);
+  assert.match(read('index.html'), /src\/main(?:\.v38-13-8)?\.js\?v=38\.13\.8/);
 });
 
 test('START_WEAPON imports stay in data/weapons boundary', () => {
@@ -59,4 +59,4 @@ for (const t of tests) {
     process.exit(1);
   }
 }
-console.log(`All ${passed} v38.13.7 browser module integrity checks passed`);
+console.log(`All ${passed} v38.13.8 browser module integrity checks passed`);

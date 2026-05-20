@@ -29,7 +29,7 @@ function fresh(seed = 'V38-2-COMMANDS') {
 }
 
 test('v38.6 command layer is registered', () => {
-  assert.equal(pkg.version, '38.13.7');
+  assert.equal(pkg.version, '38.13.8');
   assert.match(commandSrc, /DIRECTOR_COMMAND_TYPES/, 'director command type registry missing');
   assert.match(commandSrc, /executeDirectorCommands/, 'director command executor missing');
   assert.match(directorSrc, /directorSpawnEnemyCommand/, 'director should plan spawn commands');

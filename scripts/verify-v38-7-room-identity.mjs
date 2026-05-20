@@ -25,10 +25,10 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
-test('v38.13.7 is registered', () => {
-  assert.equal(VERSION, 'v38.13.7');
-  assert.equal(pkg.version, '38.13.7');
-  assert.equal(serverPkg.version, '38.13.7');
+test('v38.13.8 is registered', () => {
+  assert.equal(VERSION, 'v38.13.8');
+  assert.equal(pkg.version, '38.13.8');
+  assert.equal(serverPkg.version, '38.13.8');
   assert.match(pkg.scripts['check:all'], /check:v38-7/);
 });
 
@@ -143,4 +143,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.7 room identity checks passed`);
+console.log(`All ${results.length} v38.13.8 room identity checks passed`);

@@ -5,11 +5,13 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v38.13.7";
+const SERVER_VERSION = "v38.13.8";
+const SERVER_BUILD_ID = "v38.13.8-20260520";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const rooms = new Map();
+const serverStartedAt = new Date().toISOString();
 
 function isOpen(ws) {
   return !!ws && ws.readyState === ws.OPEN;
@@ -181,14 +183,15 @@ function handleRelay(ws, msg) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/health") {
+  const url = new URL(req.url || "/", "http://localhost");
+  if (url.pathname === "/health") {
     for (const room of rooms.values()) pruneClosedPlayers(room);
-    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, protocol: SIGNALING_PROTOCOL_VERSION }));
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, buildId: SERVER_BUILD_ID, protocol: SIGNALING_PROTOCOL_VERSION, startedAt: serverStartedAt, now: new Date().toISOString() }));
     return;
   }
-  res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*" });
-  res.end(`nncckkrr signaling ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION}\n`);
+  res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*", "cache-control": "no-store" });
+  res.end(`nncckkrr signaling ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID}\n`);
 });
 
 const wss = new WebSocketServer({ server });
@@ -196,7 +199,7 @@ const wss = new WebSocketServer({ server });
 wss.on("connection", (ws) => {
   ws.nnRoom = null;
   ws.nnPlayerId = null;
-  send(ws, { type: "hello", version: SERVER_VERSION, protocol: SIGNALING_PROTOCOL_VERSION });
+  send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, protocol: SIGNALING_PROTOCOL_VERSION });
 
   ws.on("message", (raw) => {
     let msg = null;
@@ -215,4 +218,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.7 on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.8 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

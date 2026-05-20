@@ -55,11 +55,11 @@ function baseProjectile(overrides = {}) {
   };
 }
 
-test('v38.13.7 is registered as projectile behavior helper cleanup', () => {
-  assert.equal(VERSION, 'v38.13.7');
-  assert.equal(pkg.version, '38.13.7');
-  assert.equal(serverPkg.version, '38.13.7');
-  assert.match(serverSrc, /nncckkrr signaling v38\.13\.7/);
+test('v38.13.8 is registered as projectile behavior helper cleanup', () => {
+  assert.equal(VERSION, 'v38.13.8');
+  assert.equal(pkg.version, '38.13.8');
+  assert.equal(serverPkg.version, '38.13.8');
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.8/);
   assert.match(pkg.scripts['check:all'], /check:v38-13-2/);
   assert.equal(pkg.scripts['check:v38-13-2'], 'node scripts/verify-v38-13-2-projectile-behavior-helpers.mjs');
 });
@@ -197,10 +197,10 @@ test('homing helper runs through projectile update hook and steers toward acquir
   assert.ok(Math.abs(projectile.vy - 100) < 0.000001);
 });
 
-test('v38.13.7 is architecture-only: baseline content remains unchanged', () => {
+test('v38.13.8 is architecture-only: baseline content remains unchanged', () => {
   assert.deepEqual(Object.keys(ENEMIES).sort(), ['boss', 'grunt', 'runner', 'shooter', 'tank']);
-  for (const room of ROOM_SEQUENCE) assert.equal(room.layout, 'open_arena', `${room.id} should keep open_arena in v38.13.7`);
-  for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks, {}, `${modifier.id} should remain identity-only in v38.13.7`);
+  for (const room of ROOM_SEQUENCE) assert.equal(room.layout, 'open_arena', `${room.id} should keep open_arena in v38.13.8`);
+  for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks, {}, `${modifier.id} should remain identity-only in v38.13.8`);
 });
 
 let failed = 0;
@@ -209,4 +209,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.7 projectile behavior helper checks passed`);
+console.log(`All ${results.length} v38.13.8 projectile behavior helper checks passed`);

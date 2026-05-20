@@ -2,11 +2,12 @@ import { createUi } from "./ui.js";
 import { createInput } from "./input.js";
 import { createCamera, updateCamera } from "./camera.js";
 import { createRenderer, render, updatePredictedProjectiles } from "./renderer.js";
-import { GAME_SPEED, VERSION } from "./core/constants.js";
+import { BUILD_ID, GAME_SPEED, VERSION } from "./core/constants.js";
 import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v38-13-8.js";
 import { createUpgradeClient } from "./app/upgradeClient.v38-13-8.js";
 import { createSessionRuntime } from "./app/session.v38-13-8.js";
 import { createHostRuntime } from "./app/hostRuntime.v38-13-8.js";
@@ -62,7 +63,8 @@ function createAppState() {
     lastInputSent: 0,
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
-    lastSnapshotTick: -1
+    lastSnapshotTick: -1,
+    release: initialReleaseState(SIGNALING_URL)
   };
 }
 
@@ -96,10 +98,39 @@ app.input = createInput(app.canvas, {
   isGameActive: () => app.running
 });
 
+function renderReleaseStatus(release) {
+  if (!release || app.running) return;
+  const kind = release.blockConnection || release.status === "deploy_mismatch" || release.status === "health_unreachable" || release.status === "invalid_config"
+    ? "error"
+    : "info";
+  app.ui.setMenuStatus(release.message || `CLIENT ${VERSION.toUpperCase()} BUILD ${BUILD_ID}`, kind);
+}
+
+function refreshReleaseIntegrity() {
+  app.release = initialReleaseState(SIGNALING_URL);
+  renderReleaseStatus(app.release);
+  checkReleaseIntegrity(SIGNALING_URL).then((release) => {
+    app.release = release;
+    console.info("nncckkrr release", release);
+    renderReleaseStatus(release);
+  }).catch((err) => {
+    app.release = {
+      ...initialReleaseState(SIGNALING_URL),
+      status: "health_unreachable",
+      message: "SERVER CHECK FAILED",
+      blockConnection: false,
+      error: err?.message || String(err),
+      checkedAt: Date.now()
+    };
+    renderReleaseStatus(app.release);
+  });
+}
+
 function boot() {
   sessionRuntime.bindMenu();
   app.ui.onUpgradePick((index) => upgradeClient.requestChoice(index));
   app.ui.showMenu();
+  refreshReleaseIntegrity();
   requestAnimationFrame(loop);
 }
 
@@ -121,7 +152,7 @@ function updateHud() {
     ? (app.hostState?.players[app.playerId] ? { ...app.hostState.players[app.playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
     : (app.localPose ? { ...snapMe, hp: snapMe?.hp ?? app.localPose.hp, maxHp: snapMe?.maxHp ?? app.localPose.maxHp, activeWeapon: app.localWeapon, inventory: app.localInventory, upgrades: { choices: app.localUpgradeChoices, offers: app.localUpgradeOffers }, stats: app.localPose.stats || {}, ability: app.localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
   app.ui.setHud(me || { inventory: app.localInventory, activeWeapon: app.localWeapon }, app.snapshot);
-  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null) });
+  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 
 function loop(now) {
@@ -144,5 +175,5 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-console.info(`nncckkrr ${VERSION}`);
+console.info(`nncckkrr ${VERSION} build ${BUILD_ID}`);
 boot();

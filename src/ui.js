@@ -1,4 +1,4 @@
-import { VERSION, MAX_PLAYERS } from "./core/constants.js";
+import { BUILD_ID, VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { RARITY_META, UPGRADES } from "./data/upgrades.js";
 import { normalizePlayerName } from "./core/names.js";
@@ -77,7 +77,7 @@ export function createUi() {
     setTimeout(() => el.roomTitle.classList.remove("copy-flash"), 220);
   }
 
-  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev = null }) {
+  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev = null, release = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
     const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
     const id = playerId || "--";
@@ -85,10 +85,14 @@ export function createUi() {
     const name = names[id] || id;
     const count = Array.isArray(players) ? players.length : 0;
     const tr = transportMode || "LINK";
+    const build = BUILD_ID.replace(`${VERSION}-`, "").toUpperCase();
+    const releaseText = release?.status && release.status !== "ok" && release.status !== "checking"
+      ? ` | ${String(release.message || release.status).toUpperCase().slice(0, 64)}`
+      : "";
     const devText = dev?.enabled
       ? ` | DEV ${dev.calm ? "CALM" : "FULL"}${dev.spawnsPaused ? " SPAWN-OFF" : ""}${dev.god ? " GOD" : ""}${dev.flash ? ` | ${dev.flash}` : ""}`
       : "";
-    el.netStatus.textContent = `${VERSION.toUpperCase()} | PING ${ping} MS | ${mode} ${name}(${id}) | ${count}/${MAX_PLAYERS} | ${tr}${devText}`;
+    el.netStatus.textContent = `${VERSION.toUpperCase()} | BUILD ${build} | PING ${ping} MS | ${mode} ${name}(${id}) | ${count}/${MAX_PLAYERS} | ${tr}${releaseText}${devText}`;
   }
 
   function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1, offers = {}) {
