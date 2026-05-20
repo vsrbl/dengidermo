@@ -1,4 +1,4 @@
-import { WORLD, GREEN } from "../core/constants.js";
+import { WORLD, GREEN, RED } from "../core/constants.js";
 import { angleToVec, dist2, norm, segmentCircleHitT } from "../core/math.js";
 import { SpatialGrid } from "../core/spatialGrid.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
@@ -8,6 +8,7 @@ import {
   cloneEffect,
   createEffectContext,
   dealDamage,
+  dealPlayerDamage,
   effectCommand,
   getEffect,
   healProjectileOwner,
@@ -126,6 +127,66 @@ function addStatusBurst(state, x, y, applied) {
 }
 
 
+
+
+function addPlayerImpulse(player, fromX, fromY, force = 0) {
+  if (!(force > 0)) return;
+  const d = norm(player.x - fromX, player.y - fromY);
+  player.kx = (player.kx || 0) + d.x * force;
+  player.ky = (player.ky || 0) + d.y * force;
+}
+
+function hostileProjectileHitPadding(projectile) {
+  return Math.max(0, projectile.hitPadding ?? 3);
+}
+
+function updateHostileProjectile(state, projectile, dt) {
+  const prevX = projectile.x;
+  const prevY = projectile.y;
+  projectile.x += projectile.vx * dt;
+  projectile.y += projectile.vy * dt;
+  projectile.life -= dt;
+  projectile.distance = (projectile.distance || 0) + Math.hypot(projectile.x - prevX, projectile.y - prevY);
+
+  const wallHit = firstSolidWallHitInState(state, prevX, prevY, projectile.x, projectile.y, projectile.radius || 0);
+  let remove = false;
+
+  for (const player of Object.values(state.players || {})) {
+    if (!player || player.hp <= 0) continue;
+    const hitRadius = (player.radius || 0) + (projectile.radius || 0) + hostileProjectileHitPadding(projectile);
+    const hitT = segmentCircleHitT(prevX, prevY, projectile.x, projectile.y, player.x, player.y, hitRadius);
+    if (hitT === null) continue;
+    if (wallHit && wallHit.t <= hitT) continue;
+
+    dealPlayerDamage(state, player, {
+      amount: projectile.damage || 1,
+      sourceId: projectile.ownerId || null,
+      sourceType: "enemyProjectile",
+      enemyId: projectile.enemyId || projectile.ownerId || null,
+      tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.PROJECTILE]
+    });
+    addPlayerImpulse(player, projectile.x, projectile.y, projectile.knockback || 0);
+    addSpark(state, player.x, player.y, 3, 115, projectile.color === "red" ? RED : GREEN);
+    remove = true;
+    break;
+  }
+
+  if (!remove && wallHit) {
+    projectile.x = wallHit.x;
+    projectile.y = wallHit.y;
+    addSpark(state, wallHit.x, wallHit.y, 2, 90, projectile.color === "red" ? RED : GREEN);
+    remove = true;
+  }
+
+  if (!remove) {
+    remove = projectile.life <= 0 ||
+      (projectile.distance || 0) >= (projectile.range || Infinity) ||
+      projectile.x < -80 || projectile.x > WORLD.w + 80 ||
+      projectile.y < -80 || projectile.y > WORLD.h + 80;
+  }
+
+  if (remove) delete state.projectiles[projectile.id];
+}
 
 function projectileCommandHandlers() {
   return {
@@ -436,6 +497,11 @@ export function updateProjectiles(state, dt) {
   rebuildEnemyGrid(state);
 
   for (const p of Object.values(state.projectiles)) {
+    if (p.hostile || p.ownerType === "enemy") {
+      updateHostileProjectile(state, p, dt);
+      continue;
+    }
+
     const weapon = WEAPONS[p.weaponId] || WEAPONS[START_WEAPON];
     const prevX = p.x;
     const prevY = p.y;
@@ -507,5 +573,32 @@ export function makeProjectile({ id, ownerId, weaponId, x, y, angle, pelletIndex
     targetId: null,
     hitIds: {},
     childDepth: 0
+  };
+}
+
+
+export function makeEnemyProjectile({ id, enemyId, x, y, angle, speed = 420, damage = 8, radius = 5, range = 720, knockback = 120, color = "red" }) {
+  const dir = angleToVec(angle);
+  return {
+    id,
+    ownerId: enemyId,
+    ownerType: "enemy",
+    enemyId,
+    weaponId: "enemy_shot",
+    hostile: true,
+    kind: "enemyBullet",
+    x,
+    y,
+    vx: dir.x * speed,
+    vy: dir.y * speed,
+    speed,
+    damage,
+    radius,
+    range,
+    knockback,
+    distance: 0,
+    life: range / Math.max(1, speed),
+    color,
+    hitPadding: 3
   };
 }

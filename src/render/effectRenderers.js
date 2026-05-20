@@ -136,6 +136,20 @@ function drawChargeTelegraph(ctx, fx, cam) {
 
 
 
+
+function drawEnemyMuzzle(ctx, fx, cam) {
+  const { life, maxLife } = effectLife(fx);
+  const a = screen(fx, cam);
+  const b = screen({ x: fx.x2, y: fx.y2 }, cam);
+  ctx.strokeStyle = fx.color || "#ff3048";
+  ctx.lineWidth = Math.max(1, Math.round(2 * (life / maxLife)));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(a.x), Math.round(a.y));
+  ctx.lineTo(Math.round(b.x), Math.round(b.y));
+  ctx.stroke();
+  drawRect(ctx, b.x - 3, b.y - 3, 6, 6, fx.color || "#ff3048");
+}
+
 function drawBomberFuse(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
@@ -196,6 +210,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   afterimage: drawAfterimage,
   dashBurst: drawDashBurst,
   chargeTelegraph: drawChargeTelegraph,
+  enemyMuzzle: drawEnemyMuzzle,
   bomberFuse: drawBomberFuse,
   droneBeam: drawDroneBeam,
   orbitalHit: drawOrbitalHit,

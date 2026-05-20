@@ -1,4 +1,4 @@
-import { GREEN, VIEW, WORLD } from "./core/constants.js";
+import { GREEN, RED, VIEW, WORLD } from "./core/constants.js";
 import { dist2, isVisible, lerp, norm } from "./core/math.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { ENEMIES } from "./data/enemies.js";
@@ -198,7 +198,7 @@ function drawEnemy(ctx, e, cam) {
 
 function drawProjectile(ctx, p, cam) {
   const s = screen(p, cam);
-  const color = p.color === "green" ? GREEN : "#fff";
+  const color = p.color === "green" ? GREEN : (p.color === "red" ? RED : "#fff");
   const r = p.radius || 3;
   const vx = p.vx || 0;
   const vy = p.vy || 0;
@@ -206,9 +206,9 @@ function drawProjectile(ctx, p, cam) {
   const tx = -(vx / speed) * Math.min(22, speed * 0.026);
   const ty = -(vy / speed) * Math.min(22, speed * 0.026);
 
-  if (p.kind === "rocket" || p.kind === "homing") {
-    ctx.strokeStyle = "rgba(0,255,102,0.45)";
-    ctx.lineWidth = p.kind === "rocket" ? 3 : 2;
+  if (p.kind === "rocket" || p.kind === "homing" || p.kind === "enemyBullet") {
+    ctx.strokeStyle = p.kind === "enemyBullet" ? "rgba(255,48,72,0.42)" : "rgba(0,255,102,0.45)";
+    ctx.lineWidth = p.kind === "rocket" ? 3 : (p.kind === "enemyBullet" ? 1 : 2);
     ctx.beginPath();
     ctx.moveTo(Math.round(s.x + tx), Math.round(s.y + ty));
     ctx.lineTo(Math.round(s.x), Math.round(s.y));

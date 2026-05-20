@@ -265,6 +265,10 @@ export const ENCOUNTER_PLANS = Object.freeze({
         id: "static-field-warmup",
         phase: "calm",
         spawnZones: Object.freeze(["edge_far", "corner_random"]),
+        enemyPool: Object.freeze(["bomber", "runner", "bomber"]),
+        scriptedSpawns: Object.freeze([
+          Object.freeze({ id: "static-field-first-bomber", kind: "bomber", role: "scripted", at: 0.45, maxEnemies: 3, zone: "edge_far", budgeted: true })
+        ]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_CALM_END,
         canSpawn: true,
         canOpenPortal: false,
@@ -277,6 +281,7 @@ export const ENCOUNTER_PLANS = Object.freeze({
         id: "static-field-pressure",
         phase: "pressure",
         spawnZones: Object.freeze(["edge_far", "edge_flank", "corner_random"]),
+        enemyPool: Object.freeze(["charger", "bomber", "bomber", "runner", "shooter", "tank"]),
         when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
         canSpawn: true,
         canOpenPortal: false,

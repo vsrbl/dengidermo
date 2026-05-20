@@ -54,6 +54,7 @@ export function createDirectorState(state, loc = locationForState(state)) {
     wave: state.wave || 0,
     eliteMomentAt: eliteRatio === null ? Infinity : Math.max(1.2, portalAt * eliteRatio),
     eliteSpawned: false,
+    scriptedStageSpawns: {},
     lastPhase: DIRECTOR_PHASES.CALM,
     policy: PHASE_POLICIES[DIRECTOR_PHASES.CALM],
     lastSpawn: null
@@ -135,14 +136,15 @@ function canAfford(director, kind) {
   return director.budget >= enemyCost(kind);
 }
 
-function weightedPoolFor(loc, phase) {
-  const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
+function weightedPoolFor(loc, stage, phase) {
+  const stagePool = Array.isArray(stage?.enemyPool) && stage.enemyPool.length ? stage.enemyPool : null;
+  const pool = stagePool || (Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES);
   if (phase === DIRECTOR_PHASES.CALM) return pool.filter((kind) => (ENEMIES[kind]?.score || 1) <= 2).concat("grunt");
   return pool;
 }
 
-function pickEnemyKind(state, loc, phase, director) {
-  const pool = weightedPoolFor(loc, phase).filter((kind) => ENEMIES[kind] && canAfford(director, kind));
+function pickEnemyKind(state, loc, phase, director, stage = null) {
+  const pool = weightedPoolFor(loc, stage, phase).filter((kind) => ENEMIES[kind] && canAfford(director, kind));
   if (pool.length) return state.rng.pick(pool);
   if (canAfford(director, "grunt")) return "grunt";
   return null;
@@ -155,7 +157,7 @@ function pickEliteKind(state, loc, director) {
   if (roomDepth >= 2 || pool.includes("tank")) candidates.push("tank");
   if (pool.includes("shooter") || roomDepth >= 1) candidates.push("shooter");
   candidates.push("runner");
-  return candidates.find((kind) => ENEMIES[kind] && canAfford(director, kind)) || pickEnemyKind(state, loc, DIRECTOR_PHASES.PRESSURE, director);
+  return candidates.find((kind) => ENEMIES[kind] && canAfford(director, kind)) || pickEnemyKind(state, loc, DIRECTOR_PHASES.PRESSURE, director, null);
 }
 
 function makeBudgetedSpawnCommand(kind, options = {}) {
@@ -204,6 +206,33 @@ function planEliteCommand(state, loc, director, phase, enemyCount, stage, threat
     markEliteSpawned: true,
     event: { type: "director", phase: "elite", enemy: kind }
   });
+}
+
+function planStageScriptedSpawnCommands(state, loc, director, stage, threat) {
+  if (!stage || !Array.isArray(stage.scriptedSpawns) || !stage.scriptedSpawns.length) return [];
+  if (!director.scriptedStageSpawns || typeof director.scriptedStageSpawns !== "object") director.scriptedStageSpawns = {};
+  const locTime = state.locationTime || 0;
+  const enemyCount = Object.keys(state.enemies || {}).length;
+  const commands = [];
+  for (const entry of stage.scriptedSpawns) {
+    if (!entry || !entry.kind) continue;
+    const id = entry.id || `${stage.id || "stage"}:${entry.kind}:${entry.at || 0}`;
+    if (director.scriptedStageSpawns[id]) continue;
+    if (locTime < (entry.at || 0)) continue;
+    if (Number.isFinite(entry.maxEnemies) && enemyCount + commands.length >= entry.maxEnemies) continue;
+    const kind = ENEMIES[entry.kind] ? entry.kind : null;
+    if (!kind) continue;
+    const budgeted = entry.budgeted !== false;
+    if (budgeted && !canAfford(director, kind)) continue;
+    commands.push(makeBudgetedSpawnCommand(kind, {
+      role: entry.role || "scripted",
+      zone: entry.zone || chooseSpawnZone(state, loc, stage, threat, entry.role || "scripted"),
+      budgeted,
+      event: entry.event || { type: "director", phase: stage.phase || null, enemy: kind, role: entry.role || "scripted" }
+    }));
+    director.scriptedStageSpawns[id] = true;
+  }
+  return commands;
 }
 
 function syncLegacySpawnFields(state, director) {
@@ -277,6 +306,9 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
 
   ({ phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director, { threat }));
 
+  const scriptedCommands = planStageScriptedSpawnCommands(state, loc, director, stage, threat);
+  if (scriptedCommands.length) executeCommands(state, director, scriptedCommands, spawnEnemy);
+
   const enemyCount = Object.keys(state.enemies || {}).length;
   if (!policy.canSpawn || director.budget <= 0) {
     director.spawnTimer = Math.max(director.spawnTimer, 0.25);
@@ -307,7 +339,7 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
   let virtualBudget = director.budget;
   for (let i = 0; i < want; i += 1) {
     const virtualDirector = { ...director, budget: virtualBudget };
-    const kind = pickEnemyKind(state, loc, phase, virtualDirector);
+    const kind = pickEnemyKind(state, loc, phase, virtualDirector, stage);
     if (!kind) break;
     const cost = enemyCost(kind);
     if (virtualBudget < cost) break;

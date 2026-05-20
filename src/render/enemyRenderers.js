@@ -11,81 +11,79 @@ function strokeRect(ctx, x, y, w, h, color = "#fff", lineWidth = 1) {
   ctx.strokeRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
+function line(ctx, x1, y1, x2, y2, color = "#fff", width = 1) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(x1), Math.round(y1));
+  ctx.lineTo(Math.round(x2), Math.round(y2));
+  ctx.stroke();
+}
+
 function accentColor(data) {
-  if (data?.accentColor === 'red') return '#ff3048';
-  if (data?.accentColor === 'green') return GREEN;
-  return '#fff';
+  if (data?.accentColor === "red") return "#ff3048";
+  if (data?.accentColor === "green") return GREEN;
+  return "#fff";
 }
 
-function drawCore(ctx, x, y, size, color) {
-  drawRect(ctx, x - size / 2, y - size / 2, size, size, color);
+function hollowSquare(ctx, s, r, pad = 3) {
+  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#fff");
+  drawRect(ctx, s.x - r + pad, s.y - r + pad, r * 2 - pad * 2, r * 2 - pad * 2, "#050505");
 }
 
-function drawGrunt(ctx, s, r, data) {
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, '#050505');
-  drawCore(ctx, s.x, s.y, 4, accentColor(data));
+function drawGrunt(ctx, s, r) {
+  // baseline: plain square, nothing fancy
+  hollowSquare(ctx, s, r, 3);
 }
 
-function drawRunner(ctx, s, r, data) {
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 2, s.y - r + 2, r * 2 - 4, r * 2 - 4, '#050505');
-  drawRect(ctx, s.x - r, s.y - r, 4, 4, '#050505');
-  drawRect(ctx, s.x + r - 4, s.y - r, 4, 4, '#050505');
-  drawRect(ctx, s.x - r, s.y + r - 4, 4, 4, '#050505');
-  drawRect(ctx, s.x + r - 4, s.y + r - 4, 4, 4, '#050505');
-  drawRect(ctx, s.x - 1, s.y - r - 2, 2, 5, accentColor(data));
-  drawRect(ctx, s.x - 1, s.y + r - 3, 2, 5, accentColor(data));
+function drawRunner(ctx, s, r) {
+  // fast: small core + trailing speed ticks
+  hollowSquare(ctx, s, r, 2);
+  drawRect(ctx, s.x - r - 6, s.y - 5, 4, 2, "#fff");
+  drawRect(ctx, s.x - r - 9, s.y + 3, 3, 2, "#777");
 }
 
-function drawTank(ctx, s, r, data) {
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 4, s.y - r + 4, r * 2 - 8, r * 2 - 8, '#050505');
-  strokeRect(ctx, s.x - r - 3, s.y - r - 3, r * 2 + 6, r * 2 + 6, '#fff', 1);
-  drawRect(ctx, s.x - 5, s.y - 5, 10, 10, accentColor(data));
+function drawTank(ctx, s, r) {
+  // durable: thick outer armor, slow readable block
+  hollowSquare(ctx, s, r, 5);
+  strokeRect(ctx, s.x - r - 4, s.y - r - 4, r * 2 + 8, r * 2 + 8, "#fff", 1);
 }
 
 function drawShooter(ctx, s, r, data) {
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, '#050505');
-  strokeRect(ctx, s.x - r - 4, s.y - 4, 4, 8, '#fff', 1);
-  strokeRect(ctx, s.x + r, s.y - 4, 4, 8, '#fff', 1);
-  drawRect(ctx, s.x - 1, s.y - 7, 2, 14, accentColor(data));
-  drawRect(ctx, s.x - 7, s.y - 1, 14, 2, accentColor(data));
+  // ranged: crosshair body
+  const accent = accentColor(data);
+  hollowSquare(ctx, s, r, 3);
+  line(ctx, s.x - r - 4, s.y, s.x + r + 4, s.y, accent, 1);
+  line(ctx, s.x, s.y - r - 4, s.x, s.y + r + 4, accent, 1);
 }
 
 function drawCharger(ctx, s, r, data) {
+  // charge: red wedge/arrow silhouette, supported by telegraph line for direction
   const accent = accentColor(data);
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 3, s.y - r + 3, r * 2 - 6, r * 2 - 6, '#050505');
-  drawRect(ctx, s.x - r + 1, s.y - r + 1, 5, 5, '#050505');
-  drawRect(ctx, s.x + r - 6, s.y - r + 1, 5, 5, '#050505');
-  drawRect(ctx, s.x - r + 1, s.y + r - 6, 5, 5, '#050505');
-  drawRect(ctx, s.x + r - 6, s.y + r - 6, 5, 5, '#050505');
-  drawRect(ctx, s.x - 6, s.y - 6, 12, 12, accent);
-  drawRect(ctx, s.x - 10, s.y - 1, 4, 2, accent);
-  drawRect(ctx, s.x + 6, s.y - 1, 4, 2, accent);
+  hollowSquare(ctx, s, r, 3);
+  drawRect(ctx, s.x - 7, s.y - 7, 14, 14, accent);
+  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, "#050505");
+  line(ctx, s.x - r - 2, s.y - r - 2, s.x, s.y - r - 8, accent, 1);
+  line(ctx, s.x + r + 2, s.y - r - 2, s.x, s.y - r - 8, accent, 1);
 }
 
 function drawBomber(ctx, s, r, data) {
+  // explosion: fuse + danger radius marker, minimal and instantly recognizable
   const accent = accentColor(data);
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 2, s.y - r + 2, r * 2 - 4, r * 2 - 4, '#050505');
-  drawRect(ctx, s.x - 2, s.y - r - 4, 4, 4, accent);
-  drawRect(ctx, s.x - 1, s.y - r - 8, 2, 4, '#fff');
-  drawRect(ctx, s.x - 7, s.y - 1, 14, 2, accent);
-  drawRect(ctx, s.x - 1, s.y - 7, 2, 14, accent);
-  drawRect(ctx, s.x - 4, s.y - 4, 8, 8, '#fff');
-  drawRect(ctx, s.x - 2, s.y - 2, 4, 4, '#050505');
+  hollowSquare(ctx, s, r, 3);
+  strokeRect(ctx, s.x - r - 5, s.y - r - 5, r * 2 + 10, r * 2 + 10, accent, 1);
+  drawRect(ctx, s.x - 2, s.y - r - 8, 4, 6, accent);
+  drawRect(ctx, s.x - 1, s.y - r - 12, 2, 4, "#fff");
+  drawRect(ctx, s.x - 4, s.y - 4, 8, 8, accent);
+  drawRect(ctx, s.x - 2, s.y - 2, 4, 4, "#050505");
 }
 
 function drawBoss(ctx, s, r, data) {
   const accent = accentColor(data);
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, '#fff');
-  drawRect(ctx, s.x - r + 5, s.y - r + 5, r * 2 - 10, r * 2 - 10, '#050505');
-  strokeRect(ctx, s.x - r - 4, s.y - r - 4, r * 2 + 8, r * 2 + 8, accent, 1);
-  drawRect(ctx, s.x - 2, s.y - r + 8, 4, r * 2 - 16, accent);
-  drawRect(ctx, s.x - r + 8, s.y - 2, r * 2 - 16, 4, accent);
+  hollowSquare(ctx, s, r, 5);
+  strokeRect(ctx, s.x - r - 5, s.y - r - 5, r * 2 + 10, r * 2 + 10, accent, 1);
+  line(ctx, s.x - r + 9, s.y, s.x + r - 9, s.y, accent, 3);
+  line(ctx, s.x, s.y - r + 9, s.x, s.y + r - 9, accent, 3);
 }
 
 export const ENEMY_RENDERERS = Object.freeze({

@@ -38,21 +38,34 @@ export const ENEMIES = {
   shooter: {
     name: "SHOOTER",
     hp: 46,
-    speed: 58,
+    speed: 54,
     radius: 14,
     damage: 7,
     behavior: "ranged",
     renderStyle: "shooter",
     accentColor: "green",
-    score: 2
+    score: 2,
+    ranged: {
+      acquireRange: 620,
+      preferredRange: 360,
+      retreatRange: 230,
+      cooldown: 1.15,
+      firstShotDelay: 0.35,
+      projectileSpeed: 430,
+      projectileDamage: 9,
+      projectileRadius: 5,
+      projectileRange: 740,
+      knockback: 145,
+      muzzleLife: 0.1
+    }
   },
 
   charger: {
     name: "CHARGER",
-    hp: 58,
-    speed: 76,
+    hp: 52,
+    speed: 70,
     radius: 15,
-    damage: 8,
+    damage: 7,
     behavior: "charger",
     renderStyle: "charger",
     accentColor: "red",
@@ -64,8 +77,8 @@ export const ENEMIES = {
       dashTime: 0.34,
       cooldown: 0.82,
       speed: 720,
-      damage: 18,
-      knockback: 360,
+      damage: 19,
+      knockback: 390,
       telegraphEvery: 0.12,
       slowChaseScale: 0.42
     }
@@ -73,22 +86,22 @@ export const ENEMIES = {
 
   bomber: {
     name: "BOMBER",
-    hp: 42,
-    speed: 68,
-    radius: 14,
-    damage: 8,
+    hp: 36,
+    speed: 54,
+    radius: 15,
+    damage: 6,
     behavior: "bomber",
     renderStyle: "bomber",
     accentColor: "red",
     score: 2,
     bomb: {
-      triggerRange: 88,
-      fuse: 0.72,
-      explosionRadius: 88,
-      explosionDamage: 24,
-      knockback: 420,
-      telegraphEvery: 0.12,
-      chaseSpeedScale: 0.92
+      triggerRange: 96,
+      fuse: 0.82,
+      explosionRadius: 96,
+      explosionDamage: 27,
+      knockback: 450,
+      telegraphEvery: 0.1,
+      chaseSpeedScale: 0.72
     }
   },
 
