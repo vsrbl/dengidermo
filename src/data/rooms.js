@@ -31,7 +31,7 @@ export const ROOM_SEQUENCE = [
     name: "CORE 02",
     category: "normal",
     tags: ["core", "clear", "elite"],
-    layout: "open_arena",
+    layout: "twin_pillars",
     modifiers: ["core_pressure"],
     biome: "core",
     encounter: "core_elite_pressure",

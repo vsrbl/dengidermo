@@ -31,9 +31,9 @@ export const ROOM_LAYOUTS = Object.freeze({
     tags: Object.freeze(["open", "baseline"])
   }),
 
-  // v38.8 foundation layouts are intentionally unused by the baseline room
-  // sequence. They define the data contract for future level-design content
-  // without changing current gameplay.
+  // v39.0.0 activates twin_pillars through room data only. The roomPlan
+  // geometry contract, spawn anchors, collision, and renderer consume the
+  // layout without gameplay special-cases.
   twin_pillars: Object.freeze({
     id: "twin_pillars",
     name: "TWIN PILLARS",
@@ -52,9 +52,11 @@ export const ROOM_LAYOUTS = Object.freeze({
       anchor("boss_anchor", CENTER.x, 190, ["boss"])
     ]),
     portal: Object.freeze({ x: WORLD.w - 190, y: CENTER.y }),
-    tags: Object.freeze(["obstacle", "future"])
+    tags: Object.freeze(["obstacle", "controlled", "v39"])
   }),
 
+  // Reserved for a later content pass; do not enable until enemy navigation
+  // and room-specific QA prove that lane blockers remain readable.
   split_lanes: Object.freeze({
     id: "split_lanes",
     name: "SPLIT LANES",

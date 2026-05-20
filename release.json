@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v38.14.6",
-  "buildId": "v38.14.6-20260520",
+  "version": "v39.0.0",
+  "buildId": "v39.0.0-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v38-14-6.js?v=38.14.6",
-  "style": "./style.css?v=38.14.6",
-  "config": "./config.js?v=38.14.6",
+  "entry": "./src/main.v39-0-0.js?v=39.0.0",
+  "style": "./style.css?v=39.0.0",
+  "config": "./config.js?v=39.0.0",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "signaling disconnect hardening and immediate host removal notification"
+  "notes": "v39.0.0 controlled content foundation: core-02 twin_pillars layout via roomPlan geometry contract"
 }
