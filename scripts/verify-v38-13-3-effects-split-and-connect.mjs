@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
-import { VERSION } from '../src/core/constants.js';
+import { SIGNALING_PROTOCOL_VERSION, VERSION } from '../src/core/constants.js';
 import * as effects from '../src/game/effects.js';
 import { Transport } from '../src/net/transport.js';
 
@@ -28,6 +28,7 @@ function makeSignalingServer() {
   const wss = new WebSocketServer({ port: 0 });
   const rooms = new Map();
   wss.on('connection', (ws) => {
+    ws.send(JSON.stringify({ type: 'hello', version: VERSION, protocol: SIGNALING_PROTOCOL_VERSION }));
     ws.on('message', (raw) => {
       let msg = null;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -105,7 +106,7 @@ await test('damage status and loot responsibilities are no longer mixed into one
   assert.match(loot, /export function attractLootToPlayer/);
 });
 
-await test('CREATE room transport handshake still reaches onReady instead of silently doing nothing', async () => {
+await test('CREATE room transport handshake still reaches onReady after protocol hello', async () => {
   const wss = makeSignalingServer();
   await new Promise((resolve) => wss.once('listening', resolve));
   const { port } = wss.address();
