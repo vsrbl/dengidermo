@@ -19,7 +19,9 @@ import {
 import { pushVisualEffect } from '../src/game/effectCommands.js';
 import { applyUpgrade } from '../src/game/upgrades.js';
 
-const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
+const effectsSrc = ['effects.js', 'effects/defs.js', 'effects/core.js', 'effects/damage.js', 'effects/status.js', 'effects/loot.js']
+  .map((name) => `${name}\n${readFileSync(new URL(`../src/game/${name}`, import.meta.url), 'utf8')}`)
+  .join('\n---\n');
 const commandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 const lootSrc = readFileSync(new URL('../src/game/loot.js', import.meta.url), 'utf8');
 const portalsSrc = readFileSync(new URL('../src/game/portals.js', import.meta.url), 'utf8');

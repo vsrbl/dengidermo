@@ -15,7 +15,9 @@ import {
   tickPlayerEffects
 } from '../src/game/effects.js';
 
-const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
+const effectsSrc = ['effects.js', 'effects/defs.js', 'effects/core.js', 'effects/damage.js', 'effects/status.js', 'effects/loot.js']
+  .map((name) => `${name}\n${readFileSync(new URL(`../src/game/${name}`, import.meta.url), 'utf8')}`)
+  .join('\n---\n');
 const enemiesSrc = readFileSync(new URL('../src/game/enemies.js', import.meta.url), 'utf8');
 const enemyBehaviorsSrc = readFileSync(new URL('../src/game/enemyBehaviors.js', import.meta.url), 'utf8');
 const enemyRuntimeSrc = `${enemiesSrc}

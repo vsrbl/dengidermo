@@ -19,7 +19,9 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
 const roomModifiersSrc = readFileSync(new URL('../src/game/roomModifiers.js', import.meta.url), 'utf8');
 const dataModifiersSrc = readFileSync(new URL('../src/data/roomModifiers.js', import.meta.url), 'utf8');
-const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
+const effectsSrc = ['effects.js', 'effects/defs.js', 'effects/core.js', 'effects/damage.js', 'effects/status.js', 'effects/loot.js']
+  .map((name) => `${name}\n${readFileSync(new URL(`../src/game/${name}`, import.meta.url), 'utf8')}`)
+  .join('\n---\n');
 const directorSrc = readFileSync(new URL('../src/game/director.js', import.meta.url), 'utf8');
 const directorReadSrc = readFileSync(new URL('../src/game/directorRead.js', import.meta.url), 'utf8');
 const enemiesSrc = readFileSync(new URL('../src/game/enemies.js', import.meta.url), 'utf8');
@@ -45,10 +47,10 @@ function customModifier(hookName, commands) {
   };
 }
 
-test('v38.13.2 is registered as room modifier runtime hook foundation', () => {
-  assert.equal(VERSION, 'v38.13.2');
-  assert.equal(pkg.version, '38.13.2');
-  assert.equal(serverPkg.version, '38.13.2');
+test('v38.13.3 is registered as room modifier runtime hook foundation', () => {
+  assert.equal(VERSION, 'v38.13.3');
+  assert.equal(pkg.version, '38.13.3');
+  assert.equal(serverPkg.version, '38.13.3');
   assert.match(pkg.scripts['check:all'], /check:v38-10/);
 });
 
@@ -75,11 +77,11 @@ test('all initial room modifier hooks are declared explicitly', () => {
 test('current room modifiers remain identity-only and do not change gameplay yet', () => {
   for (const modifier of Object.values(ROOM_MODIFIERS)) {
     assert.ok(modifier.id);
-    assert.deepEqual(modifier.hooks, {}, `${modifier.id} should keep empty hooks in v38.13.2`);
+    assert.deepEqual(modifier.hooks, {}, `${modifier.id} should keep empty hooks in v38.13.3`);
   }
   for (const room of ROOM_SEQUENCE) {
     assert.ok(room.modifiers?.length, `${room.id} should keep identity modifier metadata`);
-    assert.equal(room.layout, 'open_arena', `${room.id} should not switch layouts in v38.13.2`);
+    assert.equal(room.layout, 'open_arena', `${room.id} should not switch layouts in v38.13.3`);
   }
 });
 
@@ -198,7 +200,7 @@ test('gameplay systems route through room modifier hooks instead of modifier id 
   assert.match(roomFlowSrc, /exitRoomModifierRuntime/);
   assert.match(rendererSrc, /ROOM_MODIFIER_HOOKS\.RENDER_BACKGROUND/);
   assert.doesNotMatch(allGameplaySrc, /modifierId\s*===|modifierId\s*!==|hasRoomModifier\(/);
-  assert.doesNotMatch(dataModifiersSrc, /damage|budget|cap|heal|loot|portal/i, 'data modifiers should stay identity-only in v38.13.2');
+  assert.doesNotMatch(dataModifiersSrc, /damage|budget|cap|heal|loot|portal/i, 'data modifiers should stay identity-only in v38.13.3');
 });
 
 let failed = 0;
@@ -207,4 +209,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.2 room modifier runtime hook checks passed`);
+console.log(`All ${results.length} v38.13.3 room modifier runtime hook checks passed`);

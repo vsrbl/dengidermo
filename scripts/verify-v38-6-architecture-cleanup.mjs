@@ -44,11 +44,11 @@ function fresh(seed = 'V38-6') {
 }
 
 test('v38.6 architecture cleanup is registered', () => {
-  assert.equal(VERSION, 'v38.13.2');
-  assert.equal(pkg.version, '38.13.2');
-  assert.equal(serverPkg.version, '38.13.2');
-  assert.match(htmlSrc, /V38\.13\.2/);
-  assert.match(serverSrc, /v38\.13\.2/);
+  assert.equal(VERSION, 'v38.13.3');
+  assert.equal(pkg.version, '38.13.3');
+  assert.equal(serverPkg.version, '38.13.3');
+  assert.match(htmlSrc, /V38\.13\.3/);
+  assert.match(serverSrc, /v38\.13\.3/);
   assert.match(pkg.scripts['check:all'], /check:v38-6/);
 });
 
