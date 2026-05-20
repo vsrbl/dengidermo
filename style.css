@@ -438,3 +438,21 @@ button:active {
 }
 
 button:disabled { opacity: 0.45; cursor: default; }
+
+.menu-status {
+  margin-top: 12px;
+  min-height: 14px;
+  color: var(--red);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.menu-status.info {
+  color: #777;
+}
+
+.menu-status.error {
+  color: var(--red);
+}

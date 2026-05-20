@@ -25,11 +25,11 @@ function lineCount(text) {
   return text.split(/\r?\n/).length;
 }
 
-test('v38.13.4 is registered as the app runtime split foundation', () => {
-  assert.equal(VERSION, 'v38.13.4');
-  assert.equal(pkg.version, '38.13.4');
-  assert.equal(serverPkg.version, '38.13.4');
-  assert.match(serverSrc, /nncckkrr signaling v38\.13\.4/);
+test('v38.13.5 is registered as the app runtime split foundation', () => {
+  assert.equal(VERSION, 'v38.13.5');
+  assert.equal(pkg.version, '38.13.5');
+  assert.equal(serverPkg.version, '38.13.5');
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.5/);
   assert.match(pkg.scripts['check:all'], /check:v38-12/);
 });
 
@@ -83,10 +83,10 @@ test('upgrade and dev controls are isolated behind small app modules', () => {
   assert.match(devSrc, /applyDevCommand\(app\.hostState, command\)/);
 });
 
-test('v38.13.4 is architecture-only: baseline content remains unchanged', () => {
+test('v38.13.5 is architecture-only: baseline content remains unchanged', () => {
   assert.deepEqual(Object.keys(ENEMIES).sort(), ['boss', 'grunt', 'runner', 'shooter', 'tank']);
-  for (const room of ROOM_SEQUENCE) assert.equal(room.layout, 'open_arena', `${room.id} should keep open_arena in v38.13.4`);
-  for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks, {}, `${modifier.id} should remain identity-only in v38.13.4`);
+  for (const room of ROOM_SEQUENCE) assert.equal(room.layout, 'open_arena', `${room.id} should keep open_arena in v38.13.5`);
+  for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks, {}, `${modifier.id} should remain identity-only in v38.13.5`);
 });
 
 let failed = 0;
@@ -95,4 +95,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.4 app runtime split checks passed`);
+console.log(`All ${results.length} v38.13.5 app runtime split checks passed`);

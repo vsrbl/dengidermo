@@ -36,9 +36,11 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.connecting = value;
     app.ui.el.createBtn.disabled = value;
     app.ui.el.joinBtn.disabled = value;
+    if (value) app.ui.setMenuStatus?.("connecting", "info");
     if (!value) {
       window.clearTimeout(app.connectTimer);
       app.connectTimer = 0;
+      app.ui.setMenuStatus?.("", "info");
     }
   }
 

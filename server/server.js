@@ -5,7 +5,7 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v38.13.4";
+const SERVER_VERSION = "v38.13.5";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
@@ -215,4 +215,4 @@ wss.on("connection", (ws) => {
 });
 
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.4 on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v38.13.5 on ${PORT}`));

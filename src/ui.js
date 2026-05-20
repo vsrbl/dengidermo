@@ -10,6 +10,7 @@ export function createUi() {
     menuBox: document.getElementById("menuBox"),
     nameInput: document.getElementById("nameInput"),
     roomInput: document.getElementById("roomInput"),
+    menuStatus: document.getElementById("menuStatus"),
     createBtn: document.getElementById("createBtn"),
     joinBtn: document.getElementById("joinBtn"),
     roomTitle: document.getElementById("roomTitle"),
@@ -44,14 +45,24 @@ export function createUi() {
     el.roomTitle.textContent = roomId || "------";
   }
 
+  function setMenuStatus(message = "", kind = "info") {
+    if (!el.menuStatus) return;
+    const text = String(message || "").replace(/_/g, " ").toUpperCase().slice(0, 42);
+    el.menuStatus.textContent = text;
+    el.menuStatus.classList.toggle("hidden", !text);
+    el.menuStatus.classList.toggle("error", !!text && kind === "error");
+    el.menuStatus.classList.toggle("info", !!text && kind !== "error");
+  }
+
   function flashError(message = "") {
     el.menuBox.classList.remove("error-flash");
     void el.menuBox.offsetWidth;
     el.menuBox.classList.add("error-flash");
     if (message && el.menu && !el.menu.classList.contains("hidden")) {
+      const label = String(message).replace(/_/g, " ").toUpperCase().slice(0, 42);
+      setMenuStatus(label, "error");
       const oldPlaceholder = el.roomInput.placeholder || "ID";
-      const label = String(message).replace(/_/g, " ").toUpperCase().slice(0, 18);
-      el.roomInput.placeholder = label;
+      el.roomInput.placeholder = label.slice(0, 18);
       window.clearTimeout(el.roomInput.nnPlaceholderTimer);
       el.roomInput.nnPlaceholderTimer = window.setTimeout(() => {
         el.roomInput.placeholder = oldPlaceholder;
@@ -244,7 +255,7 @@ export function createUi() {
     flashCopied();
   });
 
-  return { el, showMenu, showGame, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen, isUpgradeHovered: () => upgradeHovered };
+  return { el, showMenu, showGame, setMenuStatus, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen, isUpgradeHovered: () => upgradeHovered };
 }
 
 export function randomRoomId() {

@@ -44,14 +44,14 @@ function makeSignalingServer() {
   return wss;
 }
 
-await test('v38.13.4 versions are aligned across frontend package server and cache query strings', () => {
-  assert.equal(VERSION, 'v38.13.4');
-  assert.equal(pkg.version, '38.13.4');
-  assert.equal(serverPkg.version, '38.13.4');
-  assert.match(serverSrc, /nncckkrr signaling v38\.13\.4/);
-  assert.match(indexHtml, /main\.js\?v=38\.13\.4/);
-  assert.match(indexHtml, /config\.js\?v=38\.13\.4/);
-  assert.match(indexHtml, /style\.css\?v=38\.13\.4/);
+await test('v38.13.5 versions are aligned across frontend package server and cache query strings', () => {
+  assert.equal(VERSION, 'v38.13.5');
+  assert.equal(pkg.version, '38.13.5');
+  assert.equal(serverPkg.version, '38.13.5');
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.5/);
+  assert.match(indexHtml, /main\.js\?v=38\.13\.5/);
+  assert.match(indexHtml, /config\.js\?v=38\.13\.5/);
+  assert.match(indexHtml, /style\.css\?v=38\.13\.5/);
 });
 
 await test('effects.js is now a small public barrel and implementation is split by responsibility', () => {
@@ -134,4 +134,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.4 effects split and create-room checks passed`);
+console.log(`All ${results.length} v38.13.5 effects split and create-room checks passed`);

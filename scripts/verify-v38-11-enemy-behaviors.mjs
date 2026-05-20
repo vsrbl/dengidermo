@@ -34,11 +34,11 @@ function freshState(label) {
   return { state, p };
 }
 
-test('v38.13.4 is registered as enemy behavior registry foundation', () => {
-  assert.equal(VERSION, 'v38.13.4');
-  assert.equal(pkg.version, '38.13.4');
-  assert.equal(serverPkg.version, '38.13.4');
-  assert.match(serverSrc, /nncckkrr signaling v38\.13\.4/);
+test('v38.13.5 is registered as enemy behavior registry foundation', () => {
+  assert.equal(VERSION, 'v38.13.5');
+  assert.equal(pkg.version, '38.13.5');
+  assert.equal(serverPkg.version, '38.13.5');
+  assert.match(serverSrc, /nncckkrr signaling v38\.13\.5/);
   assert.match(pkg.scripts['check:all'], /check:v38-11/);
 });
 
@@ -114,7 +114,7 @@ test('future enemy data can be validated against the registry without editing up
   assert.deepEqual(unknownEnemyBehaviors(synthetic), [{ kind: 'testFutureUnknown', behavior: 'teleport' }]);
 });
 
-test('enemy data remains content-only and no new enemy kinds were added in v38.13.4', () => {
+test('enemy data remains content-only and no new enemy kinds were added in v38.13.5', () => {
   assert.deepEqual(Object.keys(ENEMIES).sort(), ['boss', 'grunt', 'runner', 'shooter', 'tank']);
   assert.match(dataEnemiesSrc, /behavior:\s*"chase"/);
   assert.match(dataEnemiesSrc, /behavior:\s*"ranged"/);
@@ -127,4 +127,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.4 enemy behavior registry checks passed`);
+console.log(`All ${results.length} v38.13.5 enemy behavior registry checks passed`);

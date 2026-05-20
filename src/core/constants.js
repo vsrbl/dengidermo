@@ -1,6 +1,6 @@
-export const VERSION = "v38.13.4";
+export const VERSION = "v38.13.5";
 export const SIGNALING_PROTOCOL_VERSION = 2;
-export const SERVER_HELLO_TIMEOUT_MS = 3000;
+export const SERVER_HELLO_TIMEOUT_MS = 900;
 export const MAX_PLAYERS = 4;
 export const WORLD = { w: 2400, h: 1600 };
 export const VIEW = { w: 1600, h: 675 };
