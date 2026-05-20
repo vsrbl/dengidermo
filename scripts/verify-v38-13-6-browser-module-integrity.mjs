@@ -13,18 +13,18 @@ const serverPkg = readJson('server/package.json');
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
-test('v38.13.6 is registered everywhere', () => {
-  assert.equal(VERSION, 'v38.13.6');
-  assert.equal(pkg.version, '38.13.6');
-  assert.equal(serverPkg.version, '38.13.6');
-  assert.match(read('server/server.js'), /SERVER_VERSION = "v38\.13\.6"/);
-  assert.match(read('index.html'), /V38\.13\.6/);
-  assert.match(read('index.html'), /src\/main\.js\?v=38\.13\.6/);
+test('v38.13.7 is registered everywhere', () => {
+  assert.equal(VERSION, 'v38.13.7');
+  assert.equal(pkg.version, '38.13.7');
+  assert.equal(serverPkg.version, '38.13.7');
+  assert.match(read('server/server.js'), /SERVER_VERSION = "v38\.13\.7"/);
+  assert.match(read('index.html'), /V38\.13\.7/);
+  assert.match(read('index.html'), /src\/main(?:\.v38-13-7)?\.js\?v=38\.13\.7/);
 });
 
 test('START_WEAPON imports stay in data/weapons boundary', () => {
   assert.match(read('src/data/weapons.js'), /export const START_WEAPON = "shotgun"/);
-  assert.doesNotMatch(read('src/core/constants.js'), /START_WEAPON/, 'core constants should not own weapon data');
+  assert.match(read('src/core/constants.js'), /export const START_WEAPON = "shotgun"/, 'core constants should keep a temporary cache-compat START_WEAPON alias');
   assert.match(read('src/main.js'), /import \{ START_WEAPON \} from "\.\/data\/weapons\.js";/);
   assert.match(read('src/app/session.js'), /import \{ START_WEAPON \} from "\.\.\/data\/weapons\.js";/);
   assert.match(read('src/app/clientRuntime.js'), /import \{ START_WEAPON, WEAPONS \} from "\.\.\/data\/weapons\.js";/);
@@ -59,4 +59,4 @@ for (const t of tests) {
     process.exit(1);
   }
 }
-console.log(`All ${passed} v38.13.6 browser module integrity checks passed`);
+console.log(`All ${passed} v38.13.7 browser module integrity checks passed`);

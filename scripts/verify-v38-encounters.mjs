@@ -32,7 +32,7 @@ function snapAt(state, time, dt = 0.25) {
 }
 
 test('v38.6 encounter plans are registered and checked', () => {
-  assert.equal(pkg.version, '38.13.6');
+  assert.equal(pkg.version, '38.13.7');
   assert.match(packageSrc, /check:v38-3/, 'check:v38-3 should be part of package scripts');
   assert.ok(ENCOUNTER_PLANS.grid_intro_pressure, 'grid encounter plan missing');
   assert.ok(ENCOUNTER_PLANS.void_pressure, 'void encounter plan missing');

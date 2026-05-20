@@ -47,10 +47,10 @@ function customModifier(hookName, commands) {
   };
 }
 
-test('v38.13.6 is registered as room modifier runtime hook foundation', () => {
-  assert.equal(VERSION, 'v38.13.6');
-  assert.equal(pkg.version, '38.13.6');
-  assert.equal(serverPkg.version, '38.13.6');
+test('v38.13.7 is registered as room modifier runtime hook foundation', () => {
+  assert.equal(VERSION, 'v38.13.7');
+  assert.equal(pkg.version, '38.13.7');
+  assert.equal(serverPkg.version, '38.13.7');
   assert.match(pkg.scripts['check:all'], /check:v38-10/);
 });
 
@@ -77,11 +77,11 @@ test('all initial room modifier hooks are declared explicitly', () => {
 test('current room modifiers remain identity-only and do not change gameplay yet', () => {
   for (const modifier of Object.values(ROOM_MODIFIERS)) {
     assert.ok(modifier.id);
-    assert.deepEqual(modifier.hooks, {}, `${modifier.id} should keep empty hooks in v38.13.6`);
+    assert.deepEqual(modifier.hooks, {}, `${modifier.id} should keep empty hooks in v38.13.7`);
   }
   for (const room of ROOM_SEQUENCE) {
     assert.ok(room.modifiers?.length, `${room.id} should keep identity modifier metadata`);
-    assert.equal(room.layout, 'open_arena', `${room.id} should not switch layouts in v38.13.6`);
+    assert.equal(room.layout, 'open_arena', `${room.id} should not switch layouts in v38.13.7`);
   }
 });
 
@@ -200,7 +200,7 @@ test('gameplay systems route through room modifier hooks instead of modifier id 
   assert.match(roomFlowSrc, /exitRoomModifierRuntime/);
   assert.match(rendererSrc, /ROOM_MODIFIER_HOOKS\.RENDER_BACKGROUND/);
   assert.doesNotMatch(allGameplaySrc, /modifierId\s*===|modifierId\s*!==|hasRoomModifier\(/);
-  assert.doesNotMatch(dataModifiersSrc, /damage|budget|cap|heal|loot|portal/i, 'data modifiers should stay identity-only in v38.13.6');
+  assert.doesNotMatch(dataModifiersSrc, /damage|budget|cap|heal|loot|portal/i, 'data modifiers should stay identity-only in v38.13.7');
 });
 
 let failed = 0;
@@ -209,4 +209,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.6 room modifier runtime hook checks passed`);
+console.log(`All ${results.length} v38.13.7 room modifier runtime hook checks passed`);

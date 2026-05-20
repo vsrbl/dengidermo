@@ -39,10 +39,10 @@ function westPillarGeometry() {
   return { geometry, wall: geometry.walls.find((w) => w.id === 'pillar_west') || geometry.walls[0] };
 }
 
-test('v38.13.6 is registered and baseline rooms still keep open_arena', () => {
-  assert.equal(VERSION, 'v38.13.6');
-  assert.equal(pkg.version, '38.13.6');
-  assert.equal(serverPkg.version, '38.13.6');
+test('v38.13.7 is registered and baseline rooms still keep open_arena', () => {
+  assert.equal(VERSION, 'v38.13.7');
+  assert.equal(pkg.version, '38.13.7');
+  assert.equal(serverPkg.version, '38.13.7');
   assert.match(pkg.scripts['check:all'], /check:v38-8-1/);
   for (const room of ROOM_SEQUENCE) assert.equal(room.layout, 'open_arena');
 });
@@ -170,4 +170,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.6 geometry hardening checks passed`);
+console.log(`All ${results.length} v38.13.7 geometry hardening checks passed`);

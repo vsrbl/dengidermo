@@ -44,16 +44,16 @@ function makeSignalingServer() {
   return wss;
 }
 
-await test('v38.13.6 versions are aligned across frontend package server and cache query strings', () => {
-  assert.equal(VERSION, 'v38.13.6');
-  assert.equal(pkg.version, '38.13.6');
-  assert.equal(serverPkg.version, '38.13.6');
-  assert.match(serverSrc, /SERVER_VERSION = \"v38\.13\.6\"/);
+await test('v38.13.7 versions are aligned across frontend package server and cache query strings', () => {
+  assert.equal(VERSION, 'v38.13.7');
+  assert.equal(pkg.version, '38.13.7');
+  assert.equal(serverPkg.version, '38.13.7');
+  assert.match(serverSrc, /SERVER_VERSION = \"v38\.13\.7\"/);
   assert.match(serverSrc, /SIGNALING_PROTOCOL_VERSION = 2/);
   assert.match(serverSrc, /type: \"hello\"/);
-  assert.match(indexHtml, /main\.js\?v=38\.13\.6/);
-  assert.match(indexHtml, /config\.js\?v=38\.13\.6/);
-  assert.match(indexHtml, /style\.css\?v=38\.13\.6/);
+  assert.match(indexHtml, /main(?:\.v38-13-7)?\.js\?v=38\.13\.7/);
+  assert.match(indexHtml, /config\.js\?v=38\.13\.7/);
+  assert.match(indexHtml, /style\.css\?v=38\.13\.7/);
 });
 
 await test('effects.js is now a small public barrel and implementation is split by responsibility', () => {
@@ -211,4 +211,4 @@ for (const [status, name, err] of results) {
   else { failed += 1; console.error(`FAIL ${name}`); console.error(err?.stack || err); }
 }
 if (failed) process.exit(1);
-console.log(`All ${results.length} v38.13.6 visible connect and server-handshake checks passed`);
+console.log(`All ${results.length} v38.13.7 visible connect and server-handshake checks passed`);
