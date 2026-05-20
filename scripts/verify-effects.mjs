@@ -26,6 +26,15 @@ function runProjectiles(state, seconds=1, dt=1/120) {
 }
 function effectNames(effects) { return new Set(effects.map(e=>e.type)); }
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }
@@ -90,7 +99,7 @@ test('shield blocks damage and recharges', () => {
 test('burn/poison/freeze statuses apply and tick down', () => {
   const { state, p } = fresh();
   take(p, 'burnMark', 'poisonLeak', 'freezeByte');
-  const e = spawnEnemy(state, 'boss', 620, 500);
+  const e = disableArmor(spawnEnemy(state, 'boss', 620, 500));
   fireWeapon(state, 'p1', { angle: 0, fireSeq: 1 });
   runProjectiles(state, 0.3);
   assert.ok(e.status?.burn || e.status?.poison || e.status?.freeze, 'enemy got no status');
@@ -102,8 +111,8 @@ test('burn/poison/freeze statuses apply and tick down', () => {
 test('pierce does not repeatedly hit same enemy and can continue', () => {
   const { state, p } = fresh();
   take(p, 'pierceCore');
-  const e1 = spawnEnemy(state, 'boss', 620, 500);
-  const e2 = spawnEnemy(state, 'boss', 710, 500);
+  const e1 = disableArmor(spawnEnemy(state, 'boss', 620, 500));
+  const e2 = disableArmor(spawnEnemy(state, 'boss', 710, 500));
   fireWeapon(state, 'p1', { angle: 0, fireSeq: 2 });
   runProjectiles(state, 0.5);
   assert.ok(e1.hp < e1.maxHp, 'first enemy not hit');
@@ -114,7 +123,7 @@ test('rocket split/cluster/screenShake create runtime effects safely', () => {
   const { state, p } = fresh();
   giveWeapon(p, 'rocket', true); switchWeapon(p, 'rocket');
   take(p, 'splitRockets', 'clusterBomb');
-  spawnEnemy(state, 'boss', 680, 500);
+  disableArmor(spawnEnemy(state, 'boss', 680, 500));
   fireWeapon(state, 'p1', { angle: 0, weapon: 'rocket', fireSeq: 3 });
   let sawExplosion = false;
   let sawShake = false;

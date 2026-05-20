@@ -1,5 +1,6 @@
 import { dist2 } from "../../core/math.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "../roomModifiers.js";
+import { applyArmorDamage, shouldArmorAbsorb } from "../enemyArmor.js";
 import {
   EFFECT_HOOKS,
   DAMAGE_TAGS,
@@ -13,11 +14,14 @@ import {
   runEffectHook
 } from "./core.js";
 
-export function dealDamage(_state, target, spec = {}) {
+export function dealDamage(state, target, spec = {}) {
   if (!target || !Number.isFinite(spec.amount)) {
     return { amount: 0, done: 0, killed: false, sourceId: spec.sourceId || null, tags: spec.tags || [] };
   }
   const amount = Math.max(0, spec.amount);
+  if (shouldArmorAbsorb(target, spec)) {
+    return { amount, ...applyArmorDamage(state, target, amount, spec) };
+  }
   const before = Math.max(0, target.hp || 0);
   target.hp -= amount;
   const done = Math.min(before, amount);

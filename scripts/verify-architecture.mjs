@@ -18,6 +18,15 @@ const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }
@@ -74,7 +83,7 @@ test('lifesteal description matches current non-status behavior', () => {
   assert.match(UPGRADES.lifesteal.desc, /weapon damage/i, 'lifesteal description must stay short and exclude DoT/status healing');
   const { state, p } = fresh('shotgun', ['lifesteal']);
   p.hp = 20;
-  const e = spawnEnemy(state, 'boss', 640, 500);
+  const e = disableArmor(spawnEnemy(state, 'boss', 640, 500));
   e.status = { burn: { t: 1, dps: 80, sourceId: 'p1', stacks: 1 } };
   run(state, 0.5);
   assert.equal(p.hp, 20, 'status damage should not trigger lifesteal in v36');
@@ -83,7 +92,7 @@ test('lifesteal description matches current non-status behavior', () => {
 test('direct projectile lifesteal still works after damage pipeline refactor', () => {
   const { state, p } = fresh('shotgun', ['lifesteal']);
   p.hp = 20;
-  spawnEnemy(state, 'boss', 640, 500);
+  disableArmor(spawnEnemy(state, 'boss', 640, 500));
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'shotgun', fireSeq: 1 }), true);
   run(state, 0.45);
   assert.ok(p.hp > 20, `direct projectile lifesteal regressed (${p.hp})`);

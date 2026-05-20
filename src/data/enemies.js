@@ -13,9 +13,9 @@ export const ENEMIES = {
 
   runner: {
     name: "RUNNER",
-    hp: 20,
-    speed: 145,
-    radius: 10,
+    hp: 30,
+    speed: 126,
+    radius: 16,
     damage: 6,
     behavior: "chase",
     renderStyle: "runner",
@@ -25,13 +25,20 @@ export const ENEMIES = {
 
   tank: {
     name: "TANK",
-    hp: 110,
-    speed: 46,
-    radius: 22,
+    hp: 92,
+    speed: 42,
+    radius: 24,
     damage: 15,
     behavior: "chase",
     renderStyle: "tank",
     accentColor: "white",
+    armor: {
+      hp: 46,
+      regenDelay: 3.2,
+      regenPerSecond: 12,
+      ricochet: true,
+      visual: "square"
+    },
     score: 3
   },
 
@@ -43,7 +50,7 @@ export const ENEMIES = {
     damage: 7,
     behavior: "ranged",
     renderStyle: "shooter",
-    accentColor: "green",
+    accentColor: "white",
     score: 2,
     ranged: {
       acquireRange: 620,
@@ -107,13 +114,20 @@ export const ENEMIES = {
 
   boss: {
     name: "BOSS",
-    hp: 520,
+    hp: 460,
     speed: 30,
     radius: 42,
     damage: 22,
     behavior: "boss",
     renderStyle: "boss",
-    accentColor: "green",
+    accentColor: "white",
+    armor: {
+      hp: 180,
+      regenDelay: 4.4,
+      regenPerSecond: 22,
+      ricochet: true,
+      visual: "heavy_square"
+    },
     score: 20
   }
 };

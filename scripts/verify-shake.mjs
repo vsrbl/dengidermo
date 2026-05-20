@@ -31,6 +31,15 @@ function runProjectiles(state, seconds = 1, dt = 1 / 240) {
   return { maxShake, maxShakeCount, shakeIds };
 }
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }
@@ -39,7 +48,7 @@ function test(name, fn) {
 
 test('shotgun pellet hits do damage but do not create camera shake', () => {
   const { state } = fresh('shotgun');
-  const boss = spawnEnemy(state, 'boss', 640, 500);
+  const boss = disableArmor(spawnEnemy(state, 'boss', 640, 500));
   const before = boss.hp;
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'shotgun', fireSeq: 1 }), true);
   const watched = runProjectiles(state, 0.35);
@@ -50,7 +59,7 @@ test('shotgun pellet hits do damage but do not create camera shake', () => {
 
 test('seeker impact/explosion does damage but does not create camera shake', () => {
   const { state } = fresh('seeker');
-  const boss = spawnEnemy(state, 'boss', 700, 500);
+  const boss = disableArmor(spawnEnemy(state, 'boss', 700, 500));
   const before = boss.hp;
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'seeker', fireSeq: 1 }), true);
   const watched = runProjectiles(state, 0.8);
@@ -61,7 +70,7 @@ test('seeker impact/explosion does damage but does not create camera shake', () 
 
 test('rocket explosion shake is clamped and not linearly stacked', () => {
   const { state } = fresh('rocket');
-  spawnEnemy(state, 'boss', 700, 500);
+  disableArmor(spawnEnemy(state, 'boss', 700, 500));
   assert.equal(fireWeapon(state, 'p1', { angle: 0, weapon: 'rocket', fireSeq: 1 }), true);
   const watched = runProjectiles(state, 0.8);
   assert.ok(watched.maxShake > 0, 'rocket did not produce shake');

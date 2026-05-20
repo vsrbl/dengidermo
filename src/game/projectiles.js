@@ -21,6 +21,7 @@ import { addSpark, executeEffectCommands, pushVisualEffect } from "./effectComma
 import { finishEnemyKill } from "./enemyDeath.js";
 import { pushEvent } from "./events.js";
 import { firstSolidWallHitInState } from "./roomGeometry.js";
+import { ricochetProjectileFromArmor } from "./enemyArmor.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import {
   applyProjectileHomingBehavior,
@@ -255,14 +256,26 @@ function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = ene
     tags: hit.tags
   });
   healProjectileOwner(state, projectile, damage.done, hit.tags);
-  pushEvent(state, { type: "hit", x: eventX, y: eventY, amount: hit.amount, crit: hit.critical, sourceId: projectile.ownerId, tags: hit.tags });
-  addDamageText(state, eventX, eventY, hit.amount, hit.critical);
-  if (hit.critical) {
+  pushEvent(state, {
+    type: damage.armorHit ? "armorHit" : "hit",
+    x: eventX,
+    y: eventY,
+    amount: damage.armorHit ? damage.armorDamage : hit.amount,
+    crit: hit.critical,
+    sourceId: projectile.ownerId,
+    tags: hit.tags
+  });
+  addDamageText(state, eventX, eventY, damage.armorHit ? damage.armorDamage : hit.amount, hit.critical);
+  if (hit.critical && !damage.armorHit) {
     addSpark(state, eventX, eventY, 5, 190);
     pushVisualEffect(state, { type: "critFlash", x: Math.round(eventX), y: Math.round(eventY), r: 30, life: 0.18, maxLife: 0.18, color: GREEN });
   }
   hit.damage = damage;
   return hit;
+}
+
+function hitArmor(hit) {
+  return !!hit?.damage?.armorHit;
 }
 
 function runProjectileHitEffects(state, projectile, enemy, hit, position, options = {}) {
@@ -317,7 +330,9 @@ function explode(state, projectile, effect, x = projectile.x, y = projectile.y) 
     if (d2 > r * r) continue;
     const falloff = Math.max(0.35, 1 - Math.sqrt(d2) / Math.max(1, r));
     const explosionHit = dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.EXPLOSION]);
-    runProjectileHitEffects(state, projectile, e, explosionHit, { x: e.x, y: e.y }, { spark: false, chain: false, status: true, hitShake: true });
+    if (!hitArmor(explosionHit)) {
+      runProjectileHitEffects(state, projectile, e, explosionHit, { x: e.x, y: e.y }, { spark: false, chain: false, status: true, hitShake: true });
+    }
     addImpulse(e, x, y, force * falloff);
     if (e.hp <= 0) killEnemy(state, e, projectile, explosionHit.damage || explosionHit);
   }
@@ -356,10 +371,12 @@ function chainLightning(state, projectile, firstEnemy, effect) {
     hit.add(best.id);
     const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.CHAIN]);
     const chainStatus = getEffect(projectile, "chainStatus");
-    runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: !!chainStatus, hitShake: true });
+    if (!hitArmor(chainHit)) {
+      runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: !!chainStatus, hitShake: true });
+    }
     pushVisualEffect(state, {
       type: "chain",
-      amount: Math.round(chainHit.amount),
+      amount: Math.round(chainHit.damage?.armorHit ? chainHit.damage.armorDamage : chainHit.amount),
       x: Math.round(from.x),
       y: Math.round(from.y),
       x2: Math.round(best.x),
@@ -426,8 +443,27 @@ function applyProjectileHit(state, projectile, enemy) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
   registerHit(projectile, enemy);
   const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
-  runProjectileHitEffects(state, projectile, enemy, hit, { x: enemy.x, y: enemy.y }, { spark: true, chain: true, status: true, hitShake: true });
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));
+
+  if (hit.damage?.armorHit) {
+    if (hit.damage.armorRicochet) {
+      ricochetProjectileFromArmor(projectile, enemy);
+      pushVisualEffect(state, {
+        type: "ricochet",
+        x: Math.round(projectile.x),
+        y: Math.round(projectile.y),
+        vx: Math.round(projectile.vx),
+        vy: Math.round(projectile.vy),
+        color: GREEN,
+        life: 0.14,
+        maxLife: 0.14
+      });
+      return false;
+    }
+    return true;
+  }
+
+  runProjectileHitEffects(state, projectile, enemy, hit, { x: enemy.x, y: enemy.y }, { spark: true, chain: true, status: true, hitShake: true });
 
   if (enemy.hp <= 0) killEnemy(state, enemy, projectile, hit.damage || hit);
 

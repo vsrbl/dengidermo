@@ -5,6 +5,7 @@ import { resolveSpawnPoint } from "./spawnZones.js";
 import { resolveSpawnPointInState, roomGeometrySnapshotForState } from "./roomGeometry.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import { nearestAlivePlayer, resolveEnemyBehavior } from "./enemyBehaviors.js";
+import { initEnemyArmor, updateEnemyArmor } from "./enemyArmor.js";
 
 export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
   const data = ENEMIES[kind];
@@ -51,6 +52,7 @@ export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
     radius: data.radius,
     shootAt: 0
   };
+  initEnemyArmor(enemy, data);
   const spawnCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.ENEMY_SPAWN, {
     enemy,
     kind,
@@ -78,6 +80,7 @@ export function updateEnemies(state, dt) {
   const geometry = roomGeometrySnapshotForState(state);
   for (const enemy of Object.values(state.enemies)) {
     const data = ENEMIES[enemy.kind];
+    updateEnemyArmor(state, enemy, dt);
     const target = nearestAlivePlayer(state, enemy.x, enemy.y);
     if (!target) continue;
 

@@ -28,6 +28,15 @@ function fireAndRun(state, weaponId, seconds = 1.1) {
   runProjectiles(state, seconds);
 }
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }
@@ -37,7 +46,7 @@ function test(name, fn) {
 for (const weaponId of Object.keys(WEAPONS)) {
   test(`${weaponId}: base projectile deals real host damage`, () => {
     const { state } = fresh(weaponId);
-    const e = spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    const e = disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
     const before = e.hp;
     fireAndRun(state, weaponId, 1.1);
     assert.ok(e.hp < before, `${weaponId} did not damage enemy (${before} -> ${e.hp})`);
@@ -45,7 +54,7 @@ for (const weaponId of Object.keys(WEAPONS)) {
 
   test(`${weaponId}: burn/poison status visuals are backed by damage`, () => {
     const { state } = fresh(weaponId, ['burnMark', 'poisonLeak']);
-    const e = spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    const e = disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
     fireAndRun(state, weaponId, 0.5);
     assert.ok(e.status?.burn || e.status?.poison, `${weaponId} applied no status`);
     const afterImpact = e.hp;
@@ -55,8 +64,8 @@ for (const weaponId of Object.keys(WEAPONS)) {
 
   test(`${weaponId}: chain lightning damages secondary target`, () => {
     const { state } = fresh(weaponId, ['chainFork']);
-    spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
-    const e2 = spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 720 : 780, 500);
+    disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
+    const e2 = disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 720 : 780, 500));
     const before = e2.hp;
     fireAndRun(state, weaponId, 1.1);
     const sawChain = state.effects.some((fx) => fx.type === 'chain') || state.events.some((ev) => ev.type === 'hit');
@@ -69,8 +78,8 @@ for (const weaponId of Object.keys(WEAPONS)) {
     const crit = fresh(weaponId, ['critChip']);
     base.state.rng.next = () => 0.99;
     crit.state.rng.next = () => 0;
-    const eBase = spawnEnemy(base.state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
-    const eCrit = spawnEnemy(crit.state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    const eBase = disableArmor(spawnEnemy(base.state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
+    const eCrit = disableArmor(spawnEnemy(crit.state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
     fireAndRun(base.state, weaponId, 1.1);
     fireAndRun(crit.state, weaponId, 1.1);
     const baseDamage = eBase.maxHp - eBase.hp;
@@ -81,7 +90,7 @@ for (const weaponId of Object.keys(WEAPONS)) {
   test(`${weaponId}: lifesteal heals from real damage`, () => {
     const { state, p } = fresh(weaponId, ['lifesteal']);
     p.hp = 20; p.maxHp = 100;
-    spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
     fireAndRun(state, weaponId, 1.1);
     assert.ok(p.hp > 20, `${weaponId} lifesteal did not heal (${p.hp})`);
   });
@@ -89,8 +98,8 @@ for (const weaponId of Object.keys(WEAPONS)) {
 
 test('seeker + pierce carries explosive damage through multiple targets', () => {
   const { state } = fresh('seeker', ['pierceCore']);
-  const e1 = spawnEnemy(state, 'boss', 700, 500);
-  const e2 = spawnEnemy(state, 'boss', 860, 500);
+  const e1 = disableArmor(spawnEnemy(state, 'boss', 700, 500));
+  const e2 = disableArmor(spawnEnemy(state, 'boss', 860, 500));
   const before1 = e1.hp;
   const before2 = e2.hp;
   fireAndRun(state, 'seeker', 1.5);
@@ -100,8 +109,8 @@ test('seeker + pierce carries explosive damage through multiple targets', () => 
 
 test('rocket + pierce carries explosive damage through multiple targets', () => {
   const { state } = fresh('rocket', ['pierceCore']);
-  const e1 = spawnEnemy(state, 'boss', 700, 500);
-  const e2 = spawnEnemy(state, 'boss', 900, 500);
+  const e1 = disableArmor(spawnEnemy(state, 'boss', 700, 500));
+  const e2 = disableArmor(spawnEnemy(state, 'boss', 900, 500));
   const before1 = e1.hp;
   const before2 = e2.hp;
   fireAndRun(state, 'rocket', 1.8);

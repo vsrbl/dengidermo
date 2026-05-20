@@ -196,6 +196,16 @@ function drawExplosion(ctx, fx, cam) {
   ctx.stroke();
 }
 
+
+function drawArmorPulse(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const r = (fx.r || 28) * (0.75 + t * 0.35);
+  ctx.strokeStyle = fx.color || GREEN;
+  ctx.lineWidth = Math.max(1, Math.round(3 * (life / maxLife)));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+}
+
 function ignoreEffect() {}
 
 export const EFFECT_RENDERERS = Object.freeze({
@@ -211,6 +221,9 @@ export const EFFECT_RENDERERS = Object.freeze({
   dashBurst: drawDashBurst,
   chargeTelegraph: drawChargeTelegraph,
   enemyMuzzle: drawEnemyMuzzle,
+  armorHit: drawArmorPulse,
+  armorBreak: drawArmorPulse,
+  armorRegen: drawArmorPulse,
   bomberFuse: drawBomberFuse,
   droneBeam: drawDroneBeam,
   orbitalHit: drawOrbitalHit,

@@ -10,6 +10,15 @@ import { executeEffectCommands } from '../src/game/effectCommands.js';
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
 const commandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }

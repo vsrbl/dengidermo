@@ -32,6 +32,15 @@ function runAndWatchShake(state, seconds = 1, dt = 1 / 240) {
   return { saw, maxPower };
 }
 
+function disableArmor(enemy) {
+  if (enemy?.armor) {
+    enemy.armor.hp = 0;
+    enemy.armor.broken = true;
+    enemy.armor.regenCooldown = 9999;
+  }
+  return enemy;
+}
+
 const results = [];
 function test(name, fn) {
   try { fn(); results.push(['ok', name]); }
@@ -63,7 +72,7 @@ test('camera shake is intentionally rocket-only for now', () => {
 test('shotgun and seeker hits deal damage without camera shake', () => {
   for (const weaponId of ['shotgun', 'seeker']) {
     const { state } = fresh(weaponId);
-    const e = spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500);
+    const e = disableArmor(spawnEnemy(state, 'boss', weaponId === 'shotgun' ? 640 : 700, 500));
     const before = e.hp;
     const ok = fireWeapon(state, 'p1', { angle: 0, weapon: weaponId, fireSeq: 1 });
     assert.equal(ok, true, `${weaponId} failed to fire`);
@@ -76,7 +85,7 @@ test('shotgun and seeker hits deal damage without camera shake', () => {
 
 test('rocket hit/explosion creates visible controlled runtime camera shake', () => {
   const { state } = fresh('rocket');
-  spawnEnemy(state, 'boss', 700, 500);
+  disableArmor(spawnEnemy(state, 'boss', 700, 500));
   const ok = fireWeapon(state, 'p1', { angle: 0, weapon: 'rocket', fireSeq: 2 });
   assert.equal(ok, true, 'rocket failed to fire');
   const watched = runAndWatchShake(state, 1.8);
