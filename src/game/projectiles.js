@@ -141,14 +141,31 @@ function hostileProjectileHitPadding(projectile) {
   return Math.max(0, projectile.hitPadding ?? 3);
 }
 
-function updateHostileProjectile(state, projectile, dt) {
+function projectileSparkColor(projectile) {
+  return projectile.color === "red" ? RED : GREEN;
+}
+
+function moveProjectileWithRoomHooks(state, projectile, dt, tags = ["projectile", "update"]) {
   const prevX = projectile.x;
   const prevY = projectile.y;
-  projectile.x += projectile.vx * dt;
-  projectile.y += projectile.vy * dt;
+  const updateCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PROJECTILE_UPDATE, {
+    projectile,
+    weaponId: projectile.weaponId || null,
+    ownerType: projectile.ownerType || "player",
+    dt,
+    speedMult: 1,
+    tags
+  });
+  const speedMult = Math.max(0.05, updateCtx.speedMult || 1);
+  projectile.x += projectile.vx * dt * speedMult;
+  projectile.y += projectile.vy * dt * speedMult;
   projectile.life -= dt;
   projectile.distance = (projectile.distance || 0) + Math.hypot(projectile.x - prevX, projectile.y - prevY);
+  return { prevX, prevY, speedMult };
+}
 
+function updateHostileProjectile(state, projectile, dt) {
+  const { prevX, prevY } = moveProjectileWithRoomHooks(state, projectile, dt, ["projectile", "update", "enemy", "hostile"]);
   const wallHit = firstSolidWallHitInState(state, prevX, prevY, projectile.x, projectile.y, projectile.radius || 0);
   let remove = false;
 
@@ -167,25 +184,13 @@ function updateHostileProjectile(state, projectile, dt) {
       tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.PROJECTILE]
     });
     addPlayerImpulse(player, projectile.x, projectile.y, projectile.knockback || 0);
-    addSpark(state, player.x, player.y, 3, 115, projectile.color === "red" ? RED : GREEN);
+    addSpark(state, player.x, player.y, 3, 115, projectileSparkColor(projectile));
     remove = true;
     break;
   }
 
-  if (!remove && wallHit) {
-    projectile.x = wallHit.x;
-    projectile.y = wallHit.y;
-    addSpark(state, wallHit.x, wallHit.y, 2, 90, projectile.color === "red" ? RED : GREEN);
-    remove = true;
-  }
-
-  if (!remove) {
-    remove = projectile.life <= 0 ||
-      (projectile.distance || 0) >= (projectile.range || Infinity) ||
-      projectile.x < -80 || projectile.x > WORLD.w + 80 ||
-      projectile.y < -80 || projectile.y > WORLD.h + 80;
-  }
-
+  if (!remove && wallHit) addSpark(state, wallHit.x, wallHit.y, 2, 90, projectileSparkColor(projectile));
+  if (!remove) remove = handleWallOrEnd(state, projectile, wallHit);
   if (remove) delete state.projectiles[projectile.id];
 }
 
@@ -508,13 +513,27 @@ function handleWallOrEnd(state, projectile, wallHit = null) {
 
   if (wallState.out || wallState.hitWall) {
     applyProjectileWallPosition(projectile, wallState);
-    const ctx = runProjectileHook(state, projectile, EFFECT_HOOKS.PROJECTILE_WALL, {
+    const wallCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PROJECTILE_WALL, {
+      projectile,
+      weaponId: projectile.weaponId || null,
+      ownerType: projectile.ownerType || "player",
       position: wallState.position,
       normal: wallState.normal,
       wallId: wallHit?.wall?.id || null,
       outX: wallState.hookOutX,
       outY: wallState.hookOutY,
-      didRicochet: false
+      didRicochet: false,
+      tags: ["projectile", "wall", projectile.ownerType || "player"]
+    });
+
+    const ctx = runProjectileHook(state, projectile, EFFECT_HOOKS.PROJECTILE_WALL, {
+      position: wallCtx.position,
+      normal: wallCtx.normal,
+      wallId: wallCtx.wallId,
+      outX: wallCtx.outX,
+      outY: wallCtx.outY,
+      didRicochet: !!wallCtx.didRicochet,
+      tags: wallCtx.tags || []
     }, {
       ricochet(effect, c) {
         return resolveRicochetCommands(effect, c);
@@ -544,19 +563,7 @@ export function updateProjectiles(state, dt) {
 
     applyHoming(state, p, weapon, dt);
 
-    const updateCtx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.PROJECTILE_UPDATE, {
-      projectile: p,
-      weaponId: p.weaponId,
-      dt,
-      speedMult: 1,
-      tags: ["projectile", "update"]
-    });
-    const speedMult = Math.max(0.05, updateCtx.speedMult || 1);
-
-    p.x += p.vx * dt * speedMult;
-    p.y += p.vy * dt * speedMult;
-    p.life -= dt;
-    p.distance += Math.hypot(p.x - prevX, p.y - prevY);
+    moveProjectileWithRoomHooks(state, p, dt, ["projectile", "update", "player"]);
     const wallHit = firstSolidWallHitInState(state, prevX, prevY, p.x, p.y, p.radius || 0);
 
     let remove = false;

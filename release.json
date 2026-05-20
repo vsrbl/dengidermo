@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.0.7",
-  "buildId": "v39.0.7-20260520",
+  "version": "v39.0.8",
+  "buildId": "v39.0.8-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v39-0-7.js?v=39.0.7",
-  "style": "./style.css?v=39.0.7",
-  "config": "./config.js?v=39.0.7",
+  "entry": "./src/main.v39-0-8.js?v=39.0.8",
+  "style": "./style.css?v=39.0.8",
+  "config": "./config.js?v=39.0.8",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.0.7 enemy armor system: regenerating armor, projectile ricochet, and simplified role-readable enemy silhouettes"
+  "notes": "v39.0.8 architecture hardening after armor: hostile projectile hook parity, scripted spawn retry semantics, armor source matrix, and renderer cleanup"
 }

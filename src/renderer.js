@@ -173,7 +173,6 @@ function drawEnemy(ctx, e, cam) {
   const s = screen(e, cam);
   const r = data.radius;
   drawEnemySprite(ctx, e, data, s);
-  if (e.kind === "boss") drawText(ctx, "BOSS", s.x, s.y - r - 8, GREEN, "center");
   if (e.status?.burn || e.status?.poison || e.status?.freeze) {
     const frozen = !!e.status?.freeze;
     const poisoned = !!e.status?.poison;

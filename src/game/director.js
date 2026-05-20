@@ -173,6 +173,7 @@ function makeBudgetedSpawnCommand(kind, options = {}) {
     markEliteSpawned: !!options.markEliteSpawned,
     event: options.event || null,
     zone: options.zone || null,
+    scriptedSpawnId: options.scriptedSpawnId || null,
     anchorId: options.anchorId || null,
     anchorTags: options.anchorTags || null
   });
@@ -214,10 +215,11 @@ function planStageScriptedSpawnCommands(state, loc, director, stage, threat) {
   const locTime = state.locationTime || 0;
   const enemyCount = Object.keys(state.enemies || {}).length;
   const commands = [];
+  const queued = new Set();
   for (const entry of stage.scriptedSpawns) {
     if (!entry || !entry.kind) continue;
     const id = entry.id || `${stage.id || "stage"}:${entry.kind}:${entry.at || 0}`;
-    if (director.scriptedStageSpawns[id]) continue;
+    if (director.scriptedStageSpawns[id] || queued.has(id)) continue;
     if (locTime < (entry.at || 0)) continue;
     if (Number.isFinite(entry.maxEnemies) && enemyCount + commands.length >= entry.maxEnemies) continue;
     const kind = ENEMIES[entry.kind] ? entry.kind : null;
@@ -228,9 +230,10 @@ function planStageScriptedSpawnCommands(state, loc, director, stage, threat) {
       role: entry.role || "scripted",
       zone: entry.zone || chooseSpawnZone(state, loc, stage, threat, entry.role || "scripted"),
       budgeted,
+      scriptedSpawnId: id,
       event: entry.event || { type: "director", phase: stage.phase || null, enemy: kind, role: entry.role || "scripted" }
     }));
-    director.scriptedStageSpawns[id] = true;
+    queued.add(id);
   }
   return commands;
 }
@@ -276,9 +279,21 @@ function updateDirectorPhase(state, loc, cfg, director, options = {}) {
   return evaluation;
 }
 
+function emptyCommandSummary() {
+  return { executed: 0, failed: 0, spawned: 0, events: 0, spawnedByRole: {}, scriptedSpawnIds: [] };
+}
+
 function executeCommands(state, director, commands, spawnEnemy) {
-  if (!commands.length) return { executed: 0, failed: 0, spawned: 0, events: 0, spawnedByRole: {} };
+  if (!commands.length) return emptyCommandSummary();
   return executeDirectorCommands(state, director, commands, { spawnEnemy });
+}
+
+function markCompletedScriptedSpawns(director, summary) {
+  if (!director || !summary?.scriptedSpawnIds?.length) return;
+  if (!director.scriptedStageSpawns || typeof director.scriptedStageSpawns !== "object") director.scriptedStageSpawns = {};
+  for (const id of summary.scriptedSpawnIds) {
+    if (id) director.scriptedStageSpawns[id] = true;
+  }
 }
 
 export function updateDirectorSpawner(state, dt, spawnEnemy) {
@@ -307,7 +322,10 @@ export function updateDirectorSpawner(state, dt, spawnEnemy) {
   ({ phase, stage, intensity, policy } = updateDirectorPhase(state, loc, cfg, director, { threat }));
 
   const scriptedCommands = planStageScriptedSpawnCommands(state, loc, director, stage, threat);
-  if (scriptedCommands.length) executeCommands(state, director, scriptedCommands, spawnEnemy);
+  if (scriptedCommands.length) {
+    const scriptedSummary = executeCommands(state, director, scriptedCommands, spawnEnemy);
+    markCompletedScriptedSpawns(director, scriptedSummary);
+  }
 
   const enemyCount = Object.keys(state.enemies || {}).length;
   if (!policy.canSpawn || director.budget <= 0) {

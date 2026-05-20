@@ -18,6 +18,13 @@ function line(ctx, x1, y1, x2, y2, color = "#fff", width = 1) {
   ctx.stroke();
 }
 
+function drawText(ctx, text, x, y, color = "#fff", align = "center") {
+  ctx.fillStyle = color;
+  ctx.font = "12px Courier New, monospace";
+  ctx.textAlign = align;
+  ctx.fillText(text, Math.round(x), Math.round(y));
+}
+
 function hollowSquare(ctx, s, r, pad = 3) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#fff");
   drawRect(ctx, s.x - r + pad, s.y - r + pad, r * 2 - pad * 2, r * 2 - pad * 2, "#050505");
@@ -76,6 +83,7 @@ function drawBomber(ctx, s, r) {
 function drawBoss(ctx, s, r, _data, enemy) {
   hollowSquare(ctx, s, r, 5);
   drawArmorSquare(ctx, s, r, enemy, true);
+  drawText(ctx, "BOSS", s.x, s.y - r - 8, "#00ff66", "center");
 }
 
 export const ENEMY_RENDERERS = Object.freeze({

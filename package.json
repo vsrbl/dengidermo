@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "39.0.7",
+  "version": "39.0.8",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -23,13 +23,13 @@
     "check:content-foundation": "node scripts/verify-content-foundation.mjs",
     "check:legacy-critical": "npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:shake && npm run check:hooks",
     "check:test-suite": "node scripts/verify-test-suite-wiring.mjs",
-    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:legacy-critical && npm run check:content-foundation && npm run check:test-suite && npm run check:v39-0-7",
+    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:legacy-critical && npm run check:content-foundation && npm run check:test-suite && npm run check:v39-0-8",
     "check:dev": "node scripts/verify-dev.mjs",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
     "check:shake": "node scripts/verify-shake.mjs",
     "check:hooks": "node scripts/verify-hook-pipeline.mjs",
-    "check:v39-0-7": "node scripts/verify-v39-0-7-enemy-armor-system.mjs"
+    "check:v39-0-8": "node scripts/verify-v39-0-8-architecture-hardening.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

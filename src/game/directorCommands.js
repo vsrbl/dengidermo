@@ -18,7 +18,8 @@ export function directorSpawnEnemyCommand({
   event = null,
   zone = null,
   anchorId = null,
-  anchorTags = null
+  anchorTags = null,
+  scriptedSpawnId = null
 }) {
   return {
     type: DIRECTOR_COMMAND_TYPES.SPAWN_ENEMY,
@@ -33,7 +34,8 @@ export function directorSpawnEnemyCommand({
     event,
     zone,
     anchorId,
-    anchorTags: Array.isArray(anchorTags) ? [...anchorTags] : null
+    anchorTags: Array.isArray(anchorTags) ? [...anchorTags] : null,
+    scriptedSpawnId: scriptedSpawnId || null
   };
 }
 
@@ -113,6 +115,7 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
   summary.executed += 1;
   summary.spawned += 1;
   count(summary, "spawnedByRole", command.role || "wave");
+  if (command.scriptedSpawnId) summary.scriptedSpawnIds.push(command.scriptedSpawnId);
 
   if (command.event) {
     pushEvent(state, {
@@ -131,7 +134,8 @@ export function executeDirectorCommands(state, director, commands = [], handlers
     failed: 0,
     spawned: 0,
     events: 0,
-    spawnedByRole: {}
+    spawnedByRole: {},
+    scriptedSpawnIds: []
   };
 
   for (const command of commands) {
