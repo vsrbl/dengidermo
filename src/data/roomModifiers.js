@@ -2,7 +2,8 @@ export const ROOM_MODIFIER_IDS = Object.freeze({
   GRID_STATIC: "grid_static",
   VOID_DRIFT: "void_drift",
   CORE_PRESSURE: "core_pressure",
-  BOSS_LOCK: "boss_lock"
+  BOSS_LOCK: "boss_lock",
+  REWARD_CACHE: "reward_cache"
 });
 
 export const ROOM_MODIFIERS = Object.freeze({
@@ -36,6 +37,14 @@ export const ROOM_MODIFIERS = Object.freeze({
     description: "boss objective identity contract",
     category: "identity",
     tags: Object.freeze(["boss", "identity"]),
+    hooks: Object.freeze({})
+  }),
+  [ROOM_MODIFIER_IDS.REWARD_CACHE]: Object.freeze({
+    id: ROOM_MODIFIER_IDS.REWARD_CACHE,
+    name: "REWARD CACHE",
+    description: "rare reward room identity contract",
+    category: "identity",
+    tags: Object.freeze(["rare", "reward", "identity"]),
     hooks: Object.freeze({})
   })
 });

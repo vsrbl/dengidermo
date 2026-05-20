@@ -201,6 +201,49 @@ export const ENCOUNTER_PLANS = Object.freeze({
     ])
   }),
 
+  reward_cache: Object.freeze({
+    id: "reward_cache",
+    name: "REWARD CACHE",
+    objective: ENCOUNTER_OBJECTIVES.CLEAR,
+    director: Object.freeze({
+      calmRatio: 0,
+      eliteRatio: 1,
+      cleanupCapMult: 0,
+      portalCapMult: 0,
+      budgetBase: 0,
+      budgetPerPlayer: 0,
+      budgetPerRoom: 0,
+      minPressureBudget: 0,
+      cleanupEnemyBase: 0,
+      cleanupEnemyPerPlayer: 0
+    }),
+    elite: Object.freeze({ enabled: false }),
+    stages: Object.freeze([
+      Object.freeze({
+        id: "reward-wait",
+        phase: "calm",
+        when: ENCOUNTER_STAGE_WHEN.BEFORE_PORTAL,
+        canSpawn: false,
+        canOpenPortal: false,
+        intensity: Object.freeze({ base: 0.02, ramp: 0 }),
+        capMult: 0,
+        batchMult: 0,
+        interval: Object.freeze({ mult: 9 })
+      }),
+      Object.freeze({
+        id: "reward-portal",
+        phase: "portal",
+        when: ENCOUNTER_STAGE_WHEN.PORTAL_READY,
+        canSpawn: false,
+        canOpenPortal: true,
+        intensity: Object.freeze({ base: 0.01, ramp: 0 }),
+        capMult: 0,
+        batchMult: 0,
+        interval: Object.freeze({ mult: 9 })
+      })
+    ])
+  }),
+
   boss_objective: Object.freeze({
     id: "boss_objective",
     name: "BOSS OBJECTIVE",

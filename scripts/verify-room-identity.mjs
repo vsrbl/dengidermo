@@ -1,21 +1,32 @@
 import assert from 'node:assert/strict';
-import { ROOM_SEQUENCE } from '../src/data/rooms.js';
+import { ROOM_SEQUENCE, RARE_ROOMS } from '../src/data/rooms.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { createGameState, makeSnapshot } from '../src/game/state.js';
 import { beginRoomTransition, currentLocation } from '../src/game/roomFlow.js';
 import { RARE_ROOM_RULES, getLocationFromRoomPlan, resolveRoomPlan } from '../src/game/runPlanner.js';
 
-assert.equal(RARE_ROOM_RULES.length, 0, 'rare room rules remain disabled during the first layout-only v39 step');
+assert.equal(ROOM_SEQUENCE.length, 4, 'base room sequence length should remain stable');
+assert.equal(RARE_ROOMS.length, 1, 'one controlled rare room should be registered outside base cadence');
+assert.equal(RARE_ROOM_RULES.length, 1, 'rare room rule should be active after content begins');
+assert.equal(RARE_ROOM_RULES[0].id, 'first_loop_reward_cache');
+
 const ids = [];
+const baseIds = [];
 const layouts = [];
-for (let depth = 0; depth < 8; depth += 1) {
-  const loc = getLocationFromRoomPlan(resolveRoomPlan(depth));
+const rules = [];
+for (let depth = 0; depth < 10; depth += 1) {
+  const plan = resolveRoomPlan(depth);
+  const loc = getLocationFromRoomPlan(plan);
   ids.push(loc.id);
+  baseIds.push(plan.baseRoomId);
   layouts.push(loc.layoutId);
+  rules.push(plan.ruleId);
 }
-assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01', 'core-02', 'boss-03']);
-assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena', 'twin_pillars', 'open_arena']);
-for (const room of ROOM_SEQUENCE) assert.ok(room.layout, `${room.id} should keep explicit layout identity`);
+assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'reward-cache-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01']);
+assert.deepEqual(baseIds, ['grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01']);
+assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena']);
+assert.deepEqual(rules, [null, null, null, null, 'first_loop_reward_cache', null, null, null, null, null]);
+for (const room of [...ROOM_SEQUENCE, ...RARE_ROOMS]) assert.ok(room.layout, `${room.id} should keep explicit layout identity`);
 for (const modifier of Object.values(ROOM_MODIFIERS)) assert.deepEqual(modifier.hooks || {}, {}, `${modifier.id} should stay identity-only until modifier content pass`);
 
 const state = createGameState('ROOMIDENTITY-DOMAIN');
@@ -32,6 +43,16 @@ beginRoomTransition(state, 'verify-room-identity', { offerUpgrades: false });
 assert.equal(state.roomPlan.resolvedRoomId, 'boss-03');
 assert.equal(state.roomPlan.layoutId, 'open_arena');
 beginRoomTransition(state, 'verify-room-identity', { offerUpgrades: false });
+assert.equal(state.runDepth, 4);
+assert.equal(state.roomPlan.loopIndex, 1);
+assert.equal(state.roomPlan.roomInLoop, 0);
+assert.equal(state.roomPlan.roomSequenceIndex, 0);
+assert.equal(state.roomPlan.baseRoomId, 'grid-00');
+assert.equal(state.roomPlan.resolvedRoomId, 'reward-cache-00');
+assert.equal(state.roomPlan.ruleId, 'first_loop_reward_cache');
+assert.equal(state.roomPlan.rare, true);
+assert.equal(state.roomPlan.category, 'reward');
+assert.equal(state.roomPlan.layoutId, 'open_arena');
 beginRoomTransition(state, 'verify-room-identity', { offerUpgrades: false });
 assert.equal(state.runDepth, 5);
 assert.equal(state.roomPlan.loopIndex, 1);

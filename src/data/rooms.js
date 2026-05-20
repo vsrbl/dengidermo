@@ -57,12 +57,54 @@ export const ROOM_SEQUENCE = [
   }
 ];
 
+export const RARE_ROOMS = [
+  {
+    id: "reward-cache-00",
+    name: "REWARD CACHE 00",
+    category: "reward",
+    tags: ["rare", "reward", "cache", "no-combat"],
+    layout: "open_arena",
+    modifiers: ["reward_cache"],
+    biome: "grid",
+    encounter: "reward_cache",
+    objective: "clear",
+    spawnZones: [],
+    portal: { delay: 1.2, hold: 0.85 },
+    enemyPool: [],
+    lootPool: ["heal"],
+    spawn: {
+      capBase: 0,
+      capPerPlayer: 0,
+      capGrowthTime: 999,
+      capGrowthMax: 0,
+      batchBase: 0,
+      batchGrowthTime: 999,
+      intervalBase: 99,
+      intervalMin: 99,
+      intervalScale: 0
+    },
+    director: {
+      budgetBase: 0,
+      budgetPerPlayer: 0,
+      budgetPerRoom: 0,
+      minPressureBudget: 0,
+      spawnStartDelay: 99,
+      cleanupEnemyBase: 0,
+      cleanupEnemyPerPlayer: 0,
+      cleanupCapMult: 0,
+      portalCapMult: 0
+    }
+  }
+];
+
+export const ALL_ROOMS = Object.freeze([...ROOM_SEQUENCE, ...RARE_ROOMS]);
+
 export function getRoom(index = 0) {
   return ROOM_SEQUENCE[((index % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length];
 }
 
 export function getRoomById(roomId) {
-  return ROOM_SEQUENCE.find((room) => room.id === roomId) || null;
+  return ALL_ROOMS.find((room) => room.id === roomId) || null;
 }
 
 export function roomIndexById(roomId) {

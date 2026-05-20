@@ -11,10 +11,38 @@ export const ROOM_CATEGORIES = Object.freeze({
   EVENT: "event"
 });
 
-// v38.9 foundation: rare-room planning is persistent-state ready, but the
-// active rule list is intentionally empty so current runs stay deterministic
-// and identical to the current baseline until content is added deliberately.
-export const RARE_ROOM_RULES = Object.freeze([]);
+export const RARE_ROOM_RULES = Object.freeze([
+  Object.freeze({
+    id: "first_loop_reward_cache",
+    kind: "replace",
+    resolvedRoomId: "reward-cache-00",
+    rare: true,
+    when: Object.freeze({ loopIndex: 1, roomInLoop: 0 })
+  })
+]);
+
+function matchesRuleValue(actual, expected) {
+  if (Array.isArray(expected)) return expected.includes(actual);
+  return actual === expected;
+}
+
+function matchesRareRule(rule, progression, baseRoom) {
+  const when = rule?.when || {};
+  const checks = {
+    runDepth: progression.runDepth,
+    loopIndex: progression.loopIndex,
+    roomInLoop: progression.roomInLoop,
+    roomSequenceIndex: progression.roomSequenceIndex,
+    baseRoomId: baseRoom?.id,
+    category: baseRoom?.category || null
+  };
+
+  return Object.entries(when).every(([field, expected]) => matchesRuleValue(checks[field], expected));
+}
+
+function resolveRareRule(progression, baseRoom) {
+  return RARE_ROOM_RULES.find((rule) => matchesRareRule(rule, progression, baseRoom)) || null;
+}
 
 function categoryForRoom(room) {
   if (room.category) return room.category;
@@ -40,7 +68,8 @@ function roomForPlan(plan) {
 export function resolveRoomPlan(runDepth = 0, options = {}) {
   const progression = runProgressionFor(runDepth, ROOM_SEQUENCE.length);
   const baseRoom = getRoom(progression.roomSequenceIndex);
-  const resolvedRoom = baseRoom;
+  const rareRule = resolveRareRule(progression, baseRoom);
+  const resolvedRoom = (rareRule?.resolvedRoomId && getRoomById(rareRule.resolvedRoomId)) || baseRoom;
   const category = categoryForRoom(resolvedRoom);
   const modifierIds = uniqueList([...(resolvedRoom.modifiers || [])]);
 
@@ -56,8 +85,8 @@ export function resolveRoomPlan(runDepth = 0, options = {}) {
     category,
     layoutId: resolvedRoom.layout || "open_arena",
     modifierIds,
-    rare: false,
-    ruleId: normalizeRuleId(options.ruleId),
+    rare: !!rareRule?.rare,
+    ruleId: normalizeRuleId(options.ruleId || rareRule?.id),
     seed: options.seed || null,
     createdAt: Number.isFinite(options.createdAt) ? options.createdAt : 0,
     rulesVersion: 1

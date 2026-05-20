@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.0.0",
-  "buildId": "v39.0.0-20260520",
+  "version": "v39.0.1",
+  "buildId": "v39.0.1-20260520",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-20",
-  "entry": "./src/main.v39-0-0.js?v=39.0.0",
-  "style": "./style.css?v=39.0.0",
-  "config": "./config.js?v=39.0.0",
+  "entry": "./src/main.v39-0-1.js?v=39.0.1",
+  "style": "./style.css?v=39.0.1",
+  "config": "./config.js?v=39.0.1",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.0.0 controlled content foundation: core-02 twin_pillars layout via roomPlan geometry contract"
+  "notes": "v39.0.1 rare reward room: first-loop reward cache via runPlanner rare rule and reward encounter contract"
 }
