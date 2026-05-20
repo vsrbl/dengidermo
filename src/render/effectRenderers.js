@@ -120,6 +120,21 @@ function drawDashBurst(ctx, fx, cam) {
   ctx.stroke();
 }
 
+function drawChargeTelegraph(ctx, fx, cam) {
+  const { life, maxLife } = effectLife(fx);
+  const a = screen(fx, cam);
+  const b = screen({ x: fx.x2, y: fx.y2 }, cam);
+  const t = Math.max(0.2, Math.min(1, life / maxLife));
+  ctx.strokeStyle = fx.color || "#ff3048";
+  ctx.lineWidth = Math.max(1, Math.round(3 * t));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(a.x), Math.round(a.y));
+  ctx.lineTo(Math.round(b.x), Math.round(b.y));
+  ctx.stroke();
+  drawRect(ctx, b.x - 4, b.y - 4, 8, 8, fx.color || "#ff3048");
+}
+
+
 function drawDroneBeam(ctx, fx, cam) {
   const a = screen(fx, cam);
   const b = screen({ x: fx.x2, y: fx.y2 }, cam);
@@ -169,6 +184,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   ricochet: drawRicochet,
   afterimage: drawAfterimage,
   dashBurst: drawDashBurst,
+  chargeTelegraph: drawChargeTelegraph,
   droneBeam: drawDroneBeam,
   orbitalHit: drawOrbitalHit,
   explosion: drawExplosion,

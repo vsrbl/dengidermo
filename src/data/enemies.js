@@ -39,6 +39,28 @@ export const ENEMIES = {
     score: 2
   },
 
+  charger: {
+    name: "CHARGER",
+    hp: 58,
+    speed: 76,
+    radius: 15,
+    damage: 8,
+    behavior: "charger",
+    score: 2,
+    charge: {
+      acquireRange: 520,
+      minRange: 70,
+      windup: 0.58,
+      dashTime: 0.34,
+      cooldown: 0.82,
+      speed: 720,
+      damage: 18,
+      knockback: 360,
+      telegraphEvery: 0.12,
+      slowChaseScale: 0.42
+    }
+  },
+
   boss: {
     name: "BOSS",
     hp: 520,
