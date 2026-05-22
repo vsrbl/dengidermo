@@ -28,7 +28,7 @@ const mandatoryScripts = [
   'check:legacy-critical',
   'check:content-foundation',
   'check:test-suite',
-  'check:v39-1-2'
+  'check:v39-2-2'
 ];
 
 for (const name of mandatoryScripts) {
@@ -46,7 +46,7 @@ const rootScriptFiles = fs.readdirSync(path.join(root, 'scripts')).filter((name)
 const legacyScriptFiles = fs.readdirSync(path.join(root, 'scripts', 'legacy')).filter((name) => name.endsWith('.mjs')).sort();
 
 assert.ok(rootScriptFiles.includes('verify-test-suite-wiring.mjs'), 'wiring check must live in current scripts root');
-assert.ok(rootScriptFiles.includes('verify-v39-1-2-projectile-pipeline-split.mjs'), 'current exact architecture guard must live in scripts root');
+assert.ok(rootScriptFiles.includes('verify-v39-2-2-linked-armor-variant.mjs'), 'current exact architecture guard must live in scripts root');
 assert.ok(legacyScriptFiles.length >= 30, 'historical exact-version checks must be retained in scripts/legacy');
 assert.ok(legacyScriptFiles.includes('verify-v38-14-4-roomplan-geometry-source.mjs'), 'previous exact guard must be archived, not deleted');
 assert.ok(legacyScriptFiles.includes('verify-v38-14-5-scripts-suite-slimming.mjs'), 'v38.14.5 exact guard must be archived, not deleted');
@@ -60,7 +60,11 @@ assert.ok(legacyScriptFiles.includes('verify-v39-0-7-enemy-armor-system.mjs'), '
 assert.ok(legacyScriptFiles.includes('verify-v39-0-8-architecture-hardening.mjs'), 'v39.0.8 exact guard must be archived, not deleted');
 assert.ok(legacyScriptFiles.includes('verify-v39-1-0-architecture-split.mjs'), 'v39.1.0 exact guard must be archived, not deleted');
 assert.ok(legacyScriptFiles.includes('verify-v39-1-1-architecture-hardening-after-split.mjs'), 'v39.1.1 exact guard must be archived, not deleted');
-assert.ok(!rootScriptFiles.some((name) => /^verify-v\d/.test(name) && name !== 'verify-v39-1-2-projectile-pipeline-split.mjs'), 'old exact-version checks must not remain in current scripts root');
+assert.ok(legacyScriptFiles.includes('verify-v39-1-2-projectile-pipeline-split.mjs'), 'v39.1.2 exact guard must be archived, not deleted');
+assert.ok(legacyScriptFiles.includes('verify-v39-1-3-projectile-effect-source-matrix.mjs'), 'v39.1.3 exact guard must be archived, not deleted');
+assert.ok(legacyScriptFiles.includes('verify-v39-2-0-loop-escalation-foundation.mjs'), 'v39.2.0 exact guard must be archived, not deleted');
+assert.ok(legacyScriptFiles.includes('verify-v39-2-1-first-elite-variant.mjs'), 'v39.2.1 exact guard must be archived, not deleted');
+assert.ok(!rootScriptFiles.some((name) => /^verify-v\d/.test(name) && name !== 'verify-v39-2-2-linked-armor-variant.mjs'), 'old exact-version checks must not remain in current scripts root');
 assert.ok(!rootScriptFiles.includes('verify-upgrade-ui-layout.mjs'), 'old standalone historical UI check must be archived');
 
 for (const [name, command] of Object.entries(scripts)) {
@@ -72,13 +76,13 @@ for (const [name, command] of Object.entries(scripts)) {
 }
 
 for (const name of Object.keys(scripts)) {
-  if (name === 'check:v39-1-2') continue;
+  if (name === 'check:v39-2-2') continue;
   assert.ok(!/^check:v/.test(name), `old exact-version package script should be retired from current scripts: ${name}`);
 }
 
 assert.ok(!checkAll.includes('scripts/legacy/'), 'check:all must not call archived exact-version scripts directly');
 assert.ok(!checkAll.includes('check:v38-14-6'), 'check:all must not keep previous exact-version guard');
 assert.ok(!checkAll.includes('check:pre-content'), 'check:all must not keep retired pre-content audit after v39 content starts');
-assert.ok(checkAll.trim().endsWith('npm run check:v39-1-2'), 'check:all should end with the current architecture guard');
+assert.ok(checkAll.trim().endsWith('npm run check:v39-2-2'), 'check:all should end with the current architecture guard');
 
 console.log(`test-suite wiring verification passed (${rootScriptFiles.length} current scripts, ${legacyScriptFiles.length} archived historical scripts)`);

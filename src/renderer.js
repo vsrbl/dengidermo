@@ -7,6 +7,7 @@ import { firstSolidWallHitInLocation, roomGeometrySnapshot } from "./game/roomGe
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooksForLocation } from "./game/roomModifiers.js";
 import { drawEffect } from "./render/effectRenderers.js";
 import { drawEnemySprite } from "./render/enemyRenderers.js";
+import { drawEnemyArmorVariantLinks } from "./render/armorVariantRenderers.js";
 
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -355,6 +356,9 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   }
 
   const enemyIds = new Set();
+  for (const raw of snapshot.enemies || []) {
+    if (isVisible(raw, renderCam, 180)) drawEnemyArmorVariantLinks(ctx, raw, renderCam);
+  }
   for (const raw of snapshot.enemies || []) {
     enemyIds.add(raw.id);
     const e = smoothEntity(smooth.enemies, raw, renderDt);

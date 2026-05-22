@@ -19,7 +19,9 @@ export function directorSpawnEnemyCommand({
   zone = null,
   anchorId = null,
   anchorTags = null,
-  scriptedSpawnId = null
+  scriptedSpawnId = null,
+  eliteVariantId = null,
+  armorVariantId = null
 }) {
   return {
     type: DIRECTOR_COMMAND_TYPES.SPAWN_ENEMY,
@@ -35,7 +37,9 @@ export function directorSpawnEnemyCommand({
     zone,
     anchorId,
     anchorTags: Array.isArray(anchorTags) ? [...anchorTags] : null,
-    scriptedSpawnId: scriptedSpawnId || null
+    scriptedSpawnId: scriptedSpawnId || null,
+    eliteVariantId: eliteVariantId || null,
+    armorVariantId: armorVariantId || null
   };
 }
 
@@ -88,7 +92,9 @@ function spawnEnemyFromCommand(state, director, command, handlers, summary) {
       zone: command.zone || null,
       role: command.role || "wave",
       anchorId: command.anchorId || null,
-      anchorTags: command.anchorTags || null
+      anchorTags: command.anchorTags || null,
+      eliteVariantId: command.eliteVariantId || null,
+      armorVariantId: command.armorVariantId || null
     }
   );
   if (!enemy) {

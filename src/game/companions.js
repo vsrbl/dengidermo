@@ -1,11 +1,11 @@
 import { GREEN, WORLD } from "../core/constants.js";
 import { clamp, dist2, norm } from "../core/math.js";
 import {
-  DAMAGE_TAGS,
   EFFECT_HOOKS,
   dealDamage,
   runPlayerHook
 } from "./effects.js";
+import { companionDamageTags } from "./damageSourceMatrix.js";
 import { finishEnemyKill } from "./enemyDeath.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { nextId } from "./entityIds.js";
@@ -168,9 +168,6 @@ function tickHitCooldowns(companion, dt) {
   companion.hitCooldowns = table;
 }
 
-function companionDamageTags(kind) {
-  return [DAMAGE_TAGS.DIRECT, DAMAGE_TAGS.COMPANION, kind];
-}
 
 function damageEnemyWithCompanion(state, companion, enemy, amount, x = enemy.x, y = enemy.y) {
   const damage = dealDamage(state, enemy, {

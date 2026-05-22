@@ -1,7 +1,8 @@
 import { GREEN, RED } from "../core/constants.js";
 import { norm } from "../core/math.js";
 import { pushVisualEffect } from "./effectCommands.js";
-import { DAMAGE_TAGS } from "./effects/defs.js";
+import { canDamageSourceHitArmor } from "./damageSourceMatrix.js";
+import { applyArmorVariantDamageRules, armorVariantSnapshot } from "./enemyArmorVariants.js";
 
 export function armorConfig(data = {}) {
   const armor = data.armor || null;
@@ -42,7 +43,8 @@ export function armorSnapshot(enemy) {
     ratio: Number(Math.max(0, Math.min(1, (armor.hp || 0) / Math.max(1, armor.maxHp || 1))).toFixed(3)),
     broken: !(armor.hp > 0),
     regenCooldown: Number(Math.max(0, armor.regenCooldown || 0).toFixed(2)),
-    visual: armor.visual || "square"
+    visual: armor.visual || "square",
+    variant: armorVariantSnapshot(enemy)
   };
 }
 
@@ -50,16 +52,16 @@ export function shouldArmorAbsorb(target, spec = {}) {
   const armor = target?.armor;
   if (!armor || !(armor.maxHp > 0) || !(armor.hp > 0)) return false;
   if (spec.bypassArmor) return false;
-  const tags = Array.isArray(spec.tags) ? spec.tags : [];
-  return tags.includes(DAMAGE_TAGS.PROJECTILE) || tags.includes(DAMAGE_TAGS.COMPANION);
+  return canDamageSourceHitArmor(spec.tags);
 }
 
 export function applyArmorDamage(state, target, amount, spec = {}) {
   const armor = target.armor;
   const before = Math.max(0, armor.hp || 0);
   const damage = Math.max(0, amount || 0);
-  const absorbed = Math.min(before, damage);
-  armor.hp = Math.max(0, before - damage);
+  const variantRule = applyArmorVariantDamageRules(state, target, Math.max(0, before - damage), { amount: damage, spec });
+  armor.hp = Math.max(0, variantRule.hp);
+  const absorbed = Math.max(0, before - armor.hp);
   armor.regenCooldown = Math.max(0, armor.regenDelay || 0);
   const wasBroken = !!armor.broken;
   armor.broken = !(armor.hp > 0);
@@ -82,6 +84,9 @@ export function applyArmorDamage(state, target, amount, spec = {}) {
     armorRemaining: Math.max(0, armor.hp || 0),
     armorMax: Math.max(1, armor.maxHp || 1),
     armorRicochet: armor.ricochet !== false && !broke,
+    armorVariantBlocked: !!variantRule.blocked,
+    armorVariantId: target.armor?.variant?.id || null,
+    armorLinkCount: variantRule.links || 0,
     done: 0,
     killed: false,
     sourceId: spec.sourceId || null,

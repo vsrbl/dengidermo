@@ -10,6 +10,7 @@ import { createInventory, ensureInventory, inventorySnapshot } from "./inventory
 import { ensureUpgradeState, upgradeSnapshot } from "./upgrades.js";
 import { enemyStatusSnapshot } from "./effects.js";
 import { armorSnapshot } from "./enemyArmor.js";
+import { enemyEliteSnapshot } from "./enemyElites.js";
 import { abilitySnapshot } from "./abilities.js";
 import { companionSnapshot, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
@@ -191,6 +192,7 @@ export function makeSnapshot(state) {
       y: Math.round(e.y),
       hp: Math.max(0, Math.round(e.hp)),
       armor: armorSnapshot(e),
+      elite: enemyEliteSnapshot(e),
       status: enemyStatusSnapshot(e)
     })),
     projectiles: Object.values(state.projectiles).map((p) => ({

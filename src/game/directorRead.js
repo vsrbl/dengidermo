@@ -3,6 +3,15 @@ import { getPlannedLocationForState } from "./runPlanner.js";
 import { devSpawnCap } from "./dev.js";
 import { threatSnapshot } from "./threat.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
+import {
+  applyLoopProfileToBudget,
+  applyLoopProfileToCap,
+  applyLoopProfileToDirectorConfig,
+  applyLoopProfileToIntensity,
+  loopEscalationProfileForLocation,
+  loopEscalationProfileForState,
+  loopEscalationSnapshotForState
+} from "./loopScaling.js";
 
 export const DIRECTOR_PHASES = Object.freeze({
   CALM: "calm",
@@ -62,7 +71,7 @@ export function getDirectorConfig(loc) {
   const plan = encounterPlanFor(loc);
   const raw = { ...DEFAULT_DIRECTOR, ...(plan.director || {}), ...(loc.director || {}) };
   if (raw.cleanupCapMult === undefined && raw.rewardCapMult !== undefined) raw.cleanupCapMult = raw.rewardCapMult;
-  return raw;
+  return applyLoopProfileToDirectorConfig(raw, loopEscalationProfileForLocation(loc));
 }
 
 function clamp01(value) {
@@ -167,7 +176,8 @@ function intensityFor(state, loc, cfg, stage, threat = {}) {
   const base = Number.isFinite(intensity.base) ? intensity.base : 0.18;
   const ramp = Number.isFinite(intensity.ramp) ? intensity.ramp : 0;
   const threatMult = Number.isFinite(threat.intensityMult) ? threat.intensityMult : 1;
-  return (base + pressureProgress(state, loc, cfg) * ramp) * roomScale * threatMult;
+  const raw = (base + pressureProgress(state, loc, cfg) * ramp) * roomScale * threatMult;
+  return applyLoopProfileToIntensity(raw, loopEscalationProfileForState(state, loc));
 }
 
 export function totalBudgetFor(state, loc, cfg) {
@@ -176,11 +186,13 @@ export function totalBudgetFor(state, loc, cfg) {
   const base = cfg.budgetBase + players * cfg.budgetPerPlayer + roomDepth * cfg.budgetPerRoom;
   const boosted = Math.round(base * (loc.spawnBoost || 1));
   const minimum = cfg.minPressureBudget;
+  const loopBudget = Math.max(minimum, applyLoopProfileToBudget(boosted, loopEscalationProfileForState(state, loc)));
   const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_BUDGET, {
-    budget: Math.max(minimum, boosted),
-    totalBudget: Math.max(minimum, boosted),
+    budget: loopBudget,
+    totalBudget: loopBudget,
     baseBudget: base,
-    location: loc
+    location: loc,
+    loopProfileId: cfg.loopProfileId || null
   }, { location: loc });
   return Math.max(minimum, Math.round(ctx.budget));
 }
@@ -222,7 +234,8 @@ export function computeCap(state, loc, director, stage, intensity, cfg, threat =
           : 0.42;
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "capMult", fallback), intensity);
   const threatCapMult = Number.isFinite(threat.capMult) ? threat.capMult : 1;
-  const normalCap = Math.floor((capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult * threatCapMult);
+  const rawCap = (capBase + players * capPerPlayer + capGrowth) * (loc.spawnBoost || 1) * phaseMult * threatCapMult;
+  const normalCap = Math.floor(applyLoopProfileToCap(rawCap, loopEscalationProfileForState(state, loc)));
   const capped = devSpawnCap(state, Math.max(players + 2, normalCap));
   const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_CAP, {
     enemyCap: capped,
@@ -254,7 +267,8 @@ function createDirectorReadState(state, loc) {
     wave: state.wave || 0,
     eliteSpawned: false,
     policy: PHASE_POLICIES[DIRECTOR_PHASES.CALM],
-    lastSpawn: null
+    lastSpawn: null,
+    loopProfileId: cfg.loopProfileId || loopEscalationProfileForLocation(loc).id
   };
 }
 
@@ -324,6 +338,7 @@ export function directorSnapshot(state) {
     canSpawn: !!evaluation.policy?.canSpawn,
     canOpenPortal: !!evaluation.policy?.canOpenPortal,
     lastSpawn: director.lastSpawn || null,
-    threat: threatSnapshot(state)
+    threat: threatSnapshot(state),
+    loop: loopEscalationSnapshotForState(state, loc)
   };
 }

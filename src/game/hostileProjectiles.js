@@ -1,6 +1,7 @@
 import { GREEN, RED } from "../core/constants.js";
 import { norm, segmentCircleHitT } from "../core/math.js";
-import { DAMAGE_TAGS, dealPlayerDamage } from "./effects.js";
+import { dealPlayerDamage } from "./effects.js";
+import { hostileProjectileDamageTags } from "./damageSourceMatrix.js";
 import { addSpark } from "./effectCommands.js";
 import { firstSolidWallHitInState } from "./roomGeometry.js";
 
@@ -37,7 +38,7 @@ export function updateHostileProjectile(state, projectile, dt, runtime) {
       sourceId: projectile.ownerId || null,
       sourceType: "enemyProjectile",
       enemyId: projectile.enemyId || projectile.ownerId || null,
-      tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.PROJECTILE]
+      tags: hostileProjectileDamageTags()
     });
     addPlayerImpulse(player, projectile.x, projectile.y, projectile.knockback || 0);
     addSpark(state, player.x, player.y, 3, 115, projectileSparkColor(projectile));

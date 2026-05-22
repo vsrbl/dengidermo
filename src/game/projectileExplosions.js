@@ -1,6 +1,7 @@
 import { GREEN } from "../core/constants.js";
 import { dist2 } from "../core/math.js";
-import { DAMAGE_TAGS, EFFECT_HOOKS, effectCommand, getEffect } from "./effects.js";
+import { EFFECT_HOOKS, effectCommand, getEffect } from "./effects.js";
+import { PROJECTILE_DAMAGE_SOURCES, projectileDamageTags } from "./damageSourceMatrix.js";
 import { addSpark, pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
 import {
@@ -31,7 +32,7 @@ export function explode(state, projectile, effect, x = projectile.x, y = project
     const d2 = dist2(x, y, e.x, e.y);
     if (d2 > r * r) continue;
     const falloff = Math.max(0.35, 1 - Math.sqrt(d2) / Math.max(1, r));
-    const explosionHit = dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.EXPLOSION]);
+    const explosionHit = dealProjectileDamage(state, projectile, e, damage * falloff, e.x, e.y, projectileDamageTags(PROJECTILE_DAMAGE_SOURCES.EXPLOSION));
     if (!hitArmor(explosionHit)) {
       runProjectileHitEffects(state, projectile, e, explosionHit, { x: e.x, y: e.y }, { spark: false, chain: false, status: true, hitShake: true }, context);
     }
@@ -71,7 +72,7 @@ export function chainLightning(state, projectile, firstEnemy, effect, context = 
     }
     if (!best) break;
     hit.add(best.id);
-    const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.CHAIN]);
+    const chainHit = dealProjectileDamage(state, projectile, best, damage, best.x, best.y, projectileDamageTags(PROJECTILE_DAMAGE_SOURCES.CHAIN));
     const chainStatus = getEffect(projectile, "chainStatus");
     if (!hitArmor(chainHit)) {
       runProjectileHitEffects(state, projectile, best, chainHit, { x: best.x, y: best.y }, { spark: false, chain: false, status: !!chainStatus, hitShake: true }, context);

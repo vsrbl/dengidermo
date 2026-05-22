@@ -6,6 +6,8 @@ import { resolveSpawnPointInState, roomGeometrySnapshotForState } from "./roomGe
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import { nearestAlivePlayer, resolveEnemyBehavior } from "./enemyBehaviors.js";
 import { initEnemyArmor, updateEnemyArmor } from "./enemyArmor.js";
+import { maybeApplyEliteVariantToEnemy } from "./enemyElites.js";
+import { maybeApplyArmorVariantToEnemy, updateEnemyArmorVariantRuntime } from "./enemyArmorVariants.js";
 
 export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
   const data = ENEMIES[kind];
@@ -67,7 +69,10 @@ export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
   enemy.maxHp = Math.max(enemy.hp, Math.round(spawnCtx.maxHp || enemy.maxHp));
   enemy.speedMult = Math.max(0.05, spawnCtx.speedMult || 1);
   enemy.damageMult = Math.max(0, spawnCtx.damageMult || 1);
+  maybeApplyEliteVariantToEnemy(state, enemy, { eliteVariantId: options.eliteVariantId || null });
+  maybeApplyArmorVariantToEnemy(state, enemy, { armorVariantId: options.armorVariantId || null });
   state.enemies[id] = enemy;
+  updateEnemyArmorVariantRuntime(state, enemy, 999);
   return enemy;
 }
 
@@ -80,6 +85,7 @@ export function updateEnemies(state, dt) {
   const geometry = roomGeometrySnapshotForState(state);
   for (const enemy of Object.values(state.enemies)) {
     const data = ENEMIES[enemy.kind];
+    updateEnemyArmorVariantRuntime(state, enemy, dt);
     updateEnemyArmor(state, enemy, dt);
     const target = nearestAlivePlayer(state, enemy.x, enemy.y);
     if (!target) continue;

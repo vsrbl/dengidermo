@@ -2,7 +2,6 @@ import { GREEN } from "../core/constants.js";
 import { norm } from "../core/math.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import {
-  DAMAGE_TAGS,
   EFFECT_HOOKS,
   effectCommand,
   getEffect,
@@ -10,6 +9,7 @@ import {
   resolveProjectileDamage,
   dealDamage
 } from "./effects.js";
+import { PROJECTILE_DAMAGE_SOURCES, projectileDamageTags } from "./damageSourceMatrix.js";
 import { addSpark, pushVisualEffect } from "./effectCommands.js";
 import { finishEnemyKill } from "./enemyDeath.js";
 import { pushEvent } from "./events.js";
@@ -83,7 +83,7 @@ export function finishProjectileEnemyKill(state, enemy, source = null, hit = nul
   finishEnemyKill(state, enemy, source, hit);
 }
 
-export function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = enemy.x, eventY = enemy.y, tags = [DAMAGE_TAGS.PROJECTILE, DAMAGE_TAGS.DIRECT]) {
+export function dealProjectileDamage(state, projectile, enemy, baseDamage, eventX = enemy.x, eventY = enemy.y, tags = projectileDamageTags(PROJECTILE_DAMAGE_SOURCES.DIRECT)) {
   const hit = resolveProjectileDamage(state, projectile, baseDamage, enemy, tags);
   const damage = dealDamage(state, enemy, {
     amount: hit.amount,

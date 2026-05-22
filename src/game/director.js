@@ -6,6 +6,12 @@ import { chooseSpawnZone } from "./spawnZones.js";
 import { updateThreatAnalyzer } from "./threat.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "./roomModifiers.js";
 import {
+  applyLoopProfileToBatch,
+  applyLoopProfileToInterval,
+  loopEscalationProfileForState,
+  resolveLoopEnemyPool
+} from "./loopScaling.js";
+import {
   DEFAULT_DIRECTOR,
   DIRECTOR_PHASES,
   PHASE_POLICIES,
@@ -57,7 +63,8 @@ export function createDirectorState(state, loc = locationForState(state)) {
     scriptedStageSpawns: {},
     lastPhase: DIRECTOR_PHASES.CALM,
     policy: PHASE_POLICIES[DIRECTOR_PHASES.CALM],
-    lastSpawn: null
+    lastSpawn: null,
+    loopProfileId: cfg.loopProfileId || loopEscalationProfileForState(state, loc).id
   };
 }
 
@@ -91,7 +98,8 @@ function computeBatch(state, loc, stage, intensity, threat = {}) {
         : 0;
   const phaseMult = resolveMultiplier(stageMultiplier(stage, "batchMult", fallback), Math.max(0.75, intensity));
   const threatBatchMult = Number.isFinite(threat.batchMult) ? threat.batchMult : 1;
-  const rawBatch = devSpawnBatch(state, Math.max(1, Math.round(pressureBatch * phaseMult * threatBatchMult)));
+  const loopBatch = applyLoopProfileToBatch(pressureBatch * phaseMult * threatBatchMult, loopEscalationProfileForState(state, loc));
+  const rawBatch = devSpawnBatch(state, Math.max(1, Math.round(loopBatch)));
   const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_SPAWN, {
     batch: rawBatch,
     canSpawn: true,
@@ -117,7 +125,8 @@ function computeInterval(state, loc, stage, intensity, threat = {}) {
     if (Number.isFinite(interval.max)) phaseMult = Math.min(interval.max, phaseMult);
   }
   const threatIntervalMult = Number.isFinite(threat.intervalMult) ? threat.intervalMult : 1;
-  const rawInterval = devSpawnInterval(state, pressureInterval * phaseMult * threatIntervalMult);
+  const loopInterval = applyLoopProfileToInterval(pressureInterval * phaseMult * threatIntervalMult, loopEscalationProfileForState(state, loc));
+  const rawInterval = devSpawnInterval(state, loopInterval);
   const ctx = runRoomModifierHooks(state, ROOM_MODIFIER_HOOKS.DIRECTOR_SPAWN, {
     interval: rawInterval,
     canSpawn: true,
@@ -136,22 +145,24 @@ function canAfford(director, kind) {
   return director.budget >= enemyCost(kind);
 }
 
-function weightedPoolFor(loc, stage, phase) {
+function weightedPoolFor(state, loc, stage, phase) {
   const stagePool = Array.isArray(stage?.enemyPool) && stage.enemyPool.length ? stage.enemyPool : null;
-  const pool = stagePool || (Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES);
+  const basePool = stagePool || (Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES);
+  const pool = resolveLoopEnemyPool(basePool, loopEscalationProfileForState(state, loc));
   if (phase === DIRECTOR_PHASES.CALM) return pool.filter((kind) => (ENEMIES[kind]?.score || 1) <= 2).concat("grunt");
   return pool;
 }
 
 function pickEnemyKind(state, loc, phase, director, stage = null) {
-  const pool = weightedPoolFor(loc, stage, phase).filter((kind) => ENEMIES[kind] && canAfford(director, kind));
+  const pool = weightedPoolFor(state, loc, stage, phase).filter((kind) => ENEMIES[kind] && canAfford(director, kind));
   if (pool.length) return state.rng.pick(pool);
   if (canAfford(director, "grunt")) return "grunt";
   return null;
 }
 
 function pickEliteKind(state, loc, director) {
-  const pool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
+  const basePool = Array.isArray(loc.enemyPool) && loc.enemyPool.length ? loc.enemyPool : ENEMY_WAVES;
+  const pool = resolveLoopEnemyPool(basePool, loopEscalationProfileForState(state, loc));
   const roomDepth = runDepthFor(state);
   const candidates = [];
   if (roomDepth >= 2 || pool.includes("tank")) candidates.push("tank");
@@ -175,7 +186,8 @@ function makeBudgetedSpawnCommand(kind, options = {}) {
     zone: options.zone || null,
     scriptedSpawnId: options.scriptedSpawnId || null,
     anchorId: options.anchorId || null,
-    anchorTags: options.anchorTags || null
+    anchorTags: options.anchorTags || null,
+    eliteVariantId: options.eliteVariantId || null
   });
 }
 
@@ -267,6 +279,7 @@ function updateDirectorPhase(state, loc, cfg, director, options = {}) {
   director.enemyCap = evaluation.enemyCap;
   director.cleanupThreshold = cleanupThreshold(state, cfg, loc);
   director.policy = evaluation.policy;
+  director.loopProfileId = cfg.loopProfileId || loopEscalationProfileForState(state, loc).id;
 
   if (evaluation.phase !== previousPhase || evaluation.stageId !== previousStageId) {
     director.lastPhase = previousPhase;

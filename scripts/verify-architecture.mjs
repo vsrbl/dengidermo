@@ -6,6 +6,7 @@ import { spawnEnemy } from '../src/game/enemies.js';
 import { fireWeapon } from '../src/game/combat.js';
 import { giveWeapon, switchWeapon } from '../src/game/inventory.js';
 import { EFFECT_DEFS, EFFECT_HOOKS, createEffectContext, dealDamage, runEffectHook } from '../src/game/effects.js';
+import { statusDamageTags } from '../src/game/damageSourceMatrix.js';
 import { UPGRADES } from '../src/data/upgrades.js';
 import { VERSION } from '../src/core/constants.js';
 
@@ -74,7 +75,8 @@ test('projectile hooks are routed through the dispatcher/command layer', () => {
 
 test('central damage pipeline is used for projectile and status damage', () => {
   assert.match(projectileLogicSrc, /dealDamage\(state, enemy, \{[\s\S]*projectileId/s, 'projectile damage does not use dealDamage()');
-  assert.match(projectilesSrc, /tags: statusHit\.tags \|\| \[DAMAGE_TAGS\.STATUS\]/, 'status damage is not tagged through dealDamage()');
+  assert.match(projectilesSrc, /tags: statusHit\.tags \|\| statusDamageTags\(\)/, 'status damage is not tagged through dealDamage()');
+  assert.deepEqual(statusDamageTags('burn'), ['status', 'burn'], 'status source tags must come from source matrix');
   const target = { hp: 10 };
   const hit = dealDamage(null, target, { amount: 3, sourceId: 'p1', tags: ['test'] });
   assert.equal(target.hp, 7);

@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.1.2",
-  "buildId": "v39.1.2-20260521",
+  "version": "v39.2.2",
+  "buildId": "v39.2.2-20260523",
   "channel": "prod",
   "protocol": 2,
-  "createdAt": "2026-05-20",
-  "entry": "./src/main.v39-1-2.js?v=39.1.2",
-  "style": "./style.css?v=39.1.2",
-  "config": "./config.js?v=39.1.2",
+  "createdAt": "2026-05-23",
+  "entry": "./src/main.v39-2-2.js?v=39.2.2",
+  "style": "./style.css?v=39.2.2",
+  "config": "./config.js?v=39.2.2",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.1.2 projectile pipeline split: hit, explosion, and wall resolution modules; no gameplay balance/content changes"
+  "notes": "v39.2.2 linked armor variant vertical slice: linked armor data/system/render integration, loop-2 low-chance armor variant activation, protected armor links, and guards for future variants"
 }

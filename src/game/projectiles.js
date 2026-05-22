@@ -2,7 +2,6 @@ import { dist2, segmentCircleHitT } from "../core/math.js";
 import { SpatialGrid } from "../core/spatialGrid.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import {
-  DAMAGE_TAGS,
   EFFECT_HOOKS,
   createEffectContext,
   dealDamage,
@@ -10,6 +9,7 @@ import {
   sourceId,
   runEnemyStatusTickPipeline
 } from "./effects.js";
+import { statusDamageTags } from "./damageSourceMatrix.js";
 import { addSpark, executeEffectCommands, pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
 import { firstSolidWallHitInState } from "./roomGeometry.js";
@@ -74,14 +74,14 @@ function runProjectileHook(state, projectile, hook, context, effectHandlers = {}
 function tickEnemyStatusDamage(state, dt) {
   for (const enemy of Object.values(state.enemies)) {
     const tick = runEnemyStatusTickPipeline(state, enemy, dt);
-    const statusTicks = tick.ticks?.length ? tick.ticks : (tick.damage > 0 ? [{ damage: tick.damage, sourceId: tick.sources?.[0] || null, tags: [DAMAGE_TAGS.STATUS] }] : []);
+    const statusTicks = tick.ticks?.length ? tick.ticks : (tick.damage > 0 ? [{ damage: tick.damage, sourceId: tick.sources?.[0] || null, tags: statusDamageTags() }] : []);
 
     for (const statusHit of statusTicks) {
       if (!state.enemies[enemy.id] || !(statusHit.damage > 0)) continue;
       const damage = dealDamage(state, enemy, {
         amount: statusHit.damage,
         sourceId: statusHit.sourceId || null,
-        tags: statusHit.tags || [DAMAGE_TAGS.STATUS]
+        tags: statusHit.tags || statusDamageTags()
       });
       if (damage.killed) {
         finishProjectileEnemyKill(state, enemy, statusHit.sourceId || null, damage, projectilePipelineContext());

@@ -1,3 +1,5 @@
+import { drawEnemyArmorVariantOverlay } from "./armorVariantRenderers.js";
+import { drawEnemyEliteOverlay } from "./eliteRenderers.js";
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
@@ -98,5 +100,8 @@ export const ENEMY_RENDERERS = Object.freeze({
 
 export function drawEnemySprite(ctx, enemy, data, screenPos) {
   const renderer = ENEMY_RENDERERS[data?.renderStyle || enemy?.kind] || ENEMY_RENDERERS.grunt;
-  renderer(ctx, screenPos, data?.radius || enemy?.radius || 12, data || {}, enemy || {});
+  const radius = data?.radius || enemy?.radius || 12;
+  renderer(ctx, screenPos, radius, data || {}, enemy || {});
+  drawEnemyArmorVariantOverlay(ctx, enemy || {}, screenPos, radius);
+  drawEnemyEliteOverlay(ctx, enemy || {}, screenPos, radius);
 }

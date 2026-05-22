@@ -1,6 +1,7 @@
 import { dist2 } from "../../core/math.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "../roomModifiers.js";
 import { applyArmorDamage, shouldArmorAbsorb } from "../enemyArmor.js";
+import { canDamageSourceLifesteal } from "../damageSourceMatrix.js";
 import {
   EFFECT_HOOKS,
   DAMAGE_TAGS,
@@ -100,9 +101,7 @@ export function resolveProjectileDamage(state, projectile, baseDamage, enemy = n
 export function healProjectileOwner(state, projectile, damageDone, tags = []) {
   const lifesteal = getEffect(projectile, "lifesteal");
   if (!lifesteal || damageDone <= 0) return 0;
-  const safeTags = Array.isArray(tags) ? tags : [];
-  const canSteal = safeTags.some((tag) => [DAMAGE_TAGS.DIRECT, DAMAGE_TAGS.EXPLOSION, DAMAGE_TAGS.CHAIN].includes(tag)) && !safeTags.includes(DAMAGE_TAGS.STATUS);
-  if (!canSteal) return 0;
+  if (!canDamageSourceLifesteal(tags)) return 0;
   const owner = ownerPlayer(state, projectile);
   if (!owner || owner.hp <= 0) return 0;
   const heal = damageDone * clamp(numberOr(lifesteal.percent, 0), 0, 0.5);
