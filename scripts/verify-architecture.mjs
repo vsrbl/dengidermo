@@ -11,7 +11,10 @@ import { VERSION } from '../src/core/constants.js';
 
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
 const projectileHelpersSrc = readFileSync(new URL('../src/game/projectileBehaviors.js', import.meta.url), 'utf8');
-const projectileLogicSrc = `${projectilesSrc}\n${projectileHelpersSrc}`;
+const projectileHitsSrc = readFileSync(new URL('../src/game/projectileHits.js', import.meta.url), 'utf8');
+const projectileExplosionsSrc = readFileSync(new URL('../src/game/projectileExplosions.js', import.meta.url), 'utf8');
+const projectileWallResolutionSrc = readFileSync(new URL('../src/game/projectileWallResolution.js', import.meta.url), 'utf8');
+const projectileLogicSrc = `${projectilesSrc}\n${projectileHelpersSrc}\n${projectileHitsSrc}\n${projectileExplosionsSrc}\n${projectileWallResolutionSrc}`;
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
 const effectCommandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
@@ -66,11 +69,11 @@ test('projectile hooks are routed through the dispatcher/command layer', () => {
   assert.match(projectilesSrc, /function runProjectileHook/, 'projectile hook wrapper missing');
   assert.match(effectCommandsSrc, /export function executeEffectCommands/, 'shared effect command executor missing');
   assert.doesNotMatch(projectilesSrc, /function executeEffectCommands/, 'effect command executor drifted back into projectiles.js');
-  assert.match(projectilesSrc, /runProjectileHook\(state, source, EFFECT_HOOKS\.PROJECTILE_KILL/, 'projectile kill hook is not wired through command execution');
+  assert.match(projectileLogicSrc, /runProjectileHook\(state, source, EFFECT_HOOKS\.PROJECTILE_KILL/, 'projectile kill hook is not wired through command execution');
 });
 
 test('central damage pipeline is used for projectile and status damage', () => {
-  assert.match(projectilesSrc, /dealDamage\(state, enemy, \{[\s\S]*projectileId/s, 'projectile damage does not use dealDamage()');
+  assert.match(projectileLogicSrc, /dealDamage\(state, enemy, \{[\s\S]*projectileId/s, 'projectile damage does not use dealDamage()');
   assert.match(projectilesSrc, /tags: statusHit\.tags \|\| \[DAMAGE_TAGS\.STATUS\]/, 'status damage is not tagged through dealDamage()');
   const target = { hp: 10 };
   const hit = dealDamage(null, target, { amount: 3, sourceId: 'p1', tags: ['test'] });

@@ -8,6 +8,8 @@ import { DAMAGE_TAGS, EFFECT_HOOKS, createEffectContext, effectCommand, tickEnem
 import { executeEffectCommands } from '../src/game/effectCommands.js';
 
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
+const projectileHitsSrc = readFileSync(new URL('../src/game/projectileHits.js', import.meta.url), 'utf8');
+const projectileLogicSrc = `${projectilesSrc}\n${projectileHitsSrc}`;
 const commandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
 
 function disableArmor(enemy) {
@@ -94,10 +96,10 @@ test('projectile:wall hook owns ricochet behavior and keeps wall shake intention
 });
 
 test('projectile hit pipeline is centralized after damage resolution', () => {
-  const dealBody = projectilesSrc.slice(projectilesSrc.indexOf('function dealProjectileDamage'), projectilesSrc.indexOf('function runProjectileHitEffects'));
+  const dealBody = projectileHitsSrc.slice(projectileHitsSrc.indexOf('function dealProjectileDamage'), projectileHitsSrc.indexOf('export function runProjectileHitEffects'));
   assert.doesNotMatch(dealBody, /EFFECT_HOOKS\.PROJECTILE_HIT/, 'dealProjectileDamage should not fire hit hooks directly');
-  assert.match(projectilesSrc, /function runProjectileHitEffects/, 'central projectile hit effect pipeline missing');
-  assert.doesNotMatch(projectilesSrc, /applyProjectileStatuses\(projectile, e\)|applyProjectileStatuses\(projectile, enemy\)/, 'projectiles.js still applies statuses through separate hit hook path');
+  assert.match(projectileHitsSrc, /export function runProjectileHitEffects/, 'central projectile hit effect pipeline missing');
+  assert.doesNotMatch(projectileLogicSrc, /applyProjectileStatuses\(projectile, e\)|applyProjectileStatuses\(projectile, enemy\)/, 'projectile pipeline still applies statuses through separate hit hook path');
 });
 
 let failed = 0;
