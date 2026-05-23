@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ENEMIES, ENEMY_WAVES } from '../src/data/enemies.js';
+import { ANOMALY_ENEMY_KINDS, ENEMIES, ENEMY_WAVES } from '../src/data/enemies.js';
 import { WEAPONS, START_WEAPON, WEAPON_IDS } from '../src/data/weapons.js';
 import { ROOM_SEQUENCE, RARE_ROOMS, ALL_ROOMS } from '../src/data/rooms.js';
 import { ENCOUNTER_PLANS } from '../src/data/encounters.js';
@@ -59,7 +59,7 @@ assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.HEAL), 'heal pickup type
 assert.ok(Number.isFinite(xpRequiredForNextLevel(1)) && xpRequiredForNextLevel(1) > 0, 'economy level curve needs a positive first threshold');
 assert.equal(ECONOMY_BALANCE_SCHEMA_VERSION, 1, 'economy balance schema should be explicit for future tuning migrations');
 assert.equal(xpRequiredForNextLevel(1), LEVEL_CURVE_BALANCE.baseXp, 'level curve should be data-driven by economyBalance');
-assert.ok(LEVEL_CURVE_BALANCE.baseXp >= 28, 'v39.3.15 should avoid over-fast early INSTALL queue pacing after chest density increased');
+assert.ok(LEVEL_CURVE_BALANCE.baseXp >= 28, 'early INSTALL queue pacing should avoid over-fast leveling after chest density increased');
 assert.ok(ENEMY_DROP_BALANCE.grunt.moneyChance > 0.4, 'early GLD reliability should support priced BSC exploration chests');
 for (const [id, table] of Object.entries(DROP_TABLES)) {
   assert.equal(table.id, id, `drop table key/id mismatch: ${id}`);
@@ -69,6 +69,8 @@ for (const [id, table] of Object.entries(DROP_TABLES)) {
 }
 
 for (const kind of ENEMY_WAVES) assert.ok(ENEMIES[kind], `ENEMY_WAVES references unknown enemy: ${kind}`);
+assert.equal(ANOMALY_ENEMY_KINDS.length, 10, 'v39.3.18 anomaly stress pack should expose ten primary enemy kinds');
+for (const kind of ANOMALY_ENEMY_KINDS) assert.ok(ENEMIES[kind], `ANOMALY_ENEMY_KINDS references unknown enemy: ${kind}`);
 
 assertUnique(Object.keys(WEAPONS), 'weapon');
 assert.ok(WEAPONS[START_WEAPON], 'START_WEAPON must reference a real weapon');
@@ -284,8 +286,20 @@ for (const [id, data] of Object.entries(INTERACTABLES)) {
 
 const chestRendererSrc = read('src/render/chestRenderers.js');
 assert.match(chestRendererSrc, /drawChestInteractable/, 'chest renderer registry must export drawChestInteractable');
+assert.match(chestRendererSrc, /compactPrompt/, 'v39.3.17a chest renderer should use a compact one-line affordance prompt');
+for (const noisyChestLabel of ['"PAY"', '"SCAN"', '"REVEAL"', '"OPEN"', '"---"']) {
+  assert.ok(!chestRendererSrc.includes(noisyChestLabel), `v39.3.17a chest renderer should not draw noisy world label ${noisyChestLabel}`);
+}
 assert.match(read('src/renderer.js'), /drawChestInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route chest interactables through chest renderer with local affordance context');
 assert.match(read('src/renderer.js'), /drawCasinoInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route casino interactables through casino renderer with local affordance context');
+
+const pickupRendererSrc = read('src/renderer.js');
+assert.match(pickupRendererSrc, /function drawPickupToken/, 'shared pickup token renderer must keep one unified pickup token shape');
+assert.match(pickupRendererSrc, /function drawEconomyPickup[\s\S]*drawPickupToken/, 'economy pickups must use the shared pickup token renderer');
+assert.match(pickupRendererSrc, /function drawRewardPickup[\s\S]*drawPickupToken/, 'reward pickups must use the shared pickup token renderer');
+assert.match(pickupRendererSrc, /rewardType === "ability_pickup"[\s\S]*return "ABL"/, 'ability reward pickups should render as compact ABL tokens, not verbose ability names');
+assert.ok(!pickupRendererSrc.includes('const sourceLabel ='), 'reward pickup renderer must not add separate WIN/RAR/CRS source captions under pickups');
+assert.ok(!pickupRendererSrc.includes('replace(" SHARD"'), 'reward pickup renderer must not render verbose DASH SHARD labels in-world');
 
 const eliteRendererSrc = read('src/render/eliteRenderers.js');
 for (const [id, variant] of Object.entries(ELITE_VARIANTS)) {

@@ -233,6 +233,46 @@ function drawArmorPulse(ctx, fx, cam) {
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
 }
 
+function drawAnomalyLine(ctx, fx, cam) {
+  const a = screen(fx, cam);
+  const b = screen({ x: fx.x2, y: fx.y2 }, cam);
+  const { life, maxLife } = effectLife(fx);
+  ctx.strokeStyle = fx.color || "#ffffff";
+  ctx.lineWidth = Math.max(1, Math.round(2 * life / maxLife));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(a.x), Math.round(a.y));
+  ctx.lineTo(Math.round(b.x), Math.round(b.y));
+  ctx.stroke();
+}
+
+function drawAnomalyField(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const r = (fx.r || 64) * (0.86 + t * 0.16);
+  const color = fx.color || "#ffffff";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, Math.round(2 * life / maxLife));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  if (fx.text) drawText(ctx, String(fx.text).slice(0, 4).toUpperCase(), s.x, s.y - r - 5, color, "center");
+}
+
+function drawPulseWave(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const r = (fx.r || 96) * (0.22 + t * 0.86);
+  const color = fx.color || "#ff3048";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, Math.round(4 * life / maxLife));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(s.x - r * 1.1), Math.round(s.y));
+  ctx.lineTo(Math.round(s.x + r * 1.1), Math.round(s.y));
+  ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 1.1));
+  ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 1.1));
+  ctx.stroke();
+  if (fx.text) drawText(ctx, String(fx.text).slice(0, 5).toUpperCase(), s.x, s.y - r - 6, color, "center");
+}
+
 function ignoreEffect() {}
 
 export const EFFECT_RENDERERS = Object.freeze({
@@ -259,6 +299,9 @@ export const EFFECT_RENDERERS = Object.freeze({
   droneBeam: drawDroneBeam,
   orbitalHit: drawOrbitalHit,
   explosion: drawExplosion,
+  anomalyLine: drawAnomalyLine,
+  anomalyField: drawAnomalyField,
+  pulseWave: drawPulseWave,
   shake: ignoreEffect
 });
 

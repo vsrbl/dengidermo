@@ -1,7 +1,11 @@
 import { dist2, norm } from "../../core/math.js";
+import { ENEMIES } from "../../data/enemies.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "../effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "../dev.js";
-import { moveCircleInLocation } from "../roomGeometry.js";
+import { moveCircleInLocation, resolveSpawnPointInState } from "../roomGeometry.js";
+import { nextId } from "../entityIds.js";
+import { initEnemyArmor } from "../enemyArmor.js";
+import { pushVisualEffect } from "../effectCommands.js";
 
 export function nearestAlivePlayer(state, x, y) {
   let best = null;
@@ -74,4 +78,59 @@ export function applyEnemyTouchDamage(state, enemy, data, target, dt, updateCtx)
   const push = norm(target.x - enemy.x, target.y - enemy.y);
   target.kx = (target.kx || 0) + push.x * 70;
   target.ky = (target.ky || 0) + push.y * 70;
+}
+
+
+export function spawnBehaviorEnemy(state, kind, x, y, options = {}) {
+  const data = ENEMIES[kind];
+  if (!state || !data) return null;
+  const point = resolveSpawnPointInState(state, { x, y }, data.radius, { avoidPlayers: true });
+  const enemy = {
+    id: nextId("en"),
+    kind,
+    x: point.x,
+    y: point.y,
+    spawnZone: options.zone || "behavior",
+    spawnAdjusted: !!point.adjusted,
+    spawnAnchorId: null,
+    spawnAnchorTags: null,
+    spawnFromAnchor: false,
+    parentEnemyId: options.parentEnemyId || null,
+    role: options.role || "behavior",
+    vx: options.vx || 0,
+    vy: options.vy || 0,
+    kx: 0,
+    ky: 0,
+    hp: data.hp,
+    maxHp: data.hp,
+    radius: data.radius,
+    shootAt: 0
+  };
+  initEnemyArmor(enemy, data);
+  state.enemies[enemy.id] = enemy;
+  pushVisualEffect(state, {
+    type: "anomalyField",
+    x: Math.round(enemy.x),
+    y: Math.round(enemy.y),
+    r: Math.max(18, data.radius + 12),
+    color: options.color || "#ffffff",
+    text: options.text || data.name || kind,
+    life: 0.18,
+    maxLife: 0.18
+  });
+  return enemy;
+}
+
+export function emitAnomalyLink(state, from, to, color = "#ffffff", life = 0.1) {
+  if (!state || !from || !to) return;
+  pushVisualEffect(state, {
+    type: "anomalyLine",
+    x: Math.round(from.x),
+    y: Math.round(from.y),
+    x2: Math.round(to.x),
+    y2: Math.round(to.y),
+    color,
+    life,
+    maxLife: life
+  });
 }

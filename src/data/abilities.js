@@ -15,7 +15,8 @@ export const ABILITIES = Object.freeze({
     legacyEffectType: "teleportDash",
     rewardable: true,
     shardId: "teleport_dash_shard",
-    maxShards: 3,
+    unlimitedStacks: true,
+    shardMode: "stack",
     tags: Object.freeze(["movement", "dash", "mobility", "active"]),
     pickup: Object.freeze({ label: "DASH", radius: 12, accent: "green" }),
     config: Object.freeze({ distance: 210, cooldown: 3.6, invuln: 0.14 })

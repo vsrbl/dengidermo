@@ -136,7 +136,7 @@ export function createUi() {
       const rarity = meta.rarity || data?.rarity || "common";
       const rarityMeta = RARITY_META[rarity] || RARITY_META.common;
       const rarityLabel = rarityMeta.label || rarity.toUpperCase();
-      const stackText = meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "SINGLE";
+      const stackText = meta.unlimitedStacks ? `STACK x${meta.nextStack || 1}` : meta.maxStacks > 1 ? `STACK ${meta.nextStack || 1}/${meta.maxStacks}` : "SINGLE";
       const hint = Array.isArray(meta.hints) && meta.hints.length ? meta.hints[0] : "";
       btn.className = `upgrade-choice rarity-${rarity}${revealActive && id ? " reveal" : ""}`;
       btn.classList.toggle("selected", index === selectedIndex);
@@ -249,7 +249,8 @@ export function createUi() {
     const utility = statSnapshot?.utility || {};
     const rows = [];
     if ((runtime.dashInvulnLeft || 0) > 0) rows.push(statLine("DASH INV", `${Number(runtime.dashInvulnLeft).toFixed(1)}S`, "accent"));
-    if ((runtime.dashCooldownLeft || 0) > 0) rows.push(statLine("DASH CD", `${Number(runtime.dashCooldownLeft).toFixed(1)}S`));
+    if (ability.dash?.maxCharges > 1) rows.push(statLine("DASH", `${ability.dash.charges || 0}/${ability.dash.maxCharges} CHG`, ability.dash.ready ? "accent" : ""));
+    else if ((runtime.dashCooldownLeft || 0) > 0) rows.push(statLine("DASH CD", `${Number(runtime.dashCooldownLeft).toFixed(1)}S`));
     else if (ability.dash) rows.push(statLine("DASH", "READY", "accent"));
     if ((utility.shieldCharges || 0) > 0 || (runtime.shieldChargesReady || 0) > 0) rows.push(statLine("SHIELD", `${Math.max(utility.shieldCharges || 0, runtime.shieldChargesReady || 0)} CHG`));
     for (const label of modifierLabels(snapshot)) rows.push(statLine("ROOM", label));
@@ -523,7 +524,7 @@ export function createUi() {
     const dash = player.ability?.dash || null;
     if (el.dashText) {
       el.dashText.textContent = dash?.available
-        ? (dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`)
+        ? (dash.maxCharges > 1 && dash.ready ? `SHIFT ${Math.max(0, dash.charges || 0)}/${dash.maxCharges}` : (dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`))
         : "--";
     }
     if (el.companionText) {

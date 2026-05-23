@@ -117,6 +117,10 @@ function playerEffectSnapshot(player) {
   const drone = getEffect({ effects }, "drone");
   const companionBoost = getEffect({ effects }, "companionBoost");
   const dash = dashConfig(player);
+  const dashMaxCharges = Math.max(1, Math.floor(Number(dash?.maxCharges) || 1));
+  const dashCharges = Number.isFinite(player?.effectState?.dash?.charges)
+    ? Math.max(0, Math.floor(Number(player.effectState.dash.charges) || 0))
+    : dashMaxCharges;
 
   return {
     luckDropChancePercent: percent(effectNumber(luck, "dropChance", 0)),
@@ -128,6 +132,9 @@ function playerEffectSnapshot(player) {
       source: dash.source || (teleportDash ? "upgrade" : "ability_inventory"),
       distance: Math.round(dash.distance),
       cooldown: rounded(dash.cooldown, 2),
+      charges: dashCharges,
+      maxCharges: dashMaxCharges,
+      ready: dashCharges > 0,
       invulnMs: Math.round(dash.invuln * 1000),
       afterimageCount: Math.max(0, Math.floor(effectNumber(afterimage, "count", dash.afterimageCount || 0)))
     } : null,
@@ -207,6 +214,7 @@ export function buildPlayerStatSnapshot(player, state = null) {
     ability: {
       activeAbility: player?.abilityInventory?.activeAbility || null,
       ownsTeleportDash: ownedAbilities.includes(ABILITY_IDS.TELEPORT_DASH),
+      abilityStacks: { ...(player?.abilityInventory?.stacks || {}) },
       dash: playerEffects.dash
     },
     companions: playerEffects.companions,
@@ -222,6 +230,7 @@ export function buildPlayerStatSnapshot(player, state = null) {
       upgrades: upgradeSourceSnapshot(player),
       weapons: ensureInventory(player).weapons.filter((id) => WEAPONS[id]),
       abilities: ownedAbilities.filter(Boolean),
+      abilityStacks: { ...(player?.abilityInventory?.stacks || {}) },
       playerEffects: getEffects({ effects: buildPlayerEffects(player) }).map((effect) => effect.type).sort()
     }
   };

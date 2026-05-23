@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { createGameState, addPlayer } from '../src/game/state.js';
-import { spawnEnemy } from '../src/game/enemies.js';
+import { spawnEnemy, updateEnemies } from '../src/game/enemies.js';
 import { beginRoomTransition } from '../src/game/roomFlow.js';
 import { getLocationFromRoomPlan, resolveRoomPlan } from '../src/game/runPlanner.js';
 import { finishEnemyKill } from '../src/game/enemyDeath.js';
+import { updateProjectiles, makeProjectile } from '../src/game/projectiles.js';
 import { dealDamage, dealPlayerDamage, healProjectileOwner } from '../src/game/effects.js';
 import { updateEnemyArmorVariantRuntime } from '../src/game/enemyArmorVariants.js';
 import { runEnemyEliteDeath } from '../src/game/enemyElites.js';
@@ -19,6 +20,7 @@ import { executeReward } from '../src/game/rewardResolver.js';
 import { applyUpgrade, chooseUpgrade, offerUpgradeChoices, offerQueuedUpgradeChoice } from '../src/game/upgrades.js';
 import { resolveRoomModifierStack } from '../src/game/modifierStack.js';
 import { ABILITY_IDS } from '../src/data/abilities.js';
+import { ANOMALY_ENEMY_KINDS } from '../src/data/enemies.js';
 import { REWARD_TYPES } from '../src/data/rewardTypes.js';
 import { ECONOMY_PICKUP_DELIVERY, ECONOMY_PICKUP_RECIPIENT_RULES, ECONOMY_PICKUP_TYPES, UPGRADE_OFFER_SOURCES } from '../src/data/economy.js';
 import { getCasinoMachine } from '../src/data/casinoMachines.js';
@@ -26,7 +28,8 @@ import { REWARD_SOURCE_IDS } from '../src/data/rewardSources.js';
 import { CASINO_STAKE_IDS, getCasinoStake } from '../src/data/casinoStakes.js';
 import { CASINO_SYMBOL_IDS } from '../src/data/casinoSymbols.js';
 import { CHEST_IDS, CHEST_STATES } from '../src/data/chests.js';
-import { dashConfig } from '../src/game/abilities.js';
+import { dashConfig, performDash, tickActiveAbilities } from '../src/game/abilities.js';
+import { updateCompanions } from '../src/game/companions.js';
 import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
@@ -404,14 +407,35 @@ function assertAbilityRewardScenario() {
   assert.ok(pickup, 'ability pickup reward should spawn through reward pickup pipeline');
   updateRewardPickups(state, 0.016);
   assert.equal(hasAbility(player, ABILITY_IDS.TELEPORT_DASH), true, 'claiming an ability pickup should grant the ability through abilityInventory');
+  assert.equal(ensureAbilityInventory(player).stacks[ABILITY_IDS.TELEPORT_DASH], 1, 'first ABL pickup should create dash stack x1');
   assert.equal(dashConfig(player)?.source, 'ability_inventory', 'TELEPORT DASH ability pickup should unlock dash while preserving old upgrade compatibility');
+  assert.equal(dashConfig(player)?.maxCharges, 1, 'first dash stack should provide one dash charge');
 
   const shard = spawnRewardPickup(state, { type: REWARD_TYPES.ABILITY_SHARD, abilityId: ABILITY_IDS.TELEPORT_DASH, amount: 1 }, player.x, player.y, { claimDelay: 0 });
   assert.ok(shard, 'ability shard reward should spawn through reward pickup pipeline');
   updateRewardPickups(state, 0.016);
   assert.equal(ensureAbilityInventory(player).shards[ABILITY_IDS.TELEPORT_DASH], 1, 'claiming an ability shard should update abilityInventory shards');
-  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_PICKUP), 'ability pickup claim should emit rewardPickup event');
-  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_SHARD), 'ability shard claim should emit rewardPickup event');
+  assert.equal(ensureAbilityInventory(player).stacks[ABILITY_IDS.TELEPORT_DASH], 2, 'ABL shard should convert into a real dash stack instead of doing nothing');
+  assert.equal(dashConfig(player)?.maxCharges, 2, 'stacked dash rewards should increase usable dash charges');
+  assert.equal(performDash(state, player.id, { right: true }, { seq: 1 }).ok, true, 'first stacked dash charge should be usable');
+  assert.equal(performDash(state, player.id, { right: true }, { seq: 2 }).ok, true, 'second stacked dash charge should be usable immediately');
+  assert.equal(performDash(state, player.id, { right: true }, { seq: 3 }).ok, false, 'dash should reject when all stacked charges are spent');
+  tickActiveAbilities(player, dashConfig(player).cooldown);
+  assert.equal(performDash(state, player.id, { right: true }, { seq: 4 }).ok, true, 'spent dash charges should recharge through the ability runtime');
+  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_PICKUP && event.abilityStack === 1), 'ability pickup claim should emit rewardPickup event with stack x1');
+  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_SHARD && event.abilityStack === 2), 'ability shard claim should emit rewardPickup event with stack x2');
+}
+
+
+function assertUnlimitedCompanionStackScenario() {
+  const { state, player } = fresh('UNLIMITED-COMPANION-STACKS');
+  for (let i = 0; i < 20; i += 1) assert.equal(applyUpgrade(player, 'drone', state), true, `DRONE stack ${i + 1} should be accepted`);
+  for (let i = 0; i < 10; i += 1) assert.equal(applyUpgrade(player, 'orbital', state), true, `ORBITAL stack ${i + 1} should be accepted`);
+  updateCompanions(state, 0.016);
+  const drones = Object.values(state.companions).filter((c) => c.ownerId === player.id && c.kind === 'drone');
+  const orbitals = Object.values(state.companions).filter((c) => c.ownerId === player.id && c.kind === 'orbital');
+  assert.equal(drones.length, 20, 'DRONE should support Balatro-style large stacks instead of stopping at 3/8');
+  assert.equal(orbitals.length, 10, 'ORBITAL should support Balatro-style large stacks instead of stopping at 3/8');
 }
 
 
@@ -470,6 +494,20 @@ function assertRewardEventFeedScenario() {
   }, { playerId: 'p1' });
   assert.equal(rareHea.text, 'RARE HEA', 'reward feed should expose rare HEA as a team-critical event');
 
+
+  const abilityClaim = buildRewardEventFeedItem({
+    id: 'ev_ability_claim',
+    type: 'rewardPickup',
+    action: 'claimed',
+    playerId: 'p1',
+    rewardType: REWARD_TYPES.ABILITY_SHARD,
+    abilityId: ABILITY_IDS.TELEPORT_DASH,
+    abilityStack: 4,
+    abilityIsNew: false
+  }, { playerId: 'p1' });
+  assert.equal(abilityClaim.text, 'DASH x4', 'reward feed should expose stacked ABL rewards as real dash stacks');
+  assert.equal(abilityClaim.detail, 'CHARGE STACK', 'stacked ABL reward feed should communicate added charge value');
+
   const plainClaim = buildRewardEventFeedItem({
     id: 'ev_plain_claim',
     type: 'economyPickup',
@@ -505,6 +543,7 @@ function assertStatSnapshotScenario() {
   assert.equal(stat.weapon.effective.damage, 10.4, 'stat snapshot should expose active weapon effective damage after damage multiplier');
   assert.equal(stat.weapon.effective.fireRate, 3.08, 'stat snapshot should expose active weapon effective fire-rate after multiplier');
   assert.equal(stat.ability.dash.distance, 210, 'stat snapshot should expose dash stats through the ability/legacy pipeline');
+  assert.equal(stat.ability.dash.maxCharges, 2, 'stat snapshot should expose combined legacy + ABL dash charge stacks');
   assert.ok(stat.sources.upgrades.some((entry) => entry.id === 'heavyPayload' && entry.stacks === 1), 'stat snapshot should expose upgrade source stacks for future TAB source drilldown');
   assert.ok(stat.sources.abilities.includes(ABILITY_IDS.TELEPORT_DASH), 'stat snapshot should expose owned abilities for future TAB source drilldown');
 
@@ -512,6 +551,38 @@ function assertStatSnapshotScenario() {
   const snapPlayer = snap.players.find((entry) => entry.id === player.id);
   assert.equal(snapPlayer.statSnapshot.schemaVersion, STAT_SNAPSHOT_SCHEMA_VERSION, 'network snapshot should include the computed stat snapshot');
   assert.equal(snapPlayer.statSnapshot.percent.damage, 15, 'network stat snapshot should mirror computed damage percentage');
+}
+
+
+function assertAnomalyEnemyStressScenario() {
+  const { state, player } = fresh('ANOMALY-STRESS-SCENARIO');
+  state.spawnTimer = 9999;
+  const spacing = 72;
+  ANOMALY_ENEMY_KINDS.forEach((kind, index) => {
+    const x = player.x + 160 + (index % 5) * spacing;
+    const y = player.y - 140 + Math.floor(index / 5) * spacing;
+    const enemy = spawnEnemy(state, kind, x, y, { eliteVariantId: null, armorVariantId: null });
+    assert.ok(enemy, `${kind} should spawn through the normal enemy pipeline`);
+  });
+  assert.equal(ANOMALY_ENEMY_KINDS.length, 10, 'stress pack should expose exactly ten primary anomaly enemy kinds');
+  for (let i = 0; i < 80; i += 1) updateEnemies(state, 1 / 30);
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'mirror' && enemy.mirrorState), 'MIRROR should keep delayed target history state');
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'orbiter' && enemy.orbitState), 'ORBITER should keep orbit runtime state');
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'herald' && enemy.heraldState), 'HERALD should keep summon runtime state');
+  assert.ok(state.effects.some((fx) => ['anomalyField', 'anomalyLine', 'pulseWave'].includes(fx.type)), 'anomaly enemies should emit registered visual effects');
+
+  const split = Object.values(state.enemies).find((enemy) => enemy.kind === 'splitter');
+  assert.ok(split, 'splitter should be present before death-spawn test');
+  finishEnemyKill(state, split, { sourceId: player.id, type: 'verify' }, { sourceId: player.id });
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'mini_splitter' && enemy.parentEnemyId === split.id), 'SPLITTER should spawn controlled child splinters on death');
+
+  const prism = Object.values(state.enemies).find((enemy) => enemy.kind === 'prism');
+  assert.ok(prism, 'prism should be present for deflect test');
+  prism.prismState = { facingX: -1, facingY: 0 };
+  const projectile = makeProjectile({ id: 'verify-prism-shot', ownerId: player.id, weaponId: 'shotgun', x: prism.x - 26, y: prism.y, angle: 0 });
+  state.projectiles[projectile.id] = projectile;
+  updateProjectiles(state, 1 / 60);
+  assert.ok(projectile.hitIds?.[prism.id], 'PRISM front defense should register/deflect the projectile without damaging through the front face');
 }
 
 function assertModifierScenario() {
@@ -592,8 +663,10 @@ assertInteractableScenario();
 assertEconomyDropScenario();
 assertQueuedLevelUpScenario();
 assertAbilityRewardScenario();
+assertUnlimitedCompanionStackScenario();
 assertStatSnapshotScenario();
 assertRewardEventFeedScenario();
+assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, casino activity, stat snapshot foundation, reward event feed foundation plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, casino activity, stat snapshot foundation, reward event feed foundation, anomaly enemy stress pack plus next-room casino debt');

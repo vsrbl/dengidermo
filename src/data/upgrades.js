@@ -250,11 +250,11 @@ export const UPGRADES = {
   teleportDash: {
     id: "teleportDash",
     name: "TELEPORT DASH",
-    desc: "SHIFT blink + afterimage",
+    desc: "SHIFT blink charge; stacks add charges",
     rarity: "legendary",
     tags: ["player", "movement", "active", "dash"],
     weight: 2,
-    maxStacks: 1,
+    unlimitedStacks: true,
     effects: [
       { type: "teleportDash", scope: "player", distance: 210, cooldown: 3.6, invuln: 0.14 },
       { type: "afterimage", scope: "player", duration: 0.28, count: 3 }
@@ -263,11 +263,11 @@ export const UPGRADES = {
   orbital: {
     id: "orbital",
     name: "ORBITAL",
-    desc: "small satellite damages nearby enemies",
+    desc: "+1 orbital satellite",
     rarity: "epic",
     tags: ["player", "companion", "orbital", "damage"],
     weight: 2,
-    maxStacks: 3,
+    unlimitedStacks: true,
     effects: [
       { type: "orbital", scope: "player", count: 1, damage: 7, radius: 78, orbitSpeed: 1.35, hitCooldown: 0.38 }
     ]
@@ -276,11 +276,11 @@ export const UPGRADES = {
   drone: {
     id: "drone",
     name: "DRONE",
-    desc: "auto-shooter companion",
+    desc: "+1 auto-shooter drone",
     rarity: "epic",
     tags: ["player", "companion", "drone", "auto-shooter"],
     weight: 2,
-    maxStacks: 3,
+    unlimitedStacks: true,
     effects: [
       { type: "drone", scope: "player", count: 1, damage: 8, radius: 54, range: 540, fireRate: 0.82, orbitSpeed: 0.72 }
     ]
@@ -355,10 +355,20 @@ export function stackCount(player, id) {
   return player?.upgrades?.taken?.[id] || 0;
 }
 
+export function upgradeHasUnlimitedStacks(upgrade) {
+  return !!upgrade?.unlimitedStacks;
+}
+
+export function upgradeMaxStacks(upgrade) {
+  if (upgradeHasUnlimitedStacks(upgrade)) return Infinity;
+  return Math.max(1, Math.floor(Number(upgrade?.maxStacks) || 1));
+}
+
 export function canOfferUpgrade(player, id) {
   const upgrade = getUpgrade(id);
   if (!upgrade) return false;
-  return stackCount(player, id) < (upgrade.maxStacks || 1);
+  const maxStacks = upgradeMaxStacks(upgrade);
+  return upgradeHasUnlimitedStacks(upgrade) || stackCount(player, id) < maxStacks;
 }
 
 function rarityWeight(upgrade, state = null) {
@@ -391,7 +401,8 @@ export function scoreUpgradeCandidate(player, id, state = null) {
     hints: synergy.hints || [],
     synergyIds: synergy.synergyIds || [],
     nextStack: stackCount(player, id) + 1,
-    maxStacks: upgrade.maxStacks || 1
+    maxStacks: Number.isFinite(upgradeMaxStacks(upgrade)) ? upgradeMaxStacks(upgrade) : null,
+    unlimitedStacks: upgradeHasUnlimitedStacks(upgrade)
   };
 }
 
@@ -423,7 +434,8 @@ export function rollUpgradeOffer(rng, player, count = 3, state = null) {
       hints: meta.hints,
       synergyIds: meta.synergyIds,
       nextStack: meta.nextStack,
-      maxStacks: meta.maxStacks
+      maxStacks: meta.maxStacks,
+      unlimitedStacks: !!meta.unlimitedStacks
     };
     pool.splice(pool.indexOf(picked), 1);
   }

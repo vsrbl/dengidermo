@@ -213,6 +213,6 @@ assert.doesNotMatch(chests, /healPlayer\s*\(/, 'chests must not heal directly; r
 assert.match(read('src/game/interactables.js'), /activateChest\(/, 'interactable activation must delegate chest openings to the chest system');
 assert.match(read('src/render/chestRenderers.js'), /drawChestInteractable/, 'chest visuals must live in chest renderer registry');
 const abilities = read('src/game/abilities.js');
-assert.match(abilities, /legacyDash \|\| inventoryDash/, 'dash ability must preserve legacy upgrade compatibility while allowing ability loot');
+assert.match(abilities, /legacyDash[\s\S]+inventoryDash[\s\S]+maxCharges/, 'dash ability must combine legacy upgrade compatibility with stacked ability loot charges');
 
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);

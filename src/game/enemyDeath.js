@@ -3,6 +3,32 @@ import { spawnEnemyDrops } from "./dropResolver.js";
 import { pushEvent } from "./events.js";
 import { sourceId } from "./effects.js";
 import { runEnemyEliteDeath } from "./enemyElites.js";
+import { spawnBehaviorEnemy } from "./enemyBehaviors/common.js";
+
+function runEnemyDeathSpawn(state, enemy, data) {
+  const cfg = data?.deathSpawn;
+  if (!cfg?.kind || !ENEMIES[cfg.kind]) return [];
+  const maxChildren = Number.isFinite(cfg.maxChildren) ? cfg.maxChildren : 8;
+  const existing = Object.values(state.enemies || {}).filter((item) => item?.parentEnemyId === enemy.id).length;
+  const count = Math.max(0, Math.min(cfg.count || 0, maxChildren - existing));
+  const spawned = [];
+  for (let i = 0; i < count; i += 1) {
+    const a = (Math.PI * 2 * i) / Math.max(1, count) + ((state.rng?.next?.() || 0) - 0.5) * 0.35;
+    const r = cfg.radius || 30;
+    const child = spawnBehaviorEnemy(state, cfg.kind, enemy.x + Math.cos(a) * r, enemy.y + Math.sin(a) * r, {
+      parentEnemyId: enemy.id,
+      role: "death_spawn",
+      color: "#ffffff",
+      text: "SPL"
+    });
+    if (!child) continue;
+    child.vx = Math.cos(a) * 150;
+    child.vy = Math.sin(a) * 150;
+    spawned.push(child);
+  }
+  if (spawned.length) pushEvent(state, { type: "enemy", action: "death_spawn", enemyId: enemy.id, enemyKind: enemy.kind, childKind: cfg.kind, count: spawned.length, x: enemy.x, y: enemy.y });
+  return spawned;
+}
 
 export function finishEnemyKill(state, enemy, source = null, hit = null) {
   // ARCHITECTURE GUARD: all systems that remove enemies after damage should
@@ -13,6 +39,7 @@ export function finishEnemyKill(state, enemy, source = null, hit = null) {
   const data = ENEMIES[enemy.kind] || { score: 0 };
   const sid = sourceId(source) || (typeof source === "string" ? source : null) || hit?.sourceId || null;
   runEnemyEliteDeath(state, enemy, source, hit);
+  runEnemyDeathSpawn(state, enemy, data);
   spawnEnemyDrops(state, enemy, { sourceType: "enemy", sourceId: enemy.id, playerId: sid });
   pushEvent(state, {
     type: "kill",

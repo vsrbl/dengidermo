@@ -1,6 +1,7 @@
 import { GREEN } from "../core/constants.js";
 import { norm } from "../core/math.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
+import { ENEMIES } from "../data/enemies.js";
 import {
   EFFECT_HOOKS,
   effectCommand,
@@ -14,6 +15,40 @@ import { addSpark, pushVisualEffect } from "./effectCommands.js";
 import { finishEnemyKill } from "./enemyDeath.js";
 import { pushEvent } from "./events.js";
 import { ricochetProjectileFromArmor } from "./enemyArmor.js";
+
+function tryEnemyProjectileDefense(state, projectile, enemy) {
+  const data = ENEMIES[enemy?.kind] || null;
+  const defense = data?.projectileDefense;
+  if (!defense || defense.type !== "front_deflect") return false;
+  const now = state.time || 0;
+  if ((enemy.projectileDefenseCooldownUntil || 0) > now) return false;
+  const facing = enemy.prismState || {};
+  const fx = Number.isFinite(facing.facingX) ? facing.facingX : 1;
+  const fy = Number.isFinite(facing.facingY) ? facing.facingY : 0;
+  const v = norm(projectile.vx || 1, projectile.vy || 0);
+  const dot = v.x * fx + v.y * fy;
+  if (dot > (defense.arcDot ?? -0.25)) return false;
+  if (!projectile.hitIds) projectile.hitIds = {};
+  projectile.hitIds[enemy.id] = true;
+  const reflectedVx = projectile.vx - 2 * (projectile.vx * fx + projectile.vy * fy) * fx;
+  const reflectedVy = projectile.vy - 2 * (projectile.vx * fx + projectile.vy * fy) * fy;
+  projectile.vx = reflectedVx * 0.92;
+  projectile.vy = reflectedVy * 0.92;
+  projectile.targetId = null;
+  enemy.projectileDefenseCooldownUntil = now + (defense.cooldown || 0.08);
+  pushVisualEffect(state, {
+    type: "ricochet",
+    x: Math.round(enemy.x),
+    y: Math.round(enemy.y),
+    vx: Math.round(projectile.vx),
+    vy: Math.round(projectile.vy),
+    color: "#ffffff",
+    life: 0.14,
+    maxLife: 0.14
+  });
+  pushEvent(state, { type: "enemy", action: "projectile_deflect", enemyId: enemy.id, enemyKind: enemy.kind, projectileId: projectile.id, x: enemy.x, y: enemy.y });
+  return true;
+}
 
 function statusColor(type) {
   if (type === "freeze") return "#ffffff";
@@ -168,6 +203,7 @@ export function canHit(projectile, enemy) {
 
 export function applyProjectileHit(state, projectile, enemy, context = {}) {
   const weapon = WEAPONS[projectile.weaponId] || WEAPONS[START_WEAPON];
+  if (tryEnemyProjectileDefense(state, projectile, enemy)) return false;
   registerHit(projectile, enemy);
   const hit = dealProjectileDamage(state, projectile, enemy, projectile.damage, enemy.x, enemy.y);
   addImpulse(enemy, projectile.x, projectile.y, (weapon.knockback || 120) * (projectile.knockbackMult || 1));

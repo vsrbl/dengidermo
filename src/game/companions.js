@@ -11,7 +11,7 @@ import { pushVisualEffect } from "./effectCommands.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 
-const COMPANION_LIMIT = 8;
+const COMPANION_RUNTIME_SOFT_LIMIT = 128; // runaway-state guard, not a balance/design cap
 const ORBITAL_DEFAULT_RADIUS = 74;
 const ORBITAL_DEFAULT_DAMAGE = 7;
 const ORBITAL_DEFAULT_SPEED = 1.45;
@@ -35,7 +35,7 @@ function desiredCompanionsForPlayer(state, player, dt) {
   const companionBoost = { damageMult: 0, hitCooldownMult: 0, rangeMult: 0 };
   runPlayerHook(state, player, EFFECT_HOOKS.PLAYER_TICK, { dt, desiredCompanions: desired, companionBoost }, {
     orbital(effect, c) {
-      const count = Math.max(0, Math.min(COMPANION_LIMIT, Math.floor(finiteOr(effect.count, 0))));
+      const count = Math.max(0, Math.min(COMPANION_RUNTIME_SOFT_LIMIT, Math.floor(finiteOr(effect.count, 0))));
       for (let i = 0; i < count; i += 1) {
         c.desiredCompanions.push({
           kind: "orbital",
@@ -50,7 +50,7 @@ function desiredCompanionsForPlayer(state, player, dt) {
       }
     },
     drone(effect, c) {
-      const count = Math.max(0, Math.min(COMPANION_LIMIT, Math.floor(finiteOr(effect.count, 0))));
+      const count = Math.max(0, Math.min(COMPANION_RUNTIME_SOFT_LIMIT, Math.floor(finiteOr(effect.count, 0))));
       for (let i = 0; i < count; i += 1) {
         c.desiredCompanions.push({
           kind: "drone",

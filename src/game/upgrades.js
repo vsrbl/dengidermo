@@ -1,6 +1,6 @@
 import { PLAYER_HP } from "../core/constants.js";
 import { UPGRADE_OFFER_SOURCES } from "../data/economy.js";
-import { getUpgrade, rollUpgradeOffer } from "../data/upgrades.js";
+import { getUpgrade, rollUpgradeOffer, upgradeHasUnlimitedStacks, upgradeMaxStacks } from "../data/upgrades.js";
 import { activeSynergies } from "../data/synergies.js";
 import { ensureInventory } from "./inventory.js";
 import { healPlayer } from "./effects.js";
@@ -74,7 +74,7 @@ export function applyUpgrade(player, upgradeId, state = null) {
   if (!upgrade) return false;
   const upgrades = ensureUpgradeState(player);
   const stacks = upgrades.taken[upgradeId] || 0;
-  if (stacks >= (upgrade.maxStacks || 1)) return false;
+  if (!upgradeHasUnlimitedStacks(upgrade) && stacks >= upgradeMaxStacks(upgrade)) return false;
 
   const mods = upgrade.mods || {};
   if (mods.speedMult) player.stats.speedMult += mods.speedMult;

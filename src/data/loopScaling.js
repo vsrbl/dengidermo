@@ -108,6 +108,12 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
       LOOP_ESCALATION_FEATURES.MODIFIER_STACKING,
       LOOP_ESCALATION_FEATURES.DIRECTOR_PRESSURE
     ]),
+    enemyPool: Object.freeze({
+      tierBias: 0.1,
+      add: Object.freeze(["mirror", "orbiter", "splitter", "leech", "bouncer"]),
+      prefer: Object.freeze([]),
+      exclude: Object.freeze([])
+    }),
     modifiers: Object.freeze({
       stackChance: 0.08,
       maxExtraModifiers: 1,
@@ -128,6 +134,12 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
       LOOP_ESCALATION_FEATURES.MODIFIER_STACKING,
       LOOP_ESCALATION_FEATURES.DIRECTOR_PRESSURE
     ]),
+    enemyPool: Object.freeze({
+      tierBias: 0.22,
+      add: Object.freeze(["mirror", "orbiter", "anchor", "splitter", "prism", "pulse", "leech", "nullifier", "bouncer", "herald"]),
+      prefer: Object.freeze(["shooter", "charger"]),
+      exclude: Object.freeze([])
+    }),
     elite: Object.freeze({
       chance: 0.06,
       variantIds: Object.freeze(["overcharged"])

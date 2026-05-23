@@ -35,6 +35,12 @@ export const DROP_TABLES = Object.freeze({
     id: "bomber",
     entries: regularEnemyEntries("bomber")
   },
+  anomaly_child: {
+    id: "anomaly_child",
+    entries: [
+      { type: ECONOMY_PICKUP_TYPES.XP, amount: 0, chance: 0 }
+    ]
+  },
   boss: {
     id: "boss",
     entries: [

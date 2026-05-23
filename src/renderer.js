@@ -315,13 +315,37 @@ function drawPortal(ctx, portal, cam) {
   }
 }
 
+const PICKUP_TOKEN_RADIUS = 10;
+const PICKUP_TOKEN_POP_TIME = 0.2;
+
+function drawPickupToken(ctx, s, { label, color, scale = 1, claimable = true, burst = 0, strongBurst = false } = {}) {
+  const r = Math.max(8, Math.round(PICKUP_TOKEN_RADIUS * scale));
+  ctx.save();
+  if (!claimable) ctx.globalAlpha = 0.58;
+  if (burst > 0) {
+    const burstR = r + 5 + burst * (strongBurst ? 12 : 8);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = strongBurst ? 2 : 1;
+    ctx.strokeRect(Math.round(s.x - burstR), Math.round(s.y - burstR), Math.round(burstR * 2), Math.round(burstR * 2));
+  }
+  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#050505");
+  ctx.strokeStyle = color;
+  ctx.lineWidth = claimable ? 2 : 1;
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  ctx.fillStyle = color;
+  ctx.font = "11px Courier New, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(String(label || "DRP").toUpperCase().slice(0, 3), Math.round(s.x), Math.round(s.y + 4));
+  ctx.restore();
+}
+
 function drawLoot(ctx, item, cam) {
   const data = LOOT[item.kind] || LOOT.heal;
   const s = screen(item, cam);
-  const r = data.radius;
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, GREEN);
-  drawRect(ctx, s.x - r + 4, s.y - r + 4, r * 2 - 8, r * 2 - 8, "#050505");
-  drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
+  drawPickupToken(ctx, s, {
+    label: data.pickup?.label || data.name.slice(0, 3),
+    color: data.color === "green" ? GREEN : "#f3f3f3"
+  });
 }
 
 function economyPickupLabel(item) {
@@ -340,12 +364,11 @@ function economyPickupColor(item, claimable) {
   return item.accent || "#f3f3f3";
 }
 
-
 function pickupVisualPosition(item) {
   const age = Math.max(0, item._renderAge || 0);
   const hasSpawn = Number.isFinite(item.spawnX) && Number.isFinite(item.spawnY);
-  if (!hasSpawn || age >= 0.2) return { x: item.x, y: item.y, popT: 1, scale: 1 };
-  const t = Math.min(1, age / 0.2);
+  if (!hasSpawn || age >= PICKUP_TOKEN_POP_TIME) return { x: item.x, y: item.y, popT: 1, scale: 1 };
+  const t = Math.min(1, age / PICKUP_TOKEN_POP_TIME);
   const easeOut = 1 - Math.pow(1 - t, 3);
   const overshoot = Math.sin(t * Math.PI) * 0.12;
   return {
@@ -369,37 +392,41 @@ function drawPickupTrail(ctx, item, s, color) {
   ctx.moveTo(Math.round(s.x - dx * 1.8), Math.round(s.y - dy * 1.8));
   ctx.lineTo(Math.round(s.x), Math.round(s.y));
   ctx.stroke();
-  ctx.globalAlpha = 1;
   ctx.restore();
+}
+
+function pickupBurstAmount(item, popT) {
+  const sourceReveal = item.revealSource === "chest" || item.revealSource === "casino";
+  const specialReveal = item.lucky || item.boosted || item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
+  if (popT < 1) return Math.max(0, 1 - popT);
+  if (sourceReveal || specialReveal) return 0.28;
+  return 0;
 }
 
 function drawEconomyPickup(ctx, item, cam) {
   const visual = pickupVisualPosition(item);
   const s = screen(visual, cam);
-  const baseR = Math.max(10, item.radius || 10);
-  const pulse = 1 + Math.sin((item._renderAge || 0) * 10) * 0.035;
-  const rarePulse = item.type === "heal" || item.lucky || item.boosted ? 0.05 : 0;
-  const r = Math.max(8, Math.round(baseR * visual.scale * (pulse + rarePulse)));
   const claimable = item.claimable !== false;
   const color = economyPickupColor(item, claimable);
   const label = economyPickupLabel(item);
+  const rarePulse = item.type === "heal" || item.lucky || item.boosted ? 0.05 : 0;
+  const pulse = 1 + Math.sin((item._renderAge || 0) * 10) * 0.035 + rarePulse;
   drawPickupTrail(ctx, item, s, color);
-  if (visual.popT < 1 || item.lucky || item.boosted || item.revealSource === "chest" || item.revealSource === "casino") {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = item.revealProfile === "rare" || item.revealProfile === "cursed" ? 2 : 1;
-    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 7 + (item.revealProfile === "rare" || item.revealProfile === "cursed" ? 4 : 0);
-    ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
-  }
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
-  drawRect(ctx, s.x - r + 4, s.y - r + 4, Math.max(4, r * 2 - 8), Math.max(4, r * 2 - 8), "#050505");
-  ctx.strokeStyle = color;
-  ctx.lineWidth = claimable ? 2 : 1;
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-  drawText(ctx, label, s.x, s.y - r - 5, color, "center");
+  drawPickupToken(ctx, s, {
+    label,
+    color,
+    scale: visual.scale * pulse,
+    claimable,
+    burst: pickupBurstAmount(item, visual.popT),
+    strongBurst: item.revealProfile === "rare" || item.revealProfile === "cursed"
+  });
 }
 
-function rewardPickupColor(item, claimable) {
+function rewardPickupColor(item, claimable, data = null) {
   if (!claimable) return "rgba(255,255,255,0.48)";
+  if (item.rewardType === "ability_pickup" || item.rewardType === "ability_shard") return "#66f6ff";
+  if (data?.type === "heal") return GREEN;
+  if (data?.type === "weapon") return GREEN;
   if (item.accent && String(item.accent).startsWith("#")) return item.accent;
   if (item.accent === "red") return RED;
   if (item.accent === "purple") return "#b45cff";
@@ -409,39 +436,30 @@ function rewardPickupColor(item, claimable) {
 }
 
 function rewardPickupDisplayLabel(item, data = null) {
-  const raw = item.label || data?.pickup?.label || data?.name || item.kind || item.abilityId || "RWD";
-  if (String(raw).toUpperCase().includes("SHARD")) return String(raw).toUpperCase().replace(" SHARD", "+1").slice(0, 7);
-  return String(raw).toUpperCase().slice(0, 7);
+  if (item.rewardType === "ability_pickup" || item.rewardType === "ability_shard") return "ABL";
+  if (data?.pickup?.label) return String(data.pickup.label).toUpperCase().slice(0, 3);
+  if (data?.type === "heal") return "HEA";
+  return String(item.label || item.kind || item.abilityId || "RWD").toUpperCase().slice(0, 3);
 }
 
 function drawRewardPickup(ctx, item, cam) {
   const data = item.rewardType === "loot" ? (LOOT[item.kind] || LOOT.heal) : null;
   const visual = pickupVisualPosition(item);
   const s = screen(visual, cam);
-  const baseR = item.radius || data?.radius || 11;
-  const r = Math.max(8, Math.round(baseR * visual.scale));
   const active = item.active !== false;
   const claimable = item.claimable !== false;
-  const color = rewardPickupColor(item, active && claimable);
+  const color = rewardPickupColor(item, active && claimable, data);
+  const pulse = 1 + Math.sin((item._renderAge || 0) * 9) * 0.03;
+  const highValue = item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
   drawPickupTrail(ctx, item, s, color);
-  if (visual.popT < 1 || item.revealSource === "chest" || item.revealSource === "casino") {
-    const highValue = item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
-    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 8 + (highValue ? 5 : 0);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = highValue ? 2 : 1;
-    ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
-  }
-  ctx.strokeStyle = color;
-  ctx.lineWidth = claimable ? 2 : 1;
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
-  ctx.strokeRect(Math.round(s.x - r + 4), Math.round(s.y - r + 4), Math.max(4, r * 2 - 8), Math.max(4, r * 2 - 8));
-  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, claimable ? color : "#777");
-  const label = rewardPickupDisplayLabel(item, data);
-  drawText(ctx, label, s.x, s.y - r - 5, color, "center");
-  if (item.revealSource === "chest" || item.revealSource === "casino") {
-    const sourceLabel = item.revealSource === "casino" ? "WIN" : item.revealProfile === "cursed" ? "CRS" : item.revealProfile === "rare" ? "RAR" : "RWD";
-    drawText(ctx, sourceLabel, s.x, s.y + r + 13, color, "center");
-  }
+  drawPickupToken(ctx, s, {
+    label: rewardPickupDisplayLabel(item, data),
+    color,
+    scale: visual.scale * pulse,
+    claimable: active && claimable,
+    burst: pickupBurstAmount(item, visual.popT),
+    strongBurst: highValue
+  });
 }
 
 function interactableAccentColor(item) {

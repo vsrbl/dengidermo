@@ -231,6 +231,21 @@ function buildRareHealItem(event, playerId) {
   return null;
 }
 
+
+function buildAbilityClaimItem(event, playerId) {
+  if (event.type !== "rewardPickup" || event.action !== "claimed" || event.playerId !== playerId) return null;
+  if (event.rewardType !== "ability_pickup" && event.rewardType !== "ability_shard") return null;
+  const stack = Math.max(1, Math.floor(Number.isFinite(event.abilityStack) ? event.abilityStack : 1));
+  return {
+    kind: "ability_claim",
+    priority: REWARD_EVENT_FEED_PRIORITY.HIGH,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: event.abilityIsNew ? "DASH ONLINE" : `DASH x${stack}`,
+    detail: stack > 1 ? "CHARGE STACK" : "ABILITY READY",
+    lifeMs: HIGH_LIFE_MS
+  };
+}
+
 function buildClaimBonusItem(event, playerId) {
   if (event.type !== "economyPickup" || event.action !== "claimed" || !includesRecipient(event, playerId)) return null;
   if (!event.lucky && !event.boosted) return null;
@@ -256,6 +271,7 @@ export function buildRewardEventFeedItem(event, { playerId = null } = {}) {
     || buildCasinoResolvedItem(event, playerId)
     || buildChestOpenItem(event, playerId)
     || buildRewardRevealItem(event, playerId)
+    || buildAbilityClaimItem(event, playerId)
     || buildRareHealItem(event, playerId)
     || buildLuckDropItem(event, playerId)
     || buildModifierDropItem(event, playerId)

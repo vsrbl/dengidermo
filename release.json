@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.15",
-  "buildId": "v39.3.15-20260523",
+  "version": "v39.3.18",
+  "buildId": "v39.3.18-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-15.js?v=39.3.15",
-  "style": "./style.css?v=39.3.15",
-  "config": "./config.js?v=39.3.15",
+  "entry": "./src/main.v39-3-18.js?v=39.3.18",
+  "style": "./style.css?v=39.3.18",
+  "config": "./config.js?v=39.3.18",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.15 loot/economy balance pass: centralizes tuning in economyBalance, raises early GLD reliability for priced BSC chests, slows XP level pacing slightly after exploration rewards, retunes chest prices/reward values by rarity, strengthens RAR/CRS high-value contracts, and adjusts casino stakes/payouts without adding new systems or reward types"
+  "notes": "v39.3.18 anomaly enemy stress pack: adds ten unusual registry-driven enemies (MRR/ORB/ANC/SPL/PRS/PLS/LCH/NUL/BNC/HRD), unified anomaly effect renderers, data-driven front projectile deflection, death-spawn stress behavior, loop-gated anomaly pools, and runtime guards/scenarios to stress enemy architecture without hardcoding a new arena-shooter if-chain."
 }

@@ -124,7 +124,15 @@ function applyLootRewardPickup(state, pickup, player) {
 }
 
 function applyAbilityRewardPickup(pickup, player) {
-  return applyAbilityReward(player, pickup).ok;
+  return applyAbilityReward(player, pickup);
+}
+
+function claimedRewardText(pickup, result = null) {
+  if (pickup.rewardType === REWARD_TYPES.ABILITY_PICKUP || pickup.rewardType === REWARD_TYPES.ABILITY_SHARD) {
+    const stack = Math.max(0, Math.floor(Number(result?.stack) || 0));
+    return stack > 1 ? `DASH x${stack}` : "DASH ONLINE";
+  }
+  return String(pickup.label || "REWARD").slice(0, 16);
 }
 
 export function claimRewardPickup(state, pickup, player, options = {}) {
@@ -132,8 +140,12 @@ export function claimRewardPickup(state, pickup, player, options = {}) {
   if (!check.ok) return false;
 
   let applied = false;
+  let rewardResult = null;
   if (pickup.rewardType === REWARD_TYPES.LOOT) applied = applyLootRewardPickup(state, pickup, player);
-  if (pickup.rewardType === REWARD_TYPES.ABILITY_PICKUP || pickup.rewardType === REWARD_TYPES.ABILITY_SHARD) applied = applyAbilityRewardPickup(pickup, player);
+  if (pickup.rewardType === REWARD_TYPES.ABILITY_PICKUP || pickup.rewardType === REWARD_TYPES.ABILITY_SHARD) {
+    rewardResult = applyAbilityRewardPickup(pickup, player);
+    applied = !!rewardResult?.ok;
+  }
   if (!applied) return false;
 
   pickup.claimed = true;
@@ -145,7 +157,7 @@ export function claimRewardPickup(state, pickup, player, options = {}) {
     type: "damageText",
     x: Math.round(pickup.x),
     y: Math.round(pickup.y - 18),
-    text: String(pickup.label || "REWARD").slice(0, 16),
+    text: claimedRewardText(pickup, rewardResult),
     color: GREEN,
     life: 0.56,
     maxLife: 0.56
@@ -157,6 +169,8 @@ export function claimRewardPickup(state, pickup, player, options = {}) {
     rewardType: pickup.rewardType,
     kind: pickup.kind || null,
     abilityId: pickup.abilityId || null,
+    abilityStack: rewardResult?.stack || null,
+    abilityIsNew: rewardResult?.isNew ?? null,
     sourceType: pickup.sourceType || null,
     sourceId: pickup.sourceId || null,
     tableId: pickup.tableId || null,

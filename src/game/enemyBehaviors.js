@@ -1,5 +1,15 @@
 export { nearestAlivePlayer } from "./enemyBehaviors/common.js";
 
+import { updateAnchorEnemy } from "./enemyBehaviors/anchor.js";
+import { updateBouncerEnemy } from "./enemyBehaviors/bouncer.js";
+import { updateHeraldEnemy } from "./enemyBehaviors/herald.js";
+import { updateLeechEnemy } from "./enemyBehaviors/leech.js";
+import { updateMirrorEnemy } from "./enemyBehaviors/mirror.js";
+import { updateNullifierEnemy } from "./enemyBehaviors/nullifier.js";
+import { updateOrbiterEnemy } from "./enemyBehaviors/orbiter.js";
+import { updatePrismEnemy } from "./enemyBehaviors/prism.js";
+import { updatePulseEnemy } from "./enemyBehaviors/pulse.js";
+import { updateSplitterEnemy } from "./enemyBehaviors/splitter.js";
 import { updateBossEnemy } from "./enemyBehaviors/boss.js";
 import { updateBomberEnemy } from "./enemyBehaviors/bomber.js";
 import { updateChargerEnemy } from "./enemyBehaviors/charger.js";
@@ -11,7 +21,17 @@ export const ENEMY_BEHAVIORS = Object.freeze({
   ranged: updateRangedEnemy,
   charger: updateChargerEnemy,
   bomber: updateBomberEnemy,
-  boss: updateBossEnemy
+  boss: updateBossEnemy,
+  mirror: updateMirrorEnemy,
+  orbiter: updateOrbiterEnemy,
+  anchor: updateAnchorEnemy,
+  splitter: updateSplitterEnemy,
+  prism: updatePrismEnemy,
+  pulse: updatePulseEnemy,
+  leech: updateLeechEnemy,
+  nullifier: updateNullifierEnemy,
+  bouncer: updateBouncerEnemy,
+  herald: updateHeraldEnemy
 });
 
 export function resolveEnemyBehavior(data) {
