@@ -1,4 +1,4 @@
-import { clamp } from "../core/math.js";
+import { clamp, dist2 } from "../core/math.js";
 import { DASH_DENIAL_RECONCILE_MS, GAME_SPEED, INPUT_RATE, WORLD } from "../core/constants.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { makePredictedProjectile, resetRendererSmooth } from "../renderer.js";
@@ -150,6 +150,37 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     requestWeaponSlot(next);
   }
 
+  function nearestInteractableTarget() {
+    const pose = currentLocalPlayerFromSnapshot();
+    if (!pose) return null;
+    let best = null;
+    let bestD2 = Infinity;
+    for (const item of app.snapshot?.interactables || []) {
+      if (item.opened || item.active === false) continue;
+      const radius = (item.interactRadius || (item.radius || 18) + 20) + (pose.radius || 13);
+      const d = dist2(pose.x, pose.y, item.x, item.y);
+      if (d <= radius * radius && d < bestD2) {
+        best = item;
+        bestD2 = d;
+      }
+    }
+    return best;
+  }
+
+  function requestInteract() {
+    if (!app.running) return;
+    const target = nearestInteractableTarget();
+    if (!target) return;
+    app.interactSeq += 1;
+    const request = { t: "interact", targetId: target.id, seq: app.interactSeq };
+    if (app.role === "host") {
+      host.applyInteractRequest(app.playerId, request);
+      app.snapshot = makeSnapshot(app.hostState);
+      return;
+    }
+    app.transport?.sendToHost(request);
+  }
+
   function applyLocalRecoil(pose, weapon, angle) {
     if (!pose || !weapon?.recoil) return;
     pose.kx = (pose.kx || 0) - Math.cos(angle) * weapon.recoil;
@@ -207,6 +238,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     requestAbility,
     requestWeaponSlot,
     requestWeaponCycle,
+    requestInteract,
     tryLocalShoot,
     updateGuest,
     resetGuestPose

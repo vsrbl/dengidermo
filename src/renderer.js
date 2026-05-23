@@ -30,6 +30,7 @@ export function createRenderer(canvas) {
     projectiles: new Map(),
     companions: new Map(),
     loot: new Map(),
+    interactables: new Map(),
     portals: new Map()
   };
   const shake = { power: 0, time: 0, seed: 0, seen: new Set() };
@@ -266,6 +267,39 @@ function drawLoot(ctx, item, cam) {
   drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
 }
 
+function interactableAccentColor(item) {
+  if (item?.accent === "red" || item?.category === "casino") return RED;
+  if (item?.accent === "white") return "#f3f3f3";
+  return GREEN;
+}
+
+function drawInteractable(ctx, item, cam) {
+  const s = screen(item, cam);
+  const r = item.radius || 18;
+  const active = !item.opened && item.active !== false;
+  const color = interactableAccentColor(item);
+  ctx.strokeStyle = active ? color : "rgba(255,255,255,0.42)";
+  ctx.lineWidth = active ? 2 : 1;
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+  ctx.strokeRect(Math.round(s.x - r * 0.58), Math.round(s.y - r * 0.58), Math.round(r * 1.16), Math.round(r * 1.16));
+  if (item.category === "casino") {
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x - r), Math.round(s.y));
+    ctx.lineTo(Math.round(s.x + r), Math.round(s.y));
+    ctx.moveTo(Math.round(s.x), Math.round(s.y - r));
+    ctx.lineTo(Math.round(s.x), Math.round(s.y + r));
+    ctx.stroke();
+  }
+  if (active) {
+    drawRect(ctx, s.x - 3, s.y - 3, 6, 6, color);
+    drawText(ctx, String(item.label || item.kind || "CACHE").slice(0, 6), s.x, s.y - r - 7, color, "center");
+    drawText(ctx, item.autoOpen ? "TOUCH" : "E", s.x, s.y + r + 14, color, "center");
+    if (item.category === "casino") drawText(ctx, "GAMBLE", s.x, s.y + r + 28, color, "center");
+  } else {
+    drawText(ctx, "OPEN", s.x, s.y - r - 7, "#777", "center");
+  }
+}
+
 
 const SHAKE_RENDER_MAX = 12;
 const SHAKE_DECAY = 10.5;
@@ -373,6 +407,14 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     if (isVisible(item, renderCam, 60)) drawLoot(ctx, item, renderCam);
   }
   prune(smooth.loot, lootIds);
+
+  const interactableIds = new Set();
+  for (const raw of snapshot.interactables || []) {
+    interactableIds.add(raw.id);
+    const item = smoothEntity(smooth.interactables, raw, renderDt);
+    if (isVisible(item, renderCam, 80)) drawInteractable(ctx, item, renderCam);
+  }
+  prune(smooth.interactables, interactableIds);
 
   const portalIds = new Set();
   for (const raw of snapshot.portals || []) {

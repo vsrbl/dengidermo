@@ -224,6 +224,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   armorHit: drawArmorPulse,
   armorBreak: drawArmorPulse,
   armorLinkBlock: drawArmorPulse,
+  interactableOpen: drawArmorPulse,
   armorRegen: drawArmorPulse,
   elitePulse: drawArmorPulse,
   bomberFuse: drawBomberFuse,

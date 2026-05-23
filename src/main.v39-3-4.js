@@ -7,12 +7,12 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-2-2.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-2-2.js";
-import { createSessionRuntime } from "./app/session.v39-2-2.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-2-2.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-2-2.js";
-import { createDevControls } from "./app/devControls.v39-2-2.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-4.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-4.js";
+import { createSessionRuntime } from "./app/session.v39-3-4.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-4.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-4.js";
+import { createDevControls } from "./app/devControls.v39-3-4.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -60,6 +60,7 @@ function createAppState() {
     localLocationId: null,
     fireSeq: 0,
     abilitySeq: 0,
+    interactSeq: 0,
     lastInputSent: 0,
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
@@ -95,6 +96,7 @@ app.input = createInput(app.canvas, {
   onWeaponCycle: (dir) => clientRuntime.requestWeaponCycle(dir),
   onDevCommand: (command) => devControls.request(command),
   onAbility: (ability) => clientRuntime.requestAbility(ability),
+  onInteract: () => clientRuntime.requestInteract(),
   isGameActive: () => app.running
 });
 

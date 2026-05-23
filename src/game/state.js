@@ -17,6 +17,7 @@ import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./de
 import { directorSnapshot } from "./directorRead.js";
 import { nextId, resetEntityIds } from "./entityIds.js";
 import { pushEvent } from "./events.js";
+import { interactableSnapshot, spawnLocationInteractables } from "./interactables.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -51,6 +52,7 @@ export function createGameState(roomId, options = {}) {
     projectiles: {},
     companions: {},
     loot: {},
+    interactables: {},
     portals: {},
     effects: [],
     events: [],
@@ -61,6 +63,7 @@ export function createGameState(roomId, options = {}) {
     roomModifierRuntime: null
   };
   enterRoomModifierRuntime(state, location, { reason: "create", runDepth: roomPlan.runDepth });
+  spawnLocationInteractables(state, location);
   installDevMode(state, options.dev);
   state.portalReadyAt = devPortalDelay(state, location.portalDelay);
   state.portalHold = devPortalHold(state, location.portalHold);
@@ -160,6 +163,8 @@ export function makeSnapshot(state) {
       layoutVersion: geometry.layoutVersion,
       geometryHash: geometry.geometryHash,
       modifiers: roomModifierSnapshots(location),
+      modifierStack: plan?.modifierStack || location.modifierStack || null,
+      interactablePlan: [...(plan?.interactablePlan || location.interactablePlan || [])],
       time: Number((state.locationTime || 0).toFixed(2)),
       accent: location.accent || "green",
       biomeId: location.biomeId || state.biomeId || "grid",
@@ -214,6 +219,7 @@ export function makeSnapshot(state) {
       x: Math.round(l.x),
       y: Math.round(l.y)
     })),
+    interactables: Object.values(state.interactables || {}).map((item) => interactableSnapshot(item)),
     portals: Object.values(state.portals || {}).map((p) => ({
       id: p.id,
       kind: p.kind,

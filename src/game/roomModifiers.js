@@ -1,31 +1,8 @@
+import { ROOM_MODIFIER_COMMAND_TYPES, ROOM_MODIFIER_HOOKS } from "../data/modifierDomains.js";
 import { getRoomModifier, modifierSnapshot, resolveRoomModifiers } from "../data/roomModifiers.js";
 import { pushEvent } from "./events.js";
 
-export const ROOM_MODIFIER_HOOKS = Object.freeze({
-  ROOM_ENTER: "room:enter",
-  ROOM_EXIT: "room:exit",
-  DIRECTOR_BUDGET: "director:budget",
-  DIRECTOR_SPAWN: "director:spawn",
-  DIRECTOR_CAP: "director:cap",
-  ENEMY_SPAWN: "enemy:spawn",
-  ENEMY_UPDATE: "enemy:update",
-  PROJECTILE_UPDATE: "projectile:update",
-  PROJECTILE_WALL: "projectile:wall",
-  PROJECTILE_DAMAGE: "projectile:damage",
-  PLAYER_DAMAGE: "player:damage",
-  PLAYER_HEAL: "player:heal",
-  LOOT_ROLL: "loot:roll",
-  PORTAL_OPEN: "portal:open",
-  RENDER_BACKGROUND: "render:background"
-});
-
-export const ROOM_MODIFIER_COMMAND_TYPES = Object.freeze({
-  ADD: "add",
-  SCALE: "scale",
-  SET: "set",
-  TAG: "tag",
-  EMIT_EVENT: "emitEvent"
-});
+export { ROOM_MODIFIER_COMMAND_TYPES, ROOM_MODIFIER_HOOKS } from "../data/modifierDomains.js";
 
 const HOOK_FIELD_RULES = Object.freeze({
   [ROOM_MODIFIER_HOOKS.DIRECTOR_BUDGET]: Object.freeze({ budget: "number", totalBudget: "number" }),
@@ -134,6 +111,34 @@ function normalizeCommand(command, modifierId) {
   return { ...command, modifierId };
 }
 
+function commandStringList(value = []) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item) : [];
+}
+
+function contextTagSet(ctx = {}) {
+  return new Set(commandStringList(ctx.tags));
+}
+
+function commandMatchesContext(ctx, command) {
+  const tags = contextTagSet(ctx);
+  const requiredTags = commandStringList(command.requiresTags);
+  if (requiredTags.length && !requiredTags.every((tag) => tags.has(tag))) return false;
+
+  const requiredAnyTags = commandStringList(command.requiresAnyTag);
+  if (requiredAnyTags.length && !requiredAnyTags.some((tag) => tags.has(tag))) return false;
+
+  const excludedTags = commandStringList(command.excludesTags);
+  if (excludedTags.length && excludedTags.some((tag) => tags.has(tag))) return false;
+
+  const requiredFields = commandStringList(command.requiresFields || (command.requiresField ? [command.requiresField] : []));
+  if (requiredFields.length && !requiredFields.every((field) => ctx[field] !== undefined && ctx[field] !== null)) return false;
+
+  const excludedFields = commandStringList(command.excludesFields || (command.excludesField ? [command.excludesField] : []));
+  if (excludedFields.length && excludedFields.some((field) => ctx[field] !== undefined && ctx[field] !== null)) return false;
+
+  return true;
+}
+
 function executeFieldCommand(ctx, command, hookName) {
   const field = command.field;
   const rules = fieldRulesFor(hookName);
@@ -184,6 +189,7 @@ function executeEmitEventCommand(state, command, ctx) {
 export function executeRoomModifierCommand(state, hookName, ctx, rawCommand, modifierId = null) {
   const command = normalizeCommand(rawCommand, modifierId);
   if (!command || !KNOWN_HOOKS.has(hookName)) return { rejected: true, reason: "bad-command" };
+  if (!commandMatchesContext(ctx, command)) return { skipped: true, reason: "context" };
 
   if (
     command.type === ROOM_MODIFIER_COMMAND_TYPES.ADD

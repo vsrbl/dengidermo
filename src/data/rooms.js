@@ -10,7 +10,10 @@ export const ROOM_SEQUENCE = [
     encounter: "grid_intro_pressure",
     objective: "clear",
     spawnZones: ["edge_far", "edge_random"],
-    portal: { delay: 5, hold: 1.1 }
+    portal: { delay: 5, hold: 1.1 },
+    interactableRules: [
+      { id: "field_cache_grid", interactableId: "field_cache", minLoop: 1, chance: 0.28, placement: "field_cache", tags: ["exploration"] }
+    ]
   },
   {
     id: "void-01",
@@ -24,7 +27,10 @@ export const ROOM_SEQUENCE = [
     objective: "survive",
     spawnZones: ["edge_far", "edge_flank", "corner_random"],
     portal: { delay: 7, hold: 1.15 },
-    spawn: { boost: 1.04 }
+    spawn: { boost: 1.04 },
+    interactableRules: [
+      { id: "field_cache_void", interactableId: "field_cache", minLoop: 1, chance: 0.24, placement: "field_cache", tags: ["exploration"] }
+    ]
   },
   {
     id: "core-02",
@@ -38,7 +44,10 @@ export const ROOM_SEQUENCE = [
     objective: "clear",
     spawnZones: ["edge_flank", "corner_random", "edge_far"],
     portal: { delay: 8, hold: 1.2 },
-    enemyPool: ["runner", "tank", "shooter"]
+    enemyPool: ["runner", "tank", "shooter"],
+    interactableRules: [
+      { id: "field_cache_core", interactableId: "field_cache", minLoop: 1, chance: 0.22, placement: "field_cache", tags: ["exploration"] }
+    ]
   },
   {
     id: "boss-03",
@@ -72,6 +81,50 @@ export const RARE_ROOMS = [
     portal: { delay: 1.2, hold: 0.85 },
     enemyPool: [],
     lootPool: ["heal"],
+    interactables: [
+      { id: "reward_cache_main", interactableId: "reward_cache", placement: "reward_center", tags: ["rare", "reward"] }
+    ],
+    spawn: {
+      capBase: 0,
+      capPerPlayer: 0,
+      capGrowthTime: 999,
+      capGrowthMax: 0,
+      batchBase: 0,
+      batchGrowthTime: 999,
+      intervalBase: 99,
+      intervalMin: 99,
+      intervalScale: 0
+    },
+    director: {
+      budgetBase: 0,
+      budgetPerPlayer: 0,
+      budgetPerRoom: 0,
+      minPressureBudget: 0,
+      spawnStartDelay: 99,
+      cleanupEnemyBase: 0,
+      cleanupEnemyPerPlayer: 0,
+      cleanupCapMult: 0,
+      portalCapMult: 0
+    }
+  },
+
+  {
+    id: "casino-floor-00",
+    name: "CASINO FLOOR 00",
+    category: "reward",
+    tags: ["rare", "reward", "casino", "activity", "no-combat"],
+    layout: "open_arena",
+    modifiers: ["casino_floor"],
+    biome: "grid",
+    encounter: "reward_cache",
+    objective: "clear",
+    spawnZones: [],
+    portal: { delay: 1.4, hold: 0.85 },
+    enemyPool: [],
+    lootPool: ["heal", "seeker", "rocket", "shotgun"],
+    interactables: [
+      { id: "casino_slot_main", interactableId: "casino_slot", placement: "casino_center", tags: ["casino", "gamble", "reward"] }
+    ],
     spawn: {
       capBase: 0,
       capPerPlayer: 0,

@@ -1,91 +1,34 @@
+import { MODIFIER_DOMAINS } from "./modifierDomains.js";
+import {
+  RULE_MODIFIER_IDS,
+  RULE_MODIFIERS_BY_DOMAIN,
+  getRuleModifierInDomain,
+  resolveRuleModifiers,
+  ruleModifierSnapshot
+} from "./ruleModifiers.js";
+
 export const ROOM_MODIFIER_IDS = Object.freeze({
-  GRID_STATIC: "grid_static",
-  VOID_DRIFT: "void_drift",
-  CORE_PRESSURE: "core_pressure",
-  BOSS_LOCK: "boss_lock",
-  REWARD_CACHE: "reward_cache",
-  STATIC_FIELD: "static_field"
+  GRID_STATIC: RULE_MODIFIER_IDS.GRID_STATIC,
+  VOID_DRIFT: RULE_MODIFIER_IDS.VOID_DRIFT,
+  CORE_PRESSURE: RULE_MODIFIER_IDS.CORE_PRESSURE,
+  BOSS_LOCK: RULE_MODIFIER_IDS.BOSS_LOCK,
+  REWARD_CACHE: RULE_MODIFIER_IDS.REWARD_CACHE,
+  STATIC_FIELD: RULE_MODIFIER_IDS.STATIC_FIELD,
+  LIVE_CHAT_HATES_YOU: RULE_MODIFIER_IDS.LIVE_CHAT_HATES_YOU,
+  ALGORITHM_BOOST: RULE_MODIFIER_IDS.ALGORITHM_BOOST,
+  STATIC_GOD: RULE_MODIFIER_IDS.STATIC_GOD
 });
 
-export const ROOM_MODIFIERS = Object.freeze({
-  [ROOM_MODIFIER_IDS.GRID_STATIC]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.GRID_STATIC,
-    name: "GRID STATIC",
-    description: "baseline signal noise",
-    category: "identity",
-    tags: Object.freeze(["grid", "identity"]),
-    hooks: Object.freeze({})
-  }),
-  [ROOM_MODIFIER_IDS.VOID_DRIFT]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.VOID_DRIFT,
-    name: "VOID DRIFT",
-    description: "void room identity contract",
-    category: "identity",
-    tags: Object.freeze(["void", "identity"]),
-    hooks: Object.freeze({})
-  }),
-  [ROOM_MODIFIER_IDS.CORE_PRESSURE]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.CORE_PRESSURE,
-    name: "CORE PRESSURE",
-    description: "core room identity contract",
-    category: "identity",
-    tags: Object.freeze(["core", "identity"]),
-    hooks: Object.freeze({})
-  }),
-  [ROOM_MODIFIER_IDS.BOSS_LOCK]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.BOSS_LOCK,
-    name: "BOSS LOCK",
-    description: "boss objective identity contract",
-    category: "identity",
-    tags: Object.freeze(["boss", "identity"]),
-    hooks: Object.freeze({})
-  }),
-  [ROOM_MODIFIER_IDS.REWARD_CACHE]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.REWARD_CACHE,
-    name: "REWARD CACHE",
-    description: "rare reward room identity contract",
-    category: "identity",
-    tags: Object.freeze(["rare", "reward", "identity"]),
-    hooks: Object.freeze({})
-  }),
-  [ROOM_MODIFIER_IDS.STATIC_FIELD]: Object.freeze({
-    id: ROOM_MODIFIER_IDS.STATIC_FIELD,
-    name: "STATIC FIELD",
-    description: "cursed event field: enemies move faster, healing is reduced, background signal shifts",
-    category: "cursed",
-    tags: Object.freeze(["rare", "event", "cursed", "static"]),
-    hooks: Object.freeze({
-      "room:enter": Object.freeze([
-        Object.freeze({ type: "emitEvent", event: Object.freeze({ type: "room_modifier", text: "STATIC FIELD ONLINE" }) })
-      ]),
-      "enemy:update": Object.freeze([
-        Object.freeze({ type: "scale", field: "speedMult", factor: 1.1, max: 1.6 })
-      ]),
-      "player:heal": Object.freeze([
-        Object.freeze({ type: "scale", field: "amount", factor: 0.55, min: 0 })
-      ]),
-      "render:background": Object.freeze([
-        Object.freeze({ type: "set", field: "accent", value: "white" }),
-        Object.freeze({ type: "set", field: "gridStep", value: 52 })
-      ])
-    })
-  })
-});
+export const ROOM_MODIFIERS = RULE_MODIFIERS_BY_DOMAIN[MODIFIER_DOMAINS.ROOM];
 
 export function getRoomModifier(modifierId) {
-  return ROOM_MODIFIERS[modifierId] || null;
+  return getRuleModifierInDomain(modifierId, MODIFIER_DOMAINS.ROOM);
 }
 
 export function resolveRoomModifiers(modifierIds = []) {
-  return [...new Set(modifierIds)].map(getRoomModifier).filter(Boolean);
+  return resolveRuleModifiers(modifierIds, MODIFIER_DOMAINS.ROOM);
 }
 
 export function modifierSnapshot(modifier) {
-  return {
-    id: modifier.id,
-    name: modifier.name,
-    description: modifier.description,
-    category: modifier.category,
-    tags: [...(modifier.tags || [])]
-  };
+  return ruleModifierSnapshot(modifier);
 }

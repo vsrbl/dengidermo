@@ -20,6 +20,11 @@ assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.split('-')
 assert.ok(ui.includes('setMenuStatus'), 'UI must expose setMenuStatus');
 assert.ok(ui.includes('SERVER OK') || ui.includes('release'), 'UI/status layer must render release/server status');
 assert.ok(input.includes('event.code') || input.includes('.code'), 'movement input must use keyboard codes, not layout-dependent characters');
+assert.ok(input.includes('e.code === "KeyE"') && input.includes('onInteract'), 'E must be reserved for explicit interact requests');
+assert.ok(input.includes('e.code === "KeyQ"') && input.includes('future active item'), 'Q must be reserved for a future active item/ability slot');
+assert.ok(!/KeyQ[\s\S]{0,160}onWeaponCycle|onWeaponCycle[\s\S]{0,160}KeyQ/.test(input), 'Q must not cycle weapons');
+assert.ok(!/KeyE[\s\S]{0,160}onWeaponCycle|onWeaponCycle[\s\S]{0,160}KeyE/.test(input), 'E must not cycle weapons');
+assert.ok(input.includes('addEventListener("wheel"') && input.includes('onWeaponCycle'), 'mouse wheel should remain the quick weapon-cycle control');
 assert.ok(style.includes('.boot-error'), 'boot error must be styled visibly');
 assert.ok(style.includes('.menu-status'), 'menu status must be styled visibly');
 

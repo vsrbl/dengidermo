@@ -192,7 +192,8 @@ export function totalBudgetFor(state, loc, cfg) {
     totalBudget: loopBudget,
     baseBudget: base,
     location: loc,
-    loopProfileId: cfg.loopProfileId || null
+    loopProfileId: cfg.loopProfileId || null,
+    tags: ["director", "budget"]
   }, { location: loc });
   return Math.max(minimum, Math.round(ctx.budget));
 }
@@ -241,7 +242,8 @@ export function computeCap(state, loc, director, stage, intensity, cfg, threat =
     enemyCap: capped,
     phase: stage?.phase || null,
     intensity,
-    location: loc
+    location: loc,
+    tags: ["director", "cap"]
   }, { location: loc });
   return Math.max(0, Math.round(ctx.enemyCap));
 }

@@ -105,9 +105,15 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
     maxLoop: 1,
     features: Object.freeze([
       LOOP_ESCALATION_FEATURES.ENEMY_POOL_BIAS,
+      LOOP_ESCALATION_FEATURES.MODIFIER_STACKING,
       LOOP_ESCALATION_FEATURES.DIRECTOR_PRESSURE
     ]),
-    reservedFor: "first real loop escalation tuning; still behavior-neutral in v39.2.2"
+    modifiers: Object.freeze({
+      stackChance: 0.08,
+      maxExtraModifiers: 1,
+      modifierIds: Object.freeze(["algorithm_boost"])
+    }),
+    reservedFor: "first cautious room modifier stack vertical slice; low chance, reward-risk only from v39.3.x"
   }),
 
   loopProfile({
@@ -130,7 +136,12 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
       variantChance: 0.04,
       variantIds: Object.freeze(["linked"])
     }),
-    reservedFor: "first elite + linked armor vertical slices; low chances start at loop 2 in v39.2.2"
+    modifiers: Object.freeze({
+      stackChance: 0.14,
+      maxExtraModifiers: 4,
+      modifierIds: Object.freeze(["live_chat_hates_you", "algorithm_boost", "static_god"])
+    }),
+    reservedFor: "first elite + linked armor slices plus cautious room modifier stack vertical slice from v39.3.x"
   }),
 
   loopProfile({

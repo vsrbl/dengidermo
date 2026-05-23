@@ -5,6 +5,7 @@ import { emptyInput, updateHostWorld } from "../game/simulation.js";
 import { cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "../game/inventory.js";
 import { chooseUpgrade } from "../game/upgrades.js";
 import { performDash } from "../game/abilities.js";
+import { requestInteractableActivation } from "../game/interactables.js";
 
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
@@ -63,6 +64,11 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     return !!result.ok;
   }
 
+  function applyInteractRequest(id, request = {}) {
+    if (!app.hostState) return false;
+    return requestInteractableActivation(app.hostState, id, request);
+  }
+
   function handleNetData(msg, from) {
     if (msg.t === "leave" && from) {
       session.dropRemotePlayer(from);
@@ -90,6 +96,10 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     }
     if (msg.t === "ability" && from) {
       applyAbilityRequest(from, msg);
+      return true;
+    }
+    if (msg.t === "interact" && from) {
+      applyInteractRequest(from, msg);
       return true;
     }
     return false;
@@ -132,6 +142,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     applyWeaponRequest,
     applyUpgradeRequest,
     applyAbilityRequest,
+    applyInteractRequest,
     handleNetData,
     update
   };

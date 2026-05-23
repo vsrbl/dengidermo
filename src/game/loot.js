@@ -7,6 +7,25 @@ import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { giveWeapon } from "./inventory.js";
 
+export function spawnLoot(state, kind, x, y, options = {}) {
+  const data = LOOT[kind];
+  if (!state || !data) return null;
+  if (!state.loot) state.loot = {};
+  const jitter = Number.isFinite(options.jitter) ? Math.max(0, options.jitter) : 0;
+  const id = nextId("loot");
+  const item = {
+    id,
+    kind,
+    x: clamp(x + (jitter ? state.rng.range(-jitter, jitter) : 0), 20, WORLD.w - 20),
+    y: clamp(y + (jitter ? state.rng.range(-jitter, jitter) : 0), 20, WORLD.h - 20),
+    radius: data.radius,
+    sourceType: options.sourceType || null,
+    sourceId: options.sourceId || null
+  };
+  state.loot[id] = item;
+  return item;
+}
+
 export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {
   const source = sourcePlayerId ? state.players?.[sourcePlayerId] : null;
   // ARCHITECTURE GUARD: loot economy modifiers must flow through LOOT_ROLL.
@@ -16,15 +35,7 @@ export function dropLoot(state, x, y, chance = 0.28, sourcePlayerId = null) {
 
   const loc = getPlannedLocationForState(state);
   const kind = weightedLoot(state.rng, loc.lootPool);
-  const data = LOOT[kind];
-  const id = nextId("loot");
-  state.loot[id] = {
-    id,
-    kind,
-    x: clamp(x + state.rng.range(-18, 18), 20, WORLD.w - 20),
-    y: clamp(y + state.rng.range(-18, 18), 20, WORLD.h - 20),
-    radius: data.radius
-  };
+  return spawnLoot(state, kind, x, y, { jitter: 18, sourceType: "enemy", sourceId: sourcePlayerId });
 }
 
 export function updateLoot(state, dt = 0.016) {

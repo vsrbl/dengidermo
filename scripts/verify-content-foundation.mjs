@@ -12,29 +12,44 @@ import { beginRoomTransition, currentLocation } from '../src/game/roomFlow.js';
 import { canOpenPortal, readDirectorEvaluation } from '../src/game/director.js';
 import { roomGeometrySnapshotForState, roomLayoutMirrorMatchesState } from '../src/game/roomGeometry.js';
 import { resolveSpawnPoint } from '../src/game/spawnZones.js';
+import { requestInteractableActivation, updateInteractables } from '../src/game/interactables.js';
+import { INTERACTABLES } from '../src/data/interactables.js';
+import { REWARD_TABLES } from '../src/data/rewardTables.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 assert.equal(ROOM_SEQUENCE.length, 4, 'normal cadence must keep four base rooms');
 assert.deepEqual(ROOM_SEQUENCE.map((room) => room.id), ['grid-00', 'void-01', 'core-02', 'boss-03'], 'normal cadence must stay grid -> void -> core -> boss');
-assert.deepEqual(RARE_ROOMS.map((room) => room.id), ['reward-cache-00', 'static-field-00'], 'controlled v39 rare rooms must stay explicit and small');
+assert.deepEqual(RARE_ROOMS.map((room) => room.id), ['reward-cache-00', 'casino-floor-00', 'static-field-00'], 'controlled v39 rare rooms must stay explicit and small');
 assert.equal(RARE_ROOMS.find((room) => room.id === 'reward-cache-00')?.category, 'reward', 'reward cache must remain a reward room');
+assert.equal(RARE_ROOMS.find((room) => room.id === 'reward-cache-00')?.interactables?.[0]?.interactableId, 'reward_cache', 'reward cache room must expose a data-driven chest');
+assert.equal(RARE_ROOMS.find((room) => room.id === 'casino-floor-00')?.category, 'reward', 'casino floor must remain a reward activity room, not a base cadence room');
+assert.equal(RARE_ROOMS.find((room) => room.id === 'casino-floor-00')?.interactables?.[0]?.interactableId, 'casino_slot', 'casino floor must expose a data-driven SIGNAL SLOT activity');
 assert.equal(RARE_ROOMS.find((room) => room.id === 'static-field-00')?.category, 'cursed', 'static field must be the first cursed/event room');
 assert.equal(ALL_ROOMS.length, ROOM_SEQUENCE.length + RARE_ROOMS.length, 'all room registry must include base and rare rooms');
+assert.ok(INTERACTABLES.field_cache, 'field cache interactable must exist for exploration foundation');
+assert.ok(INTERACTABLES.reward_cache, 'reward cache interactable must exist for reward rooms');
+assert.ok(INTERACTABLES.casino_slot, 'casino slot interactable must exist for reward activity rooms');
+assert.ok(REWARD_TABLES.field_cache, 'field cache reward table must exist');
+assert.ok(REWARD_TABLES.reward_cache, 'reward cache reward table must exist');
+assert.ok(REWARD_TABLES.casino_slot, 'casino slot reward table must exist');
 
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'grid-00')?.layout, 'open_arena', 'starter room must stay open_arena');
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'void-01')?.layout, 'open_arena', 'survive room must stay open_arena');
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'core-02')?.layout, 'twin_pillars', 'core-02 is the controlled wall-layout entry point');
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'boss-03')?.layout, 'open_arena', 'boss room must not inherit wall-layout test');
 assert.equal(RARE_ROOMS.find((room) => room.id === 'reward-cache-00')?.layout, 'open_arena', 'first reward room should remain simple and wall-free');
+assert.equal(RARE_ROOMS.find((room) => room.id === 'casino-floor-00')?.layout, 'open_arena', 'first casino reward activity should isolate interactable behavior from wall-layout behavior');
 assert.equal(RARE_ROOMS.find((room) => room.id === 'static-field-00')?.layout, 'open_arena', 'first cursed event should isolate modifier behavior from wall-layout behavior');
 
-assert.deepEqual(RARE_ROOM_RULES.map((rule) => rule.id), ['first_loop_reward_cache', 'first_loop_static_field'], 'rare room rules should stay small and explicit');
+assert.deepEqual(RARE_ROOM_RULES.map((rule) => rule.id), ['first_loop_reward_cache', 'first_loop_static_field', 'second_loop_casino_floor'], 'rare room rules should stay small and explicit');
 assert.deepEqual(RARE_ROOM_RULES.find((rule) => rule.id === 'first_loop_reward_cache')?.when, { loopIndex: 1, roomInLoop: 0 }, 'reward cache should replace the first room after the first boss only');
 assert.equal(RARE_ROOM_RULES.find((rule) => rule.id === 'first_loop_reward_cache')?.resolvedRoomId, 'reward-cache-00', 'reward rule must resolve through data');
 assert.deepEqual(RARE_ROOM_RULES.find((rule) => rule.id === 'first_loop_static_field')?.when, { loopIndex: 1, roomInLoop: 2 }, 'static field should replace the first-loop core slot only');
 assert.equal(RARE_ROOM_RULES.find((rule) => rule.id === 'first_loop_static_field')?.resolvedRoomId, 'static-field-00', 'static field rule must resolve through data');
+assert.deepEqual(RARE_ROOM_RULES.find((rule) => rule.id === 'second_loop_casino_floor')?.when, { loopIndex: 2, roomInLoop: 0 }, 'casino floor should replace the second-loop grid slot only');
+assert.equal(RARE_ROOM_RULES.find((rule) => rule.id === 'second_loop_casino_floor')?.resolvedRoomId, 'casino-floor-00', 'casino rule must resolve through data');
 
 assert.equal((ROOM_LAYOUTS.open_arena.walls || []).length, 0, 'open_arena must remain wall-free fallback baseline');
 assert.equal((ROOM_LAYOUTS.open_arena.spawnAnchors || []).length, 0, 'open_arena must keep fallback spawn path');
@@ -57,6 +72,7 @@ const baseIds = [];
 const ruleIds = [];
 const categories = [];
 const layouts = [];
+const interactableCounts = [];
 for (let depth = 0; depth < 10; depth += 1) {
   const plan = resolveRoomPlan(depth);
   const loc = getLocationFromRoomPlan(plan);
@@ -65,16 +81,20 @@ for (let depth = 0; depth < 10; depth += 1) {
   ruleIds.push(plan.ruleId);
   categories.push(loc.category);
   layouts.push(loc.layoutId);
+  interactableCounts.push(loc.interactablePlan.length);
 }
-assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'reward-cache-00', 'void-01', 'static-field-00', 'boss-03', 'grid-00', 'void-01']);
+assert.deepEqual(ids, ['grid-00', 'void-01', 'core-02', 'boss-03', 'reward-cache-00', 'void-01', 'static-field-00', 'boss-03', 'casino-floor-00', 'void-01']);
 assert.deepEqual(baseIds, ['grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01', 'core-02', 'boss-03', 'grid-00', 'void-01'], 'rare room must preserve base room identity');
-assert.deepEqual(ruleIds, [null, null, null, null, 'first_loop_reward_cache', null, 'first_loop_static_field', null, null, null], 'rare room rules should be one-shot in first loop');
+assert.deepEqual(ruleIds, [null, null, null, null, 'first_loop_reward_cache', null, 'first_loop_static_field', null, 'second_loop_casino_floor', null], 'rare room rules should stay explicit rare replacements outside base sequence');
 assert.equal(categories[4], 'reward', 'rare reward room must expose reward category');
 assert.equal(categories[6], 'cursed', 'static field room must expose cursed category');
+assert.equal(categories[8], 'reward', 'casino floor room must expose reward category');
 assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena', 'open_arena'], 'rare replacement layout activation must be roomPlan/data driven');
+assert.equal(interactableCounts[4], 1, 'reward-cache rare room should contain one guaranteed interactable');
+assert.equal(interactableCounts[8], 1, 'casino floor rare room should contain one guaranteed activity interactable');
 
 const state = createGameState('V39-CONTENT-FOUNDATION');
-addPlayer(state, 'p1', 0);
+const player = addPlayer(state, 'p1', 0);
 assert.equal(currentLocation(state).layoutId, 'open_arena');
 beginRoomTransition(state, 'verify-v39-foundation', { offerUpgrades: false });
 assert.equal(currentLocation(state).id, 'void-01');
@@ -105,6 +125,8 @@ assert.equal(state.roomPlan.rare, true);
 assert.equal(state.roomPlan.category, 'reward');
 assert.equal(state.roomPlan.layoutId, 'open_arena');
 assert.deepEqual(state.roomModifierIds, ['reward_cache']);
+assert.equal(state.roomPlan.interactablePlan.length, 1, 'reward room plan should carry one interactable slot');
+assert.equal(Object.keys(state.interactables).length, 1, 'reward room should spawn one interactable from the room plan');
 assert.equal(Object.keys(state.enemies).length, 0, 'reward room starts with no enemies');
 let evaluation = readDirectorEvaluation(state);
 assert.equal(evaluation.encounterId, 'reward_cache');
@@ -122,6 +144,17 @@ assert.equal(snap.location.ruleId, 'first_loop_reward_cache');
 assert.equal(snap.location.category, 'reward');
 assert.equal(snap.location.layoutId, 'open_arena');
 assert.equal(snap.location.modifiers[0]?.id, 'reward_cache');
+assert.equal(snap.location.interactablePlan.length, 1, 'snapshot location should expose interactable plan metadata');
+assert.equal(snap.interactables.length, 1, 'snapshot should expose live interactables');
+const rewardChest = Object.values(state.interactables)[0];
+assert.equal(rewardChest.autoOpen, false, 'reward chest should require deliberate interaction');
+updateInteractables(state, 0.016);
+assert.equal(rewardChest.opened, false, 'reward chest must not auto-open on room entry');
+player.x = rewardChest.x;
+player.y = rewardChest.y;
+assert.equal(requestInteractableActivation(state, player.id, { targetId: rewardChest.id }), true, 'E-style host interaction should open reward chest');
+assert.equal(rewardChest.opened, true, 'reward chest should open through host-owned interactable request');
+assert.ok(Object.keys(state.loot).length >= 1, 'reward chest should spawn loot through reward table');
 
 beginRoomTransition(state, 'verify-v39-foundation', { offerUpgrades: false });
 assert.equal(currentLocation(state).id, 'void-01');
@@ -131,18 +164,24 @@ assert.equal(state.roomPlan.baseRoomId, 'core-02');
 assert.equal(state.roomPlan.resolvedRoomId, 'static-field-00');
 assert.equal(state.roomPlan.ruleId, 'first_loop_static_field');
 assert.equal(state.roomPlan.category, 'cursed');
-assert.deepEqual(state.roomModifierIds, ['static_field']);
+assert.ok(state.roomModifierIds.includes('static_field'), 'static-field rare room must keep its base static_field modifier');
+assert.ok(state.roomModifierIds.length <= 2, 'loop 1 stack should stay cautious: base modifier plus at most one extra modifier');
 assert.equal(currentLocation(state).encounterId, 'static_field_event');
 
+const verticalSliceModifiers = new Set(['static_field', 'live_chat_hates_you', 'algorithm_boost', 'static_god', 'casino_floor']);
 for (const [id, modifier] of Object.entries(ROOM_MODIFIERS)) {
-  if (id === 'static_field') {
-    assert.equal(modifier.category, 'cursed', 'static_field is the first real room modifier');
-    assert.deepEqual(Object.keys(modifier.hooks || {}).sort(), ['enemy:update', 'player:heal', 'render:background', 'room:enter'].sort(), 'static_field must use the runtime hook contract');
+  if (verticalSliceModifiers.has(id)) {
+    assert.ok(Object.keys(modifier.hooks || {}).length > 0, `${id} must use the runtime hook contract`);
     continue;
   }
   assert.equal(modifier.category, 'identity', `baseline room modifier must remain identity-only: ${id}`);
   assert.deepEqual(Object.keys(modifier.hooks || {}), [], `baseline room modifier hooks must stay empty: ${id}`);
 }
+assert.equal(ROOM_MODIFIERS.static_field.category, 'cursed', 'static_field remains the cursed rare-room modifier');
+assert.equal(ROOM_MODIFIERS.live_chat_hates_you.category, 'pressure', 'live_chat_hates_you should be the pressure stack modifier');
+assert.equal(ROOM_MODIFIERS.algorithm_boost.category, 'reward-risk', 'algorithm_boost should be the reward-risk stack modifier');
+assert.equal(ROOM_MODIFIERS.static_god.category, 'projectile-rule', 'static_god should be the projectile-rule stack modifier');
+assert.equal(ROOM_MODIFIERS.casino_floor.category, 'reward-activity', 'casino_floor should be the casino/reward activity identity modifier');
 
 const constants = read('src/core/constants.js');
 assert.ok(!/export\s+const\s+START_WEAPON\b/.test(constants), 'START_WEAPON must not return to constants');
@@ -155,4 +194,4 @@ for (const file of gameplayFiles) {
   assert.ok(!/room\.id\s*===/.test(src), `game system must not special-case room ids: ${file}`);
 }
 
-console.log('v39 content foundation verification passed: twin_pillars, reward cache, and static field are data-driven through roomPlan');
+console.log('v39 content foundation verification passed: twin_pillars, reward cache, casino floor, static field, and interactables are data-driven through roomPlan');

@@ -105,7 +105,8 @@ function computeBatch(state, loc, stage, intensity, threat = {}) {
     canSpawn: true,
     phase: stage?.phase || null,
     intensity,
-    location: loc
+    location: loc,
+    tags: ["director", "spawn", "batch"]
   }, { location: loc });
   return ctx.canSpawn === false ? 0 : Math.max(0, Math.round(ctx.batch));
 }
@@ -132,7 +133,8 @@ function computeInterval(state, loc, stage, intensity, threat = {}) {
     canSpawn: true,
     phase: stage?.phase || null,
     intensity,
-    location: loc
+    location: loc,
+    tags: ["director", "spawn", "interval"]
   }, { location: loc });
   return Math.max(0.05, ctx.interval || rawInterval);
 }

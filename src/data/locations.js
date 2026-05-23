@@ -69,6 +69,8 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
     ? uniqueList(plan.modifierIds)
     : uniqueList([...(biome.modifiers || []), ...(room.modifiers || [])]);
   const modifiers = resolveRoomModifiers(modifierIds);
+  const modifierStack = plan?.modifierStack || null;
+  const interactablePlan = Array.isArray(plan?.interactablePlan) ? [...plan.interactablePlan] : [...(room.interactables || [])];
   const category = plan?.category || room.category || (boss?.enabled ? "boss" : "normal");
   const tags = uniqueList([...(biome.tags || []), ...(room.tags || []), category]);
 
@@ -93,7 +95,9 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
     layoutId,
     layout,
     modifierIds,
+    modifierStack,
     modifiers,
+    interactablePlan,
     enemyPool: room.enemyPool || biome.enemyPool || ["grunt"],
     lootPool: room.lootPool || biome.lootPool || ["heal"],
     encounterId,
@@ -119,6 +123,8 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
       category: plan.category,
       layoutId: plan.layoutId || layoutId,
       modifierIds: [...(plan.modifierIds || modifierIds)],
+      modifierStack: plan.modifierStack || null,
+      interactablePlan: [...(plan.interactablePlan || interactablePlan)],
       rare: !!plan.rare,
       ruleId: plan.ruleId,
       seed: plan.seed || null,

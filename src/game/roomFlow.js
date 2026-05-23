@@ -11,6 +11,7 @@ import { spawnPoint } from "./state.js";
 import { clearLocationRuntimeObjects } from "./runtimeReset.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
 import { enterRoomModifierRuntime, exitRoomModifierRuntime } from "./roomModifiers.js";
+import { spawnLocationInteractables } from "./interactables.js";
 
 export const PORTAL_RADIUS = 58;
 export const PORTAL_MARGIN = 12;
@@ -93,6 +94,7 @@ export function enterLocation(state, runDepth = 0, options = {}) {
   state.bossSpawned = false;
   resetDirectorState(state, loc);
   enterRoomModifierRuntime(state, loc, { reason: options.reason || "enter", runDepth: plan.runDepth });
+  spawnLocationInteractables(state, loc);
   if (options.createPortal !== false) createExitPortal(state);
   return loc;
 }
@@ -149,6 +151,8 @@ export function beginRoomTransition(state, reason = "portal", options = {}) {
     layoutVersion: geometry.layoutVersion,
     geometryHash: geometry.geometryHash,
     modifiers: [...(nextLoc.modifierIds || [])],
+    modifierStack: state.roomPlan?.modifierStack || nextLoc.modifierStack || null,
+    interactablePlan: [...(state.roomPlan?.interactablePlan || nextLoc.interactablePlan || [])],
     x: CENTER.x,
     y: CENTER.y
   });

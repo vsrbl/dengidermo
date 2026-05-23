@@ -14,7 +14,7 @@ function isEditableTarget(target) {
   return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
 }
 
-export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, onAbility, isGameActive = () => true } = {}) {
+export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, onAbility, onInteract, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
 
@@ -71,9 +71,15 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
       return;
     }
 
-    if (!e.repeat && (e.code === "KeyQ" || e.code === "KeyE")) {
+    if (!e.repeat && e.code === "KeyE") {
       e.preventDefault();
-      onWeaponCycle?.(e.code === "KeyQ" ? -1 : 1);
+      onInteract?.();
+      return;
+    }
+
+    if (!e.repeat && e.code === "KeyQ") {
+      // Reserved for future active item / active ability slot.
+      e.preventDefault();
       return;
     }
 
