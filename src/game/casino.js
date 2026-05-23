@@ -278,19 +278,9 @@ export function requestCasinoSpin(state, playerId, request = {}) {
     x: interactable.x,
     y: interactable.y,
     r: (interactable.radius || 28) + 22,
-    text: revealProfile.text,
     color: revealProfile.color,
     life: revealProfile.pulseLife,
     maxLife: revealProfile.pulseLife
-  });
-  pushVisualEffect(state, {
-    type: "damageText",
-    x: Math.round(interactable.x),
-    y: Math.round(interactable.y - (interactable.radius || 28) - 18),
-    text: result.match ? String(result.outcomeLabel || "PAYOUT").slice(0, 16) : "BUST",
-    color: revealProfile.color,
-    life: 0.72,
-    maxLife: 0.72
   });
   pushEvent(state, {
     type: "casino",

@@ -90,13 +90,16 @@ function drawBoss(ctx, s, r, _data, enemy) {
 }
 
 function drawCodeSquare(ctx, s, r, code, color = "#fff") {
+  drawText(ctx, code, s.x, s.y - r - 7, color, "center");
   hollowSquare(ctx, s, r, 3);
-  drawText(ctx, code, s.x, s.y + 4, color, "center");
 }
 
-function drawMirror(ctx, s, r) {
-  drawCodeSquare(ctx, s, r, "MRR");
-  strokeRect(ctx, s.x - r - 6, s.y - r - 6, r * 2, r * 2, "#777", 1);
+function drawEchoEnemy(ctx, s, r) {
+  drawText(ctx, "ECH", s.x, s.y - r - 7, "#b45cff", "center");
+  strokeRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#b45cff", 1);
+  strokeRect(ctx, s.x - r + 4, s.y - r + 4, r * 2 - 8, r * 2 - 8, "#050505", 1);
+  strokeRect(ctx, s.x - r - 7, s.y - r - 4, r * 2, r * 2, "#777", 1);
+  line(ctx, s.x - r - 8, s.y + r + 5, s.x + r + 4, s.y - r - 7, "#b45cff", 1);
 }
 
 function drawOrbiterEnemy(ctx, s, r) {
@@ -116,21 +119,33 @@ function drawAnchorEnemy(ctx, s, r) {
 
 function drawSplitter(ctx, s, r) {
   drawCodeSquare(ctx, s, r, "SPL");
+  line(ctx, s.x - r + 6, s.y - r + 6, s.x + r - 6, s.y + r - 6, "#fff", 1);
+  line(ctx, s.x - r + 8, s.y + r - 10, s.x, s.y, "#777", 1);
+}
+
+function drawSplitterMedium(ctx, s, r) {
+  drawCodeSquare(ctx, s, r, "SPL");
   line(ctx, s.x - r + 4, s.y - r + 4, s.x + r - 4, s.y + r - 4, "#fff", 1);
 }
 
-function drawMiniSplitter(ctx, s, r) {
+function drawSplitterSmall(ctx, s, r) {
+  drawText(ctx, "SPL", s.x, s.y - r - 6, "#fff", "center");
+  hollowSquare(ctx, s, r, 2);
+  line(ctx, s.x - r + 2, s.y, s.x + r - 2, s.y, "#fff", 1);
+}
+
+function drawSplitterTiny(ctx, s, r) {
   hollowSquare(ctx, s, r, 2);
   line(ctx, s.x - r + 2, s.y, s.x + r - 2, s.y, "#fff", 1);
 }
 
 function drawPrismEnemy(ctx, s, r) {
+  drawText(ctx, "PRS", s.x, s.y - r - 7, "#fff", "center");
   ctx.save();
   ctx.translate(Math.round(s.x), Math.round(s.y));
   ctx.rotate(Math.PI / 4);
   strokeRect(ctx, -r, -r, r * 2, r * 2, "#fff", 1);
   ctx.restore();
-  drawText(ctx, "PRS", s.x, s.y + 4, "#fff", "center");
 }
 
 function drawPulseEnemy(ctx, s, r) {
@@ -143,10 +158,11 @@ function drawLeechEnemy(ctx, s, r) {
   line(ctx, s.x - r, s.y + r, s.x + r, s.y - r, "#00ff66", 1);
 }
 
-function drawNullifierEnemy(ctx, s, r) {
+function drawGlitchEnemy(ctx, s, r) {
+  drawText(ctx, "GLT", s.x, s.y - r - 7, "#b45cff", "center");
   strokeRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#b45cff", 1);
-  strokeRect(ctx, s.x - r + 6, s.y - r + 6, r * 2 - 12, r * 2 - 12, "#fff", 1);
-  drawText(ctx, "NUL", s.x, s.y + 4, "#b45cff", "center");
+  strokeRect(ctx, s.x - r - 4, s.y - r + 3, r * 2, r * 2, "#777", 1);
+  line(ctx, s.x - r - 6, s.y, s.x + r + 6, s.y, "#b45cff", 1);
 }
 
 function drawBouncerEnemy(ctx, s, r) {
@@ -169,15 +185,17 @@ export const ENEMY_RENDERERS = Object.freeze({
   charger: drawCharger,
   bomber: drawBomber,
   boss: drawBoss,
-  mirror: drawMirror,
+  echo: drawEchoEnemy,
   orbiter: drawOrbiterEnemy,
   anchor: drawAnchorEnemy,
   splitter: drawSplitter,
-  mini_splitter: drawMiniSplitter,
+  splitter_medium: drawSplitterMedium,
+  splitter_small: drawSplitterSmall,
+  splitter_tiny: drawSplitterTiny,
   prism: drawPrismEnemy,
   pulse: drawPulseEnemy,
   leech: drawLeechEnemy,
-  nullifier: drawNullifierEnemy,
+  glitch: drawGlitchEnemy,
   bouncer: drawBouncerEnemy,
   herald: drawHeraldEnemy
 });

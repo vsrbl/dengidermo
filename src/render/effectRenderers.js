@@ -94,7 +94,7 @@ function drawAfterimage(ctx, fx, cam) {
   const t = life / maxLife;
   const r = 13;
   ctx.globalAlpha = Math.max(0.12, Math.min(0.46, t * 0.42));
-  ctx.strokeStyle = fx.skin === "green" ? GREEN : "#ffffff";
+  ctx.strokeStyle = fx.color || (fx.skin === "green" ? GREEN : (fx.skin === "purple" ? "#b45cff" : "#ffffff"));
   ctx.lineWidth = 1;
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
   const ax = Math.cos(fx.angle || 0);
@@ -205,22 +205,24 @@ function drawRewardRevealPulse(ctx, fx, cam) {
   const activeMax = Math.max(0.001, raw.maxLife - delay);
   const t = Math.max(0, Math.min(1, activeAge / activeMax));
   const s = screen(fx, cam);
-  const r = (fx.r || 36) * (0.62 + t * 0.9);
   const color = fx.color || GREEN;
+  const mode = String(fx.mode || "");
+  const highValue = mode === "rare" || mode === "cursed" || mode === "casino_jackpot" || mode === "casino_static";
+  const base = (fx.r || 36) * (0.55 + t * (highValue ? 1.25 : 0.9));
   ctx.save();
-  ctx.globalAlpha = Math.max(0.12, 1 - t * 0.78);
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1, Math.round(4 * (1 - t * 0.55)));
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-  if (fx.mode === "cursed" || fx.mode === "casino_static") {
-    const inner = Math.max(6, r * (0.38 + Math.sin(t * Math.PI * 3) * 0.05));
-    ctx.strokeRect(Math.round(s.x - inner), Math.round(s.y - inner), Math.round(inner * 2), Math.round(inner * 2));
-    drawText(ctx, String(fx.text || "CRS").slice(0, 14).toUpperCase(), s.x, s.y - r - 6, color, "center");
-  } else {
-    drawRect(ctx, s.x - 3, s.y - 3, 6, 6, color);
-    if (fx.text) drawText(ctx, String(fx.text).slice(0, 14).toUpperCase(), s.x, s.y - r - 6, color, "center");
+  ctx.lineWidth = highValue ? 3 : 2;
+  ctx.globalAlpha = Math.max(0.08, 0.62 - t * 0.5);
+  ctx.strokeRect(Math.round(s.x - base), Math.round(s.y - base), Math.round(base * 2), Math.round(base * 2));
+  const inner = Math.max(6, base * (0.42 + Math.sin(t * Math.PI * 2) * 0.04));
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = Math.max(0.06, 0.34 - t * 0.26);
+  ctx.strokeRect(Math.round(s.x - inner), Math.round(s.y - inner), Math.round(inner * 2), Math.round(inner * 2));
+  if (highValue) {
+    const outer = base + 14 + Math.sin(t * Math.PI) * 10;
+    ctx.globalAlpha = Math.max(0.04, 0.2 - t * 0.14);
+    ctx.strokeRect(Math.round(s.x - outer), Math.round(s.y - outer), Math.round(outer * 2), Math.round(outer * 2));
   }
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -273,6 +275,42 @@ function drawPulseWave(ctx, fx, cam) {
   if (fx.text) drawText(ctx, String(fx.text).slice(0, 5).toUpperCase(), s.x, s.y - r - 6, color, "center");
 }
 
+function drawFrontWave(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const d = norm(fx.dx || 1, fx.dy || 0);
+  const n = { x: -d.y, y: d.x };
+  const length = fx.length || 320;
+  const width = fx.width || 86;
+  const progress = fx.telegraph ? 0.35 + t * 0.2 : 0.2 + t * 0.9;
+  const front = Math.max(22, length * progress);
+  const back = Math.max(0, front - Math.max(34, width * 0.9));
+  const color = fx.color || "#ff3048";
+  const alpha = Math.max(0.08, Math.min(0.72, life / maxLife * (fx.telegraph ? 0.38 : 0.68)));
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = fx.telegraph ? 1 : Math.max(1, Math.round(4 * life / maxLife));
+  const cx = s.x + d.x * front;
+  const cy = s.y + d.y * front;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(cx - n.x * width * 0.5), Math.round(cy - n.y * width * 0.5));
+  ctx.lineTo(Math.round(cx + n.x * width * 0.5), Math.round(cy + n.y * width * 0.5));
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i += 1) {
+    const k = back + (front - back) * (i / 2);
+    const w = width * (0.35 + i * 0.22);
+    const px = s.x + d.x * k;
+    const py = s.y + d.y * k;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(px - n.x * w * 0.5), Math.round(py - n.y * w * 0.5));
+    ctx.lineTo(Math.round(px + n.x * w * 0.5), Math.round(py + n.y * w * 0.5));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function ignoreEffect() {}
 
 export const EFFECT_RENDERERS = Object.freeze({
@@ -302,6 +340,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   anomalyLine: drawAnomalyLine,
   anomalyField: drawAnomalyField,
   pulseWave: drawPulseWave,
+  frontWave: drawFrontWave,
   shake: ignoreEffect
 });
 

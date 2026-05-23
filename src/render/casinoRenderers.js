@@ -42,8 +42,8 @@ export function drawCasinoInteractable(ctx, item, cam, affordance = {}) {
     const pulse = r + 5 + Math.sin(age * 18) * 3;
     strokeRect(ctx, s.x - pulse, s.y - pulse, pulse * 2, pulse * 2, resultColor, 1);
   }
+  drawText(ctx, String(item.casinoGlyph || "BET").slice(0, 3).toUpperCase(), s.x, s.y - r - 11, active ? "#f3f3f3" : "#888", "center", 13);
   drawRect(ctx, s.x - r, s.y + r - 4, r * 2, 4, active ? accent : "#777");
-  drawText(ctx, String(item.casinoGlyph || "BET").slice(0, 3).toUpperCase(), s.x, s.y + 5, active ? "#f3f3f3" : "#888", "center", 13);
 
   if (resultActive) {
     const label = result.match ? String(result.outcomeLabel || "WIN").slice(0, 6).toUpperCase() : "LOSS";
@@ -61,11 +61,8 @@ export function drawCasinoInteractable(ctx, item, cam, affordance = {}) {
     const minCost = allowedCosts.length ? Math.min(...allowedCosts) : 0;
     const canAffordAny = !minCost || !Number.isFinite(affordance.localMoney) || affordance.localMoney >= minCost;
     const promptColor = affordance.localInRange && !canAffordAny ? "#ff3048" : accent;
-    drawText(ctx, "BET", s.x, s.y - r - 11, promptColor, "center", 11);
     if (affordance.localInRange) {
       drawText(ctx, canAffordAny ? "E" : `NO GLD ${minCost}`, s.x, s.y + r + 17, promptColor, "center", 11);
-    } else if (affordance.localNear) {
-      drawText(ctx, minCost > 0 ? `MIN ${minCost}` : "E", s.x, s.y + r + 17, accent, "center", 11);
     }
   } else {
     drawText(ctx, "OFF", s.x, s.y - r - 11, "#777", "center", 11);

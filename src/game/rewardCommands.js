@@ -83,6 +83,12 @@ function emitRewardRevealEvent(state, reward, spawned, position, context = {}) {
   });
 }
 
+
+function suppressSpawnRewardText(context = {}) {
+  const sourceType = context.sourceType || "reward";
+  return sourceType === "chest" || sourceType === "casino";
+}
+
 function rewardText(state, reward, position, fallback = null) {
   const text = reward?.text || fallback;
   if (!state || !text) return;
@@ -204,7 +210,7 @@ export function executeRewardCommand(state, command) {
       accent: context.rewardAccent || null
     });
     if (pickup) {
-      rewardText(state, reward, position, reward.text || pickup.label || null);
+      if (!suppressSpawnRewardText(context)) rewardText(state, reward, position, reward.text || pickup.label || null);
       emitRewardRevealEvent(state, reward, pickup, position, context);
     }
     return pickup;
@@ -224,7 +230,7 @@ export function executeRewardCommand(state, command) {
       accent: context.rewardAccent || undefined
     });
     if (pickup) {
-      rewardText(state, reward, position, null);
+      if (!suppressSpawnRewardText(context)) rewardText(state, reward, position, null);
       emitRewardRevealEvent(state, reward, pickup, position, context);
     }
     return pickup;

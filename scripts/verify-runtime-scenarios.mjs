@@ -52,7 +52,6 @@ function fresh(seed = 'UNIVERSAL-RUNTIME') {
   player.y = 500;
   player.hp = 50;
   player.maxHp = 100;
-  state.spawnTimer = 9999;
   return { state, player };
 }
 
@@ -557,6 +556,8 @@ function assertStatSnapshotScenario() {
 function assertAnomalyEnemyStressScenario() {
   const { state, player } = fresh('ANOMALY-STRESS-SCENARIO');
   state.spawnTimer = 9999;
+  if (state.roomPlan) state.roomPlan = { ...state.roomPlan, loopIndex: 3 };
+  state.loopIndex = 3;
   const spacing = 72;
   ANOMALY_ENEMY_KINDS.forEach((kind, index) => {
     const x = player.x + 160 + (index % 5) * spacing;
@@ -566,23 +567,27 @@ function assertAnomalyEnemyStressScenario() {
   });
   assert.equal(ANOMALY_ENEMY_KINDS.length, 10, 'stress pack should expose exactly ten primary anomaly enemy kinds');
   for (let i = 0; i < 80; i += 1) updateEnemies(state, 1 / 30);
-  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'mirror' && enemy.mirrorState), 'MIRROR should keep delayed target history state');
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'echo' && enemy.echoState), 'ECH should keep negative player clone runtime state');
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'glitch' && enemy.glitchState), 'GLT should keep glitch blink/dash runtime state');
   assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'orbiter' && enemy.orbitState), 'ORBITER should keep orbit runtime state');
   assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'herald' && enemy.heraldState), 'HERALD should keep summon runtime state');
-  assert.ok(state.effects.some((fx) => ['anomalyField', 'anomalyLine', 'pulseWave'].includes(fx.type)), 'anomaly enemies should emit registered visual effects');
+  assert.ok(state.effects.some((fx) => ['anomalyField', 'anomalyLine', 'pulseWave', 'frontWave'].includes(fx.type)), 'anomaly enemies should emit registered visual effects');
 
   const split = Object.values(state.enemies).find((enemy) => enemy.kind === 'splitter');
   assert.ok(split, 'splitter should be present before death-spawn test');
   finishEnemyKill(state, split, { sourceId: player.id, type: 'verify' }, { sourceId: player.id });
-  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'mini_splitter' && enemy.parentEnemyId === split.id), 'SPLITTER should spawn controlled child splinters on death');
+  assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'splitter_medium' && enemy.parentEnemyId === split.id), 'SPLITTER should spawn staged medium splinters on death at higher loop difficulty');
 
-  const prism = Object.values(state.enemies).find((enemy) => enemy.kind === 'prism');
-  assert.ok(prism, 'prism should be present for deflect test');
-  prism.prismState = { facingX: -1, facingY: 0 };
-  const projectile = makeProjectile({ id: 'verify-prism-shot', ownerId: player.id, weaponId: 'shotgun', x: prism.x - 26, y: prism.y, angle: 0 });
+  const orbiter = Object.values(state.enemies).find((enemy) => enemy.kind === 'orbiter');
+  assert.ok(orbiter, 'orbiter should be present for front-deflect test');
+  orbiter.projectileDefenseFacingX = -1;
+  orbiter.projectileDefenseFacingY = 0;
+  const projectile = makeProjectile({ id: 'verify-orb-shot', ownerId: player.id, weaponId: 'shotgun', x: orbiter.x - 26, y: orbiter.y, angle: 0 });
   state.projectiles[projectile.id] = projectile;
   updateProjectiles(state, 1 / 60);
-  assert.ok(projectile.hitIds?.[prism.id], 'PRISM front defense should register/deflect the projectile without damaging through the front face');
+  assert.ok(projectile.hitIds?.[orbiter.id], 'ORB front defense should register/deflect the projectile without damaging through the front face');
+  const bouncer = Object.values(state.enemies).find((enemy) => enemy.kind === 'bouncer');
+  assert.ok(bouncer && !(bouncer.bounceState?.stun > 0), 'BNC should not use fatigue/stun windows after bounces');
 }
 
 function assertModifierScenario() {

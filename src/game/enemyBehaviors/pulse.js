@@ -1,27 +1,51 @@
-import { dist2, norm } from "../../core/math.js";
+import { angleToVec, norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
 import { applyEnemyTouchDamage, moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
 function runtime(enemy, cfg) {
-  if (!enemy.pulseState || typeof enemy.pulseState !== "object") enemy.pulseState = { phase: "cooldown", timer: (cfg.cooldown || 1.55) * 0.6, telegraphAt: 0 };
+  if (!enemy.pulseState || typeof enemy.pulseState !== "object") enemy.pulseState = { phase: "cooldown", timer: (cfg.cooldown || 1.42) * 0.6, telegraphAt: 0, facingX: 1, facingY: 0 };
   return enemy.pulseState;
 }
 
-function emitWave(state, enemy, cfg, color = "#ff3048", life = 0.22) {
-  pushVisualEffect(state, { type: "pulseWave", x: Math.round(enemy.x), y: Math.round(enemy.y), r: cfg.radius || 138, color, text: "PLS", life, maxLife: life });
+function emitFrontWave(state, enemy, cfg, color = "#ff3048", life = 0.18, telegraph = false) {
+  pushVisualEffect(state, {
+    type: "frontWave",
+    x: Math.round(enemy.x),
+    y: Math.round(enemy.y),
+    dx: enemy.pulseState?.facingX || 1,
+    dy: enemy.pulseState?.facingY || 0,
+    length: cfg.length || 360,
+    width: cfg.width || 92,
+    color,
+    telegraph,
+    life,
+    maxLife: life
+  });
 }
 
 function hitPlayers(state, enemy, cfg, updateCtx) {
-  const r = cfg.radius || 138;
+  const dir = norm(enemy.pulseState?.facingX || 1, enemy.pulseState?.facingY || 0);
+  const length = cfg.length || 360;
+  const halfWidth = (cfg.width || 92) * 0.5;
   for (const player of Object.values(state.players || {})) {
     if (!player || player.hp <= 0) continue;
-    if (dist2(enemy.x, enemy.y, player.x, player.y) > (r + player.radius) ** 2) continue;
-    dealPlayerDamage(state, player, { amount: (cfg.damage || 16) * Math.max(0, updateCtx.damageMult || 1) * devEnemyDamageMult(state), sourceId: enemy.id, sourceType: "enemyPulse", enemyId: enemy.id, tags: [DAMAGE_TAGS.ENEMY, "pulse"] });
-    const d = norm(player.x - enemy.x, player.y - enemy.y);
-    player.kx = (player.kx || 0) + d.x * (cfg.knockback || 280);
-    player.ky = (player.ky || 0) + d.y * (cfg.knockback || 280);
+    const rx = player.x - enemy.x;
+    const ry = player.y - enemy.y;
+    const along = rx * dir.x + ry * dir.y;
+    if (along < -player.radius || along > length + player.radius) continue;
+    const side = Math.abs(rx * -dir.y + ry * dir.x);
+    if (side > halfWidth + player.radius) continue;
+    dealPlayerDamage(state, player, {
+      amount: (cfg.damage || 17) * Math.max(0, updateCtx.damageMult || 1) * devEnemyDamageMult(state),
+      sourceId: enemy.id,
+      sourceType: "enemyPulseWave",
+      enemyId: enemy.id,
+      tags: [DAMAGE_TAGS.ENEMY, "pulse", "front_wave"]
+    });
+    player.kx = (player.kx || 0) + dir.x * (cfg.knockback || 330);
+    player.ky = (player.ky || 0) + dir.y * (cfg.knockback || 330);
   }
 }
 
@@ -29,29 +53,32 @@ export function updatePulseEnemy(ctx) {
   const { state, enemy, data, target, dt, geometry, updateCtx } = ctx;
   const cfg = data.pulse || {};
   const rt = runtime(enemy, cfg);
+  const facing = norm(target.x - enemy.x, target.y - enemy.y);
+  rt.facingX = facing.x;
+  rt.facingY = facing.y;
   rt.timer -= dt;
   if (rt.phase === "charge") {
     enemy.vx *= Math.exp(-10 * dt);
     enemy.vy *= Math.exp(-10 * dt);
     moveEnemyWithVelocity(enemy, geometry, dt);
     if ((rt.telegraphAt || 0) <= (state.time || 0)) {
-      rt.telegraphAt = (state.time || 0) + (cfg.telegraphEvery || 0.18);
-      emitWave(state, enemy, cfg, "#ff3048", 0.16);
+      rt.telegraphAt = (state.time || 0) + (cfg.telegraphEvery || 0.13);
+      emitFrontWave(state, enemy, cfg, "#ff3048", 0.11, true);
     }
     if (rt.timer <= 0) {
       hitPlayers(state, enemy, cfg, updateCtx);
-      emitWave(state, enemy, cfg, "#ff3048", 0.28);
+      emitFrontWave(state, enemy, cfg, "#ff3048", 0.3, false);
       rt.phase = "cooldown";
-      rt.timer = cfg.cooldown || 1.55;
+      rt.timer = cfg.cooldown || 1.42;
     }
     return;
   }
   if (rt.timer <= 0) {
     rt.phase = "charge";
-    rt.timer = cfg.charge || 1.05;
+    rt.timer = cfg.charge || 0.86;
     rt.telegraphAt = 0;
     return;
   }
-  moveEnemyTowardTarget(ctx, { speedScale: 0.58 });
+  moveEnemyTowardTarget(ctx, { speedScale: 0.48 });
   applyEnemyTouchDamage(state, enemy, data, target, dt, updateCtx);
 }

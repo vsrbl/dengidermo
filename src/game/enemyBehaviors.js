@@ -4,8 +4,8 @@ import { updateAnchorEnemy } from "./enemyBehaviors/anchor.js";
 import { updateBouncerEnemy } from "./enemyBehaviors/bouncer.js";
 import { updateHeraldEnemy } from "./enemyBehaviors/herald.js";
 import { updateLeechEnemy } from "./enemyBehaviors/leech.js";
-import { updateMirrorEnemy } from "./enemyBehaviors/mirror.js";
-import { updateNullifierEnemy } from "./enemyBehaviors/nullifier.js";
+import { updateEchoEnemy } from "./enemyBehaviors/echo.js";
+import { updateGlitchEnemy } from "./enemyBehaviors/glitch.js";
 import { updateOrbiterEnemy } from "./enemyBehaviors/orbiter.js";
 import { updatePrismEnemy } from "./enemyBehaviors/prism.js";
 import { updatePulseEnemy } from "./enemyBehaviors/pulse.js";
@@ -22,14 +22,14 @@ export const ENEMY_BEHAVIORS = Object.freeze({
   charger: updateChargerEnemy,
   bomber: updateBomberEnemy,
   boss: updateBossEnemy,
-  mirror: updateMirrorEnemy,
+  echo: updateEchoEnemy,
   orbiter: updateOrbiterEnemy,
   anchor: updateAnchorEnemy,
   splitter: updateSplitterEnemy,
   prism: updatePrismEnemy,
   pulse: updatePulseEnemy,
   leech: updateLeechEnemy,
-  nullifier: updateNullifierEnemy,
+  glitch: updateGlitchEnemy,
   bouncer: updateBouncerEnemy,
   herald: updateHeraldEnemy
 });

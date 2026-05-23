@@ -1,40 +1,81 @@
 import { norm } from "../../core/math.js";
 import { pushVisualEffect } from "../effectCommands.js";
-import { applyEnemyTouchDamage, moveEnemyTowardTarget, moveEnemyWithVelocity, spawnBehaviorEnemy } from "./common.js";
+import { applyEnemyTouchDamage, moveEnemyTowardTarget, spawnBehaviorEnemy } from "./common.js";
 
-function runtime(enemy, cfg) {
-  if (!enemy.heraldState || typeof enemy.heraldState !== "object") enemy.heraldState = { phase: "cooldown", timer: (cfg.cooldown || 3.6) * 0.6, summons: 0, telegraphAt: 0 };
+function runtime(enemy) {
+  if (!enemy.heraldState || typeof enemy.heraldState !== "object") {
+    enemy.heraldState = { phase: "arming", cooldownAt: 0, trail: null, pulseAt: 0 };
+  }
   return enemy.heraldState;
 }
 
-function spawnWavelet(state, enemy, target, cfg, rt) {
+function loopIndex(state) {
+  return Math.max(0, Math.floor(Number(state?.roomPlan?.loopIndex ?? state?.loopIndex ?? 0) || 0));
+}
+
+function startTrail(enemy, target, cfg) {
+  enemy.heraldState.trail = {
+    x: enemy.x,
+    y: enemy.y,
+    targetId: target.id,
+    path: [{ x: target.x, y: target.y }],
+    speed: cfg.trailSpeed || 245
+  };
+  enemy.heraldState.phase = "trail";
+}
+
+function spawnSwarm(state, enemy, target, cfg) {
   const kinds = Array.isArray(cfg.summonKinds) && cfg.summonKinds.length ? cfg.summonKinds : ["runner"];
-  const count = Math.min(2, Math.max(0, (cfg.maxSummons || 10) - (rt.summons || 0)));
+  const count = Math.min(cfg.swarmMax || 12, (cfg.swarmBase || 3) + loopIndex(state) * (cfg.swarmPerLoop || 2));
   for (let i = 0; i < count; i += 1) {
-    const kind = kinds[(rt.summons + i) % kinds.length];
-    const a = Math.atan2(target.y - enemy.y, target.x - enemy.x) + (i - 0.5) * 0.72;
+    const a = (Math.PI * 2 * i) / Math.max(1, count) + ((state.rng?.next?.() || 0) - 0.5) * 0.22;
     const d = { x: Math.cos(a), y: Math.sin(a) };
-    const child = spawnBehaviorEnemy(state, kind, enemy.x + d.x * 38, enemy.y + d.y * 38, { parentEnemyId: enemy.id, role: "herald_summon", color: "#ff3048", text: "HRD" });
-    if (child) { child.vx = d.x * 90; child.vy = d.y * 90; rt.summons += 1; }
+    const kind = kinds[i % kinds.length];
+    const child = spawnBehaviorEnemy(state, kind, enemy.x + d.x * 42, enemy.y + d.y * 42, { parentEnemyId: enemy.id, role: "herald_swarm", color: "#ff3048", text: "HRD" });
+    if (child) {
+      child.vx = d.x * 170;
+      child.vy = d.y * 170;
+    }
   }
-  pushVisualEffect(state, { type: "pulseWave", x: Math.round(enemy.x), y: Math.round(enemy.y), r: 86, color: "#ff3048", text: "CALL", life: 0.22, maxLife: 0.22 });
+  pushVisualEffect(state, { type: "pulseWave", x: Math.round(target.x), y: Math.round(target.y), r: 92, color: "#ff3048", life: 0.32, maxLife: 0.32 });
+}
+
+function updateTrail(state, enemy, target, cfg, dt) {
+  const rt = enemy.heraldState;
+  const trail = rt.trail;
+  if (!trail) { startTrail(enemy, target, cfg); return; }
+  trail.path.push({ x: target.x, y: target.y });
+  while (trail.path.length > 36) trail.path.shift();
+  const goal = trail.path[0] || { x: target.x, y: target.y };
+  const toGoal = norm(goal.x - trail.x, goal.y - trail.y);
+  trail.x += toGoal.x * (trail.speed || cfg.trailSpeed || 245) * dt;
+  trail.y += toGoal.y * (trail.speed || cfg.trailSpeed || 245) * dt;
+  if ((goal.x - trail.x) ** 2 + (goal.y - trail.y) ** 2 < 18 * 18 && trail.path.length > 1) trail.path.shift();
+  if ((rt.pulseAt || 0) <= (state.time || 0)) {
+    rt.pulseAt = (state.time || 0) + 0.08;
+    pushVisualEffect(state, { type: "anomalyLine", x: Math.round(trail.x), y: Math.round(trail.y), x2: Math.round(target.x), y2: Math.round(target.y), color: "#ff3048", life: 0.1, maxLife: 0.1 });
+    pushVisualEffect(state, { type: "anomalyField", x: Math.round(trail.x), y: Math.round(trail.y), r: 22, color: "#ff3048", life: 0.12, maxLife: 0.12 });
+  }
+  const catchR = cfg.catchRadius || 32;
+  if ((target.x - trail.x) ** 2 + (target.y - trail.y) ** 2 <= catchR * catchR) {
+    spawnSwarm(state, enemy, target, cfg);
+    rt.trail = null;
+    rt.phase = "cooldown";
+    rt.cooldownAt = (state.time || 0) + (cfg.cooldown || 3.2);
+  }
 }
 
 export function updateHeraldEnemy(ctx) {
-  const { state, enemy, data, target, dt, geometry, updateCtx } = ctx;
+  const { state, enemy, data, target, dt, updateCtx } = ctx;
   const cfg = data.herald || {};
-  const rt = runtime(enemy, cfg);
-  rt.timer -= dt;
-  if (rt.phase === "windup") {
-    enemy.vx *= Math.exp(-10 * dt); enemy.vy *= Math.exp(-10 * dt); moveEnemyWithVelocity(enemy, geometry, dt);
-    if ((rt.telegraphAt || 0) <= (state.time || 0)) {
-      rt.telegraphAt = (state.time || 0) + 0.14;
-      pushVisualEffect(state, { type: "anomalyLine", x: Math.round(enemy.x), y: Math.round(enemy.y), x2: Math.round(target.x), y2: Math.round(target.y), color: "#ff3048", life: 0.09, maxLife: 0.09 });
-    }
-    if (rt.timer <= 0) { spawnWavelet(state, enemy, target, cfg, rt); rt.phase = "cooldown"; rt.timer = cfg.cooldown || 3.6; }
-    return;
+  const rt = runtime(enemy);
+  if (rt.phase === "cooldown") {
+    if ((state.time || 0) >= (rt.cooldownAt || 0)) startTrail(enemy, target, cfg);
+  } else if (rt.phase === "trail") {
+    updateTrail(state, enemy, target, cfg, dt);
+  } else {
+    startTrail(enemy, target, cfg);
   }
-  if (rt.timer <= 0 && (rt.summons || 0) < (cfg.maxSummons || 10)) { rt.phase = "windup"; rt.timer = cfg.windup || 0.72; rt.telegraphAt = 0; return; }
-  moveEnemyTowardTarget(ctx, { speedScale: 0.44 });
+  moveEnemyTowardTarget(ctx, { speedScale: 0.34 });
   applyEnemyTouchDamage(state, enemy, data, target, dt, updateCtx);
 }

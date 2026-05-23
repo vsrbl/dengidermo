@@ -55,10 +55,14 @@ function drawOpening(ctx, s, r, item, color) {
   drawRect(ctx, s.x - r, s.y + r + 4, r * 2 * p, 2, color);
 }
 
-function compactPrompt(cost, canAfford) {
-  if (!canAfford && cost > 0) return "NO GLD";
-  if (cost > 0) return `E/${cost}`;
+function compactPrompt(cost) {
+  if (cost > 0) return `E / ${cost}`;
   return "E";
+}
+
+function deniedPromptJitter(item) {
+  const t = Math.max(0, item?._renderAge || 0);
+  return Math.round(Math.sin(t * 62) * 2);
 }
 
 export function drawChestInteractable(ctx, item, cam, affordance = {}) {
@@ -71,9 +75,9 @@ export function drawChestInteractable(ctx, item, cam, affordance = {}) {
   const labelColor = active || state === "opening" ? "#f3f3f3" : "#777";
   const code = String(item?.chestGlyph || tierCode(item)).slice(0, 3).toUpperCase();
 
-  // Current chest visual contract: one simple terminal object: one square, one code, compact nearby affordance.
+  // Current chest visual contract: label above, one simple inactive/active square, prompt only when close.
+  drawText(ctx, code, s.x, s.y - r - 8, labelColor, "center", 13);
   strokeRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color, active || state === "opening" ? 2 : 1);
-  drawText(ctx, code, s.x, s.y + 5, labelColor, "center", 13);
 
   if (state === "opening") {
     drawOpening(ctx, s, r, item, accent);
@@ -86,14 +90,11 @@ export function drawChestInteractable(ctx, item, cam, affordance = {}) {
   const inRange = !!affordance.localInRange;
   const near = !!affordance.localNear;
   const canAfford = affordance.canAfford !== false;
-  const promptColor = inRange && !canAfford ? "#ff3048" : accent;
+  const promptDenied = inRange && !canAfford && cost > 0;
+  const promptColor = promptDenied ? "#ff3048" : accent;
+  const promptX = s.x + (promptDenied ? deniedPromptJitter(item) : 0);
 
   if (inRange) {
-    drawText(ctx, compactPrompt(cost, canAfford), s.x, s.y + r + 16, promptColor, "center", 11);
-    return;
-  }
-
-  if (near && cost > 0) {
-    drawText(ctx, `${cost}`, s.x, s.y + r + 14, accent, "center", 10);
+    drawText(ctx, compactPrompt(cost), promptX, s.y + r + 16, promptColor, "center", 11);
   }
 }

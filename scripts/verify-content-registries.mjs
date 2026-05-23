@@ -287,19 +287,45 @@ for (const [id, data] of Object.entries(INTERACTABLES)) {
 const chestRendererSrc = read('src/render/chestRenderers.js');
 assert.match(chestRendererSrc, /drawChestInteractable/, 'chest renderer registry must export drawChestInteractable');
 assert.match(chestRendererSrc, /compactPrompt/, 'v39.3.17a chest renderer should use a compact one-line affordance prompt');
+assert.match(chestRendererSrc, /`E \/ \${cost}`/, 'v39.3.19 visual clarity chest prompt should render close-range E / price text');
+assert.match(chestRendererSrc, /s\.y - r - 8/, 'v39.3.19 visual clarity chest label should live above the square, not inside it');
+assert.match(chestRendererSrc, /deniedPromptJitter/, 'v39.3.19 visual clarity unaffordable chest prompt should shake/redline locally');
 for (const noisyChestLabel of ['"PAY"', '"SCAN"', '"REVEAL"', '"OPEN"', '"---"']) {
   assert.ok(!chestRendererSrc.includes(noisyChestLabel), `v39.3.17a chest renderer should not draw noisy world label ${noisyChestLabel}`);
 }
-assert.match(read('src/renderer.js'), /drawChestInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route chest interactables through chest renderer with local affordance context');
-assert.match(read('src/renderer.js'), /drawCasinoInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route casino interactables through casino renderer with local affordance context');
+const rendererSrc = read('src/renderer.js');
+assert.match(rendererSrc, /drawChestInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route chest interactables through chest renderer with local affordance context');
+assert.match(rendererSrc, /drawCasinoInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route casino interactables through casino renderer with local affordance context');
+assert.match(read('src/game/interactables.js'), /if \(interactable\.chestId\) continue;/, 'opened chests should remain as inactive room objects instead of despawning');
+const chestGameSrc = read('src/game/chests.js');
+assert.ok(!chestGameSrc.includes('DEFAULT_DESPAWN_TIMER'), 'v39.3.19b opened chests should not use a despawn timer');
+assert.ok(!/chestState\s*=\s*CHEST_STATES\.CLAIMED/.test(chestGameSrc), 'v39.3.19b opened chests should stay as inactive opened objects, not transition to claimed/despawn state');
 
-const pickupRendererSrc = read('src/renderer.js');
+const pickupRendererSrc = rendererSrc;
 assert.match(pickupRendererSrc, /function drawPickupToken/, 'shared pickup token renderer must keep one unified pickup token shape');
+assert.match(pickupRendererSrc, /function drawPickupSourcePulse/, 'v39.3.19b chest/casino source drops should use extra radius pulse around simple pickup tokens');
+assert.match(pickupRendererSrc, /function sourcePulseLevel/, 'v39.3.19b pickup source pulses should be data-driven by revealSource/revealProfile');
+assert.match(pickupRendererSrc, /s\.y - r - 5/, 'v39.3.19 visual clarity pickup token labels should render above squares, not inside them');
+assert.ok(!/fillText\(String\(label \|\| "DRP"\)[\s\S]*s\.y \+ 4/.test(pickupRendererSrc), 'pickup token labels must not return inside the square');
 assert.match(pickupRendererSrc, /function drawEconomyPickup[\s\S]*drawPickupToken/, 'economy pickups must use the shared pickup token renderer');
 assert.match(pickupRendererSrc, /function drawRewardPickup[\s\S]*drawPickupToken/, 'reward pickups must use the shared pickup token renderer');
 assert.match(pickupRendererSrc, /rewardType === "ability_pickup"[\s\S]*return "ABL"/, 'ability reward pickups should render as compact ABL tokens, not verbose ability names');
 assert.ok(!pickupRendererSrc.includes('const sourceLabel ='), 'reward pickup renderer must not add separate WIN/RAR/CRS source captions under pickups');
 assert.ok(!pickupRendererSrc.includes('replace(" SHARD"'), 'reward pickup renderer must not render verbose DASH SHARD labels in-world');
+const effectRendererSrc = read('src/render/effectRenderers.js');
+const revealPulseBlock = effectRendererSrc.slice(effectRendererSrc.indexOf('function drawRewardRevealPulse'), effectRendererSrc.indexOf('function drawArmorPulse'));
+assert.ok(!revealPulseBlock.includes('drawText'), 'v39.3.19b reveal pulses should be ring-only and should not draw extra world text');
+assert.ok(effectRendererSrc.includes('frontWave: drawFrontWave'), 'v39.3.19c PLS forward-wave effect renderer must be registered');
+assert.match(read('src/game/rewardCommands.js'), /suppressSpawnRewardText[\s\S]*sourceType === "chest"[\s\S]*sourceType === "casino"/, 'v39.3.19b chest/casino reward spawns should not add extra damageText captions over simple tokens');
+
+
+const enemyRendererSrc = read('src/render/enemyRenderers.js');
+assert.match(enemyRendererSrc, /drawCodeSquare[\s\S]*s\.y - r - 7[\s\S]*hollowSquare/, 'anomaly enemy labels should render above simple square bodies');
+assert.ok(!enemyRendererSrc.includes('drawText(ctx, "NUL"'), 'NUL world label should be retired in favor of GLT');
+assert.ok(enemyRendererSrc.includes('drawText(ctx, "GLT"'), 'GLT world label should be active for the glitch retune');
+assert.ok(enemyRendererSrc.includes('drawText(ctx, "ECH"'), 'echo visual label should render ECH above the negative clone square');
+assert.ok(ENEMIES.echo && !ANOMALY_ENEMY_KINDS.includes('mirror'), 'MRR/mirror should be retired from the primary anomaly list in favor of ECH/echo');
+assert.ok(ENEMIES.glitch && !ANOMALY_ENEMY_KINDS.includes('nullifier'), 'NUL/nullifier should be retired from the primary anomaly list in favor of GLT/glitch');
 
 const eliteRendererSrc = read('src/render/eliteRenderers.js');
 for (const [id, variant] of Object.entries(ELITE_VARIANTS)) {

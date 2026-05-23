@@ -22,9 +22,9 @@ function tryEnemyProjectileDefense(state, projectile, enemy) {
   if (!defense || defense.type !== "front_deflect") return false;
   const now = state.time || 0;
   if ((enemy.projectileDefenseCooldownUntil || 0) > now) return false;
-  const facing = enemy.prismState || {};
-  const fx = Number.isFinite(facing.facingX) ? facing.facingX : 1;
-  const fy = Number.isFinite(facing.facingY) ? facing.facingY : 0;
+  const facing = enemy.prismState || enemy.orbitState || {};
+  const fx = Number.isFinite(enemy.projectileDefenseFacingX) ? enemy.projectileDefenseFacingX : (Number.isFinite(facing.facingX) ? facing.facingX : 1);
+  const fy = Number.isFinite(enemy.projectileDefenseFacingY) ? enemy.projectileDefenseFacingY : (Number.isFinite(facing.facingY) ? facing.facingY : 0);
   const v = norm(projectile.vx || 1, projectile.vy || 0);
   const dot = v.x * fx + v.y * fy;
   if (dot > (defense.arcDot ?? -0.25)) return false;

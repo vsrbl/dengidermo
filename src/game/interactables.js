@@ -200,9 +200,10 @@ export function updateInteractables(state, dt = 0.016) {
   if (!state?.interactables) return;
   for (const interactable of Object.values(state.interactables)) {
     if (interactable.opened) {
-      interactable.despawnTimer = Math.max(0, (interactable.despawnTimer || 0) - dt);
       updateChestInteractable(interactable, dt);
       updateCasinoInteractable(interactable, dt);
+      if (interactable.chestId) continue;
+      interactable.despawnTimer = Math.max(0, (interactable.despawnTimer || 0) - dt);
       if (interactable.despawnTimer <= 0) delete state.interactables[interactable.id];
       continue;
     }

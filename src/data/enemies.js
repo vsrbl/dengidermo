@@ -119,71 +119,103 @@ export const ENEMIES = {
   },
 
 
-  mirror: {
-    name: "MIRROR",
+  echo: {
+    name: "ECHO",
     dropTable: "runner",
-    hp: 38,
-    speed: 118,
+    hp: 72,
+    speed: 156,
     radius: 15,
-    damage: 7,
-    behavior: "mirror",
-    renderStyle: "mirror",
-    accentColor: "white",
-    score: 2,
-    mirror: { delay: 0.72, memory: 1.35, turnRate: 9 }
+    damage: 8,
+    behavior: "echo",
+    renderStyle: "echo",
+    accentColor: "purple",
+    score: 4,
+    echo: { fireRateScale: 0.72, damageScale: 0.62, projectileSpeedScale: 0.86, preferredRange: 260, strafe: 0.64, blurEvery: 0.08 }
   },
 
   orbiter: {
     name: "ORBITER",
     dropTable: "runner",
-    hp: 34,
-    speed: 136,
+    hp: 42,
+    speed: 168,
     radius: 13,
     damage: 6,
     behavior: "orbiter",
     renderStyle: "orbiter",
     accentColor: "white",
-    score: 2,
-    orbit: { radius: 164, minRadius: 58, shrinkPerSecond: 10, angularSpeed: 2.75 }
+    score: 3,
+    orbit: { radius: 176, minRadius: 50, shrinkPerSecond: 14, angularSpeed: 3.2, turnRate: 18 },
+    projectileDefense: { type: "front_deflect", arcDot: -0.18, cooldown: 0.055 }
   },
 
   anchor: {
     name: "ANCHOR",
     dropTable: "tank",
-    hp: 74,
-    speed: 34,
+    hp: 92,
+    speed: 30,
     radius: 22,
     damage: 5,
     behavior: "anchor",
     renderStyle: "anchor",
     accentColor: "white",
-    score: 3,
-    anchor: { fieldRadius: 150, projectileSlow: 0.72, pickupPull: 42, pulseEvery: 0.32 }
+    score: 4,
+    anchor: { fieldRadius: 188, projectileSlow: 0.18, pickupPull: 340, pickupDestroyRadius: 20, playerDrag: 0.35, pulseEvery: 0.42 }
   },
 
   splitter: {
     name: "SPLITTER",
     dropTable: "charger",
-    hp: 44,
-    speed: 88,
-    radius: 16,
-    damage: 7,
+    hp: 138,
+    speed: 58,
+    radius: 48,
+    damage: 12,
     behavior: "splitter",
     renderStyle: "splitter",
     accentColor: "white",
-    score: 2,
-    deathSpawn: { kind: "mini_splitter", count: 4, radius: 32, maxChildren: 6 }
+    score: 5,
+    splitStage: 0,
+    deathSpawn: { kind: "splitter_medium", count: 2, countPerLoop: 1, minLoop: 1, maxCount: 4, radius: 58, maxChildren: 6, impulse: 145 }
   },
 
-  mini_splitter: {
+  splitter_medium: {
+    name: "SPLITTER",
+    dropTable: "anomaly_child",
+    hp: 54,
+    speed: 90,
+    radius: 25,
+    damage: 8,
+    behavior: "splitter",
+    renderStyle: "splitter_medium",
+    accentColor: "white",
+    score: 0,
+    splitStage: 1,
+    deathSpawn: { kind: "splitter_small", count: 2, countPerLoop: 1, minLoop: 2, maxCount: 4, radius: 34, maxChildren: 8, impulse: 185 }
+  },
+
+  splitter_small: {
+    name: "SPLITTER",
+    dropTable: "anomaly_child",
+    hp: 22,
+    speed: 132,
+    radius: 13,
+    damage: 5,
+    behavior: "splitter",
+    renderStyle: "splitter_small",
+    accentColor: "white",
+    score: 0,
+    splitStage: 2,
+    deathSpawn: { kind: "splitter_tiny", count: 3, countPerLoop: 1, minLoop: 3, maxCount: 6, radius: 22, maxChildren: 12, impulse: 245 }
+  },
+
+  splitter_tiny: {
     name: "SPLINTER",
     dropTable: "anomaly_child",
-    hp: 9,
-    speed: 176,
-    radius: 8,
+    hp: 8,
+    speed: 224,
+    radius: 7,
     damage: 4,
     behavior: "chase",
-    renderStyle: "mini_splitter",
+    renderStyle: "splitter_tiny",
     accentColor: "white",
     score: 0
   },
@@ -191,29 +223,29 @@ export const ENEMIES = {
   prism: {
     name: "PRISM",
     dropTable: "shooter",
-    hp: 56,
-    speed: 48,
+    hp: 64,
+    speed: 42,
     radius: 17,
     damage: 6,
     behavior: "prism",
     renderStyle: "prism",
     accentColor: "white",
     score: 3,
-    projectileDefense: { type: "front_deflect", arcDot: -0.25, cooldown: 0.08 }
+    prism: { charge: 0.8, cooldown: 1.7, beamLength: 520, beamWidth: 18, damage: 13, knockback: 240, splitAngle: 0.42, telegraphEvery: 0.13 }
   },
 
   pulse: {
     name: "PULSE",
     dropTable: "bomber",
-    hp: 42,
-    speed: 42,
+    hp: 48,
+    speed: 40,
     radius: 15,
     damage: 5,
     behavior: "pulse",
     renderStyle: "pulse",
     accentColor: "red",
     score: 3,
-    pulse: { charge: 1.05, cooldown: 1.55, radius: 138, damage: 16, knockback: 280, telegraphEvery: 0.18 }
+    pulse: { charge: 0.86, cooldown: 1.42, length: 360, width: 92, damage: 17, knockback: 330, telegraphEvery: 0.13 }
   },
 
   leech: {
@@ -230,46 +262,59 @@ export const ENEMIES = {
     leech: { range: 260, healPerSecond: 10, retreatSpeedScale: 0.72 }
   },
 
-  nullifier: {
-    name: "NULL",
+  glitch: {
+    name: "GLITCH",
     dropTable: "tank",
-    hp: 68,
-    speed: 38,
-    radius: 19,
-    damage: 4,
-    behavior: "nullifier",
-    renderStyle: "nullifier",
+    hp: 58,
+    speed: 114,
+    radius: 16,
+    damage: 11,
+    behavior: "glitch",
+    renderStyle: "glitch",
     accentColor: "purple",
     score: 3,
-    nullifier: { fieldRadius: 132, drag: 0.72, pulseEvery: 0.28 }
+    glitch: { cooldown: 1.45, windup: 0.34, dashTime: 0.28, blinkRange: 170, dashSpeed: 620, knockback: 260, blurEvery: 0.045 }
   },
 
   bouncer: {
     name: "BOUNCER",
     dropTable: "charger",
-    hp: 36,
-    speed: 190,
+    hp: 42,
+    speed: 210,
     radius: 14,
-    damage: 9,
+    damage: 10,
     behavior: "bouncer",
     renderStyle: "bouncer",
     accentColor: "red",
     score: 2,
-    bounce: { speed: 220, speedGain: 1.08, maxSpeed: 380, stunAfter: 5, stunTime: 0.55 }
+    bounce: { speed: 235, speedGain: 1.08, maxSpeed: 520, playerKnockback: 460, playerBounceGain: 1.04, hitCooldown: 0.22 }
   },
 
   herald: {
     name: "HERALD",
     dropTable: "shooter",
-    hp: 82,
-    speed: 32,
+    hp: 92,
+    speed: 28,
     radius: 21,
     damage: 5,
     behavior: "herald",
     renderStyle: "herald",
     accentColor: "red",
     score: 4,
-    herald: { cooldown: 3.6, windup: 0.72, maxSummons: 10, summonKinds: ["runner", "mini_splitter", "shooter"] }
+    herald: { cooldown: 3.2, trailSpeed: 245, catchRadius: 32, swarmBase: 3, swarmPerLoop: 2, swarmMax: 12, summonKinds: ["runner", "splitter_tiny", "runner", "mini_splitter"] }
+  },
+
+  mini_splitter: {
+    name: "SPLINTER",
+    dropTable: "anomaly_child",
+    hp: 9,
+    speed: 196,
+    radius: 8,
+    damage: 4,
+    behavior: "chase",
+    renderStyle: "splitter_tiny",
+    accentColor: "white",
+    score: 0
   },
 
   boss: {
@@ -294,14 +339,14 @@ export const ENEMIES = {
 };
 
 export const ANOMALY_ENEMY_KINDS = Object.freeze([
-  "mirror",
+  "echo",
   "orbiter",
   "anchor",
   "splitter",
   "prism",
   "pulse",
   "leech",
-  "nullifier",
+  "glitch",
   "bouncer",
   "herald"
 ]);

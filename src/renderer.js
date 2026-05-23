@@ -318,24 +318,55 @@ function drawPortal(ctx, portal, cam) {
 const PICKUP_TOKEN_RADIUS = 10;
 const PICKUP_TOKEN_POP_TIME = 0.2;
 
-function drawPickupToken(ctx, s, { label, color, scale = 1, claimable = true, burst = 0, strongBurst = false } = {}) {
+function sourcePulseLevel(item) {
+  const profile = String(item?.revealProfile || "");
+  const source = String(item?.revealSource || item?.sourceType || "");
+  if (profile === "rare" || profile === "cursed" || profile === "casino_jackpot" || profile === "casino_static") return 1;
+  if (source === "chest" || source === "casino") return 0.62;
+  if (item?.lucky || item?.boosted) return 0.45;
+  return 0;
+}
+
+function drawPickupSourcePulse(ctx, s, r, color, level = 0, age = 0) {
+  if (level <= 0) return;
+  const strong = level >= 0.9;
+  const phase = (Math.sin(age * (strong ? 5.6 : 4.2)) + 1) * 0.5;
+  const base = r + 8 + phase * (strong ? 16 : 10);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = strong ? 2 : 1;
+  ctx.globalAlpha = strong ? 0.36 - phase * 0.16 : 0.28 - phase * 0.12;
+  ctx.strokeRect(Math.round(s.x - base), Math.round(s.y - base), Math.round(base * 2), Math.round(base * 2));
+  if (strong) {
+    const outer = base + 10 + phase * 8;
+    ctx.globalAlpha = 0.18 - phase * 0.08;
+    ctx.strokeRect(Math.round(s.x - outer), Math.round(s.y - outer), Math.round(outer * 2), Math.round(outer * 2));
+  }
+  ctx.restore();
+}
+
+function drawPickupToken(ctx, s, { label, color, scale = 1, claimable = true, burst = 0, strongBurst = false, sourcePulse = 0, age = 0 } = {}) {
   const r = Math.max(8, Math.round(PICKUP_TOKEN_RADIUS * scale));
+  const code = String(label || "DRP").toUpperCase().slice(0, 3);
   ctx.save();
   if (!claimable) ctx.globalAlpha = 0.58;
+  drawPickupSourcePulse(ctx, s, r, color, sourcePulse, age);
   if (burst > 0) {
-    const burstR = r + 5 + burst * (strongBurst ? 12 : 8);
+    const burstR = r + 5 + burst * (strongBurst ? 14 : 9);
     ctx.strokeStyle = color;
     ctx.lineWidth = strongBurst ? 2 : 1;
+    ctx.globalAlpha = strongBurst ? 0.42 : 0.32;
     ctx.strokeRect(Math.round(s.x - burstR), Math.round(s.y - burstR), Math.round(burstR * 2), Math.round(burstR * 2));
+    ctx.globalAlpha = claimable ? 1 : 0.58;
   }
+  ctx.fillStyle = color;
+  ctx.font = "11px Courier New, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(code, Math.round(s.x), Math.round(s.y - r - 5));
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#050505");
   ctx.strokeStyle = color;
   ctx.lineWidth = claimable ? 2 : 1;
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-  ctx.fillStyle = color;
-  ctx.font = "11px Courier New, monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(String(label || "DRP").toUpperCase().slice(0, 3), Math.round(s.x), Math.round(s.y + 4));
   ctx.restore();
 }
 
@@ -396,10 +427,8 @@ function drawPickupTrail(ctx, item, s, color) {
 }
 
 function pickupBurstAmount(item, popT) {
-  const sourceReveal = item.revealSource === "chest" || item.revealSource === "casino";
-  const specialReveal = item.lucky || item.boosted || item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
-  if (popT < 1) return Math.max(0, 1 - popT);
-  if (sourceReveal || specialReveal) return 0.28;
+  const specialReveal = item.lucky || item.boosted || item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot" || item.revealProfile === "casino_static";
+  if (popT < 1) return Math.max(0, 1 - popT) * (specialReveal ? 1.25 : 1);
   return 0;
 }
 
@@ -418,7 +447,9 @@ function drawEconomyPickup(ctx, item, cam) {
     scale: visual.scale * pulse,
     claimable,
     burst: pickupBurstAmount(item, visual.popT),
-    strongBurst: item.revealProfile === "rare" || item.revealProfile === "cursed"
+    strongBurst: item.revealProfile === "rare" || item.revealProfile === "cursed",
+    sourcePulse: sourcePulseLevel(item),
+    age: item._renderAge || 0
   });
 }
 
@@ -458,7 +489,9 @@ function drawRewardPickup(ctx, item, cam) {
     scale: visual.scale * pulse,
     claimable: active && claimable,
     burst: pickupBurstAmount(item, visual.popT),
-    strongBurst: highValue
+    strongBurst: highValue,
+    sourcePulse: sourcePulseLevel(item),
+    age: item._renderAge || 0
   });
 }
 

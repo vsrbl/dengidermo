@@ -8,7 +8,6 @@ import { pushEvent } from "./events.js";
 import { executeRewardTable } from "./rewardResolver.js";
 import { spendMoney } from "./playerEconomy.js";
 
-const DEFAULT_DESPAWN_TIMER = 4.2;
 
 function chestColor(chest) {
   if (chest?.visual?.color) return chest.visual.color;
@@ -39,7 +38,6 @@ function chestRevealEffects(state, interactable, chest, profile, revealLabel) {
     x: interactable.x,
     y: interactable.y,
     r: radius,
-    text: String(profile.label || revealLabel || chest.visual?.label || "OPEN").slice(0, 14),
     color,
     life: profile.pulseLife || 0.34,
     maxLife: profile.pulseLife || 0.34
@@ -51,7 +49,6 @@ function chestRevealEffects(state, interactable, chest, profile, revealLabel) {
       x: interactable.x,
       y: interactable.y,
       r: radius + 12,
-      text: String(revealLabel || chest.visual?.label || "REVEAL").slice(0, 14),
       color,
       delay: profile.secondPulseDelay,
       life: (profile.pulseLife || 0.34) + profile.secondPulseDelay,
@@ -89,9 +86,6 @@ export function updateChestInteractable(interactable, dt = 0.016) {
     interactable.chestOpenTimer = Math.max(0, (interactable.chestOpenTimer || 0) - dt);
     if (interactable.chestOpenTimer <= 0) interactable.chestState = CHEST_STATES.OPENED;
   }
-  if ((interactable.despawnTimer || 0) <= 0 && interactable.chestState !== CHEST_STATES.CLAIMED) {
-    interactable.chestState = CHEST_STATES.CLAIMED;
-  }
 }
 
 function denyChestOpenForCost(state, interactable, player, chest, cost, reason) {
@@ -101,10 +95,10 @@ function denyChestOpenForCost(state, interactable, player, chest, cost, reason) 
     type: "damageText",
     x: Math.round(interactable.x),
     y: Math.round(interactable.y - (interactable.radius || 24) - 14),
-    text: reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY ? `${label} ${cost}` : label,
+    text: label,
     color,
-    life: 0.72,
-    maxLife: 0.72
+    life: 0.42,
+    maxLife: 0.42
   });
   pushEvent(state, {
     type: "chest",
@@ -152,9 +146,9 @@ export function activateChest(state, interactable, player, options = {}) {
   interactable.chestOpenTimer = profile.openingTime;
   interactable.chestOpenDuration = profile.openingTime;
   interactable.chestRevealProfile = profile.id;
-  interactable.chestRevealLabel = cost > 0 ? `PAY ${cost}` : "SCAN";
+  interactable.chestRevealLabel = null;
   interactable.chestRewardCount = 0;
-  interactable.despawnTimer = Number.isFinite(options.despawnTimer) ? options.despawnTimer : DEFAULT_DESPAWN_TIMER;
+  interactable.despawnTimer = null;
   const color = chestColor(chest);
 
   const spawned = interactable.rewardTable
@@ -174,15 +168,6 @@ export function activateChest(state, interactable, player, options = {}) {
   interactable.chestRevealLabel = chestRevealSummary(spawned);
 
   chestRevealEffects(state, interactable, chest, profile, interactable.chestRevealLabel);
-  pushVisualEffect(state, {
-    type: "damageText",
-    x: Math.round(interactable.x),
-    y: Math.round(interactable.y - (interactable.radius || 24) - 14),
-    text: cost > 0 ? `-${cost} GLD` : String(interactable.chestRevealLabel || chest.visual?.label || chest.name || "CHEST").slice(0, 16),
-    color,
-    life: 0.86,
-    maxLife: 0.86
-  });
   pushEvent(state, {
     type: "interactable",
     action: "opened",

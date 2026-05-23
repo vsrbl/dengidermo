@@ -5,12 +5,19 @@ import { sourceId } from "./effects.js";
 import { runEnemyEliteDeath } from "./enemyElites.js";
 import { spawnBehaviorEnemy } from "./enemyBehaviors/common.js";
 
+function roomLoopIndex(state) {
+  return Math.max(0, Math.floor(Number(state?.roomPlan?.loopIndex ?? state?.loopIndex ?? 0) || 0));
+}
+
 function runEnemyDeathSpawn(state, enemy, data) {
   const cfg = data?.deathSpawn;
   if (!cfg?.kind || !ENEMIES[cfg.kind]) return [];
+  const loop = roomLoopIndex(state);
+  if (Number.isFinite(cfg.minLoop) && loop < cfg.minLoop) return [];
   const maxChildren = Number.isFinite(cfg.maxChildren) ? cfg.maxChildren : 8;
   const existing = Object.values(state.enemies || {}).filter((item) => item?.parentEnemyId === enemy.id).length;
-  const count = Math.max(0, Math.min(cfg.count || 0, maxChildren - existing));
+  const scaledCount = (cfg.count || 0) + Math.max(0, loop - Math.max(0, cfg.minLoop || 0)) * Math.max(0, cfg.countPerLoop || 0);
+  const count = Math.max(0, Math.min(cfg.maxCount || scaledCount, scaledCount, maxChildren - existing));
   const spawned = [];
   for (let i = 0; i < count; i += 1) {
     const a = (Math.PI * 2 * i) / Math.max(1, count) + ((state.rng?.next?.() || 0) - 0.5) * 0.35;
@@ -22,11 +29,12 @@ function runEnemyDeathSpawn(state, enemy, data) {
       text: "SPL"
     });
     if (!child) continue;
-    child.vx = Math.cos(a) * 150;
-    child.vy = Math.sin(a) * 150;
+    const impulse = cfg.impulse || 150;
+    child.vx = Math.cos(a) * impulse;
+    child.vy = Math.sin(a) * impulse;
     spawned.push(child);
   }
-  if (spawned.length) pushEvent(state, { type: "enemy", action: "death_spawn", enemyId: enemy.id, enemyKind: enemy.kind, childKind: cfg.kind, count: spawned.length, x: enemy.x, y: enemy.y });
+  if (spawned.length) pushEvent(state, { type: "enemy", action: "death_spawn", enemyId: enemy.id, enemyKind: enemy.kind, childKind: cfg.kind, count: spawned.length, splitStage: data?.splitStage ?? null, loopIndex: loop, x: enemy.x, y: enemy.y });
   return spawned;
 }
 

@@ -110,7 +110,7 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
     ]),
     enemyPool: Object.freeze({
       tierBias: 0.1,
-      add: Object.freeze(["mirror", "orbiter", "splitter", "leech", "bouncer"]),
+      add: Object.freeze(["echo", "orbiter", "splitter", "leech", "bouncer"]),
       prefer: Object.freeze([]),
       exclude: Object.freeze([])
     }),
@@ -136,7 +136,7 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
     ]),
     enemyPool: Object.freeze({
       tierBias: 0.22,
-      add: Object.freeze(["mirror", "orbiter", "anchor", "splitter", "prism", "pulse", "leech", "nullifier", "bouncer", "herald"]),
+      add: Object.freeze(["echo", "orbiter", "anchor", "splitter", "prism", "pulse", "leech", "glitch", "bouncer", "herald"]),
       prefer: Object.freeze(["shooter", "charger"]),
       exclude: Object.freeze([])
     }),
