@@ -62,10 +62,11 @@ function drawTank(ctx, s, r, _data, enemy) {
 }
 
 function drawShooter(ctx, s, r) {
-  // Diagonal crosshair, no extra color: shape says ranged.
+  // Crosshair stays inside the body square so the read is clean and contained.
   hollowSquare(ctx, s, r, 3);
-  line(ctx, s.x - r - 4, s.y - r - 4, s.x + r + 4, s.y + r + 4, "#fff", 1);
-  line(ctx, s.x + r + 4, s.y - r - 4, s.x - r - 4, s.y + r + 4, "#fff", 1);
+  const inset = Math.max(4, Math.round(r * 0.34));
+  line(ctx, s.x - r + inset, s.y - r + inset, s.x + r - inset, s.y + r - inset, "#fff", 1);
+  line(ctx, s.x + r - inset, s.y - r + inset, s.x - r + inset, s.y + r - inset, "#fff", 1);
 }
 
 function drawCharger(ctx, s, r) {
