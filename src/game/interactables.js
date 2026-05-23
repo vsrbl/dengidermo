@@ -1,69 +1,46 @@
-import { CENTER, GREEN, PLAYER_RADIUS, RED, SPAWN_OFFSETS, WORLD } from "../core/constants.js";
+import { GREEN, PLAYER_RADIUS, RED } from "../core/constants.js";
 import { dist2 } from "../core/math.js";
 import { INTERACTABLE_CATEGORIES, getInteractable } from "../data/interactables.js";
-import { canPlaceCircleInLocation, roomGeometrySnapshot } from "./roomGeometry.js";
+import { INTERACTABLE_DENIAL_REASONS, affordanceReasonLabel } from "../data/interactableAffordances.js";
 import { addSpark, pushVisualEffect } from "./effectCommands.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { executeRewardTable } from "./rewardResolver.js";
 import { activateChest, createChestRuntimeFields, isChestInteractableData, updateChestInteractable } from "./chests.js";
 import { createCasinoRuntimeFields, isCasinoInteractableData, updateCasinoInteractable } from "./casino.js";
-
-const PLACEMENT_POINTS = Object.freeze({
-  field_cache: Object.freeze([
-    Object.freeze({ x: CENTER.x - 360, y: CENTER.y - 180 }),
-    Object.freeze({ x: CENTER.x + 360, y: CENTER.y + 180 }),
-    Object.freeze({ x: CENTER.x - 420, y: CENTER.y + 190 }),
-    Object.freeze({ x: CENTER.x + 420, y: CENTER.y - 190 })
-  ]),
-  reward_center: Object.freeze([
-    Object.freeze({ x: CENTER.x, y: CENTER.y - 240 }),
-    Object.freeze({ x: CENTER.x - 260, y: CENTER.y + 150 }),
-    Object.freeze({ x: CENTER.x + 260, y: CENTER.y + 150 }),
-    Object.freeze({ x: CENTER.x, y: CENTER.y + 260 })
-  ]),
-  casino_center: Object.freeze([
-    Object.freeze({ x: CENTER.x, y: CENTER.y - 260 }),
-    Object.freeze({ x: CENTER.x - 290, y: CENTER.y + 120 }),
-    Object.freeze({ x: CENTER.x + 290, y: CENTER.y + 120 }),
-    Object.freeze({ x: CENTER.x, y: CENTER.y + 280 })
-  ])
-});
+import { interactablePlacementBudgetAllows, resolveInteractablePoint } from "./interactableResolver.js";
 
 function colorForAccent(accent = "green") {
   if (accent === "red") return RED;
+  if (accent === "purple") return "#b45cff";
+  if (accent === "cyan") return "#66f6ff";
   if (accent === "white") return "#f3f3f3";
   return GREEN;
 }
 
-function placementCandidates(slot = {}, index = 0) {
-  if (Number.isFinite(slot.x) && Number.isFinite(slot.y)) return [{ x: slot.x, y: slot.y }];
-  const points = PLACEMENT_POINTS[slot.placement] || PLACEMENT_POINTS.field_cache;
-  const offset = Math.max(0, index % points.length);
-  return [...points.slice(offset), ...points.slice(0, offset)];
-}
 
-function spawnPoints() {
-  return SPAWN_OFFSETS.map((offset) => ({ x: CENTER.x + offset.x, y: CENTER.y + offset.y }));
-}
-
-function respectsSpawnClearance(point, data, slot = {}) {
-  const minDistance = Math.max(0, Number(slot.minSpawnDistance ?? data.minSpawnDistance ?? 0) || 0);
-  if (!minDistance) return true;
-  const min2 = minDistance * minDistance;
-  return spawnPoints().every((spawn) => dist2(point.x, point.y, spawn.x, spawn.y) >= min2);
-}
-
-function resolveInteractablePoint(loc, slot, data, index = 0) {
-  const geometry = roomGeometrySnapshot(loc);
-  const radius = data.radius || 18;
-  for (const point of placementCandidates(slot, index)) {
-    if (!respectsSpawnClearance(point, data, slot)) continue;
-    if (canPlaceCircleInLocation(geometry, point.x, point.y, radius, 18)) return point;
-  }
-  const fallback = { x: CENTER.x, y: CENTER.y - 300 };
-  if (respectsSpawnClearance(fallback, data, slot) && canPlaceCircleInLocation(geometry, fallback.x, fallback.y, radius, 18)) return fallback;
-  return { x: Math.max(40, Math.min(WORLD.w - 40, fallback.x)), y: Math.max(40, Math.min(WORLD.h - 40, fallback.y)) };
+function denyInteractableActivation(state, interactable, player, reason = INTERACTABLE_DENIAL_REASONS.INACTIVE, data = null) {
+  if (!state || !interactable || !player) return;
+  const color = colorForAccent(interactable.accent || data?.visual?.accent || 'green');
+  pushVisualEffect(state, {
+    type: 'damageText',
+    x: Math.round(interactable.x),
+    y: Math.round(interactable.y - (interactable.radius || 18) - 12),
+    text: affordanceReasonLabel(reason),
+    color,
+    life: 0.62,
+    maxLife: 0.62
+  });
+  pushEvent(state, {
+    type: 'interactable',
+    action: 'activation_denied',
+    playerId: player.id,
+    interactableId: interactable.id,
+    kind: interactable.kind,
+    reason,
+    x: interactable.x,
+    y: interactable.y
+  });
 }
 
 function planSlots(loc) {
@@ -74,11 +51,15 @@ export function spawnLocationInteractables(state, loc) {
   if (!state) return [];
   if (!state.interactables) state.interactables = {};
   const spawned = [];
+  const placed = [];
   for (const [index, slot] of planSlots(loc).entries()) {
     const data = getInteractable(slot.interactableId);
     if (!data) continue;
-    const point = resolveInteractablePoint(loc, slot, data, index);
+    if (!interactablePlacementBudgetAllows(loc, placed)) break;
+    const point = resolveInteractablePoint(loc, slot, data, placed, index);
+    if (!point) continue;
     const id = nextId("ia");
+    const chestRuntime = createChestRuntimeFields(data, { state, roomPlan: state.roomPlan });
     const interactable = {
       id,
       slotId: slot.id || id,
@@ -98,11 +79,13 @@ export function spawnLocationInteractables(state, loc) {
       tags: [...(data.tags || []), ...(slot.tags || [])],
       label: data.visual?.label || data.name,
       accent: data.visual?.accent || "green",
-      ...createChestRuntimeFields(data),
+      visualColor: data.visual?.color || null,
+      ...chestRuntime,
       ...createCasinoRuntimeFields(data)
     };
     state.interactables[id] = interactable;
     spawned.push(interactable);
+    placed.push({ x: interactable.x, y: interactable.y, radius: interactable.radius, kind: interactable.kind });
   }
   return spawned;
 }
@@ -123,7 +106,10 @@ export function canActivateInteractable(state, interactable, player, options = {
 
 export function activateInteractable(state, interactable, player, options = {}) {
   const check = canActivateInteractable(state, interactable, player, options);
-  if (!check.ok) return false;
+  if (!check.ok) {
+    denyInteractableActivation(state, interactable, player, check.reason, check.data || null);
+    return false;
+  }
   if (isChestInteractableData(check.data) || interactable.category === INTERACTABLE_CATEGORIES.CHEST) {
     return activateChest(state, interactable, player, options);
   }
@@ -200,7 +186,12 @@ export function requestInteractableActivation(state, playerId, request = {}) {
   const player = state?.players?.[playerId];
   if (!player) return false;
   const targetId = typeof request.targetId === "string" ? request.targetId : null;
-  const interactable = nearestInteractable(state, player, targetId);
+  if (targetId) {
+    const requested = state?.interactables?.[targetId] || null;
+    if (!requested) return false;
+    return activateInteractable(state, requested, player);
+  }
+  const interactable = nearestInteractable(state, player, null);
   if (!interactable) return false;
   return activateInteractable(state, interactable, player);
 }
@@ -245,10 +236,14 @@ export function interactableSnapshot(interactable) {
     chestTier: interactable.chestTier || null,
     chestState: interactable.chestState || null,
     chestOpenTimer: Number.isFinite(interactable.chestOpenTimer) ? Number(interactable.chestOpenTimer.toFixed(3)) : 0,
+    chestOpenDuration: Number.isFinite(interactable.chestOpenDuration) ? Number(interactable.chestOpenDuration.toFixed(3)) : 0,
     chestRevealLabel: interactable.chestRevealLabel || null,
+    chestRevealProfile: interactable.chestRevealProfile || null,
     chestRewardCount: Number.isFinite(interactable.chestRewardCount) ? interactable.chestRewardCount : 0,
     chestVisual: interactable.chestVisual || null,
     chestGlyph: interactable.chestGlyph || null,
+    chestOpenCost: Number.isFinite(interactable.chestOpenCost) ? interactable.chestOpenCost : 0,
+    visualColor: interactable.visualColor || null,
     casinoMachineId: interactable.casinoMachineId || null,
     casinoState: interactable.casinoState || null,
     casinoLabel: interactable.casinoLabel || null,

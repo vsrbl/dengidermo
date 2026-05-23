@@ -18,7 +18,7 @@ export const CASINO_MACHINE_STATES = Object.freeze({
 export const CASINO_MACHINES = Object.freeze({
   [CASINO_MACHINE_IDS.SIGNAL_SLOT]: Object.freeze({
     id: CASINO_MACHINE_IDS.SIGNAL_SLOT,
-    name: "SIGNAL SLOT",
+    name: "BET TERMINAL",
     radius: 28,
     interactRadius: 62,
     minSpawnDistance: 175,
@@ -32,7 +32,7 @@ export const CASINO_MACHINES = Object.freeze({
       CASINO_SYMBOL_IDS.STATIC,
       CASINO_SYMBOL_IDS.JACKPOT
     ]),
-    visual: Object.freeze({ renderer: "slot_machine", label: "SLOT", accent: "red", glyph: "SLT" }),
+    visual: Object.freeze({ renderer: "slot_machine", label: "BET", accent: "red", glyph: "BET" }),
     tags: Object.freeze(["casino", "slot", "money", "risk", "reward"])
   })
 });

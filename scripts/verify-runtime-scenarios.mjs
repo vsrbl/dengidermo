@@ -170,27 +170,36 @@ function assertInteractableScenario() {
   const player = addPlayer(state, 'p1', 0);
   for (let i = 0; i < 4; i += 1) beginRoomTransition(state, 'verify-interactable', { offerUpgrades: false });
   assert.equal(state.roomPlan.resolvedRoomId, 'reward-cache-00', 'first reward room should still resolve through roomPlan');
-  assert.equal(state.roomPlan.interactablePlan.length, 1, 'reward cache room should carry one data-driven interactable slot');
-  assert.equal(Object.keys(state.interactables).length, 1, 'entering reward cache should spawn its interactable from the plan');
-  const chest = Object.values(state.interactables)[0];
+  assert.equal(state.roomPlan.interactablePlan.length, 4, 'reward cache room should carry the priced reward spread');
+  assert.equal(Object.keys(state.interactables).length, 4, 'entering reward cache should spawn its priced interactables from the plan');
+  const chest = Object.values(state.interactables).find((item) => item.kind === CHEST_IDS.RARE);
+  assert.ok(chest, 'reward room interactable should include a rare chest');
   assert.equal(chest.kind, CHEST_IDS.RARE, 'reward room interactable should use real rare chest data');
   assert.equal(chest.chestId, CHEST_IDS.RARE, 'reward room chest should carry chest identity');
   assert.equal(chest.chestState, CHEST_STATES.CLOSED, 'reward room chest should start closed');
   updateInteractables(state, 0.016);
   assert.equal(chest.opened, false, 'reward chest must not open without explicit E interaction');
+  player.economy.money = 0;
   player.x = chest.x;
   player.y = chest.y;
+  assert.equal(requestInteractableActivation(state, player.id, { targetId: chest.id }), false, 'priced chest should reject open when player cannot pay');
+  assert.equal(chest.opened, false, 'denied chest open must not consume or open the chest');
+  assert.ok(state.events.some((event) => event.type === 'chest' && event.action === 'open_denied' && event.reason === 'not_enough_money'), 'priced chest rejection should emit a local affordance event');
+  player.economy.money = 250;
   assert.equal(requestInteractableActivation(state, player.id, { targetId: chest.id }), true, 'host-validated interact request should activate reward chest');
+  assert.equal(requestInteractableActivation(state, player.id, { targetId: chest.id }), false, 'opened/opening chest should reject duplicate activation');
+  assert.ok(state.events.some((event) => event.type === 'interactable' && event.action === 'activation_denied' && event.reason === 'inactive'), 'duplicate chest activation should emit a denial affordance instead of spending twice');
   assert.equal(chest.chestState, CHEST_STATES.OPENING, 'activated chest should enter opening state');
   assert.ok(Object.keys(state.rewardPickups).length >= 1, 'opening reward cache should spawn reward pickups through reward resolver');
   assert.equal(Object.keys(state.loot).length, 0, 'room rewards should not bypass the reward pickup contract by spawning legacy loot directly');
   const rewardPickup = Object.values(state.rewardPickups)[0];
   player.x = rewardPickup.x;
   player.y = rewardPickup.y;
-  updateRewardPickups(state, 0.5);
-  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.action === 'claimed'), 'reward pickup should be claimable through the official pickup pipeline after its short delay');
+  updateRewardPickups(state, 0.9);
+  assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.action === 'claimed'), 'reward pickup should be claimable through the official pickup pipeline after its reveal delay');
   assert.ok(state.events.some((event) => event.type === 'interactable' && event.action === 'opened'), 'interactable activation should emit an event');
   assert.ok(state.events.some((event) => event.type === 'chest' && event.action === 'opened' && event.chestId === CHEST_IDS.RARE), 'chest activation should emit a chest-specific event');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'spend_money' && event.sourceType === 'chest'), 'priced chest opening should spend money through playerEconomy');
 
   const casinoPlan = resolveRoomPlan(8, { seed: 'INTERACTABLE-SCENARIO' });
   const casinoLoc = getLocationFromRoomPlan(casinoPlan);
@@ -210,20 +219,22 @@ function assertInteractableScenario() {
   assert.equal(requestInteractableActivation(state, player.id, { targetId: slot.id }), true, 'E-style host interaction should request/open the SIGNAL SLOT without resolving rewards');
   assert.equal(slot.opened, false, 'opening casino modal must not consume the casino machine interactable');
   assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'open_requested'), 'casino modal open should emit casino open_requested event');
+  player.economy.money = 0;
   const deniedSpin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 1 });
   assert.equal(deniedSpin.ok, false, 'casino spin should reject when player cannot pay the stake');
   assert.equal(deniedSpin.reason, 'not_enough_money', 'casino spin rejection should explain missing money');
   player.economy.money = 100;
+  const lowStakeCost = getCasinoStake(CASINO_STAKE_IDS.LOW).cost;
   const spin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 2 });
   assert.equal(spin.ok, true, 'casino spin should resolve only through host-owned spin request');
-  assert.ok(player.economy.money >= 90, 'casino stake should be spent before any host-side payout is applied');
+  assert.ok(player.economy.money >= 100 - lowStakeCost, 'casino stake should be spent before any host-side payout is applied');
   assert.equal(spin.symbols.length, 3, 'casino spin result should include three reel symbols');
   if (spin.match) {
     assert.equal(spin.payoutApplied, true, 'three matching casino symbols should apply a real payout in v39.3.11');
     assert.ok(spin.rewardCount >= 1, 'matching casino outcome should report applied reward actions');
   } else {
     assert.equal(spin.payoutApplied, false, 'non-matching casino spin should lose only the stake');
-    assert.equal(player.economy.money, 90, 'non-matching casino spin should leave player with money minus stake');
+    assert.equal(player.economy.money, 100 - lowStakeCost, 'non-matching casino spin should leave player with money minus stake');
   }
   assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'spin_resolved'), 'casino spin should emit a host-resolved casino event');
 

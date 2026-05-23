@@ -15,11 +15,15 @@ import { CASINO_SYMBOLS, casinoSymbolIsKnown } from '../src/data/casinoSymbols.j
 import { CASINO_OUTCOMES, casinoOutcomeActionTypeIsKnown, CASINO_OUTCOME_ACTION_TYPES } from '../src/data/casinoOutcomes.js';
 import { CHESTS, CHEST_STATES, chestStateIsKnown, getChest } from '../src/data/chests.js';
 import { CHEST_REWARD_TABLES } from '../src/data/chestRewardTables.js';
+import { CHEST_OPEN_PRICES, CHEST_VISUALS } from '../src/data/chestEconomy.js';
+import { CASINO_REVEAL_PROFILES, CASINO_REVEAL_TIMING, CHEST_REVEAL_PROFILES, chestRevealProfileForTier } from '../src/data/revealAnimations.js';
+import { INTERACTABLE_AFFORDANCE_LABELS, INTERACTABLE_AFFORDANCE_RULES, INTERACTABLE_DENIAL_REASONS } from '../src/data/interactableAffordances.js';
 import { REWARD_TABLES, rewardEntryIsKnown } from '../src/data/rewardTables.js';
 import { REWARD_TYPES, ACTIVE_REWARD_TYPES, RESERVED_REWARD_TYPES, rewardTypeIsKnown } from '../src/data/rewardTypes.js';
 import { LOOT } from '../src/data/loot.js';
 import { DROP_TABLES, dropTableEntryIsKnown } from '../src/data/dropTables.js';
 import { ECONOMY_PICKUP_TYPES, economyPickupTypeIsKnown, xpRequiredForNextLevel } from '../src/data/economy.js';
+import { CASINO_BALANCE, CHEST_PRICE_BALANCE, CHEST_REWARD_BALANCE, ECONOMY_BALANCE_SCHEMA_VERSION, ENEMY_DROP_BALANCE, INTERACTABLE_DENSITY_BALANCE, LEVEL_CURVE_BALANCE } from '../src/data/economyBalance.js';
 import { ABILITIES, ABILITY_IDS, abilityIsRewardable } from '../src/data/abilities.js';
 import { ABILITY_LOOT_TABLES } from '../src/data/abilityLootTables.js';
 import { ELITE_VARIANTS } from '../src/data/eliteVariants.js';
@@ -53,6 +57,10 @@ assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.MONEY), 'money pickup ty
 assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.XP), 'xp pickup type must be registered');
 assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.HEAL), 'heal pickup type must be registered');
 assert.ok(Number.isFinite(xpRequiredForNextLevel(1)) && xpRequiredForNextLevel(1) > 0, 'economy level curve needs a positive first threshold');
+assert.equal(ECONOMY_BALANCE_SCHEMA_VERSION, 1, 'economy balance schema should be explicit for future tuning migrations');
+assert.equal(xpRequiredForNextLevel(1), LEVEL_CURVE_BALANCE.baseXp, 'level curve should be data-driven by economyBalance');
+assert.ok(LEVEL_CURVE_BALANCE.baseXp >= 28, 'v39.3.15 should avoid over-fast early INSTALL queue pacing after chest density increased');
+assert.ok(ENEMY_DROP_BALANCE.grunt.moneyChance > 0.4, 'early GLD reliability should support priced BSC exploration chests');
 for (const [id, table] of Object.entries(DROP_TABLES)) {
   assert.equal(table.id, id, `drop table key/id mismatch: ${id}`);
   assert.ok(Array.isArray(table.entries) && table.entries.length > 0, `${id} drop table needs entries`);
@@ -160,10 +168,22 @@ for (const [id, chest] of Object.entries(CHESTS)) {
   assert.ok(Number.isFinite(chest.interactRadius) && chest.interactRadius >= chest.radius, `${id} chest needs valid interact radius`);
   assert.ok(CHEST_REWARD_TABLES[chest.rewardTable], `${id} chest references unknown chest reward table: ${chest.rewardTable}`);
   assert.ok(chest.visual?.renderer === 'chest', `${id} chest must use the chest renderer identity`);
+  assert.ok(CHEST_VISUALS[id]?.code && chest.visual?.glyph === CHEST_VISUALS[id].code, `${id} must use simple rarity code visual identity`);
+  assert.ok(CHEST_OPEN_PRICES[id]?.base > 0, `${id} must have a priced opening contract`);
+  assert.deepEqual(CHEST_OPEN_PRICES[id], CHEST_PRICE_BALANCE[id], `${id} price should be sourced from economyBalance`);
+  const revealProfile = chestRevealProfileForTier(chest.tier);
+  assert.ok(revealProfile && Number.isFinite(revealProfile.openingTime) && revealProfile.openingTime > 0, `${id} must have a data-driven dopamine reveal profile`);
+  assert.ok(Number.isFinite(revealProfile.popDistance) && revealProfile.popDistance >= 16, `${id} reveal profile must own reward pop distance`);
   assert.ok(Array.isArray(chest.tags) && chest.tags.includes('chest'), `${id} chest needs chest tag`);
   assert.ok(INTERACTABLES[id], `${id} chest must be exposed as an interactable`);
 }
 assertUnique(Object.keys(CHEST_REWARD_TABLES), 'chest reward table');
+assert.ok(CHEST_OPEN_PRICES.basic_chest.base < CHEST_OPEN_PRICES.weapon_chest.base, 'BSC should stay cheaper than WPN');
+assert.ok(CHEST_OPEN_PRICES.weapon_chest.base < CHEST_OPEN_PRICES.ability_chest.base, 'WPN should stay cheaper than ABL');
+assert.ok(CHEST_OPEN_PRICES.ability_chest.base < CHEST_OPEN_PRICES.rare_chest.base, 'ABL should stay cheaper than RAR');
+assert.ok(CHEST_OPEN_PRICES.rare_chest.base < CHEST_OPEN_PRICES.cursed_chest.base, 'RAR should stay cheaper than CRS risk chest');
+assert.ok(CHEST_REWARD_BALANCE.rare.guaranteedMoney[0] > CHEST_REWARD_BALANCE.basic.moneyAmount[1], 'RAR should keep a stronger guaranteed GLD floor than BSC');
+assert.ok(CHEST_REWARD_BALANCE.cursed.guaranteedMoney[0] > CHEST_REWARD_BALANCE.rare.guaranteedMoney[0], 'CRS should keep strong compensation for its guaranteed debt');
 
 assertUnique(Object.keys(CASINO_SYMBOLS), 'casino symbol');
 for (const [id, symbol] of Object.entries(CASINO_SYMBOLS)) {
@@ -171,7 +191,20 @@ for (const [id, symbol] of Object.entries(CASINO_SYMBOLS)) {
   assert.ok(symbol.label && symbol.glyph && symbol.accent, `${id} casino symbol needs label/glyph/accent`);
   assert.ok(Number.isFinite(symbol.weight) && symbol.weight > 0, `${id} casino symbol needs positive weight`);
 }
+assertUnique(Object.keys(CHEST_REVEAL_PROFILES), 'chest reveal profile');
+assertUnique(Object.keys(CASINO_REVEAL_PROFILES), 'casino reveal profile');
+assert.ok(CASINO_REVEAL_TIMING.reelStepMs >= 180, 'casino reveal timing should keep sequential reel suspense readable');
+assert.ok(EFFECT_RENDERERS.rewardRevealPulse, 'dopamine reveal pulse effect renderer must be registered');
+assert.equal(INTERACTABLE_AFFORDANCE_LABELS.noMoney, 'NO GLD', 'interactable affordance labels must keep the missing-money prompt readable');
+assert.equal(INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY, 'not_enough_money', 'interactable denial reasons must match host economy rejection reason');
+assert.ok(INTERACTABLE_AFFORDANCE_RULES.previewRangeMultiplier >= 2, 'interactable affordance preview range must support readable local prompts before exact E range');
+
 assertUnique(Object.keys(CASINO_STAKES), 'casino stake');
+assert.ok(CASINO_STAKES.low.cost === CASINO_BALANCE.low.cost && CASINO_STAKES.mid.cost === CASINO_BALANCE.mid.cost && CASINO_STAKES.high.cost === CASINO_BALANCE.high.cost, 'casino stake costs should be sourced from economyBalance');
+assert.ok(CASINO_STAKES.low.cost < CASINO_STAKES.mid.cost && CASINO_STAKES.mid.cost < CASINO_STAKES.high.cost, 'casino stake costs should scale by risk tier');
+assert.ok(CASINO_BALANCE.high.payouts.jackpotMoney > CASINO_BALANCE.mid.payouts.jackpotMoney && CASINO_BALANCE.mid.payouts.jackpotMoney > CASINO_BALANCE.low.payouts.jackpotMoney, 'casino jackpot payouts should scale by stake tier');
+assert.ok(INTERACTABLE_DENSITY_BALANCE.normal.chances.basicPrimary >= 0.8, 'normal rooms should remain exploration-heavy with frequent BSC opportunities');
+assert.ok(INTERACTABLE_DENSITY_BALANCE.normal.chances.cursed < INTERACTABLE_DENSITY_BALANCE.normal.chances.basicPrimary, 'CRS should stay rarer than BSC in normal rooms');
 for (const [id, stake] of Object.entries(CASINO_STAKES)) {
   assert.equal(stake.id, id, `casino stake key/id mismatch: ${id}`);
   assert.ok(stake.name && Number.isFinite(stake.cost) && stake.cost > 0, `${id} casino stake needs name and positive money cost`);
@@ -219,6 +252,10 @@ for (const [id, table] of Object.entries(REWARD_TABLES)) {
   assert.equal(table.id, id, `reward table key/id mismatch: ${id}`);
   assert.ok(Array.isArray(table.entries) && table.entries.length > 0, `${id} reward table needs entries`);
   assert.ok(Number.isFinite(table.rolls) && table.rolls >= 1, `${id} reward table needs positive rolls`);
+  for (const entry of table.guaranteedEntries || []) {
+    assert.ok(rewardEntryIsKnown(entry), `${id} guaranteed reward table entry is unknown: ${JSON.stringify(entry)}`);
+    if (Number.isFinite(entry.weight)) assert.ok(entry.weight > 0, `${id} guaranteed reward weight must be positive when present`);
+  }
   for (const entry of table.entries) {
     assert.ok(rewardEntryIsKnown(entry), `${id} reward table has unknown reward entry: ${JSON.stringify(entry)}`);
     assert.ok(Number.isFinite(entry.weight) && entry.weight > 0, `${id} reward entry needs positive weight`);
@@ -247,8 +284,8 @@ for (const [id, data] of Object.entries(INTERACTABLES)) {
 
 const chestRendererSrc = read('src/render/chestRenderers.js');
 assert.match(chestRendererSrc, /drawChestInteractable/, 'chest renderer registry must export drawChestInteractable');
-assert.match(read('src/renderer.js'), /drawChestInteractable\(ctx, item, cam\)/, 'main renderer must route chest interactables through chest renderer');
-assert.match(read('src/renderer.js'), /drawCasinoInteractable\(ctx, item, cam\)/, 'main renderer must route casino interactables through casino renderer');
+assert.match(read('src/renderer.js'), /drawChestInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route chest interactables through chest renderer with local affordance context');
+assert.match(read('src/renderer.js'), /drawCasinoInteractable\(ctx, item, cam, affordance\)/, 'main renderer must route casino interactables through casino renderer with local affordance context');
 
 const eliteRendererSrc = read('src/render/eliteRenderers.js');
 for (const [id, variant] of Object.entries(ELITE_VARIANTS)) {

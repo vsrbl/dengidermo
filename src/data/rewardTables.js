@@ -5,6 +5,7 @@ import { MODIFIER_DOMAINS } from "./modifierDomains.js";
 import { getRuleModifierInDomain } from "./ruleModifiers.js";
 import { REWARD_TYPES, rewardTypeIsKnown } from "./rewardTypes.js";
 import { CHEST_REWARD_TABLES } from "./chestRewardTables.js";
+import { CHEST_REWARD_BALANCE } from "./economyBalance.js";
 
 export const REWARD_TABLES = Object.freeze({
   ...CHEST_REWARD_TABLES,
@@ -15,9 +16,9 @@ export const REWARD_TABLES = Object.freeze({
     rolls: 2,
     scatter: 30,
     entries: Object.freeze([
-      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.MONEY, amount: [4, 8], weight: 7, text: "GLD" }),
-      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: [5, 9], weight: 5, text: "EXP" }),
-      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.HEAL, amount: 16, weight: 2, text: "HEA" })
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.MONEY, amount: CHEST_REWARD_BALANCE.basic.moneyAmount, weight: CHEST_REWARD_BALANCE.basic.moneyWeight, text: "GLD" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: CHEST_REWARD_BALANCE.basic.xpAmount, weight: CHEST_REWARD_BALANCE.basic.xpWeight, text: "EXP" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.HEAL, amount: CHEST_REWARD_BALANCE.basic.healAmount, weight: CHEST_REWARD_BALANCE.basic.healWeight, text: "HEA" })
     ])
   }),
 
@@ -60,7 +61,8 @@ export function getRewardTable(tableId) {
 }
 
 export function rewardTableEntries(tableId) {
-  return [...(getRewardTable(tableId)?.entries || [])];
+  const table = getRewardTable(tableId);
+  return [...(table?.guaranteedEntries || []), ...(table?.entries || [])];
 }
 
 export function rewardEntryIsKnown(entry) {

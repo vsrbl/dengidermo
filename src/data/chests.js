@@ -1,4 +1,5 @@
 import { CHEST_REWARD_TABLES } from "./chestRewardTables.js";
+import { chestOpenCostFor, chestVisualFor } from "./chestEconomy.js";
 
 export const CHEST_STATES = Object.freeze({
   CLOSED: "closed",
@@ -15,8 +16,17 @@ export const CHEST_IDS = Object.freeze({
   CURSED: "cursed_chest"
 });
 
-function chestVisual(label, accent, tier, glyph) {
-  return Object.freeze({ renderer: "chest", label, accent, tier, glyph });
+function chestVisual(chestId, tier) {
+  const visual = chestVisualFor(chestId);
+  return Object.freeze({
+    renderer: "chest",
+    label: visual.label,
+    code: visual.code,
+    accent: visual.accent,
+    color: visual.color,
+    tier,
+    glyph: visual.code
+  });
 }
 
 export const CHESTS = Object.freeze({
@@ -29,7 +39,8 @@ export const CHESTS = Object.freeze({
     minSpawnDistance: 165,
     rewardTable: CHEST_REWARD_TABLES.basic_chest.id,
     tags: Object.freeze(["chest", "loot", "exploration", "basic"]),
-    visual: chestVisual("CHEST", "green", "basic", "B")
+    visual: chestVisual(CHEST_IDS.BASIC, "basic"),
+    openCost: chestOpenCostFor(CHEST_IDS.BASIC)
   }),
 
   [CHEST_IDS.WEAPON]: Object.freeze({
@@ -41,7 +52,8 @@ export const CHESTS = Object.freeze({
     minSpawnDistance: 170,
     rewardTable: CHEST_REWARD_TABLES.weapon_chest.id,
     tags: Object.freeze(["chest", "loot", "weapon", "exploration"]),
-    visual: chestVisual("WEAPON", "white", "weapon", "W")
+    visual: chestVisual(CHEST_IDS.WEAPON, "weapon"),
+    openCost: chestOpenCostFor(CHEST_IDS.WEAPON)
   }),
 
   [CHEST_IDS.ABILITY]: Object.freeze({
@@ -53,7 +65,8 @@ export const CHESTS = Object.freeze({
     minSpawnDistance: 170,
     rewardTable: CHEST_REWARD_TABLES.ability_chest.id,
     tags: Object.freeze(["chest", "loot", "ability", "exploration"]),
-    visual: chestVisual("ACTIVE", "green", "ability", "A")
+    visual: chestVisual(CHEST_IDS.ABILITY, "ability"),
+    openCost: chestOpenCostFor(CHEST_IDS.ABILITY)
   }),
 
   [CHEST_IDS.RARE]: Object.freeze({
@@ -65,7 +78,8 @@ export const CHESTS = Object.freeze({
     minSpawnDistance: 180,
     rewardTable: CHEST_REWARD_TABLES.rare_chest.id,
     tags: Object.freeze(["chest", "loot", "rare", "reward", "exploration"]),
-    visual: chestVisual("RARE", "green", "rare", "R")
+    visual: chestVisual(CHEST_IDS.RARE, "rare"),
+    openCost: chestOpenCostFor(CHEST_IDS.RARE)
   }),
 
   [CHEST_IDS.CURSED]: Object.freeze({
@@ -77,7 +91,8 @@ export const CHESTS = Object.freeze({
     minSpawnDistance: 180,
     rewardTable: CHEST_REWARD_TABLES.cursed_chest.id,
     tags: Object.freeze(["chest", "loot", "cursed", "risk", "exploration"]),
-    visual: chestVisual("CURSE", "red", "cursed", "!")
+    visual: chestVisual(CHEST_IDS.CURSED, "cursed"),
+    openCost: chestOpenCostFor(CHEST_IDS.CURSED)
   })
 });
 

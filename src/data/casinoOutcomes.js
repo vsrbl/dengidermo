@@ -1,5 +1,6 @@
 import { ABILITY_IDS } from "./abilities.js";
 import { CASINO_STAKE_IDS } from "./casinoStakes.js";
+import { CASINO_BALANCE } from "./economyBalance.js";
 import { CASINO_SYMBOL_IDS } from "./casinoSymbols.js";
 import { REWARD_TYPES } from "./rewardTypes.js";
 
@@ -31,8 +32,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.COIN]: Object.freeze({
       id: "low_coin",
       label: "COIN PAYOUT",
-      payoutText: "+$18",
-      actions: Object.freeze([money(18)])
+      payoutText: `+$${CASINO_BALANCE.low.payouts.coin}`,
+      actions: Object.freeze([money(CASINO_BALANCE.low.payouts.coin)])
     }),
     [CASINO_SYMBOL_IDS.HEART]: Object.freeze({
       id: "low_heart",
@@ -43,8 +44,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.XP]: Object.freeze({
       id: "low_xp",
       label: "XP PAYOUT",
-      payoutText: "+18 XP",
-      actions: Object.freeze([xp(18)])
+      payoutText: `+${CASINO_BALANCE.low.payouts.xp} XP`,
+      actions: Object.freeze([xp(CASINO_BALANCE.low.payouts.xp)])
     }),
     [CASINO_SYMBOL_IDS.WEAPON]: Object.freeze({
       id: "low_weapon",
@@ -63,16 +64,16 @@ export const CASINO_OUTCOMES = Object.freeze({
       label: "STATIC DEBT",
       payoutText: "NEXT ROOM DANGER",
       actions: Object.freeze([
-        money(6),
+        money(CASINO_BALANCE.low.payouts.staticMoney),
         modifier("live_chat_hates_you", "DEBT SIGNAL")
       ])
     }),
     [CASINO_SYMBOL_IDS.JACKPOT]: Object.freeze({
       id: "low_jackpot",
       label: "JACKPOT",
-      payoutText: "+$45 / ACTIVE",
+      payoutText: `+$${CASINO_BALANCE.low.payouts.jackpotMoney} / ACTIVE`,
       actions: Object.freeze([
-        money(45),
+        money(CASINO_BALANCE.low.payouts.jackpotMoney),
         reward({ type: REWARD_TYPES.ABILITY_PICKUP, abilityId: ABILITY_IDS.TELEPORT_DASH, text: "JACKPOT" })
       ])
     })
@@ -82,8 +83,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.COIN]: Object.freeze({
       id: "mid_coin",
       label: "COIN PAYOUT",
-      payoutText: "+$70",
-      actions: Object.freeze([money(70)])
+      payoutText: `+$${CASINO_BALANCE.mid.payouts.coin}`,
+      actions: Object.freeze([money(CASINO_BALANCE.mid.payouts.coin)])
     }),
     [CASINO_SYMBOL_IDS.HEART]: Object.freeze({
       id: "mid_heart",
@@ -97,8 +98,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.XP]: Object.freeze({
       id: "mid_xp",
       label: "XP PAYOUT",
-      payoutText: "+65 XP",
-      actions: Object.freeze([xp(65)])
+      payoutText: `+${CASINO_BALANCE.mid.payouts.xp} XP`,
+      actions: Object.freeze([xp(CASINO_BALANCE.mid.payouts.xp)])
     }),
     [CASINO_SYMBOL_IDS.WEAPON]: Object.freeze({
       id: "mid_weapon",
@@ -117,7 +118,7 @@ export const CASINO_OUTCOMES = Object.freeze({
       label: "STATIC PAYOUT",
       payoutText: "REWARD + DEBT",
       actions: Object.freeze([
-        money(85),
+        money(CASINO_BALANCE.mid.payouts.staticMoney),
         reward({ type: REWARD_TYPES.LOOT, kind: "rocket", text: "STATIC" }),
         modifier("live_chat_hates_you", "DEBT SIGNAL")
       ])
@@ -125,9 +126,9 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.JACKPOT]: Object.freeze({
       id: "mid_jackpot",
       label: "JACKPOT",
-      payoutText: "+$140 / ACTIVE",
+      payoutText: `+$${CASINO_BALANCE.mid.payouts.jackpotMoney} / ACTIVE`,
       actions: Object.freeze([
-        money(140),
+        money(CASINO_BALANCE.mid.payouts.jackpotMoney),
         reward({ type: REWARD_TYPES.ABILITY_PICKUP, abilityId: ABILITY_IDS.TELEPORT_DASH, text: "JACKPOT" })
       ])
     })
@@ -137,8 +138,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.COIN]: Object.freeze({
       id: "high_coin",
       label: "COIN PAYOUT",
-      payoutText: "+$155",
-      actions: Object.freeze([money(155)])
+      payoutText: `+$${CASINO_BALANCE.high.payouts.coin}`,
+      actions: Object.freeze([money(CASINO_BALANCE.high.payouts.coin)])
     }),
     [CASINO_SYMBOL_IDS.HEART]: Object.freeze({
       id: "high_heart",
@@ -153,8 +154,8 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.XP]: Object.freeze({
       id: "high_xp",
       label: "XP PAYOUT",
-      payoutText: "+150 XP",
-      actions: Object.freeze([xp(150)])
+      payoutText: `+${CASINO_BALANCE.high.payouts.xp} XP`,
+      actions: Object.freeze([xp(CASINO_BALANCE.high.payouts.xp)])
     }),
     [CASINO_SYMBOL_IDS.WEAPON]: Object.freeze({
       id: "high_weapon",
@@ -179,7 +180,7 @@ export const CASINO_OUTCOMES = Object.freeze({
       label: "STATIC JACKPOT",
       payoutText: "BIG PAYOUT + DEBT",
       actions: Object.freeze([
-        money(210),
+        money(CASINO_BALANCE.high.payouts.staticMoney),
         reward({ type: REWARD_TYPES.ABILITY_PICKUP, abilityId: ABILITY_IDS.TELEPORT_DASH, text: "STATIC" }),
         modifier("live_chat_hates_you", "DEBT SIGNAL")
       ])
@@ -187,9 +188,9 @@ export const CASINO_OUTCOMES = Object.freeze({
     [CASINO_SYMBOL_IDS.JACKPOT]: Object.freeze({
       id: "high_jackpot",
       label: "JACKPOT",
-      payoutText: "+$320 / RARE",
+      payoutText: `+$${CASINO_BALANCE.high.payouts.jackpotMoney} / RARE`,
       actions: Object.freeze([
-        money(320),
+        money(CASINO_BALANCE.high.payouts.jackpotMoney),
         reward({ type: REWARD_TYPES.ABILITY_PICKUP, abilityId: ABILITY_IDS.TELEPORT_DASH, text: "JACKPOT" }),
         reward({ type: REWARD_TYPES.LOOT, kind: "rocket", text: "JACKPOT" })
       ])

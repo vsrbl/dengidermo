@@ -1,3 +1,5 @@
+import { LEVEL_CURVE_BALANCE } from "./economyBalance.js";
+
 export const ECONOMY_PICKUP_TYPES = Object.freeze({
   MONEY: "money",
   XP: "xp",
@@ -32,9 +34,9 @@ export const PLAYER_ECONOMY_DEFAULTS = Object.freeze({
 });
 
 export const ECONOMY_LEVELS = Object.freeze({
-  baseXp: 24,
-  growth: 1.38,
-  maxLevel: 99
+  baseXp: LEVEL_CURVE_BALANCE.baseXp,
+  growth: LEVEL_CURVE_BALANCE.growth,
+  maxLevel: LEVEL_CURVE_BALANCE.maxLevel
 });
 
 export function economyPickupTypeIsKnown(type) {

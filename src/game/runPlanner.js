@@ -2,6 +2,7 @@ import { buildLocation } from "../data/locations.js";
 import { MODIFIER_FEATURES } from "../data/modifierDomains.js";
 import { getRoom, getRoomById, ROOM_SEQUENCE } from "../data/rooms.js";
 import { getInteractable } from "../data/interactables.js";
+import { interactableDistributionForRoom, maxDistributionSlots } from "../data/interactableDistribution.js";
 import { loopEscalationProfileForLoop } from "./loopScaling.js";
 import { modifierStackPlanSnapshot, resolveRoomModifierStack } from "./modifierStack.js";
 import { runProgressionFor } from "./runProgression.js";
@@ -101,6 +102,36 @@ function normalizeInteractableSlot(slot, fallbackId = "slot") {
   });
 }
 
+function ruleAllowsLoop(rule, progression) {
+  if (Number.isFinite(rule.minLoop) && progression.loopIndex < rule.minLoop) return false;
+  if (Number.isFinite(rule.maxLoop) && progression.loopIndex > rule.maxLoop) return false;
+  return true;
+}
+
+function resolveDistributionSlots(resolvedRoom, progression, seed, currentCount = 0) {
+  const profile = interactableDistributionForRoom(resolvedRoom);
+  if (!profile) return [];
+  const maxSlots = maxDistributionSlots(profile, progression);
+  const slots = [];
+  if (currentCount >= maxSlots) return slots;
+  for (const entry of profile.entries || []) {
+    if (currentCount + slots.length >= maxSlots) break;
+    if (!entry || !getInteractable(entry.interactableId)) continue;
+    if (!ruleAllowsLoop(entry, progression)) continue;
+    const ruleSeed = `${seed}:${progression.runDepth}:${resolvedRoom.id}:dist:${entry.id || entry.interactableId}`;
+    if (!seededChance(ruleSeed, entry.chance ?? 1)) continue;
+    const normalized = normalizeInteractableSlot({
+      id: `${entry.id || entry.interactableId}_${slots.length}`,
+      interactableId: entry.interactableId,
+      placement: entry.placement || "distributed",
+      rewardTable: entry.rewardTable || null,
+      tags: ["distribution", ...(entry.tags || [])]
+    }, `${resolvedRoom.id}:dist:${slots.length}`);
+    if (normalized) slots.push(normalized);
+  }
+  return slots;
+}
+
 function resolveInteractablePlan(resolvedRoom, progression, options = {}) {
   const seed = String(options.seed || "room");
   const slots = [];
@@ -111,8 +142,7 @@ function resolveInteractablePlan(resolvedRoom, progression, options = {}) {
 
   for (const rule of resolvedRoom.interactableRules || []) {
     if (!rule || !getInteractable(rule.interactableId)) continue;
-    if (Number.isFinite(rule.minLoop) && progression.loopIndex < rule.minLoop) continue;
-    if (Number.isFinite(rule.maxLoop) && progression.loopIndex > rule.maxLoop) continue;
+    if (!ruleAllowsLoop(rule, progression)) continue;
     const ruleSeed = `${seed}:${progression.runDepth}:${resolvedRoom.id}:${rule.id || rule.interactableId}`;
     if (!seededChance(ruleSeed, rule.chance ?? 1)) continue;
     const normalized = normalizeInteractableSlot({
@@ -124,6 +154,8 @@ function resolveInteractablePlan(resolvedRoom, progression, options = {}) {
     }, `${resolvedRoom.id}:rule:${slots.length}`);
     if (normalized) slots.push(normalized);
   }
+
+  slots.push(...resolveDistributionSlots(resolvedRoom, progression, seed, slots.length));
 
   return Object.freeze(slots);
 }
@@ -139,7 +171,7 @@ function featureListForRoom(room, progression) {
   if (lootPool.length || !tags.has("no-combat")) features.add(MODIFIER_FEATURES.LOOT);
   if (enemyPool.includes("tank") || tags.has("boss")) features.add(MODIFIER_FEATURES.ARMOR);
   if ((progression?.loopIndex || 0) >= 2) features.add(MODIFIER_FEATURES.ELITES);
-  if ((resolvedRoomHasInteractables(room) || (progression?.loopIndex || 0) >= 1) && !tags.has("boss")) features.add(MODIFIER_FEATURES.INTERACTABLES);
+  if ((resolvedRoomHasInteractables(room) || interactableDistributionForRoom(room) || (progression?.loopIndex || 0) >= 1) && !tags.has("boss")) features.add(MODIFIER_FEATURES.INTERACTABLES);
   return [...features];
 }
 

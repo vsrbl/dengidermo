@@ -10,6 +10,7 @@ import { drawEnemySprite } from "./render/enemyRenderers.js";
 import { drawEnemyArmorVariantLinks } from "./render/armorVariantRenderers.js";
 import { drawChestInteractable } from "./render/chestRenderers.js";
 import { drawCasinoInteractable } from "./render/casinoRenderers.js";
+import { INTERACTABLE_AFFORDANCE_RULES } from "./data/interactableAffordances.js";
 
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -332,6 +333,7 @@ function economyPickupLabel(item) {
 
 function economyPickupColor(item, claimable) {
   if (!claimable) return "rgba(255,255,255,0.46)";
+  if (item.accent && item.revealProfile && item.revealProfile !== "basic") return item.accent;
   if (item.type === "heal") return GREEN;
   if (item.type === "xp") return "#d4d4d4";
   if (item.type === "money") return "#8f8f8f";
@@ -382,10 +384,10 @@ function drawEconomyPickup(ctx, item, cam) {
   const color = economyPickupColor(item, claimable);
   const label = economyPickupLabel(item);
   drawPickupTrail(ctx, item, s, color);
-  if (visual.popT < 1 || item.lucky || item.boosted) {
+  if (visual.popT < 1 || item.lucky || item.boosted || item.revealSource === "chest" || item.revealSource === "casino") {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 7;
+    ctx.lineWidth = item.revealProfile === "rare" || item.revealProfile === "cursed" ? 2 : 1;
+    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 7 + (item.revealProfile === "rare" || item.revealProfile === "cursed" ? 4 : 0);
     ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
   }
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
@@ -398,7 +400,10 @@ function drawEconomyPickup(ctx, item, cam) {
 
 function rewardPickupColor(item, claimable) {
   if (!claimable) return "rgba(255,255,255,0.48)";
+  if (item.accent && String(item.accent).startsWith("#")) return item.accent;
   if (item.accent === "red") return RED;
+  if (item.accent === "purple") return "#b45cff";
+  if (item.accent === "cyan") return "#66f6ff";
   if (item.accent === "white") return "#f3f3f3";
   return GREEN;
 }
@@ -420,9 +425,10 @@ function drawRewardPickup(ctx, item, cam) {
   const color = rewardPickupColor(item, active && claimable);
   drawPickupTrail(ctx, item, s, color);
   if (visual.popT < 1 || item.revealSource === "chest" || item.revealSource === "casino") {
-    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 8;
+    const highValue = item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
+    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 8 + (highValue ? 5 : 0);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = highValue ? 2 : 1;
     ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
   }
   ctx.strokeStyle = color;
@@ -433,7 +439,8 @@ function drawRewardPickup(ctx, item, cam) {
   const label = rewardPickupDisplayLabel(item, data);
   drawText(ctx, label, s.x, s.y - r - 5, color, "center");
   if (item.revealSource === "chest" || item.revealSource === "casino") {
-    drawText(ctx, item.revealSource === "casino" ? "WIN" : "RWD", s.x, s.y + r + 13, color, "center");
+    const sourceLabel = item.revealSource === "casino" ? "WIN" : item.revealProfile === "cursed" ? "CRS" : item.revealProfile === "rare" ? "RAR" : "RWD";
+    drawText(ctx, sourceLabel, s.x, s.y + r + 13, color, "center");
   }
 }
 
@@ -443,13 +450,31 @@ function interactableAccentColor(item) {
   return GREEN;
 }
 
-function drawInteractable(ctx, item, cam) {
+function localInteractableAffordance(item, localPose = null) {
+  if (!item || !localPose) return { localInRange: false, localNear: false, localMoney: null, canAfford: true };
+  const range = (item.interactRadius || (item.radius || 18) + 20) + (localPose.radius || 13) + (INTERACTABLE_AFFORDANCE_RULES.promptExtraRadius || 0);
+  const dx = (localPose.x || 0) - item.x;
+  const dy = (localPose.y || 0) - item.y;
+  const d2 = dx * dx + dy * dy;
+  const previewRange = Math.max(range, Math.min(INTERACTABLE_AFFORDANCE_RULES.localPromptMaxDistance || 112, range * (INTERACTABLE_AFFORDANCE_RULES.previewRangeMultiplier || 2.4)));
+  const money = Math.max(0, Math.floor(localPose?.economy?.money || 0));
+  const cost = Math.max(0, Math.floor(Number.isFinite(item.chestOpenCost) ? item.chestOpenCost : 0));
+  return {
+    localInRange: d2 <= range * range,
+    localNear: d2 <= previewRange * previewRange,
+    localMoney: money,
+    canAfford: cost <= 0 || money >= cost
+  };
+}
+
+function drawInteractable(ctx, item, cam, localPose = null) {
+  const affordance = localInteractableAffordance(item, localPose);
   if (item.chestId || item.chestVisual === "chest") {
-    drawChestInteractable(ctx, item, cam);
+    drawChestInteractable(ctx, item, cam, affordance);
     return;
   }
   if (item.casinoMachineId || item.category === "casino") {
-    drawCasinoInteractable(ctx, item, cam);
+    drawCasinoInteractable(ctx, item, cam, affordance);
     return;
   }
   const s = screen(item, cam);
@@ -607,7 +632,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   for (const raw of snapshot.interactables || []) {
     interactableIds.add(raw.id);
     const item = smoothEntity(smooth.interactables, raw, renderDt);
-    if (isVisible(item, renderCam, 80)) drawInteractable(ctx, item, renderCam);
+    if (isVisible(item, renderCam, 80)) drawInteractable(ctx, item, renderCam, localPose);
   }
   prune(smooth.interactables, interactableIds);
 

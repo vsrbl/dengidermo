@@ -32,6 +32,9 @@ export function resolveRewardTable(state, tableId, context = {}) {
   if (!state?.rng || !table) return [];
   const rolls = Math.max(1, Math.min(8, Math.floor(context.rolls ?? table.rolls ?? 1)));
   const rewards = [];
+  for (const [index, entry] of (table.guaranteedEntries || []).entries()) {
+    if (entry) rewards.push({ ...entry, tableId: table.id, rollIndex: `g${index}`, guaranteed: true });
+  }
   for (let i = 0; i < rolls; i += 1) {
     const entry = weightedEntry(state.rng, table.entries || []);
     if (entry) rewards.push({ ...entry, tableId: table.id, rollIndex: i });

@@ -30,9 +30,9 @@ function pickupCode(type) {
 function chestTierCode(tier) {
   if (tier === "weapon") return "WPN";
   if (tier === "ability") return "ABL";
-  if (tier === "rare") return "RARE";
-  if (tier === "cursed") return "CURSE";
-  return "BASIC";
+  if (tier === "rare") return "RAR";
+  if (tier === "cursed") return "CRS";
+  return "BSC";
 }
 
 function rewardLabel(event = {}) {
@@ -55,6 +55,45 @@ function includesRecipient(event = {}, playerId = null) {
   return !!playerId && Array.isArray(event.recipients) && event.recipients.includes(playerId);
 }
 
+
+function buildChestDeniedItem(event, playerId) {
+  if (event.type !== "chest" || event.action !== "open_denied" || event.playerId !== playerId) return null;
+  const cost = Number.isFinite(event.cost) && event.cost > 0 ? ` ${Math.round(event.cost)}G` : "";
+  return {
+    kind: "chest_denied",
+    priority: REWARD_EVENT_FEED_PRIORITY.LOW,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: event.reason === "not_enough_money" ? "NO GLD" : "CHEST LOCK",
+    detail: `${chestTierCode(event.chestTier)}${cost}`,
+    lifeMs: DEFAULT_LIFE_MS
+  };
+}
+
+function buildInteractableDeniedItem(event, playerId) {
+  if (event.type !== "interactable" || event.action !== "activation_denied" || event.playerId !== playerId) return null;
+  return {
+    kind: "interactable_denied",
+    priority: REWARD_EVENT_FEED_PRIORITY.LOW,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: event.reason === "too_far" ? "MOVE IN" : "LOCKED",
+    detail: String(event.kind || "OBJECT").toUpperCase().slice(0, 16),
+    lifeMs: DEFAULT_LIFE_MS
+  };
+}
+
+function buildCasinoDeniedItem(event, playerId) {
+  if (event.type !== "casino" || event.action !== "spin_denied" || event.playerId !== playerId) return null;
+  const cost = Number.isFinite(event.cost) && event.cost > 0 ? ` NEED ${Math.round(event.cost)}G` : "";
+  return {
+    kind: "casino_denied",
+    priority: REWARD_EVENT_FEED_PRIORITY.LOW,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: event.reason === "not_enough_money" ? "NO GLD" : "BET DENIED",
+    detail: `${String(event.stakeId || "BET").toUpperCase()}${cost}`.slice(0, 22),
+    lifeMs: DEFAULT_LIFE_MS
+  };
+}
+
 function buildChestOpenItem(event) {
   if (event.type !== "chest" || event.action !== "opened") return null;
   const tier = chestTierCode(event.chestTier);
@@ -62,7 +101,7 @@ function buildChestOpenItem(event) {
     kind: "chest",
     priority: event.chestTier === "rare" || event.chestTier === "cursed" ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
     scope: REWARD_EVENT_FEED_SCOPE.TEAM,
-    text: `${tier} CHEST`,
+    text: event.chestTier === "cursed" ? "CRS RISK" : event.chestTier === "rare" ? "RAR BURST" : `${tier} CHEST`,
     detail: event.revealLabel ? `REVEAL ${String(event.revealLabel).toUpperCase().slice(0, 16)}` : `${Math.max(0, event.rewards || 0)} REWARD`,
     lifeMs: event.chestTier === "rare" || event.chestTier === "cursed" ? HIGH_LIFE_MS : DEFAULT_LIFE_MS
   };
@@ -101,8 +140,9 @@ function buildRewardRevealItem(event, playerId) {
 function buildCasinoResolvedItem(event, playerId) {
   if (event.type !== "casino" || event.action !== "spin_resolved" || event.playerId !== playerId) return null;
   const win = !!event.match;
-  const jackpot = String(event.outcome || "").includes("jackpot") || String(event.outcomeLabel || "").toUpperCase().includes("JACKPOT");
-  const staticDebt = String(event.outcome || "").includes("static") || String(event.payoutText || "").toUpperCase().includes("DEBT");
+  const profile = String(event.revealProfile || "");
+  const jackpot = profile.includes("jackpot") || String(event.outcome || "").includes("jackpot") || String(event.outcomeLabel || "").toUpperCase().includes("JACKPOT");
+  const staticDebt = profile.includes("static") || String(event.outcome || "").includes("static") || String(event.payoutText || "").toUpperCase().includes("DEBT");
   return {
     kind: win ? "casino_win" : "casino_loss",
     priority: jackpot || staticDebt ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
@@ -210,6 +250,9 @@ export function buildRewardEventFeedItem(event, { playerId = null } = {}) {
   if (!event || !event.type || !event.action) return null;
   return buildInstallItem(event, playerId)
     || buildInstallConsumedItem(event, playerId)
+    || buildChestDeniedItem(event, playerId)
+    || buildInteractableDeniedItem(event, playerId)
+    || buildCasinoDeniedItem(event, playerId)
     || buildCasinoResolvedItem(event, playerId)
     || buildChestOpenItem(event, playerId)
     || buildRewardRevealItem(event, playerId)

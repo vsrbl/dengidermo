@@ -6,12 +6,13 @@ import { CASINO_STAKES, getCasinoStake } from "../data/casinoStakes.js";
 import { CASINO_SYMBOLS, getCasinoSymbol } from "../data/casinoSymbols.js";
 import { CASINO_OUTCOME_ACTION_TYPES, getCasinoOutcome } from "../data/casinoOutcomes.js";
 import { REWARD_TYPES } from "../data/rewardTypes.js";
-import { addSpark, pushVisualEffect } from "./effectCommands.js";
+import { casinoRevealProfileForResult } from "../data/revealAnimations.js";
+import { addShake, addSpark, pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
 import { ensurePlayerEconomy, grantMoney, grantXp, spendMoney } from "./playerEconomy.js";
 import { executeReward } from "./rewardResolver.js";
 
-const SPIN_COOLDOWN = 0.62;
+const SPIN_COOLDOWN = 0.92;
 
 export function isCasinoInteractableData(data) {
   return data?.category === INTERACTABLE_CATEGORIES.CASINO && !!getCasinoMachine(data.casinoMachineId);
@@ -146,6 +147,13 @@ export function applyCasinoOutcome(state, player, interactable, machine, stake, 
   for (let i = 0; i < actions.length; i += 1) {
     const action = actions[i];
     const rewardPosition = scatterCasinoRewardPosition(state, interactable, i, actions.length);
+    const actionRevealProfile = casinoRevealProfileForResult({
+      match: true,
+      outcome: outcome.id,
+      outcomeId: outcome.id,
+      outcomeLabel: outcome.label,
+      payoutText: outcome.payoutText
+    });
     const actionContext = {
       sourceType: "casino",
       sourceId: interactable.id,
@@ -154,7 +162,9 @@ export function applyCasinoOutcome(state, player, interactable, machine, stake, 
       stakeId: stake.id,
       symbolId: matchedSymbol,
       outcomeId: outcome.id,
-      claimScope: "team"
+      claimScope: "team",
+      revealProfile: actionRevealProfile.id,
+      rewardAccent: actionRevealProfile.color
     };
     let applied = null;
     if (action.type === CASINO_OUTCOME_ACTION_TYPES.MONEY) {
@@ -248,21 +258,37 @@ export function requestCasinoSpin(state, playerId, request = {}) {
     rewards: payout.rewards,
     rewardCount: payout.rewards.length,
     money: ensurePlayerEconomy(player).money,
+    revealProfile: null,
     seq: Number.isFinite(request.seq) ? request.seq : 0
   };
+
+  const revealProfile = casinoRevealProfileForResult(result);
+  result.revealProfile = revealProfile.id;
 
   interactable.casinoState = CASINO_MACHINE_STATES.REVEALING;
   interactable.casinoSpinCooldown = SPIN_COOLDOWN;
   interactable.casinoLastResult = result;
   interactable.lastSpunBy = player.id;
 
-  addSpark(state, interactable.x, interactable.y, result.match ? 22 : 10, result.match ? 190 : 145, result.match ? "#00ff66" : "#ff3048");
+  addShake(state, revealProfile.shakePower, revealProfile.shakeLife, `casino:${interactable.id}`);
+  addSpark(state, interactable.x, interactable.y, revealProfile.sparkCount, revealProfile.sparkPower, revealProfile.color);
+  pushVisualEffect(state, {
+    type: "rewardRevealPulse",
+    mode: revealProfile.id,
+    x: interactable.x,
+    y: interactable.y,
+    r: (interactable.radius || 28) + 22,
+    text: revealProfile.text,
+    color: revealProfile.color,
+    life: revealProfile.pulseLife,
+    maxLife: revealProfile.pulseLife
+  });
   pushVisualEffect(state, {
     type: "damageText",
     x: Math.round(interactable.x),
     y: Math.round(interactable.y - (interactable.radius || 28) - 18),
     text: result.match ? String(result.outcomeLabel || "PAYOUT").slice(0, 16) : "BUST",
-    color: result.match ? "#00ff66" : "#ff3048",
+    color: revealProfile.color,
     life: 0.72,
     maxLife: 0.72
   });
@@ -280,6 +306,7 @@ export function requestCasinoSpin(state, playerId, request = {}) {
     payoutText: result.payoutText,
     matchedSymbol: result.matchedSymbol,
     match: result.match,
+    revealProfile: result.revealProfile,
     payoutApplied: result.payoutApplied,
     rewardCount: result.rewardCount,
     money: result.money
@@ -305,6 +332,7 @@ export function casinoSpinResultSnapshot(result) {
     payoutText: result.payoutText || null,
     matchedSymbol: result.matchedSymbol || null,
     match: !!result.match,
+    revealProfile: result.revealProfile || null,
     payoutApplied: !!result.payoutApplied,
     rewards: Array.isArray(result.rewards) ? result.rewards.map((reward) => ({ ...reward })) : [],
     rewardCount: Number.isFinite(result.rewardCount) ? result.rewardCount : 0,

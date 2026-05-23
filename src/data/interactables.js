@@ -39,14 +39,14 @@ export const INTERACTABLES = Object.freeze({
     id: "field_cache",
     name: "FIELD CHEST",
     tags: ["legacy_cache_alias"],
-    visual: { label: "CHEST" }
+    visual: { label: "BSC", glyph: "BSC" }
   }),
 
   reward_cache: chestInteractable(CHEST_IDS.RARE, {
     id: "reward_cache",
     name: "REWARD CHEST",
     tags: ["legacy_cache_alias"],
-    visual: { label: "RARE" }
+    visual: { label: "RAR", glyph: "RAR" }
   }),
 
   casino_slot: Object.freeze({

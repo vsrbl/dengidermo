@@ -91,7 +91,9 @@ export function spawnEconomyPickup(state, drop, x, y, options = {}) {
     lucky: !!options.lucky || !!drop.luckProc,
     boosted: !!options.boosted || !!drop.modifierProc || !!drop.boostProc || !!drop.rareRoll,
     procType: options.procType || drop.procType || null,
-    accent: options.accent || pickupAccent(type)
+    accent: options.accent || pickupAccent(type),
+    revealSource: options.revealSource || options.sourceType || null,
+    revealProfile: options.revealProfile || null
   };
   state.economyPickups[id] = item;
   return item;
@@ -241,6 +243,8 @@ export function economyPickupSnapshot(pickup) {
     lucky: !!pickup.lucky,
     boosted: !!pickup.boosted,
     procType: pickup.procType || null,
-    accent: pickup.accent || GREEN
+    accent: pickup.accent || GREEN,
+    revealSource: pickup.revealSource || pickup.sourceType || null,
+    revealProfile: pickup.revealProfile || null
   };
 }

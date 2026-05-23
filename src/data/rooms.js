@@ -10,10 +10,7 @@ export const ROOM_SEQUENCE = [
     encounter: "grid_intro_pressure",
     objective: "clear",
     spawnZones: ["edge_far", "edge_random"],
-    portal: { delay: 5, hold: 1.1 },
-    interactableRules: [
-      { id: "basic_chest_grid", interactableId: "basic_chest", minLoop: 1, chance: 0.28, placement: "field_cache", tags: ["exploration"] }
-    ]
+    portal: { delay: 5, hold: 1.1 }
   },
   {
     id: "void-01",
@@ -27,10 +24,7 @@ export const ROOM_SEQUENCE = [
     objective: "survive",
     spawnZones: ["edge_far", "edge_flank", "corner_random"],
     portal: { delay: 7, hold: 1.15 },
-    spawn: { boost: 1.04 },
-    interactableRules: [
-      { id: "basic_chest_void", interactableId: "basic_chest", minLoop: 1, chance: 0.24, placement: "field_cache", tags: ["exploration"] }
-    ]
+    spawn: { boost: 1.04 }
   },
   {
     id: "core-02",
@@ -44,10 +38,7 @@ export const ROOM_SEQUENCE = [
     objective: "clear",
     spawnZones: ["edge_flank", "corner_random", "edge_far"],
     portal: { delay: 8, hold: 1.2 },
-    enemyPool: ["runner", "tank", "shooter"],
-    interactableRules: [
-      { id: "basic_chest_core", interactableId: "basic_chest", minLoop: 1, chance: 0.22, placement: "field_cache", tags: ["exploration"] }
-    ]
+    enemyPool: ["runner", "tank", "shooter"]
   },
   {
     id: "boss-03",
@@ -82,7 +73,10 @@ export const RARE_ROOMS = [
     enemyPool: [],
     lootPool: ["heal"],
     interactables: [
-      { id: "rare_chest_main", interactableId: "rare_chest", placement: "reward_center", tags: ["rare", "reward"] }
+      { id: "rare_chest_main", interactableId: "rare_chest", placement: "reward_center", tags: ["rare", "reward"] },
+      { id: "basic_chest_reward_a", interactableId: "basic_chest", placement: "reward_center", tags: ["basic", "reward"] },
+      { id: "weapon_chest_reward", interactableId: "weapon_chest", placement: "reward_center", tags: ["weapon", "reward"] },
+      { id: "ability_chest_reward", interactableId: "ability_chest", placement: "reward_center", tags: ["ability", "reward"] }
     ],
     spawn: {
       capBase: 0,
@@ -123,7 +117,9 @@ export const RARE_ROOMS = [
     enemyPool: [],
     lootPool: ["heal", "seeker", "rocket", "shotgun"],
     interactables: [
-      { id: "casino_slot_main", interactableId: "casino_slot", placement: "casino_center", tags: ["casino", "gamble", "reward"] }
+      { id: "casino_slot_main", interactableId: "casino_slot", placement: "casino_center", tags: ["casino", "gamble", "reward"] },
+      { id: "basic_chest_casino", interactableId: "basic_chest", placement: "casino_center", tags: ["basic", "casino", "reward"] },
+      { id: "cursed_chest_casino", interactableId: "cursed_chest", placement: "casino_center", tags: ["cursed", "risk", "casino"] }
     ],
     spawn: {
       capBase: 0,

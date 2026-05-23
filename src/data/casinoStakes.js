@@ -1,3 +1,5 @@
+import { CASINO_BALANCE } from "./economyBalance.js";
+
 export const CASINO_STAKE_IDS = Object.freeze({
   LOW: "low",
   MID: "mid",
@@ -8,31 +10,31 @@ export const CASINO_STAKES = Object.freeze({
   [CASINO_STAKE_IDS.LOW]: Object.freeze({
     id: CASINO_STAKE_IDS.LOW,
     name: "LOW BET",
-    cost: 10,
+    cost: CASINO_BALANCE.low.cost,
     reels: 3,
     tags: Object.freeze(["low", "money"]),
-    matchChance: 0.22,
-    symbolWeights: Object.freeze({ coin: 22, heart: 18, xp: 20, weapon: 5, ability: 4, static: 5, jackpot: 1 }),
+    matchChance: CASINO_BALANCE.low.matchChance,
+    symbolWeights: CASINO_BALANCE.low.symbolWeights,
     description: "SMALL SIGNAL / SMALL LOSS"
   }),
   [CASINO_STAKE_IDS.MID]: Object.freeze({
     id: CASINO_STAKE_IDS.MID,
     name: "MID BET",
-    cost: 35,
+    cost: CASINO_BALANCE.mid.cost,
     reels: 3,
     tags: Object.freeze(["mid", "money", "weapon", "ability"]),
-    matchChance: 0.26,
-    symbolWeights: Object.freeze({ coin: 18, heart: 12, xp: 16, weapon: 10, ability: 8, static: 7, jackpot: 2 }),
+    matchChance: CASINO_BALANCE.mid.matchChance,
+    symbolWeights: CASINO_BALANCE.mid.symbolWeights,
     description: "BETTER SYMBOL POOL"
   }),
   [CASINO_STAKE_IDS.HIGH]: Object.freeze({
     id: CASINO_STAKE_IDS.HIGH,
     name: "HIGH BET",
-    cost: 75,
+    cost: CASINO_BALANCE.high.cost,
     reels: 3,
     tags: Object.freeze(["high", "money", "jackpot", "static"]),
-    matchChance: 0.3,
-    symbolWeights: Object.freeze({ coin: 14, heart: 9, xp: 12, weapon: 12, ability: 10, static: 10, jackpot: 4 }),
+    matchChance: CASINO_BALANCE.high.matchChance,
+    symbolWeights: CASINO_BALANCE.high.symbolWeights,
     description: "RARE / STATIC RISK"
   })
 });

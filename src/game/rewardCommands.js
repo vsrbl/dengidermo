@@ -198,7 +198,10 @@ export function executeRewardCommand(state, command) {
       sourceId: context.sourceId || null,
       sourceContractId: economySourceContractId(context),
       claimDelay: context.claimDelay,
-      popDistance: Number.isFinite(context.popDistance) ? context.popDistance : 18
+      popDistance: Number.isFinite(context.popDistance) ? context.popDistance : 18,
+      revealSource: context.sourceType || "reward",
+      revealProfile: context.revealProfile || null,
+      accent: context.rewardAccent || null
     });
     if (pickup) {
       rewardText(state, reward, position, reward.text || pickup.label || null);
@@ -216,7 +219,9 @@ export function executeRewardCommand(state, command) {
       claimDelay: context.claimDelay,
       playerId: context.playerId || null,
       popDistance: Number.isFinite(context.popDistance) ? context.popDistance : (context.sourceType === "casino" ? 18 : 14),
-      revealSource: context.sourceType || "reward"
+      revealSource: context.sourceType || "reward",
+      revealProfile: context.revealProfile || null,
+      accent: context.rewardAccent || undefined
     });
     if (pickup) {
       rewardText(state, reward, position, null);

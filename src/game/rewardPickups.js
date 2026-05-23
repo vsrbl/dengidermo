@@ -81,6 +81,7 @@ export function spawnRewardPickup(state, reward, x, y, options = {}) {
     sourceId: options.sourceId || null,
     tableId: options.tableId || reward.tableId || null,
     revealSource: options.revealSource || options.sourceType || "reward",
+    revealProfile: options.revealProfile || null,
     rollIndex: Number.isFinite(reward.rollIndex) ? reward.rollIndex : null,
     active: true,
     claimed: false,
@@ -207,6 +208,7 @@ export function rewardPickupSnapshot(pickup) {
     sourceId: pickup.sourceId || null,
     tableId: pickup.tableId || null,
     revealSource: pickup.revealSource || pickup.sourceType || null,
+    revealProfile: pickup.revealProfile || null,
     accent: pickup.accent || "green"
   };
 }

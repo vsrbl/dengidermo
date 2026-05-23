@@ -197,6 +197,33 @@ function drawExplosion(ctx, fx, cam) {
 }
 
 
+function drawRewardRevealPulse(ctx, fx, cam) {
+  const raw = effectLife(fx);
+  const delay = Math.max(0, fx.delay || 0);
+  if (raw.age < delay) return;
+  const activeAge = raw.age - delay;
+  const activeMax = Math.max(0.001, raw.maxLife - delay);
+  const t = Math.max(0, Math.min(1, activeAge / activeMax));
+  const s = screen(fx, cam);
+  const r = (fx.r || 36) * (0.62 + t * 0.9);
+  const color = fx.color || GREEN;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0.12, 1 - t * 0.78);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, Math.round(4 * (1 - t * 0.55)));
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+  if (fx.mode === "cursed" || fx.mode === "casino_static") {
+    const inner = Math.max(6, r * (0.38 + Math.sin(t * Math.PI * 3) * 0.05));
+    ctx.strokeRect(Math.round(s.x - inner), Math.round(s.y - inner), Math.round(inner * 2), Math.round(inner * 2));
+    drawText(ctx, String(fx.text || "CRS").slice(0, 14).toUpperCase(), s.x, s.y - r - 6, color, "center");
+  } else {
+    drawRect(ctx, s.x - 3, s.y - 3, 6, 6, color);
+    if (fx.text) drawText(ctx, String(fx.text).slice(0, 14).toUpperCase(), s.x, s.y - r - 6, color, "center");
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 function drawArmorPulse(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
@@ -225,6 +252,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   armorBreak: drawArmorPulse,
   armorLinkBlock: drawArmorPulse,
   interactableOpen: drawArmorPulse,
+  rewardRevealPulse: drawRewardRevealPulse,
   armorRegen: drawArmorPulse,
   elitePulse: drawArmorPulse,
   bomberFuse: drawBomberFuse,

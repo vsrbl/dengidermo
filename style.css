@@ -595,6 +595,15 @@ button:disabled { opacity: 0.45; cursor: default; }
   opacity: 0.32;
 }
 
+.casino-stake[data-affordance="no_gld"] {
+  border-color: rgba(255,48,72,0.45);
+}
+
+.casino-stake[data-affordance="no_gld"] .casino-stake-desc,
+.casino-stake[data-affordance="no_gld"] .casino-stake-cost {
+  color: #ff3048;
+}
+
 .casino-stake-name {
   color: #f3f3f3;
   letter-spacing: 0.12em;
@@ -944,4 +953,62 @@ button:disabled { opacity: 0.45; cursor: default; }
     top: 212px;
     width: min(280px, calc(100vw - 24px));
   }
+}
+
+.casino-panel.casino-lock {
+  border-color: rgba(255,48,72,0.92);
+  animation: casinoLockPulse 180ms steps(2, end) 1;
+}
+
+.casino-panel.casino-win { border-color: rgba(0,255,102,0.92); }
+.casino-panel.casino-loss { border-color: rgba(255,48,72,0.92); }
+.casino-panel.casino-jackpot {
+  border-color: rgba(0,255,102,1);
+  animation: casinoJackpotSnap 420ms steps(3, end) 1;
+}
+.casino-panel.casino-static {
+  border-color: rgba(255,48,72,1);
+  animation: casinoStaticCut 340ms steps(2, end) 1;
+}
+
+.casino-reel[data-state="rolling"] {
+  color: #777;
+  border-color: rgba(255,48,72,0.48);
+  animation: casinoReelRoll 180ms steps(2, end) infinite;
+}
+
+.casino-reel[data-state="revealed"] {
+  animation: casinoReelSnap 160ms steps(2, end) 1;
+}
+
+@keyframes casinoLockPulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(calc(-50% + 2px), -50%) scale(1.01); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes casinoReelRoll {
+  0% { transform: translateY(0); opacity: 0.72; }
+  50% { transform: translateY(-2px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.72; }
+}
+
+@keyframes casinoReelSnap {
+  0% { transform: scale(0.96); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes casinoJackpotSnap {
+  0% { box-shadow: 8px 8px 0 #000; }
+  35% { box-shadow: 0 0 0 2px rgba(0,255,102,0.34), 8px 8px 0 #000; }
+  70% { box-shadow: 0 0 0 4px rgba(0,255,102,0.22), 8px 8px 0 #000; }
+  100% { box-shadow: 8px 8px 0 #000; }
+}
+
+@keyframes casinoStaticCut {
+  0% { transform: translate(-50%, -50%); }
+  33% { transform: translate(calc(-50% - 3px), calc(-50% + 1px)); }
+  66% { transform: translate(calc(-50% + 3px), calc(-50% - 1px)); }
+  100% { transform: translate(-50%, -50%); }
 }
