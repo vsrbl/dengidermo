@@ -571,7 +571,11 @@ function assertAnomalyEnemyStressScenario() {
   assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'glitch' && enemy.glitchState), 'GLT should keep glitch blink/dash runtime state');
   assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'orbiter' && enemy.orbitState), 'ORBITER should keep orbit runtime state');
   assert.ok(Object.values(state.enemies).some((enemy) => enemy.kind === 'herald' && enemy.heraldState), 'HERALD should keep summon runtime state');
-  assert.ok(state.effects.some((fx) => ['anomalyField', 'anomalyLine', 'pulseWave', 'frontWave'].includes(fx.type)), 'anomaly enemies should emit registered visual effects');
+  assert.ok(state.effects.some((fx) => ['anomalyField', 'anomalyLine', 'heraldTether', 'pulseWave', 'frontWave'].includes(fx.type)), 'anomaly enemies should emit registered visual effects');
+  const heraldTether = state.effects.find((fx) => fx.type === 'heraldTether');
+  assert.ok(heraldTether, 'HRD should draw a tether line from Herald to the player instead of a detached red chase square');
+  assert.ok(Array.isArray(heraldTether.points) && heraldTether.points.length >= 2, 'HRD tether should snapshot a broken polyline path');
+  assert.ok(!(state.effects.some((fx) => fx.type === 'anomalyField' && fx.color === '#ff3048' && (fx.r || 0) <= 24)), 'HRD should not render the old detached red square/field chase marker');
 
   const split = Object.values(state.enemies).find((enemy) => enemy.kind === 'splitter');
   assert.ok(split, 'splitter should be present before death-spawn test');

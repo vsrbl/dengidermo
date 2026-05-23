@@ -4,7 +4,12 @@ import { applyEnemyTouchDamage, moveEnemyTowardTarget, spawnBehaviorEnemy } from
 
 function runtime(enemy) {
   if (!enemy.heraldState || typeof enemy.heraldState !== "object") {
-    enemy.heraldState = { phase: "arming", cooldownAt: 0, trail: null, pulseAt: 0 };
+    enemy.heraldState = { phase: "arming", cooldownAt: 0, tether: null, pulseAt: 0 };
+  }
+  if (enemy.heraldState.trail && !enemy.heraldState.tether) {
+    const old = enemy.heraldState.trail;
+    enemy.heraldState.tether = { ...old, headX: old.x ?? enemy.x, headY: old.y ?? enemy.y };
+    delete enemy.heraldState.trail;
   }
   return enemy.heraldState;
 }
@@ -13,15 +18,15 @@ function loopIndex(state) {
   return Math.max(0, Math.floor(Number(state?.roomPlan?.loopIndex ?? state?.loopIndex ?? 0) || 0));
 }
 
-function startTrail(enemy, target, cfg) {
-  enemy.heraldState.trail = {
-    x: enemy.x,
-    y: enemy.y,
+function startTether(enemy, target, cfg) {
+  enemy.heraldState.tether = {
+    headX: enemy.x,
+    headY: enemy.y,
     targetId: target.id,
     path: [{ x: target.x, y: target.y }],
-    speed: cfg.trailSpeed || 245
+    speed: cfg.tetherSpeed || cfg.trailSpeed || 245
   };
-  enemy.heraldState.phase = "trail";
+  enemy.heraldState.phase = "tether";
 }
 
 function spawnSwarm(state, enemy, target, cfg) {
@@ -40,26 +45,49 @@ function spawnSwarm(state, enemy, target, cfg) {
   pushVisualEffect(state, { type: "pulseWave", x: Math.round(target.x), y: Math.round(target.y), r: 92, color: "#ff3048", life: 0.32, maxLife: 0.32 });
 }
 
-function updateTrail(state, enemy, target, cfg, dt) {
+function sampleTetherPoints(enemy, target, tether) {
+  const history = Array.isArray(tether?.path) ? tether.path : [];
+  const points = [{ x: Math.round(enemy.x), y: Math.round(enemy.y) }];
+  const maxHistoryPoints = 7;
+  const start = Math.max(0, history.length - 1 - maxHistoryPoints * 4);
+  for (let i = start; i < history.length; i += 4) {
+    const p = history[i];
+    if (!p) continue;
+    points.push({ x: Math.round(p.x), y: Math.round(p.y) });
+  }
+  points.push({ x: Math.round(target.x), y: Math.round(target.y) });
+  return points;
+}
+
+function updateTether(state, enemy, target, cfg, dt) {
   const rt = enemy.heraldState;
-  const trail = rt.trail;
-  if (!trail) { startTrail(enemy, target, cfg); return; }
-  trail.path.push({ x: target.x, y: target.y });
-  while (trail.path.length > 36) trail.path.shift();
-  const goal = trail.path[0] || { x: target.x, y: target.y };
-  const toGoal = norm(goal.x - trail.x, goal.y - trail.y);
-  trail.x += toGoal.x * (trail.speed || cfg.trailSpeed || 245) * dt;
-  trail.y += toGoal.y * (trail.speed || cfg.trailSpeed || 245) * dt;
-  if ((goal.x - trail.x) ** 2 + (goal.y - trail.y) ** 2 < 18 * 18 && trail.path.length > 1) trail.path.shift();
+  const tether = rt.tether;
+  if (!tether) { startTether(enemy, target, cfg); return; }
+  tether.path.push({ x: target.x, y: target.y });
+  while (tether.path.length > (cfg.tetherPathMax || 44)) tether.path.shift();
+  const goal = tether.path[0] || { x: target.x, y: target.y };
+  const toGoal = norm(goal.x - tether.headX, goal.y - tether.headY);
+  tether.headX += toGoal.x * (tether.speed || cfg.tetherSpeed || cfg.trailSpeed || 245) * dt;
+  tether.headY += toGoal.y * (tether.speed || cfg.tetherSpeed || cfg.trailSpeed || 245) * dt;
+  if ((goal.x - tether.headX) ** 2 + (goal.y - tether.headY) ** 2 < 18 * 18 && tether.path.length > 1) tether.path.shift();
   if ((rt.pulseAt || 0) <= (state.time || 0)) {
-    rt.pulseAt = (state.time || 0) + 0.08;
-    pushVisualEffect(state, { type: "anomalyLine", x: Math.round(trail.x), y: Math.round(trail.y), x2: Math.round(target.x), y2: Math.round(target.y), color: "#ff3048", life: 0.1, maxLife: 0.1 });
-    pushVisualEffect(state, { type: "anomalyField", x: Math.round(trail.x), y: Math.round(trail.y), r: 22, color: "#ff3048", life: 0.12, maxLife: 0.12 });
+    rt.pulseAt = (state.time || 0) + (cfg.tetherPulseEvery || 0.075);
+    pushVisualEffect(state, {
+      type: "heraldTether",
+      x: Math.round(enemy.x),
+      y: Math.round(enemy.y),
+      x2: Math.round(target.x),
+      y2: Math.round(target.y),
+      points: sampleTetherPoints(enemy, target, tether),
+      color: "#ff3048",
+      life: 0.13,
+      maxLife: 0.13
+    });
   }
   const catchR = cfg.catchRadius || 32;
-  if ((target.x - trail.x) ** 2 + (target.y - trail.y) ** 2 <= catchR * catchR) {
+  if ((target.x - tether.headX) ** 2 + (target.y - tether.headY) ** 2 <= catchR * catchR) {
     spawnSwarm(state, enemy, target, cfg);
-    rt.trail = null;
+    rt.tether = null;
     rt.phase = "cooldown";
     rt.cooldownAt = (state.time || 0) + (cfg.cooldown || 3.2);
   }
@@ -70,11 +98,11 @@ export function updateHeraldEnemy(ctx) {
   const cfg = data.herald || {};
   const rt = runtime(enemy);
   if (rt.phase === "cooldown") {
-    if ((state.time || 0) >= (rt.cooldownAt || 0)) startTrail(enemy, target, cfg);
-  } else if (rt.phase === "trail") {
-    updateTrail(state, enemy, target, cfg, dt);
+    if ((state.time || 0) >= (rt.cooldownAt || 0)) startTether(enemy, target, cfg);
+  } else if (rt.phase === "tether" || rt.phase === "trail") {
+    updateTether(state, enemy, target, cfg, dt);
   } else {
-    startTrail(enemy, target, cfg);
+    startTether(enemy, target, cfg);
   }
   moveEnemyTowardTarget(ctx, { speedScale: 0.34 });
   applyEnemyTouchDamage(state, enemy, data, target, dt, updateCtx);

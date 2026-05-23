@@ -1,4 +1,4 @@
-import { dist2 } from "../../core/math.js";
+import { dist2, norm } from "../../core/math.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "../roomModifiers.js";
 import { applyArmorDamage, shouldArmorAbsorb } from "../enemyArmor.js";
 import { canDamageSourceLifesteal } from "../damageSourceMatrix.js";
@@ -14,6 +14,7 @@ import {
   getEffect,
   runEffectHook
 } from "./core.js";
+import { addShake, pushVisualEffect } from "../effectCommands.js";
 
 export function dealDamage(state, target, spec = {}) {
   if (!target || !Number.isFinite(spec.amount)) {
@@ -44,6 +45,75 @@ export function ownerPlayer(state, source) {
 
 export function sourceId(source) {
   return typeof source === "string" ? source : source?.ownerId || source?.id || null;
+}
+
+
+function playerDamageImpactPower(resolved, hit, player) {
+  const maxHp = Math.max(1, player?.maxHp || player?.hp || 1);
+  const done = Math.max(0, hit?.done || 0);
+  const original = Math.max(0, resolved?.originalAmount || resolved?.amount || done);
+  const hpRatioLoss = done / maxHp;
+  const raw = Math.max(done, original) / Math.max(1, maxHp * 0.18);
+  return clamp(Math.max(hpRatioLoss * 2.6, raw), 0.35, 2.35);
+}
+
+function emitPlayerDamageImpact(state, player, resolved, hit, spec = {}) {
+  if (!state || !player || !hit || !(hit.done > 0)) return null;
+  const power = playerDamageImpactPower(resolved, hit, player);
+  const maxHp = Math.max(1, player.maxHp || 1);
+  const hpAfter = Math.max(0, player.hp || 0);
+  const hpRatio = hpAfter / maxHp;
+  const sourceX = Number.isFinite(spec.sourceX) ? spec.sourceX : (Number.isFinite(spec.x) ? spec.x : null);
+  const sourceY = Number.isFinite(spec.sourceY) ? spec.sourceY : (Number.isFinite(spec.y) ? spec.y : null);
+  const dir = Number.isFinite(sourceX) && Number.isFinite(sourceY)
+    ? norm(player.x - sourceX, player.y - sourceY)
+    : { x: 0, y: -1 };
+  const seq = (player.damageImpactSeq || 0) + 1;
+  player.damageImpactSeq = seq;
+  player.lastDamageImpact = {
+    seq,
+    t: Number((state.time || 0).toFixed(3)),
+    amount: Math.round(hit.done),
+    originalAmount: Math.round(resolved.originalAmount || resolved.amount || hit.done),
+    hpAfter: Math.round(hpAfter),
+    maxHp,
+    sourceType: resolved.sourceType || spec.sourceType || null,
+    enemyId: resolved.enemyId || spec.enemyId || null,
+    power: Number(power.toFixed(3)),
+    lowHp: hpRatio <= 0.35,
+    dirX: Number((dir.x || 0).toFixed(3)),
+    dirY: Number((dir.y || -1).toFixed(3))
+  };
+
+  const life = Math.max(0.14, Math.min(0.32, 0.13 + power * 0.065));
+  pushVisualEffect(state, {
+    type: "playerHit",
+    targetId: player.id,
+    x: Math.round(player.x),
+    y: Math.round(player.y),
+    r: Math.round((player.radius || 13) + 15 + power * 8),
+    power,
+    amount: Math.round(hit.done),
+    dirX: player.lastDamageImpact.dirX,
+    dirY: player.lastDamageImpact.dirY,
+    color: "#ff3048",
+    life,
+    maxLife: life
+  });
+  pushVisualEffect(state, {
+    type: "playerDamageImpact",
+    targetId: player.id,
+    power,
+    amount: Math.round(hit.done),
+    hpRatio: Number(hpRatio.toFixed(3)),
+    dirX: player.lastDamageImpact.dirX,
+    dirY: player.lastDamageImpact.dirY,
+    sourceType: player.lastDamageImpact.sourceType,
+    life: Math.max(0.16, Math.min(0.42, 0.18 + power * 0.08)),
+    maxLife: Math.max(0.16, Math.min(0.42, 0.18 + power * 0.08))
+  });
+  addShake(state, 1.6 + power * 2.25, Math.max(0.08, Math.min(0.18, 0.08 + power * 0.04)), `player-hit:${player.id}`);
+  return player.lastDamageImpact;
 }
 
 export function resolveProjectileDamage(state, projectile, baseDamage, enemy = null, tags = []) {
@@ -249,6 +319,7 @@ export function dealPlayerDamage(state, player, spec = {}) {
     sourceId: resolved.sourceId,
     tags: resolved.tags
   });
+  if (!resolved.blocked && hit.done > 0) emitPlayerDamageImpact(state, player, resolved, hit, spec);
   return { ...hit, ...resolved, done: hit.done, killed: hit.killed };
 }
 

@@ -38,6 +38,7 @@ export function createUi() {
   let revealSignature = "";
   let revealUntil = 0;
   let lastInstallQueue = 0;
+  let hpTween = { playerId: null, hp: null };
   let economyTween = { playerId: null, money: null, xp: null, level: null, moneyFrom: 0, moneyTo: 0, xpFrom: 0, xpTo: 0, moneyStartedAt: 0, xpStartedAt: 0 };
 
   function showMenu() {
@@ -369,6 +370,15 @@ export function createUi() {
     return "EXIT TO INSTALL";
   }
 
+
+  function restartHpHitPulse(drop = 0, hpRatio = 1) {
+    if (!el.hpText) return;
+    el.hpText.classList.remove("hp-hit-slam", "hp-hit-heavy", "hp-low");
+    void el.hpText.offsetWidth;
+    el.hpText.classList.add("hp-hit-slam");
+    if (drop >= 14 || hpRatio <= 0.35) el.hpText.classList.add("hp-hit-heavy");
+  }
+
   function renderEconomyHud(player, eco, display = {}) {
     if (!el.economyText) return;
     const queue = Math.max(0, Math.floor(Number.isFinite(eco.pendingUpgradeCount) ? eco.pendingUpgradeCount : 0));
@@ -494,6 +504,8 @@ export function createUi() {
     renderStatPanel(player, snapshot, !!options.statPanelOpen);
     if (!player) {
       el.hpText.textContent = "--";
+      el.hpText.classList.remove("hp-hit-slam", "hp-hit-heavy", "hp-low");
+      hpTween = { playerId: null, hp: null };
       if (el.economyText) {
         el.economyText.classList.remove("economy-queued", "install-pulse", "install-pulse-1", "install-pulse-2", "install-pulse-3");
         el.economyText.dataset.installTier = "0";
@@ -510,7 +522,15 @@ export function createUi() {
     }
     const inv = player.inventory || { weapons: [START_WEAPON], activeWeapon: START_WEAPON };
     const active = inv.activeWeapon || player.activeWeapon || START_WEAPON;
-    el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
+    const hpNow = Math.max(0, Math.round(player.hp));
+    const maxHp = Math.max(1, player.maxHp || 100);
+    const hpRatio = hpNow / maxHp;
+    if (hpTween.playerId !== player.id) hpTween = { playerId: player.id, hp: hpNow };
+    const hpDrop = Math.max(0, (hpTween.hp ?? hpNow) - hpNow);
+    el.hpText.textContent = `${hpNow}/${maxHp}`;
+    el.hpText.classList.toggle("hp-low", hpRatio <= 0.35 && hpNow > 0);
+    if (hpDrop > 0) restartHpHitPulse(hpDrop, hpRatio);
+    hpTween.hp = hpNow;
     if (el.economyText) {
       const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24, pendingUpgradeCount: 0 };
       const display = economyDisplayValues(player.id, eco);

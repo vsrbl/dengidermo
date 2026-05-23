@@ -60,6 +60,32 @@ function drawDamageText(ctx, fx, cam) {
   drawText(ctx, fx.text || "1", s.x, s.y, fx.color || "#fff", "center");
 }
 
+
+function drawPlayerHit(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const s = screen(fx, cam);
+  const power = Math.max(0.35, Math.min(2.5, fx.power || 1));
+  const color = fx.color || "#ff3048";
+  const base = (fx.r || 28) * (0.65 + t * 0.55);
+  const alpha = Math.max(0.06, Math.min(0.72, (life / maxLife) * 0.62));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, Math.round(2 + power));
+  ctx.strokeRect(Math.round(s.x - base), Math.round(s.y - base), Math.round(base * 2), Math.round(base * 2));
+  const inner = Math.max(8, 13 + power * 3);
+  ctx.globalAlpha = Math.min(0.72, alpha + 0.12);
+  ctx.strokeRect(Math.round(s.x - inner), Math.round(s.y - inner), Math.round(inner * 2), Math.round(inner * 2));
+  const dx = Number.isFinite(fx.dirX) ? fx.dirX : 0;
+  const dy = Number.isFinite(fx.dirY) ? fx.dirY : -1;
+  ctx.globalAlpha = Math.min(0.76, alpha + 0.08);
+  ctx.beginPath();
+  ctx.moveTo(Math.round(s.x - dx * 24), Math.round(s.y - dy * 24));
+  ctx.lineTo(Math.round(s.x + dx * (20 + power * 10)), Math.round(s.y + dy * (20 + power * 10)));
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawStatusRing(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
@@ -258,6 +284,48 @@ function drawAnomalyField(ctx, fx, cam) {
   if (fx.text) drawText(ctx, String(fx.text).slice(0, 4).toUpperCase(), s.x, s.y - r - 5, color, "center");
 }
 
+function drawHeraldTether(ctx, fx, cam) {
+  const { life, maxLife, t } = effectLife(fx);
+  const color = fx.color || "#ff3048";
+  const rawPoints = Array.isArray(fx.points) && fx.points.length >= 2
+    ? fx.points
+    : [{ x: fx.x, y: fx.y }, { x: fx.x2, y: fx.y2 }];
+  const points = rawPoints
+    .filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+    .map((p) => screen(p, cam));
+  if (points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, Math.round(3 * life / maxLife));
+  ctx.globalAlpha = Math.max(0.18, Math.min(0.78, 0.62 - t * 0.3));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(points[0].x), Math.round(points[0].y));
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const dx = cur.x - prev.x;
+    const dy = cur.y - prev.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / len;
+    const ny = dx / len;
+    const kink = ((i % 2) ? 1 : -1) * Math.min(14, 4 + len * 0.035);
+    const mx = (prev.x + cur.x) * 0.5 + nx * kink;
+    const my = (prev.y + cur.y) * 0.5 + ny * kink;
+    ctx.lineTo(Math.round(mx), Math.round(my));
+    ctx.lineTo(Math.round(cur.x), Math.round(cur.y));
+  }
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = Math.max(0.08, Math.min(0.34, 0.28 - t * 0.14));
+  ctx.beginPath();
+  ctx.moveTo(Math.round(points[0].x), Math.round(points[0].y));
+  for (let i = 1; i < points.length; i += 1) {
+    ctx.lineTo(Math.round(points[i].x), Math.round(points[i].y));
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawPulseWave(ctx, fx, cam) {
   const { life, maxLife, t } = effectLife(fx);
   const s = screen(fx, cam);
@@ -318,6 +386,8 @@ export const EFFECT_RENDERERS = Object.freeze({
   portal: drawPortal,
   chain: drawChain,
   damageText: drawDamageText,
+  playerHit: drawPlayerHit,
+  playerDamageImpact: ignoreEffect,
   critFlash: drawStatusRing,
   statusBurst: drawStatusBurst,
   statusTick: drawStatusRing,
@@ -339,6 +409,7 @@ export const EFFECT_RENDERERS = Object.freeze({
   explosion: drawExplosion,
   anomalyLine: drawAnomalyLine,
   anomalyField: drawAnomalyField,
+  heraldTether: drawHeraldTether,
   pulseWave: drawPulseWave,
   frontWave: drawFrontWave,
   shake: ignoreEffect

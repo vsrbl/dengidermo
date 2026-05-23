@@ -1012,3 +1012,29 @@ button:disabled { opacity: 0.45; cursor: default; }
   66% { transform: translate(calc(-50% + 3px), calc(-50% - 1px)); }
   100% { transform: translate(-50%, -50%); }
 }
+
+#hpText.hp-hit-slam {
+  color: var(--red);
+  animation: hpHitSlam 190ms steps(2, end) 1;
+}
+
+#hpText.hp-hit-heavy {
+  text-shadow: 0 0 10px rgba(255,48,72,0.72);
+}
+
+#hpText.hp-low {
+  color: var(--red);
+  animation: hpLowPulse 820ms ease-in-out infinite;
+}
+
+@keyframes hpHitSlam {
+  0% { transform: translate(0, 0) scale(1); filter: none; }
+  28% { transform: translate(-3px, 0) scale(1.16); filter: brightness(1.8); }
+  58% { transform: translate(3px, 0) scale(1.07); }
+  100% { transform: translate(0, 0) scale(1); filter: none; }
+}
+
+@keyframes hpLowPulse {
+  0%, 100% { text-shadow: 0 0 0 rgba(255,48,72,0); }
+  50% { text-shadow: 0 0 10px rgba(255,48,72,0.78); }
+}

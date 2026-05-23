@@ -6,7 +6,7 @@ import { updateProjectiles } from '../src/game/projectiles.js';
 import { spawnEnemy } from '../src/game/enemies.js';
 import { giveWeapon, switchWeapon } from '../src/game/inventory.js';
 import { WEAPONS } from '../src/data/weapons.js';
-import { EFFECT_DEFS } from '../src/game/effects.js';
+import { DAMAGE_TAGS, EFFECT_DEFS, dealPlayerDamage } from '../src/game/effects.js';
 
 function fresh(weaponId = 'shotgun') {
   const state = createGameState(`FEEL-${weaponId}`);
@@ -106,6 +106,32 @@ test('economy pickup dopamine feel contracts are wired', () => {
   assert.ok(lootEffects.includes('CLEAR_ECONOMY_ATTRACT_RADIUS_BONUS'), 'post-clear pickup radius boost should be explicit and bounded');
   assert.ok(renderer.includes('pickupVisualPosition') && renderer.includes('drawPickupTrail'), 'renderer should draw pickup pop/trail feel from snapshot data');
   assert.ok(ui.includes('economyDisplayValues') && ui.includes('install-pulse-3'), 'HUD should tick economy values and scale INSTALL queue pulse');
+});
+
+
+test('player damage creates visible local impact contract without bypassing damage pipeline', () => {
+  const { state, p } = fresh('shotgun');
+  const hit = dealPlayerDamage(state, p, {
+    amount: 18,
+    sourceId: 'verify-enemy',
+    sourceType: 'verifyEnemyTouch',
+    enemyId: 'verify-enemy',
+    sourceX: p.x - 40,
+    sourceY: p.y,
+    tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH]
+  });
+  assert.equal(hit.done, 18, 'verify damage should actually damage player');
+  assert.ok(p.lastDamageImpact?.seq >= 1, 'player should store lastDamageImpact for body/HUD hit feedback');
+  assert.ok(state.effects.some((fx) => fx.type === 'playerHit' && fx.targetId === p.id), 'player damage should spawn a world-space playerHit pulse');
+  assert.ok(state.effects.some((fx) => fx.type === 'playerDamageImpact' && fx.targetId === p.id), 'player damage should spawn a local screen impact effect');
+  assert.ok(state.effects.some((fx) => fx.type === 'shake' && String(fx.source || '').includes(p.id)), 'player damage should add controlled camera shake');
+  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const effects = readFileSync(new URL('../src/render/effectRenderers.js', import.meta.url), 'utf8');
+  const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.ok(renderer.includes('drawLocalDamageImpactOverlay'), 'renderer should draw local damage screen overlay');
+  assert.ok(renderer.includes('drawDirectionalHitMarker'), 'renderer should draw a directional hit marker');
+  assert.ok(effects.includes('playerHit: drawPlayerHit'), 'effect renderer should include playerHit world pulse');
+  assert.ok(ui.includes('hp-hit-slam') && ui.includes('hp-low'), 'HUD should slam on HP drops and pulse at low HP');
 });
 
 let failed = 0;

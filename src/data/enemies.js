@@ -301,7 +301,7 @@ export const ENEMIES = {
     renderStyle: "herald",
     accentColor: "red",
     score: 4,
-    herald: { cooldown: 3.2, trailSpeed: 245, catchRadius: 32, swarmBase: 3, swarmPerLoop: 2, swarmMax: 12, summonKinds: ["runner", "splitter_tiny", "runner", "mini_splitter"] }
+    herald: { cooldown: 3.2, tetherSpeed: 245, tetherPulseEvery: 0.075, tetherPathMax: 44, catchRadius: 32, swarmBase: 3, swarmPerLoop: 2, swarmMax: 12, summonKinds: ["runner", "splitter_tiny", "runner", "mini_splitter"] }
   },
 
   mini_splitter: {

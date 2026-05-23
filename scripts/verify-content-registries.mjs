@@ -316,6 +316,7 @@ const effectRendererSrc = read('src/render/effectRenderers.js');
 const revealPulseBlock = effectRendererSrc.slice(effectRendererSrc.indexOf('function drawRewardRevealPulse'), effectRendererSrc.indexOf('function drawArmorPulse'));
 assert.ok(!revealPulseBlock.includes('drawText'), 'v39.3.19b reveal pulses should be ring-only and should not draw extra world text');
 assert.ok(effectRendererSrc.includes('frontWave: drawFrontWave'), 'v39.3.19c PLS forward-wave effect renderer must be registered');
+assert.ok(effectRendererSrc.includes('heraldTether: drawHeraldTether'), 'v39.3.19e HRD should render a broken tether line from Herald to player');
 assert.match(read('src/game/rewardCommands.js'), /suppressSpawnRewardText[\s\S]*sourceType === "chest"[\s\S]*sourceType === "casino"/, 'v39.3.19b chest/casino reward spawns should not add extra damageText captions over simple tokens');
 
 

@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.19c",
-  "buildId": "v39.3.19c-20260524",
+  "version": "v39.3.19e",
+  "buildId": "v39.3.19e-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-19c.js?v=39.3.19c",
-  "style": "./style.css?v=39.3.19c",
-  "config": "./config.js?v=39.3.19c",
+  "entry": "./src/main.v39-3-19e.js?v=39.3.19e",
+  "style": "./style.css?v=39.3.19e",
+  "config": "./config.js?v=39.3.19e",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.19c anomaly enemy retune: renames MRR/mirror into ECH/echo negative player clone, replaces NUL/nullifier with GLT/glitch blink-dash threat, makes SPL a larger staged splitter that scales stages with loop difficulty, moves front deflect to ORB, converts PRS into a triple beam splitter, retunes PLS into a forward square-wave, strengthens ANC pickup/projectile/player suppression, gives BNC player bounce knockback with no fatigue, and turns HRD into a red chase-trail swarm caller."
+  "notes": "v39.3.19e herald tether line hotfix: replaces the detached red chase-square feeling on HRD with a broken red tether line rendered directly from the Herald to the targeted player, preserving the catch/summon gameplay while making the signal visually connected to the director mob."
 }

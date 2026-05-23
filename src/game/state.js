@@ -204,6 +204,7 @@ export function makeSnapshot(state) {
       stats: { ...(p.stats || {}) },
       statSnapshot: buildPlayerStatSnapshot(p, state),
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
+      damageImpact: p.lastDamageImpact ? { ...p.lastDamageImpact } : null,
       ability: abilitySnapshot(p),
       companions: companionSummary(p, state),
       skin: p.skin,
