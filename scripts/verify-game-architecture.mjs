@@ -151,6 +151,9 @@ assert.match(abilityRewards, /grantAbilityShard\(player/, 'ability rewards must 
 
 const casino = read('src/game/casino.js');
 assert.match(casino, /spendMoney\(state, player/, 'casino stake spending must use playerEconomy pipeline');
+assert.match(casino, /grantMoney\(state, player/, 'casino money payouts must use playerEconomy pipeline');
+assert.match(casino, /grantXp\(state, player/, 'casino XP payouts must use playerEconomy pipeline');
+assert.match(casino, /executeReward\(state/, 'casino non-economy payouts must route through reward commands');
 assert.match(casino, /validateCasinoSpin/, 'casino must expose host-side spin validation');
 assert.doesNotMatch(read('src/app/casinoClient.js'), /spendMoney|grantMoney|grantXp|executeRewardTable|spawnRewardPickup/, 'casino client must not grant rewards or mutate economy');
 assert.match(read('src/app/hostRuntime.js'), /requestCasinoSpin\(/, 'host runtime must own casino spin request execution');

@@ -115,8 +115,9 @@ export function createCasinoClient(app, { host } = {}) {
     }
     setReels(result.symbols || []);
     const labels = Array.isArray(result.symbolLabels) && result.symbolLabels.length ? result.symbolLabels.join("-") : "RESOLVED";
-    const suffix = result.payoutApplied ? "PAYOUT" : "FOUNDATION";
-    setStatus(`${labels} / ${suffix}`, result.match ? "win" : "loss");
+    const outcome = result.outcomeLabel || (result.match ? "PAYOUT" : "BUST");
+    const suffix = result.payoutText || (result.match ? "PAYOUT" : `LOST $${result.cost || ""}`);
+    setStatus(`${labels} / ${outcome} / ${suffix}`, result.match ? "win" : "loss");
     refresh();
   }
 

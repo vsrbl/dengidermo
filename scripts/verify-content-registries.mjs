@@ -12,6 +12,7 @@ import { INTERACTABLES } from '../src/data/interactables.js';
 import { CASINO_MACHINES, CASINO_MACHINE_STATES, casinoMachineStateIsKnown, getCasinoMachine } from '../src/data/casinoMachines.js';
 import { CASINO_STAKES } from '../src/data/casinoStakes.js';
 import { CASINO_SYMBOLS, casinoSymbolIsKnown } from '../src/data/casinoSymbols.js';
+import { CASINO_OUTCOMES, casinoOutcomeActionTypeIsKnown, CASINO_OUTCOME_ACTION_TYPES } from '../src/data/casinoOutcomes.js';
 import { CHESTS, CHEST_STATES, chestStateIsKnown, getChest } from '../src/data/chests.js';
 import { CHEST_REWARD_TABLES } from '../src/data/chestRewardTables.js';
 import { REWARD_TABLES, rewardEntryIsKnown } from '../src/data/rewardTables.js';
@@ -175,6 +176,30 @@ for (const [id, stake] of Object.entries(CASINO_STAKES)) {
   assert.equal(stake.id, id, `casino stake key/id mismatch: ${id}`);
   assert.ok(stake.name && Number.isFinite(stake.cost) && stake.cost > 0, `${id} casino stake needs name and positive money cost`);
   assert.ok(Number.isFinite(stake.reels) && stake.reels === 3, `${id} casino stake foundation should use three reels`);
+  assert.ok(Number.isFinite(stake.matchChance) && stake.matchChance > 0 && stake.matchChance < 1, `${id} casino stake needs a bounded matchChance for outcome pacing`);
+  assert.ok(stake.symbolWeights && typeof stake.symbolWeights === 'object', `${id} casino stake needs symbolWeights for stake identity`);
+}
+assertUnique(Object.keys(CASINO_OUTCOMES), 'casino outcome stake group');
+for (const [stakeId, outcomes] of Object.entries(CASINO_OUTCOMES)) {
+  assert.ok(CASINO_STAKES[stakeId], `casino outcomes reference unknown stake: ${stakeId}`);
+  for (const symbolId of Object.keys(CASINO_SYMBOLS)) {
+    const outcome = outcomes[symbolId];
+    assert.ok(outcome, `${stakeId} casino outcomes must define result for symbol ${symbolId}`);
+    assert.ok(outcome.id && outcome.label && outcome.payoutText, `${stakeId}/${symbolId} casino outcome needs id/label/payoutText`);
+    assert.ok(Array.isArray(outcome.actions) && outcome.actions.length >= 1, `${stakeId}/${symbolId} casino outcome must have reward actions`);
+    for (const action of outcome.actions) {
+      assert.ok(casinoOutcomeActionTypeIsKnown(action.type), `${stakeId}/${symbolId} has unknown casino outcome action: ${JSON.stringify(action)}`);
+      if (action.type === CASINO_OUTCOME_ACTION_TYPES.MONEY || action.type === CASINO_OUTCOME_ACTION_TYPES.XP) {
+        assert.ok(Number.isFinite(action.amount) && action.amount > 0, `${stakeId}/${symbolId} economy action needs positive amount`);
+      }
+      if (action.type === CASINO_OUTCOME_ACTION_TYPES.REWARD) {
+        assert.ok(rewardEntryIsKnown(action.reward), `${stakeId}/${symbolId} reward action has invalid reward: ${JSON.stringify(action.reward)}`);
+      }
+      if (action.type === CASINO_OUTCOME_ACTION_TYPES.MODIFIER_INJECTION) {
+        assert.ok(action.modifierId && rewardEntryIsKnown({ type: REWARD_TYPES.MODIFIER_INJECTION, modifierId: action.modifierId }), `${stakeId}/${symbolId} modifier action has invalid modifier`);
+      }
+    }
+  }
 }
 assertUnique(Object.keys(CASINO_MACHINES), 'casino machine');
 assert.ok(casinoMachineStateIsKnown(CASINO_MACHINE_STATES.IDLE), 'casino idle state must be registered');

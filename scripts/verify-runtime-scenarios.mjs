@@ -10,7 +10,7 @@ import { runEnemyEliteDeath } from '../src/game/enemyElites.js';
 import { runRoomModifierHooksForLocation, ROOM_MODIFIER_HOOKS } from '../src/game/roomModifiers.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { requestInteractableActivation, updateInteractables } from '../src/game/interactables.js';
-import { requestCasinoSpin } from '../src/game/casino.js';
+import { applyCasinoOutcome, requestCasinoSpin } from '../src/game/casino.js';
 import { spawnRewardPickup, updateRewardPickups } from '../src/game/rewardPickups.js';
 import { updateEconomyPickups } from '../src/game/economyPickups.js';
 import { economySnapshot } from '../src/game/playerEconomy.js';
@@ -19,6 +19,9 @@ import { resolveRoomModifierStack } from '../src/game/modifierStack.js';
 import { ABILITY_IDS } from '../src/data/abilities.js';
 import { REWARD_TYPES } from '../src/data/rewardTypes.js';
 import { ECONOMY_PICKUP_TYPES } from '../src/data/economy.js';
+import { getCasinoMachine } from '../src/data/casinoMachines.js';
+import { CASINO_STAKE_IDS, getCasinoStake } from '../src/data/casinoStakes.js';
+import { CASINO_SYMBOL_IDS } from '../src/data/casinoSymbols.js';
 import { CHEST_IDS, CHEST_STATES } from '../src/data/chests.js';
 import { dashConfig } from '../src/game/abilities.js';
 import { hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
@@ -207,10 +210,31 @@ function assertInteractableScenario() {
   player.economy.money = 100;
   const spin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 2 });
   assert.equal(spin.ok, true, 'casino spin should resolve only through host-owned spin request');
-  assert.equal(player.economy.money, 90, 'casino stake should be spent through playerEconomy pipeline on host');
+  assert.ok(player.economy.money >= 90, 'casino stake should be spent before any host-side payout is applied');
   assert.equal(spin.symbols.length, 3, 'casino spin result should include three reel symbols');
-  assert.equal(spin.payoutApplied, false, 'v39.3.10 should be foundation-only without applying jackpot/payout rewards yet');
+  if (spin.match) {
+    assert.equal(spin.payoutApplied, true, 'three matching casino symbols should apply a real payout in v39.3.11');
+    assert.ok(spin.rewardCount >= 1, 'matching casino outcome should report applied reward actions');
+  } else {
+    assert.equal(spin.payoutApplied, false, 'non-matching casino spin should lose only the stake');
+    assert.equal(player.economy.money, 90, 'non-matching casino spin should leave player with money minus stake');
+  }
   assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'spin_resolved'), 'casino spin should emit a host-resolved casino event');
+
+  const pendingBefore = (state.pendingRoomModifiers || []).length;
+  const moneyBeforeStatic = player.economy.money;
+  const staticPayout = applyCasinoOutcome(
+    state,
+    player,
+    slot,
+    getCasinoMachine(slot.casinoMachineId),
+    getCasinoStake(CASINO_STAKE_IDS.HIGH),
+    [CASINO_SYMBOL_IDS.STATIC, CASINO_SYMBOL_IDS.STATIC, CASINO_SYMBOL_IDS.STATIC],
+    { seq: 3 }
+  );
+  assert.equal(staticPayout.payoutApplied, true, 'STATIC three-match should apply a payout rather than being UI-only');
+  assert.ok(player.economy.money > moneyBeforeStatic, 'STATIC outcome should grant money through the playerEconomy pipeline');
+  assert.equal((state.pendingRoomModifiers || []).length, pendingBefore + 1, 'STATIC outcome should queue next-room danger through pendingRoomModifiers');
 }
 
 
