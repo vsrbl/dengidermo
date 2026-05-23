@@ -57,6 +57,16 @@ export function rewardSourceAllowsEconomyType(sourceId, type) {
   return !!contract && contract.economyTypes.includes(type);
 }
 
+export function validateRewardSourceEconomyType(sourceId, type) {
+  if (!sourceId) return { ok: true, reason: "no_source_contract" };
+  const contract = rewardSourceContract(sourceId);
+  if (!contract) return { ok: false, reason: "unknown_source_contract", sourceId, type };
+  if (!contract.economyTypes.includes(type)) {
+    return { ok: false, reason: "forbidden_economy_type", sourceId, type };
+  }
+  return { ok: true, sourceId, type };
+}
+
 export function enemyRewardSourceId(enemy) {
   if (enemy?.kind === "boss") return REWARD_SOURCE_IDS.ENEMY_BOSS;
   if (enemy?.elite) return REWARD_SOURCE_IDS.ENEMY_ELITE;

@@ -40,6 +40,10 @@ export function sharedEconomyCreditRecipients(state) {
   return Object.values(state?.players || {}).filter((player) => isSharedEconomyCreditEligible(player));
 }
 
+export function sharedEconomyCreditRecipientIds(state) {
+  return sharedEconomyCreditRecipients(state).map((player) => player.id);
+}
+
 export function hasPendingLevelUpUpgrade(player) {
   return ensurePlayerEconomy(player).pendingUpgradeCount > 0;
 }

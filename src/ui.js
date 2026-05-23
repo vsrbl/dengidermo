@@ -17,6 +17,7 @@ export function createUi() {
     netStatus: document.getElementById("netStatus"),
     directorDebug: document.getElementById("directorDebug"),
     statPanel: document.getElementById("statPanel"),
+    procFeed: document.getElementById("procFeed"),
     hpText: document.getElementById("hpText"),
     economyText: document.getElementById("economyText"),
     weaponText: document.getElementById("weaponText"),
@@ -35,6 +36,8 @@ export function createUi() {
   let lastUpgradeSignature = "";
   let revealSignature = "";
   let revealUntil = 0;
+  let lastInstallQueue = 0;
+  let economyTween = { playerId: null, money: null, xp: null, level: null, moneyFrom: 0, moneyTo: 0, xpFrom: 0, xpTo: 0, moneyStartedAt: 0, xpStartedAt: 0 };
 
   function showMenu() {
     el.menu.classList.remove("hidden");
@@ -330,6 +333,68 @@ export function createUi() {
     );
   }
 
+
+  function renderProcFeed(items = []) {
+    if (!el.procFeed) return;
+    const list = Array.isArray(items) ? items.slice(0, 5) : [];
+    el.procFeed.classList.toggle("active", list.length > 0);
+    el.procFeed.replaceChildren(...list.map((item, index) => {
+      const row = document.createElement("div");
+      row.className = `proc-feed-row priority-${item.priority || "low"} kind-${item.kind || "event"}`;
+      row.style.setProperty("--proc-index", String(index));
+      const text = textNode("span", "proc-feed-text", String(item.text || "SIGNAL").toUpperCase().slice(0, 28));
+      const detail = textNode("span", "proc-feed-detail", String(item.detail || "").toUpperCase().slice(0, 32));
+      row.append(text, detail);
+      return row;
+    }));
+  }
+
+
+  function tweenNumber(from, to, startedAt, now, duration = 220) {
+    if (from === null || from === undefined) return Math.round(to || 0);
+    if (from === to) return Math.round(to || 0);
+    const t = Math.min(1, Math.max(0, (now - startedAt) / duration));
+    const eased = 1 - Math.pow(1 - t, 3);
+    return Math.round(from + (to - from) * eased);
+  }
+
+  function economyDisplayValues(playerId, eco) {
+    const now = performance.now();
+    const money = Math.round(Number.isFinite(eco.money) ? eco.money : 0);
+    const xp = Math.round(Number.isFinite(eco.xp) ? eco.xp : 0);
+    const level = Math.round(Number.isFinite(eco.level) ? eco.level : 1);
+    if (economyTween.playerId !== playerId) {
+      economyTween = { playerId, money, xp, level, moneyFrom: money, moneyTo: money, xpFrom: xp, xpTo: xp, moneyStartedAt: now, xpStartedAt: now };
+      return { money, xp };
+    }
+    if (money !== economyTween.moneyTo) {
+      economyTween.moneyFrom = economyTween.money ?? economyTween.moneyTo ?? money;
+      economyTween.moneyTo = money;
+      economyTween.moneyStartedAt = now;
+    }
+    if (level !== economyTween.level || xp < (economyTween.xpTo ?? xp)) {
+      economyTween.xpFrom = xp;
+      economyTween.xpTo = xp;
+      economyTween.xpStartedAt = now;
+    } else if (xp !== economyTween.xpTo) {
+      economyTween.xpFrom = economyTween.xp ?? economyTween.xpTo ?? xp;
+      economyTween.xpTo = xp;
+      economyTween.xpStartedAt = now;
+    }
+    economyTween.level = level;
+    economyTween.money = tweenNumber(economyTween.moneyFrom, economyTween.moneyTo, economyTween.moneyStartedAt, now);
+    economyTween.xp = tweenNumber(economyTween.xpFrom, economyTween.xpTo, economyTween.xpStartedAt, now);
+    return { money: economyTween.money, xp: economyTween.xp };
+  }
+
+  function restartInstallPulse(queue) {
+    if (!el.economyText) return;
+    el.economyText.classList.remove("install-pulse", "install-pulse-1", "install-pulse-2", "install-pulse-3");
+    void el.economyText.offsetWidth;
+    const tier = queue >= 4 ? 3 : queue >= 2 ? 2 : 1;
+    el.economyText.classList.add("install-pulse", `install-pulse-${tier}`);
+  }
+
   function setDirectorDebug(snapshot = null) {
     if (!el.directorDebug) return;
     const dev = snapshot?.dev || null;
@@ -384,8 +449,11 @@ export function createUi() {
       const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24, pendingUpgradeCount: 0 };
       const next = Number.isFinite(eco.nextLevelXp) ? eco.nextLevelXp : "--";
       const queue = Math.max(0, Math.floor(Number.isFinite(eco.pendingUpgradeCount) ? eco.pendingUpgradeCount : 0));
+      const display = economyDisplayValues(player.id, eco);
       const install = queue > 0 ? ` · INSTALL x${queue}` : "";
-      el.economyText.textContent = `$${eco.money || 0} · L${eco.level || 1} XP ${eco.xp || 0}/${next}${install}`;
+      el.economyText.textContent = `$${display.money} · L${eco.level || 1} XP ${display.xp}/${next}${install}`;
+      if (queue > lastInstallQueue) restartInstallPulse(queue);
+      lastInstallQueue = queue;
     }
     const activeWeapon = WEAPONS[active] || WEAPONS[START_WEAPON];
     el.weaponText.textContent = `[${activeWeapon.code || active.toUpperCase().slice(0, 3)}] ${activeWeapon.name.toUpperCase()}`;
@@ -418,7 +486,21 @@ export function createUi() {
     flashCopied();
   });
 
-  return { el, showMenu, showGame, setMenuStatus, flashError, flashCopied, setNet, setHud, setUpgradeMenu, onUpgradePick, isUpgradeOpen, isUpgradeHovered: () => upgradeHovered };
+  return {
+    el,
+    showMenu,
+    showGame,
+    setMenuStatus,
+    flashError,
+    flashCopied,
+    setNet,
+    setHud,
+    setProcFeed: renderProcFeed,
+    setUpgradeMenu,
+    onUpgradePick,
+    isUpgradeOpen,
+    isUpgradeHovered: () => upgradeHovered
+  };
 }
 
 export function randomRoomId() {

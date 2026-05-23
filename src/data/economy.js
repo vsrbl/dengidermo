@@ -7,6 +7,15 @@ export const ECONOMY_PICKUP_TYPES = Object.freeze({
 
 export const LEVEL_UP_QUEUE_SOURCE = "queued_level_up";
 
+export const ECONOMY_PICKUP_DELIVERY = Object.freeze({
+  SHARED_ALIVE_PLAYERS: "shared_alive_players"
+});
+
+export const ECONOMY_PICKUP_RECIPIENT_RULES = Object.freeze({
+  ALIVE_PLAYERS_AT_CLAIM: "alive_players_at_claim"
+});
+
+
 export const UPGRADE_OFFER_SOURCES = Object.freeze({
   QUEUED_LEVEL_UP: LEVEL_UP_QUEUE_SOURCE,
   MANUAL: "manual_offer",

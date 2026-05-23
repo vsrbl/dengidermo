@@ -54,10 +54,13 @@ export function resetRendererSmooth(renderer) {
 function smoothEntity(map, obj, dt, snap = false) {
   const old = map.get(obj.id);
   if (!old || snap) {
-    const copy = { ...obj };
+    const copy = { ...obj, _renderAge: 0, _lastX: obj.x, _lastY: obj.y };
     map.set(obj.id, copy);
     return copy;
   }
+  old._renderAge = (old._renderAge || 0) + Math.max(0, dt || 0);
+  old._lastX = old.x;
+  old._lastY = old.y;
   const t = Math.min(1, dt * 14);
   old.x = lerp(old.x, obj.x, t);
   old.y = lerp(old.y, obj.y, t);
@@ -335,12 +338,56 @@ function economyPickupColor(item, claimable) {
   return item.accent || "#f3f3f3";
 }
 
+
+function pickupVisualPosition(item) {
+  const age = Math.max(0, item._renderAge || 0);
+  const hasSpawn = Number.isFinite(item.spawnX) && Number.isFinite(item.spawnY);
+  if (!hasSpawn || age >= 0.2) return { x: item.x, y: item.y, popT: 1, scale: 1 };
+  const t = Math.min(1, age / 0.2);
+  const easeOut = 1 - Math.pow(1 - t, 3);
+  const overshoot = Math.sin(t * Math.PI) * 0.12;
+  return {
+    x: lerp(item.spawnX, item.x, Math.min(1, easeOut + overshoot)),
+    y: lerp(item.spawnY, item.y, Math.min(1, easeOut + overshoot)),
+    popT: t,
+    scale: 0.62 + 0.38 * easeOut + overshoot
+  };
+}
+
+function drawPickupTrail(ctx, item, s, color) {
+  if (!Number.isFinite(item._lastX) || !Number.isFinite(item._lastY)) return;
+  const dx = item.x - item._lastX;
+  const dy = item.y - item._lastY;
+  if (dx * dx + dy * dy < 2.4) return;
+  ctx.save();
+  ctx.globalAlpha = 0.46;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(s.x - dx * 1.8), Math.round(s.y - dy * 1.8));
+  ctx.lineTo(Math.round(s.x), Math.round(s.y));
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 function drawEconomyPickup(ctx, item, cam) {
-  const s = screen(item, cam);
-  const r = Math.max(10, item.radius || 10);
+  const visual = pickupVisualPosition(item);
+  const s = screen(visual, cam);
+  const baseR = Math.max(10, item.radius || 10);
+  const pulse = 1 + Math.sin((item._renderAge || 0) * 10) * 0.035;
+  const rarePulse = item.type === "heal" || item.lucky || item.boosted ? 0.05 : 0;
+  const r = Math.max(8, Math.round(baseR * visual.scale * (pulse + rarePulse)));
   const claimable = item.claimable !== false;
   const color = economyPickupColor(item, claimable);
   const label = economyPickupLabel(item);
+  drawPickupTrail(ctx, item, s, color);
+  if (visual.popT < 1 || item.lucky || item.boosted) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 7;
+    ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
+  }
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
   drawRect(ctx, s.x - r + 4, s.y - r + 4, Math.max(4, r * 2 - 8), Math.max(4, r * 2 - 8), "#050505");
   ctx.strokeStyle = color;

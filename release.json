@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.13b",
-  "buildId": "v39.3.13b-20260523",
+  "version": "v39.3.14b",
+  "buildId": "v39.3.14b-20260523",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-13b.js?v=39.3.13b",
-  "style": "./style.css?v=39.3.13b",
-  "config": "./config.js?v=39.3.13b",
+  "entry": "./src/main.v39-3-14b.js?v=39.3.14b",
+  "style": "./style.css?v=39.3.14b",
+  "config": "./config.js?v=39.3.14b",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.13b TAB terminal stat HUD: adds hold-TAB input state, renders a medium left-side terminal stat panel from player.statSnapshot with detailed local stats, compact ally rows, economy/install queue, and separate temporary signals, while preserving gameplay controls and avoiding UI-side stat formula recalculation"
+  "notes": "v39.3.14b pickup dopamine animation pass: adds small random pop-out visuals for GLD/EXP/HEA, weak baseline economy pickup magnet with stronger MAGNET upgrade scaling, post-clear pickup radius boost, fast HUD economy tick-up, and stronger INSTALL xN pulses without changing balance or content"
 }

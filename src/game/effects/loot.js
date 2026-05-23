@@ -4,6 +4,21 @@ import { ROOM_MODIFIER_HOOKS, runRoomModifierHooks } from "../roomModifiers.js";
 import { EFFECT_HOOKS, DAMAGE_TAGS, numberOr, clamp } from "./defs.js";
 import { runLootHook } from "./damage.js";
 
+
+const BASELINE_ECONOMY_ATTRACT_RADIUS = 42;
+const BASELINE_ECONOMY_ATTRACT_FORCE = 118;
+const CLEAR_ECONOMY_ATTRACT_RADIUS_BONUS = 78;
+const CLEAR_ECONOMY_ATTRACT_FORCE_BONUS = 92;
+
+function isEconomyPickup(item) {
+  return item && (item.type === "money" || item.type === "xp" || item.type === "heal") && (item.delivery || item.recipientRule || item.sourceContractId);
+}
+
+function roomIsClearForPickupVacuum(state) {
+  if (!state) return false;
+  return Object.keys(state.enemies || {}).length === 0;
+}
+
 export function resolveLootRoll(state, player, spec = {}) {
   const baseChance = Math.max(0, numberOr(spec.chance, 0));
   const ctx = runLootHook(state, player, null, EFFECT_HOOKS.LOOT_ROLL, {
@@ -43,6 +58,17 @@ export function attractLootToPlayer(player, item, dt, state = null) {
       c.force += numberOr(effect.force, 0);
     }
   });
+
+  if (isEconomyPickup(item)) {
+    ctx.radius = Math.max(0, ctx.radius || 0) + BASELINE_ECONOMY_ATTRACT_RADIUS;
+    ctx.force = Math.max(0, ctx.force || 0) + BASELINE_ECONOMY_ATTRACT_FORCE;
+    ctx.baselineMagnet = true;
+    if (roomIsClearForPickupVacuum(state)) {
+      ctx.radius += CLEAR_ECONOMY_ATTRACT_RADIUS_BONUS;
+      ctx.force += CLEAR_ECONOMY_ATTRACT_FORCE_BONUS;
+      ctx.clearVacuumBoost = true;
+    }
+  }
 
   const radius = Math.max(0, ctx.radius || 0);
   if (!radius) return ctx;

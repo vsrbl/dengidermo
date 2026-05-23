@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createGameState, addPlayer } from '../src/game/state.js';
 import { fireWeapon } from '../src/game/combat.js';
 import { updateProjectiles } from '../src/game/projectiles.js';
@@ -91,6 +92,20 @@ test('rocket hit/explosion creates visible controlled runtime camera shake', () 
   const watched = runAndWatchShake(state, 1.8);
   assert.ok(watched.saw, 'rocket hit/explosion did not create shake');
   assert.ok(watched.maxPower >= 6 && watched.maxPower <= 12.1, `rocket shake is not visible/controlled: ${watched.maxPower}`);
+});
+
+
+
+test('economy pickup dopamine feel contracts are wired', () => {
+  const economyPickups = readFileSync(new URL('../src/game/economyPickups.js', import.meta.url), 'utf8');
+  const lootEffects = readFileSync(new URL('../src/game/effects/loot.js', import.meta.url), 'utf8');
+  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.ok(economyPickups.includes('spawnX') && economyPickups.includes('popDistance'), 'economy pickups should snapshot spawn origin/pop data for client pop-out');
+  assert.ok(lootEffects.includes('BASELINE_ECONOMY_ATTRACT_RADIUS'), 'economy pickups should have weak baseline magnet');
+  assert.ok(lootEffects.includes('CLEAR_ECONOMY_ATTRACT_RADIUS_BONUS'), 'post-clear pickup radius boost should be explicit and bounded');
+  assert.ok(renderer.includes('pickupVisualPosition') && renderer.includes('drawPickupTrail'), 'renderer should draw pickup pop/trail feel from snapshot data');
+  assert.ok(ui.includes('economyDisplayValues') && ui.includes('install-pulse-3'), 'HUD should tick economy values and scale INSTALL queue pulse');
 });
 
 let failed = 0;
