@@ -4,8 +4,12 @@ import { fireWeapon } from '../src/game/combat.js';
 import { updateProjectiles } from '../src/game/projectiles.js';
 import { spawnEnemy } from '../src/game/enemies.js';
 import { updateLoot } from '../src/game/loot.js';
+import { spawnEconomyPickup, updateEconomyPickups } from '../src/game/economyPickups.js';
+import { spawnRewardPickup, updateRewardPickups } from '../src/game/rewardPickups.js';
 import { updateHostWorld } from '../src/game/simulation.js';
 import { UPGRADES } from '../src/data/upgrades.js';
+import { ECONOMY_PICKUP_TYPES } from '../src/data/economy.js';
+import { REWARD_TYPES } from '../src/data/rewardTypes.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { DAMAGE_TAGS, EFFECT_DEFS, buildProjectileEffects, resolveProjectileDamage, dealPlayerDamage, tickPlayerEffects } from '../src/game/effects.js';
 import { giveWeapon, switchWeapon } from '../src/game/inventory.js';
@@ -144,6 +148,22 @@ test('magnet moves loot toward player', () => {
   const before = state.loot.l1.x;
   updateLoot(state, 0.1);
   assert.ok(state.loot.l1.x < before, `loot did not move toward player: ${before} -> ${state.loot.l1?.x}`);
+});
+
+test('magnet moves economy and reward pickups toward player', () => {
+  const { state, p } = fresh('MAGNET-PICKUP-CONTRACT');
+  take(p, 'magnet');
+  const economy = spawnEconomyPickup(state, { type: ECONOMY_PICKUP_TYPES.MONEY, amount: 3 }, p.x + 80, p.y, { claimDelay: 0 });
+  assert.ok(economy, 'economy pickup should spawn for magnet contract test');
+  const economyBefore = economy.x;
+  updateEconomyPickups(state, 0.1);
+  assert.ok(state.economyPickups[economy.id]?.x < economyBefore, `economy pickup did not move toward player: ${economyBefore} -> ${state.economyPickups[economy.id]?.x}`);
+
+  const reward = spawnRewardPickup(state, { type: REWARD_TYPES.LOOT, kind: 'heal' }, p.x + 80, p.y, { claimDelay: 0 });
+  assert.ok(reward, 'reward pickup should spawn for magnet contract test');
+  const rewardBefore = reward.x;
+  updateRewardPickups(state, 0.1);
+  assert.ok(state.rewardPickups[reward.id]?.x < rewardBefore, `reward pickup did not move toward player: ${rewardBefore} -> ${state.rewardPickups[reward.id]?.x}`);
 });
 
 test('combined all listed current effects can simulate without throw', () => {

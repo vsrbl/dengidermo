@@ -2,7 +2,7 @@ import { GREEN, PLAYER_RADIUS, RED, WORLD } from "../core/constants.js";
 import { clamp, dist2 } from "../core/math.js";
 import { ECONOMY_PICKUP_TYPES, economyPickupTypeIsKnown, normalizeEconomyAmount } from "../data/economy.js";
 import { pushVisualEffect } from "./effectCommands.js";
-import { healPlayer } from "./effects.js";
+import { attractLootToPlayer, buildPlayerEffects, healPlayer } from "./effects.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { grantMoney, grantXp } from "./playerEconomy.js";
@@ -16,17 +16,17 @@ const DEFAULT_RADIUS_BY_TYPE = Object.freeze({
 const DEFAULT_CLAIM_DELAY = 0.18;
 const DEFAULT_CLAIM_PAD = 7;
 
-function pickupLabel(type, amount) {
-  if (type === ECONOMY_PICKUP_TYPES.MONEY) return `$${amount}`;
-  if (type === ECONOMY_PICKUP_TYPES.XP) return `XP+${amount}`;
-  if (type === ECONOMY_PICKUP_TYPES.HEAL) return `HP+${amount}`;
-  return String(type || "DROP").toUpperCase();
+function pickupLabel(type) {
+  if (type === ECONOMY_PICKUP_TYPES.MONEY) return "GLD";
+  if (type === ECONOMY_PICKUP_TYPES.XP) return "EXP";
+  if (type === ECONOMY_PICKUP_TYPES.HEAL) return "HEA";
+  return String(type || "DROP").toUpperCase().slice(0, 3);
 }
 
 function pickupAccent(type) {
   if (type === ECONOMY_PICKUP_TYPES.HEAL) return GREEN;
-  if (type === ECONOMY_PICKUP_TYPES.MONEY) return "#f3f3f3";
-  if (type === ECONOMY_PICKUP_TYPES.XP) return "#bcbcbc";
+  if (type === ECONOMY_PICKUP_TYPES.XP) return "#d4d4d4";
+  if (type === ECONOMY_PICKUP_TYPES.MONEY) return "#8f8f8f";
   return RED;
 }
 
@@ -43,7 +43,7 @@ export function spawnEconomyPickup(state, drop, x, y, options = {}) {
     id,
     type,
     amount,
-    label: drop.label || pickupLabel(type, amount),
+    label: drop.label || pickupLabel(type),
     x: clamp(x + (jitter ? state.rng.range(-jitter, jitter) : 0), 20, WORLD.w - 20),
     y: clamp(y + (jitter ? state.rng.range(-jitter, jitter) : 0), 20, WORLD.h - 20),
     radius,
@@ -124,6 +124,14 @@ export function claimEconomyPickup(state, pickup, player, options = {}) {
 
 export function updateEconomyPickups(state, dt = 0.016) {
   if (!state?.economyPickups) return;
+  for (const player of Object.values(state.players || {})) {
+    player.effects = buildPlayerEffects(player);
+    if (player.hp <= 0) continue;
+    for (const pickup of Object.values(state.economyPickups)) {
+      if (!pickup.active || pickup.claimed || (pickup.claimDelay || 0) > 0) continue;
+      attractLootToPlayer(player, pickup, dt, state);
+    }
+  }
   for (const pickup of Object.values(state.economyPickups)) {
     pickup.claimDelay = Math.max(0, (pickup.claimDelay || 0) - dt);
     if (!pickup.active || pickup.claimed) continue;

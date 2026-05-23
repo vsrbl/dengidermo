@@ -271,32 +271,50 @@ function drawLoot(ctx, item, cam) {
   drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
 }
 
+function economyPickupLabel(item) {
+  if (item.type === "money") return "GLD";
+  if (item.type === "xp") return "EXP";
+  if (item.type === "heal") return "HEA";
+  return String(item.label || item.type || "DRP").slice(0, 3).toUpperCase();
+}
+
+function economyPickupColor(item, claimable) {
+  if (!claimable) return "rgba(255,255,255,0.46)";
+  if (item.type === "heal") return GREEN;
+  if (item.type === "xp") return "#d4d4d4";
+  if (item.type === "money") return "#8f8f8f";
+  return item.accent || "#f3f3f3";
+}
+
 function drawEconomyPickup(ctx, item, cam) {
   const s = screen(item, cam);
-  const r = item.radius || 7;
+  const r = item.radius || 8;
   const claimable = item.claimable !== false;
-  const accent = item.accent || (item.type === "heal" ? GREEN : "#f3f3f3");
-  const color = claimable ? accent : "rgba(255,255,255,0.46)";
+  const color = economyPickupColor(item, claimable);
+  const label = economyPickupLabel(item);
+  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
+  drawRect(ctx, s.x - r + 4, s.y - r + 4, Math.max(2, r * 2 - 8), Math.max(2, r * 2 - 8), "#050505");
   ctx.strokeStyle = color;
   ctx.lineWidth = claimable ? 2 : 1;
-  if (item.type === "money") {
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+  if (item.type === "heal") {
     ctx.beginPath();
-    ctx.arc(Math.round(s.x), Math.round(s.y), r, 0, Math.PI * 2);
+    ctx.moveTo(Math.round(s.x - r * 0.42), Math.round(s.y));
+    ctx.lineTo(Math.round(s.x + r * 0.42), Math.round(s.y));
+    ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 0.42));
+    ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 0.42));
     ctx.stroke();
-    drawText(ctx, "$", s.x, s.y + 4, color, "center");
   } else if (item.type === "xp") {
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
-    drawText(ctx, "XP", s.x, s.y + 4, color, "center");
-  } else {
-    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+    ctx.strokeRect(Math.round(s.x - r * 0.42), Math.round(s.y - r * 0.42), Math.round(r * 0.84), Math.round(r * 0.84));
+  } else if (item.type === "money") {
     ctx.beginPath();
-    ctx.moveTo(Math.round(s.x - r * 0.55), Math.round(s.y));
-    ctx.lineTo(Math.round(s.x + r * 0.55), Math.round(s.y));
-    ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 0.55));
-    ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 0.55));
+    ctx.moveTo(Math.round(s.x - r * 0.48), Math.round(s.y + r * 0.18));
+    ctx.lineTo(Math.round(s.x), Math.round(s.y - r * 0.42));
+    ctx.lineTo(Math.round(s.x + r * 0.48), Math.round(s.y + r * 0.18));
+    ctx.closePath();
     ctx.stroke();
   }
-  drawText(ctx, String(item.label || item.type || "DROP").slice(0, 7), s.x, s.y - r - 5, color, "center");
+  drawText(ctx, label, s.x, s.y - r - 5, color, "center");
 }
 
 function drawRewardPickup(ctx, item, cam) {
