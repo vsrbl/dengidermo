@@ -151,6 +151,35 @@ function screen(obj, cam) {
   return { x: obj.x - cam.x, y: obj.y - cam.y };
 }
 
+function weaponCode(weaponId) {
+  return (WEAPONS[weaponId]?.code || String(weaponId || START_WEAPON).slice(0, 3)).toUpperCase();
+}
+
+function drawWeaponGlyph(ctx, s, angle, weaponId, isLocal) {
+  const ax = Math.cos(angle || 0);
+  const ay = Math.sin(angle || 0);
+  const px = s.x + ax * 18;
+  const py = s.y + ay * 18;
+  const accent = isLocal ? GREEN : "#fff";
+  const code = weaponCode(weaponId);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1;
+  if (weaponId === "shotgun") {
+    drawRect(ctx, px - 2, py - 2, 4, 4, accent);
+    drawRect(ctx, px - ay * 5 - 1, py + ax * 5 - 1, 3, 3, "#fff");
+    drawRect(ctx, px + ay * 5 - 1, py - ax * 5 - 1, 3, 3, "#fff");
+  } else if (weaponId === "seeker") {
+    ctx.strokeRect(Math.round(px - 5), Math.round(py - 5), 10, 10);
+    drawRect(ctx, px - 2, py - 2, 4, 4, GREEN);
+  } else if (weaponId === "rocket") {
+    ctx.strokeRect(Math.round(px - 6), Math.round(py - 6), 12, 12);
+    ctx.strokeRect(Math.round(px - 3), Math.round(py - 3), 6, 6);
+  } else {
+    drawRect(ctx, px - 2, py - 2, 4, 4, accent);
+  }
+  drawText(ctx, code, s.x, s.y - 31, isLocal ? GREEN : "#777", "center");
+}
+
 function drawPlayer(ctx, p, cam, isLocal) {
   const s = screen(p, cam);
   const r = 13;
@@ -158,9 +187,7 @@ function drawPlayer(ctx, p, cam, isLocal) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
   drawRect(ctx, s.x - r + 4, s.y - r + 4, r * 2 - 8, r * 2 - 8, "#050505");
 
-  const ax = Math.cos(p.angle || 0);
-  const ay = Math.sin(p.angle || 0);
-  drawRect(ctx, s.x + ax * 16 - 2, s.y + ay * 16 - 2, 4, 4, isLocal ? GREEN : "#fff");
+  drawWeaponGlyph(ctx, s, p.angle || 0, p.activeWeapon || p.inventory?.activeWeapon || START_WEAPON, isLocal);
   if (p.shield?.charges > 0) {
     ctx.strokeStyle = "rgba(0,255,102,0.62)";
     ctx.lineWidth = 1;
@@ -213,11 +240,33 @@ function drawProjectile(ctx, p, cam) {
 
   if (p.kind === "rocket" || p.kind === "homing" || p.kind === "enemyBullet") {
     ctx.strokeStyle = p.kind === "enemyBullet" ? "rgba(255,48,72,0.42)" : "rgba(0,255,102,0.45)";
-    ctx.lineWidth = p.kind === "rocket" ? 3 : (p.kind === "enemyBullet" ? 1 : 2);
+    ctx.lineWidth = p.kind === "rocket" ? 2 : 1;
     ctx.beginPath();
     ctx.moveTo(Math.round(s.x + tx), Math.round(s.y + ty));
     ctx.lineTo(Math.round(s.x), Math.round(s.y));
     ctx.stroke();
+  }
+
+  if (p.kind === "homing") {
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r - 2), Math.round(s.y - r - 2), Math.round((r + 2) * 2), Math.round((r + 2) * 2));
+    drawRect(ctx, s.x - 2, s.y - 2, 4, 4, GREEN);
+    return;
+  }
+  if (p.kind === "rocket") {
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+    drawRect(ctx, s.x - Math.max(2, r - 3), s.y - Math.max(2, r - 3), Math.max(4, r), Math.max(4, r), color);
+    return;
+  }
+  if (p.kind === "enemyBullet") {
+    ctx.strokeStyle = RED;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
+    drawRect(ctx, s.x - 2, s.y - 2, 4, 4, RED);
+    return;
   }
 
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);

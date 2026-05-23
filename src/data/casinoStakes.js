@@ -7,7 +7,7 @@ export const CASINO_STAKE_IDS = Object.freeze({
 export const CASINO_STAKES = Object.freeze({
   [CASINO_STAKE_IDS.LOW]: Object.freeze({
     id: CASINO_STAKE_IDS.LOW,
-    name: "LOW STAKE",
+    name: "LOW BET",
     cost: 10,
     reels: 3,
     tags: Object.freeze(["low", "money"]),
@@ -17,7 +17,7 @@ export const CASINO_STAKES = Object.freeze({
   }),
   [CASINO_STAKE_IDS.MID]: Object.freeze({
     id: CASINO_STAKE_IDS.MID,
-    name: "MID STAKE",
+    name: "MID BET",
     cost: 35,
     reels: 3,
     tags: Object.freeze(["mid", "money", "weapon", "ability"]),
@@ -27,7 +27,7 @@ export const CASINO_STAKES = Object.freeze({
   }),
   [CASINO_STAKE_IDS.HIGH]: Object.freeze({
     id: CASINO_STAKE_IDS.HIGH,
-    name: "HIGH STAKE",
+    name: "HIGH BET",
     cost: 75,
     reels: 3,
     tags: Object.freeze(["high", "money", "jackpot", "static"]),

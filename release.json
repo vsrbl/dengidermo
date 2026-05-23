@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.11b",
-  "buildId": "v39.3.11b-20260523",
+  "version": "v39.3.11c",
+  "buildId": "v39.3.11c-20260523",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-11b.js?v=39.3.11b",
-  "style": "./style.css?v=39.3.11b",
-  "config": "./config.js?v=39.3.11b",
+  "entry": "./src/main.v39-3-11c.js?v=39.3.11c",
+  "style": "./style.css?v=39.3.11c",
+  "config": "./config.js?v=39.3.11c",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.11b terminal form-language pass: reworks chest and casino world renders around nested square terminal forms instead of literal chest/slot silhouettes, keeps readable label prompts, and contains the shooter enemy crosshair fully inside the body square for a cleaner ranged read"
+  "notes": "v39.3.11c casino modal / interactable UX cleanup: brings the casino modal, casino symbols, stake text, interactable terminal language, HUD weapon codes, player weapon glyphs, and projectile renders into the same abstract square-terminal visual system without changing weapon damage, economy, chest rewards, or casino outcome authority"
 }

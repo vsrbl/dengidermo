@@ -32,7 +32,7 @@ export const CASINO_MACHINES = Object.freeze({
       CASINO_SYMBOL_IDS.STATIC,
       CASINO_SYMBOL_IDS.JACKPOT
     ]),
-    visual: Object.freeze({ renderer: "slot_machine", label: "SLOT", accent: "red", glyph: "777" }),
+    visual: Object.freeze({ renderer: "slot_machine", label: "SLOT", accent: "red", glyph: "SLT" }),
     tags: Object.freeze(["casino", "slot", "money", "risk", "reward"])
   })
 });

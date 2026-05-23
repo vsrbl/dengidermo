@@ -1,6 +1,7 @@
 export const WEAPONS = {
   shotgun: {
     name: "SHOTGUN",
+    code: "SHG",
     projectile: "bullet",
     fireRate: 2.7,
     damage: 9,
@@ -20,6 +21,7 @@ export const WEAPONS = {
 
   seeker: {
     name: "SEEKER",
+    code: "SEK",
     projectile: "homing",
     fireRate: 1.7,
     damage: 18,
@@ -40,6 +42,7 @@ export const WEAPONS = {
 
   rocket: {
     name: "ROCKETGUN",
+    code: "RKT",
     projectile: "rocket",
     fireRate: 0.82,
     damage: 28,

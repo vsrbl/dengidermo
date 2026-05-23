@@ -236,7 +236,8 @@ export function createUi() {
       const next = Number.isFinite(eco.nextLevelXp) ? eco.nextLevelXp : "--";
       el.economyText.textContent = `$${eco.money || 0} · L${eco.level || 1} XP ${eco.xp || 0}/${next}`;
     }
-    el.weaponText.textContent = (WEAPONS[active]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
+    const activeWeapon = WEAPONS[active] || WEAPONS[START_WEAPON];
+    el.weaponText.textContent = `[${activeWeapon.code || active.toUpperCase().slice(0, 3)}] ${activeWeapon.name.toUpperCase()}`;
     el.locationText.textContent = snapshot?.location?.name || "GRID 00";
     const portal = (snapshot?.portals || [])[0];
     el.portalText.textContent = portal ? (portal.active ? `${Math.round((portal.progress || 0) * 100)}%` : "LOCKED") : "--";
@@ -255,7 +256,7 @@ export function createUi() {
     }
     el.inventoryText.textContent = (inv.weapons || [START_WEAPON])
       .slice(0, 9)
-      .map((id, index) => `${index + 1}${id === active ? ":" : "."}${(WEAPONS[id]?.name || id).toUpperCase()}`)
+      .map((id, index) => `${index + 1}${id === active ? ":" : "."}${(WEAPONS[id]?.code || id.slice(0, 3)).toUpperCase()}`)
       .join("  ");
   }
 
