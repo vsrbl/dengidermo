@@ -4,11 +4,22 @@ export const ECONOMY_PICKUP_TYPES = Object.freeze({
   HEAL: "heal"
 });
 
+
+export const LEVEL_UP_QUEUE_SOURCE = "queued_level_up";
+
+export const UPGRADE_OFFER_SOURCES = Object.freeze({
+  QUEUED_LEVEL_UP: LEVEL_UP_QUEUE_SOURCE,
+  MANUAL: "manual_offer",
+  SYSTEM: "system_offer"
+});
+
 export const PLAYER_ECONOMY_DEFAULTS = Object.freeze({
   money: 0,
   xp: 0,
   lifetimeXp: 0,
-  level: 1
+  level: 1,
+  pendingUpgradeCount: 0,
+  levelQueueSeq: 0
 });
 
 export const ECONOMY_LEVELS = Object.freeze({

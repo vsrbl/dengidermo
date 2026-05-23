@@ -1,6 +1,6 @@
 import { GREEN } from "../core/constants.js";
 import { nextId } from "./entityIds.js";
-import { applyStatusToEnemy } from "./effects.js";
+import { applyStatusToEnemy } from "./effects/status.js";
 
 const SHAKE_MAX_POWER = 12;
 

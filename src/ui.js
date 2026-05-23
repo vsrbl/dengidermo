@@ -16,6 +16,7 @@ export function createUi() {
     roomTitle: document.getElementById("roomTitle"),
     netStatus: document.getElementById("netStatus"),
     directorDebug: document.getElementById("directorDebug"),
+    statPanel: document.getElementById("statPanel"),
     hpText: document.getElementById("hpText"),
     economyText: document.getElementById("economyText"),
     weaponText: document.getElementById("weaponText"),
@@ -182,6 +183,153 @@ export function createUi() {
     });
   });
 
+
+
+  function textNode(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    return node;
+  }
+
+  function statLine(label, value, className = "") {
+    const row = document.createElement("div");
+    row.className = `stat-panel-row${className ? ` ${className}` : ""}`;
+    row.append(textNode("span", "stat-panel-label", label), textNode("span", "stat-panel-value", value));
+    return row;
+  }
+
+  function statSection(title, rows = []) {
+    const section = document.createElement("section");
+    section.className = "stat-panel-section";
+    section.append(textNode("div", "stat-panel-section-title", title));
+    for (const row of rows) section.append(row);
+    return section;
+  }
+
+  function signedPercent(value) {
+    const n = Number.isFinite(value) ? value : 0;
+    const rounded = Math.round(n * 10) / 10;
+    const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    return `${rounded >= 0 ? "+" : ""}${text}%`;
+  }
+
+  function flatPercent(value) {
+    const n = Number.isFinite(value) ? value : 0;
+    const rounded = Math.round(n * 10) / 10;
+    return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)}%`;
+  }
+
+  function integer(value, fallback = 0) {
+    return Math.round(Number.isFinite(value) ? value : fallback);
+  }
+
+  function compactName(player = {}) {
+    return normalizePlayerName(player.name || player.id || "PLAYER").slice(0, 12).toUpperCase();
+  }
+
+  function modifierLabels(snapshot = null) {
+    const location = snapshot?.location || null;
+    const stack = Array.isArray(location?.modifierStack) ? location.modifierStack : [];
+    if (stack.length) {
+      return stack.map((mod) => String(mod.name || mod.id || mod).replace(/_/g, " ").toUpperCase()).filter(Boolean).slice(0, 3);
+    }
+    const modifiers = Array.isArray(location?.modifiers) ? location.modifiers : [];
+    return modifiers.map((id) => String(id || "").replace(/_/g, " ").toUpperCase()).filter(Boolean).slice(0, 3);
+  }
+
+  function buildSignalRows(statSnapshot = null, snapshot = null) {
+    const runtime = statSnapshot?.runtime || {};
+    const ability = statSnapshot?.ability || {};
+    const utility = statSnapshot?.utility || {};
+    const rows = [];
+    if ((runtime.dashInvulnLeft || 0) > 0) rows.push(statLine("DASH INV", `${Number(runtime.dashInvulnLeft).toFixed(1)}S`, "accent"));
+    if ((runtime.dashCooldownLeft || 0) > 0) rows.push(statLine("DASH CD", `${Number(runtime.dashCooldownLeft).toFixed(1)}S`));
+    else if (ability.dash) rows.push(statLine("DASH", "READY", "accent"));
+    if ((utility.shieldCharges || 0) > 0 || (runtime.shieldChargesReady || 0) > 0) rows.push(statLine("SHIELD", `${Math.max(utility.shieldCharges || 0, runtime.shieldChargesReady || 0)} CHG`));
+    for (const label of modifierLabels(snapshot)) rows.push(statLine("ROOM", label));
+    if (!rows.length) rows.push(statLine("SIGNAL", "CLEAR"));
+    return rows;
+  }
+
+  function renderStatPanel(player, snapshot = null, open = false) {
+    if (!el.statPanel) return;
+    const shouldOpen = !!open && !!player;
+    el.statPanel.classList.toggle("open", shouldOpen);
+    el.game?.classList.toggle("tab-stats", shouldOpen);
+    el.statPanel.setAttribute("aria-hidden", shouldOpen ? "false" : "true");
+    if (!shouldOpen) return;
+
+    const stat = player.statSnapshot || {};
+    const percent = stat.percent || {};
+    const utility = stat.utility || {};
+    const economy = stat.economy || player.economy || {};
+    const weapon = stat.weapon || {};
+    const runtime = stat.runtime || {};
+    const hpPercent = Number.isFinite(runtime.hpPercent) ? runtime.hpPercent : Math.round((player.hp || 0) / Math.max(1, player.maxHp || 100) * 100);
+    const players = Array.isArray(snapshot?.players) ? snapshot.players : [];
+    const allies = players.filter((ally) => ally?.id && ally.id !== player.id).slice(0, 3);
+
+    const header = document.createElement("div");
+    header.className = "stat-panel-header";
+    header.append(
+      textNode("div", "stat-panel-kicker", "HOLD TAB / DIAGNOSTIC"),
+      textNode("div", "stat-panel-title", "SYSTEM STATS"),
+      textNode("div", "stat-panel-player", `${compactName(player)} · HP ${flatPercent(hpPercent)}`)
+    );
+
+    const coreRows = [
+      statLine("DMG", signedPercent(percent.damage)),
+      statLine("FIRE", signedPercent(percent.fireRate)),
+      statLine("MOVE", signedPercent(percent.moveSpeed)),
+      statLine("PROJ SPD", signedPercent(percent.projectileSpeed)),
+      statLine("CRIT", flatPercent(percent.critChance)),
+      statLine("LUCK DROP", signedPercent(percent.luckDropChance)),
+      statLine("LUCK VALUE", signedPercent(percent.luckRareValue)),
+      statLine("MAGNET", utility.magnetRadius ? `${integer(utility.magnetRadius)}R` : "--"),
+      statLine("LIFESTEAL", flatPercent(percent.lifesteal))
+    ];
+
+    const weaponRows = [
+      statLine("ACTIVE", `${String(weapon.code || weapon.id || "---").toUpperCase()} ${weapon.name ? `/${String(weapon.name).toUpperCase()}` : ""}`.trim()),
+      statLine("DAMAGE", weapon.effective?.damage ? String(weapon.effective.damage) : "--"),
+      statLine("RATE", weapon.effective?.fireRate ? `${weapon.effective.fireRate}/S` : "--"),
+      statLine("OWNED", Array.isArray(weapon.owned) ? weapon.owned.map((id) => (WEAPONS[id]?.code || id.slice(0, 3)).toUpperCase()).join(" ") : "--")
+    ];
+
+    const economyRows = [
+      statLine("LVL", String(economy.level || 1)),
+      statLine("EXP", `${economy.xp || 0}/${economy.nextLevelXp || "--"}`),
+      statLine("MONEY", `$${economy.money || 0}`),
+      statLine("INSTALL", (economy.pendingUpgradeCount || 0) > 0 ? `x${economy.pendingUpgradeCount}` : "--", (economy.pendingUpgradeCount || 0) > 0 ? "accent" : "")
+    ];
+
+    const allySection = document.createElement("section");
+    allySection.className = "stat-panel-section stat-panel-allies";
+    allySection.append(textNode("div", "stat-panel-section-title", "ALLIES"));
+    if (!allies.length) {
+      allySection.append(statLine("LINK", "SOLO"));
+    } else {
+      for (const ally of allies) {
+        const aStat = ally.statSnapshot || {};
+        const aEco = aStat.economy || ally.economy || {};
+        const aRuntime = aStat.runtime || {};
+        const aHp = Number.isFinite(aRuntime.hpPercent) ? aRuntime.hpPercent : Math.round((ally.hp || 0) / Math.max(1, ally.maxHp || 100) * 100);
+        const install = (aEco.pendingUpgradeCount || 0) > 0 ? ` INST x${aEco.pendingUpgradeCount}` : "";
+        allySection.append(statLine(compactName(ally), `L${aEco.level || 1} HP ${flatPercent(aHp)}${install}`));
+      }
+    }
+
+    el.statPanel.replaceChildren(
+      header,
+      statSection("CORE", coreRows),
+      statSection("WEAPON", weaponRows),
+      statSection("ECONOMY", economyRows),
+      statSection("TEMP SIGNALS", buildSignalRows(stat, snapshot)),
+      allySection
+    );
+  }
+
   function setDirectorDebug(snapshot = null) {
     if (!el.directorDebug) return;
     const dev = snapshot?.dev || null;
@@ -215,8 +363,9 @@ export function createUi() {
     ].join("\n");
   }
 
-  function setHud(player, snapshot = null) {
+  function setHud(player, snapshot = null, options = {}) {
     setDirectorDebug(snapshot);
+    renderStatPanel(player, snapshot, !!options.statPanelOpen);
     if (!player) {
       el.hpText.textContent = "--";
       if (el.economyText) el.economyText.textContent = "--";
@@ -232,9 +381,11 @@ export function createUi() {
     const active = inv.activeWeapon || player.activeWeapon || START_WEAPON;
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
     if (el.economyText) {
-      const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24 };
+      const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24, pendingUpgradeCount: 0 };
       const next = Number.isFinite(eco.nextLevelXp) ? eco.nextLevelXp : "--";
-      el.economyText.textContent = `$${eco.money || 0} · L${eco.level || 1} XP ${eco.xp || 0}/${next}`;
+      const queue = Math.max(0, Math.floor(Number.isFinite(eco.pendingUpgradeCount) ? eco.pendingUpgradeCount : 0));
+      const install = queue > 0 ? ` · INSTALL x${queue}` : "";
+      el.economyText.textContent = `$${eco.money || 0} · L${eco.level || 1} XP ${eco.xp || 0}/${next}${install}`;
     }
     const activeWeapon = WEAPONS[active] || WEAPONS[START_WEAPON];
     el.weaponText.textContent = `[${activeWeapon.code || active.toUpperCase().slice(0, 3)}] ${activeWeapon.name.toUpperCase()}`;

@@ -10,7 +10,7 @@ export function resolveLootRoll(state, player, spec = {}) {
     chance: baseChance,
     baseChance,
     rareBonus: 0,
-    tags: ["loot", "roll"]
+    tags: [...new Set(["loot", "roll", ...(Array.isArray(spec.tags) ? spec.tags : [])])]
   }, {
     luck(effect, c) {
       c.chance += numberOr(effect.dropChance, 0);

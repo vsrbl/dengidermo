@@ -9,7 +9,7 @@ import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { spawnPoint } from "./state.js";
 import { clearLocationRuntimeObjects } from "./runtimeReset.js";
-import { offerUpgradesToPlayers } from "./upgrades.js";
+import { offerQueuedUpgradesToPlayers } from "./upgrades.js";
 import { enterRoomModifierRuntime, exitRoomModifierRuntime } from "./roomModifiers.js";
 import { spawnLocationInteractables } from "./interactables.js";
 import { consumePendingRoomModifiersForDepth, pendingRoomModifierIdsForDepth } from "./pendingRoomModifiers.js";
@@ -136,7 +136,7 @@ export function beginRoomTransition(state, reason = "portal", options = {}) {
   const nextLoc = enterLocation(state, nextDepth, { createPortal: true, reason });
   repositionAndReviveTeam(state);
 
-  if (options.offerUpgrades !== false) offerUpgradesToPlayers(state, options.offerCount || 3);
+  if (options.offerUpgrades !== false) offerQueuedUpgradesToPlayers(state, options.offerCount || 3);
 
   const geometry = roomGeometryIdentity(nextLoc);
   pushEvent(state, {

@@ -53,7 +53,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     if (!app.hostState) return false;
     const player = app.hostState.players[id];
     if (!player) return false;
-    const currentKey = upgrades.choicesKey(player.upgrades?.choices);
+    const currentKey = upgrades.choicesKey(player.upgrades?.choices, player.upgrades?.offerSeq);
     if (request.key && request.key !== currentKey) return false;
     return chooseUpgrade(app.hostState, id, request.index);
   }
@@ -126,7 +126,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     inputState.py = Math.round(me.y);
     app.hostInputs[app.playerId] = inputState;
     app.localInventory = ensureInventory(me);
-    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers);
+    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     app.localWeapon = getActiveWeaponId(me);
     clientRuntime?.tryLocalShoot(gameNow, inputState);
     updateHostWorld(app.hostState, app.hostInputs, dt);

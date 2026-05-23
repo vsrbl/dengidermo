@@ -5,7 +5,7 @@ import { pushVisualEffect } from "./effectCommands.js";
 import { attractLootToPlayer, buildPlayerEffects, healPlayer } from "./effects.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
-import { grantMoney, grantXp } from "./playerEconomy.js";
+import { grantMoney, grantXp, sharedEconomyCreditRecipients } from "./playerEconomy.js";
 
 const DEFAULT_RADIUS_BY_TYPE = Object.freeze({
   [ECONOMY_PICKUP_TYPES.MONEY]: 10,
@@ -55,6 +55,12 @@ export function spawnEconomyPickup(state, drop, x, y, options = {}) {
     sourceType: options.sourceType || "drop",
     sourceId: options.sourceId || null,
     enemyKind: options.enemyKind || null,
+    sourceContractId: options.sourceContractId || drop.sourceContractId || null,
+    delivery: options.delivery || drop.delivery || "shared_alive_players",
+    recipientRule: options.recipientRule || drop.recipientRule || "alive_players_at_claim",
+    lucky: !!options.lucky || !!drop.luckProc,
+    boosted: !!options.boosted || !!drop.modifierProc || !!drop.boostProc || !!drop.rareRoll,
+    procType: options.procType || drop.procType || null,
     accent: options.accent || pickupAccent(type)
   };
   state.economyPickups[id] = item;
@@ -72,8 +78,13 @@ export function canClaimEconomyPickup(state, pickup, player, options = {}) {
   return { ok: true };
 }
 
-function applyEconomyPickup(state, pickup, player) {
-  const context = { sourceType: "economy_pickup", sourceId: pickup.id };
+function applyEconomyPickupToPlayer(state, pickup, player, collector) {
+  const context = {
+    sourceType: "economy_pickup",
+    sourceId: pickup.id,
+    collectorId: collector?.id || null,
+    sharedCredit: true
+  };
   if (pickup.type === ECONOMY_PICKUP_TYPES.MONEY) return grantMoney(state, player, pickup.amount, context).ok;
   if (pickup.type === ECONOMY_PICKUP_TYPES.XP) return grantXp(state, player, pickup.amount, context).ok;
   if (pickup.type === ECONOMY_PICKUP_TYPES.HEAL) {
@@ -81,11 +92,40 @@ function applyEconomyPickup(state, pickup, player) {
       amount: pickup.amount,
       sourceType: "economy_pickup",
       sourceId: pickup.id,
-      tags: ["drop", "pickup", "heal", "economy"]
+      tags: ["drop", "pickup", "heal", "economy"],
+      collectorId: collector?.id || null
     });
     return true;
   }
   return false;
+}
+
+function applyEconomyPickup(state, pickup, collector) {
+  const eligiblePlayers = sharedEconomyCreditRecipients(state);
+  let applied = 0;
+  const recipients = [];
+  for (const player of eligiblePlayers) {
+    if (applyEconomyPickupToPlayer(state, pickup, player, collector)) {
+      applied += 1;
+      recipients.push(player.id);
+    }
+  }
+  pickup.sharedRecipients = recipients;
+  pickup.sharedRecipientRule = "alive_players_at_claim";
+  if (applied > 0) {
+    pushEvent(state, {
+      type: "economyPickup",
+      action: "shared_credit_applied",
+      pickupId: pickup.id,
+      pickupType: pickup.type,
+      amount: pickup.amount,
+      collectorId: collector?.id || null,
+      recipients: recipients.slice(),
+      recipientCount: recipients.length,
+      recipientRule: pickup.sharedRecipientRule
+    });
+  }
+  return applied > 0;
 }
 
 export function claimEconomyPickup(state, pickup, player, options = {}) {
@@ -113,9 +153,18 @@ export function claimEconomyPickup(state, pickup, player, options = {}) {
     playerId: player.id,
     pickupType: pickup.type,
     amount: pickup.amount,
+    collectorId: player.id,
+    recipients: Array.isArray(pickup.sharedRecipients) ? pickup.sharedRecipients.slice() : [player.id],
+    recipientCount: Array.isArray(pickup.sharedRecipients) ? pickup.sharedRecipients.length : 1,
     enemyKind: pickup.enemyKind || null,
     sourceType: pickup.sourceType || null,
     sourceId: pickup.sourceId || null,
+    sourceContractId: pickup.sourceContractId || null,
+    delivery: pickup.delivery || "shared_alive_players",
+    recipientRule: pickup.sharedRecipientRule || pickup.recipientRule || "alive_players_at_claim",
+    lucky: !!pickup.lucky,
+    boosted: !!pickup.boosted,
+    procType: pickup.procType || null,
     x: Math.round(pickup.x),
     y: Math.round(pickup.y)
   });
@@ -153,6 +202,11 @@ export function economyPickupSnapshot(pickup) {
     claimRadius: pickup.claimRadius,
     claimable: (pickup.claimDelay || 0) <= 0,
     active: !!pickup.active,
+    delivery: pickup.delivery || "shared_alive_players",
+    recipientRule: pickup.recipientRule || "alive_players_at_claim",
+    lucky: !!pickup.lucky,
+    boosted: !!pickup.boosted,
+    procType: pickup.procType || null,
     accent: pickup.accent || GREEN
   };
 }

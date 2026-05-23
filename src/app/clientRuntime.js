@@ -33,7 +33,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
 
     const oldWeapon = app.localWeapon;
     if (me.inventory) app.localInventory = { weapons: [...me.inventory.weapons], activeWeapon: me.inventory.activeWeapon, items: {}, passives: [...(me.inventory.passives || [])] };
-    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers);
+    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     if (!app.localPose) {
       app.localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
       app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };

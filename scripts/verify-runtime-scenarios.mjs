@@ -8,23 +8,27 @@ import { dealDamage, dealPlayerDamage, healProjectileOwner } from '../src/game/e
 import { updateEnemyArmorVariantRuntime } from '../src/game/enemyArmorVariants.js';
 import { runEnemyEliteDeath } from '../src/game/enemyElites.js';
 import { runRoomModifierHooksForLocation, ROOM_MODIFIER_HOOKS } from '../src/game/roomModifiers.js';
-import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
+import { ROOM_MODIFIERS, ROOM_MODIFIER_IDS } from '../src/data/roomModifiers.js';
 import { requestInteractableActivation, updateInteractables } from '../src/game/interactables.js';
 import { applyCasinoOutcome, requestCasinoSpin } from '../src/game/casino.js';
 import { spawnRewardPickup, updateRewardPickups } from '../src/game/rewardPickups.js';
-import { updateEconomyPickups } from '../src/game/economyPickups.js';
-import { economySnapshot } from '../src/game/playerEconomy.js';
+import { spawnEconomyPickup, updateEconomyPickups } from '../src/game/economyPickups.js';
+import { resolveEconomyDropHook, ECONOMY_DROP_PROC_TYPES } from '../src/game/economyDropHooks.js';
+import { economySnapshot, grantXp } from '../src/game/playerEconomy.js';
 import { executeReward } from '../src/game/rewardResolver.js';
+import { applyUpgrade, chooseUpgrade, offerUpgradeChoices, offerQueuedUpgradeChoice } from '../src/game/upgrades.js';
 import { resolveRoomModifierStack } from '../src/game/modifierStack.js';
 import { ABILITY_IDS } from '../src/data/abilities.js';
 import { REWARD_TYPES } from '../src/data/rewardTypes.js';
-import { ECONOMY_PICKUP_TYPES } from '../src/data/economy.js';
+import { ECONOMY_PICKUP_TYPES, UPGRADE_OFFER_SOURCES } from '../src/data/economy.js';
 import { getCasinoMachine } from '../src/data/casinoMachines.js';
 import { CASINO_STAKE_IDS, getCasinoStake } from '../src/data/casinoStakes.js';
 import { CASINO_SYMBOL_IDS } from '../src/data/casinoSymbols.js';
 import { CHEST_IDS, CHEST_STATES } from '../src/data/chests.js';
 import { dashConfig } from '../src/game/abilities.js';
-import { hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
+import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
+import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
+import { makeSnapshot } from '../src/game/state.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
   projectileDamageTags,
@@ -241,14 +245,30 @@ function assertInteractableScenario() {
 
 function assertEconomyDropScenario() {
   const { state, player } = fresh('ECONOMY-DROP-SCENARIO');
+  const ally = addPlayer(state, 'p2', 1);
+  const dead = addPlayer(state, 'p3', 2);
   player.hp = 40;
+  ally.hp = 35;
+  dead.hp = 0;
+
+  const regular = spawnEnemy(state, 'grunt', player.x + 60, player.y, { eliteVariantId: null, armorVariantId: null });
+  assert.equal(finishEnemyKill(state, regular, { kind: 'verify', sourceId: player.id }), true, 'regular kill should pass through kill finalizer');
+  const regularPickups = Object.values(state.economyPickups || {});
+  assert.ok(regularPickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.XP), 'regular enemies should still drop XP through economy contract');
+  assert.equal(regularPickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.HEAL), false, 'regular enemies must not drop HEA');
+  assert.equal(Object.keys(state.loot || {}).length, 0, 'enemy kills must not spawn legacy weapon/heal loot');
+
+  state.economyPickups = {};
   const boss = spawnEnemy(state, 'boss', player.x + 80, player.y, { eliteVariantId: null, armorVariantId: null });
   assert.equal(finishEnemyKill(state, boss, { kind: 'verify', sourceId: player.id }), true, 'boss kill should pass through kill finalizer');
   const pickups = Object.values(state.economyPickups || {});
   assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.XP), 'enemy drop resolver should spawn XP pickups');
   assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.MONEY), 'enemy drop resolver should spawn money pickups');
-  assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.HEAL), 'enemy drop resolver should spawn HP/heal pickups');
+  assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.HEAL), 'boss source contract should allow HEA pickups');
 
+  const allyMoneyBefore = economySnapshot(ally).money;
+  const allyXpBefore = economySnapshot(ally).lifetimeXp;
+  const deadBefore = economySnapshot(dead);
   for (const pickup of Object.values(state.economyPickups || {})) {
     pickup.x = player.x;
     pickup.y = player.y;
@@ -256,11 +276,91 @@ function assertEconomyDropScenario() {
   }
   updateEconomyPickups(state, 0.016);
   const economy = economySnapshot(player);
-  assert.ok(economy.money > 0, 'claiming money pickup should update player economy money');
-  assert.ok(economy.lifetimeXp > 0, 'claiming XP pickup should update player lifetime XP');
-  assert.ok(player.hp > 40, 'claiming heal pickup should heal through official health pipeline');
-  assert.ok(state.events.some((event) => event.type === 'economyPickup' && event.pickupType === ECONOMY_PICKUP_TYPES.MONEY), 'money pickup claim should emit economyPickup event');
-  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp'), 'XP claim should emit economy grant event');
+  const allyEconomy = economySnapshot(ally);
+  const deadEconomy = economySnapshot(dead);
+  assert.ok(economy.money > 0, 'claiming money pickup should update collector economy money');
+  assert.ok(allyEconomy.money > allyMoneyBefore, 'shared pickup credit should update alive ally economy money');
+  assert.equal(deadEconomy.money, deadBefore.money, 'dead players must not receive shared money credit');
+  assert.ok(economy.lifetimeXp > 0, 'claiming XP pickup should update collector lifetime XP');
+  assert.ok(allyEconomy.lifetimeXp > allyXpBefore, 'shared pickup credit should update alive ally lifetime XP');
+  assert.equal(deadEconomy.lifetimeXp, deadBefore.lifetimeXp, 'dead players must not receive shared XP credit or level-up queues');
+  assert.equal(deadEconomy.pendingUpgradeCount, deadBefore.pendingUpgradeCount, 'dead players must not queue level-ups from missed shared XP');
+  assert.ok(player.hp > 40 && ally.hp > 35, 'claiming HEA pickup should heal alive eligible players through official health pipeline');
+  assert.equal(dead.hp, 0, 'shared HEA pickup must not revive dead players');
+  assert.ok(state.events.some((event) => event.type === 'economyPickup' && event.pickupType === ECONOMY_PICKUP_TYPES.MONEY && event.recipientCount >= 2), 'money pickup claim should emit shared economyPickup event');
+  assert.ok(state.events.some((event) => event.type === 'economyPickup' && event.action === 'shared_credit_applied' && event.recipientRule === 'alive_players_at_claim'), 'shared pickup claim should emit explicit shared-credit recipient rule event');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp' && event.sharedCredit), 'XP claim should emit shared economy grant event');
+
+  const late = addPlayer(state, 'p4', 3);
+  assert.equal(economySnapshot(late).money, 0, 'late join player should start with zero money');
+  assert.equal(economySnapshot(late).lifetimeXp, 0, 'late join player should start with zero XP');
+  const direct = spawnEconomyPickup(state, { type: ECONOMY_PICKUP_TYPES.MONEY, amount: 7 }, player.x, player.y, { claimDelay: 0 });
+  assert.equal(direct.delivery, 'shared_alive_players', 'economy pickup should declare shared alive-player delivery');
+  updateEconomyPickups(state, 0.016);
+  assert.equal(economySnapshot(late).money, 7, 'late join player should receive only future shared pickup credit while alive');
+
+  const luckyState = createGameState('LUCKY-ECONOMY-DROP-HOOK-SCENARIO');
+  const luckyPlayer = addPlayer(luckyState, 'p1', 0);
+  luckyPlayer.upgrades.taken.luck = 1;
+  luckyState.rng = { next: () => 0, range: (a, _b) => a, int: (a) => a, pick: (arr) => arr[0] };
+  const luckyHook = resolveEconomyDropHook(
+    luckyState,
+    { id: 'enemy_luck_verify', kind: 'grunt' },
+    { type: ECONOMY_PICKUP_TYPES.MONEY, amount: 10, chance: 1 },
+    { playerId: luckyPlayer.id, sourceContractId: 'enemy_regular' }
+  );
+  assert.equal(luckyHook.hit, true, 'economy drop hook should resolve a hit through the official hook foundation');
+  assert.equal(luckyHook.luckProc, true, 'successful rare value roll from LUCK should mark a lucky proc');
+  assert.equal(luckyHook.procType, ECONOMY_DROP_PROC_TYPES.LUCK_VALUE, 'lucky economy value roll should carry an explicit proc type');
+  assert.ok(luckyHook.amount > 10, 'successful lucky economy roll should improve pickup value rather than spawning junk');
+
+  const modifierState = createGameState('ALGORITHM-ECONOMY-DROP-HOOK-SCENARIO');
+  const modifierPlayer = addPlayer(modifierState, 'p1', 0);
+  modifierState.roomModifierIds = [ROOM_MODIFIER_IDS.ALGORITHM_BOOST];
+  modifierState.rng = { next: () => 0, range: (a, _b) => a, int: (a) => a, pick: (arr) => arr[0] };
+  const modifierHook = resolveEconomyDropHook(
+    modifierState,
+    { id: 'enemy_algo_verify', kind: 'grunt' },
+    { type: ECONOMY_PICKUP_TYPES.XP, amount: 10, chance: 0.5 },
+    { playerId: modifierPlayer.id, sourceContractId: 'enemy_regular' }
+  );
+  assert.equal(modifierHook.hit, true, 'algorithm boost economy roll should still resolve through the hook foundation');
+  assert.ok(modifierHook.chance > modifierHook.baseChance, 'algorithm_boost should improve economy drop chance through loot:roll hook');
+  assert.equal(modifierHook.modifierProc, true, 'successful algorithm_boost rare value roll should be marked as a modifier proc');
+  assert.ok(modifierHook.amount > 10, 'algorithm_boost rare value roll should improve pickup value');
+}
+
+function assertQueuedLevelUpScenario() {
+  const { state, player } = fresh('QUEUED-LEVEL-UP-SCENARIO');
+  assert.equal(offerQueuedUpgradeChoice(state, player), false, 'queued offer should not open without pending XP level-ups');
+  grantXp(state, player, 999, { sourceType: 'verify' });
+  const beforeTransition = economySnapshot(player);
+  assert.ok(beforeTransition.pendingUpgradeCount >= 2, 'large XP grant should queue multiple pending upgrades');
+  assert.ok(beforeTransition.levelQueueSeq > 0, 'queued level-ups should advance a durable queue sequence');
+  assert.equal(player.upgrades.choices.length, 0, 'XP gain should not open upgrade offers during combat');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'queue_level_up' && event.source === UPGRADE_OFFER_SOURCES.QUEUED_LEVEL_UP), 'level-up queue should emit an explicit queued-level-up event');
+  beginRoomTransition(state, 'verify-level-queue');
+  assert.equal(player.upgrades.choices.length, 3, 'portal transition should open the first queued upgrade offer');
+  assert.equal(player.upgrades.offerSource, UPGRADE_OFFER_SOURCES.QUEUED_LEVEL_UP, 'queued offer should carry queued_level_up source metadata');
+  assert.equal(player.upgrades.requiresPendingUpgrade, true, 'queued offer should require a pending level-up before it can be chosen');
+  assert.equal(player.upgrades.queueRemainingAtOffer, beforeTransition.pendingUpgradeCount, 'queued offer should snapshot queue depth at offer time');
+  const firstSeq = player.upgrades.offerSeq;
+  assert.equal(chooseUpgrade(state, player.id, 0), true, 'first queued upgrade choice should apply');
+  const afterFirst = economySnapshot(player);
+  assert.equal(afterFirst.pendingUpgradeCount, beforeTransition.pendingUpgradeCount - 1, 'choosing an upgrade should consume one queued level-up');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'consume_pending_upgrade' && event.offerSeq === firstSeq), 'choosing a queued offer should emit a queue consumption event tied to the offer sequence');
+  if (afterFirst.pendingUpgradeCount > 0) {
+    assert.equal(player.upgrades.choices.length, 3, 'remaining queued level-ups should open the next offer screen');
+    assert.ok(player.upgrades.offerSeq > firstSeq, 'sequential queued offers should carry a fresh offer sequence');
+    assert.equal(player.upgrades.queueRemainingAtOffer, afterFirst.pendingUpgradeCount, 'next sequential offer should snapshot the reduced queue depth');
+  }
+
+  const staleState = createGameState('STALE-QUEUED-OFFER-SCENARIO');
+  const stalePlayer = addPlayer(staleState, 'p1', 0);
+  offerUpgradeChoices(staleState, stalePlayer, 3, { offerSource: UPGRADE_OFFER_SOURCES.QUEUED_LEVEL_UP, requiresPendingUpgrade: true });
+  assert.equal(stalePlayer.upgrades.choices.length, 3, 'test setup should create a queued offer');
+  assert.equal(chooseUpgrade(staleState, stalePlayer.id, 0), false, 'queued offers must not apply if the pending queue is missing or stale');
+  assert.equal(stalePlayer.upgrades.choices.length, 0, 'stale queued offer should clear instead of lingering');
 }
 
 function assertAbilityRewardScenario() {
@@ -280,6 +380,39 @@ function assertAbilityRewardScenario() {
   assert.equal(ensureAbilityInventory(player).shards[ABILITY_IDS.TELEPORT_DASH], 1, 'claiming an ability shard should update abilityInventory shards');
   assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_PICKUP), 'ability pickup claim should emit rewardPickup event');
   assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.rewardType === REWARD_TYPES.ABILITY_SHARD), 'ability shard claim should emit rewardPickup event');
+}
+
+
+function assertStatSnapshotScenario() {
+  const { state, player } = fresh('STAT-SNAPSHOT-SCENARIO');
+  applyUpgrade(player, 'heavyPayload', state);
+  applyUpgrade(player, 'overclock', state);
+  applyUpgrade(player, 'critChip', state);
+  applyUpgrade(player, 'luck', state);
+  applyUpgrade(player, 'magnet', state);
+  applyUpgrade(player, 'teleportDash', state);
+  grantAbility(player, ABILITY_IDS.TELEPORT_DASH, { autoEquip: true });
+
+  const stat = buildPlayerStatSnapshot(player, state);
+  assert.equal(stat.schemaVersion, STAT_SNAPSHOT_SCHEMA_VERSION, 'stat snapshot should carry the foundation schema version');
+  assert.equal(stat.playerId, player.id, 'stat snapshot should identify the player it describes');
+  assert.equal(stat.percent.damage, 15, 'stat snapshot should expose final damage percent from upgrades');
+  assert.equal(stat.percent.fireRate, 14, 'stat snapshot should expose final fire-rate percent from upgrades');
+  assert.equal(stat.percent.critChance, 10, 'stat snapshot should expose projectile crit percent from effect pipeline');
+  assert.equal(stat.percent.luckDropChance, 4.5, 'stat snapshot should expose LUCK drop chance from player effect pipeline');
+  assert.equal(stat.percent.luckRareValue, 8, 'stat snapshot should expose LUCK rare/value bonus from player effect pipeline');
+  assert.equal(stat.utility.magnetRadius, 90, 'stat snapshot should expose magnet radius from player effect pipeline');
+  assert.equal(stat.weapon.code, 'SHG', 'stat snapshot should expose active weapon code');
+  assert.equal(stat.weapon.effective.damage, 10.4, 'stat snapshot should expose active weapon effective damage after damage multiplier');
+  assert.equal(stat.weapon.effective.fireRate, 3.08, 'stat snapshot should expose active weapon effective fire-rate after multiplier');
+  assert.equal(stat.ability.dash.distance, 210, 'stat snapshot should expose dash stats through the ability/legacy pipeline');
+  assert.ok(stat.sources.upgrades.some((entry) => entry.id === 'heavyPayload' && entry.stacks === 1), 'stat snapshot should expose upgrade source stacks for future TAB source drilldown');
+  assert.ok(stat.sources.abilities.includes(ABILITY_IDS.TELEPORT_DASH), 'stat snapshot should expose owned abilities for future TAB source drilldown');
+
+  const snap = makeSnapshot(state);
+  const snapPlayer = snap.players.find((entry) => entry.id === player.id);
+  assert.equal(snapPlayer.statSnapshot.schemaVersion, STAT_SNAPSHOT_SCHEMA_VERSION, 'network snapshot should include the computed stat snapshot');
+  assert.equal(snapPlayer.statSnapshot.percent.damage, 15, 'network stat snapshot should mirror computed damage percentage');
 }
 
 function assertModifierScenario() {
@@ -358,7 +491,9 @@ assertPlayerDamageScenario();
 assertTransitionCleanupScenario();
 assertInteractableScenario();
 assertEconomyDropScenario();
+assertQueuedLevelUpScenario();
 assertAbilityRewardScenario();
+assertStatSnapshotScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, modifier stack/hooks, interactable reward pickups, active ability loot, casino activity plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, casino activity, stat snapshot foundation plus next-room casino debt');

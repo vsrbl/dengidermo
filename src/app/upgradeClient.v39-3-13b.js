@@ -1,13 +1,14 @@
 import { UPGRADE_HIDE_MS, UPGRADE_RESEND_MS, UPGRADE_TIMEOUT_MS } from "../core/constants.js";
 
-export function upgradeChoicesKey(choices) {
-  return Array.isArray(choices) && choices.length ? choices.join("|") : "";
+export function upgradeChoicesKey(choices, offerSeq = 0) {
+  return Array.isArray(choices) && choices.length ? `${choices.join("|")}#${Number.isFinite(offerSeq) ? offerSeq : 0}` : "";
 }
 
 export function createUpgradeClient(app, { applyUpgradeRequest } = {}) {
   function reset() {
     app.localUpgradeChoices = [];
     app.localUpgradeOffers = {};
+    app.localUpgradeOfferSeq = 0;
     app.upgradePickPending = false;
     app.upgradePendingAt = 0;
     app.pendingUpgradeIndex = -1;
@@ -18,9 +19,9 @@ export function createUpgradeClient(app, { applyUpgradeRequest } = {}) {
     app.ui.setUpgradeMenu([]);
   }
 
-  function syncFromHost(choices, offers = {}) {
+  function syncFromHost(choices, offers = {}, offerSeq = 0) {
     const nextChoices = Array.isArray(choices) ? choices.filter((id) => typeof id === "string").slice(0, 3) : [];
-    const nextKey = upgradeChoicesKey(nextChoices);
+    const nextKey = upgradeChoicesKey(nextChoices, offerSeq);
 
     if (!nextKey) {
       reset();
@@ -41,6 +42,7 @@ export function createUpgradeClient(app, { applyUpgradeRequest } = {}) {
 
     app.localUpgradeChoices = nextChoices;
     app.localUpgradeOffers = offers && typeof offers === "object" ? offers : {};
+    app.localUpgradeOfferSeq = Number.isFinite(offerSeq) ? offerSeq : 0;
     app.upgradePickPending = false;
     app.upgradePendingAt = 0;
     app.pendingUpgradeIndex = -1;
@@ -57,7 +59,7 @@ export function createUpgradeClient(app, { applyUpgradeRequest } = {}) {
 
   function requestChoice(index) {
     if (!app.running || app.upgradePickPending || !app.localUpgradeChoices[index]) return;
-    const key = upgradeChoicesKey(app.localUpgradeChoices);
+    const key = upgradeChoicesKey(app.localUpgradeChoices, app.localUpgradeOfferSeq || 0);
     if (!key) return;
 
     app.upgradePickPending = true;

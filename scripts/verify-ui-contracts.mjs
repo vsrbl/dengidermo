@@ -14,6 +14,7 @@ const entrySuffix = VERSION.replace(/^v/, '').replaceAll('.', '-');
 
 assert.ok(index.includes(`id="menuStatus"`), 'menu must include visible status line');
 assert.ok(index.includes(`id="bootError"`), 'index must include fatal boot error box');
+assert.ok(index.includes(`id="statPanel"`), 'index must include TAB stat panel mount point');
 assert.ok(index.includes(`window.NN_SHOW_BOOT_ERROR`), 'boot error handler must exist before module entry');
 assert.ok(index.includes(`src/main.v${entrySuffix}.js?v=${VERSION.replace(/^v/, '')}`), 'index must use cache-busted versioned module entry');
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.split('-').at(-1)}`), 'HUD should expose version and build');
@@ -25,7 +26,11 @@ assert.ok(input.includes('e.code === "KeyQ"') && input.includes('future active i
 assert.ok(!/KeyQ[\s\S]{0,160}onWeaponCycle|onWeaponCycle[\s\S]{0,160}KeyQ/.test(input), 'Q must not cycle weapons');
 assert.ok(!/KeyE[\s\S]{0,160}onWeaponCycle|onWeaponCycle[\s\S]{0,160}KeyE/.test(input), 'E must not cycle weapons');
 assert.ok(input.includes('addEventListener("wheel"') && input.includes('onWeaponCycle'), 'mouse wheel should remain the quick weapon-cycle control');
+assert.ok(input.includes('e.code === "Tab"') && input.includes('isTabHeld'), 'TAB must be tracked as hold-to-view UI state, not a gameplay command');
 assert.ok(style.includes('.boot-error'), 'boot error must be styled visibly');
 assert.ok(style.includes('.menu-status'), 'menu status must be styled visibly');
+assert.ok(style.includes('.stat-panel') && style.includes('.stat-panel.open'), 'TAB stat terminal panel must have open/closed styles');
+assert.ok(ui.includes('renderStatPanel') && ui.includes('statSnapshot'), 'TAB stat panel must render from computed player.statSnapshot');
+assert.ok(ui.includes('TEMP SIGNALS') && ui.includes('ALLIES'), 'TAB stat panel must show temporary signals and compact allies');
 
 console.log('ui contract verification passed');

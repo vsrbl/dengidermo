@@ -74,7 +74,7 @@ failOnPattern(
 
 failOnPattern(
   gameFiles,
-  /\.economy\.(?:money|xp|lifetimeXp|level)\s*(?:[-+*/%]=|=)/,
+  /\.economy\.(?:money|xp|lifetimeXp|level|pendingUpgradeCount)\s*(?:[-+*/%]=|=)/,
   'player economy must not be mutated outside playerEconomy pipeline',
   new Set(['src/game/playerEconomy.js'])
 );
@@ -139,12 +139,50 @@ assert.match(rewardPickups, /healPlayer\(state, player/, 'reward pickup healing 
 assert.match(rewardPickups, /giveWeapon\(player, data\.weaponId/, 'reward pickup weapon grant must use inventory pipeline');
 assert.match(rewardPickups, /applyAbilityReward\(player, pickup\)/, 'reward pickup ability grant must use ability reward pipeline');
 const economyPickups = read('src/game/economyPickups.js');
+assert.match(read('src/game/playerEconomy.js'), /sharedEconomyCreditRecipients/, 'playerEconomy must own shared pickup recipient eligibility');
+assert.match(economyPickups, /sharedEconomyCreditRecipients\(state\)/, 'economy pickups must use shared pickup credit recipients for alive eligible players');
 assert.match(economyPickups, /grantMoney\(state, player/, 'money pickups must grant through playerEconomy pipeline');
 assert.match(economyPickups, /grantXp\(state, player/, 'XP pickups must grant through playerEconomy pipeline');
 assert.match(economyPickups, /healPlayer\(state, player/, 'heal economy pickups must use healPlayer pipeline');
+assert.match(economyPickups, /sharedCredit: true/, 'shared economy pickup grants must mark sharedCredit context');
+const rewardSources = read('src/data/rewardSources.js');
+assert.match(rewardSources, /ENEMY_REGULAR[\s\S]*ECONOMY_PICKUP_TYPES\.MONEY[\s\S]*ECONOMY_PICKUP_TYPES\.XP/, 'regular enemy reward source must allow money/xp');
+assert.doesNotMatch(rewardSources.match(/ENEMY_REGULAR[\s\S]*?rewardTypes: Object\.freeze\(\[\]\)/)?.[0] || '', /ECONOMY_PICKUP_TYPES\.HEAL/, 'regular enemy reward source must not allow HEA');
 const dropResolver = read('src/game/dropResolver.js');
+assert.match(dropResolver, /rewardSourceAllowsEconomyType/, 'enemy drops must be filtered through reward source contract');
+assert.match(dropResolver, /resolveEconomyDropHook\(/, 'enemy drops must route through the explicit economy drop hook resolver');
+const economyDropHooks = read('src/game/economyDropHooks.js');
+assert.match(economyDropHooks, /resolveLootRoll\(/, 'economy drop hook foundation must participate in loot roll hooks');
+assert.match(economyDropHooks, /ECONOMY_DROP_HOOK_SCHEMA_VERSION/, 'economy drop hook foundation must expose a schema version');
+assert.match(economyDropHooks, /luckProc/, 'economy drop hooks must mark successful lucky value rolls');
+assert.match(economyDropHooks, /modifierProc/, 'economy drop hooks must mark modifier-driven value rolls');
 assert.match(dropResolver, /spawnEconomyPickup\(/, 'enemy drops must create economy pickups through dropResolver/economyPickups');
-assert.match(read('src/game/enemyDeath.js'), /spawnEnemyDrops\(state, enemy/, 'enemy kill finalizer must route baseline drops through spawnEnemyDrops');
+const enemyDeath = read('src/game/enemyDeath.js');
+assert.match(enemyDeath, /spawnEnemyDrops\(state, enemy/, 'enemy kill finalizer must route baseline drops through spawnEnemyDrops');
+assert.doesNotMatch(enemyDeath, /dropLoot\(/, 'enemy kill finalizer must not call legacy dropLoot');
+assert.doesNotMatch(enemyDeath, /from "\.\/loot\.js"/, 'enemy kill finalizer must not import legacy loot');
+const playerEconomy = read('src/game/playerEconomy.js');
+assert.match(playerEconomy, /queuePendingLevelUpUpgrades/, 'playerEconomy must own pending level-up queue creation');
+assert.match(playerEconomy, /LEVEL_UP_QUEUE_SOURCE/, 'pending level-up queues must expose an explicit queue source');
+assert.match(playerEconomy, /levelQueueSeq/, 'pending level-up queues must carry a durable sequence for snapshots/events');
+const upgradesGame = read('src/game/upgrades.js');
+assert.match(upgradesGame, /offerQueuedUpgradesToPlayers/, 'queued level-up upgrade offer contract must exist');
+assert.match(upgradesGame, /requiresPendingUpgrade/, 'queued upgrade offers must be marked as requiring pending XP queue credit');
+assert.match(upgradesGame, /UPGRADE_OFFER_SOURCES\.QUEUED_LEVEL_UP/, 'queued upgrade offers must use explicit queued_level_up source metadata');
+assert.match(upgradesGame, /consumePendingUpgrade/, 'choosing an upgrade must consume a pending level-up queue entry');
+assert.match(upgradesGame, /stale_offer_rejected/, 'stale queued offers must be rejectable without applying an upgrade');
+assert.match(read('src/game/roomFlow.js'), /offerQueuedUpgradesToPlayers/, 'roomFlow must offer upgrades from XP queue rather than unconditional room rewards');
+
+const statSnapshots = read('src/game/statSnapshots.js');
+assert.match(statSnapshots, /STAT_SNAPSHOT_SCHEMA_VERSION/, 'stat snapshot foundation must expose a durable schema version');
+assert.match(statSnapshots, /buildPlayerStatSnapshot/, 'stat snapshot foundation must expose buildPlayerStatSnapshot()');
+assert.match(statSnapshots, /buildProjectileEffects\(/, 'stat snapshot must derive projectile/effect stats from the official effect pipeline');
+assert.match(statSnapshots, /buildPlayerEffects\(/, 'stat snapshot must derive player utility stats from the official player effect pipeline');
+assert.match(statSnapshots, /dashConfig\(/, 'stat snapshot must include active ability/dash-derived runtime stats through ability pipeline');
+assert.match(statSnapshots, /getActiveWeaponDef\(/, 'stat snapshot must include active weapon-derived stats through inventory pipeline');
+assert.match(read('src/game/state.js'), /statSnapshot: buildPlayerStatSnapshot\(p, state\)/, 'network snapshots must include computed statSnapshot for future TAB HUD');
+assert.match(read('src/game/simulation.js'), /syncAllPlayerStatSnapshots\(state\)/, 'host simulation must refresh player stat snapshots from runtime state');
+
 const abilityRewards = read('src/game/abilityRewards.js');
 assert.match(abilityRewards, /grantAbility\(player/, 'ability rewards must grant abilities through abilityInventory pipeline');
 assert.match(abilityRewards, /grantAbilityShard\(player/, 'ability rewards must grant shards through abilityInventory pipeline');

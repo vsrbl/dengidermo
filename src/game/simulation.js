@@ -14,6 +14,7 @@ import { respawnPlayer } from "./state.js";
 import { tickPlayerEffects } from "./effects.js";
 import { tickActiveAbilities } from "./abilities.js";
 import { applyDevPlayerGuards, tickDevMode } from "./dev.js";
+import { syncAllPlayerStatSnapshots } from "./statSnapshots.js";
 
 export function emptyInput() {
   return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false, px: null, py: null };
@@ -117,6 +118,7 @@ export function updateHostWorld(state, inputs, dt) {
     if (p.hp <= 0 && p.deadTimer === 0) p.deadTimer = 0.001;
     p.hp = clamp(p.hp, 0, p.maxHp || PLAYER_HP);
   }
+  syncAllPlayerStatSnapshots(state);
 }
 
 export function makeShootPayload(playerId, pose, weapon, fireSeq) {

@@ -11,6 +11,31 @@ const readJson = (rel) => JSON.parse(read(rel));
 const expectedVersion = VERSION.replace(/^v/, '');
 const suffix = expectedVersion.replaceAll('.', '-');
 const currentEntry = `src/main.v${suffix}.js`;
+const VERSIONED_APP_MODULES = Object.freeze([
+  'session',
+  'clientRuntime',
+  'hostRuntime',
+  'upgradeClient',
+  'devControls',
+  'releaseIntegrity',
+  'casinoClient'
+]);
+
+function assertOnlyCurrentVersionedFiles() {
+  const srcDir = path.join(root, 'src');
+  const appDir = path.join(srcDir, 'app');
+  for (const file of fs.readdirSync(srcDir)) {
+    if (!/^main\.v.+\.js$/.test(file)) continue;
+    assert.equal(`src/${file}`, currentEntry, `stale versioned entry should not ship: src/${file}`);
+  }
+  for (const file of fs.readdirSync(appDir)) {
+    const match = file.match(/^(.+)\.v(.+)\.js$/);
+    if (!match) continue;
+    const [, name] = match;
+    assert.ok(VERSIONED_APP_MODULES.includes(name), `unknown versioned app module should not ship: src/app/${file}`);
+    assert.equal(file, `${name}.v${suffix}.js`, `stale versioned module should not ship: src/app/${file}`);
+  }
+}
 
 function assertNoRuntimeStaleVersion(rel, stale) {
   const src = read(rel);
@@ -47,8 +72,9 @@ assert.ok(index.includes(`src="./${currentEntry}?v=${expectedVersion}"`), 'index
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.replace(`${VERSION}-`, '').toUpperCase()}`), 'index HUD must expose current version/build');
 
 assert.ok(exists(currentEntry), 'current versioned entry must exist');
+assertOnlyCurrentVersionedFiles();
 const entry = read(currentEntry);
-for (const name of ['session', 'clientRuntime', 'hostRuntime', 'upgradeClient', 'devControls', 'releaseIntegrity']) {
+for (const name of VERSIONED_APP_MODULES) {
   const versioned = `src/app/${name}.v${suffix}.js`;
   const unversioned = `src/app/${name}.js`;
   assert.ok(exists(versioned), `current versioned app module must exist: ${versioned}`);
@@ -64,7 +90,7 @@ for (const stale of ['v38.13.', 'v38.14.1', 'v38.14.2', 'v38.14.3', 'v38.14.4', 
 }
 for (const staleSuffix of ['38-13-7', '38-13-8', '38-14-1', '38-14-2', '38-14-3', '38-14-4', '38-14-5']) {
   assert.ok(!exists(`src/main.v${staleSuffix}.js`), `stale versioned entry should not ship: src/main.v${staleSuffix}.js`);
-  for (const name of ['session', 'clientRuntime', 'hostRuntime', 'upgradeClient', 'devControls', 'releaseIntegrity']) {
+  for (const name of VERSIONED_APP_MODULES) {
     assert.ok(!exists(`src/app/${name}.v${staleSuffix}.js`), `stale versioned module should not ship: ${name}.v${staleSuffix}.js`);
   }
 }

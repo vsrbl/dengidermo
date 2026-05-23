@@ -17,10 +17,12 @@ function isEditableTarget(target) {
 export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, onAbility, onInteract, isGameActive = () => true } = {}) {
   const pressed = new Set();
   const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
+  const uiState = { tabHeld: false };
 
   function resetKeys() {
     pressed.clear();
     mouse.down = false;
+    uiState.tabHeld = false;
   }
 
   function activeForKeyboard(e) {
@@ -39,6 +41,12 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     if (e.code === "Escape") {
       e.preventDefault();
       onEsc?.();
+      return;
+    }
+
+    if (e.code === "Tab") {
+      e.preventDefault();
+      uiState.tabHeld = true;
       return;
     }
 
@@ -95,6 +103,11 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
   });
 
   window.addEventListener("keyup", (e) => {
+    if (e.code === "Tab") {
+      uiState.tabHeld = false;
+      if (isGameActive()) e.preventDefault();
+      return;
+    }
     if (!isGameActive()) return;
     const key = moveCodes.get(e.code);
     if (key) pressed.delete(key);
@@ -149,5 +162,9 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     return input;
   }
 
-  return { mouse, sample, resetKeys };
+  function isTabHeld() {
+    return !!uiState.tabHeld;
+  }
+
+  return { mouse, sample, resetKeys, isTabHeld };
 }

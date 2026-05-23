@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-11d.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-11d.js";
-import { createSessionRuntime } from "./app/session.v39-3-11d.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-11d.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-11d.js";
-import { createDevControls } from "./app/devControls.v39-3-11d.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-11d.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-13b.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-13b.js";
+import { createSessionRuntime } from "./app/session.v39-3-13b.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-13b.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-13b.js";
+import { createDevControls } from "./app/devControls.v39-3-13b.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-13b.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -50,6 +50,7 @@ function createAppState() {
     localInventory: createInventory([START_WEAPON]),
     localUpgradeChoices: [],
     localUpgradeOffers: {},
+    localUpgradeOfferSeq: 0,
     upgradePickPending: false,
     upgradePendingAt: 0,
     pendingUpgradeIndex: -1,
@@ -162,8 +163,8 @@ function updateHud() {
   const snapMe = clientRuntime.currentLocalPlayerFromSnapshot();
   const me = app.role === "host"
     ? (app.hostState?.players[app.playerId] ? { ...app.hostState.players[app.playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
-    : (app.localPose ? { ...snapMe, hp: snapMe?.hp ?? app.localPose.hp, maxHp: snapMe?.maxHp ?? app.localPose.maxHp, activeWeapon: app.localWeapon, inventory: app.localInventory, upgrades: { choices: app.localUpgradeChoices, offers: app.localUpgradeOffers }, stats: app.localPose.stats || {}, ability: app.localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
-  app.ui.setHud(me || { inventory: app.localInventory, activeWeapon: app.localWeapon }, app.snapshot);
+    : (app.localPose ? { ...snapMe, hp: snapMe?.hp ?? app.localPose.hp, maxHp: snapMe?.maxHp ?? app.localPose.maxHp, activeWeapon: app.localWeapon, inventory: app.localInventory, upgrades: { choices: app.localUpgradeChoices, offers: app.localUpgradeOffers, offerSeq: app.localUpgradeOfferSeq }, stats: app.localPose.stats || {}, ability: app.localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
+  app.ui.setHud(me || { inventory: app.localInventory, activeWeapon: app.localWeapon }, app.snapshot, { statPanelOpen: app.input?.isTabHeld?.() });
   app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 

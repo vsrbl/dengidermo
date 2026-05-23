@@ -23,6 +23,7 @@ import { rewardPickupSnapshot } from "./rewardPickups.js";
 import { pendingRoomModifierSnapshot } from "./pendingRoomModifiers.js";
 import { createPlayerEconomy, ensurePlayerEconomy, economySnapshot } from "./playerEconomy.js";
 import { economyPickupSnapshot } from "./economyPickups.js";
+import { buildPlayerStatSnapshot, syncPlayerStatSnapshot } from "./statSnapshots.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -116,13 +117,15 @@ export function addPlayer(state, playerId, index = 0, options = {}) {
       explosionDamageMult: 1,
       knockbackMult: 1
     },
-    upgrades: { choices: [], taken: {}, offered: {}, offers: {}, pending: false },
+    upgrades: { choices: [], taken: {}, offered: {}, offers: {}, pending: false, offerSeq: 0, offerSource: null, requiresPendingUpgrade: false, queueRemainingAtOffer: 0, levelQueueSeqAtOffer: 0 },
     skin: index % 2 ? "green" : "default",
     cooldowns: {},
     lastInputAt: 0,
     fireSeqSeen: 0,
-    deadTimer: 0
+    deadTimer: 0,
+    statSnapshot: null
   };
+  syncPlayerStatSnapshot(state, state.players[playerId]);
   return state.players[playerId];
 }
 
@@ -144,6 +147,7 @@ export function respawnPlayer(player, index = 0, loc = null) {
   ensurePlayerEconomy(player);
   ensureUpgradeState(player);
   player.deadTimer = 0;
+  syncPlayerStatSnapshot(null, player);
 }
 
 export function makeSnapshot(state) {
@@ -198,6 +202,7 @@ export function makeSnapshot(state) {
       economy: economySnapshot(p),
       upgrades: upgradeSnapshot(p),
       stats: { ...(p.stats || {}) },
+      statSnapshot: buildPlayerStatSnapshot(p, state),
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
       ability: abilitySnapshot(p),
       companions: companionSummary(p, state),
