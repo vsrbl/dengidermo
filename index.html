@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>nncckkrr.space</title>
+  <meta name="nncckkrr-version" content="v39.3.11a" />
+  <meta name="nncckkrr-build" content="v39.3.11a-20260523" />
+  <meta name="nncckkrr-protocol" content="2" />
+  <meta name="nncckkrr-release-manifest" content="./release.json?v=39.3.11a" />
+  <link rel="stylesheet" href="./style.css?v=39.3.11a" />
+</head>
+<body>
+  <div id="bootError" class="boot-error hidden" aria-live="assertive"></div>
+  <main id="app">
+    <section id="menu" class="screen menu-screen">
+      <div id="menuBox" class="panel">
+        <h1 class="title">nncckkrr.space</h1>
+
+        <div class="room-line menu-name-line">
+          <span class="label">NAME</span>
+          <input id="nameInput" class="room-input name-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="NICK" />
+        </div>
+
+        <div class="room-line menu-room-line">
+          <span class="label">ROOM</span>
+          <input id="roomInput" class="room-input" maxlength="12" autocomplete="off" spellcheck="false" placeholder="ID" />
+        </div>
+
+        <div class="buttons">
+          <button id="createBtn">CREATE</button>
+          <button id="joinBtn">JOIN</button>
+        </div>
+        <div id="menuStatus" class="menu-status hidden" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="game" class="screen game-screen hidden">
+      <canvas id="screen" width="1600" height="675" aria-label="game screen"></canvas>
+      <div class="hud hud-left">
+        <div class="hud-row">
+          <span class="hud-label">ROOM</span>
+          <span id="roomTitle" class="room-copy">------</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">HP</span>
+          <span id="hpText">--</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">ECO</span>
+          <span id="economyText">$0 · L1 XP 0/24</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">GUN</span>
+          <span id="weaponText">SHOTGUN</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">LOC</span>
+          <span id="locationText">GRID 00</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">EXIT</span>
+          <span id="portalText">LOCKED</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">DASH</span>
+          <span id="dashText">--</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">COMP</span>
+          <span id="companionText">--</span>
+        </div>
+        <div class="hud-row inventory-row">
+          <span class="hud-label">BAG</span>
+          <span id="inventoryText">1 SHOTGUN</span>
+        </div>
+      </div>
+      <div id="netStatus" class="hud hud-right">V39.3.11A | BUILD 20260523 | PING -- MS | --</div>
+      <div id="directorDebug" class="hud director-debug hidden"></div>
+      <div id="casinoPanel" class="casino-panel hidden" aria-live="polite">
+        <div class="casino-title-row">
+          <div>
+            <div class="casino-kicker">CASINO</div>
+            <div id="casinoMachineTitle" class="casino-title">SIGNAL SLOT</div>
+          </div>
+          <button id="casinoCloseBtn" class="casino-close" type="button">EXIT</button>
+        </div>
+        <div class="casino-meta">
+          <span>MONEY</span>
+          <strong id="casinoMoneyText">$0</strong>
+        </div>
+        <div class="casino-reels" aria-label="slot reels">
+          <span class="casino-reel">?</span>
+          <span class="casino-reel">?</span>
+          <span class="casino-reel">?</span>
+        </div>
+        <div class="casino-stakes">
+          <button class="casino-stake" data-stake-id="low" type="button">
+            <span class="casino-stake-name">LOW STAKE</span>
+            <span class="casino-stake-cost">$10</span>
+            <span class="casino-stake-desc">SMALL SIGNAL / SMALL LOSS</span>
+          </button>
+          <button class="casino-stake" data-stake-id="mid" type="button">
+            <span class="casino-stake-name">MID STAKE</span>
+            <span class="casino-stake-cost">$35</span>
+            <span class="casino-stake-desc">BETTER SYMBOL POOL</span>
+          </button>
+          <button class="casino-stake" data-stake-id="high" type="button">
+            <span class="casino-stake-name">HIGH STAKE</span>
+            <span class="casino-stake-cost">$75</span>
+            <span class="casino-stake-desc">RARE / STATIC RISK</span>
+          </button>
+        </div>
+        <div id="casinoStatusText" class="casino-status">SELECT STAKE</div>
+      </div>
+      <div id="upgradePanel" class="upgrade-panel hidden" aria-live="polite">
+        <div class="upgrade-title">UPGRADE</div>
+        <button class="upgrade-choice" data-index="0"></button>
+        <button class="upgrade-choice" data-index="1"></button>
+        <button class="upgrade-choice" data-index="2"></button>
+      </div>
+      <div class="esc-hint">ESC · SHIFT · 1/2/3 · Q/E · WHEEL</div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      function showBootError(reason) {
+        var box = document.getElementById("bootError");
+        if (!box) return;
+        var message = reason && reason.message ? reason.message : String(reason || "unknown error");
+        box.textContent = "BOOT ERROR: " + message;
+        box.classList.remove("hidden");
+        document.documentElement.classList.add("boot-error-active");
+      }
+      window.NN_SHOW_BOOT_ERROR = showBootError;
+      window.addEventListener("error", function (event) {
+        showBootError(event.error || event.message || "module load failed");
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        showBootError(event.reason || "unhandled promise rejection");
+      });
+    }());
+  </script>
+  <script src="./config.js?v=39.3.11a"></script>
+  <script type="module" src="./src/main.v39-3-11a.js?v=39.3.11a"></script>
+</body>
+</html>

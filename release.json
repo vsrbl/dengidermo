@@ -1,0 +1,14 @@
+{
+  "name": "nncckkrr.space",
+  "version": "v39.3.11a",
+  "buildId": "v39.3.11a-20260523",
+  "channel": "prod",
+  "protocol": 2,
+  "createdAt": "2026-05-23",
+  "entry": "./src/main.v39-3-11a.js?v=39.3.11a",
+  "style": "./style.css?v=39.3.11a",
+  "config": "./config.js?v=39.3.11a",
+  "healthPath": "/health",
+  "signalingUrl": "https://dengidermo-1.onrender.com",
+  "notes": "v39.3.11a pickup readability + magnet fix pass: restores square three-letter HEA/EXP/GLD economy pickup language, routes economy and reward pickups through the existing magnet loot-attract hook, preserves host-authoritative claim/economy/reward pipelines, and adds verifier coverage for magnet synergy across legacy loot, economy pickups, and reward pickups"
+}
