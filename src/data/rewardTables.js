@@ -1,4 +1,5 @@
 import { LOOT } from "./loot.js";
+import { ECONOMY_PICKUP_TYPES, economyPickupTypeIsKnown } from "./economy.js";
 import { abilityIsRewardable } from "./abilities.js";
 import { MODIFIER_DOMAINS } from "./modifierDomains.js";
 import { getRuleModifierInDomain } from "./ruleModifiers.js";
@@ -11,12 +12,12 @@ export const REWARD_TABLES = Object.freeze({
     id: "field_cache",
     name: "FIELD CACHE",
     category: "exploration",
-    rolls: 1,
+    rolls: 2,
     scatter: 30,
     entries: Object.freeze([
-      Object.freeze({ type: "loot", kind: "heal", weight: 8 }),
-      Object.freeze({ type: "loot", kind: "seeker", weight: 2 }),
-      Object.freeze({ type: "loot", kind: "rocket", weight: 1 })
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.MONEY, amount: [4, 8], weight: 7, text: "GLD" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: [5, 9], weight: 5, text: "EXP" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.HEAL, amount: 16, weight: 2, text: "HEA" })
     ])
   }),
 
@@ -66,6 +67,10 @@ export function rewardEntryIsKnown(entry) {
   if (!entry || typeof entry !== "object") return false;
   if (!rewardTypeIsKnown(entry.type)) return false;
   if (entry.type === REWARD_TYPES.LOOT) return !!LOOT[entry.kind];
+  if (entry.type === REWARD_TYPES.ECONOMY_PICKUP) {
+    const amountKnown = Number.isFinite(entry.amount) || (Array.isArray(entry.amount) && entry.amount.length === 2 && entry.amount.every(Number.isFinite));
+    return economyPickupTypeIsKnown(entry.pickupType) && amountKnown;
+  }
   if (entry.type === REWARD_TYPES.ABILITY_PICKUP) return abilityIsRewardable(entry.abilityId);
   if (entry.type === REWARD_TYPES.ABILITY_SHARD) return abilityIsRewardable(entry.abilityId);
   if (entry.type === REWARD_TYPES.MODIFIER_INJECTION || entry.type === REWARD_TYPES.CURSE) return !!getRuleModifierInDomain(entry.modifierId, MODIFIER_DOMAINS.ROOM);

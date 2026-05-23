@@ -54,7 +54,12 @@ export function drawCasinoInteractable(ctx, item, cam) {
 
   drawText(ctx, String(item.casinoGlyph || "777"), s.x, s.y + r * 0.22, active ? "#f3f3f3" : "#888", "center");
   if (item.casinoState === "revealing" || item.casinoState === "resolved") {
-    drawText(ctx, "SPN", s.x, s.y - r - 11, GREEN, "center");
+    const result = item.casinoLastResult || {};
+    const resultColor = result.match ? GREEN : RED;
+    const label = result.match ? String(result.outcomeLabel || "WIN").slice(0, 6).toUpperCase() : "BUST";
+    drawText(ctx, item.casinoState === "revealing" ? "REEL" : label, s.x, s.y - r - 11, resultColor, "center");
+    const symbols = Array.isArray(result.symbolLabels) && result.symbolLabels.length ? result.symbolLabels.map((v) => String(v).slice(0, 3)).join("") : "---";
+    drawText(ctx, symbols.slice(0, 9), s.x, s.y + r + 17, resultColor, "center");
   } else if (active) {
     drawText(ctx, "SLT", s.x, s.y - r - 11, color, "center");
     drawText(ctx, "E", s.x, s.y + r + 17, color, "center");

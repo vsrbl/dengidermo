@@ -27,6 +27,7 @@ export function createUi() {
     dashText: document.getElementById("dashText"),
     companionText: document.getElementById("companionText"),
     upgradePanel: document.getElementById("upgradePanel"),
+    upgradeTitle: document.getElementById("upgradeTitle"),
     upgradeButtons: Array.from(document.querySelectorAll(".upgrade-choice"))
   };
 
@@ -124,6 +125,7 @@ export function createUi() {
     el.upgradePanel.classList.toggle("hidden", !upgradeOpen);
     el.upgradePanel.classList.toggle("pending", !!pending);
     el.upgradePanel.classList.toggle("reveal-seq", revealActive);
+    if (el.upgradeTitle) el.upgradeTitle.textContent = pending ? "INSTALLING..." : "INSTALL SELECT";
     if (shouldReveal) {
       void el.upgradePanel.offsetWidth;
     }
@@ -300,11 +302,13 @@ export function createUi() {
       statLine("OWNED", Array.isArray(weapon.owned) ? weapon.owned.map((id) => (WEAPONS[id]?.code || id.slice(0, 3)).toUpperCase()).join(" ") : "--")
     ];
 
+    const ownQueue = Math.max(0, Math.floor(Number.isFinite(economy.pendingUpgradeCount) ? economy.pendingUpgradeCount : 0));
     const economyRows = [
       statLine("LVL", String(economy.level || 1)),
       statLine("EXP", `${economy.xp || 0}/${economy.nextLevelXp || "--"}`),
       statLine("MONEY", `$${economy.money || 0}`),
-      statLine("INSTALL", (economy.pendingUpgradeCount || 0) > 0 ? `x${economy.pendingUpgradeCount}` : "--", (economy.pendingUpgradeCount || 0) > 0 ? "accent" : "")
+      statLine("INSTALL", ownQueue > 0 ? `x${ownQueue}` : "--", ownQueue > 0 ? "accent" : ""),
+      statLine("QUEUE", economyQueueLabel(ownQueue, upgradeOpen), ownQueue > 0 ? "accent" : "")
     ];
 
     const allySection = document.createElement("section");
@@ -347,6 +351,62 @@ export function createUi() {
       row.append(text, detail);
       return row;
     }));
+  }
+
+
+  function economyNumber(value, fallback = 0) {
+    return Math.max(0, Math.round(Number.isFinite(value) ? value : fallback));
+  }
+
+  function economyQueueTier(queue) {
+    return queue >= 4 ? 3 : queue >= 2 ? 2 : queue > 0 ? 1 : 0;
+  }
+
+  function economyQueueLabel(queue, upgradeOpen = false) {
+    if (queue <= 0) return "NO INSTALL";
+    if (upgradeOpen) return queue > 1 ? `INSTALL ${queue} QUEUED` : "INSTALL READY";
+    return "EXIT TO INSTALL";
+  }
+
+  function renderEconomyHud(player, eco, display = {}) {
+    if (!el.economyText) return;
+    const queue = Math.max(0, Math.floor(Number.isFinite(eco.pendingUpgradeCount) ? eco.pendingUpgradeCount : 0));
+    const next = Number.isFinite(eco.nextLevelXp) ? Math.max(1, Math.round(eco.nextLevelXp)) : null;
+    const level = Math.max(1, Math.floor(Number.isFinite(eco.level) ? eco.level : 1));
+    const xp = economyNumber(display.xp, eco.xp || 0);
+    const money = economyNumber(display.money, eco.money || 0);
+    const xpPct = next ? Math.max(0, Math.min(100, (xp / next) * 100)) : 0;
+    const tier = economyQueueTier(queue);
+    const stateLabel = economyQueueLabel(queue, upgradeOpen);
+
+    const main = textNode("span", "economy-main", `$${money} · L${level} · EXP ${xp}/${next || "--"}`);
+    const track = document.createElement("span");
+    track.className = "economy-xp-track";
+    track.setAttribute("aria-hidden", "true");
+    const fill = document.createElement("span");
+    fill.className = "economy-xp-fill";
+    fill.style.width = `${xpPct}%`;
+    track.append(fill);
+
+    const queueLine = textNode(
+      "span",
+      `economy-install-line${queue > 0 ? " active" : ""}`,
+      queue > 0 ? `INSTALL x${queue} · ${stateLabel}` : stateLabel
+    );
+
+    el.economyText.classList.toggle("economy-queued", queue > 0);
+    el.economyText.dataset.installTier = String(tier);
+    el.economyText.title = queue > 0
+      ? `Queued level-up installs: ${queue}. They open after portal transition / safe point.`
+      : "No queued level-up install.";
+    el.economyText.setAttribute(
+      "aria-label",
+      `money ${money}, level ${level}, experience ${xp} of ${next || "unknown"}, ${queue > 0 ? `${queue} install queued, exit to install` : "no install queued"}`
+    );
+    el.economyText.replaceChildren(main, track, queueLine);
+
+    if (queue > lastInstallQueue) restartInstallPulse(queue);
+    lastInstallQueue = queue;
   }
 
 
@@ -433,7 +493,12 @@ export function createUi() {
     renderStatPanel(player, snapshot, !!options.statPanelOpen);
     if (!player) {
       el.hpText.textContent = "--";
-      if (el.economyText) el.economyText.textContent = "--";
+      if (el.economyText) {
+        el.economyText.classList.remove("economy-queued", "install-pulse", "install-pulse-1", "install-pulse-2", "install-pulse-3");
+        el.economyText.dataset.installTier = "0";
+        el.economyText.textContent = "--";
+        lastInstallQueue = 0;
+      }
       el.weaponText.textContent = "--";
       el.locationText.textContent = snapshot?.location?.name || "--";
       el.portalText.textContent = "--";
@@ -447,13 +512,8 @@ export function createUi() {
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
     if (el.economyText) {
       const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24, pendingUpgradeCount: 0 };
-      const next = Number.isFinite(eco.nextLevelXp) ? eco.nextLevelXp : "--";
-      const queue = Math.max(0, Math.floor(Number.isFinite(eco.pendingUpgradeCount) ? eco.pendingUpgradeCount : 0));
       const display = economyDisplayValues(player.id, eco);
-      const install = queue > 0 ? ` · INSTALL x${queue}` : "";
-      el.economyText.textContent = `$${display.money} · L${eco.level || 1} XP ${display.xp}/${next}${install}`;
-      if (queue > lastInstallQueue) restartInstallPulse(queue);
-      lastInstallQueue = queue;
+      renderEconomyHud(player, eco, display);
     }
     const activeWeapon = WEAPONS[active] || WEAPONS[START_WEAPON];
     el.weaponText.textContent = `[${activeWeapon.code || active.toUpperCase().slice(0, 3)}] ${activeWeapon.name.toUpperCase()}`;

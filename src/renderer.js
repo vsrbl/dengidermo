@@ -396,19 +396,45 @@ function drawEconomyPickup(ctx, item, cam) {
   drawText(ctx, label, s.x, s.y - r - 5, color, "center");
 }
 
+function rewardPickupColor(item, claimable) {
+  if (!claimable) return "rgba(255,255,255,0.48)";
+  if (item.accent === "red") return RED;
+  if (item.accent === "white") return "#f3f3f3";
+  return GREEN;
+}
+
+function rewardPickupDisplayLabel(item, data = null) {
+  const raw = item.label || data?.pickup?.label || data?.name || item.kind || item.abilityId || "RWD";
+  if (String(raw).toUpperCase().includes("SHARD")) return String(raw).toUpperCase().replace(" SHARD", "+1").slice(0, 7);
+  return String(raw).toUpperCase().slice(0, 7);
+}
+
 function drawRewardPickup(ctx, item, cam) {
   const data = item.rewardType === "loot" ? (LOOT[item.kind] || LOOT.heal) : null;
-  const s = screen(item, cam);
-  const r = item.radius || data?.radius || 11;
+  const visual = pickupVisualPosition(item);
+  const s = screen(visual, cam);
+  const baseR = item.radius || data?.radius || 11;
+  const r = Math.max(8, Math.round(baseR * visual.scale));
   const active = item.active !== false;
   const claimable = item.claimable !== false;
-  const accent = item.accent === "white" ? "#f3f3f3" : GREEN;
-  const color = active && claimable ? accent : "rgba(255,255,255,0.48)";
+  const color = rewardPickupColor(item, active && claimable);
+  drawPickupTrail(ctx, item, s, color);
+  if (visual.popT < 1 || item.revealSource === "chest" || item.revealSource === "casino") {
+    const burst = r + 5 + Math.max(0, 1 - visual.popT) * 8;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(s.x - burst), Math.round(s.y - burst), Math.round(burst * 2), Math.round(burst * 2));
+  }
   ctx.strokeStyle = color;
   ctx.lineWidth = claimable ? 2 : 1;
   ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
-  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, claimable ? GREEN : "#777");
-  drawText(ctx, String(item.label || data?.name || item.kind || "RWD").slice(0, 5), s.x, s.y - r - 5, color, "center");
+  ctx.strokeRect(Math.round(s.x - r + 4), Math.round(s.y - r + 4), Math.max(4, r * 2 - 8), Math.max(4, r * 2 - 8));
+  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, claimable ? color : "#777");
+  const label = rewardPickupDisplayLabel(item, data);
+  drawText(ctx, label, s.x, s.y - r - 5, color, "center");
+  if (item.revealSource === "chest" || item.revealSource === "casino") {
+    drawText(ctx, item.revealSource === "casino" ? "WIN" : "RWD", s.x, s.y + r + 13, color, "center");
+  }
 }
 
 function interactableAccentColor(item) {

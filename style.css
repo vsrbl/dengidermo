@@ -832,6 +832,64 @@ button:disabled { opacity: 0.45; cursor: default; }
   text-overflow: ellipsis;
 }
 
+#economyText {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.economy-main,
+.economy-install-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.economy-xp-track {
+  display: block;
+  width: 100%;
+  height: 3px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+
+.economy-xp-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: rgba(255,255,255,0.72);
+  transition: width 120ms steps(4, end);
+}
+
+.economy-install-line {
+  color: #888;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+
+.economy-install-line.active {
+  color: var(--green);
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(0,255,102,0.32);
+}
+
+#economyText.economy-queued .economy-xp-track {
+  border-color: rgba(0,255,102,0.44);
+}
+
+#economyText.economy-queued .economy-xp-fill {
+  background: var(--green);
+}
+
+#economyText[data-install-tier="2"] .economy-install-line.active,
+#economyText[data-install-tier="3"] .economy-install-line.active {
+  animation: installQueueBlink 760ms steps(2, end) infinite;
+}
+
 #economyText.install-pulse {
   color: var(--green);
   animation: installPulse 240ms steps(3, end) 1;
@@ -851,6 +909,11 @@ button:disabled { opacity: 0.45; cursor: default; }
   0% { opacity: 0; transform: translateX(-10px) scaleX(0.88); clip-path: inset(0 100% 0 0); }
   40% { opacity: 1; transform: translateX(2px) scaleX(1.03); }
   100% { opacity: 1; transform: translateX(0) scaleX(1); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes installQueueBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
 }
 
 @keyframes installPulse {

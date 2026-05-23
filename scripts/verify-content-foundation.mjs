@@ -17,6 +17,7 @@ import { INTERACTABLES } from '../src/data/interactables.js';
 import { CHEST_IDS, CHEST_STATES } from '../src/data/chests.js';
 import { REWARD_TABLES } from '../src/data/rewardTables.js';
 import { ABILITIES, ABILITY_IDS } from '../src/data/abilities.js';
+import { ECONOMY_PICKUP_TYPES } from '../src/data/economy.js';
 import { REWARD_TYPES } from '../src/data/rewardTypes.js';
 import { CASINO_MACHINES, CASINO_MACHINE_IDS } from '../src/data/casinoMachines.js';
 import { CASINO_STAKES } from '../src/data/casinoStakes.js';
@@ -42,6 +43,9 @@ assert.equal(INTERACTABLES.casino_slot.casinoMachineId, CASINO_MACHINE_IDS.SIGNA
 assert.ok(CASINO_MACHINES[CASINO_MACHINE_IDS.SIGNAL_SLOT], 'SIGNAL SLOT casino machine data must exist');
 assert.deepEqual(Object.keys(CASINO_STAKES), ['low', 'mid', 'high'], 'casino foundation should expose LOW/MID/HIGH stake tiers');
 assert.ok(REWARD_TABLES.basic_chest, 'basic chest reward table must exist');
+assert.equal(REWARD_TABLES.basic_chest.entries.every((entry) => entry.type === REWARD_TYPES.ECONOMY_PICKUP), true, 'basic chest should only drop basic economy tokens; weapon/ability rewards must be reserved for clearly marked weapon/ability/rare/casino sources');
+assert.equal(REWARD_TABLES.basic_chest.entries.some((entry) => entry.pickupType === ECONOMY_PICKUP_TYPES.MONEY), true, 'basic chest should be able to reveal GLD');
+assert.equal(REWARD_TABLES.basic_chest.entries.some((entry) => entry.pickupType === ECONOMY_PICKUP_TYPES.XP), true, 'basic chest should be able to reveal EXP');
 assert.ok(REWARD_TABLES.rare_chest, 'rare chest reward table must exist');
 assert.ok(REWARD_TABLES.casino_slot, 'casino slot reward table must exist');
 assert.ok(ABILITIES[ABILITY_IDS.TELEPORT_DASH], 'teleport dash must be a data-driven ability for active ability loot');

@@ -1,4 +1,5 @@
 import { ABILITY_IDS } from "./abilities.js";
+import { ECONOMY_PICKUP_TYPES } from "./economy.js";
 import { REWARD_TYPES } from "./rewardTypes.js";
 
 export const CHEST_REWARD_TABLES = Object.freeze({
@@ -6,12 +7,12 @@ export const CHEST_REWARD_TABLES = Object.freeze({
     id: "basic_chest",
     name: "BASIC CHEST",
     category: "chest-basic",
-    rolls: 1,
+    rolls: 2,
     scatter: 34,
     entries: Object.freeze([
-      Object.freeze({ type: REWARD_TYPES.LOOT, kind: "heal", weight: 10, text: "CHEST" }),
-      Object.freeze({ type: REWARD_TYPES.LOOT, kind: "seeker", weight: 2, text: "WEAPON" }),
-      Object.freeze({ type: REWARD_TYPES.ABILITY_SHARD, abilityId: ABILITY_IDS.TELEPORT_DASH, amount: 1, weight: 1, text: "SHARD" })
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.MONEY, amount: [4, 8], weight: 7, text: "GLD" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: [5, 9], weight: 5, text: "EXP" }),
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.HEAL, amount: 16, weight: 2, text: "HEA" })
     ])
   }),
 

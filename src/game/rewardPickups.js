@@ -13,6 +13,14 @@ import { applyAbilityReward } from "./abilityRewards.js";
 const DEFAULT_REWARD_PICKUP_RADIUS = 11;
 const DEFAULT_CLAIM_DELAY = 0.42;
 const DEFAULT_CLAIM_PAD = 5;
+const DEFAULT_REWARD_POP_DISTANCE = 14;
+
+function randomPopVector(state, distance = DEFAULT_REWARD_POP_DISTANCE) {
+  const rng = state?.rng || null;
+  const angle = rng?.range ? rng.range(0, Math.PI * 2) : Math.random() * Math.PI * 2;
+  const dist = Number.isFinite(distance) ? Math.max(0, distance) : DEFAULT_REWARD_POP_DISTANCE;
+  return { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist };
+}
 
 function rewardAbilityId(reward = {}) {
   return reward.abilityId || reward.kind || null;
@@ -47,6 +55,10 @@ export function spawnRewardPickup(state, reward, x, y, options = {}) {
 
   const radius = rewardPickupRadius(reward);
   const id = nextId("reward");
+  const popDistance = Number.isFinite(options.popDistance) ? Math.max(0, options.popDistance) : DEFAULT_REWARD_POP_DISTANCE;
+  const pop = randomPopVector(state, popDistance);
+  const finalX = clamp(x + pop.x, 20, WORLD.w - 20);
+  const finalY = clamp(y + pop.y, 20, WORLD.h - 20);
   const pickup = {
     id,
     rewardType: reward.type,
@@ -54,8 +66,11 @@ export function spawnRewardPickup(state, reward, x, y, options = {}) {
     abilityId: rewardAbilityId(reward),
     shardAmount: reward.type === REWARD_TYPES.ABILITY_SHARD ? Math.max(1, Math.floor(Number(reward.amount) || 1)) : 0,
     label: rewardPickupLabel(reward),
-    x: clamp(x, 20, WORLD.w - 20),
-    y: clamp(y, 20, WORLD.h - 20),
+    x: finalX,
+    y: finalY,
+    spawnX: clamp(x, 20, WORLD.w - 20),
+    spawnY: clamp(y, 20, WORLD.h - 20),
+    popDistance: Math.hypot(finalX - x, finalY - y),
     radius,
     claimRadius: Number.isFinite(options.claimRadius) ? Math.max(radius, options.claimRadius) : radius + DEFAULT_CLAIM_PAD,
     claimDelay: Number.isFinite(options.claimDelay) ? Math.max(0, options.claimDelay) : DEFAULT_CLAIM_DELAY,
@@ -65,6 +80,7 @@ export function spawnRewardPickup(state, reward, x, y, options = {}) {
     sourceType: options.sourceType || "reward",
     sourceId: options.sourceId || null,
     tableId: options.tableId || reward.tableId || null,
+    revealSource: options.revealSource || options.sourceType || "reward",
     rollIndex: Number.isFinite(reward.rollIndex) ? reward.rollIndex : null,
     active: true,
     claimed: false,
@@ -180,10 +196,17 @@ export function rewardPickupSnapshot(pickup) {
     label: pickup.label || pickup.kind || pickup.abilityId || pickup.rewardType,
     x: Math.round(pickup.x),
     y: Math.round(pickup.y),
+    spawnX: Math.round(Number.isFinite(pickup.spawnX) ? pickup.spawnX : pickup.x),
+    spawnY: Math.round(Number.isFinite(pickup.spawnY) ? pickup.spawnY : pickup.y),
+    popDistance: Math.round(Number.isFinite(pickup.popDistance) ? pickup.popDistance : 0),
     radius: pickup.radius,
     claimRadius: pickup.claimRadius,
     claimable: (pickup.claimDelay || 0) <= 0,
     active: !!pickup.active,
+    sourceType: pickup.sourceType || null,
+    sourceId: pickup.sourceId || null,
+    tableId: pickup.tableId || null,
+    revealSource: pickup.revealSource || pickup.sourceType || null,
     accent: pickup.accent || "green"
   };
 }

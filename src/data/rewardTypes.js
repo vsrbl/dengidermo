@@ -7,7 +7,8 @@ export const REWARD_TYPES = Object.freeze({
   UPGRADE_OFFER: "upgrade_offer",
   CURSE: "curse",
   MODIFIER_INJECTION: "modifier_injection",
-  NOTHING: "nothing"
+  NOTHING: "nothing",
+  ECONOMY_PICKUP: "economy_pickup"
 });
 
 export const REWARD_PICKUP_TYPES = Object.freeze([
@@ -25,7 +26,8 @@ export const ACTIVE_REWARD_TYPES = Object.freeze([
   REWARD_TYPES.ABILITY_SHARD,
   REWARD_TYPES.CURSE,
   REWARD_TYPES.MODIFIER_INJECTION,
-  REWARD_TYPES.NOTHING
+  REWARD_TYPES.NOTHING,
+  REWARD_TYPES.ECONOMY_PICKUP
 ]);
 
 export const RESERVED_REWARD_TYPES = Object.freeze(

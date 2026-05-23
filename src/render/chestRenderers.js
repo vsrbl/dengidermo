@@ -33,6 +33,18 @@ function tierCode(item) {
   return "BSC";
 }
 
+function drawDecryptScan(ctx, s, r, item, color) {
+  const t = Math.max(0, item?._renderAge || 0);
+  const phase = (t * 2.8) % 1;
+  const y = s.y - r * 0.82 + phase * r * 1.64;
+  strokeRect(ctx, s.x - r * 1.22, s.y - r * 1.22, r * 2.44, r * 2.44, color, 1);
+  strokeRect(ctx, s.x - r * 0.42, s.y - r * 0.42, r * 0.84, r * 0.84, color, 1);
+  drawRect(ctx, s.x - r * 0.78, y, r * 1.56, 2, color);
+  drawText(ctx, "DECRYPT", s.x, s.y - r - 12, color, "center");
+  const reward = String(item?.chestRevealLabel || "...").slice(0, 12).toUpperCase();
+  if (reward && reward !== "DECRYPT") drawText(ctx, reward, s.x, s.y + r + 17, color, "center");
+}
+
 function tierMarks(ctx, s, r, item, color) {
   const tier = item?.chestTier || "basic";
   if (tier === "rare" || tier === "cursed") {
@@ -72,9 +84,7 @@ export function drawChestInteractable(ctx, item, cam) {
   drawText(ctx, code, s.x, s.y + 4, active ? "#f3f3f3" : "#999", "center");
 
   if (state === "opening") {
-    strokeRect(ctx, s.x - r * 1.22, s.y - r * 1.22, r * 2.44, r * 2.44, accent, 1);
-    strokeRect(ctx, s.x - r * 0.42, s.y - r * 0.42, r * 0.84, r * 0.84, accent, 1);
-    drawText(ctx, "OPEN", s.x, s.y - r - 12, accent, "center");
+    drawDecryptScan(ctx, s, r, item, accent);
     return;
   }
 
@@ -82,6 +92,8 @@ export function drawChestInteractable(ctx, item, cam) {
     drawText(ctx, tierCode(item), s.x, s.y - r - 10, accent, "center");
     drawText(ctx, "E", s.x, s.y + r + 16, accent, "center");
   } else {
-    drawText(ctx, state === "claimed" ? "DONE" : "OPEN", s.x, s.y - r - 10, "#777", "center");
+    const doneText = state === "claimed" ? "DONE" : "EMPTY";
+    drawText(ctx, doneText, s.x, s.y - r - 10, "#777", "center");
+    if (item?.chestRevealLabel) drawText(ctx, String(item.chestRevealLabel).slice(0, 12).toUpperCase(), s.x, s.y + r + 16, "#777", "center");
   }
 }

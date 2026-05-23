@@ -37,6 +37,9 @@ assert.ok(style.includes('.menu-status'), 'menu status must be styled visibly');
 assert.ok(style.includes('.stat-panel') && style.includes('.stat-panel.open'), 'TAB stat terminal panel must have open/closed styles');
 assert.ok(style.includes('.proc-feed') && style.includes('.proc-feed-row'), 'proc/reward event feed must have terminal feed styles');
 assert.ok(style.includes('install-pulse-2') && style.includes('installPulseOverflow'), 'INSTALL xN HUD pulse should scale up for x2/x3+ queues');
+assert.ok(style.includes('.economy-xp-track') && style.includes('.economy-install-line'), 'economy HUD must show XP progress and a separate INSTALL queue line');
+assert.ok(ui.includes('renderEconomyHud') && ui.includes('EXIT TO INSTALL') && ui.includes('INSTALL READY'), 'economy HUD must make queued INSTALL state explicit before and during safe upgrade selection');
+assert.ok(ui.includes('QUEUE') && ui.includes('economyQueueLabel'), 'TAB stat panel must expose INSTALL queue status instead of only a raw count');
 assert.ok(ui.includes('renderStatPanel') && ui.includes('statSnapshot'), 'TAB stat panel must render from computed player.statSnapshot');
 assert.ok(ui.includes('statPanelOpen') && ui.includes('!!open'), 'TAB stat panel must be driven by explicit local UI open state');
 assert.ok(ui.includes('renderProcFeed') && ui.includes('setProcFeed'), 'UI must render proc/reward feed items from an explicit event-feed channel');
@@ -44,7 +47,7 @@ assert.ok(ui.includes('economyDisplayValues') && ui.includes('tweenNumber'), 'ec
 assert.ok(ui.includes('restartInstallPulse'), 'INSTALL queue HUD pulse should be explicit and tiered');
 assert.ok(ui.includes('TEMP SIGNALS') && ui.includes('ALLIES'), 'TAB stat panel must show temporary signals and compact allies');
 assert.ok(main.includes('createRewardEventFeed') && main.includes('snapshot?.events'), 'main loop must route authoritative snapshot events into reward event feed');
-assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
+assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('INSTALL OK') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
 assert.ok(rewardFeed.includes('seen') && rewardFeed.includes('lifeMs'), 'reward event feed must dedupe and expire events');
 
 console.log('ui contract verification passed');

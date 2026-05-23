@@ -27,6 +27,21 @@ function pickupCode(type) {
   return String(type || "DROP").toUpperCase().slice(0, 3);
 }
 
+function chestTierCode(tier) {
+  if (tier === "weapon") return "WPN";
+  if (tier === "ability") return "ABL";
+  if (tier === "rare") return "RARE";
+  if (tier === "cursed") return "CURSE";
+  return "BASIC";
+}
+
+function rewardLabel(event = {}) {
+  if (event.label) return String(event.label).toUpperCase().slice(0, 16);
+  if (event.rewardKind) return String(event.rewardKind).toUpperCase().slice(0, 16);
+  if (event.rewardType) return String(event.rewardType).toUpperCase().slice(0, 16);
+  return "REWARD";
+}
+
 function numberText(value) {
   return Number.isFinite(value) && value > 0 ? ` +${Math.round(value)}` : "";
 }
@@ -40,6 +55,64 @@ function includesRecipient(event = {}, playerId = null) {
   return !!playerId && Array.isArray(event.recipients) && event.recipients.includes(playerId);
 }
 
+function buildChestOpenItem(event) {
+  if (event.type !== "chest" || event.action !== "opened") return null;
+  const tier = chestTierCode(event.chestTier);
+  return {
+    kind: "chest",
+    priority: event.chestTier === "rare" || event.chestTier === "cursed" ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
+    scope: REWARD_EVENT_FEED_SCOPE.TEAM,
+    text: `${tier} CHEST`,
+    detail: event.revealLabel ? `REVEAL ${String(event.revealLabel).toUpperCase().slice(0, 16)}` : `${Math.max(0, event.rewards || 0)} REWARD`,
+    lifeMs: event.chestTier === "rare" || event.chestTier === "cursed" ? HIGH_LIFE_MS : DEFAULT_LIFE_MS
+  };
+}
+
+function buildRewardRevealItem(event, playerId) {
+  if (event.type !== "reward" || event.action !== "revealed") return null;
+  if (event.sourceType === "chest") {
+    const notable = event.chestTier && event.chestTier !== "basic";
+    const specialType = event.rewardType && event.rewardType !== "economy_pickup";
+    if (!notable && !specialType) return null;
+    return {
+      kind: "reward_reveal",
+      priority: event.chestTier === "rare" || event.chestTier === "cursed" ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
+      scope: REWARD_EVENT_FEED_SCOPE.TEAM,
+      text: `${chestTierCode(event.chestTier)} REVEAL`,
+      detail: rewardLabel(event),
+      lifeMs: DEFAULT_LIFE_MS
+    };
+  }
+  if (event.sourceType === "casino") {
+    if (event.playerId && event.playerId !== playerId) return null;
+    if (event.rewardType === "economy_pickup") return null;
+    return {
+      kind: "casino_reveal",
+      priority: REWARD_EVENT_FEED_PRIORITY.MEDIUM,
+      scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+      text: "CASINO REVEAL",
+      detail: rewardLabel(event),
+      lifeMs: DEFAULT_LIFE_MS
+    };
+  }
+  return null;
+}
+
+function buildCasinoResolvedItem(event, playerId) {
+  if (event.type !== "casino" || event.action !== "spin_resolved" || event.playerId !== playerId) return null;
+  const win = !!event.match;
+  const jackpot = String(event.outcome || "").includes("jackpot") || String(event.outcomeLabel || "").toUpperCase().includes("JACKPOT");
+  const staticDebt = String(event.outcome || "").includes("static") || String(event.payoutText || "").toUpperCase().includes("DEBT");
+  return {
+    kind: win ? "casino_win" : "casino_loss",
+    priority: jackpot || staticDebt ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: jackpot ? "JACKPOT" : staticDebt ? "STATIC DEBT" : win ? "CASINO WIN" : "CASINO LOSS",
+    detail: String(event.payoutText || event.outcomeLabel || (win ? "PAYOUT" : `-$${event.cost || 0}`)).toUpperCase().slice(0, 22),
+    lifeMs: jackpot || staticDebt ? HIGH_LIFE_MS : DEFAULT_LIFE_MS
+  };
+}
+
 function buildInstallItem(event, playerId) {
   if (event.type !== "economy" || event.action !== "queue_level_up" || event.playerId !== playerId) return null;
   const count = Math.max(1, Math.floor(Number.isFinite(event.levelsGained) ? event.levelsGained : 1));
@@ -51,6 +124,19 @@ function buildInstallItem(event, playerId) {
     text: `INSTALL +${count}`,
     detail: pending > 1 ? `QUEUE x${pending}` : "LEVEL UP QUEUED",
     lifeMs: HIGH_LIFE_MS
+  };
+}
+
+function buildInstallConsumedItem(event, playerId) {
+  if (event.type !== "economy" || event.action !== "consume_pending_upgrade" || event.playerId !== playerId) return null;
+  const pending = Math.max(0, Math.floor(Number.isFinite(event.pendingUpgradeCount) ? event.pendingUpgradeCount : 0));
+  return {
+    kind: "install",
+    priority: pending > 0 ? REWARD_EVENT_FEED_PRIORITY.MEDIUM : REWARD_EVENT_FEED_PRIORITY.LOW,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: "INSTALL OK",
+    detail: pending > 0 ? `${pending} LEFT` : "QUEUE CLEAR",
+    lifeMs: DEFAULT_LIFE_MS
   };
 }
 
@@ -123,6 +209,10 @@ function buildClaimBonusItem(event, playerId) {
 export function buildRewardEventFeedItem(event, { playerId = null } = {}) {
   if (!event || !event.type || !event.action) return null;
   return buildInstallItem(event, playerId)
+    || buildInstallConsumedItem(event, playerId)
+    || buildCasinoResolvedItem(event, playerId)
+    || buildChestOpenItem(event, playerId)
+    || buildRewardRevealItem(event, playerId)
     || buildRareHealItem(event, playerId)
     || buildLuckDropItem(event, playerId)
     || buildModifierDropItem(event, playerId)
