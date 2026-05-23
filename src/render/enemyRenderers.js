@@ -62,9 +62,9 @@ function drawTank(ctx, s, r, _data, enemy) {
 }
 
 function drawShooter(ctx, s, r) {
-  // Crosshair stays inside the body square so the read is clean and contained.
+  // Two simple diagonal lines inside the square, nothing more.
   hollowSquare(ctx, s, r, 3);
-  const inset = Math.max(4, Math.round(r * 0.34));
+  const inset = 3;
   line(ctx, s.x - r + inset, s.y - r + inset, s.x + r - inset, s.y + r - inset, "#fff", 1);
   line(ctx, s.x + r - inset, s.y - r + inset, s.x - r + inset, s.y + r - inset, "#fff", 1);
 }

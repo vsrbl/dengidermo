@@ -8,8 +8,8 @@ import { pushEvent } from "./events.js";
 import { grantMoney, grantXp } from "./playerEconomy.js";
 
 const DEFAULT_RADIUS_BY_TYPE = Object.freeze({
-  [ECONOMY_PICKUP_TYPES.MONEY]: 7,
-  [ECONOMY_PICKUP_TYPES.XP]: 6,
+  [ECONOMY_PICKUP_TYPES.MONEY]: 10,
+  [ECONOMY_PICKUP_TYPES.XP]: 10,
   [ECONOMY_PICKUP_TYPES.HEAL]: 10
 });
 

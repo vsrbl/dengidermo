@@ -337,32 +337,15 @@ function economyPickupColor(item, claimable) {
 
 function drawEconomyPickup(ctx, item, cam) {
   const s = screen(item, cam);
-  const r = item.radius || 8;
+  const r = Math.max(10, item.radius || 10);
   const claimable = item.claimable !== false;
   const color = economyPickupColor(item, claimable);
   const label = economyPickupLabel(item);
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
-  drawRect(ctx, s.x - r + 4, s.y - r + 4, Math.max(2, r * 2 - 8), Math.max(2, r * 2 - 8), "#050505");
+  drawRect(ctx, s.x - r + 4, s.y - r + 4, Math.max(4, r * 2 - 8), Math.max(4, r * 2 - 8), "#050505");
   ctx.strokeStyle = color;
   ctx.lineWidth = claimable ? 2 : 1;
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
-  if (item.type === "heal") {
-    ctx.beginPath();
-    ctx.moveTo(Math.round(s.x - r * 0.42), Math.round(s.y));
-    ctx.lineTo(Math.round(s.x + r * 0.42), Math.round(s.y));
-    ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 0.42));
-    ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 0.42));
-    ctx.stroke();
-  } else if (item.type === "xp") {
-    ctx.strokeRect(Math.round(s.x - r * 0.42), Math.round(s.y - r * 0.42), Math.round(r * 0.84), Math.round(r * 0.84));
-  } else if (item.type === "money") {
-    ctx.beginPath();
-    ctx.moveTo(Math.round(s.x - r * 0.48), Math.round(s.y + r * 0.18));
-    ctx.lineTo(Math.round(s.x), Math.round(s.y - r * 0.42));
-    ctx.lineTo(Math.round(s.x + r * 0.48), Math.round(s.y + r * 0.18));
-    ctx.closePath();
-    ctx.stroke();
-  }
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
   drawText(ctx, label, s.x, s.y - r - 5, color, "center");
 }
 
