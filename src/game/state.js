@@ -12,12 +12,15 @@ import { enemyStatusSnapshot } from "./effects.js";
 import { armorSnapshot } from "./enemyArmor.js";
 import { enemyEliteSnapshot } from "./enemyElites.js";
 import { abilitySnapshot } from "./abilities.js";
+import { createAbilityInventory, ensureAbilityInventory, abilityInventorySnapshot } from "./abilityInventory.js";
 import { companionSnapshot, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
 import { directorSnapshot } from "./directorRead.js";
 import { nextId, resetEntityIds } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { interactableSnapshot, spawnLocationInteractables } from "./interactables.js";
+import { rewardPickupSnapshot } from "./rewardPickups.js";
+import { pendingRoomModifierSnapshot } from "./pendingRoomModifiers.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -52,7 +55,9 @@ export function createGameState(roomId, options = {}) {
     projectiles: {},
     companions: {},
     loot: {},
+    rewardPickups: {},
     interactables: {},
+    pendingRoomModifiers: [],
     portals: {},
     effects: [],
     events: [],
@@ -97,6 +102,7 @@ export function addPlayer(state, playerId, index = 0, options = {}) {
     maxHp: PLAYER_HP,
     radius: PLAYER_RADIUS,
     inventory: createInventory([START_WEAPON]),
+    abilityInventory: createAbilityInventory(),
     stats: {
       speedMult: 1,
       fireRateMult: 1,
@@ -130,6 +136,7 @@ export function respawnPlayer(player, index = 0, loc = null) {
   player.ky = 0;
   player.hp = player.maxHp;
   ensureInventory(player);
+  ensureAbilityInventory(player);
   ensureUpgradeState(player);
   player.deadTimer = 0;
 }
@@ -165,6 +172,7 @@ export function makeSnapshot(state) {
       modifiers: roomModifierSnapshots(location),
       modifierStack: plan?.modifierStack || location.modifierStack || null,
       interactablePlan: [...(plan?.interactablePlan || location.interactablePlan || [])],
+      pendingRoomModifiers: (state.pendingRoomModifiers || []).map((entry) => pendingRoomModifierSnapshot(entry)),
       time: Number((state.locationTime || 0).toFixed(2)),
       accent: location.accent || "green",
       biomeId: location.biomeId || state.biomeId || "grid",
@@ -181,6 +189,7 @@ export function makeSnapshot(state) {
       maxHp: p.maxHp,
       activeWeapon: ensureInventory(p).activeWeapon,
       inventory: inventorySnapshot(p),
+      abilityInventory: abilityInventorySnapshot(p),
       upgrades: upgradeSnapshot(p),
       stats: { ...(p.stats || {}) },
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
@@ -219,6 +228,7 @@ export function makeSnapshot(state) {
       x: Math.round(l.x),
       y: Math.round(l.y)
     })),
+    rewardPickups: Object.values(state.rewardPickups || {}).map((item) => rewardPickupSnapshot(item)),
     interactables: Object.values(state.interactables || {}).map((item) => interactableSnapshot(item)),
     portals: Object.values(state.portals || {}).map((p) => ({
       id: p.id,

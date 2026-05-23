@@ -119,4 +119,22 @@ assert.match(hostRuntime, /fireWeapon\(/, 'host runtime must validate/execute we
 assert.match(read('src/game/combat.js'), /hasWeapon\(player, payload\.weapon\)/, 'host combat must validate requested weapon ownership');
 assert.match(read('src/game/roomFlow.js'), /clearLocationRuntime\(state\)/, 'roomFlow must own transition runtime cleanup');
 
+const rewardResolver = read('src/game/rewardResolver.js');
+assert.doesNotMatch(rewardResolver, /spawnLoot\s*\(/, 'rewardResolver must not spawn legacy loot directly; use reward commands/pickups');
+assert.doesNotMatch(rewardResolver, /giveWeapon\s*\(/, 'rewardResolver must not grant inventory directly; use reward pickup claim pipeline');
+assert.doesNotMatch(rewardResolver, /healPlayer\s*\(/, 'rewardResolver must not heal directly; use reward pickup claim pipeline');
+assert.match(rewardResolver, /executeRewardCommand\(/, 'rewardResolver must execute rewards through rewardCommands');
+const rewardCommands = read('src/game/rewardCommands.js');
+assert.match(rewardCommands, /spawnRewardPickup\(/, 'rewardCommands must create physical reward pickups for pickup rewards');
+const rewardPickups = read('src/game/rewardPickups.js');
+assert.match(rewardPickups, /claimRewardPickup/, 'reward pickup claim contract must exist');
+assert.match(rewardPickups, /healPlayer\(state, player/, 'reward pickup healing must use healPlayer pipeline');
+assert.match(rewardPickups, /giveWeapon\(player, data\.weaponId/, 'reward pickup weapon grant must use inventory pipeline');
+assert.match(rewardPickups, /applyAbilityReward\(player, pickup\)/, 'reward pickup ability grant must use ability reward pipeline');
+const abilityRewards = read('src/game/abilityRewards.js');
+assert.match(abilityRewards, /grantAbility\(player/, 'ability rewards must grant abilities through abilityInventory pipeline');
+assert.match(abilityRewards, /grantAbilityShard\(player/, 'ability rewards must grant shards through abilityInventory pipeline');
+const abilities = read('src/game/abilities.js');
+assert.match(abilities, /legacyDash \|\| inventoryDash/, 'dash ability must preserve legacy upgrade compatibility while allowing ability loot');
+
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);

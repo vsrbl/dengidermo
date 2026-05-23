@@ -12,6 +12,7 @@ import { clearLocationRuntimeObjects } from "./runtimeReset.js";
 import { offerUpgradesToPlayers } from "./upgrades.js";
 import { enterRoomModifierRuntime, exitRoomModifierRuntime } from "./roomModifiers.js";
 import { spawnLocationInteractables } from "./interactables.js";
+import { consumePendingRoomModifiersForDepth, pendingRoomModifierIdsForDepth } from "./pendingRoomModifiers.js";
 
 export const PORTAL_RADIUS = 58;
 export const PORTAL_MARGIN = 12;
@@ -79,13 +80,16 @@ export function clearLocationRuntime(state, options = {}) {
 }
 
 export function enterLocation(state, runDepth = 0, options = {}) {
+  const injectedModifierIds = pendingRoomModifierIdsForDepth(state, runDepth);
+  const planOptions = { seed: state?.roomId || null, createdAt: state?.tick || 0, injectedModifierIds };
   const plan = normalizeRoomPlan(
-    options.roomPlan || resolveRoomPlan(runDepth, { seed: state?.roomId || null, createdAt: state?.tick || 0 }),
+    options.roomPlan || resolveRoomPlan(runDepth, planOptions),
     runDepth,
-    { seed: state?.roomId || null, createdAt: state?.tick || 0 }
+    planOptions
   );
   const loc = getLocationFromRoomPlan(plan);
   applyLocationFields(state, loc, plan);
+  consumePendingRoomModifiersForDepth(state, plan.runDepth);
   state.locationTime = 0;
   state.portalReadyAt = devPortalDelay(state, loc.portalDelay);
   state.portalHold = devPortalHold(state, loc.portalHold);

@@ -149,7 +149,8 @@ function resolvedRoomHasInteractables(room) {
 }
 
 function resolveRoomStackForPlan(resolvedRoom, progression, options = {}) {
-  const baseModifierIds = uniqueList([...(resolvedRoom.modifiers || [])]);
+  const injectedModifierIds = uniqueList(options.injectedModifierIds || []);
+  const baseModifierIds = uniqueList([...(resolvedRoom.modifiers || []), ...injectedModifierIds]);
   const profile = loopEscalationProfileForLoop(progression.loopIndex);
   return resolveRoomModifierStack({
     baseModifierIds,
@@ -158,7 +159,7 @@ function resolveRoomStackForPlan(resolvedRoom, progression, options = {}) {
     seed: `${options.seed || "room"}:${progression.runDepth}:${resolvedRoom.id}`,
     resolvedAt: Number.isFinite(options.createdAt) ? options.createdAt : 0,
     context: {
-      tags: [...(resolvedRoom.tags || []), resolvedRoom.category || null].filter(Boolean),
+      tags: [...(resolvedRoom.tags || []), resolvedRoom.category || null, injectedModifierIds.length ? "injected_modifier" : null].filter(Boolean),
       features: featureListForRoom(resolvedRoom, progression),
       roomId: resolvedRoom.id,
       category: resolvedRoom.category || null

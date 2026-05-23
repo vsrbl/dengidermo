@@ -1,0 +1,177 @@
+import { GREEN, PLAYER_RADIUS, WORLD } from "../core/constants.js";
+import { clamp, dist2 } from "../core/math.js";
+import { LOOT } from "../data/loot.js";
+import { getAbility, abilityIsRewardable } from "../data/abilities.js";
+import { REWARD_TYPES, rewardTypeUsesPickup } from "../data/rewardTypes.js";
+import { pushVisualEffect } from "./effectCommands.js";
+import { healPlayer } from "./effects.js";
+import { nextId } from "./entityIds.js";
+import { pushEvent } from "./events.js";
+import { giveWeapon } from "./inventory.js";
+import { applyAbilityReward } from "./abilityRewards.js";
+
+const DEFAULT_REWARD_PICKUP_RADIUS = 11;
+const DEFAULT_CLAIM_DELAY = 0.42;
+const DEFAULT_CLAIM_PAD = 5;
+
+function rewardAbilityId(reward = {}) {
+  return reward.abilityId || reward.kind || null;
+}
+
+function rewardPickupData(reward = {}) {
+  if (reward.type === REWARD_TYPES.LOOT) return LOOT[reward.kind] || null;
+  if (reward.type === REWARD_TYPES.ABILITY_PICKUP || reward.type === REWARD_TYPES.ABILITY_SHARD) return getAbility(rewardAbilityId(reward));
+  return null;
+}
+
+function rewardPickupLabel(reward = {}) {
+  const data = rewardPickupData(reward);
+  if (reward.type === REWARD_TYPES.ABILITY_SHARD && data?.pickup?.label) return `${data.pickup.label} SHARD`;
+  if (data?.pickup?.label) return data.pickup.label;
+  if (data?.name) return data.name;
+  if (reward.kind) return String(reward.kind).toUpperCase();
+  if (reward.abilityId) return String(reward.abilityId).toUpperCase();
+  return String(reward.type || "REWARD").toUpperCase();
+}
+
+function rewardPickupRadius(reward = {}) {
+  const data = rewardPickupData(reward);
+  return Math.max(DEFAULT_REWARD_PICKUP_RADIUS, data?.radius || data?.pickup?.radius || DEFAULT_REWARD_PICKUP_RADIUS);
+}
+
+export function spawnRewardPickup(state, reward, x, y, options = {}) {
+  if (!state || !reward || !rewardTypeUsesPickup(reward.type)) return null;
+  if (reward.type === REWARD_TYPES.LOOT && !LOOT[reward.kind]) return null;
+  if ((reward.type === REWARD_TYPES.ABILITY_PICKUP || reward.type === REWARD_TYPES.ABILITY_SHARD) && !abilityIsRewardable(rewardAbilityId(reward))) return null;
+  if (!state.rewardPickups) state.rewardPickups = {};
+
+  const radius = rewardPickupRadius(reward);
+  const id = nextId("reward");
+  const pickup = {
+    id,
+    rewardType: reward.type,
+    kind: reward.kind || rewardAbilityId(reward) || null,
+    abilityId: rewardAbilityId(reward),
+    shardAmount: reward.type === REWARD_TYPES.ABILITY_SHARD ? Math.max(1, Math.floor(Number(reward.amount) || 1)) : 0,
+    label: rewardPickupLabel(reward),
+    x: clamp(x, 20, WORLD.w - 20),
+    y: clamp(y, 20, WORLD.h - 20),
+    radius,
+    claimRadius: Number.isFinite(options.claimRadius) ? Math.max(radius, options.claimRadius) : radius + DEFAULT_CLAIM_PAD,
+    claimDelay: Number.isFinite(options.claimDelay) ? Math.max(0, options.claimDelay) : DEFAULT_CLAIM_DELAY,
+    claimMode: options.claimMode || "proximity",
+    claimScope: options.claimScope || "team",
+    sourceType: options.sourceType || "reward",
+    sourceId: options.sourceId || null,
+    tableId: options.tableId || reward.tableId || null,
+    rollIndex: Number.isFinite(reward.rollIndex) ? reward.rollIndex : null,
+    active: true,
+    claimed: false,
+    createdAt: state.time || 0,
+    accent: options.accent || (reward.type === REWARD_TYPES.ABILITY_PICKUP || reward.type === REWARD_TYPES.ABILITY_SHARD ? "white" : "green")
+  };
+  state.rewardPickups[id] = pickup;
+  return pickup;
+}
+
+export function canClaimRewardPickup(state, pickup, player, options = {}) {
+  if (!state || !pickup || !player || player.hp <= 0) return { ok: false, reason: "invalid_actor" };
+  if (!pickup.active || pickup.claimed) return { ok: false, reason: "inactive" };
+  if (options.ignoreDelay !== true && (pickup.claimDelay || 0) > 0) return { ok: false, reason: "warming_up" };
+  if (pickup.claimScope === "personal" && pickup.playerId && pickup.playerId !== player.id) return { ok: false, reason: "wrong_player" };
+  if (options.validateDistance !== false) {
+    const r = (pickup.claimRadius || pickup.radius || DEFAULT_REWARD_PICKUP_RADIUS) + (player.radius || PLAYER_RADIUS);
+    if (dist2(player.x, player.y, pickup.x, pickup.y) > r * r) return { ok: false, reason: "too_far" };
+  }
+  return { ok: true };
+}
+
+function applyLootRewardPickup(state, pickup, player) {
+  const data = LOOT[pickup.kind];
+  if (!data) return false;
+  if (data.type === "heal") {
+    healPlayer(state, player, {
+      amount: data.amount,
+      sourceType: "reward_pickup",
+      sourceId: pickup.id,
+      tags: ["reward", "pickup", "loot", pickup.kind]
+    });
+    return true;
+  }
+  if (data.type === "weapon") {
+    giveWeapon(player, data.weaponId, true);
+    return true;
+  }
+  return false;
+}
+
+function applyAbilityRewardPickup(pickup, player) {
+  return applyAbilityReward(player, pickup).ok;
+}
+
+export function claimRewardPickup(state, pickup, player, options = {}) {
+  const check = canClaimRewardPickup(state, pickup, player, options);
+  if (!check.ok) return false;
+
+  let applied = false;
+  if (pickup.rewardType === REWARD_TYPES.LOOT) applied = applyLootRewardPickup(state, pickup, player);
+  if (pickup.rewardType === REWARD_TYPES.ABILITY_PICKUP || pickup.rewardType === REWARD_TYPES.ABILITY_SHARD) applied = applyAbilityRewardPickup(pickup, player);
+  if (!applied) return false;
+
+  pickup.claimed = true;
+  pickup.active = false;
+  pickup.claimedBy = player.id;
+  delete state.rewardPickups[pickup.id];
+
+  pushVisualEffect(state, {
+    type: "damageText",
+    x: Math.round(pickup.x),
+    y: Math.round(pickup.y - 18),
+    text: String(pickup.label || "REWARD").slice(0, 16),
+    color: GREEN,
+    life: 0.56,
+    maxLife: 0.56
+  });
+  pushEvent(state, {
+    type: "rewardPickup",
+    action: "claimed",
+    playerId: player.id,
+    rewardType: pickup.rewardType,
+    kind: pickup.kind || null,
+    abilityId: pickup.abilityId || null,
+    sourceType: pickup.sourceType || null,
+    sourceId: pickup.sourceId || null,
+    tableId: pickup.tableId || null,
+    x: Math.round(pickup.x),
+    y: Math.round(pickup.y)
+  });
+  return true;
+}
+
+export function updateRewardPickups(state, dt = 0.016) {
+  if (!state?.rewardPickups) return;
+  for (const pickup of Object.values(state.rewardPickups)) {
+    pickup.claimDelay = Math.max(0, (pickup.claimDelay || 0) - dt);
+    if (!pickup.active || pickup.claimed) continue;
+    for (const player of Object.values(state.players || {})) {
+      if (claimRewardPickup(state, pickup, player)) break;
+    }
+  }
+}
+
+export function rewardPickupSnapshot(pickup) {
+  return {
+    id: pickup.id,
+    rewardType: pickup.rewardType,
+    kind: pickup.kind || null,
+    abilityId: pickup.abilityId || null,
+    label: pickup.label || pickup.kind || pickup.abilityId || pickup.rewardType,
+    x: Math.round(pickup.x),
+    y: Math.round(pickup.y),
+    radius: pickup.radius,
+    claimRadius: pickup.claimRadius,
+    claimable: (pickup.claimDelay || 0) <= 0,
+    active: !!pickup.active,
+    accent: pickup.accent || "green"
+  };
+}

@@ -10,7 +10,10 @@ import { ROOM_LAYOUTS, layoutIdentitySnapshot } from '../src/data/layouts.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { INTERACTABLES } from '../src/data/interactables.js';
 import { REWARD_TABLES, rewardEntryIsKnown } from '../src/data/rewardTables.js';
+import { REWARD_TYPES, ACTIVE_REWARD_TYPES, RESERVED_REWARD_TYPES, rewardTypeIsKnown } from '../src/data/rewardTypes.js';
 import { LOOT } from '../src/data/loot.js';
+import { ABILITIES, ABILITY_IDS, abilityIsRewardable } from '../src/data/abilities.js';
+import { ABILITY_LOOT_TABLES } from '../src/data/abilityLootTables.js';
 import { ELITE_VARIANTS } from '../src/data/eliteVariants.js';
 import { ARMOR_VARIANTS } from '../src/data/armorVariants.js';
 import { EFFECT_DEFS, EFFECT_HOOKS } from '../src/game/effects.js';
@@ -93,6 +96,36 @@ for (const [id, data] of Object.entries(LOOT)) {
   assert.equal(data.name && typeof data.name === 'string', true, `${id} loot needs a name`);
   assert.equal(data.radius > 0, true, `${id} loot needs positive radius`);
 }
+assert.ok(rewardTypeIsKnown(REWARD_TYPES.LOOT), 'loot reward type must be registered');
+assert.ok(ACTIVE_REWARD_TYPES.includes(REWARD_TYPES.LOOT), 'loot reward type must be active');
+assert.ok(ACTIVE_REWARD_TYPES.includes(REWARD_TYPES.ABILITY_PICKUP), 'ability pickup reward type must be active');
+assert.ok(ACTIVE_REWARD_TYPES.includes(REWARD_TYPES.ABILITY_SHARD), 'ability shard reward type must be active');
+assert.ok(ACTIVE_REWARD_TYPES.includes(REWARD_TYPES.NOTHING), 'nothing reward type must be active');
+assert.ok(ACTIVE_REWARD_TYPES.includes(REWARD_TYPES.MODIFIER_INJECTION), 'modifier injection reward type must be active for casino risk/debt outcomes');
+assert.ok(!RESERVED_REWARD_TYPES.includes(REWARD_TYPES.MODIFIER_INJECTION), 'modifier injection must not be treated as a reserved physical pickup type');
+for (const reserved of RESERVED_REWARD_TYPES) assert.ok(rewardTypeIsKnown(reserved), `reserved reward type must stay known: ${reserved}`);
+
+
+assertUnique(Object.keys(ABILITIES), 'ability');
+assert.ok(ABILITIES[ABILITY_IDS.TELEPORT_DASH], 'teleport dash ability must exist for active ability loot foundation');
+for (const [id, ability] of Object.entries(ABILITIES)) {
+  assert.equal(ability.id, id, `ability key/id mismatch: ${id}`);
+  assert.ok(ability.name && ability.slot, `${id} ability needs name/slot`);
+  assert.ok(Array.isArray(ability.tags), `${id} ability tags must be an array`);
+  assert.equal(typeof ability.rewardable, 'boolean', `${id} ability must declare rewardable contract`);
+  if (ability.rewardable) assert.ok(abilityIsRewardable(id), `${id} rewardable ability should be discoverable`);
+}
+assertUnique(Object.keys(ABILITY_LOOT_TABLES), 'ability loot table');
+for (const [id, table] of Object.entries(ABILITY_LOOT_TABLES)) {
+  assert.equal(table.id, id, `ability loot table key/id mismatch: ${id}`);
+  assert.ok(Array.isArray(table.entries) && table.entries.length > 0, `${id} ability loot table needs entries`);
+  for (const entry of table.entries) {
+    assert.ok(entry.type === REWARD_TYPES.ABILITY_PICKUP || entry.type === REWARD_TYPES.ABILITY_SHARD, `${id} ability loot table must only contain ability reward entries`);
+    assert.ok(abilityIsRewardable(entry.abilityId), `${id} references unknown/unrewardable ability: ${entry.abilityId}`);
+    assert.ok(Number.isFinite(entry.weight) && entry.weight > 0, `${id} ability loot entry needs positive weight`);
+  }
+}
+
 assertUnique(Object.keys(REWARD_TABLES), 'reward table');
 for (const [id, table] of Object.entries(REWARD_TABLES)) {
   assert.equal(table.id, id, `reward table key/id mismatch: ${id}`);

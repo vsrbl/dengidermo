@@ -1,4 +1,8 @@
 import { LOOT } from "./loot.js";
+import { abilityIsRewardable } from "./abilities.js";
+import { MODIFIER_DOMAINS } from "./modifierDomains.js";
+import { getRuleModifierInDomain } from "./ruleModifiers.js";
+import { REWARD_TYPES, rewardTypeIsKnown } from "./rewardTypes.js";
 
 export const REWARD_TABLES = Object.freeze({
   field_cache: Object.freeze({
@@ -24,6 +28,8 @@ export const REWARD_TABLES = Object.freeze({
       Object.freeze({ type: "loot", kind: "heal", weight: 7 }),
       Object.freeze({ type: "loot", kind: "seeker", weight: 3 }),
       Object.freeze({ type: "loot", kind: "rocket", weight: 2 }),
+      Object.freeze({ type: "ability_shard", abilityId: "teleport_dash", amount: 1, weight: 2, text: "DASH SHARD" }),
+      Object.freeze({ type: "ability_pickup", abilityId: "teleport_dash", weight: 1, text: "ACTIVE" }),
       Object.freeze({ type: "loot", kind: "shotgun", weight: 1 })
     ])
   }),
@@ -35,10 +41,12 @@ export const REWARD_TABLES = Object.freeze({
     rolls: 1,
     scatter: 54,
     entries: Object.freeze([
-      Object.freeze({ type: "nothing", weight: 7, text: "BUST" }),
+      Object.freeze({ type: "nothing", weight: 5, text: "BUST" }),
+      Object.freeze({ type: "modifier_injection", modifierId: "live_chat_hates_you", weight: 4, text: "DEBT SIGNAL", apply: "next_room" }),
       Object.freeze({ type: "loot", kind: "heal", weight: 7, text: "PAYOUT" }),
       Object.freeze({ type: "loot", kind: "seeker", weight: 3, text: "PAYOUT" }),
       Object.freeze({ type: "loot", kind: "rocket", weight: 2, text: "PAYOUT" }),
+      Object.freeze({ type: "ability_pickup", abilityId: "teleport_dash", weight: 1, text: "JACKPOT" }),
       Object.freeze({ type: "loot", kind: "shotgun", weight: 1, text: "JACKPOT" })
     ])
   })
@@ -54,7 +62,11 @@ export function rewardTableEntries(tableId) {
 
 export function rewardEntryIsKnown(entry) {
   if (!entry || typeof entry !== "object") return false;
-  if (entry.type === "loot") return !!LOOT[entry.kind];
-  if (entry.type === "nothing") return true;
-  return false;
+  if (!rewardTypeIsKnown(entry.type)) return false;
+  if (entry.type === REWARD_TYPES.LOOT) return !!LOOT[entry.kind];
+  if (entry.type === REWARD_TYPES.ABILITY_PICKUP) return abilityIsRewardable(entry.abilityId);
+  if (entry.type === REWARD_TYPES.ABILITY_SHARD) return abilityIsRewardable(entry.abilityId);
+  if (entry.type === REWARD_TYPES.MODIFIER_INJECTION || entry.type === REWARD_TYPES.CURSE) return !!getRuleModifierInDomain(entry.modifierId, MODIFIER_DOMAINS.ROOM);
+  if (entry.type === REWARD_TYPES.NOTHING) return true;
+  return true;
 }

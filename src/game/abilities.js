@@ -4,6 +4,8 @@ import { roomGeometrySnapshot, roomGeometrySnapshotForState, sweepCircleInLocati
 import { buildPlayerEffects, getEffect } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
+import { ABILITY_IDS } from "../data/abilities.js";
+import { activeAbilityConfig, abilityInventorySnapshot } from "./abilityInventory.js";
 
 const DASH_DEFAULT_DISTANCE = 210;
 const DASH_DEFAULT_COOLDOWN = 3.6;
@@ -21,13 +23,16 @@ function playerEffect(player, type) {
 
 export function dashConfig(player) {
   if (!player || player.hp <= 0) return null;
-  const dash = playerEffect(player, "teleportDash");
+  const legacyDash = playerEffect(player, "teleportDash");
+  const inventoryDash = activeAbilityConfig(player, ABILITY_IDS.TELEPORT_DASH);
+  const dash = legacyDash || inventoryDash;
   if (!dash) return null;
   const afterimage = playerEffect(player, "afterimage");
   return {
     distance: clamp(finiteOr(dash.distance, DASH_DEFAULT_DISTANCE), 40, DASH_MAX_DISTANCE),
     cooldown: Math.max(DASH_MIN_COOLDOWN, finiteOr(dash.cooldown, DASH_DEFAULT_COOLDOWN)),
     invuln: clamp(finiteOr(dash.invuln, DASH_DEFAULT_INVULN), 0, 0.35),
+    source: legacyDash ? "upgrade" : "ability_inventory",
     afterimageDuration: clamp(finiteOr(afterimage?.duration, 0.24), 0.05, 0.8),
     afterimageCount: clamp(Math.floor(finiteOr(afterimage?.count, 2)), 0, 8)
   };
@@ -56,13 +61,19 @@ export function dashSnapshot(player) {
     cooldown: Number(cfg.cooldown.toFixed(2)),
     cooldownLeft: Number(Math.max(0, state.cooldownLeft || 0).toFixed(2)),
     distance: Math.round(cfg.distance),
-    invulnLeft: Number(Math.max(0, state.invulnLeft || 0).toFixed(2))
+    invulnLeft: Number(Math.max(0, state.invulnLeft || 0).toFixed(2)),
+    source: cfg.source || "upgrade"
   };
 }
 
 export function abilitySnapshot(player) {
   const dash = dashSnapshot(player);
-  return dash ? { dash } : null;
+  const inventory = abilityInventorySnapshot(player);
+  if (!dash && !inventory.ownedAbilities.length && !Object.keys(inventory.shards || {}).length) return null;
+  return {
+    dash,
+    inventory
+  };
 }
 
 export function tickActiveAbilities(player, dt) {

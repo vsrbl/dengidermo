@@ -1,9 +1,7 @@
-import { GREEN, RED, WORLD } from "../core/constants.js";
+import { WORLD } from "../core/constants.js";
 import { clamp } from "../core/math.js";
 import { getRewardTable } from "../data/rewardTables.js";
-import { pushVisualEffect } from "./effectCommands.js";
-import { pushEvent } from "./events.js";
-import { spawnLoot } from "./loot.js";
+import { createRewardCommand, executeRewardCommand } from "./rewardCommands.js";
 
 function weightedEntry(rng, entries = []) {
   const safeEntries = entries.filter((entry) => Number.isFinite(entry?.weight) && entry.weight > 0);
@@ -29,20 +27,6 @@ function scatterPosition(state, position, scatter = 0, index = 0, count = 1) {
   };
 }
 
-function rewardText(state, reward, position, fallback = null) {
-  const text = reward?.text || fallback;
-  if (!state || !text) return;
-  pushVisualEffect(state, {
-    type: "damageText",
-    x: Math.round(position.x),
-    y: Math.round(position.y - 18),
-    text: String(text).slice(0, 16),
-    color: reward?.type === "nothing" ? RED : GREEN,
-    life: 0.72,
-    maxLife: 0.72
-  });
-}
-
 export function resolveRewardTable(state, tableId, context = {}) {
   const table = getRewardTable(tableId);
   if (!state?.rng || !table) return [];
@@ -55,42 +39,30 @@ export function resolveRewardTable(state, tableId, context = {}) {
   return rewards;
 }
 
-export function executeReward(state, reward, position, context = {}) {
-  if (!reward) return null;
-
-  if (reward.type === "nothing") {
-    rewardText(state, reward, position, "BUST");
-    pushEvent(state, {
-      type: "reward",
-      action: "nothing",
-      tableId: reward.tableId || context.tableId || null,
-      sourceType: context.sourceType || "reward",
-      sourceId: context.sourceId || null,
-      playerId: context.playerId || null,
-      x: Math.round(position.x),
-      y: Math.round(position.y)
-    });
-    return null;
-  }
-
-  if (reward.type !== "loot") return null;
-  const item = spawnLoot(state, reward.kind, position.x, position.y, {
-    sourceType: context.sourceType || "reward",
-    sourceId: context.sourceId || null
-  });
-  if (item) rewardText(state, reward, position, null);
-  return item;
-}
-
-export function executeRewardTable(state, tableId, position, context = {}) {
+export function createRewardCommands(state, tableId, position, context = {}) {
   const table = getRewardTable(tableId);
   if (!table) return [];
   const rewards = resolveRewardTable(state, tableId, context);
-  const spawned = [];
+  const commands = [];
   for (let i = 0; i < rewards.length; i += 1) {
     const p = scatterPosition(state, position, table.scatter, i, rewards.length);
-    const item = executeReward(state, rewards[i], p, { ...context, tableId });
-    if (item) spawned.push(item);
+    const command = createRewardCommand(rewards[i], p, { ...context, tableId });
+    if (command) commands.push(command);
+  }
+  return commands;
+}
+
+export function executeReward(state, reward, position, context = {}) {
+  const command = createRewardCommand(reward, position, context);
+  return executeRewardCommand(state, command);
+}
+
+export function executeRewardTable(state, tableId, position, context = {}) {
+  const commands = createRewardCommands(state, tableId, position, context);
+  const spawned = [];
+  for (const command of commands) {
+    const result = executeRewardCommand(state, command);
+    if (result) spawned.push(result);
   }
   return spawned;
 }

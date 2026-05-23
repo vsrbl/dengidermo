@@ -15,6 +15,8 @@ import { resolveSpawnPoint } from '../src/game/spawnZones.js';
 import { requestInteractableActivation, updateInteractables } from '../src/game/interactables.js';
 import { INTERACTABLES } from '../src/data/interactables.js';
 import { REWARD_TABLES } from '../src/data/rewardTables.js';
+import { ABILITIES, ABILITY_IDS } from '../src/data/abilities.js';
+import { REWARD_TYPES } from '../src/data/rewardTypes.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
@@ -34,6 +36,11 @@ assert.ok(INTERACTABLES.casino_slot, 'casino slot interactable must exist for re
 assert.ok(REWARD_TABLES.field_cache, 'field cache reward table must exist');
 assert.ok(REWARD_TABLES.reward_cache, 'reward cache reward table must exist');
 assert.ok(REWARD_TABLES.casino_slot, 'casino slot reward table must exist');
+assert.ok(ABILITIES[ABILITY_IDS.TELEPORT_DASH], 'teleport dash must be a data-driven ability for active ability loot');
+assert.ok(REWARD_TABLES.reward_cache.entries.some((entry) => entry.type === REWARD_TYPES.ABILITY_PICKUP && entry.abilityId === ABILITY_IDS.TELEPORT_DASH), 'reward cache should be able to drop TELEPORT DASH as active ability loot');
+assert.ok(REWARD_TABLES.reward_cache.entries.some((entry) => entry.type === REWARD_TYPES.ABILITY_SHARD && entry.abilityId === ABILITY_IDS.TELEPORT_DASH), 'reward cache should be able to drop TELEPORT DASH shards');
+assert.ok(REWARD_TABLES.casino_slot.entries.some((entry) => entry.type === REWARD_TYPES.ABILITY_PICKUP && entry.abilityId === ABILITY_IDS.TELEPORT_DASH), 'casino jackpot should be able to drop an active ability pickup');
+assert.ok(REWARD_TABLES.casino_slot.entries.some((entry) => entry.type === REWARD_TYPES.MODIFIER_INJECTION && entry.modifierId === 'live_chat_hates_you'), 'casino v2 should include a DEBT SIGNAL outcome that queues a next-room pressure modifier');
 
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'grid-00')?.layout, 'open_arena', 'starter room must stay open_arena');
 assert.equal(ROOM_SEQUENCE.find((room) => room.id === 'void-01')?.layout, 'open_arena', 'survive room must stay open_arena');
@@ -154,7 +161,8 @@ player.x = rewardChest.x;
 player.y = rewardChest.y;
 assert.equal(requestInteractableActivation(state, player.id, { targetId: rewardChest.id }), true, 'E-style host interaction should open reward chest');
 assert.equal(rewardChest.opened, true, 'reward chest should open through host-owned interactable request');
-assert.ok(Object.keys(state.loot).length >= 1, 'reward chest should spawn loot through reward table');
+assert.ok(Object.keys(state.rewardPickups).length >= 1, 'reward chest should spawn reward pickups through reward table');
+assert.equal(Object.keys(state.loot).length, 0, 'reward chest should not bypass reward pickup contract with legacy loot');
 
 beginRoomTransition(state, 'verify-v39-foundation', { offerUpgrades: false });
 assert.equal(currentLocation(state).id, 'void-01');

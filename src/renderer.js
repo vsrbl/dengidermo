@@ -30,6 +30,7 @@ export function createRenderer(canvas) {
     projectiles: new Map(),
     companions: new Map(),
     loot: new Map(),
+    rewardPickups: new Map(),
     interactables: new Map(),
     portals: new Map()
   };
@@ -267,6 +268,22 @@ function drawLoot(ctx, item, cam) {
   drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
 }
 
+
+function drawRewardPickup(ctx, item, cam) {
+  const data = item.rewardType === "loot" ? (LOOT[item.kind] || LOOT.heal) : null;
+  const s = screen(item, cam);
+  const r = item.radius || data?.radius || 11;
+  const active = item.active !== false;
+  const claimable = item.claimable !== false;
+  const accent = item.accent === "white" ? "#f3f3f3" : GREEN;
+  const color = active && claimable ? accent : "rgba(255,255,255,0.48)";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = claimable ? 2 : 1;
+  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+  drawRect(ctx, s.x - 3, s.y - 3, 6, 6, claimable ? GREEN : "#777");
+  drawText(ctx, String(item.label || data?.name || item.kind || "RWD").slice(0, 5), s.x, s.y - r - 5, color, "center");
+}
+
 function interactableAccentColor(item) {
   if (item?.accent === "red" || item?.category === "casino") return RED;
   if (item?.accent === "white") return "#f3f3f3";
@@ -407,6 +424,14 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     if (isVisible(item, renderCam, 60)) drawLoot(ctx, item, renderCam);
   }
   prune(smooth.loot, lootIds);
+
+  const rewardPickupIds = new Set();
+  for (const raw of snapshot.rewardPickups || []) {
+    rewardPickupIds.add(raw.id);
+    const item = smoothEntity(smooth.rewardPickups, raw, renderDt);
+    if (isVisible(item, renderCam, 60)) drawRewardPickup(ctx, item, renderCam);
+  }
+  prune(smooth.rewardPickups, rewardPickupIds);
 
   const interactableIds = new Set();
   for (const raw of snapshot.interactables || []) {

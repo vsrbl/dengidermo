@@ -13,6 +13,7 @@ export function clearLocationRuntimeObjects(state, options = {}) {
   clearHostileRuntime(state, { keepEffects: !!options.keepEffects });
   state.companions = {};
   state.loot = {};
+  state.rewardPickups = {};
   state.interactables = {};
   state.events = options.keepEvents ? (state.events || []) : [];
   state.portals = {};

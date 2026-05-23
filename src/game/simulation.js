@@ -5,6 +5,7 @@ import { currentLocation } from "./roomFlow.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
 import { updateInteractables } from "./interactables.js";
+import { updateRewardPickups } from "./rewardPickups.js";
 import { updateProjectiles } from "./projectiles.js";
 import { updateCompanions } from "./companions.js";
 import { updatePortals } from "./portals.js";
@@ -104,6 +105,7 @@ export function updateHostWorld(state, inputs, dt) {
   updateCompanions(state, safeDt);
   updateProjectiles(state, safeDt);
   updateInteractables(state, safeDt);
+  updateRewardPickups(state, safeDt);
   updateLoot(state, safeDt);
   updatePortals(state, safeDt);
   applyDevPlayerGuards(state);
