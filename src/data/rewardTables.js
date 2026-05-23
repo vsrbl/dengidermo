@@ -3,8 +3,10 @@ import { abilityIsRewardable } from "./abilities.js";
 import { MODIFIER_DOMAINS } from "./modifierDomains.js";
 import { getRuleModifierInDomain } from "./ruleModifiers.js";
 import { REWARD_TYPES, rewardTypeIsKnown } from "./rewardTypes.js";
+import { CHEST_REWARD_TABLES } from "./chestRewardTables.js";
 
 export const REWARD_TABLES = Object.freeze({
+  ...CHEST_REWARD_TABLES,
   field_cache: Object.freeze({
     id: "field_cache",
     name: "FIELD CACHE",

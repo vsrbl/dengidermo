@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.7",
-  "buildId": "v39.3.7-20260523",
+  "version": "v39.3.10",
+  "buildId": "v39.3.10-20260523",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-7.js?v=39.3.7",
-  "style": "./style.css?v=39.3.7",
-  "config": "./config.js?v=39.3.7",
+  "entry": "./src/main.v39-3-10.js?v=39.3.10",
+  "style": "./style.css?v=39.3.10",
+  "config": "./config.js?v=39.3.10",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.7 casino risk/reward v2: adds DEBT SIGNAL casino outcome that queues next-room pressure through reward commands and roomPlan modifier stack without current-room mutation or economy systems"
+  "notes": "v39.3.10 casino modal slot machine foundation: adds data-driven casino machine/symbol/stake registries, dedicated slot-machine renderer, modal stake UI, and host-validated casino spin request path without client-side reward grants"
 }

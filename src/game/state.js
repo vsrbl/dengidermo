@@ -21,6 +21,8 @@ import { pushEvent } from "./events.js";
 import { interactableSnapshot, spawnLocationInteractables } from "./interactables.js";
 import { rewardPickupSnapshot } from "./rewardPickups.js";
 import { pendingRoomModifierSnapshot } from "./pendingRoomModifiers.js";
+import { createPlayerEconomy, ensurePlayerEconomy, economySnapshot } from "./playerEconomy.js";
+import { economyPickupSnapshot } from "./economyPickups.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -56,6 +58,7 @@ export function createGameState(roomId, options = {}) {
     companions: {},
     loot: {},
     rewardPickups: {},
+    economyPickups: {},
     interactables: {},
     pendingRoomModifiers: [],
     portals: {},
@@ -103,6 +106,7 @@ export function addPlayer(state, playerId, index = 0, options = {}) {
     radius: PLAYER_RADIUS,
     inventory: createInventory([START_WEAPON]),
     abilityInventory: createAbilityInventory(),
+    economy: createPlayerEconomy(),
     stats: {
       speedMult: 1,
       fireRateMult: 1,
@@ -137,6 +141,7 @@ export function respawnPlayer(player, index = 0, loc = null) {
   player.hp = player.maxHp;
   ensureInventory(player);
   ensureAbilityInventory(player);
+  ensurePlayerEconomy(player);
   ensureUpgradeState(player);
   player.deadTimer = 0;
 }
@@ -190,6 +195,7 @@ export function makeSnapshot(state) {
       activeWeapon: ensureInventory(p).activeWeapon,
       inventory: inventorySnapshot(p),
       abilityInventory: abilityInventorySnapshot(p),
+      economy: economySnapshot(p),
       upgrades: upgradeSnapshot(p),
       stats: { ...(p.stats || {}) },
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
@@ -229,6 +235,7 @@ export function makeSnapshot(state) {
       y: Math.round(l.y)
     })),
     rewardPickups: Object.values(state.rewardPickups || {}).map((item) => rewardPickupSnapshot(item)),
+    economyPickups: Object.values(state.economyPickups || {}).map((item) => economyPickupSnapshot(item)),
     interactables: Object.values(state.interactables || {}).map((item) => interactableSnapshot(item)),
     portals: Object.values(state.portals || {}).map((p) => ({
       id: p.id,

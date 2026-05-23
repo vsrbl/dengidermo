@@ -8,6 +8,8 @@ import { ROOM_MODIFIER_HOOKS, runRoomModifierHooksForLocation } from "./game/roo
 import { drawEffect } from "./render/effectRenderers.js";
 import { drawEnemySprite } from "./render/enemyRenderers.js";
 import { drawEnemyArmorVariantLinks } from "./render/armorVariantRenderers.js";
+import { drawChestInteractable } from "./render/chestRenderers.js";
+import { drawCasinoInteractable } from "./render/casinoRenderers.js";
 
 function drawRect(ctx, x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -31,6 +33,7 @@ export function createRenderer(canvas) {
     companions: new Map(),
     loot: new Map(),
     rewardPickups: new Map(),
+    economyPickups: new Map(),
     interactables: new Map(),
     portals: new Map()
   };
@@ -268,6 +271,33 @@ function drawLoot(ctx, item, cam) {
   drawText(ctx, data.name.slice(0, 3), s.x, s.y - r - 5, GREEN, "center");
 }
 
+function drawEconomyPickup(ctx, item, cam) {
+  const s = screen(item, cam);
+  const r = item.radius || 7;
+  const claimable = item.claimable !== false;
+  const accent = item.accent || (item.type === "heal" ? GREEN : "#f3f3f3");
+  const color = claimable ? accent : "rgba(255,255,255,0.46)";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = claimable ? 2 : 1;
+  if (item.type === "money") {
+    ctx.beginPath();
+    ctx.arc(Math.round(s.x), Math.round(s.y), r, 0, Math.PI * 2);
+    ctx.stroke();
+    drawText(ctx, "$", s.x, s.y + 4, color, "center");
+  } else if (item.type === "xp") {
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+    drawText(ctx, "XP", s.x, s.y + 4, color, "center");
+  } else {
+    ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), r * 2, r * 2);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(s.x - r * 0.55), Math.round(s.y));
+    ctx.lineTo(Math.round(s.x + r * 0.55), Math.round(s.y));
+    ctx.moveTo(Math.round(s.x), Math.round(s.y - r * 0.55));
+    ctx.lineTo(Math.round(s.x), Math.round(s.y + r * 0.55));
+    ctx.stroke();
+  }
+  drawText(ctx, String(item.label || item.type || "DROP").slice(0, 7), s.x, s.y - r - 5, color, "center");
+}
 
 function drawRewardPickup(ctx, item, cam) {
   const data = item.rewardType === "loot" ? (LOOT[item.kind] || LOOT.heal) : null;
@@ -291,6 +321,14 @@ function interactableAccentColor(item) {
 }
 
 function drawInteractable(ctx, item, cam) {
+  if (item.chestId || item.chestVisual === "chest") {
+    drawChestInteractable(ctx, item, cam);
+    return;
+  }
+  if (item.casinoMachineId || item.category === "casino") {
+    drawCasinoInteractable(ctx, item, cam);
+    return;
+  }
   const s = screen(item, cam);
   const r = item.radius || 18;
   const active = !item.opened && item.active !== false;
@@ -432,6 +470,15 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     if (isVisible(item, renderCam, 60)) drawRewardPickup(ctx, item, renderCam);
   }
   prune(smooth.rewardPickups, rewardPickupIds);
+
+
+  const economyPickupIds = new Set();
+  for (const raw of snapshot.economyPickups || []) {
+    economyPickupIds.add(raw.id);
+    const item = smoothEntity(smooth.economyPickups, raw, renderDt);
+    if (isVisible(item, renderCam, 60)) drawEconomyPickup(ctx, item, renderCam);
+  }
+  prune(smooth.economyPickups, economyPickupIds);
 
   const interactableIds = new Set();
   for (const raw of snapshot.interactables || []) {

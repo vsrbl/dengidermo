@@ -17,6 +17,7 @@ export function createUi() {
     netStatus: document.getElementById("netStatus"),
     directorDebug: document.getElementById("directorDebug"),
     hpText: document.getElementById("hpText"),
+    economyText: document.getElementById("economyText"),
     weaponText: document.getElementById("weaponText"),
     inventoryText: document.getElementById("inventoryText"),
     locationText: document.getElementById("locationText"),
@@ -218,6 +219,7 @@ export function createUi() {
     setDirectorDebug(snapshot);
     if (!player) {
       el.hpText.textContent = "--";
+      if (el.economyText) el.economyText.textContent = "--";
       el.weaponText.textContent = "--";
       el.locationText.textContent = snapshot?.location?.name || "--";
       el.portalText.textContent = "--";
@@ -229,6 +231,11 @@ export function createUi() {
     const inv = player.inventory || { weapons: [START_WEAPON], activeWeapon: START_WEAPON };
     const active = inv.activeWeapon || player.activeWeapon || START_WEAPON;
     el.hpText.textContent = `${Math.max(0, Math.round(player.hp))}/${player.maxHp || 100}`;
+    if (el.economyText) {
+      const eco = player.economy || { money: 0, xp: 0, level: 1, nextLevelXp: 24 };
+      const next = Number.isFinite(eco.nextLevelXp) ? eco.nextLevelXp : "--";
+      el.economyText.textContent = `$${eco.money || 0} · L${eco.level || 1} XP ${eco.xp || 0}/${next}`;
+    }
     el.weaponText.textContent = (WEAPONS[active]?.name || WEAPONS[START_WEAPON].name).toUpperCase();
     el.locationText.textContent = snapshot?.location?.name || "GRID 00";
     const portal = (snapshot?.portals || [])[0];

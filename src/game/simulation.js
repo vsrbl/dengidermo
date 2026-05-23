@@ -6,6 +6,7 @@ import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
 import { updateInteractables } from "./interactables.js";
 import { updateRewardPickups } from "./rewardPickups.js";
+import { updateEconomyPickups } from "./economyPickups.js";
 import { updateProjectiles } from "./projectiles.js";
 import { updateCompanions } from "./companions.js";
 import { updatePortals } from "./portals.js";
@@ -106,6 +107,7 @@ export function updateHostWorld(state, inputs, dt) {
   updateProjectiles(state, safeDt);
   updateInteractables(state, safeDt);
   updateRewardPickups(state, safeDt);
+  updateEconomyPickups(state, safeDt);
   updateLoot(state, safeDt);
   updatePortals(state, safeDt);
   applyDevPlayerGuards(state);

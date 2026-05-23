@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>nncckkrr.space</title>
-  <meta name="nncckkrr-version" content="v39.3.7" />
-  <meta name="nncckkrr-build" content="v39.3.7-20260523" />
+  <meta name="nncckkrr-version" content="v39.3.10" />
+  <meta name="nncckkrr-build" content="v39.3.10-20260523" />
   <meta name="nncckkrr-protocol" content="2" />
-  <meta name="nncckkrr-release-manifest" content="./release.json?v=39.3.7" />
-  <link rel="stylesheet" href="./style.css?v=39.3.7" />
+  <meta name="nncckkrr-release-manifest" content="./release.json?v=39.3.10" />
+  <link rel="stylesheet" href="./style.css?v=39.3.10" />
 </head>
 <body>
   <div id="bootError" class="boot-error hidden" aria-live="assertive"></div>
@@ -47,6 +47,10 @@
           <span id="hpText">--</span>
         </div>
         <div class="hud-row">
+          <span class="hud-label">ECO</span>
+          <span id="economyText">$0 · L1 XP 0/24</span>
+        </div>
+        <div class="hud-row">
           <span class="hud-label">GUN</span>
           <span id="weaponText">SHOTGUN</span>
         </div>
@@ -71,8 +75,44 @@
           <span id="inventoryText">1 SHOTGUN</span>
         </div>
       </div>
-      <div id="netStatus" class="hud hud-right">V39.3.7 | BUILD 20260523 | PING -- MS | --</div>
+      <div id="netStatus" class="hud hud-right">V39.3.10 | BUILD 20260523 | PING -- MS | --</div>
       <div id="directorDebug" class="hud director-debug hidden"></div>
+      <div id="casinoPanel" class="casino-panel hidden" aria-live="polite">
+        <div class="casino-title-row">
+          <div>
+            <div class="casino-kicker">CASINO</div>
+            <div id="casinoMachineTitle" class="casino-title">SIGNAL SLOT</div>
+          </div>
+          <button id="casinoCloseBtn" class="casino-close" type="button">EXIT</button>
+        </div>
+        <div class="casino-meta">
+          <span>MONEY</span>
+          <strong id="casinoMoneyText">$0</strong>
+        </div>
+        <div class="casino-reels" aria-label="slot reels">
+          <span class="casino-reel">?</span>
+          <span class="casino-reel">?</span>
+          <span class="casino-reel">?</span>
+        </div>
+        <div class="casino-stakes">
+          <button class="casino-stake" data-stake-id="low" type="button">
+            <span class="casino-stake-name">LOW STAKE</span>
+            <span class="casino-stake-cost">$10</span>
+            <span class="casino-stake-desc">SMALL SIGNAL / SMALL LOSS</span>
+          </button>
+          <button class="casino-stake" data-stake-id="mid" type="button">
+            <span class="casino-stake-name">MID STAKE</span>
+            <span class="casino-stake-cost">$35</span>
+            <span class="casino-stake-desc">BETTER SYMBOL POOL</span>
+          </button>
+          <button class="casino-stake" data-stake-id="high" type="button">
+            <span class="casino-stake-name">HIGH STAKE</span>
+            <span class="casino-stake-cost">$75</span>
+            <span class="casino-stake-desc">RARE / STATIC RISK</span>
+          </button>
+        </div>
+        <div id="casinoStatusText" class="casino-status">SELECT STAKE</div>
+      </div>
       <div id="upgradePanel" class="upgrade-panel hidden" aria-live="polite">
         <div class="upgrade-title">UPGRADE</div>
         <button class="upgrade-choice" data-index="0"></button>
@@ -102,7 +142,7 @@
       });
     }());
   </script>
-  <script src="./config.js?v=39.3.7"></script>
-  <script type="module" src="./src/main.v39-3-7.js?v=39.3.7"></script>
+  <script src="./config.js?v=39.3.10"></script>
+  <script type="module" src="./src/main.v39-3-10.js?v=39.3.10"></script>
 </body>
 </html>

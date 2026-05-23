@@ -6,6 +6,7 @@ import { cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } fro
 import { chooseUpgrade } from "../game/upgrades.js";
 import { performDash } from "../game/abilities.js";
 import { requestInteractableActivation } from "../game/interactables.js";
+import { requestCasinoSpin, casinoSpinResultSnapshot } from "../game/casino.js";
 
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
@@ -69,6 +70,13 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     return requestInteractableActivation(app.hostState, id, request);
   }
 
+  function applyCasinoSpinRequest(id, request = {}) {
+    if (!app.hostState) return { ok: false, reason: "no_host_state" };
+    const result = casinoSpinResultSnapshot(requestCasinoSpin(app.hostState, id, request));
+    if (id && id !== app.playerId) app.transport?.sendTo(id, { t: "casinoResult", result });
+    return result;
+  }
+
   function handleNetData(msg, from) {
     if (msg.t === "leave" && from) {
       session.dropRemotePlayer(from);
@@ -100,6 +108,10 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     }
     if (msg.t === "interact" && from) {
       applyInteractRequest(from, msg);
+      return true;
+    }
+    if (msg.t === "casinoSpin" && from) {
+      applyCasinoSpinRequest(from, msg);
       return true;
     }
     return false;
@@ -143,6 +155,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     applyUpgradeRequest,
     applyAbilityRequest,
     applyInteractRequest,
+    applyCasinoSpinRequest,
     handleNetData,
     update
   };

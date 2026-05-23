@@ -47,6 +47,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.activeWeapon = app.localWeapon;
     app.localPose.inventory = app.localInventory;
     app.localPose.upgrades = me.upgrades || { choices: [] };
+    app.localPose.economy = me.economy || app.localPose.economy || { money: 0, xp: 0, lifetimeXp: 0, level: 1, nextLevelXp: 24 };
     app.localPose.stats = me.stats || app.localPose.stats || {};
     app.localPose.ability = me.ability || null;
     app.localPose.name = me.name || session.playerDisplayName(app.playerId);
@@ -171,6 +172,10 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     if (!app.running) return;
     const target = nearestInteractableTarget();
     if (!target) return;
+    if (target.category === "casino" || target.casinoMachineId) {
+      app.casinoClient?.open(target);
+      return;
+    }
     app.interactSeq += 1;
     const request = { t: "interact", targetId: target.id, seq: app.interactSeq };
     if (app.role === "host") {

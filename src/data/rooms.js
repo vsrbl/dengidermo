@@ -12,7 +12,7 @@ export const ROOM_SEQUENCE = [
     spawnZones: ["edge_far", "edge_random"],
     portal: { delay: 5, hold: 1.1 },
     interactableRules: [
-      { id: "field_cache_grid", interactableId: "field_cache", minLoop: 1, chance: 0.28, placement: "field_cache", tags: ["exploration"] }
+      { id: "basic_chest_grid", interactableId: "basic_chest", minLoop: 1, chance: 0.28, placement: "field_cache", tags: ["exploration"] }
     ]
   },
   {
@@ -29,7 +29,7 @@ export const ROOM_SEQUENCE = [
     portal: { delay: 7, hold: 1.15 },
     spawn: { boost: 1.04 },
     interactableRules: [
-      { id: "field_cache_void", interactableId: "field_cache", minLoop: 1, chance: 0.24, placement: "field_cache", tags: ["exploration"] }
+      { id: "basic_chest_void", interactableId: "basic_chest", minLoop: 1, chance: 0.24, placement: "field_cache", tags: ["exploration"] }
     ]
   },
   {
@@ -46,7 +46,7 @@ export const ROOM_SEQUENCE = [
     portal: { delay: 8, hold: 1.2 },
     enemyPool: ["runner", "tank", "shooter"],
     interactableRules: [
-      { id: "field_cache_core", interactableId: "field_cache", minLoop: 1, chance: 0.22, placement: "field_cache", tags: ["exploration"] }
+      { id: "basic_chest_core", interactableId: "basic_chest", minLoop: 1, chance: 0.22, placement: "field_cache", tags: ["exploration"] }
     ]
   },
   {
@@ -82,7 +82,7 @@ export const RARE_ROOMS = [
     enemyPool: [],
     lootPool: ["heal"],
     interactables: [
-      { id: "reward_cache_main", interactableId: "reward_cache", placement: "reward_center", tags: ["rare", "reward"] }
+      { id: "rare_chest_main", interactableId: "rare_chest", placement: "reward_center", tags: ["rare", "reward"] }
     ],
     spawn: {
       capBase: 0,

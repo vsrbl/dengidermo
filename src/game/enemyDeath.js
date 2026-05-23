@@ -1,5 +1,6 @@
 import { ENEMIES } from "../data/enemies.js";
 import { dropLoot } from "./loot.js";
+import { spawnEnemyDrops } from "./dropResolver.js";
 import { pushEvent } from "./events.js";
 import { sourceId } from "./effects.js";
 import { runEnemyEliteDeath } from "./enemyElites.js";
@@ -13,6 +14,7 @@ export function finishEnemyKill(state, enemy, source = null, hit = null) {
   const data = ENEMIES[enemy.kind] || { score: 0 };
   const sid = sourceId(source) || (typeof source === "string" ? source : null) || hit?.sourceId || null;
   runEnemyEliteDeath(state, enemy, source, hit);
+  spawnEnemyDrops(state, enemy, { sourceType: "enemy", sourceId: enemy.id, playerId: sid });
   dropLoot(state, enemy.x, enemy.y, enemy.kind === "boss" ? 1 : 0.32, sid);
   pushEvent(state, {
     type: "kill",

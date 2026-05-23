@@ -10,11 +10,16 @@ import { runEnemyEliteDeath } from '../src/game/enemyElites.js';
 import { runRoomModifierHooksForLocation, ROOM_MODIFIER_HOOKS } from '../src/game/roomModifiers.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { requestInteractableActivation, updateInteractables } from '../src/game/interactables.js';
+import { requestCasinoSpin } from '../src/game/casino.js';
 import { spawnRewardPickup, updateRewardPickups } from '../src/game/rewardPickups.js';
+import { updateEconomyPickups } from '../src/game/economyPickups.js';
+import { economySnapshot } from '../src/game/playerEconomy.js';
 import { executeReward } from '../src/game/rewardResolver.js';
 import { resolveRoomModifierStack } from '../src/game/modifierStack.js';
 import { ABILITY_IDS } from '../src/data/abilities.js';
 import { REWARD_TYPES } from '../src/data/rewardTypes.js';
+import { ECONOMY_PICKUP_TYPES } from '../src/data/economy.js';
+import { CHEST_IDS, CHEST_STATES } from '../src/data/chests.js';
 import { dashConfig } from '../src/game/abilities.js';
 import { hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
 import {
@@ -133,6 +138,7 @@ function assertTransitionCleanupScenario() {
   state.projectiles.test = { id: 'test', ownerId: player.id, weaponId: 'shotgun', kind: 'bullet', x: player.x, y: player.y, vx: 1, vy: 0, radius: 4 };
   state.loot.test = { id: 'test', kind: 'heal', x: player.x, y: player.y };
   state.rewardPickups.test = { id: 'test', rewardType: 'loot', kind: 'heal', x: player.x, y: player.y, radius: 10, claimRadius: 15, active: true };
+  state.economyPickups.test = { id: 'test', type: 'money', amount: 1, x: player.x, y: player.y, radius: 7, claimRadius: 14, active: true };
   state.interactables.test = { id: 'test', kind: 'field_cache', x: player.x, y: player.y, radius: 18, interactRadius: 38 };
   state.effects.push({ type: 'spark', x: player.x, y: player.y, life: 1, maxLife: 1 });
   state.companions.test = { id: 'test', ownerId: player.id, kind: 'drone' };
@@ -143,6 +149,7 @@ function assertTransitionCleanupScenario() {
   assert.equal(Object.keys(state.projectiles).length, 0, 'transition should clear projectiles');
   assert.equal(Object.keys(state.loot).length, 0, 'transition should clear loot');
   assert.equal(Object.keys(state.rewardPickups).length, 0, 'transition should clear reward pickups');
+  assert.equal(Object.keys(state.economyPickups).length, 0, 'transition should clear economy pickups');
   assert.equal(Object.values(state.interactables).some((item) => item.id === 'test'), false, 'transition should clear old interactables');
   assert.equal(Object.keys(state.companions).length, 0, 'transition should clear live companions before recreation');
   assert.ok(Object.keys(state.portals).length > 0, 'transition should create the next portal');
@@ -157,12 +164,15 @@ function assertInteractableScenario() {
   assert.equal(state.roomPlan.interactablePlan.length, 1, 'reward cache room should carry one data-driven interactable slot');
   assert.equal(Object.keys(state.interactables).length, 1, 'entering reward cache should spawn its interactable from the plan');
   const chest = Object.values(state.interactables)[0];
-  assert.equal(chest.kind, 'reward_cache', 'reward room interactable should use reward_cache data');
+  assert.equal(chest.kind, CHEST_IDS.RARE, 'reward room interactable should use real rare chest data');
+  assert.equal(chest.chestId, CHEST_IDS.RARE, 'reward room chest should carry chest identity');
+  assert.equal(chest.chestState, CHEST_STATES.CLOSED, 'reward room chest should start closed');
   updateInteractables(state, 0.016);
   assert.equal(chest.opened, false, 'reward chest must not open without explicit E interaction');
   player.x = chest.x;
   player.y = chest.y;
   assert.equal(requestInteractableActivation(state, player.id, { targetId: chest.id }), true, 'host-validated interact request should activate reward chest');
+  assert.equal(chest.chestState, CHEST_STATES.OPENING, 'activated chest should enter opening state');
   assert.ok(Object.keys(state.rewardPickups).length >= 1, 'opening reward cache should spawn reward pickups through reward resolver');
   assert.equal(Object.keys(state.loot).length, 0, 'room rewards should not bypass the reward pickup contract by spawning legacy loot directly');
   const rewardPickup = Object.values(state.rewardPickups)[0];
@@ -171,6 +181,7 @@ function assertInteractableScenario() {
   updateRewardPickups(state, 0.5);
   assert.ok(state.events.some((event) => event.type === 'rewardPickup' && event.action === 'claimed'), 'reward pickup should be claimable through the official pickup pipeline after its short delay');
   assert.ok(state.events.some((event) => event.type === 'interactable' && event.action === 'opened'), 'interactable activation should emit an event');
+  assert.ok(state.events.some((event) => event.type === 'chest' && event.action === 'opened' && event.chestId === CHEST_IDS.RARE), 'chest activation should emit a chest-specific event');
 
   const casinoPlan = resolveRoomPlan(8, { seed: 'INTERACTABLE-SCENARIO' });
   const casinoLoc = getLocationFromRoomPlan(casinoPlan);
@@ -187,14 +198,46 @@ function assertInteractableScenario() {
   assert.equal(slot.opened, false, 'SIGNAL SLOT must not auto-open on touch/entry');
   player.x = slot.x;
   player.y = slot.y;
-  assert.equal(requestInteractableActivation(state, player.id, { targetId: slot.id }), true, 'E-style host interaction should activate SIGNAL SLOT');
-  assert.ok(state.events.some((event) => event.type === 'interactable' && event.kind === 'casino_slot'), 'casino activity should emit an interactable event');
-  assert.ok(
-    state.events.some((event) => event.type === 'reward' && event.action === 'nothing') || Object.values(state.rewardPickups).some((item) => item.sourceId === slot.id),
-    'casino activity should resolve either a bust event or reward pickups through rewardResolver'
-  );
+  assert.equal(requestInteractableActivation(state, player.id, { targetId: slot.id }), true, 'E-style host interaction should request/open the SIGNAL SLOT without resolving rewards');
+  assert.equal(slot.opened, false, 'opening casino modal must not consume the casino machine interactable');
+  assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'open_requested'), 'casino modal open should emit casino open_requested event');
+  const deniedSpin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 1 });
+  assert.equal(deniedSpin.ok, false, 'casino spin should reject when player cannot pay the stake');
+  assert.equal(deniedSpin.reason, 'not_enough_money', 'casino spin rejection should explain missing money');
+  player.economy.money = 100;
+  const spin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 2 });
+  assert.equal(spin.ok, true, 'casino spin should resolve only through host-owned spin request');
+  assert.equal(player.economy.money, 90, 'casino stake should be spent through playerEconomy pipeline on host');
+  assert.equal(spin.symbols.length, 3, 'casino spin result should include three reel symbols');
+  assert.equal(spin.payoutApplied, false, 'v39.3.10 should be foundation-only without applying jackpot/payout rewards yet');
+  assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'spin_resolved'), 'casino spin should emit a host-resolved casino event');
 }
 
+
+
+function assertEconomyDropScenario() {
+  const { state, player } = fresh('ECONOMY-DROP-SCENARIO');
+  player.hp = 40;
+  const boss = spawnEnemy(state, 'boss', player.x + 80, player.y, { eliteVariantId: null, armorVariantId: null });
+  assert.equal(finishEnemyKill(state, boss, { kind: 'verify', sourceId: player.id }), true, 'boss kill should pass through kill finalizer');
+  const pickups = Object.values(state.economyPickups || {});
+  assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.XP), 'enemy drop resolver should spawn XP pickups');
+  assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.MONEY), 'enemy drop resolver should spawn money pickups');
+  assert.ok(pickups.some((item) => item.type === ECONOMY_PICKUP_TYPES.HEAL), 'enemy drop resolver should spawn HP/heal pickups');
+
+  for (const pickup of Object.values(state.economyPickups || {})) {
+    pickup.x = player.x;
+    pickup.y = player.y;
+    pickup.claimDelay = 0;
+  }
+  updateEconomyPickups(state, 0.016);
+  const economy = economySnapshot(player);
+  assert.ok(economy.money > 0, 'claiming money pickup should update player economy money');
+  assert.ok(economy.lifetimeXp > 0, 'claiming XP pickup should update player lifetime XP');
+  assert.ok(player.hp > 40, 'claiming heal pickup should heal through official health pipeline');
+  assert.ok(state.events.some((event) => event.type === 'economyPickup' && event.pickupType === ECONOMY_PICKUP_TYPES.MONEY), 'money pickup claim should emit economyPickup event');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp'), 'XP claim should emit economy grant event');
+}
 
 function assertAbilityRewardScenario() {
   const { state, player } = fresh('ABILITY-REWARD-SCENARIO');
@@ -290,7 +333,8 @@ assertLifestealScenario();
 assertPlayerDamageScenario();
 assertTransitionCleanupScenario();
 assertInteractableScenario();
+assertEconomyDropScenario();
 assertAbilityRewardScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, modifier stack/hooks, interactable reward pickups, active ability loot, casino activity plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, modifier stack/hooks, interactable reward pickups, active ability loot, casino activity plus next-room casino debt');

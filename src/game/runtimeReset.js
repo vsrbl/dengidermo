@@ -14,6 +14,7 @@ export function clearLocationRuntimeObjects(state, options = {}) {
   state.companions = {};
   state.loot = {};
   state.rewardPickups = {};
+  state.economyPickups = {};
   state.interactables = {};
   state.events = options.keepEvents ? (state.events || []) : [];
   state.portals = {};

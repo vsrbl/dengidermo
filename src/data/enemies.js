@@ -1,6 +1,7 @@
 export const ENEMIES = {
   grunt: {
     name: "GRUNT",
+    dropTable: "grunt",
     hp: 34,
     speed: 84,
     radius: 13,
@@ -13,6 +14,7 @@ export const ENEMIES = {
 
   runner: {
     name: "RUNNER",
+    dropTable: "runner",
     hp: 30,
     speed: 126,
     radius: 16,
@@ -25,6 +27,7 @@ export const ENEMIES = {
 
   tank: {
     name: "TANK",
+    dropTable: "tank",
     hp: 92,
     speed: 42,
     radius: 24,
@@ -44,6 +47,7 @@ export const ENEMIES = {
 
   shooter: {
     name: "SHOOTER",
+    dropTable: "shooter",
     hp: 46,
     speed: 54,
     radius: 14,
@@ -69,6 +73,7 @@ export const ENEMIES = {
 
   charger: {
     name: "CHARGER",
+    dropTable: "charger",
     hp: 52,
     speed: 70,
     radius: 15,
@@ -93,6 +98,7 @@ export const ENEMIES = {
 
   bomber: {
     name: "BOMBER",
+    dropTable: "bomber",
     hp: 36,
     speed: 54,
     radius: 15,
@@ -114,6 +120,7 @@ export const ENEMIES = {
 
   boss: {
     name: "BOSS",
+    dropTable: "boss",
     hp: 460,
     speed: 30,
     radius: 42,

@@ -7,12 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-7.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-7.js";
-import { createSessionRuntime } from "./app/session.v39-3-7.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-7.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-7.js";
-import { createDevControls } from "./app/devControls.v39-3-7.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-10.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-10.js";
+import { createSessionRuntime } from "./app/session.v39-3-10.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-10.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-10.js";
+import { createDevControls } from "./app/devControls.v39-3-10.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-10.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -61,6 +62,8 @@ function createAppState() {
     fireSeq: 0,
     abilitySeq: 0,
     interactSeq: 0,
+    casinoSeq: 0,
+    casinoClient: null,
     lastInputSent: 0,
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
@@ -86,6 +89,8 @@ const sessionRuntime = createSessionRuntime(app, {
 hostRuntime = createHostRuntime(app, { session: sessionRuntime, upgrades: upgradeClient });
 clientRuntime = createClientRuntime(app, { session: sessionRuntime, host: hostRuntime, upgrades: upgradeClient });
 const devControls = createDevControls(app);
+const casinoClient = createCasinoClient(app, { host: hostRuntime });
+app.casinoClient = casinoClient;
 
 sessionRuntime.wire({ host: hostRuntime, upgrades: upgradeClient });
 hostRuntime.wire({ client: clientRuntime });
@@ -145,6 +150,11 @@ function handleNetData(msg, from, mode) {
     return;
   }
 
+  if (msg.t === "casinoResult") {
+    casinoClient.receiveResult(msg.result);
+    return;
+  }
+
   clientRuntime.handleNetData(msg);
 }
 
@@ -165,6 +175,7 @@ function loop(now) {
 
   if (app.running) {
     upgradeClient.tick(now);
+    casinoClient.tick();
     app.transport?.tickPing(now);
     if (app.role === "host" && app.hostState) hostRuntime.update(gameDt, now, gameNow);
     if (app.role === "guest") clientRuntime.updateGuest(gameDt, now, gameNow);

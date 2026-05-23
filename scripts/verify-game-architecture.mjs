@@ -74,6 +74,13 @@ failOnPattern(
 
 failOnPattern(
   gameFiles,
+  /\.economy\.(?:money|xp|lifetimeXp|level)\s*(?:[-+*/%]=|=)/,
+  'player economy must not be mutated outside playerEconomy pipeline',
+  new Set(['src/game/playerEconomy.js'])
+);
+
+failOnPattern(
+  gameFiles,
   /\bplayer\.weapon\b|\bplayer\[['"]weapon['"]\]/,
   'player.weapon must not be resurrected; use player.inventory.activeWeapon'
 );
@@ -131,9 +138,31 @@ assert.match(rewardPickups, /claimRewardPickup/, 'reward pickup claim contract m
 assert.match(rewardPickups, /healPlayer\(state, player/, 'reward pickup healing must use healPlayer pipeline');
 assert.match(rewardPickups, /giveWeapon\(player, data\.weaponId/, 'reward pickup weapon grant must use inventory pipeline');
 assert.match(rewardPickups, /applyAbilityReward\(player, pickup\)/, 'reward pickup ability grant must use ability reward pipeline');
+const economyPickups = read('src/game/economyPickups.js');
+assert.match(economyPickups, /grantMoney\(state, player/, 'money pickups must grant through playerEconomy pipeline');
+assert.match(economyPickups, /grantXp\(state, player/, 'XP pickups must grant through playerEconomy pipeline');
+assert.match(economyPickups, /healPlayer\(state, player/, 'heal economy pickups must use healPlayer pipeline');
+const dropResolver = read('src/game/dropResolver.js');
+assert.match(dropResolver, /spawnEconomyPickup\(/, 'enemy drops must create economy pickups through dropResolver/economyPickups');
+assert.match(read('src/game/enemyDeath.js'), /spawnEnemyDrops\(state, enemy/, 'enemy kill finalizer must route baseline drops through spawnEnemyDrops');
 const abilityRewards = read('src/game/abilityRewards.js');
 assert.match(abilityRewards, /grantAbility\(player/, 'ability rewards must grant abilities through abilityInventory pipeline');
 assert.match(abilityRewards, /grantAbilityShard\(player/, 'ability rewards must grant shards through abilityInventory pipeline');
+
+const casino = read('src/game/casino.js');
+assert.match(casino, /spendMoney\(state, player/, 'casino stake spending must use playerEconomy pipeline');
+assert.match(casino, /validateCasinoSpin/, 'casino must expose host-side spin validation');
+assert.doesNotMatch(read('src/app/casinoClient.js'), /spendMoney|grantMoney|grantXp|executeRewardTable|spawnRewardPickup/, 'casino client must not grant rewards or mutate economy');
+assert.match(read('src/app/hostRuntime.js'), /requestCasinoSpin\(/, 'host runtime must own casino spin request execution');
+assert.match(read('src/render/casinoRenderers.js'), /drawCasinoInteractable/, 'casino visuals must live in casino renderer registry');
+
+const chests = read('src/game/chests.js');
+assert.match(chests, /executeRewardTable\(/, 'chests must resolve rewards through reward tables/reward commands');
+assert.match(chests, /CHEST_STATES\.OPENING/, 'chest runtime must expose opening state');
+assert.doesNotMatch(chests, /giveWeapon\s*\(/, 'chests must not grant inventory directly');
+assert.doesNotMatch(chests, /healPlayer\s*\(/, 'chests must not heal directly; rewards go through pickups');
+assert.match(read('src/game/interactables.js'), /activateChest\(/, 'interactable activation must delegate chest openings to the chest system');
+assert.match(read('src/render/chestRenderers.js'), /drawChestInteractable/, 'chest visuals must live in chest renderer registry');
 const abilities = read('src/game/abilities.js');
 assert.match(abilities, /legacyDash \|\| inventoryDash/, 'dash ability must preserve legacy upgrade compatibility while allowing ability loot');
 

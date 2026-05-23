@@ -9,9 +9,16 @@ import { ENCOUNTER_PLANS } from '../src/data/encounters.js';
 import { ROOM_LAYOUTS, layoutIdentitySnapshot } from '../src/data/layouts.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { INTERACTABLES } from '../src/data/interactables.js';
+import { CASINO_MACHINES, CASINO_MACHINE_STATES, casinoMachineStateIsKnown, getCasinoMachine } from '../src/data/casinoMachines.js';
+import { CASINO_STAKES } from '../src/data/casinoStakes.js';
+import { CASINO_SYMBOLS, casinoSymbolIsKnown } from '../src/data/casinoSymbols.js';
+import { CHESTS, CHEST_STATES, chestStateIsKnown, getChest } from '../src/data/chests.js';
+import { CHEST_REWARD_TABLES } from '../src/data/chestRewardTables.js';
 import { REWARD_TABLES, rewardEntryIsKnown } from '../src/data/rewardTables.js';
 import { REWARD_TYPES, ACTIVE_REWARD_TYPES, RESERVED_REWARD_TYPES, rewardTypeIsKnown } from '../src/data/rewardTypes.js';
 import { LOOT } from '../src/data/loot.js';
+import { DROP_TABLES, dropTableEntryIsKnown } from '../src/data/dropTables.js';
+import { ECONOMY_PICKUP_TYPES, economyPickupTypeIsKnown, xpRequiredForNextLevel } from '../src/data/economy.js';
 import { ABILITIES, ABILITY_IDS, abilityIsRewardable } from '../src/data/abilities.js';
 import { ABILITY_LOOT_TABLES } from '../src/data/abilityLootTables.js';
 import { ELITE_VARIANTS } from '../src/data/eliteVariants.js';
@@ -38,7 +45,20 @@ for (const [kind, data] of Object.entries(ENEMIES)) {
   assert.ok(Number.isFinite(data.hp) && data.hp > 0, `${kind} needs positive hp`);
   assert.ok(Number.isFinite(data.radius) && data.radius > 0, `${kind} needs positive radius`);
   if (data.armor) assert.ok(Number.isFinite(data.armor.hp) && data.armor.hp > 0, `${kind} armor needs positive hp`);
+  assert.ok(DROP_TABLES[data.dropTable], `${kind} references unknown drop table: ${data.dropTable}`);
 }
+assertUnique(Object.keys(DROP_TABLES), 'drop table');
+assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.MONEY), 'money pickup type must be registered');
+assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.XP), 'xp pickup type must be registered');
+assert.ok(economyPickupTypeIsKnown(ECONOMY_PICKUP_TYPES.HEAL), 'heal pickup type must be registered');
+assert.ok(Number.isFinite(xpRequiredForNextLevel(1)) && xpRequiredForNextLevel(1) > 0, 'economy level curve needs a positive first threshold');
+for (const [id, table] of Object.entries(DROP_TABLES)) {
+  assert.equal(table.id, id, `drop table key/id mismatch: ${id}`);
+  assert.ok(Array.isArray(table.entries) && table.entries.length > 0, `${id} drop table needs entries`);
+  for (const entry of table.entries) assert.ok(dropTableEntryIsKnown(entry), `${id} has invalid economy drop entry: ${JSON.stringify(entry)}`);
+  assert.ok(table.entries.some((entry) => entry.type === ECONOMY_PICKUP_TYPES.XP), `${id} should include baseline XP drops`);
+}
+
 for (const kind of ENEMY_WAVES) assert.ok(ENEMIES[kind], `ENEMY_WAVES references unknown enemy: ${kind}`);
 
 assertUnique(Object.keys(WEAPONS), 'weapon');
@@ -126,6 +146,49 @@ for (const [id, table] of Object.entries(ABILITY_LOOT_TABLES)) {
   }
 }
 
+
+assertUnique(Object.keys(CHESTS), 'chest');
+assert.ok(chestStateIsKnown(CHEST_STATES.CLOSED), 'closed chest state must be registered');
+assert.ok(chestStateIsKnown(CHEST_STATES.OPENING), 'opening chest state must be registered');
+assert.ok(chestStateIsKnown(CHEST_STATES.OPENED), 'opened chest state must be registered');
+assert.ok(chestStateIsKnown(CHEST_STATES.CLAIMED), 'claimed chest state must be registered');
+for (const [id, chest] of Object.entries(CHESTS)) {
+  assert.equal(chest.id, id, `chest key/id mismatch: ${id}`);
+  assert.ok(chest.name && chest.tier, `${id} chest needs name/tier`);
+  assert.ok(Number.isFinite(chest.radius) && chest.radius > 0, `${id} chest needs positive radius`);
+  assert.ok(Number.isFinite(chest.interactRadius) && chest.interactRadius >= chest.radius, `${id} chest needs valid interact radius`);
+  assert.ok(CHEST_REWARD_TABLES[chest.rewardTable], `${id} chest references unknown chest reward table: ${chest.rewardTable}`);
+  assert.ok(chest.visual?.renderer === 'chest', `${id} chest must use the chest renderer identity`);
+  assert.ok(Array.isArray(chest.tags) && chest.tags.includes('chest'), `${id} chest needs chest tag`);
+  assert.ok(INTERACTABLES[id], `${id} chest must be exposed as an interactable`);
+}
+assertUnique(Object.keys(CHEST_REWARD_TABLES), 'chest reward table');
+
+assertUnique(Object.keys(CASINO_SYMBOLS), 'casino symbol');
+for (const [id, symbol] of Object.entries(CASINO_SYMBOLS)) {
+  assert.equal(symbol.id, id, `casino symbol key/id mismatch: ${id}`);
+  assert.ok(symbol.label && symbol.glyph && symbol.accent, `${id} casino symbol needs label/glyph/accent`);
+  assert.ok(Number.isFinite(symbol.weight) && symbol.weight > 0, `${id} casino symbol needs positive weight`);
+}
+assertUnique(Object.keys(CASINO_STAKES), 'casino stake');
+for (const [id, stake] of Object.entries(CASINO_STAKES)) {
+  assert.equal(stake.id, id, `casino stake key/id mismatch: ${id}`);
+  assert.ok(stake.name && Number.isFinite(stake.cost) && stake.cost > 0, `${id} casino stake needs name and positive money cost`);
+  assert.ok(Number.isFinite(stake.reels) && stake.reels === 3, `${id} casino stake foundation should use three reels`);
+}
+assertUnique(Object.keys(CASINO_MACHINES), 'casino machine');
+assert.ok(casinoMachineStateIsKnown(CASINO_MACHINE_STATES.IDLE), 'casino idle state must be registered');
+assert.ok(casinoMachineStateIsKnown(CASINO_MACHINE_STATES.SPINNING), 'casino spinning state must be registered');
+assert.ok(casinoMachineStateIsKnown(CASINO_MACHINE_STATES.RESOLVED), 'casino resolved state must be registered');
+for (const [id, machine] of Object.entries(CASINO_MACHINES)) {
+  assert.equal(machine.id, id, `casino machine key/id mismatch: ${id}`);
+  assert.ok(machine.name && machine.visual?.renderer === 'slot_machine', `${id} casino machine needs slot-machine visual identity`);
+  assert.ok(Array.isArray(machine.allowedStakes) && machine.allowedStakes.length >= 3, `${id} casino machine needs stake tiers`);
+  for (const stakeId of machine.allowedStakes) assert.ok(CASINO_STAKES[stakeId], `${id} references unknown casino stake: ${stakeId}`);
+  assert.ok(Array.isArray(machine.symbolPool) && machine.symbolPool.length >= 3, `${id} casino machine needs reel symbol pool`);
+  for (const symbolId of machine.symbolPool) assert.ok(casinoSymbolIsKnown(symbolId), `${id} references unknown casino symbol: ${symbolId}`);
+}
+
 assertUnique(Object.keys(REWARD_TABLES), 'reward table');
 for (const [id, table] of Object.entries(REWARD_TABLES)) {
   assert.equal(table.id, id, `reward table key/id mismatch: ${id}`);
@@ -145,7 +208,22 @@ for (const [id, data] of Object.entries(INTERACTABLES)) {
   assert.equal(typeof data.autoOpen, 'boolean', `${id} interactable must declare explicit autoOpen contract`);
   assert.ok(Number.isFinite(data.minSpawnDistance) && data.minSpawnDistance >= 0, `${id} interactable needs non-negative spawn clearance`);
   assert.ok(REWARD_TABLES[data.rewardTable], `${id} interactable references unknown reward table: ${data.rewardTable}`);
+  if (data.chestId) {
+    assert.ok(getChest(data.chestId), `${id} references unknown chestId: ${data.chestId}`);
+    assert.equal(data.category, 'chest', `${id} chest interactable must use chest category`);
+    assert.equal(data.autoOpen, false, `${id} chest interactable must not auto-open`);
+  }
+  if (data.casinoMachineId) {
+    assert.ok(getCasinoMachine(data.casinoMachineId), `${id} references unknown casinoMachineId: ${data.casinoMachineId}`);
+    assert.equal(data.category, 'casino', `${id} casino interactable must use casino category`);
+    assert.equal(data.autoOpen, false, `${id} casino interactable must not auto-open`);
+  }
 }
+
+const chestRendererSrc = read('src/render/chestRenderers.js');
+assert.match(chestRendererSrc, /drawChestInteractable/, 'chest renderer registry must export drawChestInteractable');
+assert.match(read('src/renderer.js'), /drawChestInteractable\(ctx, item, cam\)/, 'main renderer must route chest interactables through chest renderer');
+assert.match(read('src/renderer.js'), /drawCasinoInteractable\(ctx, item, cam\)/, 'main renderer must route casino interactables through casino renderer');
 
 const eliteRendererSrc = read('src/render/eliteRenderers.js');
 for (const [id, variant] of Object.entries(ELITE_VARIANTS)) {

@@ -1,11 +1,13 @@
 import { CENTER, GREEN, PLAYER_RADIUS, RED, SPAWN_OFFSETS, WORLD } from "../core/constants.js";
 import { dist2 } from "../core/math.js";
-import { getInteractable } from "../data/interactables.js";
+import { INTERACTABLE_CATEGORIES, getInteractable } from "../data/interactables.js";
 import { canPlaceCircleInLocation, roomGeometrySnapshot } from "./roomGeometry.js";
 import { addSpark, pushVisualEffect } from "./effectCommands.js";
 import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 import { executeRewardTable } from "./rewardResolver.js";
+import { activateChest, createChestRuntimeFields, isChestInteractableData, updateChestInteractable } from "./chests.js";
+import { createCasinoRuntimeFields, isCasinoInteractableData, updateCasinoInteractable } from "./casino.js";
 
 const PLACEMENT_POINTS = Object.freeze({
   field_cache: Object.freeze([
@@ -95,7 +97,9 @@ export function spawnLocationInteractables(state, loc) {
       rewardTable: slot.rewardTable || data.rewardTable || null,
       tags: [...(data.tags || []), ...(slot.tags || [])],
       label: data.visual?.label || data.name,
-      accent: data.visual?.accent || "green"
+      accent: data.visual?.accent || "green",
+      ...createChestRuntimeFields(data),
+      ...createCasinoRuntimeFields(data)
     };
     state.interactables[id] = interactable;
     spawned.push(interactable);
@@ -120,6 +124,22 @@ export function canActivateInteractable(state, interactable, player, options = {
 export function activateInteractable(state, interactable, player, options = {}) {
   const check = canActivateInteractable(state, interactable, player, options);
   if (!check.ok) return false;
+  if (isChestInteractableData(check.data) || interactable.category === INTERACTABLE_CATEGORIES.CHEST) {
+    return activateChest(state, interactable, player, options);
+  }
+
+  if (isCasinoInteractableData(check.data) || interactable.category === INTERACTABLE_CATEGORIES.CASINO) {
+    pushEvent(state, {
+      type: "casino",
+      action: "open_requested",
+      playerId: player.id,
+      interactableId: interactable.id,
+      machineId: interactable.casinoMachineId || check.data.casinoMachineId || null,
+      x: interactable.x,
+      y: interactable.y
+    });
+    return true;
+  }
 
   interactable.uses += 1;
   interactable.opened = true;
@@ -190,9 +210,12 @@ export function updateInteractables(state, dt = 0.016) {
   for (const interactable of Object.values(state.interactables)) {
     if (interactable.opened) {
       interactable.despawnTimer = Math.max(0, (interactable.despawnTimer || 0) - dt);
+      updateChestInteractable(interactable, dt);
+      updateCasinoInteractable(interactable, dt);
       if (interactable.despawnTimer <= 0) delete state.interactables[interactable.id];
       continue;
     }
+    updateCasinoInteractable(interactable, dt);
     if (!interactable.active || !interactable.autoOpen) continue;
     for (const player of Object.values(state.players || {})) {
       const check = canActivateInteractable(state, interactable, player);
@@ -218,6 +241,17 @@ export function interactableSnapshot(interactable) {
     autoOpen: !!interactable.autoOpen,
     label: interactable.label,
     accent: interactable.accent || "green",
+    chestId: interactable.chestId || null,
+    chestTier: interactable.chestTier || null,
+    chestState: interactable.chestState || null,
+    chestVisual: interactable.chestVisual || null,
+    chestGlyph: interactable.chestGlyph || null,
+    casinoMachineId: interactable.casinoMachineId || null,
+    casinoState: interactable.casinoState || null,
+    casinoLabel: interactable.casinoLabel || null,
+    casinoGlyph: interactable.casinoGlyph || null,
+    casinoAllowedStakes: [...(interactable.casinoAllowedStakes || [])],
+    casinoLastResult: interactable.casinoLastResult || null,
     tags: [...(interactable.tags || [])]
   };
 }
