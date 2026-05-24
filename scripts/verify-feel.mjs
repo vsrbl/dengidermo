@@ -193,6 +193,51 @@ test('kill combo dopamine moments are host-authoritative and economy rewards use
   assert.ok(style.includes('PixelLocal') && style.includes('-webkit-font-smoothing: none'), 'center moment/combo labels should use explicit pixel-terminal font styling');
 });
 
+
+test('screen moments use durable queue and EXIT OPEN trusts host-gated event', () => {
+  const momentFeed = readFileSync(new URL('../src/momentFeed.js', import.meta.url), 'utf8');
+  const portals = readFileSync(new URL('../src/game/portals.js', import.meta.url), 'utf8');
+  assert.ok(momentFeed.includes('MOMENT_FEED_SCHEMA_VERSION = 2'), 'moment feed schema should reflect queued/gated exit hotfix');
+  assert.ok(portals.includes('portalActive: true'), 'portal open event should mark the host-gated active portal state');
+  assert.ok(momentFeed.includes('!event.portalActive && !matchingPortal?.active'), 'EXIT OPEN should display only when the host-gated event or snapshot says active');
+  assert.ok(momentFeed.includes('if (!moment) continue'), 'non-ready moment candidates must not be marked seen and lost forever');
+});
+
+test('orbiter pressure slows players and snapshots the pressure count', () => {
+  const pressure = readFileSync(new URL('../src/game/orbiterPressure.js', import.meta.url), 'utf8');
+  const simulation = readFileSync(new URL('../src/game/simulation.js', import.meta.url), 'utf8');
+  const snapshot = readFileSync(new URL('../src/game/state.js', import.meta.url), 'utf8');
+  assert.ok(pressure.includes('ORBITER_SLOW_PER_ORB = 0.35'), 'one orbiter should slow by 35%');
+  assert.ok(simulation.includes('updateOrbiterPressure(state)'), 'host simulation must update orbiter pressure before player movement');
+  assert.ok(simulation.includes('player.orbiterSlowMult'), 'player movement speed must consume orbiter slow multiplier');
+  assert.ok(snapshot.includes('orbiterPressure: orbiterPressureSnapshot(p)'), 'snapshot must expose orbiter pressure for UI/prediction');
+});
+
+test('central dopamine typography uses Pixelify Sans display font without bundling font files', () => {
+  const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.ok(style.includes('fonts.googleapis.com/css2?family=Pixelify+Sans'), 'style should load the selected web pixel font');
+  assert.ok(style.includes('--display-pixel-font: "Pixelify Sans"'), 'central display font stack should use Pixelify Sans first');
+  assert.ok(style.includes('font-family: var(--display-pixel-font)'), 'screen moments/combo should use the display pixel font variable');
+});
+
+test('linked armor is data-driven and can appear on random non-tank enemies', () => {
+  const variants = readFileSync(new URL('../src/data/armorVariants.js', import.meta.url), 'utf8');
+  const runtime = readFileSync(new URL('../src/game/enemyArmorVariants.js', import.meta.url), 'utf8');
+  const loopScaling = readFileSync(new URL('../src/data/loopScaling.js', import.meta.url), 'utf8');
+  assert.ok(variants.includes('requiresArmor: false'), 'linked armor should not be tank-only');
+  assert.ok(variants.includes('grantsArmor'), 'linked armor should grant an armor shell to eligible non-armor enemies');
+  assert.ok(variants.includes('"runner"') && variants.includes('"charger"') && variants.includes('"orbiter"'), 'linked armor should be allowed on normal/anomaly mobs, not just tank');
+  assert.ok(runtime.includes('ensureVariantArmor(enemy, variant)') && runtime.includes('enemy.armor = {'), 'armor variant runtime should grant armor through the variant armor pipeline without import cycles');
+  assert.ok(loopScaling.includes('variantChance: 0.13'), 'linked armor chance should be higher than the earlier rare 4%');
+});
+
+test('enemy wall detour exists as first-pass anti-stuck steering', () => {
+  const common = readFileSync(new URL('../src/game/enemyBehaviors/common.js', import.meta.url), 'utf8');
+  assert.ok(common.includes('applyWallDetour'), 'enemy movement should have a wall detour helper');
+  assert.ok(common.includes('wallStuckFor'), 'enemy wall detour should accumulate stuck time');
+  assert.ok(common.includes('wallSlideSide'), 'enemy wall detour should use deterministic slide side instead of random jitter');
+});
+
 let failed = 0;
 for (const [status, name, e] of results) {
   if (status === 'ok') console.log('PASS', name);

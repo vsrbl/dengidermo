@@ -34,6 +34,8 @@ assert.ok(index.includes(`window.NN_SHOW_BOOT_ERROR`), 'boot error handler must 
 assert.ok(index.includes(`src/main.v${entrySuffix}.js?v=${VERSION.replace(/^v/, '')}`), 'index must use cache-busted versioned module entry');
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.split('-').at(-1)}`), 'HUD should expose version and build');
 assert.ok(ui.includes('setMenuStatus'), 'UI must expose setMenuStatus');
+assert.ok(ui.includes('replaceUpgradeChoiceContent') && ui.includes('replaceChildren()'), 'upgrade choices must render through DOM nodes, not innerHTML');
+assert.doesNotMatch(read('src/ui.js'), /\.innerHTML\s*=/, 'upgrade UI must not assign innerHTML');
 assert.ok(ui.includes('dashChargeHudText') && ui.includes('■') && ui.includes('▒') && ui.includes('+1'), 'HUD must show each dash charge and the currently charging dash');
 assert.ok(ui.includes('SERVER OK') || ui.includes('release'), 'UI/status layer must render release/server status');
 assert.ok(input.includes('event.code') || input.includes('.code'), 'movement input must use keyboard codes, not layout-dependent characters');

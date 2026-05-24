@@ -364,6 +364,51 @@ export function healPlayer(state, player, spec = {}) {
   };
 }
 
+
+export function resolveEnemyHeal(_state, enemy, spec = {}) {
+  const baseAmount = Math.max(0, numberOr(spec.amount, 0));
+  const maxHp = Math.max(1, enemy?.maxHp || enemy?.hp || 1);
+  const before = Math.max(0, enemy?.hp || 0);
+  return {
+    amount: baseAmount,
+    originalAmount: baseAmount,
+    maxHp,
+    before,
+    sourceId: spec.sourceId || null,
+    sourceType: spec.sourceType || null,
+    tags: Array.isArray(spec.tags) ? spec.tags : []
+  };
+}
+
+export function healEnemy(state, enemy, spec = {}) {
+  // ARCHITECTURE GUARD: enemy recovery must go through this function.
+  // Support enemies such as LCH should not write `ally.hp = ...` directly;
+  // future anti-heal, overheal, reward/proc hooks and heal events attach here.
+  if (!enemy || enemy.hp <= 0 || !(spec.amount > 0)) {
+    return { amount: 0, done: 0, sourceId: spec.sourceId || null, tags: spec.tags || [] };
+  }
+  const resolved = resolveEnemyHeal(state, enemy, spec);
+  const after = clamp(resolved.before + resolved.amount, 0, resolved.maxHp);
+  enemy.hp = after;
+  const done = Math.max(0, after - resolved.before);
+  if (done > 0 && spec.emitEffect !== false) {
+    pushVisualEffect(state, {
+      type: "statusTick",
+      x: Math.round(enemy.x || 0),
+      y: Math.round(enemy.y || 0),
+      r: Math.max(14, Math.round((enemy.radius || 12) + 8)),
+      color: spec.color || "#00ff66",
+      life: 0.08,
+      maxLife: 0.08
+    });
+  }
+  return {
+    ...resolved,
+    done,
+    hp: after
+  };
+}
+
 export function applyShieldDamage(player, damage) {
   // Deprecated compatibility wrapper for older tests/imports. Runtime code must
   // call dealPlayerDamage() so source/tags/hooks stay visible and extensible.

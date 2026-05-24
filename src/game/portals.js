@@ -27,6 +27,8 @@ export function updatePortals(state, dt) {
         type: "portal",
         action: "exit_open",
         portalId: portal.id,
+        portalActive: true,
+        openStableFor: Number((portal.openStableFor || 0).toFixed(3)),
         locationId: loc.id || state.locationId || null,
         locationName: loc.name || state.locationName || null,
         runDepth: state.runDepth ?? state.locationIndex ?? null,

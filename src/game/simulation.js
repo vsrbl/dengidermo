@@ -16,6 +16,7 @@ import { tickActiveAbilities } from "./abilities.js";
 import { applyDevPlayerGuards, tickDevMode } from "./dev.js";
 import { syncAllPlayerStatSnapshots } from "./statSnapshots.js";
 import { tickVisualEffects } from "./visualEffects.js";
+import { updateOrbiterPressure } from "./orbiterPressure.js";
 
 export function emptyInput() {
   return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false };
@@ -30,7 +31,7 @@ export function movePlayer(player, input, dt, loc = null) {
   const yAxis = (input.down ? 1 : 0) - (input.up ? 1 : 0);
   const d = norm(xAxis, yAxis);
   const moving = xAxis || yAxis;
-  const speed = PLAYER_SPEED * (player.stats?.speedMult || 1);
+  const speed = PLAYER_SPEED * (player.stats?.speedMult || 1) * Math.max(0.16, player.orbiterSlowMult || 1);
   const targetVx = moving ? d.x * speed : 0;
   const targetVy = moving ? d.y * speed : 0;
   const t = smoothFactor(moving ? PLAYER_ACCEL : PLAYER_FRICTION, dt);
@@ -98,6 +99,7 @@ export function updateHostWorld(state, inputs, dt) {
     tickPlayerEffects(p, safeDt, state);
     tickActiveAbilities(p, safeDt);
   }
+  updateOrbiterPressure(state);
   updatePlayers(state, inputs, safeDt);
   updateSpawner(state, safeDt);
   updateEnemies(state, safeDt);

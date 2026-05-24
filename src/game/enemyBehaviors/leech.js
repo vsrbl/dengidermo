@@ -1,5 +1,5 @@
 import { dist2, norm } from "../../core/math.js";
-import { pushVisualEffect } from "../effectCommands.js";
+import { healEnemy } from "../effects.js";
 import { applyEnemyTouchDamage, emitAnomalyLink, moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
 function findHealTarget(state, enemy, cfg) {
@@ -22,9 +22,14 @@ export function updateLeechEnemy(ctx) {
   const cfg = data.leech || {};
   const ally = findHealTarget(state, enemy, cfg);
   if (ally) {
-    ally.hp = Math.min(ally.maxHp || ally.hp, ally.hp + (cfg.healPerSecond || 10) * dt);
+    healEnemy(state, ally, {
+      amount: (cfg.healPerSecond || 10) * dt,
+      sourceId: enemy.id,
+      sourceType: "enemyLeech",
+      tags: ["enemy", "leech", "heal"],
+      color: "#00ff66"
+    });
     emitAnomalyLink(state, enemy, ally, "#00ff66", 0.09);
-    pushVisualEffect(state, { type: "statusTick", x: Math.round(ally.x), y: Math.round(ally.y), r: 20, color: "#00ff66", life: 0.08, maxLife: 0.08 });
     const away = norm(enemy.x - target.x, enemy.y - target.y);
     enemy.vx = away.x * data.speed * (cfg.retreatSpeedScale || 0.72);
     enemy.vy = away.y * data.speed * (cfg.retreatSpeedScale || 0.72);

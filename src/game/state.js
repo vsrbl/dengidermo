@@ -24,6 +24,7 @@ import { pendingRoomModifierSnapshot } from "./pendingRoomModifiers.js";
 import { createPlayerEconomy, ensurePlayerEconomy, economySnapshot } from "./playerEconomy.js";
 import { economyPickupSnapshot } from "./economyPickups.js";
 import { buildPlayerStatSnapshot, syncPlayerStatSnapshot } from "./statSnapshots.js";
+import { orbiterPressureSnapshot } from "./orbiterPressure.js";
 import { budgetEffects, buildSnapshotBudgetMeta } from "./snapshotBudget.js";
 
 export { nextId } from "./entityIds.js";
@@ -216,6 +217,7 @@ export function makeSnapshot(state) {
       statSnapshot: buildPlayerStatSnapshot(p, state),
       shield: p.effectState?.shield ? { charges: p.effectState.shield.charges || 0, cooldownLeft: Number((p.effectState.shield.cooldownLeft || 0).toFixed(2)) } : null,
       damageImpact: p.lastDamageImpact ? { ...p.lastDamageImpact } : null,
+      orbiterPressure: orbiterPressureSnapshot(p),
       ability: abilitySnapshot(p),
       companions: companionSummary(p, state),
       skin: p.skin,

@@ -19,3 +19,21 @@ export function statSection(title, rows = []) {
   for (const row of rows) section.append(row);
   return section;
 }
+
+
+export function replaceUpgradeChoiceContent(button, data, meta = {}, options = {}) {
+  if (!button) return;
+  button.replaceChildren();
+  if (!data) return;
+  const index = Number.isFinite(options.index) ? options.index : 0;
+  const rarityLabel = options.rarityLabel || String(meta.rarity || data.rarity || "COMMON").toUpperCase();
+  const stackText = options.stackText || "";
+  const hint = options.hint || "";
+  const metaText = [rarityLabel, stackText, hint].filter(Boolean).join(" · " );
+  button.append(
+    textNode("span", "upgrade-key", String(index + 1)),
+    textNode("span", "upgrade-name", data.name || "UNKNOWN"),
+    textNode("span", "upgrade-desc", data.desc || ""),
+    textNode("span", "upgrade-meta", metaText)
+  );
+}

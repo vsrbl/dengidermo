@@ -20,7 +20,7 @@ const DEFAULT_POP_DISTANCE = 16;
 
 function randomPopVector(state, distance = DEFAULT_POP_DISTANCE) {
   const rng = state?.rng || null;
-  const angle = rng?.range ? rng.range(0, Math.PI * 2) : Math.random() * Math.PI * 2;
+  const angle = rng?.range ? rng.range(0, Math.PI * 2) : 0;
   const dist = Number.isFinite(distance) ? Math.max(0, distance) : DEFAULT_POP_DISTANCE;
   return { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist };
 }

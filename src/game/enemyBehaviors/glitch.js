@@ -15,7 +15,7 @@ function runtime(enemy, cfg) {
 function blinkNearTarget(state, enemy, target, cfg) {
   const oldX = enemy.x;
   const oldY = enemy.y;
-  const angle = (state.rng?.range ? state.rng.range(0, Math.PI * 2) : Math.random() * Math.PI * 2);
+  const angle = state.rng?.range ? state.rng.range(0, Math.PI * 2) : 0;
   const range = cfg.blinkRange || 170;
   const point = resolveSpawnPointInState(state, { x: target.x + Math.cos(angle) * range, y: target.y + Math.sin(angle) * range }, enemy.radius, { avoidPlayers: true });
   enemy.x = point.x;

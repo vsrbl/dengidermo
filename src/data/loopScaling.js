@@ -145,7 +145,7 @@ export const LOOP_ESCALATION_PROFILES = Object.freeze([
       variantIds: Object.freeze(["overcharged"])
     }),
     armor: Object.freeze({
-      variantChance: 0.04,
+      variantChance: 0.13,
       variantIds: Object.freeze(["linked"])
     }),
     modifiers: Object.freeze({

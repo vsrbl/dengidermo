@@ -1,4 +1,4 @@
-export const MOMENT_FEED_SCHEMA_VERSION = 1;
+export const MOMENT_FEED_SCHEMA_VERSION = 2;
 
 const MAX_SEEN = 128;
 const DEFAULT_LIFE_MS = 1550;
@@ -35,7 +35,7 @@ function buildExitOpenMoment(event, playerId, snapshot = null) {
   if (event.type !== "portal" || event.action !== "exit_open") return null;
   const portals = Array.isArray(snapshot?.portals) ? snapshot.portals : [];
   const matchingPortal = portals.find((portal) => portal?.id === event.portalId) || portals.find((portal) => portal?.kind === "exit");
-  if (!matchingPortal?.active) return null;
+  if (!event.portalActive && !matchingPortal?.active) return null;
   return {
     kind: "exit",
     tier: "high",
@@ -165,10 +165,11 @@ export function createMomentFeed() {
     for (const event of list) {
       const id = eventId(event);
       if (seen.has(id)) continue;
+      const moment = buildMoment(event, playerId, snapshot);
+      if (!moment) continue;
       seen.add(id);
       order.push(id);
-      const moment = buildMoment(event, playerId, snapshot);
-      if (moment) enqueue(moment, id, now);
+      enqueue(moment, id, now);
     }
     pruneSeen(order, seen);
     if (active && now - active.createdAt > (active.lifeMs || DEFAULT_LIFE_MS)) {

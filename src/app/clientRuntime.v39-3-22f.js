@@ -36,7 +36,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     if (!app.localPose) {
       app.localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
-      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13 };
+      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1 };
       return;
     }
     app.localPose.hp = me.hp;
@@ -50,6 +50,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.economy = me.economy || app.localPose.economy || { money: 0, xp: 0, lifetimeXp: 0, level: 1, nextLevelXp: 24 };
     app.localPose.stats = me.stats || app.localPose.stats || {};
     app.localPose.ability = me.ability || null;
+    app.localPose.orbiterPressure = me.orbiterPressure || { count: 0, slowMult: 1 };
+    app.localPose.orbiterSlowMult = me.orbiterPressure?.slowMult || 1;
     app.localPose.name = me.name || session.playerDisplayName(app.playerId);
     app.localPose.skin = me.skin;
     if ((me.ability?.dash?.cooldownLeft || 0) > 0) app.localPose._localDashPredictedAt = 0;

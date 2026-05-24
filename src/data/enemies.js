@@ -144,7 +144,7 @@ export const ENEMIES = {
     renderStyle: "orbiter",
     accentColor: "white",
     score: 3,
-    orbit: { radius: 176, minRadius: 50, shrinkPerSecond: 14, angularSpeed: 3.2, turnRate: 18 },
+    orbit: { radius: 164, minRadius: 34, shrinkPerSecond: 28, angularSpeed: 3.2, turnRate: 20, suction: 4.2, pressureRadius: 126 },
     projectileDefense: { type: "front_deflect", arcDot: -0.18, cooldown: 0.055 }
   },
 

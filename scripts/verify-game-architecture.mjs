@@ -42,6 +42,13 @@ const clientFiles = [
   ...srcFiles.filter((rel) => rel.startsWith('src/app/') && !rel.includes('.v39-'))
 ].filter((rel) => fs.existsSync(path.join(root, rel)));
 
+const gameRandomOffenders = [];
+for (const rel of gameFiles) {
+  const src = withoutComments(read(rel));
+  if (/\bMath\.random\s*\(/.test(src)) gameRandomOffenders.push(rel);
+}
+assert.deepEqual(gameRandomOffenders, [], `gameplay randomness must use state.rng / seeded resolvers, not Math.random: ${gameRandomOffenders.join(', ')}`);
+
 failOnPattern(
   gameFiles,
   /\b(?:enemy|target|e|best)\.hp\s*(?:[-+*/%]=|=\s*\1?\s*[-+])/,
@@ -151,6 +158,11 @@ assert.match(rewardPickups, /claimRewardPickup/, 'reward pickup claim contract m
 assert.match(rewardPickups, /healPlayer\(state, player/, 'reward pickup healing must use healPlayer pipeline');
 assert.match(rewardPickups, /giveWeapon\(player, data\.weaponId/, 'reward pickup weapon grant must use inventory pipeline');
 assert.match(rewardPickups, /applyAbilityReward\(player, pickup\)/, 'reward pickup ability grant must use ability reward pipeline');
+const effectsDamage = read('src/game/effects/damage.js');
+const leechBehavior = read('src/game/enemyBehaviors/leech.js');
+assert.match(effectsDamage, /export function healEnemy\(/, 'enemy recovery must have an official healEnemy pipeline');
+assert.match(leechBehavior, /healEnemy\(state, ally/, 'LCH/leech support healing must use healEnemy pipeline');
+assert.doesNotMatch(withoutComments(leechBehavior), /\bally\.hp\s*=/, 'LCH/leech must not mutate ally.hp directly');
 const economyPickups = read('src/game/economyPickups.js');
 assert.match(read('src/game/playerEconomy.js'), /sharedEconomyCreditRecipients/, 'playerEconomy must own shared pickup recipient eligibility');
 assert.match(read('src/game/playerEconomy.js'), /sharedEconomyCreditRecipientIds/, 'playerEconomy must expose shared pickup recipient ids for integration/debug validation');

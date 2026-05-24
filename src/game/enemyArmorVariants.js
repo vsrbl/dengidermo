@@ -24,9 +24,32 @@ function enemyHasArmor(kind, enemy = null) {
   return !!enemy?.armor || !!ENEMIES[kind]?.armor;
 }
 
+function variantCanGrantArmor(variant) {
+  return !!variant?.grantsArmor;
+}
+
+function ensureVariantArmor(enemy, variant) {
+  if (enemy?.armor || !variantCanGrantArmor(variant)) return enemy?.armor || null;
+  const grant = variant.grantsArmor || {};
+  const maxHp = Math.max(1, enemy?.maxHp || ENEMIES[enemy?.kind]?.hp || 1);
+  const armorHp = Math.max(grant.minHp || 1, Math.min(grant.maxHp || 999, Math.round(maxHp * (grant.hpRatio || 0.65))));
+  enemy.armor = {
+    hp: armorHp,
+    maxHp: armorHp,
+    regenDelay: grant.regenDelay ?? 3.5,
+    regenPerSecond: Math.max(1, Math.round(armorHp * (grant.regenPerSecondRatio || 0.2))),
+    regenCooldown: 0,
+    ricochet: grant.ricochet !== false,
+    visual: grant.visual || "square",
+    broken: false
+  };
+  return enemy.armor;
+}
+
 export function canApplyArmorVariantToEnemy(variant, kind, enemy = null) {
   if (!variant || !kind) return false;
   if (variant.requiresArmor && !enemyHasArmor(kind, enemy)) return false;
+  if (!variant.requiresArmor && !enemyHasArmor(kind, enemy) && !variantCanGrantArmor(variant)) return false;
   const allowed = asArray(variant.allowedKinds);
   const excluded = new Set(asArray(variant.excludedKinds));
   if (excluded.has(kind)) return false;
@@ -52,7 +75,9 @@ export function selectArmorVariantIdForEnemy(state, enemy, profile = loopEscalat
 
 export function applyArmorVariantToEnemy(enemy, variantId) {
   const variant = armorVariantById(variantId);
-  if (!enemy?.armor || !canApplyArmorVariantToEnemy(variant, enemy.kind, enemy)) return null;
+  if (!enemy || !canApplyArmorVariantToEnemy(variant, enemy.kind, enemy)) return null;
+  ensureVariantArmor(enemy, variant);
+  if (!enemy.armor) return null;
   enemy.armor.variant = {
     id: variant.id,
     name: variant.name,

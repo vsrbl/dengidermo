@@ -1,7 +1,7 @@
 import { BUILD_ID, VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { RARITY_META, UPGRADES } from "./data/upgrades.js";
-import { textNode } from "./ui/dom.js";
+import { replaceUpgradeChoiceContent, textNode } from "./ui/dom.js";
 import { economyNumber, economyQueueLabel, economyQueueTier, safeExpProgressText, safeNextExpText, tweenNumber } from "./ui/format.js";
 import { renderProcFeed } from "./ui/procFeed.js";
 import { renderScreenMoment } from "./ui/screenMoment.js";
@@ -155,9 +155,7 @@ export function createUi() {
       btn.style.setProperty("--reveal-delay", `${index * 180}ms`);
       btn.style.setProperty("--reveal-duration", "220ms");
       btn.style.setProperty("--rarity-accent", rarityMeta.color || "#d8d8d8");
-      btn.innerHTML = data
-        ? `<span class="upgrade-key">${index + 1}</span><span class="upgrade-name">${data.name}</span><span class="upgrade-desc">${data.desc}</span><span class="upgrade-meta"><span class="upgrade-rarity">${rarityLabel}</span>${stackText ? ` · ${stackText}` : ""}${hint ? ` · ${hint}` : ""}</span>`
-        : "";
+      replaceUpgradeChoiceContent(btn, data, meta, { index, rarityLabel, stackText, hint });
     });
     lastUpgradeSignature = upgradeOpen ? signature : "";
   }

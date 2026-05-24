@@ -29,6 +29,35 @@ export function enemySpeed(state, enemy, data, updateCtx, speedScale = 1) {
     * speedScale;
 }
 
+function wallSlideSide(enemy) {
+  if (!enemy.wallSlideSide) {
+    let n = 0;
+    const id = String(enemy.id || enemy.kind || "enemy");
+    for (let i = 0; i < id.length; i += 1) n = ((n << 5) - n + id.charCodeAt(i)) | 0;
+    enemy.wallSlideSide = (n & 1) ? 1 : -1;
+  }
+  return enemy.wallSlideSide;
+}
+
+function applyWallDetour(enemy, moved, dt) {
+  if (!moved?.hit) {
+    enemy.wallStuckFor = Math.max(0, (enemy.wallStuckFor || 0) - dt * 2);
+    return;
+  }
+  enemy.wallStuckFor = Math.min(1.2, (enemy.wallStuckFor || 0) + dt);
+  const side = wallSlideSide(enemy);
+  const strength = Math.min(1, 0.45 + (enemy.wallStuckFor || 0) * 1.4);
+  const speed = Math.max(24, Math.hypot(enemy.vx || 0, enemy.vy || 0));
+  if (moved.hitX) {
+    enemy.vx = 0;
+    enemy.vy += side * speed * 0.42 * strength;
+  }
+  if (moved.hitY) {
+    enemy.vy = 0;
+    enemy.vx -= side * speed * 0.42 * strength;
+  }
+}
+
 export function moveEnemyWithVelocity(enemy, geometry, dt) {
   enemy.kx = (enemy.kx || 0) * Math.exp(-6.8 * dt);
   enemy.ky = (enemy.ky || 0) * Math.exp(-6.8 * dt);
@@ -43,8 +72,7 @@ export function moveEnemyWithVelocity(enemy, geometry, dt) {
   );
   enemy.x = moved.x;
   enemy.y = moved.y;
-  if (moved.hitX) enemy.vx = 0;
-  if (moved.hitY) enemy.vy = 0;
+  applyWallDetour(enemy, moved, dt);
   return moved;
 }
 
