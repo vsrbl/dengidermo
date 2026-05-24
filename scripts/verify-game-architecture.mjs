@@ -128,6 +128,19 @@ for (const rel of clientFiles) {
 assert.deepEqual([...new Set(clientOffenders)], [], `client/prediction code must not own host-authoritative gameplay: ${clientOffenders.join(', ')}`);
 
 const simulation = read('src/game/simulation.js');
+
+function lineCount(rel) {
+  return read(rel).split(/\r?\n/).length;
+}
+assert.ok(lineCount('style.css') <= 1300, 'style.css must stay below cleanup guard threshold');
+assert.ok(lineCount('src/renderer.js') <= 750, 'renderer.js must stay below cleanup guard threshold until render split');
+assert.ok(lineCount('src/ui.js') <= 500, 'ui.js must stay below cleanup guard threshold after UI split prep');
+const pathfindingSrc = read('src/game/enemyPathfinding.js');
+assert.match(pathfindingSrc, /ENEMY_PATHFINDING_SCHEMA_VERSION = 2/, 'enemy pathfinding must use the v39.3.22h flow-field schema');
+assert.match(pathfindingSrc, /buildFlowField/, 'enemy pathfinding must build shared flow fields instead of per-enemy path searches');
+assert.match(pathfindingSrc, /flowByKey/, 'enemy pathfinding must cache flow fields per room/target cell');
+assert.doesNotMatch(pathfindingSrc, /function computePathDirection/, 'per-enemy computePathDirection BFS must not return');
+assert.doesNotMatch(pathfindingSrc, /pathfindNextAt/, 'per-enemy path recalculation timers must not return');
 const inputRuntime = read('src/input.js');
 const clientRuntime = read('src/app/clientRuntime.js');
 const combatRuntime = read('src/game/combat.js');

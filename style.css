@@ -19,6 +19,13 @@
   --rarity-legendary: #ff9a1f;
   --rarity-corrupted: #ff3048;
   --upgrade-hover: rgba(255,255,255,0.08);
+  --z-hud: 20;
+  --z-upgrade: 45;
+  --z-stat-panel: 50;
+  --z-casino: 60;
+  --z-combo: 70;
+  --z-screen-moment: 90;
+  --z-boot-error: 9999;
 }
 
 * { box-sizing: border-box; }
@@ -168,7 +175,7 @@ button:active {
 
 .hud {
   position: fixed;
-  z-index: 5;
+  z-index: var(--z-hud);
   padding: 10px 12px;
   background: rgba(0, 0, 0, 0.64);
   border: 1px solid rgba(255,255,255,0.28);
@@ -290,7 +297,7 @@ button:active {
 
 .upgrade-panel {
   position: fixed;
-  z-index: 6;
+  z-index: var(--z-upgrade);
   left: 50%;
   top: 12px;
   transform: translateX(-50%);
@@ -465,7 +472,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   left: 18px;
   right: 18px;
   bottom: 18px;
-  z-index: 9999;
+  z-index: var(--z-boot-error);
   padding: 14px 16px;
   border: 2px solid var(--red);
   background: #050000;
@@ -495,7 +502,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   box-shadow: 8px 8px 0 #000;
   color: #f3f3f3;
   font-family: "Courier New", monospace;
-  z-index: 40;
+  z-index: var(--z-casino);
   pointer-events: auto;
 }
 
@@ -646,7 +653,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 .stat-panel {
   position: fixed;
-  z-index: 8;
+  z-index: var(--z-stat-panel);
   left: 50%;
   top: max(12px, var(--bar));
   width: min(760px, calc(100vw - 24px));
@@ -794,7 +801,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 .screen-moment {
   --moment-accent: var(--green);
   position: fixed;
-  z-index: 9;
+  z-index: var(--z-screen-moment);
   inset: 0;
   display: grid;
   place-items: center;
@@ -879,17 +886,21 @@ button:disabled { opacity: 0.45; cursor: default; }
 .kill-combo {
   --combo-accent: #f3f3f3;
   position: fixed;
-  z-index: 8;
+  z-index: var(--z-combo);
   left: 50%;
   top: 92px;
-  min-width: 170px;
+  min-width: 190px;
+  display: grid;
+  justify-items: center;
+  align-items: center;
   transform: translateX(-50%) scale(0.95);
+  transform-origin: center top;
   pointer-events: none;
   text-align: center;
   opacity: 0;
-  padding: 7px 12px 8px;
+  padding: 8px 14px 9px;
   border: 1px solid rgba(255,255,255,0.3);
-  background: rgba(0,0,0,0.72);
+  background: rgba(0,0,0,0.76);
   box-shadow: 4px 4px 0 #000;
   letter-spacing: 2px;
   font-family: var(--display-pixel-font);
@@ -907,17 +918,19 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 .kill-combo-label {
   color: var(--combo-accent);
-  font-size: 9px;
+  display: block;
+  max-width: 270px;
+  font-size: clamp(10px, 1vw, 13px);
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.18;
 }
 
 .kill-combo-count {
   color: var(--combo-accent);
-  font-size: 34px;
-  line-height: 0.92;
+  font-size: clamp(38px, 4vw, 56px);
+  line-height: 1;
   font-weight: 700;
-  margin-top: 3px;
+  margin-top: 4px;
   text-shadow: 2px 2px 0 #000;
 }
 
@@ -941,7 +954,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   border-color: var(--combo-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 38%, transparent), 4px 4px 0 #000;
 }
-.kill-combo.milestone .kill-combo-count { font-size: 38px; }
+.kill-combo.milestone .kill-combo-count { font-size: clamp(44px, 4.6vw, 64px); }
 .kill-combo.combo-bump { animation: comboBoxKick 180ms steps(3, end) 1; }
 .kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 260ms steps(4, end) 1; }
 
@@ -960,9 +973,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 @keyframes comboBoxKick {
-  0% { transform: translateX(-50%) scale(0.92); }
-  35% { transform: translateX(calc(-50% - 4px)) scale(1.06); }
-  70% { transform: translateX(calc(-50% + 3px)) scale(1.02); }
+  0% { transform: translateX(-50%) scale(0.94); }
+  42% { transform: translateX(-50%) scale(1.06); }
   100% { transform: translateX(-50%) scale(1); }
 }
 
@@ -974,7 +986,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 .proc-feed {
   position: fixed;
-  z-index: 7;
+  z-index: var(--z-hud);
   left: 286px;
   top: 14px;
   width: min(300px, calc(100vw - 320px));

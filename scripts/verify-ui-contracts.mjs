@@ -76,6 +76,13 @@ assert.ok(main.includes('createRewardEventFeed') && main.includes('snapshot?.eve
 assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed') && main.includes('snapshot: app.snapshot'), 'main loop must route authoritative snapshot events into queued screen moment and kill combo feeds with snapshot gating');
 assert.ok(ui.includes('renderScreenMoment') && ui.includes('renderKillCombo'), 'UI split modules must render full-screen moments and kill combo counter');
 assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('screenMomentSweep'), 'dopamine moment and kill combo overlays must be styled/animated');
+assert.ok(style.includes('--z-screen-moment: 90') && style.includes('--z-casino: 60') && style.includes('--z-combo: 70'), 'overlay z-index contract must keep screen moments and combo above casino modal');
+assert.ok(/\.screen-moment \{[\s\S]*?z-index: var\(--z-screen-moment\)/.test(style), 'screen moments must use the top overlay layer');
+assert.ok(/\.casino-panel \{[\s\S]*?z-index: var\(--z-casino\)/.test(style), 'casino modal must use the casino overlay layer below screen moments');
+assert.ok(/\.kill-combo \{[\s\S]*?z-index: var\(--z-combo\)[\s\S]*?display: grid[\s\S]*?justify-items: center/.test(style), 'kill combo must be centered through a stable grid overlay above casino');
+assert.ok(style.includes('font-size: clamp(38px, 4vw, 56px)'), 'low-count combo number must keep a readable lower-bound size');
+const comboKickCss = style.slice(style.indexOf('@keyframes comboBoxKick'), style.indexOf('@keyframes comboCountSlam'));
+assert.ok(!comboKickCss.includes('calc(-50% -') && !comboKickCss.includes('calc(-50% +'), 'combo bump must not use side-to-side crooked offset shake');
 assert.ok(momentFeed.includes('queue') && momentFeed.includes('startNext') && momentFeed.includes('COMBO_MOMENT_MIN_COUNT = 25'), 'screen moments must queue instead of overwriting each other and combo moments should start at 25+');
 assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('INSTALL OK') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
 assert.ok(rewardFeed.includes('seen') && rewardFeed.includes('lifeMs'), 'reward event feed must dedupe and expire events');

@@ -237,7 +237,7 @@ test('enemy pathfinding replaces wall detour anti-stuck steering', () => {
   const common = readFileSync(new URL('../src/game/enemyBehaviors/common.js', import.meta.url), 'utf8');
   const pathfinding = readFileSync(new URL('../src/game/enemyPathfinding.js', import.meta.url), 'utf8');
   assert.ok(common.includes('enemyPathDirection'), 'enemy movement should ask the pathfinding layer for blocked target directions');
-  assert.ok(pathfinding.includes('ENEMY_PATHFINDING_SCHEMA_VERSION') && pathfinding.includes('computePathDirection'), 'enemy pathfinding module should own the grid path solver');
+  assert.ok(pathfinding.includes('ENEMY_PATHFINDING_SCHEMA_VERSION = 2') && pathfinding.includes('buildFlowField') && pathfinding.includes('flowByKey'), 'enemy pathfinding module should own the cached nav-grid flow-field solver');
   assert.ok(!common.includes('applyWallDetour') && !common.includes('wallStuckFor'), 'old wall-detour jitter steering should be removed');
 });
 

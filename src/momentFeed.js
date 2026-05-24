@@ -135,9 +135,9 @@ function buildComboMoment(event, playerId) {
   };
 }
 
-function buildMoment(event, playerId) {
+function buildMoment(event, playerId, snapshot = null) {
   return buildInstallMoment(event, playerId)
-    || buildExitOpenMoment(event, playerId)
+    || buildExitOpenMoment(event, playerId, snapshot)
     || buildAbilityMoment(event, playerId)
     || buildWeaponMoment(event, playerId)
     || buildRareRewardMoment(event, playerId)
@@ -150,6 +150,25 @@ function pruneSeen(order, set) {
   while (order.length > MAX_SEEN) {
     const old = order.shift();
     set.delete(old);
+  }
+}
+
+function momentPriority(moment = {}) {
+  if (["loop", "exit", "jackpot"].includes(moment.kind)) return 100;
+  if (moment.tier === "ultra") return 80;
+  if (moment.kind === "casino" || moment.kind === "curse") return 72;
+  if (moment.kind === "install" || moment.kind === "ability" || moment.kind === "weapon") return 64;
+  if (moment.kind === "combo") return 34;
+  return 50;
+}
+
+function trimMomentQueue(queue) {
+  while (queue.length > 8) {
+    let removeIndex = 0;
+    for (let i = 1; i < queue.length; i += 1) {
+      if ((queue[i].priority || 0) < (queue[removeIndex].priority || 0)) removeIndex = i;
+    }
+    queue.splice(removeIndex, 1);
   }
 }
 
@@ -166,10 +185,10 @@ export function createMomentFeed() {
   }
 
   function enqueue(moment, id, now) {
-    const entry = { id, ...moment };
+    const entry = { id, priority: momentPriority(moment), ...moment };
     if (!active) active = { ...entry, createdAt: now };
     else queue.push(entry);
-    while (queue.length > 8) queue.shift();
+    trimMomentQueue(queue);
   }
 
   function ingest(events = [], { playerId = null, now = performance.now(), snapshot = null } = {}) {

@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22g",
-  "buildId": "v39.3.22g-20260524",
+  "version": "v39.3.22h",
+  "buildId": "v39.3.22h-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-24",
-  "entry": "./src/main.v39-3-22g.js?v=39.3.22g",
-  "style": "./style.css?v=39.3.22g",
-  "config": "./config.js?v=39.3.22g",
+  "entry": "./src/main.v39-3-22h.js?v=39.3.22h",
+  "style": "./style.css?v=39.3.22h",
+  "config": "./config.js?v=39.3.22h",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22g hotfix: switches central typography to a sharper arcade pixel font, restores immediate kill combo counter with KILL labels, adds LOOP screen moments, keeps room labels above walls, prevents linked armor from chaining to linked armor, and replaces wall detour steering with first-pass enemy pathfinding."
+  "notes": "v39.3.22h cleanup: fixes casino/screen-moment layering, stabilizes combo counter layout, hardens LOOP/EXIT moment queue priority, replaces per-enemy path recalculation with cached nav-grid flow fields, and adds architecture guards for overlay layering, combo readability, and crowd-safe pathfinding."
 }
