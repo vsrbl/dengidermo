@@ -7,7 +7,9 @@ function rewardLine(combo = {}) {
   const parts = [];
   if (combo.rewardMoney > 0) parts.push(`+${Math.round(combo.rewardMoney)} GLD`);
   if (combo.rewardXp > 0) parts.push(`+${Math.round(combo.rewardXp)} EXP`);
-  return parts.join(" / ");
+  if (parts.length) return parts.join(" / ");
+  if (combo.nextRewardLabel) return safeText(combo.nextRewardLabel, "");
+  return "";
 }
 
 export function renderKillCombo(el, combo = null) {

@@ -1,4 +1,5 @@
 import { resetThreatAnalyzer } from "./threat.js";
+import { resetKillCombos } from "./killCombos.js";
 
 export function clearHostileRuntime(state, options = {}) {
   state.enemies = {};
@@ -17,7 +18,7 @@ export function clearLocationRuntimeObjects(state, options = {}) {
   state.economyPickups = {};
   state.interactables = {};
   state.events = options.keepEvents ? (state.events || []) : [];
-  state.killCombos = {};
+  resetKillCombos(state, { reason: options.reason || "room_end" });
   state.portals = {};
   state.director = null;
   resetThreatAnalyzer(state);

@@ -52,11 +52,21 @@ function milestoneFor(count) {
   return exactMilestoneFor(count) || repeatMilestoneFor(count);
 }
 
+function nextMilestoneFor(count) {
+  return KILL_COMBO_TIERS.find((entry) => entry.threshold > count && entry.reward && ((entry.reward.money || 0) > 0 || (entry.reward.xp || 0) > 0)) || null;
+}
+
 function rewardText(reward = {}) {
   const parts = [];
   if (reward.money > 0) parts.push(`+${Math.round(reward.money)} GLD`);
   if (reward.xp > 0) parts.push(`+${Math.round(reward.xp)} EXP`);
   return parts.join(" / ");
+}
+
+function nextRewardText(count) {
+  const next = nextMilestoneFor(count);
+  const reward = rewardText(next?.reward || {});
+  return next && reward ? `x${next.threshold} ${reward}` : "";
 }
 
 function applyComboReward(state, player, reward, context = {}) {
@@ -153,6 +163,7 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
     rewardMoney: reward.money || 0,
     rewardXp: reward.xp || 0,
     rewardLabel,
+    nextRewardLabel: nextRewardText(combo.count),
     x: Math.round(enemy.x),
     y: Math.round(enemy.y)
   });
@@ -160,6 +171,24 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
   return combo;
 }
 
-export function resetKillCombos(state) {
-  if (state) state.killCombos = {};
+export function resetPlayerKillCombo(state, playerId, { reason = "reset" } = {}) {
+  if (!state || !playerId || !state.killCombos?.[playerId]) return false;
+  const prev = state.killCombos[playerId];
+  delete state.killCombos[playerId];
+  pushEvent(state, {
+    type: "kill_combo",
+    action: "reset",
+    playerId,
+    reason,
+    count: Math.max(0, Math.floor(prev.count || 0)),
+    seq: Math.max(0, Math.floor(prev.seq || 0))
+  });
+  return true;
+}
+
+export function resetKillCombos(state, { reason = "room_end" } = {}) {
+  if (!state) return;
+  const ids = Object.keys(state.killCombos || {});
+  for (const playerId of ids) resetPlayerKillCombo(state, playerId, { reason });
+  state.killCombos = {};
 }

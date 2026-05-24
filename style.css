@@ -541,7 +541,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   display: grid;
   grid-template-columns: 1fr auto;
   border: 1px solid rgba(255,255,255,0.24);
-  padding: 4px 5px;
+  padding: 5px 7px 6px;
   margin-bottom: 10px;
   color: #777;
   letter-spacing: 0.12em;
@@ -909,20 +909,20 @@ button:disabled { opacity: 0.45; cursor: default; }
   z-index: var(--z-combo);
   left: 50%;
   top: var(--combo-compact-top);
-  min-width: 66px;
-  min-height: 38px;
-  max-width: min(120px, calc(100vw - 40px));
+  min-width: 78px;
+  min-height: 46px;
+  max-width: min(146px, calc(100vw - 40px));
   display: grid;
   justify-items: center;
   align-items: center;
   align-content: center;
-  gap: 1px;
+  gap: 2px;
   transform: translateX(-50%) scale(0.985);
   transform-origin: center top;
   pointer-events: none;
   text-align: center;
   opacity: 0;
-  padding: 4px 5px;
+  padding: 5px 7px 6px;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.76);
   box-shadow: 1px 1px 0 rgba(0,0,0,0.92);
@@ -942,7 +942,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 .kill-combo-count {
   color: var(--combo-accent);
-  font-size: clamp(12px, 1.25vw, 17px);
+  font-size: clamp(13px, 1.34vw, 18px);
   line-height: 1;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -954,19 +954,19 @@ button:disabled { opacity: 0.45; cursor: default; }
 .kill-combo-label {
   color: color-mix(in srgb, var(--combo-accent) 84%, #9aa09c 16%);
   display: block;
-  max-width: 108px;
-  font-size: clamp(6px, 0.58vw, 8px);
+  max-width: 132px;
+  font-size: clamp(6px, 0.62vw, 8px);
   font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1.04;
 }
 
 .kill-combo-reward {
-  min-height: 6px;
+  min-height: 8px;
   align-self: center;
   color: #969696;
   font-size: 6px;
-  line-height: 1;
+  line-height: 1.05;
   letter-spacing: 0.08em;
 }
 
@@ -981,7 +981,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   border-color: var(--combo-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 32%, transparent), 3px 3px 0 #000;
 }
-.kill-combo.milestone .kill-combo-count { font-size: clamp(14px, 1.55vw, 20px); }
+.kill-combo.milestone .kill-combo-count { font-size: clamp(15px, 1.7vw, 21px); }
 .kill-combo.combo-bump { animation: comboBoxKick 150ms steps(3, end) 1; }
 .kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 180ms steps(4, end) 1; }
 

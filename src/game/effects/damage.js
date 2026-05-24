@@ -16,6 +16,7 @@ import {
 } from "./core.js";
 import { addShake, pushVisualEffect } from "../effectCommands.js";
 import { ownerPlayer, sourceId } from "../sourceIds.js";
+import { resetPlayerKillCombo } from "../killCombos.js";
 
 export function dealDamage(state, target, spec = {}) {
   if (!target || !Number.isFinite(spec.amount)) {
@@ -311,6 +312,7 @@ export function dealPlayerDamage(state, player, spec = {}) {
     tags: resolved.tags
   });
   if (!resolved.blocked && hit.done > 0) emitPlayerDamageImpact(state, player, resolved, hit, spec);
+  if (hit.killed && player?.id) resetPlayerKillCombo(state, player.id, { reason: "death" });
   return { ...hit, ...resolved, done: hit.done, killed: hit.killed };
 }
 
