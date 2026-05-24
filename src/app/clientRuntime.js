@@ -9,6 +9,10 @@ import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
 import { roomGeometryIdentityMatches } from "../game/roomGeometry.js";
 
+const HOST_IMPULSE_RECONCILE_D2 = 14 * 14;
+const HOST_SMOOTH_RECONCILE_D2 = 24 * 24;
+const HOST_HARD_RECONCILE_D2 = 128 * 128;
+
 export function createClientRuntime(app, { session, host, upgrades } = {}) {
   function currentLocalPlayerFromSnapshot() {
     const fromSnapshot = app.snapshot?.players?.find((p) => p.id === app.playerId);
@@ -36,7 +40,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     if (!app.localPose) {
       app.localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
-      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: 0, ky: 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1 };
+      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: Number.isFinite(me.kx) ? me.kx : 0, ky: Number.isFinite(me.ky) ? me.ky : 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1, _hostImpulseSeq: me.hostImpulseSeq || 0 };
       return;
     }
     app.localPose.hp = me.hp;
@@ -55,19 +59,33 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.name = me.name || session.playerDisplayName(app.playerId);
     app.localPose.skin = me.skin;
     if ((me.ability?.dash?.cooldownLeft || 0) > 0) app.localPose._localDashPredictedAt = 0;
+    const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
+    const impulseChanged = hostImpulseSeq !== (app.localPose._hostImpulseSeq || 0);
+    if (impulseChanged) app.localPose._hostImpulseSeq = hostImpulseSeq;
     const dx = me.x - app.localPose.x;
     const dy = me.y - app.localPose.y;
     const d2 = dx * dx + dy * dy;
     const dashPredictionAge = app.localPose._localDashPredictedAt ? performance.now() - app.localPose._localDashPredictedAt : 0;
     const staleDeniedDash = app.localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
-    if (locationChanged || staleDeniedDash || d2 > 90000) {
+    const impulseDrift = impulseChanged && d2 > HOST_IMPULSE_RECONCILE_D2;
+    if (locationChanged || staleDeniedDash || impulseDrift || d2 > HOST_HARD_RECONCILE_D2) {
       app.localPose.x = me.x;
       app.localPose.y = me.y;
-      app.localPose.vx = 0;
-      app.localPose.vy = 0;
-      app.localPose.kx = 0;
-      app.localPose.ky = 0;
+      app.localPose.vx = Number.isFinite(me.vx) ? me.vx : 0;
+      app.localPose.vy = Number.isFinite(me.vy) ? me.vy : 0;
+      app.localPose.kx = Number.isFinite(me.kx) ? me.kx : 0;
+      app.localPose.ky = Number.isFinite(me.ky) ? me.ky : 0;
       app.localPose._localDashPredictedAt = 0;
+    } else if (d2 > HOST_SMOOTH_RECONCILE_D2) {
+      app.localPose.x += dx * 0.35;
+      app.localPose.y += dy * 0.35;
+      if (impulseChanged) {
+        app.localPose.kx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
+        app.localPose.ky = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
+      }
+    } else if (impulseChanged) {
+      app.localPose.kx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
+      app.localPose.ky = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
     }
   }
 

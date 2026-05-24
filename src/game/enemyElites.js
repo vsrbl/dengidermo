@@ -4,6 +4,7 @@ import { dealPlayerDamage } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { eliteDeathPulseDamageTags } from "./damageSourceMatrix.js";
 import { loopEscalationProfileForState } from "./loopScaling.js";
+import { applyPlayerImpulse } from "./playerImpulse.js";
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -71,13 +72,18 @@ export function maybeApplyEliteVariantToEnemy(state, enemy, options = {}) {
   return applyEliteVariantToEnemy(enemy, variantId);
 }
 
-function applyPulseKnockback(player, x, y, force = 0) {
+function applyPulseKnockback(state, player, x, y, force = 0, sourceId = null) {
   if (!(force > 0)) return;
   const dx = player.x - x;
   const dy = player.y - y;
   const len = Math.hypot(dx, dy) || 1;
-  player.kx = (player.kx || 0) + (dx / len) * force;
-  player.ky = (player.ky || 0) + (dy / len) * force;
+  applyPlayerImpulse(state, player, {
+    x: (dx / len) * force,
+    y: (dy / len) * force,
+    sourceId,
+    sourceType: "eliteDeathPulse",
+    reason: "elite_death_pulse"
+  });
 }
 
 export function runEnemyEliteDeath(state, enemy, source = null, hit = null) {
@@ -115,7 +121,7 @@ export function runEnemyEliteDeath(state, enemy, source = null, hit = null) {
       enemyId: enemy.id,
       tags: eliteDeathPulseDamageTags(variant.id)
     });
-    applyPulseKnockback(player, enemy.x, enemy.y, pulse.knockback || 0);
+    applyPulseKnockback(state, player, enemy.x, enemy.y, pulse.knockback || 0, enemy.id);
     hits += 1;
   }
   return { variantId: variant.id, hits };

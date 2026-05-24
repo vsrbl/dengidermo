@@ -8,7 +8,7 @@ export { createExitPortal, currentLocation, initLocation, moveTeamToNextLocation
 
 export function updatePortals(state, dt) {
   if (!state.portals || !Object.keys(state.portals).length) createExitPortal(state);
-  const alive = Object.values(state.players).filter((p) => p.hp > 0);
+  const alive = Object.values(state.players).filter((p) => p.hp > 0 && !p.disconnected);
   const loc = currentLocation(state);
 
   for (const portal of Object.values(state.portals)) {

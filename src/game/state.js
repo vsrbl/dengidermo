@@ -26,6 +26,7 @@ import { economyPickupSnapshot } from "./economyPickups.js";
 import { buildPlayerStatSnapshot, syncPlayerStatSnapshot } from "./statSnapshots.js";
 import { orbiterPressureSnapshot } from "./orbiterPressure.js";
 import { budgetEffects, buildSnapshotBudgetMeta } from "./snapshotBudget.js";
+import { playerImpulseSnapshot } from "./playerImpulse.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -126,7 +127,12 @@ export function addPlayer(state, playerId, index = 0, options = {}) {
     lastInputAt: 0,
     fireSeqSeen: 0,
     deadTimer: 0,
-    statSnapshot: null
+    statSnapshot: null,
+    netStatus: "online",
+    disconnected: false,
+    disconnectedAt: 0,
+    hostImpulseSeq: 0,
+    lastHostImpulse: null
   };
   syncPlayerStatSnapshot(state, state.players[playerId]);
   return state.players[playerId];
@@ -144,6 +150,8 @@ export function respawnPlayer(player, index = 0, loc = null) {
   player.vy = 0;
   player.kx = 0;
   player.ky = 0;
+  player.hostImpulseSeq = (player.hostImpulseSeq || 0) + 1;
+  player.lastHostImpulse = null;
   player.hp = player.maxHp;
   ensureInventory(player);
   ensureAbilityInventory(player);
@@ -221,8 +229,14 @@ export function makeSnapshot(state) {
       ability: abilitySnapshot(p),
       companions: companionSummary(p, state),
       skin: p.skin,
+      netStatus: p.netStatus || (p.disconnected ? "disconnected" : "online"),
+      disconnected: !!p.disconnected,
+      disconnectedAt: p.disconnectedAt || 0,
+      ...playerImpulseSnapshot(p),
       vx: Number((p.vx || 0).toFixed(1)),
-      vy: Number((p.vy || 0).toFixed(1))
+      vy: Number((p.vy || 0).toFixed(1)),
+      kx: Number((p.kx || 0).toFixed(1)),
+      ky: Number((p.ky || 0).toFixed(1))
     })),
     enemies: Object.values(state.enemies).map((e) => ({
       id: e.id,

@@ -2,6 +2,7 @@ import { dist2, norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "../effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { applyEnemyTouchDamage, moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
 function chargerRuntime(enemy) {
@@ -59,8 +60,13 @@ function chargeHitPlayers(state, enemy, charge, cfg, updateCtx) {
       tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH, "charge"]
     });
     const push = norm(player.x - enemy.x, player.y - enemy.y);
-    player.kx = (player.kx || 0) + push.x * cfg.knockback;
-    player.ky = (player.ky || 0) + push.y * cfg.knockback;
+    applyPlayerImpulse(state, player, {
+      x: push.x * cfg.knockback,
+      y: push.y * cfg.knockback,
+      sourceId: enemy.id,
+      sourceType: "enemyCharge",
+      reason: "charger_dash_hit"
+    });
     hit.add(player.id);
   }
   charge.hitPlayers = [...hit];

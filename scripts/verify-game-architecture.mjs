@@ -277,4 +277,25 @@ assert.match(read('src/render/chestRenderers.js'), /drawChestInteractable/, 'che
 const abilities = read('src/game/abilities.js');
 assert.match(abilities, /legacyDash[\s\S]+inventoryDash[\s\S]+maxCharges/, 'dash ability must combine legacy upgrade compatibility with stacked ability loot charges');
 
+const playerImpulse = read('src/game/playerImpulse.js');
+assert.match(playerImpulse, /export function applyPlayerImpulse/, 'hostile player displacement must have an official player impulse pipeline');
+assert.match(read('src/game/state.js'), /playerImpulseSnapshot\(p\)/, 'player snapshots must carry host impulse reconciliation metadata');
+const hostileImpulseFiles = [
+  'src/game/enemyBehaviors/common.js',
+  'src/game/enemyBehaviors/pulse.js',
+  'src/game/enemyBehaviors/bouncer.js',
+  'src/game/enemyBehaviors/charger.js',
+  'src/game/enemyBehaviors/bomber.js',
+  'src/game/enemyBehaviors/glitch.js',
+  'src/game/enemyBehaviors/prism.js',
+  'src/game/hostileProjectiles.js',
+  'src/game/enemyElites.js'
+];
+for (const rel of hostileImpulseFiles) {
+  const src = withoutComments(read(rel));
+  assert.match(src, /applyPlayerImpulse\(/, `${rel} must route hostile player displacement through applyPlayerImpulse()`);
+  assert.doesNotMatch(src, /\bplayer\.k[xy]\s*=/, `${rel} must not directly mutate player knockback velocity`);
+  assert.doesNotMatch(src, /\btarget\.k[xy]\s*=/, `${rel} must not directly mutate target knockback velocity`);
+}
+
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);

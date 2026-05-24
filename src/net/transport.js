@@ -119,12 +119,12 @@ export class Transport {
       const replacedExistingSlot = !!joinedId && this.players.has(joinedId);
       if (this.role === "host" && joinedId && joinedId !== this.playerId) {
         this.closePeer(joinedId);
-        if (replacedExistingSlot) this.callbacks.onPlayerReplaced?.(joinedId);
       }
       if (Array.isArray(msg.players)) this.players = new Set(msg.players);
       else this.players.add(joinedId);
       this.syncNames(msg.names);
       this.callbacks.onPlayers?.([...this.players], this.namesObject());
+      this.callbacks.onPlayerReplaced?.(joinedId, { reconnect: !!msg.reconnect });
       if (this.role === "host" && joinedId !== this.playerId) {
         this.createPeerForGuest(joinedId).catch(() => {
           this.callbacks.onPeerState?.(joinedId, "relay");
@@ -137,7 +137,7 @@ export class Transport {
       else this.players.delete(msg.playerId);
       this.closePeer(msg.playerId);
       this.syncNames(msg.names);
-      this.callbacks.onPlayerLeft?.(msg.playerId);
+      this.callbacks.onPlayerLeft?.(msg.playerId, msg.reason || "left", { players: [...this.players], names: this.namesObject() });
       this.callbacks.onPlayers?.([...this.players], this.namesObject());
       return;
     }

@@ -1,6 +1,8 @@
 import { isValidRoomId, normalizeRoomId, randomRoomId } from "../ui.js";
 import { normalizePlayerName } from "../core/names.js";
 import { CONNECT_TIMEOUT_MS } from "../core/constants.js";
+
+const SOFT_DISCONNECT_REASONS = new Set(["socket_closed", "socket_error", "stale_socket", "network_lost", "connection_lost"]);
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory } from "../game/inventory.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "../game/state.js";
@@ -174,6 +176,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.pingMs = null;
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
+    app.disconnectedPlayers = Object.create(null);
     app.localLocationId = null;
     app.fireSeq = 0;
     app.abilitySeq = 0;
@@ -208,18 +211,51 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
   }
 
+  function markRemotePlayerConnected(id) {
+    if (!id || id === app.playerId) return;
+    if (app.disconnectedPlayers) delete app.disconnectedPlayers[id];
+    const player = app.hostState?.players?.[id];
+    if (player) {
+      player.disconnected = false;
+      player.netStatus = "online";
+      player.disconnectedAt = 0;
+    }
+  }
+
+  function markRemotePlayerDisconnected(id, reason = "socket_closed") {
+    if (!id || id === app.playerId) return;
+    if (!app.disconnectedPlayers) app.disconnectedPlayers = Object.create(null);
+    app.disconnectedPlayers[id] = { reason, at: globalThis.performance?.now ? globalThis.performance.now() : Date.now() };
+    app.hostInputs[id] = emptyInput();
+    const player = app.hostState?.players?.[id];
+    if (player) {
+      player.disconnected = true;
+      player.netStatus = "disconnected";
+      player.disconnectedAt = Date.now();
+      player.vx = 0;
+      player.vy = 0;
+      player.kx = 0;
+      player.ky = 0;
+    }
+  }
+
   function dropRemotePlayer(id) {
     if (!id || id === app.playerId) return;
     app.players = app.players.filter((player) => player !== id);
     delete app.playerNames[id];
+    if (app.disconnectedPlayers) delete app.disconnectedPlayers[id];
     if (app.hostState) removePlayer(app.hostState, id);
     delete app.hostInputs[id];
   }
 
-  function handlePlayerLeft(id) {
+  function handlePlayerLeft(id, reason = "left") {
     if (app.role === "guest" && id === "p1") {
       leaveGame();
       app.ui.flashError();
+      return;
+    }
+    if (app.role === "host" && SOFT_DISCONNECT_REASONS.has(reason)) {
+      markRemotePlayerDisconnected(id, reason);
       return;
     }
     dropRemotePlayer(id);
@@ -227,7 +263,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
 
   function handlePlayerReplaced(id) {
     if (app.role !== "host") return;
-    dropRemotePlayer(id);
+    markRemotePlayerConnected(id);
   }
 
   function leaveGame() {
@@ -249,6 +285,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.snapshot = null;
     app.hostState = null;
     app.hostInputs = Object.create(null);
+    app.disconnectedPlayers = Object.create(null);
     app.localPose = null;
     app.predictedProjectiles = [];
     app.localInventory = createInventory([START_WEAPON]);
@@ -274,6 +311,8 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     currentMenuName,
     setConnecting,
     handleConnectError,
-    handleTransportClose
+    handleTransportClose,
+    markRemotePlayerConnected,
+    markRemotePlayerDisconnected
   };
 }

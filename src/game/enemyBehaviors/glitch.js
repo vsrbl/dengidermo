@@ -2,6 +2,7 @@ import { norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { resolveSpawnPointInState } from "../roomGeometry.js";
 import { applyEnemyTouchDamage, moveEnemyWithVelocity } from "./common.js";
 
@@ -39,8 +40,13 @@ function hitDashPlayers(state, enemy, cfg, updateCtx) {
       tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH, "glitch"]
     });
     const d = norm(player.x - enemy.x, player.y - enemy.y);
-    player.kx = (player.kx || 0) + d.x * (cfg.knockback || 260);
-    player.ky = (player.ky || 0) + d.y * (cfg.knockback || 260);
+    applyPlayerImpulse(state, player, {
+      x: d.x * (cfg.knockback || 260),
+      y: d.y * (cfg.knockback || 260),
+      sourceId: enemy.id,
+      sourceType: "enemyGlitchDash",
+      reason: "glitch_dash_hit"
+    });
   }
 }
 

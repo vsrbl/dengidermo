@@ -2,6 +2,7 @@ import { angleToVec, norm, segmentCircleHitT } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { applyEnemyTouchDamage, moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
 function runtime(enemy, cfg) {
@@ -46,8 +47,13 @@ function firePrismBeams(state, enemy, cfg, updateCtx) {
         enemyId: enemy.id,
         tags: [DAMAGE_TAGS.ENEMY, "beam", "prism"]
       });
-      player.kx = (player.kx || 0) + d.x * (cfg.knockback || 240);
-      player.ky = (player.ky || 0) + d.y * (cfg.knockback || 240);
+      applyPlayerImpulse(state, player, {
+        x: d.x * (cfg.knockback || 240),
+        y: d.y * (cfg.knockback || 240),
+        sourceId: enemy.id,
+        sourceType: "enemyPrismBeam",
+        reason: "prism_beam_hit"
+      });
     }
   }
 }

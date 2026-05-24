@@ -35,6 +35,7 @@ import { updateCompanions } from '../src/game/companions.js';
 import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
+import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
 import { SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
@@ -90,6 +91,38 @@ function assertHostAuthorityScenario() {
   assert.ok(projectile, 'valid hostile shoot request should spawn a projectile');
   assert.ok(Math.abs(projectile.y - shotY) < 20, 'projectile origin should use authoritative player y, not payload.y');
   assert.ok(projectile.x > shotX && projectile.x < shotX + 80, 'projectile origin should use authoritative player x, not payload.x');
+}
+
+function assertHostImpulseReconcileScenario() {
+  const state = createGameState('HOST-IMPULSE-RECONCILE');
+  const host = addPlayer(state, 'p1', 0);
+  const guest = addPlayer(state, 'p2', 1);
+  host.x = 420;
+  host.y = 420;
+  guest.x = 500;
+  guest.y = 500;
+
+  const impulse = applyPlayerImpulse(state, guest, {
+    x: 330,
+    y: -90,
+    sourceId: 'pls-test',
+    sourceType: 'enemyPulseWave',
+    reason: 'verify_force_wave'
+  });
+  assert.ok(impulse?.seq > 0, 'hostile force-wave impulse should allocate a host impulse sequence');
+  assert.equal(guest.hostImpulseSeq, impulse.seq, 'player should store latest host impulse sequence');
+
+  updateHostWorld(state, {
+    p1: { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false },
+    p2: { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false }
+  }, 1 / 60);
+
+  const snap = makeSnapshot(state);
+  const snapGuest = snap.players.find((p) => p.id === 'p2');
+  assert.ok(snapGuest.hostImpulseSeq >= impulse.seq, 'snapshot should carry host impulse sequence for client reconciliation');
+  assert.ok(snapGuest.lastHostImpulse?.reason === 'verify_force_wave', 'snapshot should carry the impulse reason/source for desync debugging');
+  assert.equal(typeof snapGuest.kx, 'number', 'snapshot should expose authoritative knockback velocity kx');
+  assert.equal(typeof snapGuest.ky, 'number', 'snapshot should expose authoritative knockback velocity ky');
 }
 
 function assertDamagePolicy() {
@@ -725,6 +758,7 @@ function assertModifierScenario() {
 
 }
 assertHostAuthorityScenario();
+assertHostImpulseReconcileScenario();
 assertDamagePolicy();
 assertDamageScenarios();
 assertLinkedArmorScenario();
@@ -742,4 +776,4 @@ assertRewardEventFeedScenario();
 assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, anomaly enemy stress pack plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, host impulse reconciliation, anomaly enemy stress pack plus next-room casino debt');

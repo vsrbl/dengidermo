@@ -7,6 +7,7 @@ import { enemyPathDirection } from "../enemyPathfinding.js";
 import { nextId } from "../entityIds.js";
 import { initEnemyArmor } from "../enemyArmor.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 
 export function nearestAlivePlayer(state, x, y) {
   let best = null;
@@ -80,8 +81,14 @@ export function applyEnemyTouchDamage(state, enemy, data, target, dt, updateCtx)
     tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.TOUCH]
   });
   const push = norm(target.x - enemy.x, target.y - enemy.y);
-  target.kx = (target.kx || 0) + push.x * 70;
-  target.ky = (target.ky || 0) + push.y * 70;
+  applyPlayerImpulse(state, target, {
+    x: push.x * 70,
+    y: push.y * 70,
+    sourceId: enemy.id,
+    sourceType: "enemyTouch",
+    reason: "enemy_touch",
+    reconcile: false
+  });
 }
 
 

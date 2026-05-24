@@ -2,6 +2,7 @@ import { angleToVec, norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { applyEnemyTouchDamage, moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
 function runtime(enemy, cfg) {
@@ -44,8 +45,13 @@ function hitPlayers(state, enemy, cfg, updateCtx) {
       enemyId: enemy.id,
       tags: [DAMAGE_TAGS.ENEMY, "pulse", "front_wave"]
     });
-    player.kx = (player.kx || 0) + dir.x * (cfg.knockback || 330);
-    player.ky = (player.ky || 0) + dir.y * (cfg.knockback || 330);
+    applyPlayerImpulse(state, player, {
+      x: dir.x * (cfg.knockback || 330),
+      y: dir.y * (cfg.knockback || 330),
+      sourceId: enemy.id,
+      sourceType: "enemyPulseWave",
+      reason: "pulse_front_wave"
+    });
   }
 }
 

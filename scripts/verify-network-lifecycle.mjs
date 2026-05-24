@@ -21,6 +21,8 @@ assert.match(serverSrc, /function leave/, 'server leave handler missing');
 assert.match(serverSrc, /function notifyPlayerLeft/, 'server explicit player-left notification missing');
 assert.match(serverSrc, /function heartbeatClients/, 'server heartbeat stale-disconnect detection missing');
 assert.match(serverSrc, /HEARTBEAT_TIMEOUT_MS/, 'server heartbeat timeout missing');
+assert.match(serverSrc, /SOFT_DISCONNECT_GRACE_MS/, 'server must retain transiently disconnected guest slots');
+assert.match(serverSrc, /markPlayerOffline\(room, id, "stale_socket"\)/, 'stale prune must mark guest slots offline instead of deleting gameplay identity');
 assert.match(serverSrc, /notifyPlayerLeft\(room, id, "stale_socket"\)/, 'stale prune must notify host immediately after detection');
 
 const child = spawn(process.execPath, ['server/server.js'], {
@@ -133,9 +135,28 @@ try {
   const hostNotice2 = await nextJson(host, 'guest2 player_joined');
   assert.equal(hostNotice2.playerId, 'p2');
   guest2.close();
-  const left2 = await nextJson(host, 'player_left on websocket close');
+  const offline2 = await nextJson(host, 'soft player_left on websocket close');
+  assert.equal(offline2.type, 'player_left');
+  assert.equal(offline2.playerId, 'p2');
+  assert.equal(offline2.reason, 'socket_closed');
+  assert.ok(offline2.players.includes('p2'), 'transient socket close must retain the player slot for host gameplay state');
+
+  const guest3 = await openWs();
+  await nextJson(guest3, 'guest3 hello');
+  guest3.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST3' }));
+  const joined3 = await nextJson(guest3, 'guest3 joined');
+  assert.equal(joined3.playerId, 'p2', 'offline slot must be reused for reconnect');
+  assert.equal(joined3.reconnect, true, 'rejoin of an offline slot must be marked as reconnect');
+  const reconnectNotice = await nextJson(host, 'guest3 reconnect player_joined');
+  assert.equal(reconnectNotice.playerId, 'p2');
+  assert.equal(reconnectNotice.reconnect, true, 'host must receive reconnect metadata instead of a destructive replace');
+
+  guest3.send(JSON.stringify({ type: 'leave', roomId: 'NET140' }));
+  const left2 = await nextJson(host, 'player_left on explicit leave after reconnect');
   assert.equal(left2.type, 'player_left');
   assert.equal(left2.playerId, 'p2');
+  assert.equal(left2.reason, 'left');
+  assert.ok(!left2.players.includes('p2'), 'explicit leave must remove the slot from authoritative player list');
 
   host.close();
 } finally {

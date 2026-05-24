@@ -2,6 +2,7 @@ import { dist2, norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { finishEnemyKill } from "../enemyDeath.js";
 import { moveEnemyTowardTarget, moveEnemyWithVelocity } from "./common.js";
 
@@ -53,8 +54,13 @@ function explodeBomber(state, enemy, cfg, updateCtx) {
       tags: [DAMAGE_TAGS.ENEMY, DAMAGE_TAGS.EXPLOSION]
     });
     const push = norm(player.x - enemy.x, player.y - enemy.y);
-    player.kx = (player.kx || 0) + push.x * cfg.knockback;
-    player.ky = (player.ky || 0) + push.y * cfg.knockback;
+    applyPlayerImpulse(state, player, {
+      x: push.x * cfg.knockback,
+      y: push.y * cfg.knockback,
+      sourceId: enemy.id,
+      sourceType: "enemyExplosion",
+      reason: "bomber_explosion"
+    });
   }
   pushVisualEffect(state, {
     type: "explosion",

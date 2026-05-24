@@ -32,12 +32,25 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
 
   function ensureHostPlayers() {
     if (!app.hostState) return;
+    const disconnected = app.disconnectedPlayers || {};
     for (const [index, id] of app.players.entries()) {
       if (!app.hostState.players[id]) addPlayer(app.hostState, id, index, { name: session.playerDisplayName(id) });
+      const player = app.hostState.players[id];
+      if (player) {
+        const offline = !!disconnected[id];
+        player.disconnected = offline;
+        player.netStatus = offline ? "disconnected" : "online";
+        if (offline) {
+          player.disconnectedAt = player.disconnectedAt || Date.now();
+          app.hostInputs[id] = emptyInput();
+        } else {
+          player.disconnectedAt = 0;
+        }
+      }
     }
     applyHostPlayerNames();
     for (const id of Object.keys(app.hostState.players)) {
-      if (!app.players.includes(id)) removePlayer(app.hostState, id);
+      if (!app.players.includes(id) && !disconnected[id]) removePlayer(app.hostState, id);
     }
   }
 
@@ -82,6 +95,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
       session.dropRemotePlayer(from);
       return true;
     }
+    if (from) session.markRemotePlayerConnected?.(from);
     if (msg.t === "input" && from) {
       app.hostInputs[from] = normalizeHostInput(msg.input);
       return true;

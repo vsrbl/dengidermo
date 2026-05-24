@@ -2,6 +2,7 @@ import { dist2, norm } from "../../core/math.js";
 import { DAMAGE_TAGS, dealPlayerDamage } from "../effects.js";
 import { devEnemyDamageMult } from "../dev.js";
 import { pushVisualEffect } from "../effectCommands.js";
+import { applyPlayerImpulse } from "../playerImpulse.js";
 import { moveCircleInLocation } from "../roomGeometry.js";
 
 function runtime(enemy, target, cfg) {
@@ -38,8 +39,13 @@ function hitPlayers(state, enemy, data, cfg, rt, updateCtx) {
     });
     const awayFromPlayer = norm(enemy.x - player.x, enemy.y - player.y);
     const pushPlayer = norm(player.x - enemy.x, player.y - enemy.y);
-    player.kx = (player.kx || 0) + pushPlayer.x * (cfg.playerKnockback || 460);
-    player.ky = (player.ky || 0) + pushPlayer.y * (cfg.playerKnockback || 460);
+    applyPlayerImpulse(state, player, {
+      x: pushPlayer.x * (cfg.playerKnockback || 460),
+      y: pushPlayer.y * (cfg.playerKnockback || 460),
+      sourceId: enemy.id,
+      sourceType: "enemyBounce",
+      reason: "bouncer_player_hit"
+    });
     const speed = Math.min(cfg.maxSpeed || 520, Math.max(cfg.speed || 235, Math.hypot(enemy.vx, enemy.vy) * (cfg.playerBounceGain || 1.04)));
     enemy.vx = awayFromPlayer.x * speed;
     enemy.vy = awayFromPlayer.y * speed;

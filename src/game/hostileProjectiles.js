@@ -4,12 +4,18 @@ import { dealPlayerDamage } from "./effects.js";
 import { hostileProjectileDamageTags } from "./damageSourceMatrix.js";
 import { addSpark } from "./effectCommands.js";
 import { firstSolidWallHitInState } from "./roomGeometry.js";
+import { applyPlayerImpulse } from "./playerImpulse.js";
 
-function addPlayerImpulse(player, fromX, fromY, force = 0) {
+function addPlayerImpulse(state, player, fromX, fromY, force = 0, source = null) {
   if (!(force > 0)) return;
   const d = norm(player.x - fromX, player.y - fromY);
-  player.kx = (player.kx || 0) + d.x * force;
-  player.ky = (player.ky || 0) + d.y * force;
+  applyPlayerImpulse(state, player, {
+    x: d.x * force,
+    y: d.y * force,
+    sourceId: source?.ownerId || source?.enemyId || null,
+    sourceType: "enemyProjectile",
+    reason: "hostile_projectile_hit"
+  });
 }
 
 function hostileProjectileHitPadding(projectile) {
@@ -40,7 +46,7 @@ export function updateHostileProjectile(state, projectile, dt, runtime) {
       enemyId: projectile.enemyId || projectile.ownerId || null,
       tags: hostileProjectileDamageTags()
     });
-    addPlayerImpulse(player, projectile.x, projectile.y, projectile.knockback || 0);
+    addPlayerImpulse(state, player, projectile.x, projectile.y, projectile.knockback || 0, projectile);
     addSpark(state, player.x, player.y, 3, 115, projectileSparkColor(projectile));
     remove = true;
     break;
