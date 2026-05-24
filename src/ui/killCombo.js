@@ -12,7 +12,7 @@ function rewardLine(combo = {}) {
 
 export function renderKillCombo(el, combo = null) {
   if (!el) return;
-  if (!combo || !(combo.count >= 2)) {
+  if (!combo || !(combo.count >= 1)) {
     el.classList.remove("active", "combo-bump", "milestone");
     el.setAttribute("aria-hidden", "true");
     return;
@@ -26,10 +26,10 @@ export function renderKillCombo(el, combo = null) {
     el.replaceChildren();
     const label = document.createElement("div");
     label.className = "kill-combo-label";
-    label.textContent = safeText(combo.label || "SIGNAL CHAIN");
+    label.textContent = safeText(combo.label || "KILL TRACE");
     const count = document.createElement("div");
     count.className = "kill-combo-count";
-    count.textContent = `x${Math.max(2, Math.floor(combo.count || 2))}`;
+    count.textContent = `x${Math.max(1, Math.floor(combo.count || 1))}`;
     const reward = document.createElement("div");
     reward.className = "kill-combo-reward";
     reward.textContent = rewardLine(combo);
@@ -39,9 +39,9 @@ export function renderKillCombo(el, combo = null) {
     el.classList.add("combo-bump");
   } else {
     const count = el.querySelector(".kill-combo-count");
-    if (count) count.textContent = `x${Math.max(2, Math.floor(combo.count || 2))}`;
+    if (count) count.textContent = `x${Math.max(1, Math.floor(combo.count || 1))}`;
     const label = el.querySelector(".kill-combo-label");
-    if (label) label.textContent = safeText(combo.label || "SIGNAL CHAIN");
+    if (label) label.textContent = safeText(combo.label || "KILL TRACE");
     const reward = el.querySelector(".kill-combo-reward");
     if (reward) reward.textContent = rewardLine(combo);
   }

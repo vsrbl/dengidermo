@@ -270,7 +270,7 @@ export function makeSnapshot(state) {
       targetDepth: p.targetDepth ?? p.targetIndex
     })),
     effects: effectPacket.items,
-    events: state.events.slice(-16).map((e) => ({ ...e })),
+    events: state.events.slice(-48).map((e) => ({ ...e })),
     director: directorSnapshot(state),
     dev: devSnapshot(state)
   };

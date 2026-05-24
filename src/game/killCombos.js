@@ -4,15 +4,16 @@ import { pushEvent } from "./events.js";
 import { grantMoney, grantXp } from "./playerEconomy.js";
 
 export const KILL_COMBO_WINDOW = 4.25;
-export const KILL_COMBO_VISIBLE_THRESHOLD = 25;
+export const KILL_COMBO_VISIBLE_THRESHOLD = 1;
 
 export const KILL_COMBO_TIERS = Object.freeze([
-  { threshold: 25, label: "SIGNAL CHAIN", code: "CHN", tier: "chain", reward: { money: 8, xp: 10 } },
-  { threshold: 50, label: "SERIAL WIPE", code: "WIPE", tier: "serial", reward: { money: 16, xp: 22 } },
-  { threshold: 75, label: "VOID OVERFLOW", code: "VOID", tier: "void", reward: { money: 26, xp: 34 } },
-  { threshold: 100, label: "ROOM DELETE", code: "DEL", tier: "delete", reward: { money: 40, xp: 52 } },
-  { threshold: 150, label: "SYSTEM FEVER", code: "FEVER", tier: "fever", reward: { money: 62, xp: 82 } },
-  { threshold: 200, label: "NNCCKKRR BREACH", code: "BRCH", tier: "breach", reward: { money: 90, xp: 120 } }
+  { threshold: 1, label: "KILL TRACE", code: "KILL", tier: "trace", reward: { money: 0, xp: 0 } },
+  { threshold: 25, label: "SIGNAL KILL CHAIN", code: "CHN", tier: "chain", reward: { money: 8, xp: 10 } },
+  { threshold: 50, label: "SERIAL KILL WIPE", code: "WIPE", tier: "serial", reward: { money: 16, xp: 22 } },
+  { threshold: 75, label: "VOID KILL OVERFLOW", code: "VOID", tier: "void", reward: { money: 26, xp: 34 } },
+  { threshold: 100, label: "ROOM KILL DELETE", code: "DEL", tier: "delete", reward: { money: 40, xp: 52 } },
+  { threshold: 150, label: "SYSTEM KILL FEVER", code: "FEVER", tier: "fever", reward: { money: 62, xp: 82 } },
+  { threshold: 200, label: "NNCCKKRR KILL BREACH", code: "BRCH", tier: "breach", reward: { money: 90, xp: 120 } }
 ]);
 
 function ensureComboState(state) {
@@ -29,7 +30,7 @@ function comboTierFor(count) {
 }
 
 function exactMilestoneFor(count) {
-  return KILL_COMBO_TIERS.find((entry) => entry.threshold === count) || null;
+  return KILL_COMBO_TIERS.find((entry) => entry.threshold === count && entry.threshold >= 25) || null;
 }
 
 function repeatMilestoneFor(count) {
@@ -38,7 +39,7 @@ function repeatMilestoneFor(count) {
   return {
     ...KILL_COMBO_TIERS[KILL_COMBO_TIERS.length - 1],
     threshold: count,
-    label: "NNCCKKRR BREACH",
+    label: "NNCCKKRR KILL BREACH",
     reward: {
       money: 90 + bonusSteps * 24,
       xp: 120 + bonusSteps * 34

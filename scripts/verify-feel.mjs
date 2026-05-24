@@ -172,15 +172,15 @@ test('kill combo dopamine moments are host-authoritative and economy rewards use
   const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   assert.ok(killCombos.includes('registerKillCombo'), 'kill combo registration must live in game/killCombos.js');
   assert.ok(killCombos.includes('grantMoney(state, player') && killCombos.includes('grantXp(state, player'), 'combo milestone rewards must use playerEconomy grant pipelines');
-  assert.ok(killCombos.includes('SIGNAL CHAIN') && killCombos.includes('NNCCKKRR BREACH'), 'combo labels should use nncckkrr setting language');
-  assert.ok(killCombos.includes('KILL_COMBO_VISIBLE_THRESHOLD = 25'), 'combo UI should stay hidden until 25+ kills');
+  assert.ok(killCombos.includes('SIGNAL KILL CHAIN') && killCombos.includes('NNCCKKRR KILL BREACH'), 'combo labels should use nncckkrr setting language with KILL clarity');
+  assert.ok(killCombos.includes('KILL_COMBO_VISIBLE_THRESHOLD = 1'), 'combo counter should be visible immediately while milestone names/rewards stay gated');
   for (let i = 0; i < 24; i += 1) {
     const enemy = spawnEnemy(state, 'grunt', 620 + i * 3, 500);
     enemy.hp = 1;
     finishEnemyKill(state, enemy, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
     state.time += 0.08;
   }
-  assert.equal(state.events.some((event) => event.type === 'kill_combo'), false, 'combo UI events should stay hidden before 25 kills');
+  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.count >= 1), 'combo UI should emit immediate kill counter events before 25 kills');
   const enemy25 = spawnEnemy(state, 'grunt', 700, 500);
   enemy25.hp = 1;
   finishEnemyKill(state, enemy25, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
@@ -201,6 +201,7 @@ test('screen moments use durable queue and EXIT OPEN trusts host-gated event', (
   assert.ok(portals.includes('portalActive: true'), 'portal open event should mark the host-gated active portal state');
   assert.ok(momentFeed.includes('!event.portalActive && !matchingPortal?.active'), 'EXIT OPEN should display only when the host-gated event or snapshot says active');
   assert.ok(momentFeed.includes('if (!moment) continue'), 'non-ready moment candidates must not be marked seen and lost forever');
+  assert.ok(momentFeed.includes('function buildLoopMoment') && momentFeed.includes('RUN ESCALATION') && momentFeed.includes('LOOP ${loop}'), 'loop changes should create queued full-screen moments');
 });
 
 test('orbiter pressure slows players and snapshots the pressure count', () => {
@@ -213,10 +214,10 @@ test('orbiter pressure slows players and snapshots the pressure count', () => {
   assert.ok(snapshot.includes('orbiterPressure: orbiterPressureSnapshot(p)'), 'snapshot must expose orbiter pressure for UI/prediction');
 });
 
-test('central dopamine typography uses Pixelify Sans display font without bundling font files', () => {
+test('central dopamine typography uses sharper Press Start 2P display font without bundling font files', () => {
   const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  assert.ok(style.includes('fonts.googleapis.com/css2?family=Pixelify+Sans'), 'style should load the selected web pixel font');
-  assert.ok(style.includes('--display-pixel-font: "Pixelify Sans"'), 'central display font stack should use Pixelify Sans first');
+  assert.ok(style.includes('fonts.googleapis.com/css2?family=Press+Start+2P'), 'style should load the sharper selected web pixel font');
+  assert.ok(style.includes('--display-pixel-font: "Press Start 2P"'), 'central display font stack should use Press Start 2P first');
   assert.ok(style.includes('font-family: var(--display-pixel-font)'), 'screen moments/combo should use the display pixel font variable');
 });
 
@@ -228,14 +229,16 @@ test('linked armor is data-driven and can appear on random non-tank enemies', ()
   assert.ok(variants.includes('grantsArmor'), 'linked armor should grant an armor shell to eligible non-armor enemies');
   assert.ok(variants.includes('"runner"') && variants.includes('"charger"') && variants.includes('"orbiter"'), 'linked armor should be allowed on normal/anomaly mobs, not just tank');
   assert.ok(runtime.includes('ensureVariantArmor(enemy, variant)') && runtime.includes('enemy.armor = {'), 'armor variant runtime should grant armor through the variant armor pipeline without import cycles');
+  assert.ok(runtime.includes('target?.armor?.variant?.id === variant?.id'), 'linked red armor should not chain to another linked red armor mob');
   assert.ok(loopScaling.includes('variantChance: 0.13'), 'linked armor chance should be higher than the earlier rare 4%');
 });
 
-test('enemy wall detour exists as first-pass anti-stuck steering', () => {
+test('enemy pathfinding replaces wall detour anti-stuck steering', () => {
   const common = readFileSync(new URL('../src/game/enemyBehaviors/common.js', import.meta.url), 'utf8');
-  assert.ok(common.includes('applyWallDetour'), 'enemy movement should have a wall detour helper');
-  assert.ok(common.includes('wallStuckFor'), 'enemy wall detour should accumulate stuck time');
-  assert.ok(common.includes('wallSlideSide'), 'enemy wall detour should use deterministic slide side instead of random jitter');
+  const pathfinding = readFileSync(new URL('../src/game/enemyPathfinding.js', import.meta.url), 'utf8');
+  assert.ok(common.includes('enemyPathDirection'), 'enemy movement should ask the pathfinding layer for blocked target directions');
+  assert.ok(pathfinding.includes('ENEMY_PATHFINDING_SCHEMA_VERSION') && pathfinding.includes('computePathDirection'), 'enemy pathfinding module should own the grid path solver');
+  assert.ok(!common.includes('applyWallDetour') && !common.includes('wallStuckFor'), 'old wall-detour jitter steering should be removed');
 });
 
 let failed = 0;

@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22f",
-  "buildId": "v39.3.22f-20260524",
+  "version": "v39.3.22g",
+  "buildId": "v39.3.22g-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-24",
-  "entry": "./src/main.v39-3-22f.js?v=39.3.22f",
-  "style": "./style.css?v=39.3.22f",
-  "config": "./config.js?v=39.3.22f",
+  "entry": "./src/main.v39-3-22g.js?v=39.3.22g",
+  "style": "./style.css?v=39.3.22g",
+  "config": "./config.js?v=39.3.22g",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22f hotfix: restores gated EXIT OPEN moments, adds orbiter clamp/slow pressure, upgrades central pixel display typography, expands linked armor to random enemies through the armor variant pipeline, and adds first-pass enemy wall-detour steering."
+  "notes": "v39.3.22g hotfix: switches central typography to a sharper arcade pixel font, restores immediate kill combo counter with KILL labels, adds LOOP screen moments, keeps room labels above walls, prevents linked armor from chaining to linked armor, and replaces wall detour steering with first-pass enemy pathfinding."
 }

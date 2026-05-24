@@ -8,6 +8,6 @@ export function pushEvent(state, event) {
     t: Number.isFinite(event?.t) ? event.t : state.time
   };
   state.events.push(queued);
-  if (state.events.length > 32) state.events.splice(0, state.events.length - 32);
+  if (state.events.length > 96) state.events.splice(0, state.events.length - 96);
   return queued;
 }

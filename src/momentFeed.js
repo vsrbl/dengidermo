@@ -107,6 +107,20 @@ function buildCasinoMoment(event, playerId) {
   };
 }
 
+function buildLoopMoment(event) {
+  if (event.type !== "location" || !event.loopChanged) return null;
+  const loop = Math.max(0, Math.floor(Number(event.loopIndex) || 0));
+  const depth = Math.max(0, Math.floor(Number(event.runDepth) || 0));
+  return {
+    kind: "loop",
+    tier: loop >= 2 ? "ultra" : "high",
+    kicker: "RUN ESCALATION",
+    text: `LOOP ${loop}`,
+    detail: `DEPTH ${depth} // ${String(event.locationName || event.resolvedRoomId || "NEXT ROOM").toUpperCase().slice(0, 18)}`,
+    lifeMs: loop >= 2 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
+  };
+}
+
 function buildComboMoment(event, playerId) {
   if (event.type !== "kill_combo" || event.action !== "stack" || event.playerId !== playerId || !event.milestone) return null;
   if (!(event.count >= COMBO_MOMENT_MIN_COUNT)) return null;
@@ -115,7 +129,7 @@ function buildComboMoment(event, playerId) {
     kind: "combo",
     tier: event.count >= 100 ? "ultra" : "high",
     kicker: "KILL FEED OVERLOAD",
-    text: event.label || "SIGNAL CHAIN",
+    text: event.label || "SIGNAL KILL CHAIN",
     detail: `x${Math.max(1, event.count || 1)}${reward ? ` // ${reward}` : ""}`,
     lifeMs: event.count >= 100 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
   };
@@ -128,6 +142,7 @@ function buildMoment(event, playerId) {
     || buildWeaponMoment(event, playerId)
     || buildRareRewardMoment(event, playerId)
     || buildCasinoMoment(event, playerId)
+    || buildLoopMoment(event)
     || buildComboMoment(event, playerId);
 }
 

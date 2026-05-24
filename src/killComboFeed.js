@@ -1,5 +1,5 @@
 const MAX_SEEN = 96;
-const COMBO_VISIBLE_THRESHOLD = 25;
+const COMBO_VISIBLE_THRESHOLD = 1;
 
 function eventId(event = {}) {
   return String(event.id || `${event.type || "event"}:${event.action || "?"}:${event.t || 0}:${event.playerId || "team"}:${event.seq || 0}`);
@@ -30,10 +30,10 @@ export function createKillComboFeed() {
         id,
         createdAt: now,
         lifeMs: Math.max(1200, (Number(event.comboWindow) || 4.25) * 1000 + 220),
-        count: Math.max(COMBO_VISIBLE_THRESHOLD, Math.floor(event.count || COMBO_VISIBLE_THRESHOLD)),
-        best: Math.max(COMBO_VISIBLE_THRESHOLD, Math.floor(event.best || event.count || COMBO_VISIBLE_THRESHOLD)),
+        count: Math.max(1, Math.floor(event.count || 1)),
+        best: Math.max(1, Math.floor(event.best || event.count || 1)),
         seq: Math.max(0, Math.floor(event.seq || 0)),
-        label: event.label || "SIGNAL CHAIN",
+        label: event.label || "KILL TRACE",
         code: event.code || "CHN",
         tier: event.tier || "trace",
         milestone: !!event.milestone,

@@ -105,6 +105,7 @@ function linkedVariantForEnemy(enemy) {
 
 function isValidLinkTarget(target, variant, source) {
   if (!target || target.id === source?.id || target.hp <= 0) return false;
+  if (target?.armor?.variant?.id === variant?.id) return false;
   const config = variant?.link || {};
   const candidates = asArray(config.candidateKinds);
   const excluded = new Set(asArray(config.excludedKinds));

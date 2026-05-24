@@ -109,7 +109,23 @@ function drawGrid(ctx, cam, location = null) {
   }
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.38)" : "rgba(255,255,255,0.35)";
   ctx.strokeRect(Math.round(-cam.x), Math.round(-cam.y), WORLD.w, WORLD.h);
-  if (location?.name) drawText(ctx, location.name, 16, 112, greenLoc ? GREEN : "#aaa", "left");
+}
+
+function drawRoomTitleOverlay(ctx, location = null) {
+  if (!location?.name) return;
+  const greenLoc = (location.accent || "green") === "green";
+  const title = String(location.name).toUpperCase().slice(0, 28);
+  const subtitle = `LOOP ${Math.max(0, Math.floor(location.loopIndex || 0))} / DEPTH ${Math.max(0, Math.floor(location.runDepth ?? location.index ?? 0))}`;
+  ctx.save();
+  ctx.font = "12px Courier New, monospace";
+  const w = Math.max(ctx.measureText(title).width, ctx.measureText(subtitle).width) + 18;
+  ctx.fillStyle = "rgba(0,0,0,0.78)";
+  ctx.fillRect(10, 92, Math.round(w), 38);
+  ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.42)" : "rgba(255,255,255,0.32)";
+  ctx.strokeRect(10, 92, Math.round(w), 38);
+  ctx.restore();
+  drawText(ctx, title, 18, 108, greenLoc ? GREEN : "#f3f3f3", "left");
+  drawText(ctx, subtitle, 18, 123, "#aaa", "left");
 }
 
 
@@ -511,6 +527,7 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt) : cam;
   drawGrid(ctx, renderCam, snapshot?.location);
   drawRoomGeometry(ctx, renderCam, snapshot?.location);
+  if (snapshot?.location) drawRoomTitleOverlay(ctx, snapshot.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");
     return;

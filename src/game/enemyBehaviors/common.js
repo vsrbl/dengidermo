@@ -3,6 +3,7 @@ import { ENEMIES } from "../../data/enemies.js";
 import { DAMAGE_TAGS, dealPlayerDamage, enemySlowMult } from "../effects.js";
 import { devEnemyDamageMult, devEnemySpeedMult } from "../dev.js";
 import { moveCircleInLocation, resolveSpawnPointInState } from "../roomGeometry.js";
+import { enemyPathDirection } from "../enemyPathfinding.js";
 import { nextId } from "../entityIds.js";
 import { initEnemyArmor } from "../enemyArmor.js";
 import { pushVisualEffect } from "../effectCommands.js";
@@ -29,35 +30,6 @@ export function enemySpeed(state, enemy, data, updateCtx, speedScale = 1) {
     * speedScale;
 }
 
-function wallSlideSide(enemy) {
-  if (!enemy.wallSlideSide) {
-    let n = 0;
-    const id = String(enemy.id || enemy.kind || "enemy");
-    for (let i = 0; i < id.length; i += 1) n = ((n << 5) - n + id.charCodeAt(i)) | 0;
-    enemy.wallSlideSide = (n & 1) ? 1 : -1;
-  }
-  return enemy.wallSlideSide;
-}
-
-function applyWallDetour(enemy, moved, dt) {
-  if (!moved?.hit) {
-    enemy.wallStuckFor = Math.max(0, (enemy.wallStuckFor || 0) - dt * 2);
-    return;
-  }
-  enemy.wallStuckFor = Math.min(1.2, (enemy.wallStuckFor || 0) + dt);
-  const side = wallSlideSide(enemy);
-  const strength = Math.min(1, 0.45 + (enemy.wallStuckFor || 0) * 1.4);
-  const speed = Math.max(24, Math.hypot(enemy.vx || 0, enemy.vy || 0));
-  if (moved.hitX) {
-    enemy.vx = 0;
-    enemy.vy += side * speed * 0.42 * strength;
-  }
-  if (moved.hitY) {
-    enemy.vy = 0;
-    enemy.vx -= side * speed * 0.42 * strength;
-  }
-}
-
 export function moveEnemyWithVelocity(enemy, geometry, dt) {
   enemy.kx = (enemy.kx || 0) * Math.exp(-6.8 * dt);
   enemy.ky = (enemy.ky || 0) * Math.exp(-6.8 * dt);
@@ -72,14 +44,18 @@ export function moveEnemyWithVelocity(enemy, geometry, dt) {
   );
   enemy.x = moved.x;
   enemy.y = moved.y;
-  applyWallDetour(enemy, moved, dt);
+  if (moved?.hit) {
+    enemy.vx *= moved.hitX ? 0.12 : 0.9;
+    enemy.vy *= moved.hitY ? 0.12 : 0.9;
+  }
   return moved;
 }
 
 export function moveEnemyTowardTarget({ state, enemy, data, target, dt, geometry, updateCtx }, options = {}) {
   const dx = target.x - enemy.x;
   const dy = target.y - enemy.y;
-  const dir = norm(dx, dy);
+  const pathDir = enemyPathDirection(state, geometry, enemy, target, enemy.radius || data.radius || 12);
+  const dir = pathDir || norm(dx, dy);
   const speed = enemySpeed(state, enemy, data, updateCtx, options.speedScale ?? 1);
 
   const targetVx = dir.x * speed;
