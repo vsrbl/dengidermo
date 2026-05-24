@@ -261,9 +261,24 @@ function buildClaimBonusItem(event, playerId) {
   };
 }
 
+function buildKillComboItem(event, playerId) {
+  if (event.type !== "kill_combo" || event.action !== "stack" || event.playerId !== playerId) return null;
+  if (!(event.count >= 3) && !event.milestone) return null;
+  const reward = event.rewardLabel || [event.rewardMoney > 0 ? `+${Math.round(event.rewardMoney)}G` : "", event.rewardXp > 0 ? `+${Math.round(event.rewardXp)}XP` : ""].filter(Boolean).join(" ");
+  return {
+    kind: "kill_combo",
+    priority: event.milestone ? REWARD_EVENT_FEED_PRIORITY.HIGH : REWARD_EVENT_FEED_PRIORITY.MEDIUM,
+    scope: REWARD_EVENT_FEED_SCOPE.LOCAL,
+    text: event.label || `COMBO x${event.count}`,
+    detail: reward ? `x${event.count} ${reward}` : `x${event.count}`,
+    lifeMs: event.milestone ? HIGH_LIFE_MS : DEFAULT_LIFE_MS
+  };
+}
+
 export function buildRewardEventFeedItem(event, { playerId = null } = {}) {
   if (!event || !event.type || !event.action) return null;
   return buildInstallItem(event, playerId)
+    || buildKillComboItem(event, playerId)
     || buildInstallConsumedItem(event, playerId)
     || buildChestDeniedItem(event, playerId)
     || buildInteractableDeniedItem(event, playerId)

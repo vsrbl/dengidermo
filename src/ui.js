@@ -2,8 +2,10 @@ import { BUILD_ID, VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { RARITY_META, UPGRADES } from "./data/upgrades.js";
 import { textNode } from "./ui/dom.js";
-import { economyNumber, economyQueueLabel, economyQueueTier, tweenNumber } from "./ui/format.js";
+import { economyNumber, economyQueueLabel, economyQueueTier, safeExpProgressText, safeNextExpText, tweenNumber } from "./ui/format.js";
 import { renderProcFeed } from "./ui/procFeed.js";
+import { renderScreenMoment } from "./ui/screenMoment.js";
+import { renderKillCombo } from "./ui/killCombo.js";
 import { renderStatPanel as renderStatPanelView } from "./ui/statPanel.js";
 export { isValidRoomId, normalizeRoomId, randomRoomId } from "./ui/roomIds.js";
 
@@ -22,6 +24,8 @@ export function createUi() {
     directorDebug: document.getElementById("directorDebug"),
     statPanel: document.getElementById("statPanel"),
     procFeed: document.getElementById("procFeed"),
+    screenMoment: document.getElementById("screenMoment"),
+    killCombo: document.getElementById("killCombo"),
     hpText: document.getElementById("hpText"),
     economyText: document.getElementById("economyText"),
     weaponText: document.getElementById("weaponText"),
@@ -220,7 +224,9 @@ function restartHpHitPulse(drop = 0, hpRatio = 1) {
     const tier = economyQueueTier(queue);
     const stateLabel = economyQueueLabel(queue, upgradeOpen);
 
-    const main = textNode("span", "economy-main", `$${money} · L${level} · EXP ${xp}/${next || "--"}`);
+    const main = textNode("span", "economy-main", `$${money} · L${level}`);
+    const expLine = textNode("span", "economy-exp-line", safeExpProgressText(xp, next));
+    expLine.dataset.next = safeNextExpText(next);
     const track = document.createElement("span");
     track.className = "economy-xp-track";
     track.setAttribute("aria-hidden", "true");
@@ -244,7 +250,7 @@ function restartHpHitPulse(drop = 0, hpRatio = 1) {
       "aria-label",
       `money ${money}, level ${level}, experience ${xp} of ${next || "unknown"}, ${queue > 0 ? `${queue} install queued, exit to install` : "no install queued"}`
     );
-    el.economyText.replaceChildren(main, track, queueLine);
+    el.economyText.replaceChildren(main, expLine, track, queueLine);
 
     if (queue > lastInstallQueue) restartInstallPulse(queue);
     lastInstallQueue = queue;
@@ -399,6 +405,8 @@ function economyDisplayValues(playerId, eco) {
     setNet,
     setHud,
     setProcFeed: (items) => renderProcFeed(el.procFeed, items),
+    setScreenMoment: (moment) => renderScreenMoment(el.screenMoment, moment),
+    setKillCombo: (combo) => renderKillCombo(el.killCombo, combo),
     setUpgradeMenu,
     onUpgradePick,
     isUpgradeOpen,

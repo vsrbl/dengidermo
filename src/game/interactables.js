@@ -21,13 +21,14 @@ function colorForAccent(accent = "green") {
 
 function denyInteractableActivation(state, interactable, player, reason = INTERACTABLE_DENIAL_REASONS.INACTIVE, data = null) {
   if (!state || !interactable || !player) return;
-  const color = colorForAccent(interactable.accent || data?.visual?.accent || 'green');
+  const color = reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY ? RED : colorForAccent(interactable.accent || data?.visual?.accent || 'green');
   pushVisualEffect(state, {
     type: 'damageText',
     x: Math.round(interactable.x),
     y: Math.round(interactable.y - (interactable.radius || 18) - 12),
     text: affordanceReasonLabel(reason),
     color,
+    jitter: reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY,
     life: 0.62,
     maxLife: 0.62
   });

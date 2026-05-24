@@ -36,3 +36,16 @@ export function tweenNumber(from, to, startedAt, now, duration = 220) {
   const eased = 1 - Math.pow(1 - t, 3);
   return Math.round(from + (to - from) * eased);
 }
+
+
+export function safeExpProgressText(xpValue, nextValue) {
+  const xp = economyNumber(xpValue, 0);
+  if (!Number.isFinite(nextValue)) return `EXP ${xp}`;
+  const next = Math.max(1, economyNumber(nextValue, 1));
+  return `EXP ${xp}/${next}`;
+}
+
+export function safeNextExpText(nextValue) {
+  if (!Number.isFinite(nextValue)) return "NEXT --";
+  return `NEXT ${Math.max(1, economyNumber(nextValue, 1))}`;
+}

@@ -102,13 +102,18 @@ function drawEchoEnemy(ctx, s, r) {
   line(ctx, s.x - r - 8, s.y + r + 5, s.x + r + 4, s.y - r - 7, "#b45cff", 1);
 }
 
-function drawOrbiterEnemy(ctx, s, r) {
+function drawOrbiterEnemy(ctx, s, r, _data, enemy = {}) {
   drawCodeSquare(ctx, s, r, "ORB");
+  const fx = Number.isFinite(enemy.projectileDefenseFacingX) ? enemy.projectileDefenseFacingX : 1;
+  const fy = Number.isFinite(enemy.projectileDefenseFacingY) ? enemy.projectileDefenseFacingY : 0;
+  const angle = Math.atan2(fy, fx);
+  const arc = Math.PI * 0.86;
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(Math.round(s.x), Math.round(s.y), r + 7, 0.15, Math.PI * 1.35);
+  ctx.arc(Math.round(s.x), Math.round(s.y), r + 8, angle - arc * 0.5, angle + arc * 0.5);
   ctx.stroke();
+  line(ctx, s.x + Math.cos(angle) * (r + 5), s.y + Math.sin(angle) * (r + 5), s.x + Math.cos(angle) * (r + 16), s.y + Math.sin(angle) * (r + 16), "#fff", 1);
 }
 
 function drawAnchorEnemy(ctx, s, r) {

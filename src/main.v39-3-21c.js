@@ -7,14 +7,16 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-20e.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-20e.js";
-import { createSessionRuntime } from "./app/session.v39-3-20e.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-20e.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-20e.js";
-import { createDevControls } from "./app/devControls.v39-3-20e.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-20e.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-21c.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-21c.js";
+import { createSessionRuntime } from "./app/session.v39-3-21c.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-21c.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-21c.js";
+import { createDevControls } from "./app/devControls.v39-3-21c.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-21c.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
+import { createMomentFeed } from "./momentFeed.js";
+import { createKillComboFeed } from "./killComboFeed.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -67,6 +69,8 @@ function createAppState() {
     casinoSeq: 0,
     casinoClient: null,
     rewardEventFeed: createRewardEventFeed(),
+    momentFeed: createMomentFeed(),
+    killComboFeed: createKillComboFeed(),
     lastInputSent: 0,
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
@@ -167,7 +171,10 @@ function updateHud() {
     ? (app.hostState?.players[app.playerId] ? { ...app.hostState.players[app.playerId], ability: snapMe?.ability || null, companions: snapMe?.companions || null } : null)
     : (app.localPose ? { ...snapMe, hp: snapMe?.hp ?? app.localPose.hp, maxHp: snapMe?.maxHp ?? app.localPose.maxHp, activeWeapon: app.localWeapon, inventory: app.localInventory, upgrades: { choices: app.localUpgradeChoices, offers: app.localUpgradeOffers, offerSeq: app.localUpgradeOfferSeq }, stats: app.localPose.stats || {}, ability: app.localPose.ability || snapMe?.ability || null, companions: snapMe?.companions || null } : snapMe);
   app.ui.setHud(me || { inventory: app.localInventory, activeWeapon: app.localWeapon }, app.snapshot, { statPanelOpen: app.input?.isTabHeld?.() });
-  app.ui.setProcFeed(app.rewardEventFeed.ingest(app.snapshot?.events || [], { playerId: app.playerId }));
+  const events = app.snapshot?.events || [];
+  app.ui.setProcFeed(app.rewardEventFeed.ingest(events, { playerId: app.playerId }));
+  app.ui.setScreenMoment(app.momentFeed.ingest(events, { playerId: app.playerId }));
+  app.ui.setKillCombo(app.killComboFeed.ingest(events, { playerId: app.playerId }));
   app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 

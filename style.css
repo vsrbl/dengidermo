@@ -645,17 +645,17 @@ button:disabled { opacity: 0.45; cursor: default; }
 .stat-panel {
   position: fixed;
   z-index: 8;
-  left: 12px;
-  top: 12px;
-  width: min(380px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: hidden;
-  padding: 12px 14px;
+  left: 50%;
+  top: max(12px, var(--bar));
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(42vh, 360px);
+  overflow: hidden auto;
+  padding: 12px 16px 14px;
   border: 1px solid rgba(0,255,102,0.72);
   background:
     linear-gradient(rgba(0,255,102,0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
-    rgba(0,0,0,0.91);
+    rgba(0,0,0,0.93);
   background-size: 18px 18px;
   box-shadow: 7px 7px 0 #000;
   color: var(--fg);
@@ -664,9 +664,9 @@ button:disabled { opacity: 0.45; cursor: default; }
   letter-spacing: 1px;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-18px) scaleX(0.94);
-  transform-origin: top left;
-  clip-path: inset(0 100% 0 0);
+  transform: translate(-50%, -12px) scaleY(0.82);
+  transform-origin: top center;
+  clip-path: inset(0 0 100% 0);
   pointer-events: none;
   transition:
     opacity 90ms steps(2, end),
@@ -678,7 +678,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 .stat-panel.open {
   opacity: 1;
   visibility: visible;
-  transform: translateX(0) scaleX(1);
+  transform: translate(-50%, 0) scaleY(1);
   clip-path: inset(0 0 0 0);
 }
 
@@ -764,16 +764,186 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 .game-screen.tab-stats .hud-left {
-  opacity: 0.18;
+  opacity: 0.62;
 }
 
 @media (max-width: 640px) {
   .stat-panel {
-    width: min(330px, calc(100vw - 20px));
-    left: 10px;
-    top: 10px;
+    width: min(340px, calc(100vw - 20px));
+    left: 50%;
+    top: max(10px, var(--bar));
     font-size: 10px;
+    max-height: min(48vh, 380px);
   }
+}
+
+
+.screen-moment {
+  --moment-accent: var(--green);
+  position: fixed;
+  z-index: 9;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 120ms steps(2, end), transform 120ms steps(2, end);
+  text-align: center;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.screen-moment::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--moment-accent) 18%, transparent) 48%, transparent 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1));
+  opacity: 0;
+  transform: translateX(-28%);
+}
+
+.screen-moment.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.screen-moment.active::before {
+  animation: screenMomentSweep 780ms steps(5, end) 1;
+}
+
+.screen-moment > div {
+  position: relative;
+  z-index: 1;
+}
+
+.screen-moment-kicker {
+  color: #aaa;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.screen-moment-title {
+  color: var(--moment-accent);
+  font-size: clamp(34px, 6vw, 76px);
+  line-height: 0.92;
+  font-weight: 900;
+}
+
+.screen-moment-detail {
+  color: #f3f3f3;
+  font-size: clamp(12px, 1.5vw, 18px);
+  margin-top: 10px;
+}
+
+.screen-moment-bump .screen-moment-title {
+  animation: screenMomentTitleSlam 440ms steps(4, end) 1;
+}
+
+.screen-moment.kind-ability { --moment-accent: #66f6ff; }
+.screen-moment.kind-weapon,
+.screen-moment.kind-install,
+.screen-moment.kind-exit,
+.screen-moment.kind-combo,
+.screen-moment.kind-casino,
+.screen-moment.kind-jackpot { --moment-accent: var(--green); }
+.screen-moment.kind-rare { --moment-accent: #ffffff; }
+.screen-moment.kind-curse { --moment-accent: #b45cff; }
+.screen-moment.kind-jackpot .screen-moment-title,
+.screen-moment.tier-ultra .screen-moment-title {
+  font-size: clamp(42px, 7.2vw, 92px);
+}
+
+.kill-combo {
+  --combo-accent: #f3f3f3;
+  position: fixed;
+  z-index: 8;
+  left: 50%;
+  top: 86px;
+  min-width: 170px;
+  transform: translateX(-50%) scale(0.95);
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+  padding: 7px 12px 8px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.72);
+  box-shadow: 4px 4px 0 #000;
+  letter-spacing: 2px;
+  transition: opacity 90ms steps(2, end), transform 90ms steps(2, end);
+}
+
+.kill-combo.active {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.kill-combo-label {
+  color: var(--combo-accent);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.kill-combo-count {
+  color: var(--combo-accent);
+  font-size: 34px;
+  line-height: 0.95;
+  font-weight: 900;
+  margin-top: 3px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.kill-combo-reward {
+  min-height: 12px;
+  color: #aaa;
+  font-size: 9px;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.kill-combo.tier-chain,
+.kill-combo.tier-serial { --combo-accent: var(--green); }
+.kill-combo.tier-void,
+.kill-combo.tier-delete { --combo-accent: #66f6ff; }
+.kill-combo.tier-wipe,
+.kill-combo.tier-erase { --combo-accent: #ffffff; }
+.kill-combo.tier-fever { --combo-accent: #b45cff; }
+.kill-combo.milestone {
+  border-color: var(--combo-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 38%, transparent), 4px 4px 0 #000;
+}
+.kill-combo.milestone .kill-combo-count { font-size: 42px; }
+.kill-combo.combo-bump { animation: comboBoxKick 180ms steps(3, end) 1; }
+.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 260ms steps(4, end) 1; }
+
+@keyframes screenMomentSweep {
+  0% { opacity: 0; transform: translateX(-40%); }
+  22% { opacity: 0.75; transform: translateX(-10%); }
+  55% { opacity: 0.34; transform: translateX(12%); }
+  100% { opacity: 0; transform: translateX(42%); }
+}
+
+@keyframes screenMomentTitleSlam {
+  0% { transform: translate(0, -8px) scale(0.82); filter: brightness(1.9); }
+  28% { transform: translate(-5px, 2px) scale(1.12); }
+  58% { transform: translate(4px, 0) scale(1.04); }
+  100% { transform: translate(0, 0) scale(1); filter: none; }
+}
+
+@keyframes comboBoxKick {
+  0% { transform: translateX(-50%) scale(0.92); }
+  35% { transform: translateX(calc(-50% - 4px)) scale(1.06); }
+  70% { transform: translateX(calc(-50% + 3px)) scale(1.02); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes comboCountSlam {
+  0% { transform: scale(0.74); }
+  45% { transform: scale(1.24); }
+  100% { transform: scale(1); }
 }
 
 .proc-feed {
@@ -819,12 +989,14 @@ button:disabled { opacity: 0.45; cursor: default; }
   border-left-color: rgba(0,255,102,0.62);
 }
 
-.proc-feed-row.kind-rare_heal {
+.proc-feed-row.kind-rare_heal,
+.proc-feed-row.kind-kill_combo {
   border-left-color: var(--green);
 }
 
 .proc-feed-row.kind-install .proc-feed-text,
 .proc-feed-row.kind-luck .proc-feed-text,
+.proc-feed-row.kind-kill_combo .proc-feed-text,
 .proc-feed-row.kind-rare_heal .proc-feed-text {
   color: var(--green);
 }
@@ -850,11 +1022,18 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 .economy-main,
+.economy-exp-line,
 .economy-install-line {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.economy-exp-line {
+  color: var(--fg);
+  font-size: 11px;
+  letter-spacing: 1px;
 }
 
 .economy-xp-track {
@@ -948,7 +1127,176 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 @media (max-width: 760px) {
-  .proc-feed {
+  
+.screen-moment {
+  --moment-accent: var(--green);
+  position: fixed;
+  z-index: 9;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 120ms steps(2, end), transform 120ms steps(2, end);
+  text-align: center;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.screen-moment::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--moment-accent) 18%, transparent) 48%, transparent 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1));
+  opacity: 0;
+  transform: translateX(-28%);
+}
+
+.screen-moment.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.screen-moment.active::before {
+  animation: screenMomentSweep 780ms steps(5, end) 1;
+}
+
+.screen-moment > div {
+  position: relative;
+  z-index: 1;
+}
+
+.screen-moment-kicker {
+  color: #aaa;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.screen-moment-title {
+  color: var(--moment-accent);
+  font-size: clamp(34px, 6vw, 76px);
+  line-height: 0.92;
+  font-weight: 900;
+}
+
+.screen-moment-detail {
+  color: #f3f3f3;
+  font-size: clamp(12px, 1.5vw, 18px);
+  margin-top: 10px;
+}
+
+.screen-moment-bump .screen-moment-title {
+  animation: screenMomentTitleSlam 440ms steps(4, end) 1;
+}
+
+.screen-moment.kind-ability { --moment-accent: #66f6ff; }
+.screen-moment.kind-weapon,
+.screen-moment.kind-install,
+.screen-moment.kind-exit,
+.screen-moment.kind-combo,
+.screen-moment.kind-casino,
+.screen-moment.kind-jackpot { --moment-accent: var(--green); }
+.screen-moment.kind-rare { --moment-accent: #ffffff; }
+.screen-moment.kind-curse { --moment-accent: #b45cff; }
+.screen-moment.kind-jackpot .screen-moment-title,
+.screen-moment.tier-ultra .screen-moment-title {
+  font-size: clamp(42px, 7.2vw, 92px);
+}
+
+.kill-combo {
+  --combo-accent: #f3f3f3;
+  position: fixed;
+  z-index: 8;
+  left: 50%;
+  top: 86px;
+  min-width: 170px;
+  transform: translateX(-50%) scale(0.95);
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+  padding: 7px 12px 8px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.72);
+  box-shadow: 4px 4px 0 #000;
+  letter-spacing: 2px;
+  transition: opacity 90ms steps(2, end), transform 90ms steps(2, end);
+}
+
+.kill-combo.active {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.kill-combo-label {
+  color: var(--combo-accent);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.kill-combo-count {
+  color: var(--combo-accent);
+  font-size: 34px;
+  line-height: 0.95;
+  font-weight: 900;
+  margin-top: 3px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.kill-combo-reward {
+  min-height: 12px;
+  color: #aaa;
+  font-size: 9px;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.kill-combo.tier-chain,
+.kill-combo.tier-serial { --combo-accent: var(--green); }
+.kill-combo.tier-void,
+.kill-combo.tier-delete { --combo-accent: #66f6ff; }
+.kill-combo.tier-wipe,
+.kill-combo.tier-erase { --combo-accent: #ffffff; }
+.kill-combo.tier-fever { --combo-accent: #b45cff; }
+.kill-combo.milestone {
+  border-color: var(--combo-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 38%, transparent), 4px 4px 0 #000;
+}
+.kill-combo.milestone .kill-combo-count { font-size: 42px; }
+.kill-combo.combo-bump { animation: comboBoxKick 180ms steps(3, end) 1; }
+.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 260ms steps(4, end) 1; }
+
+@keyframes screenMomentSweep {
+  0% { opacity: 0; transform: translateX(-40%); }
+  22% { opacity: 0.75; transform: translateX(-10%); }
+  55% { opacity: 0.34; transform: translateX(12%); }
+  100% { opacity: 0; transform: translateX(42%); }
+}
+
+@keyframes screenMomentTitleSlam {
+  0% { transform: translate(0, -8px) scale(0.82); filter: brightness(1.9); }
+  28% { transform: translate(-5px, 2px) scale(1.12); }
+  58% { transform: translate(4px, 0) scale(1.04); }
+  100% { transform: translate(0, 0) scale(1); filter: none; }
+}
+
+@keyframes comboBoxKick {
+  0% { transform: translateX(-50%) scale(0.92); }
+  35% { transform: translateX(calc(-50% - 4px)) scale(1.06); }
+  70% { transform: translateX(calc(-50% + 3px)) scale(1.02); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes comboCountSlam {
+  0% { transform: scale(0.74); }
+  45% { transform: scale(1.24); }
+  100% { transform: scale(1); }
+}
+
+.proc-feed {
     left: 12px;
     top: 212px;
     width: min(280px, calc(100vw - 24px));
@@ -1014,7 +1362,6 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 #hpText.hp-hit-slam {
-  color: var(--red);
   animation: hpHitSlam 190ms steps(2, end) 1;
 }
 
@@ -1029,8 +1376,8 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 @keyframes hpHitSlam {
   0% { transform: translate(0, 0) scale(1); filter: none; }
-  28% { transform: translate(-3px, 0) scale(1.16); filter: brightness(1.8); }
-  58% { transform: translate(3px, 0) scale(1.07); }
+  28% { transform: translate(-3px, 0) scale(1.16); filter: brightness(1.8); color: var(--red); }
+  58% { transform: translate(3px, 0) scale(1.07); color: var(--red); }
   100% { transform: translate(0, 0) scale(1); filter: none; }
 }
 

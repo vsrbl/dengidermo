@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.20e",
-  "buildId": "v39.3.20e-20260524",
+  "version": "v39.3.21c",
+  "buildId": "v39.3.21c-20260524",
   "channel": "prod",
   "protocol": 2,
-  "createdAt": "2026-05-23",
-  "entry": "./src/main.v39-3-20e.js?v=39.3.20e",
-  "style": "./style.css?v=39.3.20e",
-  "config": "./config.js?v=39.3.20e",
+  "createdAt": "2026-05-24",
+  "entry": "./src/main.v39-3-21c.js?v=39.3.21c",
+  "style": "./style.css?v=39.3.21c",
+  "config": "./config.js?v=39.3.21c",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.20e UI/render split prep: extracts TAB stat panel, proc feed, shared UI formatting, room ID helpers, pickup renderers, screen impact overlays, and render primitives into small modules while preserving the existing UI/render contracts and adding split-prep verifier coverage."
+  "notes": "v39.3.21c dopamine moments: adds full-screen INSTALL/EXIT/ABILITY/WEAPON/RAR/CRS/CASINO moment overlays, host-authoritative kill combo tracking with nncckkrr-style streak labels, animated combo HUD, and small GLD/EXP combo milestone rewards through the existing playerEconomy pipeline."
 }

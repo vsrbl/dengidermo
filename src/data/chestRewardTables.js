@@ -16,8 +16,7 @@ export const CHEST_REWARD_TABLES = Object.freeze({
     scatter: 34,
     entries: Object.freeze([
       Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.MONEY, amount: BSC.moneyAmount, weight: BSC.moneyWeight, text: "GLD" }),
-      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: BSC.xpAmount, weight: BSC.xpWeight, text: "EXP" }),
-      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.HEAL, amount: BSC.healAmount, weight: BSC.healWeight, text: "HEA" })
+      Object.freeze({ type: REWARD_TYPES.ECONOMY_PICKUP, pickupType: ECONOMY_PICKUP_TYPES.XP, amount: BSC.xpAmount, weight: BSC.xpWeight, text: "EXP" })
     ])
   }),
 

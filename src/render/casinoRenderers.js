@@ -60,9 +60,10 @@ export function drawCasinoInteractable(ctx, item, cam, affordance = {}) {
       : [];
     const minCost = allowedCosts.length ? Math.min(...allowedCosts) : 0;
     const canAffordAny = !minCost || !Number.isFinite(affordance.localMoney) || affordance.localMoney >= minCost;
-    const promptColor = affordance.localInRange && !canAffordAny ? "#ff3048" : accent;
+    const promptColor = canAffordAny ? "#00ff66" : "#f3f3f3";
+    const prompt = minCost > 0 ? `E / ${minCost}` : "E";
     if (affordance.localInRange) {
-      drawText(ctx, canAffordAny ? "E" : `NO GLD ${minCost}`, s.x, s.y + r + 17, promptColor, "center", 11);
+      drawText(ctx, prompt, s.x, s.y + r + 17, promptColor, "center", 11);
     }
   } else {
     drawText(ctx, "OFF", s.x, s.y - r - 11, "#777", "center", 11);

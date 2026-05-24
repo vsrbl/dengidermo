@@ -170,6 +170,28 @@ function drawWeaponGlyph(ctx, s, angle, weaponId, isLocal) {
   drawText(ctx, code, s.x, s.y - 31, isLocal ? GREEN : "#777", "center");
 }
 
+function drawPlayerDamageNumber(ctx, s, impact, snapshotTime = 0) {
+  if (!impact || !Number.isFinite(impact.t) || !(impact.amount > 0)) return;
+  const age = Math.max(0, snapshotTime - impact.t);
+  const life = 0.72;
+  if (age > life) return;
+  const amount = Math.max(1, Math.round(impact.amount));
+  const seq = Math.max(0, impact.seq || 0);
+  const jitter = ((seq % 5) - 2) * 3;
+  const lift = age * 38;
+  const alpha = Math.max(0, Math.min(1, 1 - age / life));
+  ctx.save();
+  ctx.globalAlpha = 0.35 + alpha * 0.65;
+  ctx.font = `${amount >= 20 ? 15 : 13}px Courier New, monospace`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ff3048";
+  ctx.fillText(`-${amount}`, Math.round(s.x + jitter), Math.round(s.y - 43 - lift));
+  ctx.globalAlpha = 0.22 * alpha;
+  ctx.strokeStyle = "#ff3048";
+  ctx.strokeRect(Math.round(s.x + jitter - 15), Math.round(s.y - 57 - lift), 30, 16);
+  ctx.restore();
+}
+
 function drawPlayer(ctx, p, cam, isLocal, snapshotTime = 0) {
   const s = screen(p, cam);
   const r = 13;
@@ -201,6 +223,7 @@ function drawPlayer(ctx, p, cam, isLocal, snapshotTime = 0) {
   drawRect(ctx, s.x - hpW / 2, s.y - 24, hpW, 3, "#333");
   drawRect(ctx, s.x - hpW / 2, s.y - 24, hpW * hp, 3, hp > 0.35 ? GREEN : "#ff3048");
   drawText(ctx, String(p.name || p.id).slice(0, 12), s.x, s.y + 30, isLocal ? GREEN : "#777", "center");
+  drawPlayerDamageNumber(ctx, s, impact, snapshotTime);
 }
 
 function drawEnemy(ctx, e, cam) {

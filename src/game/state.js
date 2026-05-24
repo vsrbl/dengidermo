@@ -66,6 +66,7 @@ export function createGameState(roomId, options = {}) {
     portals: {},
     effects: [],
     events: [],
+    killCombos: {},
     spawnTimer: location.director?.spawnStartDelay ?? 0.8,
     wave: 0,
     bossSpawned: false,
@@ -222,7 +223,9 @@ export function makeSnapshot(state) {
       hp: Math.max(0, Math.round(e.hp)),
       armor: armorSnapshot(e),
       elite: enemyEliteSnapshot(e),
-      status: enemyStatusSnapshot(e)
+      status: enemyStatusSnapshot(e),
+      projectileDefenseFacingX: Number.isFinite(e.projectileDefenseFacingX) ? Number(e.projectileDefenseFacingX.toFixed(3)) : null,
+      projectileDefenseFacingY: Number.isFinite(e.projectileDefenseFacingY) ? Number(e.projectileDefenseFacingY.toFixed(3)) : null
     })),
     projectiles: Object.values(state.projectiles).map((p) => ({
       id: p.id,

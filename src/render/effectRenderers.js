@@ -56,7 +56,8 @@ function drawChain(ctx, fx, cam) {
 function drawDamageText(ctx, fx, cam) {
   const { age } = effectLife(fx);
   const y = fx.y + (fx.vy || -24) * age;
-  const s = screen({ x: fx.x, y }, cam);
+  const jitterX = fx.jitter ? Math.sin(age * 78) * 3 : 0;
+  const s = screen({ x: fx.x + jitterX, y }, cam);
   drawText(ctx, fx.text || "1", s.x, s.y, fx.color || "#fff", "center");
 }
 

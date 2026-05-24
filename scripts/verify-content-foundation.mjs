@@ -112,6 +112,12 @@ assert.deepEqual(layouts, ['open_arena', 'open_arena', 'twin_pillars', 'open_are
 assert.equal(interactableCounts[4], 4, 'reward-cache rare room should contain a small priced reward spread');
 assert.equal(interactableCounts[8], 3, 'casino floor rare room should contain BET plus priced reward/risk objects');
 
+const randomPocketStates = ['RND-A', 'RND-B', 'RND-C', 'RND-D'].map((seed) => createGameState(seed));
+const randomPocketPositions = randomPocketStates
+  .flatMap((roomState) => Object.values(roomState.interactables || {}).map((item) => `${item.kind}:${item.x}:${item.y}`));
+assert.ok(new Set(randomPocketPositions).size >= 3, 'v39.3.21b normal room interactable placement should vary by run seed instead of fixed anchors');
+assert.ok(randomPocketStates.every((roomState) => Object.values(roomState.interactables || {}).filter((item) => item.kind === CHEST_IDS.BASIC).every((item) => item.chestOpenCost === 0)), 'v39.3.21b BSC should spawn as a free baseline exploration chest');
+
 const state = createGameState('V39-CONTENT-FOUNDATION');
 const player = addPlayer(state, 'p1', 0);
 assert.equal(currentLocation(state).layoutId, 'open_arena');

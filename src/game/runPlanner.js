@@ -98,6 +98,7 @@ function normalizeInteractableSlot(slot, fallbackId = "slot") {
     rewardTable: slot.rewardTable || null,
     x: Number.isFinite(slot.x) ? slot.x : null,
     y: Number.isFinite(slot.y) ? slot.y : null,
+    placementSeed: typeof slot.placementSeed === "string" ? slot.placementSeed : `${fallbackId}:${slot.interactableId}`,
     tags: Object.freeze([...(slot.tags || [])])
   });
 }
@@ -111,7 +112,7 @@ function ruleAllowsLoop(rule, progression) {
 function resolveDistributionSlots(resolvedRoom, progression, seed, currentCount = 0) {
   const profile = interactableDistributionForRoom(resolvedRoom);
   if (!profile) return [];
-  const maxSlots = maxDistributionSlots(profile, progression);
+  const maxSlots = maxDistributionSlots(profile, { ...progression, seed, roomId: resolvedRoom.id });
   const slots = [];
   if (currentCount >= maxSlots) return slots;
   for (const entry of profile.entries || []) {
@@ -125,6 +126,7 @@ function resolveDistributionSlots(resolvedRoom, progression, seed, currentCount 
       interactableId: entry.interactableId,
       placement: entry.placement || "distributed",
       rewardTable: entry.rewardTable || null,
+      placementSeed: ruleSeed,
       tags: ["distribution", ...(entry.tags || [])]
     }, `${resolvedRoom.id}:dist:${slots.length}`);
     if (normalized) slots.push(normalized);
@@ -136,7 +138,7 @@ function resolveInteractablePlan(resolvedRoom, progression, options = {}) {
   const seed = String(options.seed || "room");
   const slots = [];
   for (const [index, slot] of (resolvedRoom.interactables || []).entries()) {
-    const normalized = normalizeInteractableSlot(slot, `${resolvedRoom.id}:base:${index}`);
+    const normalized = normalizeInteractableSlot({ ...slot, placementSeed: `${seed}:${progression.runDepth}:${resolvedRoom.id}:base:${index}:${slot.interactableId}` }, `${resolvedRoom.id}:base:${index}`);
     if (normalized) slots.push(normalized);
   }
 
@@ -150,6 +152,7 @@ function resolveInteractablePlan(resolvedRoom, progression, options = {}) {
       interactableId: rule.interactableId,
       placement: rule.placement || "field_cache",
       rewardTable: rule.rewardTable || null,
+      placementSeed: ruleSeed,
       tags: rule.tags || []
     }, `${resolvedRoom.id}:rule:${slots.length}`);
     if (normalized) slots.push(normalized);

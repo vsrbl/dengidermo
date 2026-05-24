@@ -17,6 +17,7 @@ export function clearLocationRuntimeObjects(state, options = {}) {
   state.economyPickups = {};
   state.interactables = {};
   state.events = options.keepEvents ? (state.events || []) : [];
+  state.killCombos = {};
   state.portals = {};
   state.director = null;
   resetThreatAnalyzer(state);

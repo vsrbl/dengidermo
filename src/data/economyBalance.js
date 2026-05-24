@@ -17,7 +17,7 @@ export const ENEMY_DROP_BALANCE = Object.freeze({
 });
 
 export const CHEST_PRICE_BALANCE = Object.freeze({
-  basic_chest: Object.freeze({ base: 6, perLoop: 2, min: 5, max: 18 }),
+  basic_chest: Object.freeze({ base: 0, perLoop: 0, min: 0, max: 0 }),
   weapon_chest: Object.freeze({ base: 40, perLoop: 8, min: 34, max: 96 }),
   ability_chest: Object.freeze({ base: 56, perLoop: 10, min: 46, max: 120 }),
   rare_chest: Object.freeze({ base: 90, perLoop: 16, min: 74, max: 180 }),
@@ -25,7 +25,7 @@ export const CHEST_PRICE_BALANCE = Object.freeze({
 });
 
 export const CHEST_REWARD_BALANCE = Object.freeze({
-  basic: Object.freeze({ moneyAmount: [6, 11], moneyWeight: 8, xpAmount: [5, 8], xpWeight: 5, healAmount: 14, healWeight: 1 }),
+  basic: Object.freeze({ moneyAmount: [6, 12], moneyWeight: 8, xpAmount: [5, 9], xpWeight: 6 }),
   rare: Object.freeze({ guaranteedMoney: [32, 48], healWeight: 3, seekerWeight: 4, rocketWeight: 4, shardWeight: 4, activeWeight: 2 }),
   cursed: Object.freeze({ guaranteedMoney: [48, 74], rocketWeight: 5, seekerWeight: 4, shardWeight: 4, activeWeight: 3 })
 });
@@ -55,15 +55,23 @@ export const INTERACTABLE_DENSITY_BALANCE = Object.freeze({
   normal: Object.freeze({
     maxSlotsByLoop: Object.freeze([
       Object.freeze({ minLoop: 0, maxSlots: 2 }),
+      Object.freeze({ minLoop: 1, maxSlots: 3 }),
       Object.freeze({ minLoop: 2, maxSlots: 3 })
     ]),
+    budgetRolls: Object.freeze([
+      Object.freeze({ id: "empty", minLoop: 0, maxLoop: 0, maxSlots: 0, weight: 2 }),
+      Object.freeze({ id: "single_free", minLoop: 0, maxSlots: 1, weight: 8 }),
+      Object.freeze({ id: "small_pocket", minLoop: 0, maxSlots: 2, weight: 7 }),
+      Object.freeze({ id: "mixed_pocket", minLoop: 1, maxSlots: 3, weight: 5 }),
+      Object.freeze({ id: "risk_pocket", minLoop: 2, maxSlots: 3, weight: 3 })
+    ]),
     chances: Object.freeze({
-      basicPrimary: 0.86,
-      weapon: 0.18,
-      ability: 0.09,
-      rare: 0.07,
-      cursed: 0.04,
-      basicSecondary: 0.50
+      basicPrimary: 0.92,
+      weapon: 0.22,
+      ability: 0.12,
+      rare: 0.08,
+      cursed: 0.05,
+      basicSecondary: 0.56
     })
   })
 });

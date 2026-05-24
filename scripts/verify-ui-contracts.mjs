@@ -11,6 +11,8 @@ const ui = [
   read('src/ui.js'),
   read('src/ui/statPanel.js'),
   read('src/ui/procFeed.js'),
+  read('src/ui/screenMoment.js'),
+  read('src/ui/killCombo.js'),
   read('src/ui/format.js'),
   read('src/ui/dom.js'),
   read('src/ui/roomIds.js')
@@ -25,6 +27,8 @@ assert.ok(index.includes(`id="menuStatus"`), 'menu must include visible status l
 assert.ok(index.includes(`id="bootError"`), 'index must include fatal boot error box');
 assert.ok(index.includes(`id="statPanel"`), 'index must include TAB stat panel mount point');
 assert.ok(index.includes(`id="procFeed"`), 'index must include proc/reward event feed mount point');
+assert.ok(index.includes(`id="screenMoment"`), 'index must include full-screen dopamine moment mount point');
+assert.ok(index.includes(`id="killCombo"`), 'index must include kill combo mount point');
 assert.ok(index.includes(`window.NN_SHOW_BOOT_ERROR`), 'boot error handler must exist before module entry');
 assert.ok(index.includes(`src/main.v${entrySuffix}.js?v=${VERSION.replace(/^v/, '')}`), 'index must use cache-busted versioned module entry');
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.split('-').at(-1)}`), 'HUD should expose version and build');
@@ -55,7 +59,17 @@ assert.ok(ui.includes('renderProcFeed') && ui.includes('setProcFeed'), 'UI must 
 assert.ok(ui.includes('economyDisplayValues') && ui.includes('tweenNumber'), 'economy HUD should tick GLD/EXP values instead of only snapping instantly');
 assert.ok(ui.includes('restartInstallPulse'), 'INSTALL queue HUD pulse should be explicit and tiered');
 assert.ok(ui.includes('TEMP SIGNALS') && ui.includes('ALLIES'), 'TAB stat panel must show temporary signals and compact allies');
+
+assert.ok(ui.includes('safeExpProgressText') && ui.includes('economy-exp-line'), 'EXP HUD must use safe formatting on a dedicated line, never a dangling slash string');
+assert.ok(ui.includes('LOOP ${loop} / DEPTH ${depth}') && ui.includes('statSection("RUN"') && ui.includes('statSection("PLAYER"') && ui.includes('statSection("STATS"'), 'TAB panel must show clean run/player/stats sections with LOOP/DEPTH');
+assert.ok(!ui.includes('HOLD TAB / DIAGNOSTIC') && !ui.includes('SYSTEM STATS'), 'TAB panel should not lead with debug/diagnostic wording');
+assert.ok(style.includes('clip-path: inset(0 0 100% 0)') && style.includes('scaleY') && style.includes('translate(-50%'), 'TAB stat panel must open top-down from the top HUD area');
+const statPanelCss = style.slice(style.indexOf('.stat-panel {'), style.indexOf('.proc-feed {'));
+assert.ok(!statPanelCss.includes('clip-path: inset(0 100% 0 0)') && !statPanelCss.includes('scaleX(0.94)'), 'TAB stat panel must not use the old sideways reveal');
 assert.ok(main.includes('createRewardEventFeed') && main.includes('snapshot?.events'), 'main loop must route authoritative snapshot events into reward event feed');
+assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed'), 'main loop must route authoritative snapshot events into screen moment and kill combo feeds');
+assert.ok(ui.includes('renderScreenMoment') && ui.includes('renderKillCombo'), 'UI split modules must render full-screen moments and kill combo counter');
+assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('screenMomentSweep'), 'dopamine moment and kill combo overlays must be styled/animated');
 assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('INSTALL OK') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
 assert.ok(rewardFeed.includes('seen') && rewardFeed.includes('lifeMs'), 'reward event feed must dedupe and expire events');
 

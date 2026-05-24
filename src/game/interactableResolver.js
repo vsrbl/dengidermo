@@ -34,6 +34,34 @@ const PLACEMENT_POINTS = Object.freeze({
   ])
 });
 
+
+function hashString(input = "") {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnit(seed = "") {
+  return (hashString(seed) % 1000000) / 1000000;
+}
+
+function jitterPoint(point, seed, index = 0) {
+  if (!seed) return point;
+  const spread = 82;
+  const angle = seededUnit(`${seed}:angle:${index}`) * Math.PI * 2;
+  const dist = (0.25 + seededUnit(`${seed}:dist:${index}`) * 0.75) * spread;
+  return { x: point.x + Math.cos(angle) * dist, y: point.y + Math.sin(angle) * dist };
+}
+
+function rotatePoints(points, seed = "", index = 0) {
+  if (!points.length) return points;
+  const offset = Math.max(0, (hashString(`${seed}:offset:${index}`) + index) % points.length);
+  return [...points.slice(offset), ...points.slice(0, offset)];
+}
+
 function normalizedPoint(point) {
   return {
     x: Math.max(40, Math.min(WORLD.w - 40, Math.round(point.x))),
@@ -42,10 +70,12 @@ function normalizedPoint(point) {
 }
 
 function placementCandidates(slot = {}, index = 0) {
-  if (Number.isFinite(slot.x) && Number.isFinite(slot.y)) return [normalizedPoint({ x: slot.x, y: slot.y })];
+  const seed = String(slot.placementSeed || slot.id || `${slot.interactableId || "item"}:${index}`);
+  if (Number.isFinite(slot.x) && Number.isFinite(slot.y)) {
+    return [normalizedPoint({ x: slot.x, y: slot.y })];
+  }
   const points = PLACEMENT_POINTS[slot.placement] || PLACEMENT_POINTS.distributed;
-  const offset = Math.max(0, index % points.length);
-  return [...points.slice(offset), ...points.slice(0, offset)].map(normalizedPoint);
+  return rotatePoints(points, seed, index).map((point, candidateIndex) => normalizedPoint(jitterPoint(point, seed, candidateIndex)));
 }
 
 function keepsSpawnClearance(point, data, slot, budget) {

@@ -60,11 +60,6 @@ function compactPrompt(cost) {
   return "E";
 }
 
-function deniedPromptJitter(item) {
-  const t = Math.max(0, item?._renderAge || 0);
-  return Math.round(Math.sin(t * 62) * 2);
-}
-
 export function drawChestInteractable(ctx, item, cam, affordance = {}) {
   const s = { x: item.x - cam.x, y: item.y - cam.y };
   const r = item.radius || 24;
@@ -88,13 +83,10 @@ export function drawChestInteractable(ctx, item, cam, affordance = {}) {
 
   const cost = Math.max(0, Math.floor(Number.isFinite(item.chestOpenCost) ? item.chestOpenCost : 0));
   const inRange = !!affordance.localInRange;
-  const near = !!affordance.localNear;
   const canAfford = affordance.canAfford !== false;
-  const promptDenied = inRange && !canAfford && cost > 0;
-  const promptColor = promptDenied ? "#ff3048" : accent;
-  const promptX = s.x + (promptDenied ? deniedPromptJitter(item) : 0);
+  const promptColor = canAfford ? "#00ff66" : "#f3f3f3";
 
   if (inRange) {
-    drawText(ctx, compactPrompt(cost), promptX, s.y + r + 16, promptColor, "center", 11);
+    drawText(ctx, compactPrompt(cost), s.x, s.y + r + 16, promptColor, "center", 11);
   }
 }

@@ -89,7 +89,7 @@ export function updateChestInteractable(interactable, dt = 0.016) {
 }
 
 function denyChestOpenForCost(state, interactable, player, chest, cost, reason) {
-  const color = chestColor(chest);
+  const color = reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY ? RED : chestColor(chest);
   const label = affordanceReasonLabel(reason);
   pushVisualEffect(state, {
     type: "damageText",
@@ -97,9 +97,11 @@ function denyChestOpenForCost(state, interactable, player, chest, cost, reason) 
     y: Math.round(interactable.y - (interactable.radius || 24) - 14),
     text: label,
     color,
-    life: 0.42,
-    maxLife: 0.42
+    jitter: reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY,
+    life: 0.48,
+    maxLife: 0.48
   });
+  if (reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY) addShake(state, 1.4, 0.06, `chest-denied:${interactable.id}`);
   pushEvent(state, {
     type: "chest",
     action: "open_denied",

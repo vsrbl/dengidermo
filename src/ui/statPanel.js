@@ -1,7 +1,7 @@
 import { WEAPONS } from "../data/weapons.js";
 import { normalizePlayerName } from "../core/names.js";
 import { statLine, statSection, textNode } from "./dom.js";
-import { flatPercent, integer, signedPercent } from "./format.js";
+import { flatPercent, integer, safeExpProgressText, signedPercent } from "./format.js";
 
 function compactName(player = {}) {
   return normalizePlayerName(player.name || player.id || "PLAYER").slice(0, 12).toUpperCase();
@@ -46,45 +46,63 @@ export function renderStatPanel(statPanelEl, gameEl, player, snapshot = null, { 
   const economy = stat.economy || player.economy || {};
   const weapon = stat.weapon || {};
   const runtime = stat.runtime || {};
-  const hpPercent = Number.isFinite(runtime.hpPercent) ? runtime.hpPercent : Math.round((player.hp || 0) / Math.max(1, player.maxHp || 100) * 100);
+  const hpNow = Math.max(0, Math.round(player.hp || runtime.hp || 0));
+  const maxHp = Math.max(1, Math.round(player.maxHp || runtime.maxHp || 100));
+  const hpPercent = Number.isFinite(runtime.hpPercent) ? runtime.hpPercent : Math.round(hpNow / maxHp * 100);
   const players = Array.isArray(snapshot?.players) ? snapshot.players : [];
   const allies = players.filter((ally) => ally?.id && ally.id !== player.id).slice(0, 3);
+  const location = snapshot?.location || {};
+  const loop = Number.isFinite(location.loopIndex) ? location.loopIndex : 0;
+  const depth = Number.isFinite(location.runDepth) ? location.runDepth : (Number.isFinite(location.index) ? location.index : 0);
+  const roomId = String(location.resolvedRoomId || location.baseRoomId || location.id || "unknown").toUpperCase();
+  const mods = modifierLabels(snapshot);
 
   const header = document.createElement("div");
   header.className = "stat-panel-header";
   header.append(
-    textNode("div", "stat-panel-kicker", "HOLD TAB / DIAGNOSTIC"),
-    textNode("div", "stat-panel-title", "SYSTEM STATS"),
-    textNode("div", "stat-panel-player", `${compactName(player)} · HP ${flatPercent(hpPercent)}`)
+    textNode("div", "stat-panel-kicker", "HOLD TAB / RUN"),
+    textNode("div", "stat-panel-title", `LOOP ${loop} / DEPTH ${depth}`),
+    textNode("div", "stat-panel-player", `${compactName(player)} · HP ${hpNow}/${maxHp}`)
   );
 
-  const coreRows = [
+  const queueLabel = typeof economyQueueLabel === "function" ? economyQueueLabel : ((queue) => queue > 0 ? "EXIT TO INSTALL" : "NO INSTALL");
+  const ownQueue = Math.max(0, Math.floor(Number.isFinite(economy.pendingUpgradeCount) ? economy.pendingUpgradeCount : 0));
+  const dash = stat.ability?.dash || player.ability?.dash || null;
+  const dashText = dash
+    ? (dash.maxCharges > 1 ? `${dash.charges || 0}/${dash.maxCharges}` : (dash.ready ? "READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`))
+    : "--";
+
+  const runRows = [
+    statLine("ROOM", roomId),
+    statLine("BIOME", String(location.biomeName || location.biomeId || "GRID").toUpperCase()),
+    statLine("MODS", mods.length ? mods.join(" + ") : "CLEAR")
+  ];
+
+  const playerRows = [
+    statLine("HP", `${hpNow}/${maxHp}`),
+    statLine("EXP", safeExpProgressText(economy.xp || 0, economy.nextLevelXp)),
+    statLine("GLD", `$${economy.money || 0}`),
+    statLine("INSTALL", ownQueue > 0 ? `x${ownQueue}` : "--", ownQueue > 0 ? "accent" : ""),
+    statLine("QUEUE", queueLabel(ownQueue, upgradeOpen), ownQueue > 0 ? "accent" : ""),
+    statLine("DASH", dashText, dash?.ready ? "accent" : ""),
+    statLine("WEAPON", `${String(weapon.code || weapon.id || "---").toUpperCase()}${weapon.name ? ` / ${String(weapon.name).toUpperCase()}` : ""}`.trim())
+  ];
+
+  const statRows = [
     statLine("DMG", signedPercent(percent.damage)),
     statLine("FIRE", signedPercent(percent.fireRate)),
-    statLine("MOVE", signedPercent(percent.moveSpeed)),
-    statLine("PROJ SPD", signedPercent(percent.projectileSpeed)),
+    statLine("SPD", signedPercent(percent.moveSpeed)),
+    statLine("PROJ", signedPercent(percent.projectileSpeed)),
     statLine("CRIT", flatPercent(percent.critChance)),
-    statLine("LUCK DROP", signedPercent(percent.luckDropChance)),
-    statLine("LUCK VALUE", signedPercent(percent.luckRareValue)),
+    statLine("LUCK", `${signedPercent(percent.luckDropChance)} DROP / ${signedPercent(percent.luckRareValue)} VALUE`),
     statLine("MAGNET", utility.magnetRadius ? `${integer(utility.magnetRadius)}R` : "--"),
     statLine("LIFESTEAL", flatPercent(percent.lifesteal))
   ];
 
   const weaponRows = [
-    statLine("ACTIVE", `${String(weapon.code || weapon.id || "---").toUpperCase()} ${weapon.name ? `/${String(weapon.name).toUpperCase()}` : ""}`.trim()),
     statLine("DAMAGE", weapon.effective?.damage ? String(weapon.effective.damage) : "--"),
     statLine("RATE", weapon.effective?.fireRate ? `${weapon.effective.fireRate}/S` : "--"),
     statLine("OWNED", Array.isArray(weapon.owned) ? weapon.owned.map((id) => (WEAPONS[id]?.code || id.slice(0, 3)).toUpperCase()).join(" ") : "--")
-  ];
-
-  const queueLabel = typeof economyQueueLabel === "function" ? economyQueueLabel : ((queue) => queue > 0 ? "EXIT TO INSTALL" : "NO INSTALL");
-  const ownQueue = Math.max(0, Math.floor(Number.isFinite(economy.pendingUpgradeCount) ? economy.pendingUpgradeCount : 0));
-  const economyRows = [
-    statLine("LVL", String(economy.level || 1)),
-    statLine("EXP", `${economy.xp || 0}/${economy.nextLevelXp || "--"}`),
-    statLine("MONEY", `$${economy.money || 0}`),
-    statLine("INSTALL", ownQueue > 0 ? `x${ownQueue}` : "--", ownQueue > 0 ? "accent" : ""),
-    statLine("QUEUE", queueLabel(ownQueue, upgradeOpen), ownQueue > 0 ? "accent" : "")
   ];
 
   const allySection = document.createElement("section");
@@ -105,9 +123,10 @@ export function renderStatPanel(statPanelEl, gameEl, player, snapshot = null, { 
 
   statPanelEl.replaceChildren(
     header,
-    statSection("CORE", coreRows),
+    statSection("RUN", runRows),
+    statSection("PLAYER", playerRows),
+    statSection("STATS", statRows),
     statSection("WEAPON", weaponRows),
-    statSection("ECONOMY", economyRows),
     statSection("TEMP SIGNALS", buildSignalRows(stat, snapshot)),
     allySection
   );

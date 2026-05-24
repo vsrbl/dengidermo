@@ -3,6 +3,7 @@ import { spawnEnemyDrops } from "./dropResolver.js";
 import { pushEvent } from "./events.js";
 import { sourceId } from "./effects.js";
 import { runEnemyEliteDeath } from "./enemyElites.js";
+import { registerKillCombo } from "./killCombos.js";
 import { spawnBehaviorEnemy } from "./enemyBehaviors/common.js";
 
 function roomLoopIndex(state) {
@@ -49,6 +50,7 @@ export function finishEnemyKill(state, enemy, source = null, hit = null) {
   runEnemyEliteDeath(state, enemy, source, hit);
   runEnemyDeathSpawn(state, enemy, data);
   spawnEnemyDrops(state, enemy, { sourceType: "enemy", sourceId: enemy.id, playerId: sid });
+  if (sid && state.players?.[sid]) registerKillCombo(state, enemy, { playerId: sid, sourceType: typeof source === "object" ? source?.kind || source?.type || null : null });
   pushEvent(state, {
     type: "kill",
     kind: enemy.kind,

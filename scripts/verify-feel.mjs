@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGameState, addPlayer } from '../src/game/state.js';
+import { createGameState, addPlayer, makeSnapshot } from '../src/game/state.js';
 import { fireWeapon } from '../src/game/combat.js';
 import { updateProjectiles } from '../src/game/projectiles.js';
-import { spawnEnemy } from '../src/game/enemies.js';
+import { spawnEnemy, updateEnemies } from '../src/game/enemies.js';
+import { finishEnemyKill } from '../src/game/enemyDeath.js';
 import { giveWeapon, switchWeapon } from '../src/game/inventory.js';
 import { WEAPONS } from '../src/data/weapons.js';
 import { DAMAGE_TAGS, EFFECT_DEFS, dealPlayerDamage } from '../src/game/effects.js';
@@ -110,6 +111,32 @@ test('economy pickup dopamine feel contracts are wired', () => {
 });
 
 
+
+
+test('player damage numbers render above damaged players and HP HUD red is low-health only', () => {
+  const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.ok(renderer.includes('drawPlayerDamageNumber'), 'renderer must draw player damage numbers from player.damageImpact');
+  assert.ok(renderer.includes('`-${amount}`'), 'player damage number must show the damage received as a negative number');
+  assert.ok(renderer.includes('impact.amount'), 'player damage number must use authoritative lastDamageImpact amount');
+  assert.ok(!/#hpText\.hp-hit-slam\s*\{[^}]*color\s*:\s*var\(--red\)/m.test(style), 'HP hit-slam class must not leave the HUD HP permanently red');
+  assert.ok(/#hpText\.hp-low\s*\{[^}]*color\s*:\s*var\(--red\)/m.test(style), 'HP HUD should be red only in the low-HP state');
+});
+
+test('ORB shield facing is snapshot-visible for the renderer', () => {
+  const { state, p } = fresh('shotgun');
+  p.x = 500; p.y = 500;
+  const orb = spawnEnemy(state, 'orbiter', 650, 500);
+  updateEnemies(state, 1 / 60);
+  assert.ok(Number.isFinite(orb.projectileDefenseFacingX), 'orbiter behavior should set shield facing X');
+  assert.ok(Number.isFinite(orb.projectileDefenseFacingY), 'orbiter behavior should set shield facing Y');
+  const snapOrb = makeSnapshot(state).enemies.find((e) => e.id === orb.id);
+  assert.ok(Number.isFinite(snapOrb.projectileDefenseFacingX), 'snapshot should expose ORB shield facing X');
+  assert.ok(Number.isFinite(snapOrb.projectileDefenseFacingY), 'snapshot should expose ORB shield facing Y');
+  const enemyRenderers = readFileSync(new URL('../src/render/enemyRenderers.js', import.meta.url), 'utf8');
+  assert.ok(enemyRenderers.includes('projectileDefenseFacingX') && enemyRenderers.includes('Math.atan2'), 'ORB renderer should orient the shield arc from snapshot facing');
+});
+
 test('player damage creates visible local impact contract without bypassing damage pipeline', () => {
   const { state, p } = fresh('shotgun');
   const hit = dealPlayerDamage(state, p, {
@@ -134,6 +161,30 @@ test('player damage creates visible local impact contract without bypassing dama
   assert.ok(screenEffects.includes('drawDirectionalHitMarker'), 'screenEffects should draw a directional hit marker');
   assert.ok(effects.includes('playerHit: drawPlayerHit'), 'effect renderer should include playerHit world pulse');
   assert.ok(ui.includes('hp-hit-slam') && ui.includes('hp-low'), 'HUD should slam on HP drops and pulse at low HP');
+});
+
+
+test('kill combo dopamine moments are host-authoritative and economy rewards use playerEconomy', () => {
+  const { state, p } = fresh('shotgun');
+  const killCombos = readFileSync(new URL('../src/game/killCombos.js', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.ok(killCombos.includes('registerKillCombo'), 'kill combo registration must live in game/killCombos.js');
+  assert.ok(killCombos.includes('grantMoney(state, player') && killCombos.includes('grantXp(state, player'), 'combo milestone rewards must use playerEconomy grant pipelines');
+  assert.ok(killCombos.includes('SIGNAL CHAIN') && killCombos.includes('NNCCKKRR FEVER'), 'combo labels should use nncckkrr setting language');
+  for (let i = 0; i < 5; i += 1) {
+    const enemy = spawnEnemy(state, 'grunt', 620 + i * 10, 500);
+    enemy.hp = 1;
+    finishEnemyKill(state, enemy, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
+    state.time += 0.32;
+  }
+  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.action === 'stack' && event.playerId === p.id && event.count >= 5), 'five rapid kills should emit local kill_combo stack events');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_money' && event.sourceType === 'kill_combo'), 'combo milestone should grant GLD through economy events');
+  assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp' && event.sourceType === 'kill_combo'), 'combo milestone should grant EXP through economy events');
+  assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed'), 'main loop must route events into moment/combo UI feeds');
+  assert.ok(ui.includes('setScreenMoment') && ui.includes('setKillCombo'), 'UI should expose screen moment and kill combo renderers');
+  assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('comboCountSlam'), 'dopamine moments and combo counter must have animated styles');
 });
 
 let failed = 0;

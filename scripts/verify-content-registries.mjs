@@ -171,7 +171,8 @@ for (const [id, chest] of Object.entries(CHESTS)) {
   assert.ok(CHEST_REWARD_TABLES[chest.rewardTable], `${id} chest references unknown chest reward table: ${chest.rewardTable}`);
   assert.ok(chest.visual?.renderer === 'chest', `${id} chest must use the chest renderer identity`);
   assert.ok(CHEST_VISUALS[id]?.code && chest.visual?.glyph === CHEST_VISUALS[id].code, `${id} must use simple rarity code visual identity`);
-  assert.ok(CHEST_OPEN_PRICES[id]?.base > 0, `${id} must have a priced opening contract`);
+  if (id === 'basic_chest') assert.equal(CHEST_OPEN_PRICES[id]?.base, 0, 'BSC must be a free baseline exploration chest');
+  else assert.ok(CHEST_OPEN_PRICES[id]?.base > 0, `${id} must have a priced opening contract`);
   assert.deepEqual(CHEST_OPEN_PRICES[id], CHEST_PRICE_BALANCE[id], `${id} price should be sourced from economyBalance`);
   const revealProfile = chestRevealProfileForTier(chest.tier);
   assert.ok(revealProfile && Number.isFinite(revealProfile.openingTime) && revealProfile.openingTime > 0, `${id} must have a data-driven dopamine reveal profile`);
@@ -180,7 +181,9 @@ for (const [id, chest] of Object.entries(CHESTS)) {
   assert.ok(INTERACTABLES[id], `${id} chest must be exposed as an interactable`);
 }
 assertUnique(Object.keys(CHEST_REWARD_TABLES), 'chest reward table');
+assert.equal(CHEST_OPEN_PRICES.basic_chest.base, 0, 'BSC should stay free instead of merely cheaper than WPN');
 assert.ok(CHEST_OPEN_PRICES.basic_chest.base < CHEST_OPEN_PRICES.weapon_chest.base, 'BSC should stay cheaper than WPN');
+assert.equal(CHEST_REWARD_TABLES.basic_chest.entries.some((entry) => entry.pickupType === ECONOMY_PICKUP_TYPES.HEAL), false, 'BSC should not roll HEA; healing should stay special/elite/boss-biased');
 assert.ok(CHEST_OPEN_PRICES.weapon_chest.base < CHEST_OPEN_PRICES.ability_chest.base, 'WPN should stay cheaper than ABL');
 assert.ok(CHEST_OPEN_PRICES.ability_chest.base < CHEST_OPEN_PRICES.rare_chest.base, 'ABL should stay cheaper than RAR');
 assert.ok(CHEST_OPEN_PRICES.rare_chest.base < CHEST_OPEN_PRICES.cursed_chest.base, 'RAR should stay cheaper than CRS risk chest');
@@ -289,7 +292,10 @@ assert.match(chestRendererSrc, /drawChestInteractable/, 'chest renderer registry
 assert.match(chestRendererSrc, /compactPrompt/, 'v39.3.17a chest renderer should use a compact one-line affordance prompt');
 assert.match(chestRendererSrc, /`E \/ \${cost}`/, 'v39.3.19 visual clarity chest prompt should render close-range E / price text');
 assert.match(chestRendererSrc, /s\.y - r - 8/, 'v39.3.19 visual clarity chest label should live above the square, not inside it');
-assert.match(chestRendererSrc, /deniedPromptJitter/, 'v39.3.19 visual clarity unaffordable chest prompt should shake/redline locally');
+assert.ok(!chestRendererSrc.includes('deniedPromptJitter'), 'v39.3.21b passive unaffordable chest prompts must not red-shake while the player is merely nearby');
+assert.match(chestRendererSrc, /canAfford \? "#00ff66" : "#f3f3f3"/, 'v39.3.21b chest prompt should be green when affordable and light when unaffordable');
+assert.match(read('src/render/casinoRenderers.js'), /canAffordAny \? "#00ff66" : "#f3f3f3"/, 'v39.3.21b BET prompt should be green when affordable and light when unaffordable');
+assert.match(read('src/game/chests.js'), /jitter: reason === INTERACTABLE_DENIAL_REASONS\.NOT_ENOUGH_MONEY/, 'v39.3.21b red jitter should exist only on actual denied E presses');
 for (const noisyChestLabel of ['"PAY"', '"SCAN"', '"REVEAL"', '"OPEN"', '"---"']) {
   assert.ok(!chestRendererSrc.includes(noisyChestLabel), `v39.3.17a chest renderer should not draw noisy world label ${noisyChestLabel}`);
 }

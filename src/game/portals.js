@@ -1,6 +1,8 @@
 import { clamp, dist2 } from "../core/math.js";
 import { beginRoomTransition, createExitPortal, currentLocation, initLocation, makePortalTransitionEffect, moveTeamToNextLocation, PORTAL_MARGIN } from "./roomFlow.js";
 import { canOpenPortal } from "./director.js";
+import { pushVisualEffect } from "./effectCommands.js";
+import { pushEvent } from "./events.js";
 
 export { createExitPortal, currentLocation, initLocation, moveTeamToNextLocation };
 
@@ -12,7 +14,31 @@ export function updatePortals(state, dt) {
   for (const portal of Object.values(state.portals)) {
     // v38.3+: portal activation is gated by the director phase contract,
     // not raw room time. v38.5: transition orchestration belongs to roomFlow.
-    portal.active = canOpenPortal(state);
+    const nextActive = canOpenPortal(state);
+    if (nextActive && !portal.active && !portal.openMomentFired) {
+      portal.openMomentFired = true;
+      pushEvent(state, {
+        type: "portal",
+        action: "exit_open",
+        portalId: portal.id,
+        locationId: loc.id || state.locationId || null,
+        locationName: loc.name || state.locationName || null,
+        runDepth: state.runDepth ?? state.locationIndex ?? null,
+        loopIndex: state.loopIndex ?? state.roomPlan?.loopIndex ?? null,
+        x: Math.round(portal.x),
+        y: Math.round(portal.y)
+      });
+      pushVisualEffect(state, {
+        type: "portal",
+        x: portal.x,
+        y: portal.y,
+        radius: portal.radius + 72,
+        color: "#00ff66",
+        life: 0.58,
+        maxLife: 0.58
+      });
+    }
+    portal.active = nextActive;
     if (!portal.active || alive.length === 0) {
       portal.progress = Math.max(0, portal.progress - dt * 0.9);
       continue;
