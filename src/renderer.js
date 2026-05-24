@@ -120,7 +120,7 @@ function drawRoomTitleOverlay(ctx, location = null) {
   ctx.font = "11px Courier New, monospace";
   const w = Math.min(276, Math.max(ctx.measureText(title).width, ctx.measureText(subtitle).width) + 18);
   const x = 12;
-  const y = 156;
+  const y = 170;
   ctx.fillStyle = "rgba(0,0,0,0.66)";
   ctx.fillRect(x, y, Math.round(w), 34);
   ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.34)" : "rgba(255,255,255,0.28)";
@@ -528,7 +528,6 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
   const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt) : cam;
   drawGrid(ctx, renderCam, snapshot?.location);
   drawRoomGeometry(ctx, renderCam, snapshot?.location);
-  if (snapshot?.location) drawRoomTitleOverlay(ctx, snapshot.location);
   if (!snapshot) {
     drawText(ctx, "CONNECTING", VIEW.w / 2, VIEW.h / 2, GREEN, "center");
     return;
@@ -615,6 +614,8 @@ export function render(renderer, snapshot, localPose, localId, cam, mouse, predi
     if (isVisible(p, renderCam, 90)) drawPlayer(ctx, p, renderCam, isLocal, snapshot.time || 0);
   }
   prune(smooth.players, playerIds);
+
+  if (snapshot?.location) drawRoomTitleOverlay(ctx, snapshot.location);
 
   if (localPose && mouse.inside) {
     const sx = localPose.x - renderCam.x;
