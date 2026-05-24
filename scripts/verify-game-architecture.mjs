@@ -151,6 +151,11 @@ assert.doesNotMatch(simulation, /\binput\.p[xy]\b/, 'host movement must ignore c
 assert.doesNotMatch(inputRuntime, /\binput\.p[xy]\b/, 'client input packets should not include local pose fields');
 assert.doesNotMatch(clientRuntime, /inputState\.p[xy]/, 'guest runtime must not attach local pose to input messages');
 assert.doesNotMatch(combatRuntime, /payload\.(?:x|y)|originMax/, 'host combat must use authoritative player position for projectile origins');
+assert.doesNotMatch(clientRuntime, /HOST_IMPULSE_RECONCILE_D2/, 'guest host impulse correction must not use the old low-threshold hard-snap reconcile');
+assert.doesNotMatch(clientRuntime, /impulseDrift/, 'guest host impulse correction must not hard-snap on ordinary hostile knockback drift');
+assert.match(clientRuntime, /HOST_IMPULSE_CORRECTION_MAX_STEP/, 'guest host impulse correction must use capped soft convergence after hostile knockback');
+assert.match(clientRuntime, /hostImpulseHardDrift/, 'guest host impulse correction may only hard-snap on extreme hostile knockback drift');
+assert.match(clientRuntime, /app\.localPose\.kx \+= \(hostKx - app\.localPose\.kx\) \* 0\.45/, 'guest knockback velocity must blend toward host kx instead of snapping every hostile impulse');
 assert.match(hostRuntime, /normalizeHostInput\(msg\.input\)/, 'host runtime must sanitize remote input packets before storing them');
 assert.match(hostRuntime, /normalizeHostInput\(request\.input\)/, 'host runtime must sanitize ability input packets before applying abilities');
 

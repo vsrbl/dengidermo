@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22q",
-  "buildId": "v39.3.22q-20260525",
+  "version": "v39.3.22r",
+  "buildId": "v39.3.22r-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-22q.js?v=39.3.22q",
-  "style": "./style.css?v=39.3.22q",
-  "config": "./config.js?v=39.3.22q",
+  "entry": "./src/main.v39-3-22r.js?v=39.3.22r",
+  "style": "./style.css?v=39.3.22r",
+  "config": "./config.js?v=39.3.22r",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22q network lifecycle + host impulse reconciliation hotfix: keeps transiently disconnected guest slots alive instead of deleting gameplay state, adds host-owned player impulse sequencing for hostile knockback/force waves, and makes clients reconcile quickly after authoritative impulses to prevent portal/position desync."
+  "notes": "v39.3.22r smooth host impulse reconcile hotfix: keeps the soft-disconnect/player impulse lifecycle fixes, but changes guest-side host impulse reconciliation from repeated hard snaps to capped soft convergence so hostile knockback/force waves do not make the guest jitter."
 }

@@ -9,9 +9,13 @@ import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
 import { roomGeometryIdentityMatches } from "../game/roomGeometry.js";
 
-const HOST_IMPULSE_RECONCILE_D2 = 14 * 14;
-const HOST_SMOOTH_RECONCILE_D2 = 24 * 24;
-const HOST_HARD_RECONCILE_D2 = 128 * 128;
+const HOST_SMOOTH_RECONCILE_D2 = 18 * 18;
+const HOST_HARD_RECONCILE_D2 = 192 * 192;
+const HOST_IMPULSE_HARD_RECONCILE_D2 = 168 * 168;
+const HOST_NORMAL_CORRECTION_FACTOR = 0.14;
+const HOST_IMPULSE_CORRECTION_FACTOR = 0.24;
+const HOST_NORMAL_CORRECTION_MAX_STEP = 12;
+const HOST_IMPULSE_CORRECTION_MAX_STEP = 20;
 
 export function createClientRuntime(app, { session, host, upgrades } = {}) {
   function currentLocalPlayerFromSnapshot() {
@@ -67,8 +71,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const d2 = dx * dx + dy * dy;
     const dashPredictionAge = app.localPose._localDashPredictedAt ? performance.now() - app.localPose._localDashPredictedAt : 0;
     const staleDeniedDash = app.localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
-    const impulseDrift = impulseChanged && d2 > HOST_IMPULSE_RECONCILE_D2;
-    if (locationChanged || staleDeniedDash || impulseDrift || d2 > HOST_HARD_RECONCILE_D2) {
+    const hostImpulseHardDrift = impulseChanged && d2 > HOST_IMPULSE_HARD_RECONCILE_D2;
+    if (locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2) {
       app.localPose.x = me.x;
       app.localPose.y = me.y;
       app.localPose.vx = Number.isFinite(me.vx) ? me.vx : 0;
@@ -76,16 +80,21 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       app.localPose.kx = Number.isFinite(me.kx) ? me.kx : 0;
       app.localPose.ky = Number.isFinite(me.ky) ? me.ky : 0;
       app.localPose._localDashPredictedAt = 0;
-    } else if (d2 > HOST_SMOOTH_RECONCILE_D2) {
-      app.localPose.x += dx * 0.35;
-      app.localPose.y += dy * 0.35;
-      if (impulseChanged) {
-        app.localPose.kx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
-        app.localPose.ky = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
+    } else {
+      if (d2 > HOST_SMOOTH_RECONCILE_D2) {
+        const distance = Math.sqrt(d2);
+        const factor = impulseChanged ? HOST_IMPULSE_CORRECTION_FACTOR : HOST_NORMAL_CORRECTION_FACTOR;
+        const maxStep = impulseChanged ? HOST_IMPULSE_CORRECTION_MAX_STEP : HOST_NORMAL_CORRECTION_MAX_STEP;
+        const step = Math.min(distance * factor, maxStep);
+        app.localPose.x += (dx / distance) * step;
+        app.localPose.y += (dy / distance) * step;
       }
-    } else if (impulseChanged) {
-      app.localPose.kx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
-      app.localPose.ky = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
+      if (impulseChanged) {
+        const hostKx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
+        const hostKy = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
+        app.localPose.kx += (hostKx - app.localPose.kx) * 0.45;
+        app.localPose.ky += (hostKy - app.localPose.ky) * 0.45;
+      }
     }
   }
 
