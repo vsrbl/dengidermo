@@ -216,8 +216,8 @@ test('orbiter pressure slows players and snapshots the pressure count', () => {
 
 test('central dopamine typography uses explicit pixel web fonts without bundling font files', () => {
   const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  assert.ok(style.includes('fonts.googleapis.com/css2?family=Press+Start+2P') && style.includes('Silkscreen'), 'style should load selected web pixel fonts');
-  assert.ok(style.includes('--display-pixel-font: "Press Start 2P"') && style.includes('--moment-pixel-font: "Silkscreen"'), 'font stacks should separate chunky display text from thinner center-screen moments');
+  assert.ok(style.includes('fonts.googleapis.com/css2?family=Press+Start+2P') && style.includes('Tiny5'), 'style should load selected web pixel fonts');
+  assert.ok(style.includes('--display-pixel-font: "Press Start 2P"') && style.includes('--moment-pixel-font: "Tiny5"'), 'font stacks should separate chunky display text from thinner center-screen moments');
   assert.ok(style.includes('font-family: var(--moment-pixel-font)') && style.includes('text-shadow: none;'), 'screen moments should use thinner pixel typography without text shadows');
 });
 
