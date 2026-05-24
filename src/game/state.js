@@ -13,7 +13,7 @@ import { armorSnapshot } from "./enemyArmor.js";
 import { enemyEliteSnapshot } from "./enemyElites.js";
 import { abilitySnapshot } from "./abilities.js";
 import { createAbilityInventory, ensureAbilityInventory, abilityInventorySnapshot } from "./abilityInventory.js";
-import { companionSnapshot, companionSummary } from "./companions.js";
+import { companionSnapshots, companionSummary } from "./companions.js";
 import { devPortalDelay, devPortalHold, devSnapshot, installDevMode } from "./dev.js";
 import { directorSnapshot } from "./directorRead.js";
 import { nextId, resetEntityIds } from "./entityIds.js";
@@ -24,6 +24,7 @@ import { pendingRoomModifierSnapshot } from "./pendingRoomModifiers.js";
 import { createPlayerEconomy, ensurePlayerEconomy, economySnapshot } from "./playerEconomy.js";
 import { economyPickupSnapshot } from "./economyPickups.js";
 import { buildPlayerStatSnapshot, syncPlayerStatSnapshot } from "./statSnapshots.js";
+import { budgetEffects, buildSnapshotBudgetMeta } from "./snapshotBudget.js";
 
 export { nextId } from "./entityIds.js";
 export { pushEvent } from "./events.js";
@@ -158,7 +159,9 @@ export function makeSnapshot(state) {
   const layoutId = roomLayoutIdForState(state) || location.layoutId || "open_arena";
   const geometry = roomGeometryIdentityForState(state);
   const hold = state.portalHold || location.portalHold || 1.15;
-  return {
+  const companionPacket = companionSnapshots(state);
+  const effectPacket = budgetEffects(state.effects);
+  const snapshot = {
     tick: state.tick,
     time: Number(state.time.toFixed(3)),
     location: {
@@ -233,7 +236,7 @@ export function makeSnapshot(state) {
       radius: p.radius,
       color: p.color
     })),
-    companions: Object.values(state.companions || {}).map((c) => companionSnapshot(c)),
+    companions: companionPacket.items,
     loot: Object.values(state.loot).map((l) => ({
       id: l.id,
       kind: l.kind,
@@ -254,9 +257,14 @@ export function makeSnapshot(state) {
       targetIndex: p.targetIndex,
       targetDepth: p.targetDepth ?? p.targetIndex
     })),
-    effects: state.effects.slice(-48).map((e) => ({ ...e })),
+    effects: effectPacket.items,
     events: state.events.slice(-16).map((e) => ({ ...e })),
     director: directorSnapshot(state),
     dev: devSnapshot(state)
   };
+  snapshot.budget = buildSnapshotBudgetMeta(snapshot, {
+    companions: companionPacket.meta,
+    effects: effectPacket.meta
+  });
+  return snapshot;
 }

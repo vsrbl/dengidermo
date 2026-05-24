@@ -2,27 +2,17 @@ import { GREEN, RED, VIEW, WORLD } from "./core/constants.js";
 import { dist2, isVisible, lerp, norm } from "./core/math.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { ENEMIES } from "./data/enemies.js";
-import { LOOT } from "./data/loot.js";
 import { firstSolidWallHitInLocation, roomGeometrySnapshot } from "./game/roomGeometry.js";
 import { ROOM_MODIFIER_HOOKS, runRoomModifierHooksForLocation } from "./game/roomModifiers.js";
+import { drawRect, drawText, screen } from "./render/primitives.js";
+import { drawEconomyPickup, drawLoot, drawRewardPickup } from "./render/pickupRenderers.js";
+import { drawLocalDamageImpactOverlay } from "./render/screenEffects.js";
 import { drawEffect } from "./render/effectRenderers.js";
 import { drawEnemySprite } from "./render/enemyRenderers.js";
 import { drawEnemyArmorVariantLinks } from "./render/armorVariantRenderers.js";
 import { drawChestInteractable } from "./render/chestRenderers.js";
 import { drawCasinoInteractable } from "./render/casinoRenderers.js";
 import { INTERACTABLE_AFFORDANCE_RULES } from "./data/interactableAffordances.js";
-
-function drawRect(ctx, x, y, w, h, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-}
-
-function drawText(ctx, text, x, y, color = "#fff", align = "left") {
-  ctx.fillStyle = color;
-  ctx.font = "12px Courier New, monospace";
-  ctx.textAlign = align;
-  ctx.fillText(text, Math.round(x), Math.round(y));
-}
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -149,10 +139,6 @@ function drawRoomGeometry(ctx, cam, location = null) {
       ctx.stroke();
     }
   }
-}
-
-function screen(obj, cam) {
-  return { x: obj.x - cam.x, y: obj.y - cam.y };
 }
 
 function weaponCode(weaponId) {
@@ -288,7 +274,36 @@ function drawProjectile(ctx, p, cam) {
   drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, color);
 }
 
+function drawCompanionGroup(ctx, c, cam) {
+  const s = screen(c, cam);
+  const total = Math.max(1, c.total || c.count || 1);
+  const radius = c.kind === "orbital" ? 20 : 24;
+  ctx.save();
+  ctx.globalAlpha = 0.38;
+  ctx.strokeStyle = c.kind === "orbital" ? GREEN : "#ffffff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(Math.round(s.x - radius), Math.round(s.y - radius), radius * 2, radius * 2);
+  ctx.globalAlpha = 0.72;
+  const ticks = Math.min(12, Math.max(4, Math.ceil(Math.sqrt(total))));
+  for (let i = 0; i < ticks; i += 1) {
+    const a = (i / ticks) * Math.PI * 2 + (c.angle || 0);
+    const x = s.x + Math.cos(a) * radius;
+    const y = s.y + Math.sin(a) * radius;
+    ctx.strokeRect(Math.round(x - 2), Math.round(y - 2), 4, 4);
+  }
+  ctx.globalAlpha = 0.9;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = c.kind === "orbital" ? GREEN : "#ffffff";
+  ctx.fillText(`x${total}`, Math.round(s.x), Math.round(s.y - radius - 5));
+  ctx.restore();
+}
+
 function drawCompanion(ctx, c, cam) {
+  if (c.group) {
+    drawCompanionGroup(ctx, c, cam);
+    return;
+  }
   const s = screen(c, cam);
   const r = c.kind === "orbital" ? 8 : 9;
   ctx.strokeStyle = c.kind === "orbital" ? GREEN : "#ffffff";
@@ -327,185 +342,6 @@ function drawPortal(ctx, portal, cam) {
   }
 }
 
-const PICKUP_TOKEN_RADIUS = 10;
-const PICKUP_TOKEN_POP_TIME = 0.2;
-
-function sourcePulseLevel(item) {
-  const profile = String(item?.revealProfile || "");
-  const source = String(item?.revealSource || item?.sourceType || "");
-  if (profile === "rare" || profile === "cursed" || profile === "casino_jackpot" || profile === "casino_static") return 1;
-  if (source === "chest" || source === "casino") return 0.62;
-  if (item?.lucky || item?.boosted) return 0.45;
-  return 0;
-}
-
-function drawPickupSourcePulse(ctx, s, r, color, level = 0, age = 0) {
-  if (level <= 0) return;
-  const strong = level >= 0.9;
-  const phase = (Math.sin(age * (strong ? 5.6 : 4.2)) + 1) * 0.5;
-  const base = r + 8 + phase * (strong ? 16 : 10);
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = strong ? 2 : 1;
-  ctx.globalAlpha = strong ? 0.36 - phase * 0.16 : 0.28 - phase * 0.12;
-  ctx.strokeRect(Math.round(s.x - base), Math.round(s.y - base), Math.round(base * 2), Math.round(base * 2));
-  if (strong) {
-    const outer = base + 10 + phase * 8;
-    ctx.globalAlpha = 0.18 - phase * 0.08;
-    ctx.strokeRect(Math.round(s.x - outer), Math.round(s.y - outer), Math.round(outer * 2), Math.round(outer * 2));
-  }
-  ctx.restore();
-}
-
-function drawPickupToken(ctx, s, { label, color, scale = 1, claimable = true, burst = 0, strongBurst = false, sourcePulse = 0, age = 0 } = {}) {
-  const r = Math.max(8, Math.round(PICKUP_TOKEN_RADIUS * scale));
-  const code = String(label || "DRP").toUpperCase().slice(0, 3);
-  ctx.save();
-  if (!claimable) ctx.globalAlpha = 0.58;
-  drawPickupSourcePulse(ctx, s, r, color, sourcePulse, age);
-  if (burst > 0) {
-    const burstR = r + 5 + burst * (strongBurst ? 14 : 9);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = strongBurst ? 2 : 1;
-    ctx.globalAlpha = strongBurst ? 0.42 : 0.32;
-    ctx.strokeRect(Math.round(s.x - burstR), Math.round(s.y - burstR), Math.round(burstR * 2), Math.round(burstR * 2));
-    ctx.globalAlpha = claimable ? 1 : 0.58;
-  }
-  ctx.fillStyle = color;
-  ctx.font = "11px Courier New, monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(code, Math.round(s.x), Math.round(s.y - r - 5));
-  drawRect(ctx, s.x - r, s.y - r, r * 2, r * 2, "#050505");
-  ctx.strokeStyle = color;
-  ctx.lineWidth = claimable ? 2 : 1;
-  ctx.strokeRect(Math.round(s.x - r), Math.round(s.y - r), Math.round(r * 2), Math.round(r * 2));
-  ctx.restore();
-}
-
-function drawLoot(ctx, item, cam) {
-  const data = LOOT[item.kind] || LOOT.heal;
-  const s = screen(item, cam);
-  drawPickupToken(ctx, s, {
-    label: data.pickup?.label || data.name.slice(0, 3),
-    color: data.color === "green" ? GREEN : "#f3f3f3"
-  });
-}
-
-function economyPickupLabel(item) {
-  if (item.type === "money") return "GLD";
-  if (item.type === "xp") return "EXP";
-  if (item.type === "heal") return "HEA";
-  return String(item.label || item.type || "DRP").slice(0, 3).toUpperCase();
-}
-
-function economyPickupColor(item, claimable) {
-  if (!claimable) return "rgba(255,255,255,0.46)";
-  if (item.accent && item.revealProfile && item.revealProfile !== "basic") return item.accent;
-  if (item.type === "heal") return GREEN;
-  if (item.type === "xp") return "#d4d4d4";
-  if (item.type === "money") return "#8f8f8f";
-  return item.accent || "#f3f3f3";
-}
-
-function pickupVisualPosition(item) {
-  const age = Math.max(0, item._renderAge || 0);
-  const hasSpawn = Number.isFinite(item.spawnX) && Number.isFinite(item.spawnY);
-  if (!hasSpawn || age >= PICKUP_TOKEN_POP_TIME) return { x: item.x, y: item.y, popT: 1, scale: 1 };
-  const t = Math.min(1, age / PICKUP_TOKEN_POP_TIME);
-  const easeOut = 1 - Math.pow(1 - t, 3);
-  const overshoot = Math.sin(t * Math.PI) * 0.12;
-  return {
-    x: lerp(item.spawnX, item.x, Math.min(1, easeOut + overshoot)),
-    y: lerp(item.spawnY, item.y, Math.min(1, easeOut + overshoot)),
-    popT: t,
-    scale: 0.62 + 0.38 * easeOut + overshoot
-  };
-}
-
-function drawPickupTrail(ctx, item, s, color) {
-  if (!Number.isFinite(item._lastX) || !Number.isFinite(item._lastY)) return;
-  const dx = item.x - item._lastX;
-  const dy = item.y - item._lastY;
-  if (dx * dx + dy * dy < 2.4) return;
-  ctx.save();
-  ctx.globalAlpha = 0.46;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(Math.round(s.x - dx * 1.8), Math.round(s.y - dy * 1.8));
-  ctx.lineTo(Math.round(s.x), Math.round(s.y));
-  ctx.stroke();
-  ctx.restore();
-}
-
-function pickupBurstAmount(item, popT) {
-  const specialReveal = item.lucky || item.boosted || item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot" || item.revealProfile === "casino_static";
-  if (popT < 1) return Math.max(0, 1 - popT) * (specialReveal ? 1.25 : 1);
-  return 0;
-}
-
-function drawEconomyPickup(ctx, item, cam) {
-  const visual = pickupVisualPosition(item);
-  const s = screen(visual, cam);
-  const claimable = item.claimable !== false;
-  const color = economyPickupColor(item, claimable);
-  const label = economyPickupLabel(item);
-  const rarePulse = item.type === "heal" || item.lucky || item.boosted ? 0.05 : 0;
-  const pulse = 1 + Math.sin((item._renderAge || 0) * 10) * 0.035 + rarePulse;
-  drawPickupTrail(ctx, item, s, color);
-  drawPickupToken(ctx, s, {
-    label,
-    color,
-    scale: visual.scale * pulse,
-    claimable,
-    burst: pickupBurstAmount(item, visual.popT),
-    strongBurst: item.revealProfile === "rare" || item.revealProfile === "cursed",
-    sourcePulse: sourcePulseLevel(item),
-    age: item._renderAge || 0
-  });
-}
-
-function rewardPickupColor(item, claimable, data = null) {
-  if (!claimable) return "rgba(255,255,255,0.48)";
-  if (item.rewardType === "ability_pickup" || item.rewardType === "ability_shard") return "#66f6ff";
-  if (data?.type === "heal") return GREEN;
-  if (data?.type === "weapon") return GREEN;
-  if (item.accent && String(item.accent).startsWith("#")) return item.accent;
-  if (item.accent === "red") return RED;
-  if (item.accent === "purple") return "#b45cff";
-  if (item.accent === "cyan") return "#66f6ff";
-  if (item.accent === "white") return "#f3f3f3";
-  return GREEN;
-}
-
-function rewardPickupDisplayLabel(item, data = null) {
-  if (item.rewardType === "ability_pickup" || item.rewardType === "ability_shard") return "ABL";
-  if (data?.pickup?.label) return String(data.pickup.label).toUpperCase().slice(0, 3);
-  if (data?.type === "heal") return "HEA";
-  return String(item.label || item.kind || item.abilityId || "RWD").toUpperCase().slice(0, 3);
-}
-
-function drawRewardPickup(ctx, item, cam) {
-  const data = item.rewardType === "loot" ? (LOOT[item.kind] || LOOT.heal) : null;
-  const visual = pickupVisualPosition(item);
-  const s = screen(visual, cam);
-  const active = item.active !== false;
-  const claimable = item.claimable !== false;
-  const color = rewardPickupColor(item, active && claimable, data);
-  const pulse = 1 + Math.sin((item._renderAge || 0) * 9) * 0.03;
-  const highValue = item.revealProfile === "rare" || item.revealProfile === "cursed" || item.revealProfile === "casino_jackpot";
-  drawPickupTrail(ctx, item, s, color);
-  drawPickupToken(ctx, s, {
-    label: rewardPickupDisplayLabel(item, data),
-    color,
-    scale: visual.scale * pulse,
-    claimable: active && claimable,
-    burst: pickupBurstAmount(item, visual.popT),
-    strongBurst: highValue,
-    sourcePulse: sourcePulseLevel(item),
-    age: item._renderAge || 0
-  });
-}
 
 function interactableAccentColor(item) {
   if (item?.accent === "red" || item?.category === "casino") return RED;
@@ -625,80 +461,6 @@ function cameraWithShake(cam, renderer, snapshot, dt) {
 }
 
 
-function effectAlpha(fx) {
-  const maxLife = Math.max(0.001, fx.maxLife || fx.life || 0.2);
-  return Math.max(0, Math.min(1, (fx.life || 0) / maxLife));
-}
-
-function localDamageImpactEffects(snapshot, localId) {
-  return (snapshot?.effects || []).filter((fx) => fx?.type === "playerDamageImpact" && fx.targetId === localId && (fx.life || 0) > 0);
-}
-
-function drawRedEdgeImpact(ctx, power, alpha) {
-  if (!(alpha > 0) || !(power > 0)) return;
-  const edge = Math.round(18 + power * 28);
-  const strong = Math.max(0.04, Math.min(0.62, alpha));
-  ctx.save();
-  ctx.fillStyle = `rgba(255,48,72,${strong})`;
-  ctx.fillRect(0, 0, VIEW.w, Math.max(4, edge));
-  ctx.fillRect(0, VIEW.h - Math.max(4, edge), VIEW.w, Math.max(4, edge));
-  ctx.fillStyle = `rgba(255,48,72,${strong * 0.72})`;
-  ctx.fillRect(0, 0, Math.max(4, edge), VIEW.h);
-  ctx.fillRect(VIEW.w - Math.max(4, edge), 0, Math.max(4, edge), VIEW.h);
-  ctx.strokeStyle = `rgba(255,48,72,${Math.min(0.72, strong + 0.12)})`;
-  ctx.lineWidth = Math.max(1, Math.round(1 + power));
-  ctx.strokeRect(Math.round(edge * 0.45), Math.round(edge * 0.45), Math.round(VIEW.w - edge * 0.9), Math.round(VIEW.h - edge * 0.9));
-  ctx.restore();
-}
-
-function drawDirectionalHitMarker(ctx, dx, dy, power, alpha) {
-  if (!(alpha > 0)) return;
-  const d = norm(dx || 0, dy || -1);
-  const cx = VIEW.w / 2;
-  const cy = VIEW.h / 2;
-  const dist = 58 + power * 16;
-  const x = cx - d.x * dist;
-  const y = cy - d.y * dist;
-  ctx.save();
-  ctx.globalAlpha = Math.max(0.08, Math.min(0.76, alpha));
-  ctx.strokeStyle = "#ff3048";
-  ctx.lineWidth = Math.max(1, Math.round(2 + power));
-  ctx.beginPath();
-  ctx.moveTo(Math.round(x - d.y * 14), Math.round(y + d.x * 14));
-  ctx.lineTo(Math.round(x), Math.round(y));
-  ctx.lineTo(Math.round(x + d.y * 14), Math.round(y - d.x * 14));
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawLocalDamageImpactOverlay(ctx, snapshot, localId) {
-  const localPlayer = (snapshot?.players || []).find((p) => p.id === localId);
-  const effects = localDamageImpactEffects(snapshot, localId);
-  let power = 0;
-  let alpha = 0;
-  let dx = 0;
-  let dy = -1;
-  for (const fx of effects) {
-    const a = effectAlpha(fx);
-    const p = Math.max(0.35, Math.min(2.5, fx.power || 1));
-    power = Math.max(power, p);
-    alpha = Math.min(0.78, alpha + a * (0.16 + p * 0.13));
-    if (a > 0.05) {
-      dx = Number.isFinite(fx.dirX) ? fx.dirX : dx;
-      dy = Number.isFinite(fx.dirY) ? fx.dirY : dy;
-    }
-  }
-  const hpRatio = localPlayer ? Math.max(0, Math.min(1, (localPlayer.hp || 0) / Math.max(1, localPlayer.maxHp || 1))) : 1;
-  if (hpRatio > 0 && hpRatio <= 0.35) {
-    const pulse = (Math.sin((snapshot?.time || 0) * 8.5) + 1) * 0.5;
-    const lowAlpha = (0.05 + (1 - hpRatio / 0.35) * 0.16) * (0.55 + pulse * 0.45);
-    drawRedEdgeImpact(ctx, 0.7 + (1 - hpRatio) * 0.8, lowAlpha);
-  }
-  if (alpha > 0) {
-    drawRedEdgeImpact(ctx, power, alpha);
-    drawDirectionalHitMarker(ctx, dx, dy, power, Math.min(0.72, alpha + 0.08));
-  }
-}
 
 function drawPredictedProjectiles(ctx, projectiles, cam) {
   for (const p of projectiles) {

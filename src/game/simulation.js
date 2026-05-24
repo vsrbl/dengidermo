@@ -1,6 +1,6 @@
 import { PLAYER_ACCEL, PLAYER_FRICTION, PLAYER_HP, PLAYER_SPEED, WORLD } from "../core/constants.js";
 import { clamp, norm, vecToAngle } from "../core/math.js";
-import { moveCircleInLocation, roomGeometrySnapshot, sweepCircleInLocation } from "./roomGeometry.js";
+import { moveCircleInLocation, roomGeometrySnapshot } from "./roomGeometry.js";
 import { currentLocation } from "./roomFlow.js";
 import { updateEnemies, updateSpawner } from "./enemies.js";
 import { updateLoot } from "./loot.js";
@@ -15,9 +15,10 @@ import { tickPlayerEffects } from "./effects.js";
 import { tickActiveAbilities } from "./abilities.js";
 import { applyDevPlayerGuards, tickDevMode } from "./dev.js";
 import { syncAllPlayerStatSnapshots } from "./statSnapshots.js";
+import { tickVisualEffects } from "./visualEffects.js";
 
 export function emptyInput() {
-  return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false, px: null, py: null };
+  return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false };
 }
 
 function smoothFactor(rate, dt) {
@@ -54,22 +55,19 @@ export function movePlayer(player, input, dt, loc = null) {
   if (Number.isFinite(input.aimAngle)) player.angle = input.aimAngle;
 }
 
-export function acceptClientPose(player, input, dt, loc = null) {
-  if (!Number.isFinite(input.px) || !Number.isFinite(input.py)) return;
-  const maxDrift = 48 + PLAYER_SPEED * (player.stats?.speedMult || 1) * dt * 2.8;
-  const dx = input.px - player.x;
-  const dy = input.py - player.y;
-  const d2 = dx * dx + dy * dy;
-  if (d2 <= maxDrift * maxDrift) {
-    if (loc) {
-      const swept = sweepCircleInLocation(roomGeometrySnapshot(loc), player.x, player.y, input.px - player.x, input.py - player.y, player.radius);
-      player.x = swept.x;
-      player.y = swept.y;
-    } else {
-      player.x = clamp(input.px, player.radius, WORLD.w - player.radius);
-      player.y = clamp(input.py, player.radius, WORLD.h - player.radius);
-    }
-  }
+function bool(value) {
+  return value === true;
+}
+
+export function normalizeHostInput(raw = {}) {
+  const input = emptyInput();
+  input.left = bool(raw.left);
+  input.right = bool(raw.right);
+  input.up = bool(raw.up);
+  input.down = bool(raw.down);
+  input.fire = bool(raw.fire);
+  input.aimAngle = Number.isFinite(raw.aimAngle) ? raw.aimAngle : 0;
+  return input;
 }
 
 export function updatePlayers(state, inputs, dt) {
@@ -77,7 +75,7 @@ export function updatePlayers(state, inputs, dt) {
   const loc = currentLocation(state);
   for (const [index, id] of ids.entries()) {
     const player = state.players[id];
-    const input = inputs[id] || emptyInput();
+    const input = normalizeHostInput(inputs[id]);
 
     if (player.hp <= 0) {
       player.deadTimer += dt;
@@ -86,7 +84,6 @@ export function updatePlayers(state, inputs, dt) {
     }
 
     movePlayer(player, input, dt, loc);
-    if (id !== "p1") acceptClientPose(player, input, dt, loc);
     if (player.hp <= 0) player.deadTimer = 0;
   }
 }
@@ -111,6 +108,7 @@ export function updateHostWorld(state, inputs, dt) {
   updateEconomyPickups(state, safeDt);
   updateLoot(state, safeDt);
   updatePortals(state, safeDt);
+  tickVisualEffects(state, safeDt);
   applyDevPlayerGuards(state);
 
   for (const p of Object.values(state.players)) {
@@ -126,8 +124,6 @@ export function makeShootPayload(playerId, pose, weapon, fireSeq) {
     playerId,
     fireSeq,
     weapon,
-    x: Math.round(pose.x),
-    y: Math.round(pose.y),
     angle: pose.angle
   };
 }

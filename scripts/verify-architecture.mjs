@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createGameState, addPlayer } from '../src/game/state.js';
 import { updateProjectiles } from '../src/game/projectiles.js';
 import { spawnEnemy } from '../src/game/enemies.js';
@@ -9,6 +9,73 @@ import { EFFECT_DEFS, EFFECT_HOOKS, createEffectContext, dealDamage, runEffectHo
 import { statusDamageTags } from '../src/game/damageSourceMatrix.js';
 import { UPGRADES } from '../src/data/upgrades.js';
 import { VERSION } from '../src/core/constants.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const gameDir = path.join(rootDir, 'src', 'game');
+
+function listJsFiles(dir) {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const full = path.join(dir, name);
+    const stat = statSync(full);
+    if (stat.isDirectory()) out.push(...listJsFiles(full));
+    else if (name.endsWith('.js')) out.push(full);
+  }
+  return out;
+}
+
+function resolveRelativeImport(fromFile, spec) {
+  if (!spec.startsWith('.')) return null;
+  let target = path.resolve(path.dirname(fromFile), spec);
+  if (!path.extname(target)) target += '.js';
+  if (!existsSync(target)) return null;
+  return path.normalize(target);
+}
+
+function relativeGameFile(file) {
+  return path.relative(rootDir, file).replaceAll(path.sep, '/');
+}
+
+function findImportCycles() {
+  const files = listJsFiles(gameDir).map((file) => path.normalize(file));
+  const known = new Set(files);
+  const graph = new Map(files.map((file) => [file, []]));
+  const importRe = /(?:import|export)\s+(?:[^'\"]*?\s+from\s+)?[\"']([^\"']+)[\"']/g;
+  for (const file of files) {
+    const src = readFileSync(file, 'utf8');
+    let match;
+    while ((match = importRe.exec(src))) {
+      const resolved = resolveRelativeImport(file, match[1]);
+      if (resolved && known.has(resolved)) graph.get(file).push(resolved);
+    }
+  }
+
+  const temp = new Set();
+  const perm = new Set();
+  const stack = [];
+  const cycles = [];
+
+  function visit(file) {
+    if (perm.has(file)) return;
+    if (temp.has(file)) {
+      const start = stack.indexOf(file);
+      if (start >= 0) cycles.push(stack.slice(start).concat(file).map(relativeGameFile));
+      return;
+    }
+    temp.add(file);
+    stack.push(file);
+    for (const next of graph.get(file) || []) visit(next);
+    stack.pop();
+    temp.delete(file);
+    perm.add(file);
+  }
+
+  for (const file of files) visit(file);
+  return cycles;
+}
 
 const projectilesSrc = readFileSync(new URL('../src/game/projectiles.js', import.meta.url), 'utf8');
 const projectileHelpersSrc = readFileSync(new URL('../src/game/projectileBehaviors.js', import.meta.url), 'utf8');
@@ -18,6 +85,9 @@ const projectileWallResolutionSrc = readFileSync(new URL('../src/game/projectile
 const projectileLogicSrc = `${projectilesSrc}\n${projectileHelpersSrc}\n${projectileHitsSrc}\n${projectileExplosionsSrc}\n${projectileWallResolutionSrc}`;
 const effectsSrc = readFileSync(new URL('../src/game/effects.js', import.meta.url), 'utf8');
 const effectCommandsSrc = readFileSync(new URL('../src/game/effectCommands.js', import.meta.url), 'utf8');
+const statusSrc = readFileSync(new URL('../src/game/effects/status.js', import.meta.url), 'utf8');
+const damageSrc = readFileSync(new URL('../src/game/effects/damage.js', import.meta.url), 'utf8');
+const sourceIdsSrc = readFileSync(new URL('../src/game/sourceIds.js', import.meta.url), 'utf8');
 const serverSrc = readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const serverPkg = JSON.parse(readFileSync(new URL('../server/package.json', import.meta.url), 'utf8'));
@@ -71,6 +141,21 @@ test('projectile hooks are routed through the dispatcher/command layer', () => {
   assert.match(effectCommandsSrc, /export function executeEffectCommands/, 'shared effect command executor missing');
   assert.doesNotMatch(projectilesSrc, /function executeEffectCommands/, 'effect command executor drifted back into projectiles.js');
   assert.match(projectileLogicSrc, /runProjectileHook\(state, source, EFFECT_HOOKS\.PROJECTILE_KILL/, 'projectile kill hook is not wired through command execution');
+});
+
+
+test('game import graph has no runtime cycles', () => {
+  const cycles = findImportCycles();
+  assert.deepEqual(cycles, [], `src/game import cycles detected: ${JSON.stringify(cycles)}`);
+});
+
+test('damage/status source identity is cycle-neutral', () => {
+  assert.match(sourceIdsSrc, /export function sourceId/, 'sourceId helper must live in neutral sourceIds.js');
+  assert.match(sourceIdsSrc, /export function ownerPlayer/, 'ownerPlayer helper must live in neutral sourceIds.js');
+  assert.doesNotMatch(statusSrc, /from ["']\.\/damage\.js["']/, 'status.js must not import damage.js');
+  assert.match(statusSrc, /from ["']\.\.\/sourceIds\.js["']/, 'status.js should use cycle-neutral sourceIds.js');
+  assert.match(damageSrc, /from ["']\.\.\/sourceIds\.js["']/, 'damage.js should use cycle-neutral sourceIds.js');
+  assert.doesNotMatch(damageSrc, /export function sourceId|export function ownerPlayer/, 'damage.js must not own source identity helpers');
 });
 
 test('central damage pipeline is used for projectile and status damage', () => {

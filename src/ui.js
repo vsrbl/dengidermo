@@ -1,7 +1,11 @@
 import { BUILD_ID, VERSION, MAX_PLAYERS } from "./core/constants.js";
 import { START_WEAPON, WEAPONS } from "./data/weapons.js";
 import { RARITY_META, UPGRADES } from "./data/upgrades.js";
-import { normalizePlayerName } from "./core/names.js";
+import { textNode } from "./ui/dom.js";
+import { economyNumber, economyQueueLabel, economyQueueTier, tweenNumber } from "./ui/format.js";
+import { renderProcFeed } from "./ui/procFeed.js";
+import { renderStatPanel as renderStatPanelView } from "./ui/statPanel.js";
+export { isValidRoomId, normalizeRoomId, randomRoomId } from "./ui/roomIds.js";
 
 export function createUi() {
   const el = {
@@ -191,187 +195,13 @@ export function createUi() {
 
 
 
-  function textNode(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    node.textContent = text;
-    return node;
-  }
+  // UI rendering for TAB stats and proc feed lives in src/ui/* modules.
 
-  function statLine(label, value, className = "") {
-    const row = document.createElement("div");
-    row.className = `stat-panel-row${className ? ` ${className}` : ""}`;
-    row.append(textNode("span", "stat-panel-label", label), textNode("span", "stat-panel-value", value));
-    return row;
-  }
-
-  function statSection(title, rows = []) {
-    const section = document.createElement("section");
-    section.className = "stat-panel-section";
-    section.append(textNode("div", "stat-panel-section-title", title));
-    for (const row of rows) section.append(row);
-    return section;
-  }
-
-  function signedPercent(value) {
-    const n = Number.isFinite(value) ? value : 0;
-    const rounded = Math.round(n * 10) / 10;
-    const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-    return `${rounded >= 0 ? "+" : ""}${text}%`;
-  }
-
-  function flatPercent(value) {
-    const n = Number.isFinite(value) ? value : 0;
-    const rounded = Math.round(n * 10) / 10;
-    return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)}%`;
-  }
-
-  function integer(value, fallback = 0) {
-    return Math.round(Number.isFinite(value) ? value : fallback);
-  }
-
-  function compactName(player = {}) {
-    return normalizePlayerName(player.name || player.id || "PLAYER").slice(0, 12).toUpperCase();
-  }
-
-  function modifierLabels(snapshot = null) {
-    const location = snapshot?.location || null;
-    const stack = Array.isArray(location?.modifierStack) ? location.modifierStack : [];
-    if (stack.length) {
-      return stack.map((mod) => String(mod.name || mod.id || mod).replace(/_/g, " ").toUpperCase()).filter(Boolean).slice(0, 3);
-    }
-    const modifiers = Array.isArray(location?.modifiers) ? location.modifiers : [];
-    return modifiers.map((id) => String(id || "").replace(/_/g, " ").toUpperCase()).filter(Boolean).slice(0, 3);
-  }
-
-  function buildSignalRows(statSnapshot = null, snapshot = null) {
-    const runtime = statSnapshot?.runtime || {};
-    const ability = statSnapshot?.ability || {};
-    const utility = statSnapshot?.utility || {};
-    const rows = [];
-    if ((runtime.dashInvulnLeft || 0) > 0) rows.push(statLine("DASH INV", `${Number(runtime.dashInvulnLeft).toFixed(1)}S`, "accent"));
-    if (ability.dash?.maxCharges > 1) rows.push(statLine("DASH", `${ability.dash.charges || 0}/${ability.dash.maxCharges} CHG`, ability.dash.ready ? "accent" : ""));
-    else if ((runtime.dashCooldownLeft || 0) > 0) rows.push(statLine("DASH CD", `${Number(runtime.dashCooldownLeft).toFixed(1)}S`));
-    else if (ability.dash) rows.push(statLine("DASH", "READY", "accent"));
-    if ((utility.shieldCharges || 0) > 0 || (runtime.shieldChargesReady || 0) > 0) rows.push(statLine("SHIELD", `${Math.max(utility.shieldCharges || 0, runtime.shieldChargesReady || 0)} CHG`));
-    for (const label of modifierLabels(snapshot)) rows.push(statLine("ROOM", label));
-    if (!rows.length) rows.push(statLine("SIGNAL", "CLEAR"));
-    return rows;
-  }
-
-  function renderStatPanel(player, snapshot = null, open = false) {
-    if (!el.statPanel) return;
-    const shouldOpen = !!open && !!player;
-    el.statPanel.classList.toggle("open", shouldOpen);
-    el.game?.classList.toggle("tab-stats", shouldOpen);
-    el.statPanel.setAttribute("aria-hidden", shouldOpen ? "false" : "true");
-    if (!shouldOpen) return;
-
-    const stat = player.statSnapshot || {};
-    const percent = stat.percent || {};
-    const utility = stat.utility || {};
-    const economy = stat.economy || player.economy || {};
-    const weapon = stat.weapon || {};
-    const runtime = stat.runtime || {};
-    const hpPercent = Number.isFinite(runtime.hpPercent) ? runtime.hpPercent : Math.round((player.hp || 0) / Math.max(1, player.maxHp || 100) * 100);
-    const players = Array.isArray(snapshot?.players) ? snapshot.players : [];
-    const allies = players.filter((ally) => ally?.id && ally.id !== player.id).slice(0, 3);
-
-    const header = document.createElement("div");
-    header.className = "stat-panel-header";
-    header.append(
-      textNode("div", "stat-panel-kicker", "HOLD TAB / DIAGNOSTIC"),
-      textNode("div", "stat-panel-title", "SYSTEM STATS"),
-      textNode("div", "stat-panel-player", `${compactName(player)} · HP ${flatPercent(hpPercent)}`)
-    );
-
-    const coreRows = [
-      statLine("DMG", signedPercent(percent.damage)),
-      statLine("FIRE", signedPercent(percent.fireRate)),
-      statLine("MOVE", signedPercent(percent.moveSpeed)),
-      statLine("PROJ SPD", signedPercent(percent.projectileSpeed)),
-      statLine("CRIT", flatPercent(percent.critChance)),
-      statLine("LUCK DROP", signedPercent(percent.luckDropChance)),
-      statLine("LUCK VALUE", signedPercent(percent.luckRareValue)),
-      statLine("MAGNET", utility.magnetRadius ? `${integer(utility.magnetRadius)}R` : "--"),
-      statLine("LIFESTEAL", flatPercent(percent.lifesteal))
-    ];
-
-    const weaponRows = [
-      statLine("ACTIVE", `${String(weapon.code || weapon.id || "---").toUpperCase()} ${weapon.name ? `/${String(weapon.name).toUpperCase()}` : ""}`.trim()),
-      statLine("DAMAGE", weapon.effective?.damage ? String(weapon.effective.damage) : "--"),
-      statLine("RATE", weapon.effective?.fireRate ? `${weapon.effective.fireRate}/S` : "--"),
-      statLine("OWNED", Array.isArray(weapon.owned) ? weapon.owned.map((id) => (WEAPONS[id]?.code || id.slice(0, 3)).toUpperCase()).join(" ") : "--")
-    ];
-
-    const ownQueue = Math.max(0, Math.floor(Number.isFinite(economy.pendingUpgradeCount) ? economy.pendingUpgradeCount : 0));
-    const economyRows = [
-      statLine("LVL", String(economy.level || 1)),
-      statLine("EXP", `${economy.xp || 0}/${economy.nextLevelXp || "--"}`),
-      statLine("MONEY", `$${economy.money || 0}`),
-      statLine("INSTALL", ownQueue > 0 ? `x${ownQueue}` : "--", ownQueue > 0 ? "accent" : ""),
-      statLine("QUEUE", economyQueueLabel(ownQueue, upgradeOpen), ownQueue > 0 ? "accent" : "")
-    ];
-
-    const allySection = document.createElement("section");
-    allySection.className = "stat-panel-section stat-panel-allies";
-    allySection.append(textNode("div", "stat-panel-section-title", "ALLIES"));
-    if (!allies.length) {
-      allySection.append(statLine("LINK", "SOLO"));
-    } else {
-      for (const ally of allies) {
-        const aStat = ally.statSnapshot || {};
-        const aEco = aStat.economy || ally.economy || {};
-        const aRuntime = aStat.runtime || {};
-        const aHp = Number.isFinite(aRuntime.hpPercent) ? aRuntime.hpPercent : Math.round((ally.hp || 0) / Math.max(1, ally.maxHp || 100) * 100);
-        const install = (aEco.pendingUpgradeCount || 0) > 0 ? ` INST x${aEco.pendingUpgradeCount}` : "";
-        allySection.append(statLine(compactName(ally), `L${aEco.level || 1} HP ${flatPercent(aHp)}${install}`));
-      }
-    }
-
-    el.statPanel.replaceChildren(
-      header,
-      statSection("CORE", coreRows),
-      statSection("WEAPON", weaponRows),
-      statSection("ECONOMY", economyRows),
-      statSection("TEMP SIGNALS", buildSignalRows(stat, snapshot)),
-      allySection
-    );
-  }
-
-
-  function renderProcFeed(items = []) {
-    if (!el.procFeed) return;
-    const list = Array.isArray(items) ? items.slice(0, 5) : [];
-    el.procFeed.classList.toggle("active", list.length > 0);
-    el.procFeed.replaceChildren(...list.map((item, index) => {
-      const row = document.createElement("div");
-      row.className = `proc-feed-row priority-${item.priority || "low"} kind-${item.kind || "event"}`;
-      row.style.setProperty("--proc-index", String(index));
-      const text = textNode("span", "proc-feed-text", String(item.text || "SIGNAL").toUpperCase().slice(0, 28));
-      const detail = textNode("span", "proc-feed-detail", String(item.detail || "").toUpperCase().slice(0, 32));
-      row.append(text, detail);
-      return row;
-    }));
-  }
-
-
-  function economyNumber(value, fallback = 0) {
-    return Math.max(0, Math.round(Number.isFinite(value) ? value : fallback));
-  }
-
-  function economyQueueTier(queue) {
+function economyQueueTier(queue) {
     return queue >= 4 ? 3 : queue >= 2 ? 2 : queue > 0 ? 1 : 0;
   }
 
-  function economyQueueLabel(queue, upgradeOpen = false) {
-    if (queue <= 0) return "NO INSTALL";
-    if (upgradeOpen) return queue > 1 ? `INSTALL ${queue} QUEUED` : "INSTALL READY";
-    return "EXIT TO INSTALL";
-  }
-
-
-  function restartHpHitPulse(drop = 0, hpRatio = 1) {
+function restartHpHitPulse(drop = 0, hpRatio = 1) {
     if (!el.hpText) return;
     el.hpText.classList.remove("hp-hit-slam", "hp-hit-heavy", "hp-low");
     void el.hpText.offsetWidth;
@@ -421,15 +251,7 @@ export function createUi() {
   }
 
 
-  function tweenNumber(from, to, startedAt, now, duration = 220) {
-    if (from === null || from === undefined) return Math.round(to || 0);
-    if (from === to) return Math.round(to || 0);
-    const t = Math.min(1, Math.max(0, (now - startedAt) / duration));
-    const eased = 1 - Math.pow(1 - t, 3);
-    return Math.round(from + (to - from) * eased);
-  }
-
-  function economyDisplayValues(playerId, eco) {
+function economyDisplayValues(playerId, eco) {
     const now = performance.now();
     const money = Math.round(Number.isFinite(eco.money) ? eco.money : 0);
     const xp = Math.round(Number.isFinite(eco.xp) ? eco.xp : 0);
@@ -501,7 +323,7 @@ export function createUi() {
 
   function setHud(player, snapshot = null, options = {}) {
     setDirectorDebug(snapshot);
-    renderStatPanel(player, snapshot, !!options.statPanelOpen);
+    renderStatPanelView(el.statPanel, el.game, player, snapshot, { open: !!options.statPanelOpen, upgradeOpen, economyQueueLabel });
     if (!player) {
       el.hpText.textContent = "--";
       el.hpText.classList.remove("hp-hit-slam", "hp-hit-heavy", "hp-low");
@@ -576,25 +398,10 @@ export function createUi() {
     flashCopied,
     setNet,
     setHud,
-    setProcFeed: renderProcFeed,
+    setProcFeed: (items) => renderProcFeed(el.procFeed, items),
     setUpgradeMenu,
     onUpgradePick,
     isUpgradeOpen,
     isUpgradeHovered: () => upgradeHovered
   };
-}
-
-export function randomRoomId() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(6);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-}
-
-export function normalizeRoomId(value) {
-  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
-}
-
-export function isValidRoomId(value) {
-  return /^[A-Z0-9-]{3,12}$/.test(value);
 }

@@ -37,17 +37,8 @@ export function fireWeapon(state, playerId, payload = {}) {
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   if (!canFire(player, weaponId, weapon, state.time)) return false;
 
-  const originMax = 120;
-  let x = Number.isFinite(payload.x) ? payload.x : player.x;
-  let y = Number.isFinite(payload.y) ? payload.y : player.y;
-  const dx = x - player.x;
-  const dy = y - player.y;
-  if (dx * dx + dy * dy > originMax * originMax) {
-    x = player.x;
-    y = player.y;
-  }
-  x = clamp(x, 0, WORLD.w);
-  y = clamp(y, 0, WORLD.h);
+  const x = clamp(player.x, 0, WORLD.w);
+  const y = clamp(player.y, 0, WORLD.h);
 
   const angle = Number.isFinite(payload.angle) ? payload.angle : player.angle;
   const dir = angleToVec(angle);

@@ -100,11 +100,12 @@ test('economy pickup dopamine feel contracts are wired', () => {
   const economyPickups = readFileSync(new URL('../src/game/economyPickups.js', import.meta.url), 'utf8');
   const lootEffects = readFileSync(new URL('../src/game/effects/loot.js', import.meta.url), 'utf8');
   const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const pickupRenderer = readFileSync(new URL('../src/render/pickupRenderers.js', import.meta.url), 'utf8');
   const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
   assert.ok(economyPickups.includes('spawnX') && economyPickups.includes('popDistance'), 'economy pickups should snapshot spawn origin/pop data for client pop-out');
   assert.ok(lootEffects.includes('BASELINE_ECONOMY_ATTRACT_RADIUS'), 'economy pickups should have weak baseline magnet');
   assert.ok(lootEffects.includes('CLEAR_ECONOMY_ATTRACT_RADIUS_BONUS'), 'post-clear pickup radius boost should be explicit and bounded');
-  assert.ok(renderer.includes('pickupVisualPosition') && renderer.includes('drawPickupTrail'), 'renderer should draw pickup pop/trail feel from snapshot data');
+  assert.ok(renderer.includes('drawEconomyPickup') && pickupRenderer.includes('pickupVisualPosition') && pickupRenderer.includes('drawPickupTrail'), 'renderer should delegate pickup pop/trail feel from snapshot data to pickupRenderers');
   assert.ok(ui.includes('economyDisplayValues') && ui.includes('install-pulse-3'), 'HUD should tick economy values and scale INSTALL queue pulse');
 });
 
@@ -126,10 +127,11 @@ test('player damage creates visible local impact contract without bypassing dama
   assert.ok(state.effects.some((fx) => fx.type === 'playerDamageImpact' && fx.targetId === p.id), 'player damage should spawn a local screen impact effect');
   assert.ok(state.effects.some((fx) => fx.type === 'shake' && String(fx.source || '').includes(p.id)), 'player damage should add controlled camera shake');
   const renderer = readFileSync(new URL('../src/renderer.js', import.meta.url), 'utf8');
+  const screenEffects = readFileSync(new URL('../src/render/screenEffects.js', import.meta.url), 'utf8');
   const effects = readFileSync(new URL('../src/render/effectRenderers.js', import.meta.url), 'utf8');
   const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
-  assert.ok(renderer.includes('drawLocalDamageImpactOverlay'), 'renderer should draw local damage screen overlay');
-  assert.ok(renderer.includes('drawDirectionalHitMarker'), 'renderer should draw a directional hit marker');
+  assert.ok(renderer.includes('drawLocalDamageImpactOverlay') && screenEffects.includes('drawLocalDamageImpactOverlay'), 'renderer should delegate local damage screen overlay to screenEffects');
+  assert.ok(screenEffects.includes('drawDirectionalHitMarker'), 'screenEffects should draw a directional hit marker');
   assert.ok(effects.includes('playerHit: drawPlayerHit'), 'effect renderer should include playerHit world pulse');
   assert.ok(ui.includes('hp-hit-slam') && ui.includes('hp-low'), 'HUD should slam on HP drops and pulse at low HP');
 });

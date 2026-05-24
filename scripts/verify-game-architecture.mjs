@@ -120,7 +120,20 @@ for (const rel of clientFiles) {
 }
 assert.deepEqual([...new Set(clientOffenders)], [], `client/prediction code must not own host-authoritative gameplay: ${clientOffenders.join(', ')}`);
 
+const simulation = read('src/game/simulation.js');
+const inputRuntime = read('src/input.js');
+const clientRuntime = read('src/app/clientRuntime.js');
+const combatRuntime = read('src/game/combat.js');
 const hostRuntime = read('src/app/hostRuntime.js');
+assert.match(simulation, /normalizeHostInput/, 'host simulation must sanitize network input before applying player movement');
+assert.doesNotMatch(simulation, /acceptClientPose/, 'host simulation must not accept client-submitted px\/py as authoritative position');
+assert.doesNotMatch(simulation, /\binput\.p[xy]\b/, 'host movement must ignore client-submitted position fields');
+assert.doesNotMatch(inputRuntime, /\binput\.p[xy]\b/, 'client input packets should not include local pose fields');
+assert.doesNotMatch(clientRuntime, /inputState\.p[xy]/, 'guest runtime must not attach local pose to input messages');
+assert.doesNotMatch(combatRuntime, /payload\.(?:x|y)|originMax/, 'host combat must use authoritative player position for projectile origins');
+assert.match(hostRuntime, /normalizeHostInput\(msg\.input\)/, 'host runtime must sanitize remote input packets before storing them');
+assert.match(hostRuntime, /normalizeHostInput\(request\.input\)/, 'host runtime must sanitize ability input packets before applying abilities');
+
 assert.match(hostRuntime, /updateHostWorld\(/, 'host runtime must own simulation ticking');
 assert.match(hostRuntime, /fireWeapon\(/, 'host runtime must validate/execute weapon fire');
 assert.match(read('src/game/combat.js'), /hasWeapon\(player, payload\.weapon\)/, 'host combat must validate requested weapon ownership');
@@ -204,6 +217,30 @@ assert.match(casino, /validateCasinoSpin/, 'casino must expose host-side spin va
 assert.doesNotMatch(read('src/app/casinoClient.js'), /spendMoney|grantMoney|grantXp|executeRewardTable|spawnRewardPickup/, 'casino client must not grant rewards or mutate economy');
 assert.match(read('src/app/hostRuntime.js'), /requestCasinoSpin\(/, 'host runtime must own casino spin request execution');
 assert.match(read('src/render/casinoRenderers.js'), /drawCasinoInteractable/, 'casino visuals must live in casino renderer registry');
+
+
+const snapshotBudget = read('src/game/snapshotBudget.js');
+const visualEffectsRuntime = read('src/game/visualEffects.js');
+const simulationRuntime = read('src/game/simulation.js');
+const companionsRuntime = read('src/game/companions.js');
+const stateRuntime = read('src/game/state.js');
+const rendererRuntime = read('src/renderer.js');
+assert.match(snapshotBudget, /SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES\s*=\s*64 \* 1024/, 'snapshot budget must track the server websocket message limit');
+assert.match(snapshotBudget, /SNAPSHOT_WARNING_BYTES\s*=\s*52 \* 1024/, 'snapshot budget must expose a pre-limit warning threshold');
+assert.match(snapshotBudget, /budgetEffects/, 'snapshot budget must own priority-aware effect trimming');
+assert.match(snapshotBudget, /visualEffectPriority/, 'snapshot budget must share visual-effect priority with lifecycle runtime');
+assert.match(visualEffectsRuntime, /export function tickVisualEffects/, 'visual effect lifecycle must live outside projectiles.js');
+assert.match(visualEffectsRuntime, /VISUAL_EFFECT_LIFECYCLE_MAX_ACTIVE/, 'visual effect lifecycle must have an active-effect safety budget');
+assert.match(simulationRuntime, /tickVisualEffects\(state, safeDt\)/, 'host simulation must tick visual effect lifecycle explicitly');
+assert.doesNotMatch(read('src/game/projectiles.js'), /state\.effects\s*=\s*state\.effects\.filter|fx\.life\s*-=\s*dt/, 'projectiles.js must not own visual effect lifecycle pruning');
+assert.match(companionsRuntime, /companionSnapshots\(state\)/, 'companions must expose compressed network snapshots separately from host runtime entities');
+assert.match(companionsRuntime, /COMPANION_SNAPSHOT_INDIVIDUAL_LIMIT/, 'companion snapshot compression must have an explicit per-owner/kind preview budget');
+assert.match(companionsRuntime, /group:\s*true/, 'companion snapshot compression must emit group markers for huge stacks');
+assert.match(stateRuntime, /const companionPacket = companionSnapshots\(state\)/, 'makeSnapshot must use compressed companion snapshots, not raw companion entities');
+assert.doesNotMatch(stateRuntime, /Object\.values\(state\.companions \|\| \{\}\)\.map\(\(c\) => companionSnapshot\(c\)\)/, 'makeSnapshot must not send every companion entity during unlimited-stack runs');
+assert.match(stateRuntime, /const effectPacket = budgetEffects\(state\.effects\)/, 'makeSnapshot must route effects through the snapshot effect budget');
+assert.match(stateRuntime, /snapshot\.budget = buildSnapshotBudgetMeta/, 'makeSnapshot must expose snapshot budget metadata for tests/debug HUDs');
+assert.match(rendererRuntime, /function drawCompanionGroup/, 'renderer must support compressed companion group markers');
 
 const chests = read('src/game/chests.js');
 assert.match(chests, /executeRewardTable\(/, 'chests must resolve rewards through reward tables/reward commands');

@@ -1,7 +1,7 @@
 import { SNAPSHOT_RATE } from "../core/constants.js";
 import { addPlayer, makeSnapshot, removePlayer } from "../game/state.js";
 import { fireWeapon } from "../game/combat.js";
-import { emptyInput, updateHostWorld } from "../game/simulation.js";
+import { emptyInput, normalizeHostInput, updateHostWorld } from "../game/simulation.js";
 import { cycleWeapon, ensureInventory, getActiveWeaponId, switchWeaponSlot } from "../game/inventory.js";
 import { chooseUpgrade } from "../game/upgrades.js";
 import { performDash } from "../game/abilities.js";
@@ -60,7 +60,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
 
   function applyAbilityRequest(id, request = {}) {
     if (!app.hostState || request.ability !== "dash") return false;
-    const inputState = request.input && typeof request.input === "object" ? request.input : (app.hostInputs[id] || emptyInput());
+    const inputState = request.input && typeof request.input === "object" ? normalizeHostInput(request.input) : (app.hostInputs[id] || emptyInput());
     const result = performDash(app.hostState, id, inputState, { seq: request.seq });
     return !!result.ok;
   }
@@ -83,7 +83,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
       return true;
     }
     if (msg.t === "input" && from) {
-      app.hostInputs[from] = msg.input || emptyInput();
+      app.hostInputs[from] = normalizeHostInput(msg.input);
       return true;
     }
     if (msg.t === "shoot" && from) {
@@ -122,8 +122,6 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     const inputState = app.input.sample(app.localPose || app.hostState.players[app.playerId], app.camera);
     const me = app.hostState.players[app.playerId];
     app.localPose = me;
-    inputState.px = Math.round(me.x);
-    inputState.py = Math.round(me.y);
     app.hostInputs[app.playerId] = inputState;
     app.localInventory = ensureInventory(me);
     upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);

@@ -169,8 +169,6 @@ export function updateProjectiles(state, dt) {
     if (remove) delete state.projectiles[p.id];
   }
 
-  for (const fx of state.effects) fx.life -= dt;
-  state.effects = state.effects.filter((fx) => fx.life > 0);
 }
 
 export { makeProjectile, makeEnemyProjectile } from "./projectileFactories.js";

@@ -155,10 +155,6 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     mouse.worldX = camera.x + mouse.x;
     mouse.worldY = camera.y + mouse.y;
     input.aimAngle = localPose ? inputAimFromMouse(localPose, { x: mouse.worldX, y: mouse.worldY }) : 0;
-    if (localPose) {
-      input.px = Math.round(localPose.x);
-      input.py = Math.round(localPose.y);
-    }
     return input;
   }
 

@@ -301,7 +301,9 @@ const chestGameSrc = read('src/game/chests.js');
 assert.ok(!chestGameSrc.includes('DEFAULT_DESPAWN_TIMER'), 'v39.3.19b opened chests should not use a despawn timer');
 assert.ok(!/chestState\s*=\s*CHEST_STATES\.CLAIMED/.test(chestGameSrc), 'v39.3.19b opened chests should stay as inactive opened objects, not transition to claimed/despawn state');
 
-const pickupRendererSrc = rendererSrc;
+const pickupRendererSrc = read('src/render/pickupRenderers.js');
+assert.ok(rendererSrc.includes('from "./render/pickupRenderers.js"'), 'main renderer should delegate pickup drawing to pickupRenderers split module');
+assert.ok(read('src/render/screenEffects.js').includes('drawLocalDamageImpactOverlay'), 'screen impact overlays should live in screenEffects split module');
 assert.match(pickupRendererSrc, /function drawPickupToken/, 'shared pickup token renderer must keep one unified pickup token shape');
 assert.match(pickupRendererSrc, /function drawPickupSourcePulse/, 'v39.3.19b chest/casino source drops should use extra radius pulse around simple pickup tokens');
 assert.match(pickupRendererSrc, /function sourcePulseLevel/, 'v39.3.19b pickup source pulses should be data-driven by revealSource/revealProfile');

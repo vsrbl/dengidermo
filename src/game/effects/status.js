@@ -1,6 +1,6 @@
 import { EFFECT_HOOKS, DAMAGE_TAGS, numberOr } from "./defs.js";
 import { createEffectContext, effectCommand, runEffectHook } from "./core.js";
-import { sourceId } from "./damage.js";
+import { sourceId } from "../sourceIds.js";
 
 function ensureEnemyStatus(enemy) {
   if (!enemy.status) enemy.status = {};

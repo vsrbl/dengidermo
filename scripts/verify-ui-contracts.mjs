@@ -7,7 +7,14 @@ import { BUILD_ID, VERSION } from '../src/core/constants.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(path.join(root, rel), 'utf8');
 const index = read('index.html');
-const ui = read('src/ui.js');
+const ui = [
+  read('src/ui.js'),
+  read('src/ui/statPanel.js'),
+  read('src/ui/procFeed.js'),
+  read('src/ui/format.js'),
+  read('src/ui/dom.js'),
+  read('src/ui/roomIds.js')
+].join('\n');
 const main = read('src/main.js');
 const rewardFeed = read('src/rewardEventFeed.js');
 const input = read('src/input.js');
@@ -41,6 +48,8 @@ assert.ok(style.includes('.economy-xp-track') && style.includes('.economy-instal
 assert.ok(ui.includes('renderEconomyHud') && ui.includes('EXIT TO INSTALL') && ui.includes('INSTALL READY'), 'economy HUD must make queued INSTALL state explicit before and during safe upgrade selection');
 assert.ok(ui.includes('QUEUE') && ui.includes('economyQueueLabel'), 'TAB stat panel must expose INSTALL queue status instead of only a raw count');
 assert.ok(ui.includes('renderStatPanel') && ui.includes('statSnapshot'), 'TAB stat panel must render from computed player.statSnapshot');
+assert.ok(read('src/ui.js').length < 22000, 'src/ui.js should stay below monolith threshold after split prep');
+assert.ok(ui.includes('src/ui/*') || read('src/ui/statPanel.js').includes('renderStatPanel'), 'UI split prep modules must own extracted stat/proc helpers');
 assert.ok(ui.includes('statPanelOpen') && ui.includes('!!open'), 'TAB stat panel must be driven by explicit local UI open state');
 assert.ok(ui.includes('renderProcFeed') && ui.includes('setProcFeed'), 'UI must render proc/reward feed items from an explicit event-feed channel');
 assert.ok(ui.includes('economyDisplayValues') && ui.includes('tweenNumber'), 'economy HUD should tick GLD/EXP values instead of only snapping instantly');

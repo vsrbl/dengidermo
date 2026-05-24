@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createGameState, addPlayer } from '../src/game/state.js';
+import { updateHostWorld } from '../src/game/simulation.js';
 import { spawnEnemy, updateEnemies } from '../src/game/enemies.js';
+import { fireWeapon } from '../src/game/combat.js';
 import { beginRoomTransition } from '../src/game/roomFlow.js';
 import { getLocationFromRoomPlan, resolveRoomPlan } from '../src/game/runPlanner.js';
 import { finishEnemyKill } from '../src/game/enemyDeath.js';
@@ -33,6 +35,7 @@ import { updateCompanions } from '../src/game/companions.js';
 import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/abilityInventory.js';
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
+import { SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -53,6 +56,40 @@ function fresh(seed = 'UNIVERSAL-RUNTIME') {
   player.hp = 50;
   player.maxHp = 100;
   return { state, player };
+}
+
+function assertHostAuthorityScenario() {
+  const state = createGameState('HOST-AUTHORITY-SCENARIO');
+  addPlayer(state, 'p1', 0);
+  const guest = addPlayer(state, 'p2', 1);
+  guest.x = 500;
+  guest.y = 500;
+  const beforeX = guest.x;
+  const beforeY = guest.y;
+
+  updateHostWorld(state, {
+    p2: { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false, px: 99999, py: -99999 }
+  }, 1 / 60);
+
+  assert.equal(Math.round(guest.x), Math.round(beforeX), 'remote px should not move a guest player on the host');
+  assert.equal(Math.round(guest.y), Math.round(beforeY), 'remote py should not move a guest player on the host');
+
+  updateHostWorld(state, {
+    p2: { left: false, right: true, up: false, down: false, aimAngle: 0, fire: false, px: 99999, py: -99999 }
+  }, 1 / 60);
+
+  assert.ok(guest.x > beforeX, 'host should still move guests from directional input');
+  assert.ok(guest.x < beforeX + 20, 'directional input movement should stay within normal host-derived movement bounds');
+  assert.ok(Math.abs(guest.y - beforeY) < 2, 'malicious py should not add vertical teleport drift while moving horizontally');
+
+  state.time = 10;
+  const shotX = guest.x;
+  const shotY = guest.y;
+  assert.equal(fireWeapon(state, 'p2', { weapon: 'shotgun', fireSeq: 4242, x: 99999, y: -99999, angle: 0 }), true, 'host should accept valid shoot requests');
+  const projectile = Object.values(state.projectiles).find((item) => String(item.id || '').startsWith('p2-4242'));
+  assert.ok(projectile, 'valid hostile shoot request should spawn a projectile');
+  assert.ok(Math.abs(projectile.y - shotY) < 20, 'projectile origin should use authoritative player y, not payload.y');
+  assert.ok(projectile.x > shotX && projectile.x < shotX + 80, 'projectile origin should use authoritative player x, not payload.x');
 }
 
 function assertDamagePolicy() {
@@ -435,6 +472,30 @@ function assertUnlimitedCompanionStackScenario() {
   const orbitals = Object.values(state.companions).filter((c) => c.ownerId === player.id && c.kind === 'orbital');
   assert.equal(drones.length, 20, 'DRONE should support Balatro-style large stacks instead of stopping at 3/8');
   assert.equal(orbitals.length, 10, 'ORBITAL should support Balatro-style large stacks instead of stopping at 3/8');
+
+  const heavy = createGameState('SNAPSHOT-BUDGET-COMPANIONS');
+  const players = ['p1', 'p2', 'p3', 'p4'].map((id, index) => addPlayer(heavy, id, index));
+  for (const p of players) {
+    for (let i = 0; i < 64; i += 1) assert.equal(applyUpgrade(p, 'drone', heavy), true, `heavy DRONE ${p.id} stack ${i + 1} should be accepted`);
+    for (let i = 0; i < 64; i += 1) assert.equal(applyUpgrade(p, 'orbital', heavy), true, `heavy ORBITAL ${p.id} stack ${i + 1} should be accepted`);
+  }
+  updateCompanions(heavy, 0.016);
+  assert.equal(Object.values(heavy.companions).filter((c) => c.kind === 'drone').length, 256, 'host runtime should keep every drone entity for gameplay');
+  assert.equal(Object.values(heavy.companions).filter((c) => c.kind === 'orbital').length, 256, 'host runtime should keep every orbital entity for gameplay');
+
+  for (let i = 0; i < 220; i += 1) heavy.effects.push({ id: `stress-fx-${i}`, type: i % 7 === 0 ? 'playerDamageImpact' : 'tinySpark', x: 300 + i, y: 400, life: 0.2, maxLife: 0.2 });
+  const snap = makeSnapshot(heavy);
+  const bytes = JSON.stringify({ t: 'state', snapshot: snap }).length;
+  assert.ok(snap.budget.companions.compressed, 'heavy companion snapshots should be compressed instead of sending every companion entity');
+  assert.ok(snap.budget.companions.hidden > 0, 'companion snapshot compression should report hidden visual entities');
+  assert.ok(snap.companions.length < Object.keys(heavy.companions).length, 'snapshot should send preview/group markers, not all companions');
+  assert.ok(snap.companions.some((c) => c.group && c.kind === 'drone'), 'compressed snapshot should include drone group markers');
+  assert.ok(snap.companions.some((c) => c.group && c.kind === 'orbital'), 'compressed snapshot should include orbital group markers');
+  assert.ok(snap.budget.effects.budgeted, 'effect storm should be budgeted with priority-aware truncation');
+  assert.ok(snap.effects.length <= 48, 'effect snapshot should respect the effect budget');
+  assert.ok(snap.effects.some((fx) => fx.type === 'playerDamageImpact'), 'critical player hit impact effects should survive effect budgeting');
+  assert.ok(bytes < SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, `stress snapshot ${bytes} bytes should stay under websocket message limit ${SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES}`);
+  assert.ok(snap.budget.warningBytes === SNAPSHOT_WARNING_BYTES, 'snapshot budget metadata should expose warning threshold');
 }
 
 
@@ -661,6 +722,7 @@ function assertModifierScenario() {
   assert.ok(debtState.events.some((event) => event.type === 'room_modifier_debt' && event.action === 'applied'), 'applying casino debt should emit a room_modifier_debt event');
 
 }
+assertHostAuthorityScenario();
 assertDamagePolicy();
 assertDamageScenarios();
 assertLinkedArmorScenario();
@@ -678,4 +740,4 @@ assertRewardEventFeedScenario();
 assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, casino activity, stat snapshot foundation, reward event feed foundation, anomaly enemy stress pack plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, anomaly enemy stress pack plus next-room casino debt');

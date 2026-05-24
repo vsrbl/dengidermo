@@ -12,6 +12,8 @@ import { nextId } from "./entityIds.js";
 import { pushEvent } from "./events.js";
 
 const COMPANION_RUNTIME_SOFT_LIMIT = 128; // runaway-state guard, not a balance/design cap
+export const COMPANION_SNAPSHOT_INDIVIDUAL_LIMIT = 24;
+export const COMPANION_SNAPSHOT_TOTAL_TARGET = 144;
 const ORBITAL_DEFAULT_RADIUS = 74;
 const ORBITAL_DEFAULT_DAMAGE = 7;
 const ORBITAL_DEFAULT_SPEED = 1.45;
@@ -256,6 +258,95 @@ export function companionSnapshot(companion) {
     count: companion.count || 1,
     cooldown: Number(Math.max(0, companion.cooldown || 0).toFixed(2))
   };
+}
+
+function companionGroupSnapshot(owner, kind, list, shown) {
+  const total = list.length;
+  const hidden = Math.max(0, total - shown);
+  const avgX = list.reduce((sum, c) => sum + (c.x || owner?.x || 0), 0) / Math.max(1, total);
+  const avgY = list.reduce((sum, c) => sum + (c.y || owner?.y || 0), 0) / Math.max(1, total);
+  return {
+    id: `cg:${owner?.id || list[0]?.ownerId || 'unknown'}:${kind}`,
+    kind,
+    ownerId: owner?.id || list[0]?.ownerId || null,
+    group: true,
+    total,
+    hidden,
+    shown,
+    x: Number((Number.isFinite(avgX) ? avgX : (owner?.x || 0)).toFixed(1)),
+    y: Number((Number.isFinite(avgY) ? avgY : (owner?.y || 0)).toFixed(1)),
+    angle: Number(((stateTimeSeed(owner, kind) % 628) / 100).toFixed(3)),
+    count: total
+  };
+}
+
+function stateTimeSeed(owner, kind) {
+  const base = kind === 'drone' ? 317 : 719;
+  const id = String(owner?.id || '');
+  let hash = base;
+  for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) % 997;
+  return hash;
+}
+
+function stableSlotOrder(a, b) {
+  return (a.slot || 0) - (b.slot || 0) || String(a.id || '').localeCompare(String(b.id || ''));
+}
+
+function pickEvenly(list, limit) {
+  if (list.length <= limit) return list;
+  if (limit <= 0) return [];
+  if (limit === 1) return [list[0]];
+  const out = [];
+  const last = list.length - 1;
+  for (let i = 0; i < limit; i += 1) {
+    const idx = Math.min(last, Math.round((i / (limit - 1)) * last));
+    const item = list[idx];
+    if (item && out[out.length - 1] !== item) out.push(item);
+  }
+  return out;
+}
+
+export function companionSnapshots(state) {
+  const byOwnerKind = new Map();
+  for (const companion of Object.values(state?.companions || {})) {
+    const key = `${companion.ownerId || 'unknown'}:${companion.kind || 'unknown'}`;
+    if (!byOwnerKind.has(key)) byOwnerKind.set(key, []);
+    byOwnerKind.get(key).push(companion);
+  }
+
+  const snapshots = [];
+  const meta = { total: 0, sent: 0, groups: 0, compressed: false, hidden: 0 };
+  const groups = [...byOwnerKind.entries()].sort(([a], [b]) => a.localeCompare(b));
+  for (const [key, list] of groups) {
+    list.sort(stableSlotOrder);
+    const [ownerId, kind] = key.split(':');
+    const owner = state?.players?.[ownerId] || null;
+    const total = list.length;
+    meta.total += total;
+    const limit = total <= COMPANION_SNAPSHOT_INDIVIDUAL_LIMIT ? total : COMPANION_SNAPSHOT_INDIVIDUAL_LIMIT;
+    const picked = pickEvenly(list, limit);
+    for (const companion of picked) snapshots.push(companionSnapshot(companion));
+    meta.sent += picked.length;
+    if (picked.length < total) {
+      snapshots.push(companionGroupSnapshot(owner, kind, list, picked.length));
+      meta.groups += 1;
+      meta.hidden += total - picked.length;
+      meta.compressed = true;
+    }
+  }
+
+  if (snapshots.length > COMPANION_SNAPSHOT_TOTAL_TARGET) {
+    const individual = snapshots.filter((item) => !item.group);
+    const grouped = snapshots.filter((item) => item.group);
+    const keepIndividual = Math.max(0, COMPANION_SNAPSHOT_TOTAL_TARGET - grouped.length);
+    const trimmed = pickEvenly(individual, keepIndividual);
+    meta.hidden += Math.max(0, individual.length - trimmed.length);
+    meta.sent = trimmed.length;
+    meta.compressed = true;
+    return { items: [...trimmed, ...grouped], meta };
+  }
+
+  return { items: snapshots, meta };
 }
 
 export function companionSummary(player, state) {

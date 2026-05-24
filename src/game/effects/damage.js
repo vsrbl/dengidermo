@@ -15,6 +15,7 @@ import {
   runEffectHook
 } from "./core.js";
 import { addShake, pushVisualEffect } from "../effectCommands.js";
+import { ownerPlayer, sourceId } from "../sourceIds.js";
 
 export function dealDamage(state, target, spec = {}) {
   if (!target || !Number.isFinite(spec.amount)) {
@@ -37,16 +38,6 @@ export function dealDamage(state, target, spec = {}) {
     tags: Array.isArray(spec.tags) ? spec.tags : []
   };
 }
-
-export function ownerPlayer(state, source) {
-  const id = typeof source === "string" ? source : source?.ownerId;
-  return id ? state?.players?.[id] || null : null;
-}
-
-export function sourceId(source) {
-  return typeof source === "string" ? source : source?.ownerId || source?.id || null;
-}
-
 
 function playerDamageImpactPower(resolved, hit, player) {
   const maxHp = Math.max(1, player?.maxHp || player?.hp || 1);

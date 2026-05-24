@@ -218,8 +218,6 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.angle = inputState.aimAngle;
     app.localPose.x = clamp(app.localPose.x, app.localPose.radius, WORLD.w - app.localPose.radius);
     app.localPose.y = clamp(app.localPose.y, app.localPose.radius, WORLD.h - app.localPose.radius);
-    inputState.px = Math.round(app.localPose.x);
-    inputState.py = Math.round(app.localPose.y);
     tryLocalShoot(gameNow, inputState);
 
     if (now - app.lastInputSent > 1000 / INPUT_RATE) {
