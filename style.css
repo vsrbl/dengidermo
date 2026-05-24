@@ -27,7 +27,7 @@
   --z-combo: 70;
   --z-screen-moment: 90;
   --top-safe-gap: 14px;
-  --combo-compact-top: clamp(154px, calc(var(--bar, 0px) + 148px), 210px);
+  --combo-compact-top: clamp(184px, calc(var(--bar, 0px) + 178px), 240px);
   --z-boot-error: 9999;
 }
 

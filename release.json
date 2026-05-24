@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22n",
-  "buildId": "v39.3.22n-20260524",
+  "version": "v39.3.22o",
+  "buildId": "v39.3.22o-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-24",
-  "entry": "./src/main.v39-3-22n.js?v=39.3.22n",
-  "style": "./style.css?v=39.3.22n",
-  "config": "./config.js?v=39.3.22n",
+  "entry": "./src/main.v39-3-22o.js?v=39.3.22o",
+  "style": "./style.css?v=39.3.22o",
+  "config": "./config.js?v=39.3.22o",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22n UI hotfix: halves the kill combo box footprint while keeping it in the upper area under install/upgrade select, preserving centered contents, x10 rewards, and thin pixel center-screen moment typography."
+  "notes": "v39.3.22o UI hotfix: lowers the half-size kill combo box by 30px while preserving centered contents, x10 rewards, small combo bump animation, and thin pixel center-screen moment typography."
 }
