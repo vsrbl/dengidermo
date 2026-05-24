@@ -1,0 +1,14 @@
+{
+  "name": "nncckkrr.space",
+  "version": "v39.3.22j",
+  "buildId": "v39.3.22j-20260524",
+  "channel": "prod",
+  "protocol": 2,
+  "createdAt": "2026-05-24",
+  "entry": "./src/main.v39-3-22j.js?v=39.3.22j",
+  "style": "./style.css?v=39.3.22j",
+  "config": "./config.js?v=39.3.22j",
+  "healthPath": "/health",
+  "signalingUrl": "https://dengidermo-1.onrender.com",
+  "notes": "v39.3.22j UI hotfix: strongly downsizes the kill combo overlay, moves the room/GRID plaque back to the lower-left safe area under the HUD, redesigns the combo overlay with a more terminal-fitting mono style, and updates UI guards for compact combo readability and left-side room-label layout."
+}
