@@ -4,9 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ANOMALY_ENEMY_KINDS, ENEMIES, ENEMY_WAVES } from '../src/data/enemies.js';
 import { WEAPONS, START_WEAPON, WEAPON_IDS } from '../src/data/weapons.js';
-import { ROOM_SEQUENCE, RARE_ROOMS, ALL_ROOMS } from '../src/data/rooms.js';
+import { ROOM_SEQUENCE, RARE_ROOMS, VARIETY_ROOMS, ALL_ROOMS } from '../src/data/rooms.js';
 import { ENCOUNTER_PLANS } from '../src/data/encounters.js';
 import { ROOM_LAYOUTS, layoutIdentitySnapshot } from '../src/data/layouts.js';
+import { ROOM_POOLS } from '../src/data/roomPools.js';
+import { LOCATION_THEMES } from '../src/data/locationThemes.js';
+import { ENVIRONMENT_PROP_SETS } from '../src/data/environmentProps.js';
 import { ROOM_MODIFIERS } from '../src/data/roomModifiers.js';
 import { INTERACTABLES } from '../src/data/interactables.js';
 import { CASINO_MACHINES, CASINO_MACHINE_STATES, casinoMachineStateIsKnown, getCasinoMachine } from '../src/data/casinoMachines.js';
@@ -82,7 +85,7 @@ for (const [id, weapon] of Object.entries(WEAPONS)) {
 }
 
 assertUnique(ALL_ROOMS.map((room) => room.id), 'room');
-assert.equal(ALL_ROOMS.length, ROOM_SEQUENCE.length + RARE_ROOMS.length, 'ALL_ROOMS must be base + rare rooms');
+assert.equal(ALL_ROOMS.length, ROOM_SEQUENCE.length + RARE_ROOMS.length + VARIETY_ROOMS.length, 'ALL_ROOMS must be base + rare + variety rooms');
 for (const room of ALL_ROOMS) {
   assert.ok(ROOM_LAYOUTS[room.layout], `${room.id} references unknown layout: ${room.layout}`);
   assert.ok(ENCOUNTER_PLANS[room.encounter], `${room.id} references unknown encounter: ${room.encounter}`);
@@ -98,6 +101,32 @@ for (const [id, layout] of Object.entries(ROOM_LAYOUTS)) {
   assert.equal(ident.layoutId, id, `${id} identity snapshot mismatch`);
   assert.ok(/^geo:/.test(ident.geometryHash), `${id} needs stable geometry hash`);
   for (const wall of layout.walls || []) assert.equal(wall.shape, 'rect', `${id}/${wall.id} only rect walls are currently supported`);
+}
+
+assert.ok(VARIETY_ROOMS.length >= 4, 'v39.3.22 variety rooms should add multiple loop-route variants');
+for (const [id, set] of Object.entries(ENVIRONMENT_PROP_SETS)) {
+  assert.equal(set.id, id, `environment prop set key/id mismatch: ${id}`);
+  for (const prop of set.props || []) {
+    assert.equal(prop.kind, 'solid', `${id}/${prop.id} environment props currently use solid rect collision/render contract`);
+    assert.equal(prop.shape, 'rect', `${id}/${prop.id} environment prop must use rect shape`);
+  }
+}
+for (const [id, theme] of Object.entries(LOCATION_THEMES)) {
+  assert.equal(theme.id, id, `location theme key/id mismatch: ${id}`);
+  assert.ok(ENVIRONMENT_PROP_SETS[theme.environmentPropSetId], `${id} references unknown environment prop set: ${theme.environmentPropSetId}`);
+}
+for (const [id, pool] of Object.entries(ROOM_POOLS)) {
+  assert.equal(pool.id, id, `room pool key/id mismatch: ${id}`);
+  assert.ok(Array.isArray(pool.nodes) && pool.nodes.length === ROOM_SEQUENCE.length, `${id} should describe one route node per base cadence slot`);
+  for (const node of pool.nodes) {
+    assert.ok(Number.isFinite(node.roomInLoop), `${id}/${node.id} needs roomInLoop`);
+    assert.ok(Array.isArray(node.options) && node.options.length > 0, `${id}/${node.id} needs route options`);
+    for (const option of node.options) {
+      assert.ok(ALL_ROOMS.some((room) => room.id === option.roomId), `${id}/${node.id} references unknown route room: ${option.roomId}`);
+      if (option.environmentThemeId) assert.ok(LOCATION_THEMES[option.environmentThemeId], `${id}/${node.id} references unknown theme: ${option.environmentThemeId}`);
+      assert.ok(Number.isFinite(option.weight) && option.weight > 0, `${id}/${node.id}/${option.roomId} needs positive route weight`);
+    }
+  }
 }
 
 for (const [id, plan] of Object.entries(ENCOUNTER_PLANS)) {

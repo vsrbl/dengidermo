@@ -172,19 +172,25 @@ test('kill combo dopamine moments are host-authoritative and economy rewards use
   const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   assert.ok(killCombos.includes('registerKillCombo'), 'kill combo registration must live in game/killCombos.js');
   assert.ok(killCombos.includes('grantMoney(state, player') && killCombos.includes('grantXp(state, player'), 'combo milestone rewards must use playerEconomy grant pipelines');
-  assert.ok(killCombos.includes('SIGNAL CHAIN') && killCombos.includes('NNCCKKRR FEVER'), 'combo labels should use nncckkrr setting language');
-  for (let i = 0; i < 5; i += 1) {
-    const enemy = spawnEnemy(state, 'grunt', 620 + i * 10, 500);
+  assert.ok(killCombos.includes('SIGNAL CHAIN') && killCombos.includes('NNCCKKRR BREACH'), 'combo labels should use nncckkrr setting language');
+  assert.ok(killCombos.includes('KILL_COMBO_VISIBLE_THRESHOLD = 25'), 'combo UI should stay hidden until 25+ kills');
+  for (let i = 0; i < 24; i += 1) {
+    const enemy = spawnEnemy(state, 'grunt', 620 + i * 3, 500);
     enemy.hp = 1;
     finishEnemyKill(state, enemy, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
-    state.time += 0.32;
+    state.time += 0.08;
   }
-  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.action === 'stack' && event.playerId === p.id && event.count >= 5), 'five rapid kills should emit local kill_combo stack events');
+  assert.equal(state.events.some((event) => event.type === 'kill_combo'), false, 'combo UI events should stay hidden before 25 kills');
+  const enemy25 = spawnEnemy(state, 'grunt', 700, 500);
+  enemy25.hp = 1;
+  finishEnemyKill(state, enemy25, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
+  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.action === 'stack' && event.playerId === p.id && event.count >= 25), 'twenty-five rapid kills should emit local kill_combo stack events');
   assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_money' && event.sourceType === 'kill_combo'), 'combo milestone should grant GLD through economy events');
   assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp' && event.sourceType === 'kill_combo'), 'combo milestone should grant EXP through economy events');
   assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed'), 'main loop must route events into moment/combo UI feeds');
   assert.ok(ui.includes('setScreenMoment') && ui.includes('setKillCombo'), 'UI should expose screen moment and kill combo renderers');
   assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('comboCountSlam'), 'dopamine moments and combo counter must have animated styles');
+  assert.ok(style.includes('PixelLocal') && style.includes('-webkit-font-smoothing: none'), 'center moment/combo labels should use explicit pixel-terminal font styling');
 });
 
 let failed = 0;

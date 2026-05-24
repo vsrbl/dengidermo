@@ -161,7 +161,76 @@ export const RARE_ROOMS = [
   }
 ];
 
-export const ALL_ROOMS = Object.freeze([...ROOM_SEQUENCE, ...RARE_ROOMS]);
+
+export const VARIETY_ROOMS = [
+  {
+    id: "grid-pockets-01",
+    name: "GRID POCKETS 01",
+    category: "normal",
+    tags: ["grid", "clear", "pockets", "exploration"],
+    layout: "side_pockets",
+    modifiers: ["grid_static"],
+    biome: "grid",
+    encounter: "grid_intro_pressure",
+    objective: "clear",
+    spawnZones: ["edge_far", "edge_flank", "corner_random"],
+    portal: { delay: 6, hold: 1.1 },
+    enemyPool: ["grunt", "runner", "shooter"],
+    environmentThemeId: "cache_pockets",
+    activityId: "loot_pocket",
+    spawn: { boost: 1.02 }
+  },
+  {
+    id: "grid-cover-01",
+    name: "GRID COVER 01",
+    category: "normal",
+    tags: ["grid", "clear", "cover", "shooter-readable"],
+    layout: "broken_cover",
+    modifiers: ["grid_static"],
+    biome: "grid",
+    encounter: "grid_intro_pressure",
+    objective: "clear",
+    spawnZones: ["edge_far", "edge_flank"],
+    portal: { delay: 6, hold: 1.12 },
+    enemyPool: ["grunt", "runner", "shooter"],
+    environmentThemeId: "broken_cover",
+    spawn: { boost: 1.05 }
+  },
+  {
+    id: "void-strips-01",
+    name: "VOID STRIPS 01",
+    category: "normal",
+    tags: ["void", "survive", "static", "pressure"],
+    layout: "static_strips",
+    modifiers: ["void_drift"],
+    biome: "void",
+    encounter: "void_pressure",
+    objective: "survive",
+    spawnZones: ["edge_far", "edge_flank", "corner_random"],
+    portal: { delay: 7.4, hold: 1.16 },
+    enemyPool: ["runner", "charger", "bomber", "shooter"],
+    environmentThemeId: "static_strips",
+    spawn: { boost: 1.08 }
+  },
+  {
+    id: "core-cover-01",
+    name: "CORE COVER 01",
+    category: "normal",
+    tags: ["core", "clear", "cover", "elite"],
+    layout: "broken_cover",
+    modifiers: ["core_pressure"],
+    biome: "core",
+    encounter: "core_elite_pressure",
+    objective: "clear",
+    spawnZones: ["edge_flank", "corner_random", "edge_far"],
+    portal: { delay: 8.5, hold: 1.2 },
+    enemyPool: ["runner", "tank", "shooter", "charger"],
+    environmentThemeId: "broken_cover",
+    spawn: { boost: 1.06 }
+  }
+];
+
+export const ALL_ROOMS = Object.freeze([...ROOM_SEQUENCE, ...RARE_ROOMS, ...VARIETY_ROOMS]);
 
 export function getRoom(index = 0) {
   return ROOM_SEQUENCE[((index % ROOM_SEQUENCE.length) + ROOM_SEQUENCE.length) % ROOM_SEQUENCE.length];

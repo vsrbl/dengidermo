@@ -3,6 +3,7 @@ export const MOMENT_FEED_SCHEMA_VERSION = 1;
 const MAX_SEEN = 128;
 const DEFAULT_LIFE_MS = 1550;
 const ULTRA_LIFE_MS = 2200;
+const COMBO_MOMENT_MIN_COUNT = 25;
 
 function eventId(event = {}) {
   return String(event.id || `${event.type || "event"}:${event.action || "?"}:${event.t || 0}:${event.playerId || event.sourcePlayerId || "team"}`);
@@ -30,8 +31,11 @@ function buildInstallMoment(event, playerId) {
   };
 }
 
-function buildExitOpenMoment(event) {
+function buildExitOpenMoment(event, playerId, snapshot = null) {
   if (event.type !== "portal" || event.action !== "exit_open") return null;
+  const portals = Array.isArray(snapshot?.portals) ? snapshot.portals : [];
+  const matchingPortal = portals.find((portal) => portal?.id === event.portalId) || portals.find((portal) => portal?.kind === "exit");
+  if (!matchingPortal?.active) return null;
   return {
     kind: "exit",
     tier: "high",
@@ -105,15 +109,15 @@ function buildCasinoMoment(event, playerId) {
 
 function buildComboMoment(event, playerId) {
   if (event.type !== "kill_combo" || event.action !== "stack" || event.playerId !== playerId || !event.milestone) return null;
-  if (!(event.count >= 5)) return null;
+  if (!(event.count >= COMBO_MOMENT_MIN_COUNT)) return null;
   const reward = event.rewardLabel || [event.rewardMoney > 0 ? `+${Math.round(event.rewardMoney)} GLD` : "", event.rewardXp > 0 ? `+${Math.round(event.rewardXp)} EXP` : ""].filter(Boolean).join(" / ");
   return {
     kind: "combo",
-    tier: event.count >= 18 ? "ultra" : "high",
+    tier: event.count >= 100 ? "ultra" : "high",
     kicker: "KILL FEED OVERLOAD",
     text: event.label || "SIGNAL CHAIN",
     detail: `x${Math.max(1, event.count || 1)}${reward ? ` // ${reward}` : ""}`,
-    lifeMs: event.count >= 18 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
+    lifeMs: event.count >= 100 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
   };
 }
 
@@ -137,25 +141,46 @@ function pruneSeen(order, set) {
 export function createMomentFeed() {
   const seen = new Set();
   const order = [];
+  const queue = [];
   let active = null;
 
-  function ingest(events = [], { playerId = null, now = performance.now() } = {}) {
+  function startNext(now) {
+    if (active) return;
+    const next = queue.shift();
+    if (next) active = { ...next, createdAt: now };
+  }
+
+  function enqueue(moment, id, now) {
+    const entry = { id, ...moment };
+    if (!active) active = { ...entry, createdAt: now };
+    else queue.push(entry);
+    while (queue.length > 8) queue.shift();
+  }
+
+  function ingest(events = [], { playerId = null, now = performance.now(), snapshot = null } = {}) {
+    if (active && now - active.createdAt > (active.lifeMs || DEFAULT_LIFE_MS)) active = null;
+    startNext(now);
+
     const list = Array.isArray(events) ? events : [];
     for (const event of list) {
       const id = eventId(event);
       if (seen.has(id)) continue;
       seen.add(id);
       order.push(id);
-      const moment = buildMoment(event, playerId);
-      if (moment) active = { id, createdAt: now, ...moment };
+      const moment = buildMoment(event, playerId, snapshot);
+      if (moment) enqueue(moment, id, now);
     }
     pruneSeen(order, seen);
-    if (active && now - active.createdAt > (active.lifeMs || DEFAULT_LIFE_MS)) active = null;
-    return active ? { ...active, ageMs: Math.max(0, now - active.createdAt) } : null;
+    if (active && now - active.createdAt > (active.lifeMs || DEFAULT_LIFE_MS)) {
+      active = null;
+      startNext(now);
+    }
+    return active ? { ...active, ageMs: Math.max(0, now - active.createdAt), queued: queue.length } : null;
   }
 
   function clear() {
     active = null;
+    queue.length = 0;
     seen.clear();
     order.length = 0;
   }

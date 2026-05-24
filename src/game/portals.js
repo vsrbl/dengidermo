@@ -15,7 +15,13 @@ export function updatePortals(state, dt) {
     // v38.3+: portal activation is gated by the director phase contract,
     // not raw room time. v38.5: transition orchestration belongs to roomFlow.
     const nextActive = canOpenPortal(state);
-    if (nextActive && !portal.active && !portal.openMomentFired) {
+    portal.active = nextActive;
+    if (!nextActive) {
+      portal.openStableFor = 0;
+    } else {
+      portal.openStableFor = (portal.openStableFor || 0) + dt;
+    }
+    if (portal.active && (portal.openStableFor || 0) >= 0.18 && !portal.openMomentFired) {
       portal.openMomentFired = true;
       pushEvent(state, {
         type: "portal",
@@ -38,7 +44,6 @@ export function updatePortals(state, dt) {
         maxLife: 0.58
       });
     }
-    portal.active = nextActive;
     if (!portal.active || alive.length === 0) {
       portal.progress = Math.max(0, portal.progress - dt * 0.9);
       continue;

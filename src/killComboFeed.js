@@ -1,4 +1,5 @@
 const MAX_SEEN = 96;
+const COMBO_VISIBLE_THRESHOLD = 25;
 
 function eventId(event = {}) {
   return String(event.id || `${event.type || "event"}:${event.action || "?"}:${event.t || 0}:${event.playerId || "team"}:${event.seq || 0}`);
@@ -20,7 +21,7 @@ export function createKillComboFeed() {
     const list = Array.isArray(events) ? events : [];
     for (const event of list) {
       if (event?.type !== "kill_combo" || event.action !== "stack" || event.playerId !== playerId) continue;
-      if (!(event.count >= 2)) continue;
+      if (!(event.count >= COMBO_VISIBLE_THRESHOLD)) continue;
       const id = eventId(event);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -28,9 +29,9 @@ export function createKillComboFeed() {
       active = {
         id,
         createdAt: now,
-        lifeMs: Math.max(900, (Number(event.comboWindow) || 2.85) * 1000 + 180),
-        count: Math.max(2, Math.floor(event.count || 2)),
-        best: Math.max(2, Math.floor(event.best || event.count || 2)),
+        lifeMs: Math.max(1200, (Number(event.comboWindow) || 4.25) * 1000 + 220),
+        count: Math.max(COMBO_VISIBLE_THRESHOLD, Math.floor(event.count || COMBO_VISIBLE_THRESHOLD)),
+        best: Math.max(COMBO_VISIBLE_THRESHOLD, Math.floor(event.best || event.count || COMBO_VISIBLE_THRESHOLD)),
         seq: Math.max(0, Math.floor(event.seq || 0)),
         label: event.label || "SIGNAL CHAIN",
         code: event.code || "CHN",

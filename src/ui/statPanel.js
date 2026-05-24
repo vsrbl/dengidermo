@@ -17,6 +17,18 @@ function modifierLabels(snapshot = null) {
   return modifiers.map((id) => String(id || "").replace(/_/g, " ").toUpperCase()).filter(Boolean).slice(0, 3);
 }
 
+function dashChargeText(dash = null) {
+  if (!dash?.available) return "--";
+  const max = Math.max(1, Math.floor(Number(dash.maxCharges) || 1));
+  const charges = Math.max(0, Math.min(max, Math.floor(Number(dash.charges) || 0)));
+  const cooldown = Math.max(0, Number(dash.cooldown) || 0);
+  const rechargeLeft = Math.max(0, Number(dash.rechargeLeft || dash.cooldownLeft || 0));
+  const cells = Array.from({ length: Math.min(max, 10) }, (_, index) => index < charges ? "■" : (index === charges && charges < max && rechargeLeft > 0 ? "▒" : "□")).join("");
+  const more = max > 10 ? `+${max - 10}` : "";
+  const next = charges < max ? ` +1 ${rechargeLeft.toFixed(1)}S` : " FULL";
+  return `${cells}${more} ${charges}/${max}${next}`;
+}
+
 function buildSignalRows(statSnapshot = null, snapshot = null) {
   const runtime = statSnapshot?.runtime || {};
   const ability = statSnapshot?.ability || {};
@@ -68,13 +80,14 @@ export function renderStatPanel(statPanelEl, gameEl, player, snapshot = null, { 
   const queueLabel = typeof economyQueueLabel === "function" ? economyQueueLabel : ((queue) => queue > 0 ? "EXIT TO INSTALL" : "NO INSTALL");
   const ownQueue = Math.max(0, Math.floor(Number.isFinite(economy.pendingUpgradeCount) ? economy.pendingUpgradeCount : 0));
   const dash = stat.ability?.dash || player.ability?.dash || null;
-  const dashText = dash
-    ? (dash.maxCharges > 1 ? `${dash.charges || 0}/${dash.maxCharges}` : (dash.ready ? "READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`))
-    : "--";
+  const dashText = dashChargeText(dash);
 
+  const themeLabel = String(location.environmentTheme?.label || location.environmentThemeId || location.biomeName || location.biomeId || "GRID").replace(/_/g, " ").toUpperCase();
+  const routeLabel = String(location.routeNodeId || location.roomPoolId || "BASE ROUTE").replace(/_/g, " ").toUpperCase();
   const runRows = [
     statLine("ROOM", roomId),
-    statLine("BIOME", String(location.biomeName || location.biomeId || "GRID").toUpperCase()),
+    statLine("THEME", themeLabel),
+    statLine("ROUTE", routeLabel),
     statLine("MODS", mods.length ? mods.join(" + ") : "CLEAR")
   ];
 
@@ -121,8 +134,9 @@ export function renderStatPanel(statPanelEl, gameEl, player, snapshot = null, { 
     }
   }
 
-  statPanelEl.replaceChildren(
-    header,
+  const grid = document.createElement("div");
+  grid.className = "stat-panel-grid";
+  grid.append(
     statSection("RUN", runRows),
     statSection("PLAYER", playerRows),
     statSection("STATS", statRows),
@@ -130,4 +144,6 @@ export function renderStatPanel(statPanelEl, gameEl, player, snapshot = null, { 
     statSection("TEMP SIGNALS", buildSignalRows(stat, snapshot)),
     allySection
   );
+
+  statPanelEl.replaceChildren(header, grid);
 }

@@ -1,7 +1,8 @@
 import { CENTER, WORLD } from "../core/constants.js";
+import { getEnvironmentPropSet } from "./environmentProps.js";
 
 export const DEFAULT_LAYOUT_ID = "open_arena";
-export const LAYOUT_VERSION = 2;
+export const LAYOUT_VERSION = 3;
 
 const wall = (id, x, y, w, h, tags = []) => Object.freeze({
   id,
@@ -15,6 +16,7 @@ const wall = (id, x, y, w, h, tags = []) => Object.freeze({
 });
 
 const anchor = (id, x, y, tags = []) => Object.freeze({ id, x, y, tags: Object.freeze(tags) });
+const props = (setId) => Object.freeze((getEnvironmentPropSet(setId).props || []).map((item) => Object.freeze({ ...item, tags: Object.freeze([...(item.tags || [])]) })));
 
 export const ROOM_LAYOUTS = Object.freeze({
   open_arena: Object.freeze({
@@ -53,6 +55,61 @@ export const ROOM_LAYOUTS = Object.freeze({
     ]),
     portal: Object.freeze({ x: WORLD.w - 190, y: CENTER.y }),
     tags: Object.freeze(["obstacle", "controlled", "v39"])
+  }),
+
+
+  side_pockets: Object.freeze({
+    id: "side_pockets",
+    name: "SIDE POCKETS",
+    kind: "pockets",
+    bounds: Object.freeze({ x: 0, y: 0, w: WORLD.w, h: WORLD.h }),
+    walls: props("side_cache_pockets"),
+    hazards: Object.freeze([]),
+    spawnAnchors: Object.freeze([
+      anchor("north_gate", CENTER.x, 150, ["edge", "far", "north"]),
+      anchor("south_gate", CENTER.x, WORLD.h - 150, ["edge", "far", "south"]),
+      anchor("west_mid", 170, CENTER.y, ["edge", "flank", "west"]),
+      anchor("east_mid", WORLD.w - 170, CENTER.y, ["edge", "flank", "east"]),
+      anchor("boss_anchor", CENTER.x, 190, ["boss"])
+    ]),
+    portal: Object.freeze({ x: WORLD.w - 190, y: CENTER.y }),
+    tags: Object.freeze(["pockets", "loot-route", "v39-3-22"])
+  }),
+
+  broken_cover: Object.freeze({
+    id: "broken_cover",
+    name: "BROKEN COVER",
+    kind: "cover",
+    bounds: Object.freeze({ x: 0, y: 0, w: WORLD.w, h: WORLD.h }),
+    walls: props("broken_cover_nodes"),
+    hazards: Object.freeze([]),
+    spawnAnchors: Object.freeze([
+      anchor("north_west", CENTER.x - 360, 145, ["edge", "far", "north"]),
+      anchor("north_east", CENTER.x + 360, 145, ["edge", "far", "north"]),
+      anchor("south_west", CENTER.x - 360, WORLD.h - 145, ["edge", "far", "south"]),
+      anchor("south_east", CENTER.x + 360, WORLD.h - 145, ["edge", "far", "south"]),
+      anchor("boss_anchor", CENTER.x, 185, ["boss"])
+    ]),
+    portal: Object.freeze({ x: WORLD.w - 190, y: CENTER.y }),
+    tags: Object.freeze(["cover", "shooter-readable", "v39-3-22"])
+  }),
+
+  static_strips: Object.freeze({
+    id: "static_strips",
+    name: "STATIC STRIPS",
+    kind: "strips",
+    bounds: Object.freeze({ x: 0, y: 0, w: WORLD.w, h: WORLD.h }),
+    walls: props("static_strips"),
+    hazards: Object.freeze([]),
+    spawnAnchors: Object.freeze([
+      anchor("west_flank", 185, CENTER.y, ["edge", "flank", "west"]),
+      anchor("east_flank", WORLD.w - 185, CENTER.y, ["edge", "flank", "east"]),
+      anchor("north_gate", CENTER.x, 145, ["edge", "far", "north"]),
+      anchor("south_gate", CENTER.x, WORLD.h - 145, ["edge", "far", "south"]),
+      anchor("boss_anchor", CENTER.x, 185, ["boss"])
+    ]),
+    portal: Object.freeze({ x: WORLD.w - 190, y: CENTER.y }),
+    tags: Object.freeze(["static", "strip", "v39-3-22"])
   }),
 
   // Reserved for a later content pass; do not enable until enemy navigation

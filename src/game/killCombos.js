@@ -3,17 +3,16 @@ import { pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
 import { grantMoney, grantXp } from "./playerEconomy.js";
 
-export const KILL_COMBO_WINDOW = 2.85;
+export const KILL_COMBO_WINDOW = 4.25;
+export const KILL_COMBO_VISIBLE_THRESHOLD = 25;
 
 export const KILL_COMBO_TIERS = Object.freeze([
-  { threshold: 2, label: "SIGNAL TRACE", code: "TRC", tier: "trace", reward: null },
-  { threshold: 3, label: "SIGNAL CHAIN", code: "CHN", tier: "chain", reward: { xp: 2 } },
-  { threshold: 5, label: "SERIAL SIGNAL", code: "SRL", tier: "serial", reward: { money: 3, xp: 3 } },
-  { threshold: 8, label: "VOID CHAIN", code: "VOID", tier: "void", reward: { money: 5, xp: 6 } },
-  { threshold: 12, label: "HARD DELETE", code: "DEL", tier: "delete", reward: { money: 8, xp: 9 } },
-  { threshold: 18, label: "MEGA WIPE", code: "WIPE", tier: "wipe", reward: { money: 12, xp: 14 } },
-  { threshold: 25, label: "ROOM ERASE", code: "ERASE", tier: "erase", reward: { money: 18, xp: 22 } },
-  { threshold: 40, label: "NNCCKKRR FEVER", code: "FEVER", tier: "fever", reward: { money: 32, xp: 36 } }
+  { threshold: 25, label: "SIGNAL CHAIN", code: "CHN", tier: "chain", reward: { money: 8, xp: 10 } },
+  { threshold: 50, label: "SERIAL WIPE", code: "WIPE", tier: "serial", reward: { money: 16, xp: 22 } },
+  { threshold: 75, label: "VOID OVERFLOW", code: "VOID", tier: "void", reward: { money: 26, xp: 34 } },
+  { threshold: 100, label: "ROOM DELETE", code: "DEL", tier: "delete", reward: { money: 40, xp: 52 } },
+  { threshold: 150, label: "SYSTEM FEVER", code: "FEVER", tier: "fever", reward: { money: 62, xp: 82 } },
+  { threshold: 200, label: "NNCCKKRR BREACH", code: "BRCH", tier: "breach", reward: { money: 90, xp: 120 } }
 ]);
 
 function ensureComboState(state) {
@@ -34,14 +33,15 @@ function exactMilestoneFor(count) {
 }
 
 function repeatMilestoneFor(count) {
-  if (count <= 40 || count % 10 !== 0) return null;
-  const bonusSteps = Math.max(0, Math.floor((count - 40) / 10));
+  if (count <= 200 || count % 50 !== 0) return null;
+  const bonusSteps = Math.max(0, Math.floor((count - 200) / 50));
   return {
     ...KILL_COMBO_TIERS[KILL_COMBO_TIERS.length - 1],
     threshold: count,
+    label: "NNCCKKRR BREACH",
     reward: {
-      money: 32 + bonusSteps * 6,
-      xp: 36 + bonusSteps * 8
+      money: 90 + bonusSteps * 24,
+      xp: 120 + bonusSteps * 34
     }
   };
 }
@@ -87,11 +87,11 @@ function emitComboRewardFx(state, enemy, tier, reward) {
     type: "rewardRevealPulse",
     x: Math.round(enemy.x),
     y: Math.round(enemy.y),
-    r: tier?.threshold >= 12 ? 62 : 42,
-    color: tier?.threshold >= 25 ? "#ffffff" : GREEN,
-    mode: tier?.threshold >= 18 ? "rare" : "combo",
-    life: 0.42,
-    maxLife: 0.42
+    r: tier?.threshold >= 100 ? 76 : 54,
+    color: tier?.threshold >= 150 ? "#ffffff" : GREEN,
+    mode: tier?.threshold >= 100 ? "rare" : "combo",
+    life: 0.46,
+    maxLife: 0.46
   });
 }
 
@@ -114,6 +114,7 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
   combo.lastKillAt = now;
   combo.expiresAt = now + KILL_COMBO_WINDOW;
 
+  const visible = combo.count >= KILL_COMBO_VISIBLE_THRESHOLD;
   const tier = comboTierFor(combo.count);
   const milestone = milestoneFor(combo.count);
   let reward = { money: 0, xp: 0 };
@@ -127,6 +128,7 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
   }
 
   store[playerId] = combo;
+  if (!visible && !milestone) return combo;
 
   pushEvent(state, {
     type: "kill_combo",
@@ -141,6 +143,7 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
     milestone: !!milestone,
     threshold: milestone?.threshold || tier.threshold,
     comboWindow: KILL_COMBO_WINDOW,
+    visibleThreshold: KILL_COMBO_VISIBLE_THRESHOLD,
     expiresAt: Number(combo.expiresAt.toFixed(3)),
     sourceType,
     enemyKind: enemy.kind || null,
@@ -153,4 +156,8 @@ export function registerKillCombo(state, enemy, { playerId = null, sourceType = 
   });
 
   return combo;
+}
+
+export function resetKillCombos(state) {
+  if (state) state.killCombos = {};
 }

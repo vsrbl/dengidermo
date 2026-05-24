@@ -1,5 +1,7 @@
 import { getBiome } from "./biomes.js";
 import { layoutSnapshot } from "./layouts.js";
+import { environmentPropSnapshot } from "./environmentProps.js";
+import { getLocationTheme, locationThemeSnapshot } from "./locationThemes.js";
 import { resolveRoomModifiers } from "./roomModifiers.js";
 import { getRoom, ROOM_SEQUENCE } from "./rooms.js";
 
@@ -63,8 +65,11 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
   const encounterId = room.encounter || room.encounterId || biome.encounter || biome.encounterId || "grid_intro_pressure";
   const spawnZones = mergeSpawnZones(biome, room);
   const objective = resolveObjective(biome, room, boss);
+  const themeId = plan?.environmentThemeId || room.environmentThemeId || "black_grid";
+  const theme = getLocationTheme(themeId);
   const layoutId = plan?.layoutId || room.layout || biome.layout || "open_arena";
   const layout = layoutSnapshot(layoutId);
+  const environmentPropSetId = plan?.environmentPropSetId || theme.environmentPropSetId || "none";
   const modifierIds = Array.isArray(plan?.modifierIds)
     ? uniqueList(plan.modifierIds)
     : uniqueList([...(biome.modifiers || []), ...(room.modifiers || [])]);
@@ -90,8 +95,16 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
     runDepth: progression.runDepth ?? runDepth,
     biomeId: biome.id,
     biomeName: biome.name,
-    accent: room.accent || biome.accent || "green",
-    gridStep: room.gridStep || biome.gridStep || 80,
+    environmentThemeId: theme.id,
+    environmentTheme: locationThemeSnapshot(theme.id),
+    environmentPropSetId,
+    environmentProps: environmentPropSnapshot(environmentPropSetId),
+    activityId: plan?.activityId || room.activityId || null,
+    roomPoolId: plan?.roomPoolId || null,
+    routeNodeId: plan?.routeNodeId || null,
+    routeNodeType: plan?.routeNodeType || null,
+    accent: theme.accent || room.accent || biome.accent || "green",
+    gridStep: room.gridStep || theme.gridStep || biome.gridStep || 80,
     layoutId,
     layout,
     modifierIds,
@@ -127,7 +140,14 @@ export function buildLocation(room, sequenceIndex = 0, runDepth = sequenceIndex,
       interactablePlan: [...(plan.interactablePlan || interactablePlan)],
       rare: !!plan.rare,
       ruleId: plan.ruleId,
+      roomPoolId: plan.roomPoolId || null,
+      routeNodeId: plan.routeNodeId || null,
+      routeNodeType: plan.routeNodeType || null,
+      activityId: plan.activityId || null,
+      environmentThemeId: plan.environmentThemeId || theme.id,
+      environmentPropSetId: plan.environmentPropSetId || environmentPropSetId,
       seed: plan.seed || null,
+      routeSeed: plan.routeSeed || null,
       createdAt: plan.createdAt ?? 0,
       rulesVersion: plan.rulesVersion
     } : null

@@ -327,6 +327,17 @@ function economyDisplayValues(playerId, eco) {
     ].join("\n");
   }
 
+  function dashChargeHudText(dash = null) {
+    if (!dash?.available) return "--";
+    const max = Math.max(1, Math.floor(Number(dash.maxCharges) || 1));
+    const charges = Math.max(0, Math.min(max, Math.floor(Number(dash.charges) || 0)));
+    const rechargeLeft = Math.max(0, Number(dash.rechargeLeft || dash.cooldownLeft || 0));
+    const cells = Array.from({ length: Math.min(max, 8) }, (_, index) => index < charges ? "■" : (index === charges && charges < max && rechargeLeft > 0 ? "▒" : "□")).join("");
+    const more = max > 8 ? `+${max - 8}` : "";
+    if (max > 1) return `SHIFT ${cells}${more} ${charges}/${max}${charges < max ? ` +1 ${rechargeLeft.toFixed(1)}S` : " FULL"}`;
+    return dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`;
+  }
+
   function setHud(player, snapshot = null, options = {}) {
     setDirectorDebug(snapshot);
     renderStatPanelView(el.statPanel, el.game, player, snapshot, { open: !!options.statPanelOpen, upgradeOpen, economyQueueLabel });
@@ -371,9 +382,7 @@ function economyDisplayValues(playerId, eco) {
     el.portalText.textContent = portal ? (portal.active ? `${Math.round((portal.progress || 0) * 100)}%` : "LOCKED") : "--";
     const dash = player.ability?.dash || null;
     if (el.dashText) {
-      el.dashText.textContent = dash?.available
-        ? (dash.maxCharges > 1 && dash.ready ? `SHIFT ${Math.max(0, dash.charges || 0)}/${dash.maxCharges}` : (dash.ready || (dash.cooldownLeft || 0) <= 0 ? "SHIFT READY" : `${Number(dash.cooldownLeft || 0).toFixed(1)}S`))
-        : "--";
+      el.dashText.textContent = dashChargeHudText(dash);
     }
     if (el.companionText) {
       const comp = player.companions || null;

@@ -127,6 +127,7 @@ function repositionAndReviveTeam(state) {
 
 export function beginRoomTransition(state, reason = "portal", options = {}) {
   const fromDepth = currentRunDepth(state);
+  const fromLoop = Number.isFinite(state?.roomPlan?.loopIndex) ? state.roomPlan.loopIndex : (Number.isFinite(state?.loopIndex) ? state.loopIndex : 0);
   const nextDepth = Number.isFinite(options.nextRunDepth) ? options.nextRunDepth : fromDepth + 1;
   const transitionFx = options.fx || null;
 
@@ -134,6 +135,7 @@ export function beginRoomTransition(state, reason = "portal", options = {}) {
   exitRoomModifierRuntime(state, fromLoc, { reason, nextRunDepth: nextDepth });
   clearLocationRuntime(state);
   const nextLoc = enterLocation(state, nextDepth, { createPortal: true, reason });
+  const nextLoop = Number.isFinite(state?.roomPlan?.loopIndex) ? state.roomPlan.loopIndex : (Number.isFinite(nextLoc?.loopIndex) ? nextLoc.loopIndex : 0);
   repositionAndReviveTeam(state);
 
   if (options.offerUpgrades !== false) offerQueuedUpgradesToPlayers(state, options.offerCount || 3);
@@ -143,10 +145,18 @@ export function beginRoomTransition(state, reason = "portal", options = {}) {
     type: "location",
     reason,
     runDepth: nextDepth,
+    loopIndex: nextLoop,
+    roomInLoop: state.roomPlan?.roomInLoop ?? nextLoc.roomInLoop ?? null,
+    loopChanged: nextLoop !== fromLoop,
+    previousLoopIndex: fromLoop,
     roomSequenceIndex: nextLoc.sequenceIndex,
     baseRoomId: state.roomPlan?.baseRoomId || nextLoc.baseRoomId || nextLoc.id,
     resolvedRoomId: state.roomPlan?.resolvedRoomId || nextLoc.id,
     ruleId: state.roomPlan?.ruleId || null,
+    roomPoolId: state.roomPlan?.roomPoolId || nextLoc.roomPoolId || null,
+    routeNodeId: state.roomPlan?.routeNodeId || nextLoc.routeNodeId || null,
+    activityId: state.roomPlan?.activityId || nextLoc.activityId || null,
+    environmentThemeId: state.roomPlan?.environmentThemeId || nextLoc.environmentThemeId || null,
     locationId: nextLoc.id,
     locationName: nextLoc.name,
     biomeId: nextLoc.biomeId,

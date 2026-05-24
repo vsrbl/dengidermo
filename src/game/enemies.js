@@ -35,6 +35,9 @@ export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
     spawnAdjusted = !!point.adjusted;
     spawnZone = spawnZone || "explicit";
   }
+  const loopIndex = Math.max(0, Math.floor(Number(state?.loopIndex ?? state?.roomPlan?.loopIndex ?? 0) || 0));
+  const loopHpMult = 1 + loopIndex * 0.075;
+  const baseHp = Math.max(1, Math.round(data.hp * loopHpMult));
   const enemy = {
     id,
     kind,
@@ -49,8 +52,9 @@ export function spawnEnemy(state, kind, x = null, y = null, options = {}) {
     vy: 0,
     kx: 0,
     ky: 0,
-    hp: data.hp,
-    maxHp: data.hp,
+    hp: baseHp,
+    maxHp: baseHp,
+    loopHpMult: Number(loopHpMult.toFixed(3)),
     radius: data.radius,
     shootAt: 0
   };

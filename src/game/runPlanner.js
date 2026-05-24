@@ -1,6 +1,7 @@
 import { buildLocation } from "../data/locations.js";
 import { MODIFIER_FEATURES } from "../data/modifierDomains.js";
 import { getRoom, getRoomById, ROOM_SEQUENCE } from "../data/rooms.js";
+import { resolveLoopRouteNode } from "./loopRouteResolver.js";
 import { getInteractable } from "../data/interactables.js";
 import { interactableDistributionForRoom, maxDistributionSlots } from "../data/interactableDistribution.js";
 import { loopEscalationProfileForLoop } from "./loopScaling.js";
@@ -215,9 +216,9 @@ function roomForPlan(plan) {
 
 export function resolveRoomPlan(runDepth = 0, options = {}) {
   const progression = runProgressionFor(runDepth, ROOM_SEQUENCE.length);
-  const baseRoom = getRoom(progression.roomSequenceIndex);
-  const rareRule = resolveRareRule(progression, baseRoom);
-  const resolvedRoom = (rareRule?.resolvedRoomId && getRoomById(rareRule.resolvedRoomId)) || baseRoom;
+  const route = resolveLoopRouteNode(progression, options);
+  const baseRoom = route.baseRoom || getRoom(progression.roomSequenceIndex);
+  const resolvedRoom = route.resolvedRoom || baseRoom;
   const category = categoryForRoom(resolvedRoom);
   const modifierStack = resolveRoomStackForPlan(resolvedRoom, progression, options);
   const modifierIds = [...modifierStack.modifierIds];
@@ -237,11 +238,18 @@ export function resolveRoomPlan(runDepth = 0, options = {}) {
     modifierIds,
     modifierStack: modifierStackPlanSnapshot(modifierStack),
     interactablePlan,
-    rare: !!rareRule?.rare,
-    ruleId: normalizeRuleId(options.ruleId || rareRule?.id),
+    rare: !!route.rare,
+    ruleId: normalizeRuleId(options.ruleId || route.ruleId),
+    roomPoolId: route.roomPoolId,
+    routeNodeId: route.routeNodeId,
+    routeNodeType: route.routeNodeType,
+    activityId: route.activityId,
+    environmentThemeId: route.environmentThemeId,
+    environmentPropSetId: route.environmentPropSetId,
     seed: options.seed || null,
+    routeSeed: route.routeSeed || null,
     createdAt: Number.isFinite(options.createdAt) ? options.createdAt : 0,
-    rulesVersion: 2
+    rulesVersion: 3
   });
 }
 
@@ -252,8 +260,9 @@ export function normalizeRoomPlan(plan, fallbackRunDepth = 0, options = {}) {
     Number.isFinite(plan.runDepth) ? plan.runDepth : fallbackRunDepth,
     Number.isFinite(plan.sequenceLength) ? plan.sequenceLength : ROOM_SEQUENCE.length
   );
-  const baseRoom = getRoomById(plan.baseRoomId) || getRoom(progression.roomSequenceIndex);
-  const resolvedRoom = roomForPlan({ ...plan, baseRoomId: baseRoom.id, roomSequenceIndex: progression.roomSequenceIndex });
+  const route = resolveLoopRouteNode(progression, options);
+  const baseRoom = getRoomById(plan.baseRoomId) || route.baseRoom || getRoom(progression.roomSequenceIndex);
+  const resolvedRoom = roomForPlan({ ...plan, baseRoomId: baseRoom.id, roomSequenceIndex: progression.roomSequenceIndex }) || route.resolvedRoom || baseRoom;
   const category = plan.category || categoryForRoom(resolvedRoom);
   const fallbackStack = resolveRoomStackForPlan(resolvedRoom, progression, options);
   const modifierIds = Array.isArray(plan.modifierIds)
@@ -282,9 +291,16 @@ export function normalizeRoomPlan(plan, fallbackRunDepth = 0, options = {}) {
     interactablePlan,
     rare: !!plan.rare,
     ruleId: normalizeRuleId(plan.ruleId),
+    roomPoolId: plan.roomPoolId || route.roomPoolId,
+    routeNodeId: plan.routeNodeId || route.routeNodeId,
+    routeNodeType: plan.routeNodeType || route.routeNodeType,
+    activityId: plan.activityId || route.activityId || resolvedRoom.activityId || null,
+    environmentThemeId: plan.environmentThemeId || route.environmentThemeId || resolvedRoom.environmentThemeId || null,
+    environmentPropSetId: plan.environmentPropSetId || route.environmentPropSetId || null,
     seed: plan.seed || options.seed || null,
+    routeSeed: plan.routeSeed || route.routeSeed || null,
     createdAt: Number.isFinite(plan.createdAt) ? plan.createdAt : (Number.isFinite(options.createdAt) ? options.createdAt : 0),
-    rulesVersion: Number.isFinite(plan.rulesVersion) ? plan.rulesVersion : 2
+    rulesVersion: Number.isFinite(plan.rulesVersion) ? plan.rulesVersion : 3
   });
 }
 

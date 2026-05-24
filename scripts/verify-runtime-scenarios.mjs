@@ -205,7 +205,7 @@ function assertTransitionCleanupScenario() {
 }
 
 function assertInteractableScenario() {
-  const state = createGameState('INTERACTABLE-SCENARIO');
+  const state = createGameState('ROOMFLOW-DOMAIN');
   const player = addPlayer(state, 'p1', 0);
   for (let i = 0; i < 4; i += 1) beginRoomTransition(state, 'verify-interactable', { offerUpgrades: false });
   assert.equal(state.roomPlan.resolvedRoomId, 'reward-cache-00', 'first reward room should still resolve through roomPlan');
@@ -240,48 +240,50 @@ function assertInteractableScenario() {
   assert.ok(state.events.some((event) => event.type === 'chest' && event.action === 'opened' && event.chestId === CHEST_IDS.RARE), 'chest activation should emit a chest-specific event');
   assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'spend_money' && event.sourceType === 'chest'), 'priced chest opening should spend money through playerEconomy');
 
-  const casinoPlan = resolveRoomPlan(8, { seed: 'INTERACTABLE-SCENARIO' });
+  const casinoPlan = resolveRoomPlan(8, { seed: 'CASINO-SCENARIO' });
   const casinoLoc = getLocationFromRoomPlan(casinoPlan);
   assert.equal(casinoPlan.resolvedRoomId, 'casino-floor-00', 'second loop grid replacement should resolve to casino floor through roomPlan');
   assert.equal(casinoPlan.ruleId, 'second_loop_casino_floor', 'casino floor should be a rare-rule replacement, not a ROOM_SEQUENCE entry');
   assert.ok(Array.isArray(casinoLoc.interactablePlan), 'locations should expose interactablePlan snapshots');
   assert.equal(casinoLoc.interactablePlan[0]?.interactableId, 'casino_slot', 'casino floor should carry a SIGNAL SLOT interactable');
 
-  for (let i = 0; i < 4; i += 1) beginRoomTransition(state, 'verify-casino', { offerUpgrades: false });
-  assert.equal(state.roomPlan.resolvedRoomId, 'casino-floor-00', 'runtime should enter the casino floor at runDepth 8');
-  const slot = Object.values(state.interactables).find((item) => item.kind === 'casino_slot');
+  const casinoState = createGameState('CASINO-SCENARIO');
+  const casinoPlayer = addPlayer(casinoState, 'p1', 0);
+  for (let i = 0; i < 8; i += 1) beginRoomTransition(casinoState, 'verify-casino', { offerUpgrades: false });
+  assert.equal(casinoState.roomPlan.resolvedRoomId, 'casino-floor-00', 'runtime should enter the casino floor at runDepth 8 for a seed that rolls casino');
+  const slot = Object.values(casinoState.interactables).find((item) => item.kind === 'casino_slot');
   assert.ok(slot, 'casino floor should spawn the casino_slot interactable from the plan');
-  updateInteractables(state, 0.016);
+  updateInteractables(casinoState, 0.016);
   assert.equal(slot.opened, false, 'SIGNAL SLOT must not auto-open on touch/entry');
-  player.x = slot.x;
-  player.y = slot.y;
-  assert.equal(requestInteractableActivation(state, player.id, { targetId: slot.id }), true, 'E-style host interaction should request/open the SIGNAL SLOT without resolving rewards');
+  casinoPlayer.x = slot.x;
+  casinoPlayer.y = slot.y;
+  assert.equal(requestInteractableActivation(casinoState, casinoPlayer.id, { targetId: slot.id }), true, 'E-style host interaction should request/open the SIGNAL SLOT without resolving rewards');
   assert.equal(slot.opened, false, 'opening casino modal must not consume the casino machine interactable');
-  assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'open_requested'), 'casino modal open should emit casino open_requested event');
-  player.economy.money = 0;
-  const deniedSpin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 1 });
+  assert.ok(casinoState.events.some((event) => event.type === 'casino' && event.action === 'open_requested'), 'casino modal open should emit casino open_requested event');
+  casinoPlayer.economy.money = 0;
+  const deniedSpin = requestCasinoSpin(casinoState, casinoPlayer.id, { interactableId: slot.id, stakeId: 'low', seq: 1 });
   assert.equal(deniedSpin.ok, false, 'casino spin should reject when player cannot pay the stake');
   assert.equal(deniedSpin.reason, 'not_enough_money', 'casino spin rejection should explain missing money');
-  player.economy.money = 100;
+  casinoPlayer.economy.money = 100;
   const lowStakeCost = getCasinoStake(CASINO_STAKE_IDS.LOW).cost;
-  const spin = requestCasinoSpin(state, player.id, { interactableId: slot.id, stakeId: 'low', seq: 2 });
+  const spin = requestCasinoSpin(casinoState, casinoPlayer.id, { interactableId: slot.id, stakeId: 'low', seq: 2 });
   assert.equal(spin.ok, true, 'casino spin should resolve only through host-owned spin request');
-  assert.ok(player.economy.money >= 100 - lowStakeCost, 'casino stake should be spent before any host-side payout is applied');
+  assert.ok(casinoPlayer.economy.money >= 100 - lowStakeCost, 'casino stake should be spent before any host-side payout is applied');
   assert.equal(spin.symbols.length, 3, 'casino spin result should include three reel symbols');
   if (spin.match) {
     assert.equal(spin.payoutApplied, true, 'three matching casino symbols should apply a real payout in v39.3.11');
     assert.ok(spin.rewardCount >= 1, 'matching casino outcome should report applied reward actions');
   } else {
     assert.equal(spin.payoutApplied, false, 'non-matching casino spin should lose only the stake');
-    assert.equal(player.economy.money, 100 - lowStakeCost, 'non-matching casino spin should leave player with money minus stake');
+    assert.equal(casinoPlayer.economy.money, 100 - lowStakeCost, 'non-matching casino spin should leave player with money minus stake');
   }
-  assert.ok(state.events.some((event) => event.type === 'casino' && event.action === 'spin_resolved'), 'casino spin should emit a host-resolved casino event');
+  assert.ok(casinoState.events.some((event) => event.type === 'casino' && event.action === 'spin_resolved'), 'casino spin should emit a host-resolved casino event');
 
-  const pendingBefore = (state.pendingRoomModifiers || []).length;
-  const moneyBeforeStatic = player.economy.money;
+  const pendingBefore = (casinoState.pendingRoomModifiers || []).length;
+  const moneyBeforeStatic = casinoPlayer.economy.money;
   const staticPayout = applyCasinoOutcome(
-    state,
-    player,
+    casinoState,
+    casinoPlayer,
     slot,
     getCasinoMachine(slot.casinoMachineId),
     getCasinoStake(CASINO_STAKE_IDS.HIGH),
@@ -289,8 +291,8 @@ function assertInteractableScenario() {
     { seq: 3 }
   );
   assert.equal(staticPayout.payoutApplied, true, 'STATIC three-match should apply a payout rather than being UI-only');
-  assert.ok(player.economy.money > moneyBeforeStatic, 'STATIC outcome should grant money through the playerEconomy pipeline');
-  assert.equal((state.pendingRoomModifiers || []).length, pendingBefore + 1, 'STATIC outcome should queue next-room danger through pendingRoomModifiers');
+  assert.ok(casinoPlayer.economy.money > moneyBeforeStatic, 'STATIC outcome should grant money through the playerEconomy pipeline');
+  assert.equal((casinoState.pendingRoomModifiers || []).length, pendingBefore + 1, 'STATIC outcome should queue next-room danger through pendingRoomModifiers');
 }
 
 
@@ -663,7 +665,7 @@ function assertModifierScenario() {
     seed: 'runtime-modifier-stack'
   });
   assert.deepEqual(stack.modifierIds, ['static_field'], 'room modifier stack should preserve static_field as data-driven room-domain rule');
-  const staticPlan = resolveRoomPlan(6, { seed: 'runtime-static-plan' });
+  const staticPlan = resolveRoomPlan(6, { seed: 'ROOMFLOW-DOMAIN' });
   assert.equal(staticPlan.resolvedRoomId, 'static-field-00', 'run planner should still resolve the first static field rare room');
   assert.ok(staticPlan.modifierIds.includes('static_field'), 'run planner should source room modifier ids from modifier stack');
   assert.equal(staticPlan.modifierStack?.domain, 'room', 'room plan should carry room-domain modifier stack metadata');

@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.21c",
-  "buildId": "v39.3.21c-20260524",
+  "version": "v39.3.22d",
+  "buildId": "v39.3.22d-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-24",
-  "entry": "./src/main.v39-3-21c.js?v=39.3.21c",
-  "style": "./style.css?v=39.3.21c",
-  "config": "./config.js?v=39.3.21c",
+  "entry": "./src/main.v39-3-22d.js?v=39.3.22d",
+  "style": "./style.css?v=39.3.22d",
+  "config": "./config.js?v=39.3.22d",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.21c dopamine moments: adds full-screen INSTALL/EXIT/ABILITY/WEAPON/RAR/CRS/CASINO moment overlays, host-authoritative kill combo tracking with nncckkrr-style streak labels, animated combo HUD, and small GLD/EXP combo milestone rewards through the existing playerEconomy pipeline."
+  "notes": "v39.3.22d variety/feel hotfix: gates EXIT OPEN moments to actually-active portals, queues full-screen moments, starts kill combo UI at 25+ kills with slower combo windows, uses pixel-terminal center text, removes TAB scrollbar, shows per-dash recharge cells, adds loop-change moments, modest loop HP scaling, and speeds up small splitter children."
 }

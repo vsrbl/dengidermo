@@ -176,6 +176,12 @@ export function makeSnapshot(state) {
       baseRoomId: plan?.baseRoomId || location.baseRoomId || location.id,
       resolvedRoomId: plan?.resolvedRoomId || plan?.roomId || location.id,
       ruleId: plan?.ruleId || null,
+      roomPoolId: plan?.roomPoolId || location.roomPoolId || null,
+      routeNodeId: plan?.routeNodeId || location.routeNodeId || null,
+      routeNodeType: plan?.routeNodeType || location.routeNodeType || null,
+      activityId: plan?.activityId || location.activityId || null,
+      environmentThemeId: plan?.environmentThemeId || location.environmentThemeId || null,
+      environmentPropSetId: plan?.environmentPropSetId || location.environmentPropSetId || null,
       seed: plan?.seed || null,
       category: plan?.category || state.roomCategory || location.category || "normal",
       tags: [...(location.tags || [])],
@@ -190,6 +196,7 @@ export function makeSnapshot(state) {
       accent: location.accent || "green",
       biomeId: location.biomeId || state.biomeId || "grid",
       biomeName: location.biomeName || state.biomeName || "BLACK GRID",
+      environmentTheme: location.environmentTheme || null,
       gridStep: location.gridStep || 80
     },
     players: Object.values(state.players).map((p) => ({

@@ -19,6 +19,7 @@ const ui = [
 ].join('\n');
 const main = read('src/main.js');
 const rewardFeed = read('src/rewardEventFeed.js');
+const momentFeed = read('src/momentFeed.js');
 const input = read('src/input.js');
 const style = read('style.css');
 const entrySuffix = VERSION.replace(/^v/, '').replaceAll('.', '-');
@@ -33,6 +34,7 @@ assert.ok(index.includes(`window.NN_SHOW_BOOT_ERROR`), 'boot error handler must 
 assert.ok(index.includes(`src/main.v${entrySuffix}.js?v=${VERSION.replace(/^v/, '')}`), 'index must use cache-busted versioned module entry');
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.split('-').at(-1)}`), 'HUD should expose version and build');
 assert.ok(ui.includes('setMenuStatus'), 'UI must expose setMenuStatus');
+assert.ok(ui.includes('dashChargeHudText') && ui.includes('■') && ui.includes('▒') && ui.includes('+1'), 'HUD must show each dash charge and the currently charging dash');
 assert.ok(ui.includes('SERVER OK') || ui.includes('release'), 'UI/status layer must render release/server status');
 assert.ok(input.includes('event.code') || input.includes('.code'), 'movement input must use keyboard codes, not layout-dependent characters');
 assert.ok(input.includes('e.code === "KeyE"') && input.includes('onInteract'), 'E must be reserved for explicit interact requests');
@@ -46,6 +48,8 @@ assert.ok(!/input\.tabHeld|tabHeld\s*[:=][^;]*(?:emptyInput|return input)/.test(
 assert.ok(style.includes('.boot-error'), 'boot error must be styled visibly');
 assert.ok(style.includes('.menu-status'), 'menu status must be styled visibly');
 assert.ok(style.includes('.stat-panel') && style.includes('.stat-panel.open'), 'TAB stat terminal panel must have open/closed styles');
+assert.ok(style.includes('overflow: hidden') && !style.slice(style.indexOf('.stat-panel {'), style.indexOf('.screen-moment {')).includes('overflow: hidden auto'), 'TAB stat panel must not expose a browser scrollbar during play');
+assert.ok(style.includes('.stat-panel-grid'), 'TAB stat panel should use compact grid layout instead of vertical scroll');
 assert.ok(style.includes('.proc-feed') && style.includes('.proc-feed-row'), 'proc/reward event feed must have terminal feed styles');
 assert.ok(style.includes('install-pulse-2') && style.includes('installPulseOverflow'), 'INSTALL xN HUD pulse should scale up for x2/x3+ queues');
 assert.ok(style.includes('.economy-xp-track') && style.includes('.economy-install-line'), 'economy HUD must show XP progress and a separate INSTALL queue line');
@@ -67,9 +71,10 @@ assert.ok(style.includes('clip-path: inset(0 0 100% 0)') && style.includes('scal
 const statPanelCss = style.slice(style.indexOf('.stat-panel {'), style.indexOf('.proc-feed {'));
 assert.ok(!statPanelCss.includes('clip-path: inset(0 100% 0 0)') && !statPanelCss.includes('scaleX(0.94)'), 'TAB stat panel must not use the old sideways reveal');
 assert.ok(main.includes('createRewardEventFeed') && main.includes('snapshot?.events'), 'main loop must route authoritative snapshot events into reward event feed');
-assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed'), 'main loop must route authoritative snapshot events into screen moment and kill combo feeds');
+assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed') && main.includes('snapshot: app.snapshot'), 'main loop must route authoritative snapshot events into queued screen moment and kill combo feeds with snapshot gating');
 assert.ok(ui.includes('renderScreenMoment') && ui.includes('renderKillCombo'), 'UI split modules must render full-screen moments and kill combo counter');
 assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('screenMomentSweep'), 'dopamine moment and kill combo overlays must be styled/animated');
+assert.ok(momentFeed.includes('queue') && momentFeed.includes('startNext') && momentFeed.includes('COMBO_MOMENT_MIN_COUNT = 25'), 'screen moments must queue instead of overwriting each other and combo moments should start at 25+');
 assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('INSTALL OK') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
 assert.ok(rewardFeed.includes('seen') && rewardFeed.includes('lifeMs'), 'reward event feed must dedupe and expire events');
 
