@@ -8,12 +8,13 @@ export const KILL_COMBO_VISIBLE_THRESHOLD = 1;
 
 export const KILL_COMBO_TIERS = Object.freeze([
   { threshold: 1, label: "KILL TRACE", code: "KILL", tier: "trace", reward: { money: 0, xp: 0 } },
-  { threshold: 25, label: "SIGNAL KILL CHAIN", code: "CHN", tier: "chain", reward: { money: 8, xp: 10 } },
-  { threshold: 50, label: "SERIAL KILL WIPE", code: "WIPE", tier: "serial", reward: { money: 16, xp: 22 } },
-  { threshold: 75, label: "VOID KILL OVERFLOW", code: "VOID", tier: "void", reward: { money: 26, xp: 34 } },
-  { threshold: 100, label: "ROOM KILL DELETE", code: "DEL", tier: "delete", reward: { money: 40, xp: 52 } },
-  { threshold: 150, label: "SYSTEM KILL FEVER", code: "FEVER", tier: "fever", reward: { money: 62, xp: 82 } },
-  { threshold: 200, label: "NNCCKKRR KILL BREACH", code: "BRCH", tier: "breach", reward: { money: 90, xp: 120 } }
+  { threshold: 10, label: "KILL SIGNAL RISE", code: "RISE", tier: "rise", reward: { money: 4, xp: 6 } },
+  { threshold: 25, label: "SIGNAL KILL CHAIN", code: "CHN", tier: "chain", reward: { money: 10, xp: 14 } },
+  { threshold: 50, label: "SERIAL KILL WIPE", code: "WIPE", tier: "serial", reward: { money: 18, xp: 26 } },
+  { threshold: 75, label: "VOID KILL OVERFLOW", code: "VOID", tier: "void", reward: { money: 30, xp: 42 } },
+  { threshold: 100, label: "ROOM KILL DELETE", code: "DEL", tier: "delete", reward: { money: 46, xp: 62 } },
+  { threshold: 150, label: "SYSTEM KILL FEVER", code: "FEVER", tier: "fever", reward: { money: 70, xp: 96 } },
+  { threshold: 200, label: "NNCCKKRR KILL BREACH", code: "BRCH", tier: "breach", reward: { money: 100, xp: 136 } }
 ]);
 
 function ensureComboState(state) {
@@ -30,7 +31,7 @@ function comboTierFor(count) {
 }
 
 function exactMilestoneFor(count) {
-  return KILL_COMBO_TIERS.find((entry) => entry.threshold === count && entry.threshold >= 25) || null;
+  return KILL_COMBO_TIERS.find((entry) => entry.threshold === count && entry.threshold >= 10) || null;
 }
 
 function repeatMilestoneFor(count) {

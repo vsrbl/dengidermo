@@ -174,17 +174,17 @@ test('kill combo dopamine moments are host-authoritative and economy rewards use
   assert.ok(killCombos.includes('grantMoney(state, player') && killCombos.includes('grantXp(state, player'), 'combo milestone rewards must use playerEconomy grant pipelines');
   assert.ok(killCombos.includes('SIGNAL KILL CHAIN') && killCombos.includes('NNCCKKRR KILL BREACH'), 'combo labels should use nncckkrr setting language with KILL clarity');
   assert.ok(killCombos.includes('KILL_COMBO_VISIBLE_THRESHOLD = 1'), 'combo counter should be visible immediately while milestone names/rewards stay gated');
-  for (let i = 0; i < 24; i += 1) {
+  for (let i = 0; i < 9; i += 1) {
     const enemy = spawnEnemy(state, 'grunt', 620 + i * 3, 500);
     enemy.hp = 1;
     finishEnemyKill(state, enemy, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
     state.time += 0.08;
   }
-  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.count >= 1), 'combo UI should emit immediate kill counter events before 25 kills');
-  const enemy25 = spawnEnemy(state, 'grunt', 700, 500);
-  enemy25.hp = 1;
-  finishEnemyKill(state, enemy25, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
-  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.action === 'stack' && event.playerId === p.id && event.count >= 25), 'twenty-five rapid kills should emit local kill_combo stack events');
+  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.count >= 1), 'combo UI should emit immediate kill counter events before 10 kills');
+  const enemy10 = spawnEnemy(state, 'grunt', 700, 500);
+  enemy10.hp = 1;
+  finishEnemyKill(state, enemy10, { ownerId: p.id, kind: 'verifyProjectile' }, { sourceId: p.id, done: 1, killed: true });
+  assert.ok(state.events.some((event) => event.type === 'kill_combo' && event.action === 'stack' && event.playerId === p.id && event.count >= 10), 'ten rapid kills should emit local kill_combo stack events and first bonus');
   assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_money' && event.sourceType === 'kill_combo'), 'combo milestone should grant GLD through economy events');
   assert.ok(state.events.some((event) => event.type === 'economy' && event.action === 'grant_xp' && event.sourceType === 'kill_combo'), 'combo milestone should grant EXP through economy events');
   assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed'), 'main loop must route events into moment/combo UI feeds');
@@ -214,11 +214,11 @@ test('orbiter pressure slows players and snapshots the pressure count', () => {
   assert.ok(snapshot.includes('orbiterPressure: orbiterPressureSnapshot(p)'), 'snapshot must expose orbiter pressure for UI/prediction');
 });
 
-test('central dopamine typography uses sharper Press Start 2P display font without bundling font files', () => {
+test('central dopamine typography uses explicit pixel web fonts without bundling font files', () => {
   const style = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  assert.ok(style.includes('fonts.googleapis.com/css2?family=Press+Start+2P'), 'style should load the sharper selected web pixel font');
-  assert.ok(style.includes('--display-pixel-font: "Press Start 2P"'), 'central display font stack should use Press Start 2P first');
-  assert.ok(style.includes('font-family: var(--display-pixel-font)'), 'screen moments/combo should use the display pixel font variable');
+  assert.ok(style.includes('fonts.googleapis.com/css2?family=Press+Start+2P') && style.includes('Silkscreen'), 'style should load selected web pixel fonts');
+  assert.ok(style.includes('--display-pixel-font: "Press Start 2P"') && style.includes('--moment-pixel-font: "Silkscreen"'), 'font stacks should separate chunky display text from thinner center-screen moments');
+  assert.ok(style.includes('font-family: var(--moment-pixel-font)') && style.includes('text-shadow: none;'), 'screen moments should use thinner pixel typography without text shadows');
 });
 
 test('linked armor is data-driven and can appear on random non-tank enemies', () => {

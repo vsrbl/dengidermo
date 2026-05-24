@@ -75,7 +75,7 @@ assert.ok(!statPanelCss.includes('clip-path: inset(0 100% 0 0)') && !statPanelCs
 assert.ok(main.includes('createRewardEventFeed') && main.includes('snapshot?.events'), 'main loop must route authoritative snapshot events into reward event feed');
 assert.ok(main.includes('createMomentFeed') && main.includes('createKillComboFeed') && main.includes('snapshot: app.snapshot'), 'main loop must route authoritative snapshot events into queued screen moment and kill combo feeds with snapshot gating');
 assert.ok(ui.includes('renderScreenMoment') && ui.includes('renderKillCombo'), 'UI split modules must render full-screen moments and kill combo counter');
-assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('screenMomentSweep') && style.includes('font-family: var(--display-pixel-font);'), 'dopamine moment and kill combo overlays must be styled/animated with pixel display typography for central moments');
+assert.ok(style.includes('.screen-moment') && style.includes('.kill-combo') && style.includes('screenMomentSweep') && style.includes('font-family: var(--moment-pixel-font);'), 'dopamine moment and kill combo overlays must be styled/animated with thin pixel moment typography for central moments');
 assert.ok(style.includes('--z-screen-moment: 90') && style.includes('--z-casino: 60') && style.includes('--z-combo: 70'), 'overlay z-index contract must keep screen moments and combo above casino modal');
 assert.ok(/\.screen-moment \{[\s\S]*?z-index: var\(--z-screen-moment\)/.test(style), 'screen moments must use the top overlay layer');
 assert.ok(/\.casino-panel \{[\s\S]*?z-index: var\(--z-casino\)/.test(style), 'casino modal must use the casino overlay layer below screen moments');
@@ -83,11 +83,13 @@ assert.ok(/\.kill-combo \{[\s\S]*?z-index: var\(--z-combo\)[\s\S]*?display: grid
 const renderer = read('src/renderer.js');
 assert.ok(renderer.includes('const x = 12;') && renderer.includes('const y = 170;') && renderer.includes('drawText(ctx, title, x + 8, y + 14') && renderer.includes('\"left\"'), 'room title plaque must sit below the left HUD with a dedicated safe-area anchor');
 assert.ok(renderer.indexOf('prune(smooth.players, playerIds);') < renderer.indexOf('if (snapshot?.location) drawRoomTitleOverlay(ctx, snapshot.location);'), 'room title plaque must render after enemies and players so world actors do not cover it');
-assert.ok(!renderer.includes('const x = Math.round((VIEW.w - w) / 2)') && !renderer.includes('drawText(ctx, title, Math.round(VIEW.w / 2)'), 'old centered room plaque from v39.3.22k predecessor must not remain');
-assert.ok(style.includes('font-size: clamp(18px, 1.9vw, 26px)') && style.includes('font-size: clamp(9px, 0.85vw, 11px)') && style.includes('align-content: start') && style.includes('padding: 4px 10px 10px;'), 'combo counter must stay compact, top-biased, and use a terminal-readable type scale after v39.3.22k');
+assert.ok(!renderer.includes('const x = Math.round((VIEW.w - w) / 2)') && !renderer.includes('drawText(ctx, title, Math.round(VIEW.w / 2)'), 'old centered room plaque from v39.3.22l predecessor must not remain');
+assert.ok(style.includes('font-size: clamp(18px, 1.9vw, 26px)') && style.includes('font-size: clamp(9px, 0.85vw, 11px)') && style.includes('align-content: center') && style.includes('padding: 7px 10px 8px;') && style.includes('--combo-compact-top: min(calc(100vh - 150px)'), 'combo counter must stay compact, centered inside its box, lowered on screen, and use a terminal-readable type scale after v39.3.22l');
 const comboKickCss = style.slice(style.indexOf('@keyframes comboBoxKick'), style.indexOf('@keyframes comboCountSlam'));
-assert.ok(!comboKickCss.includes('calc(-50% -') && !comboKickCss.includes('calc(-50% +'), 'combo bump must not use side-to-side crooked offset shake');
-assert.ok(momentFeed.includes('queue') && momentFeed.includes('startNext') && momentFeed.includes('COMBO_MOMENT_MIN_COUNT = 25'), 'screen moments must queue instead of overwriting each other and combo moments should start at 25+');
+assert.ok(!comboKickCss.includes('calc(-50% -') && !comboKickCss.includes('calc(-50% +') && comboKickCss.includes('scale(1.035)'), 'combo bump must be a small centered scale pulse, not side-to-side shake');
+assert.ok(style.includes('text-shadow: none;') && style.includes('--moment-pixel-font: "Silkscreen"'), 'center-screen moment typography must be thinner pixel styling without text shadows');
+assert.ok(style.includes('.screen-moment.kind-combo { --moment-accent: #ff7a1a; }') && style.includes('.screen-moment.kind-combo.tier-breach'), 'combo screen moments must use a distinct non-green color ramp and larger high-tier title sizes');
+assert.ok(momentFeed.includes('queue') && momentFeed.includes('startNext') && momentFeed.includes('COMBO_MOMENT_MIN_COUNT = 10'), 'screen moments must queue instead of overwriting each other and combo moments and rewards should start at 10+');
 assert.ok(rewardFeed.includes('LUCK PROC') && rewardFeed.includes('INSTALL +') && rewardFeed.includes('INSTALL OK') && rewardFeed.includes('RARE HEA'), 'reward event feed must define core dopamine messages');
 assert.ok(rewardFeed.includes('seen') && rewardFeed.includes('lifeMs'), 'reward event feed must dedupe and expire events');
 

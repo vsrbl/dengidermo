@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap");
 @font-face {
   font-family: PixelLocal;
   src: local("Courier New");
@@ -6,6 +6,7 @@
 
 :root {
   --display-pixel-font: "Press Start 2P", PixelLocal, "Courier New", monospace;
+  --moment-pixel-font: "Silkscreen", PixelLocal, "Courier New", monospace;
   --bg: #050505;
   --fg: #f3f3f3;
   --muted: #777;
@@ -26,7 +27,7 @@
   --z-combo: 70;
   --z-screen-moment: 90;
   --top-safe-gap: 14px;
-  --combo-compact-top: max(88px, calc(var(--bar, 0px) + 70px));
+  --combo-compact-top: min(calc(100vh - 150px), max(360px, calc(var(--bar, 0px) + var(--play-h, 675px) - 150px)));
   --z-boot-error: 9999;
 }
 
@@ -813,8 +814,8 @@ button:disabled { opacity: 0.45; cursor: default; }
   transition: opacity 120ms steps(2, end), transform 120ms steps(2, end);
   text-align: center;
   letter-spacing: 2px;
-  text-shadow: 2px 2px 0 #000;
-  font-family: var(--display-pixel-font);
+  text-shadow: none;
+  font-family: var(--moment-pixel-font);
   text-transform: uppercase;
   -webkit-font-smoothing: none;
   font-smooth: never;
@@ -848,28 +849,30 @@ button:disabled { opacity: 0.45; cursor: default; }
 
 .screen-moment-kicker {
   color: #b7b7b7;
-  font-family: var(--display-pixel-font);
-  font-size: clamp(10px, 1vw, 12px);
+  font-family: var(--moment-pixel-font);
+  font-size: clamp(11px, 1.05vw, 14px);
+  font-weight: 400;
   line-height: 1.1;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   margin-bottom: 10px;
 }
 
 .screen-moment-title {
   color: var(--moment-accent);
-  font-family: var(--display-pixel-font);
-  font-size: clamp(28px, 4.8vw, 64px);
-  line-height: 0.92;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-family: var(--moment-pixel-font);
+  font-size: clamp(30px, 5vw, 68px);
+  line-height: 0.94;
+  font-weight: 400;
+  letter-spacing: 0.06em;
 }
 
 .screen-moment-detail {
   color: #f3f3f3;
-  font-family: var(--display-pixel-font);
-  font-size: clamp(10px, 1.15vw, 14px);
+  font-family: var(--moment-pixel-font);
+  font-size: clamp(11px, 1.25vw, 16px);
+  font-weight: 400;
   line-height: 1.12;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   margin-top: 12px;
 }
 
@@ -882,11 +885,19 @@ button:disabled { opacity: 0.45; cursor: default; }
 .screen-moment.kind-weapon,
 .screen-moment.kind-install,
 .screen-moment.kind-exit,
-.screen-moment.kind-combo,
 .screen-moment.kind-casino,
 .screen-moment.kind-jackpot { --moment-accent: var(--green); }
 .screen-moment.kind-rare { --moment-accent: #ffffff; }
 .screen-moment.kind-curse { --moment-accent: #b45cff; }
+.screen-moment.kind-combo { --moment-accent: #ff7a1a; }
+.screen-moment.kind-combo.tier-medium { --moment-accent: #ff9a1f; }
+.screen-moment.kind-combo.tier-high { --moment-accent: #ff5cf6; }
+.screen-moment.kind-combo.tier-ultra { --moment-accent: #b45cff; }
+.screen-moment.kind-combo.tier-breach { --moment-accent: #ffffff; }
+.screen-moment.kind-combo.tier-medium .screen-moment-title { font-size: clamp(28px, 4.4vw, 58px); }
+.screen-moment.kind-combo.tier-high .screen-moment-title { font-size: clamp(34px, 5.4vw, 72px); }
+.screen-moment.kind-combo.tier-ultra .screen-moment-title { font-size: clamp(40px, 6.2vw, 86px); }
+.screen-moment.kind-combo.tier-breach .screen-moment-title { font-size: clamp(46px, 7vw, 98px); }
 .screen-moment.kind-jackpot .screen-moment-title,
 .screen-moment.tier-ultra .screen-moment-title {
   font-size: clamp(32px, 5.2vw, 70px);
@@ -902,15 +913,15 @@ button:disabled { opacity: 0.45; cursor: default; }
   max-width: min(240px, calc(100vw - 40px));
   display: grid;
   justify-items: center;
-  align-items: start;
-  align-content: start;
-  gap: 1px;
+  align-items: center;
+  align-content: center;
+  gap: 2px;
   transform: translateX(-50%) scale(0.985);
   transform-origin: center top;
   pointer-events: none;
   text-align: center;
   opacity: 0;
-  padding: 4px 10px 10px;
+  padding: 7px 10px 8px;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.76);
   box-shadow: 2px 2px 0 rgba(0,0,0,0.92);
@@ -934,7 +945,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   line-height: 1;
   font-weight: 700;
   letter-spacing: 0.04em;
-  text-shadow: 1px 1px 0 #000;
+  text-shadow: none;
   margin-top: 0;
 }
 
@@ -958,21 +969,20 @@ button:disabled { opacity: 0.45; cursor: default; }
   letter-spacing: 0.08em;
 }
 
-.kill-combo.tier-chain,
-.kill-combo.tier-serial { --combo-accent: var(--green); }
-.kill-combo.tier-void,
-.kill-combo.tier-delete { --combo-accent: #66f6ff; }
-.kill-combo.tier-wipe,
-.kill-combo.tier-erase { --combo-accent: #ffffff; }
-.kill-combo.tier-fever,
-.kill-combo.tier-breach { --combo-accent: #b45cff; }
+.kill-combo.tier-rise { --combo-accent: #ff9a1f; }
+.kill-combo.tier-chain { --combo-accent: #ff5cf6; }
+.kill-combo.tier-serial { --combo-accent: #ffffff; }
+.kill-combo.tier-void { --combo-accent: #66f6ff; }
+.kill-combo.tier-delete { --combo-accent: #b45cff; }
+.kill-combo.tier-fever { --combo-accent: #ff3048; }
+.kill-combo.tier-breach { --combo-accent: #f3f3f3; }
 .kill-combo.milestone {
   border-color: var(--combo-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 32%, transparent), 3px 3px 0 #000;
 }
 .kill-combo.milestone .kill-combo-count { font-size: clamp(22px, 2.4vw, 32px); }
-.kill-combo.combo-bump { animation: comboBoxKick 120ms steps(2, end) 1; }
-.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 150ms steps(3, end) 1; }
+.kill-combo.combo-bump { animation: comboBoxKick 150ms steps(3, end) 1; }
+.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 180ms steps(4, end) 1; }
 
 @keyframes screenMomentSweep {
   0% { opacity: 0; transform: translateX(-40%); }
@@ -989,14 +999,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 @keyframes comboBoxKick {
-  0% { transform: translateX(-50%) scale(0.98); }
-  42% { transform: translateX(-50%) scale(1.025); }
-  100% { transform: translateX(-50%) scale(1); }
+  0% { transform: translateX(-50%) translateY(2px) scale(0.985); border-color: rgba(255,255,255,0.18); }
+  42% { transform: translateX(-50%) translateY(0) scale(1.035); border-color: var(--combo-accent); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); border-color: rgba(255,255,255,0.18); }
 }
 
 @keyframes comboCountSlam {
-  0% { transform: scale(0.88); }
-  45% { transform: scale(1.10); }
+  0% { transform: scale(0.94); }
+  45% { transform: scale(1.14); }
   100% { transform: scale(1); }
 }
 

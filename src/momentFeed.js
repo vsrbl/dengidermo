@@ -3,7 +3,7 @@ export const MOMENT_FEED_SCHEMA_VERSION = 2;
 const MAX_SEEN = 128;
 const DEFAULT_LIFE_MS = 1550;
 const ULTRA_LIFE_MS = 2200;
-const COMBO_MOMENT_MIN_COUNT = 25;
+const COMBO_MOMENT_MIN_COUNT = 10;
 
 function eventId(event = {}) {
   return String(event.id || `${event.type || "event"}:${event.action || "?"}:${event.t || 0}:${event.playerId || event.sourcePlayerId || "team"}`);
@@ -125,13 +125,15 @@ function buildComboMoment(event, playerId) {
   if (event.type !== "kill_combo" || event.action !== "stack" || event.playerId !== playerId || !event.milestone) return null;
   if (!(event.count >= COMBO_MOMENT_MIN_COUNT)) return null;
   const reward = event.rewardLabel || [event.rewardMoney > 0 ? `+${Math.round(event.rewardMoney)} GLD` : "", event.rewardXp > 0 ? `+${Math.round(event.rewardXp)} EXP` : ""].filter(Boolean).join(" / ");
+  const count = Math.max(1, Math.floor(event.count || 1));
+  const tier = count >= 200 ? "breach" : count >= 100 ? "ultra" : count >= 50 ? "high" : "medium";
   return {
     kind: "combo",
-    tier: event.count >= 100 ? "ultra" : "high",
+    tier,
     kicker: "KILL FEED OVERLOAD",
     text: event.label || "SIGNAL KILL CHAIN",
-    detail: `x${Math.max(1, event.count || 1)}${reward ? ` // ${reward}` : ""}`,
-    lifeMs: event.count >= 100 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
+    detail: `x${count}${reward ? ` // ${reward}` : ""}`,
+    lifeMs: count >= 100 ? ULTRA_LIFE_MS : DEFAULT_LIFE_MS
   };
 }
 
