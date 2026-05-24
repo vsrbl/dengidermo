@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22h",
-  "buildId": "v39.3.22h-20260524",
+  "version": "v39.3.22i",
+  "buildId": "v39.3.22i-20260524",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-24",
-  "entry": "./src/main.v39-3-22h.js?v=39.3.22h",
-  "style": "./style.css?v=39.3.22h",
-  "config": "./config.js?v=39.3.22h",
+  "entry": "./src/main.v39-3-22i.js?v=39.3.22i",
+  "style": "./style.css?v=39.3.22i",
+  "config": "./config.js?v=39.3.22i",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22h cleanup: fixes casino/screen-moment layering, stabilizes combo counter layout, hardens LOOP/EXIT moment queue priority, replaces per-enemy path recalculation with cached nav-grid flow fields, and adds architecture guards for overlay layering, combo readability, and crowd-safe pathfinding."
+  "notes": "v39.3.22i UI hotfix: strongly downsizes the kill combo overlay, moves the room/GRID plaque into a centered top-canvas safe zone so HUD no longer overlaps it, and updates UI guards for compact combo readability and top room-label layout."
 }

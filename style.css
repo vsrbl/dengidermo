@@ -25,6 +25,8 @@
   --z-casino: 60;
   --z-combo: 70;
   --z-screen-moment: 90;
+  --top-safe-gap: 14px;
+  --combo-compact-top: max(78px, calc(var(--bar, 0px) + 64px));
   --z-boot-error: 9999;
 }
 
@@ -888,21 +890,22 @@ button:disabled { opacity: 0.45; cursor: default; }
   position: fixed;
   z-index: var(--z-combo);
   left: 50%;
-  top: 92px;
-  min-width: 190px;
+  top: var(--combo-compact-top);
+  min-width: 116px;
+  max-width: min(230px, calc(100vw - 36px));
   display: grid;
   justify-items: center;
   align-items: center;
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(-50%) scale(0.98);
   transform-origin: center top;
   pointer-events: none;
   text-align: center;
   opacity: 0;
-  padding: 8px 14px 9px;
-  border: 1px solid rgba(255,255,255,0.3);
-  background: rgba(0,0,0,0.76);
-  box-shadow: 4px 4px 0 #000;
-  letter-spacing: 2px;
+  padding: 5px 9px 6px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(0,0,0,0.68);
+  box-shadow: 3px 3px 0 #000;
+  letter-spacing: 1px;
   font-family: var(--display-pixel-font);
   text-transform: uppercase;
   -webkit-font-smoothing: none;
@@ -919,27 +922,27 @@ button:disabled { opacity: 0.45; cursor: default; }
 .kill-combo-label {
   color: var(--combo-accent);
   display: block;
-  max-width: 270px;
-  font-size: clamp(10px, 1vw, 13px);
+  max-width: 210px;
+  font-size: clamp(7px, 0.72vw, 9px);
   font-weight: 900;
-  line-height: 1.18;
+  line-height: 1.14;
 }
 
 .kill-combo-count {
   color: var(--combo-accent);
-  font-size: clamp(38px, 4vw, 56px);
+  font-size: clamp(20px, 2.2vw, 30px);
   line-height: 1;
   font-weight: 700;
-  margin-top: 4px;
-  text-shadow: 2px 2px 0 #000;
+  margin-top: 2px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .kill-combo-reward {
-  min-height: 12px;
+  min-height: 9px;
   color: #aaa;
-  font-size: 9px;
+  font-size: 7px;
   line-height: 1;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .kill-combo.tier-chain,
@@ -952,11 +955,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .kill-combo.tier-breach { --combo-accent: #b45cff; }
 .kill-combo.milestone {
   border-color: var(--combo-accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 38%, transparent), 4px 4px 0 #000;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--combo-accent) 32%, transparent), 3px 3px 0 #000;
 }
-.kill-combo.milestone .kill-combo-count { font-size: clamp(44px, 4.6vw, 64px); }
-.kill-combo.combo-bump { animation: comboBoxKick 180ms steps(3, end) 1; }
-.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 260ms steps(4, end) 1; }
+.kill-combo.milestone .kill-combo-count { font-size: clamp(26px, 3vw, 40px); }
+.kill-combo.combo-bump { animation: comboBoxKick 140ms steps(3, end) 1; }
+.kill-combo.combo-bump .kill-combo-count { animation: comboCountSlam 190ms steps(4, end) 1; }
 
 @keyframes screenMomentSweep {
   0% { opacity: 0; transform: translateX(-40%); }
@@ -973,14 +976,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 }
 
 @keyframes comboBoxKick {
-  0% { transform: translateX(-50%) scale(0.94); }
-  42% { transform: translateX(-50%) scale(1.06); }
+  0% { transform: translateX(-50%) scale(0.98); }
+  42% { transform: translateX(-50%) scale(1.025); }
   100% { transform: translateX(-50%) scale(1); }
 }
 
 @keyframes comboCountSlam {
-  0% { transform: scale(0.74); }
-  45% { transform: scale(1.24); }
+  0% { transform: scale(0.88); }
+  45% { transform: scale(1.10); }
   100% { transform: scale(1); }
 }
 

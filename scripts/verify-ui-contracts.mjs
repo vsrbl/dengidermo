@@ -80,7 +80,10 @@ assert.ok(style.includes('--z-screen-moment: 90') && style.includes('--z-casino:
 assert.ok(/\.screen-moment \{[\s\S]*?z-index: var\(--z-screen-moment\)/.test(style), 'screen moments must use the top overlay layer');
 assert.ok(/\.casino-panel \{[\s\S]*?z-index: var\(--z-casino\)/.test(style), 'casino modal must use the casino overlay layer below screen moments');
 assert.ok(/\.kill-combo \{[\s\S]*?z-index: var\(--z-combo\)[\s\S]*?display: grid[\s\S]*?justify-items: center/.test(style), 'kill combo must be centered through a stable grid overlay above casino');
-assert.ok(style.includes('font-size: clamp(38px, 4vw, 56px)'), 'low-count combo number must keep a readable lower-bound size');
+const renderer = read('src/renderer.js');
+assert.ok(renderer.includes('const x = Math.round((VIEW.w - w) / 2)') && renderer.includes('drawText(ctx, title, Math.round(VIEW.w / 2)'), 'room title plaque must be centered in the top canvas safe zone instead of sitting under the left HUD');
+assert.ok(!renderer.includes('fillRect(10, 92') && !renderer.includes('drawText(ctx, title, 18, 108'), 'old left-side room plaque under HUD must not return');
+assert.ok(style.includes('font-size: clamp(20px, 2.2vw, 30px)'), 'low-count combo number must stay compact after v39.3.22i downscale');
 const comboKickCss = style.slice(style.indexOf('@keyframes comboBoxKick'), style.indexOf('@keyframes comboCountSlam'));
 assert.ok(!comboKickCss.includes('calc(-50% -') && !comboKickCss.includes('calc(-50% +'), 'combo bump must not use side-to-side crooked offset shake');
 assert.ok(momentFeed.includes('queue') && momentFeed.includes('startNext') && momentFeed.includes('COMBO_MOMENT_MIN_COUNT = 25'), 'screen moments must queue instead of overwriting each other and combo moments should start at 25+');

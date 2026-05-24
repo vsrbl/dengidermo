@@ -114,20 +114,21 @@ function drawGrid(ctx, cam, location = null) {
 function drawRoomTitleOverlay(ctx, location = null) {
   if (!location?.name) return;
   const greenLoc = (location.accent || "green") === "green";
-  const title = String(location.name).toUpperCase().slice(0, 28);
+  const title = String(location.name).toUpperCase().slice(0, 24);
   const subtitle = `LOOP ${Math.max(0, Math.floor(location.loopIndex || 0))} / DEPTH ${Math.max(0, Math.floor(location.runDepth ?? location.index ?? 0))}`;
   ctx.save();
-  ctx.font = "12px Courier New, monospace";
-  const w = Math.max(ctx.measureText(title).width, ctx.measureText(subtitle).width) + 18;
-  ctx.fillStyle = "rgba(0,0,0,0.78)";
-  ctx.fillRect(10, 92, Math.round(w), 38);
-  ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.42)" : "rgba(255,255,255,0.32)";
-  ctx.strokeRect(10, 92, Math.round(w), 38);
+  ctx.font = "11px Courier New, monospace";
+  const w = Math.min(260, Math.max(ctx.measureText(title).width, ctx.measureText(subtitle).width) + 18);
+  const x = Math.round((VIEW.w - w) / 2);
+  const y = 16;
+  ctx.fillStyle = "rgba(0,0,0,0.66)";
+  ctx.fillRect(x, y, Math.round(w), 34);
+  ctx.strokeStyle = greenLoc ? "rgba(0,255,102,0.34)" : "rgba(255,255,255,0.28)";
+  ctx.strokeRect(x, y, Math.round(w), 34);
   ctx.restore();
-  drawText(ctx, title, 18, 108, greenLoc ? GREEN : "#f3f3f3", "left");
-  drawText(ctx, subtitle, 18, 123, "#aaa", "left");
+  drawText(ctx, title, Math.round(VIEW.w / 2), y + 14, greenLoc ? GREEN : "#f3f3f3", "center");
+  drawText(ctx, subtitle, Math.round(VIEW.w / 2), y + 28, "#aaa", "center");
 }
-
 
 function drawRoomGeometry(ctx, cam, location = null) {
   const geometry = location ? roomGeometrySnapshot(location) : null;
