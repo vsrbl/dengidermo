@@ -22,8 +22,12 @@ assert.match(serverSrc, /function notifyPlayerLeft/, 'server explicit player-lef
 assert.match(serverSrc, /function heartbeatClients/, 'server heartbeat stale-disconnect detection missing');
 assert.match(serverSrc, /HEARTBEAT_TIMEOUT_MS/, 'server heartbeat timeout missing');
 assert.match(serverSrc, /SOFT_DISCONNECT_GRACE_MS/, 'server must retain transiently disconnected guest slots');
+assert.match(serverSrc, /HOST_RECONNECT_GRACE_MS/, 'server must retain transiently disconnected host rooms for reconnect');
+assert.match(serverSrc, /function touchRoomForSocket/, 'active websocket ping/pong must touch room liveness');
+assert.match(serverSrc, /msg\.type === "ping"[\s\S]*touchRoomForSocket\(ws\)/, 'client ping must keep P2P-active rooms alive on signaling server');
 assert.match(serverSrc, /markPlayerOffline\(room, id, "stale_socket"\)/, 'stale prune must mark guest slots offline instead of deleting gameplay identity');
 assert.match(serverSrc, /notifyPlayerLeft\(room, id, "stale_socket"\)/, 'stale prune must notify host immediately after detection');
+assert.doesNotMatch(serverSrc, /closeRoom\(room, "host_missing"\)/, 'transient host socket loss must not immediately delete the room');
 
 const child = spawn(process.execPath, ['server/server.js'], {
   cwd: root,
@@ -158,7 +162,46 @@ try {
   assert.equal(left2.reason, 'left');
   assert.ok(!left2.players.includes('p2'), 'explicit leave must remove the slot from authoritative player list');
 
+  const guest4 = await openWs();
+  await nextJson(guest4, 'guest4 hello');
+  guest4.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST4' }));
+  const joined4 = await nextJson(guest4, 'guest4 joined');
+  assert.equal(joined4.playerId, 'p2');
+  await nextJson(host, 'guest4 player_joined');
+
   host.close();
+  const hostSoftLost = await nextJson(guest4, 'soft host socket loss');
+  assert.equal(hostSoftLost.type, 'player_left');
+  assert.equal(hostSoftLost.playerId, 'p1');
+  assert.equal(hostSoftLost.reason, 'host_socket_lost');
+  assert.ok(hostSoftLost.players.includes('p1'), 'transient host socket loss must retain host slot for reconnect');
+
+  const hostReconnect = await openWs();
+  await nextJson(hostReconnect, 'host reconnect hello');
+  hostReconnect.send(JSON.stringify({ type: 'create', roomId: 'NET140', name: 'HOST' }));
+  const recreated = await nextJson(hostReconnect, 'host reconnect created');
+  assert.equal(recreated.type, 'created');
+  assert.equal(recreated.playerId, 'p1');
+  assert.equal(recreated.reconnect, true, 'host create on offline p1 slot must reconnect instead of room_exists');
+  const hostBackNotice = await nextJson(guest4, 'host reconnect player_joined');
+  assert.equal(hostBackNotice.type, 'player_joined');
+  assert.equal(hostBackNotice.playerId, 'p1');
+  assert.equal(hostBackNotice.reconnect, true);
+
+  hostReconnect.send(JSON.stringify({ type: 'ping', t: 12345 }));
+  const pong = await nextJson(hostReconnect, 'pong with room identity');
+  assert.equal(pong.type, 'pong');
+  assert.equal(pong.roomId, 'NET140');
+  assert.equal(pong.playerId, 'p1');
+
+  guest4.send(JSON.stringify({ type: 'relay', to: 'host', data: { t: 'relay_after_host_reconnect' } }));
+  const relayAfterHostReconnect = await nextJson(hostReconnect, 'relay after host reconnect');
+  assert.equal(relayAfterHostReconnect.type, 'relay');
+  assert.equal(relayAfterHostReconnect.from, 'p2');
+  assert.equal(relayAfterHostReconnect.data?.t, 'relay_after_host_reconnect');
+
+  guest4.close();
+  hostReconnect.close();
 } finally {
   child.kill('SIGTERM');
   await sleep(100);

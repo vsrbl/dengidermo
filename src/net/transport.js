@@ -1,5 +1,9 @@
 import { MAX_PLAYERS, PING_RATE_MS, SERVER_HELLO_TIMEOUT_MS, SIGNALING_PROTOCOL_VERSION } from "../core/constants.js";
 
+const RECONNECT_BASE_MS = 400;
+const RECONNECT_MAX_MS = 5000;
+const RECONNECT_TRANSIENT_ERRORS = new Set(["host_reconnecting", "room_exists"]);
+
 function toWebSocketUrl(url) {
   const u = new URL(url);
   u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
@@ -30,16 +34,64 @@ export class Transport {
     this.helloReady = false;
     this.pendingOpenAction = null;
     this.helloTimer = 0;
+    this.reconnectTimer = 0;
+    this.reconnectAttempts = 0;
+    this.intent = null;
+    this.everReady = false;
   }
 
   connectHost(roomId, options = {}) {
     this.role = "host";
-    this.openWs(() => this.sendWs({ type: "create", roomId, maxPlayers: MAX_PLAYERS, name: options.name || "" }));
+    this.roomId = roomId;
+    this.intent = { role: "host", roomId, name: options.name || "", maxPlayers: MAX_PLAYERS };
+    this.openWs(() => this.sendIntent());
   }
 
   connectGuest(roomId, options = {}) {
     this.role = "guest";
-    this.openWs(() => this.sendWs({ type: "join", roomId, name: options.name || "" }));
+    this.roomId = roomId;
+    this.intent = { role: "guest", roomId, name: options.name || "" };
+    this.openWs(() => this.sendIntent());
+  }
+
+  sendIntent() {
+    if (!this.intent) return;
+    if (this.intent.role === "host") {
+      this.sendWs({ type: "create", roomId: this.intent.roomId, maxPlayers: this.intent.maxPlayers || MAX_PLAYERS, name: this.intent.name || "" });
+      return;
+    }
+    this.sendWs({ type: "join", roomId: this.intent.roomId, name: this.intent.name || "" });
+  }
+
+  reconnectDelay() {
+    return Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.max(1, 2 ** Math.min(4, this.reconnectAttempts)));
+  }
+
+  scheduleReconnect(reason = "socket_closed") {
+    if (this.closedByClient || !this.intent || !this.everReady) return;
+    if (this.reconnectTimer) return;
+    const delay = this.reconnectDelay();
+    this.reconnectAttempts += 1;
+    this.callbacks.onReconnect?.({ reason, delay, attempt: this.reconnectAttempts });
+    this.reconnectTimer = globalThis.setTimeout(() => {
+      this.reconnectTimer = 0;
+      if (this.closedByClient || !this.intent) return;
+      this.openWs(() => this.sendIntent());
+    }, delay);
+  }
+
+  scheduleIntentRetry(reason = "transient") {
+    if (this.closedByClient || !this.intent || !this.everReady) return;
+    if (this.reconnectTimer) return;
+    const delay = this.reconnectDelay();
+    this.reconnectAttempts += 1;
+    this.callbacks.onReconnect?.({ reason, delay, attempt: this.reconnectAttempts });
+    this.reconnectTimer = globalThis.setTimeout(() => {
+      this.reconnectTimer = 0;
+      if (this.closedByClient || !this.intent) return;
+      if (this.ws?.readyState === WebSocket.OPEN && this.helloReady) this.sendIntent();
+      else this.openWs(() => this.sendIntent());
+    }, delay);
   }
 
   openWs(onOpen) {
@@ -53,7 +105,12 @@ export class Transport {
       this.helloTimer = globalThis.setTimeout(() => {
         if (this.helloReady || this.closedByClient) return;
         this.callbacks.onError?.("server_mismatch");
+        const shouldRetryHello = this.everReady;
         this.close(false);
+        if (shouldRetryHello) {
+          this.closedByClient = false;
+          this.scheduleReconnect("hello_timeout");
+        }
       }, SERVER_HELLO_TIMEOUT_MS);
     });
     this.ws.addEventListener("message", (e) => this.handleWs(safeJson(e.data)));
@@ -63,7 +120,10 @@ export class Transport {
       this.pendingOpenAction = null;
       this.helloReady = false;
       this.connected = false;
-      if (!this.closedByClient) this.callbacks.onClose?.();
+      if (!this.closedByClient) {
+        this.callbacks.onClose?.();
+        this.scheduleReconnect("socket_closed");
+      }
     });
     this.ws.addEventListener("error", () => this.callbacks.onError?.("network"));
   }
@@ -88,7 +148,12 @@ export class Transport {
       const protocol = Number(msg.protocol || 0);
       if (protocol !== SIGNALING_PROTOCOL_VERSION) {
         this.callbacks.onError?.("server_mismatch");
+        const shouldRetryHello = this.everReady;
         this.close(false);
+        if (shouldRetryHello) {
+          this.closedByClient = false;
+          this.scheduleReconnect("hello_timeout");
+        }
         return;
       }
       this.helloReady = true;
@@ -103,9 +168,13 @@ export class Transport {
       this.roomId = msg.roomId;
       this.playerId = msg.playerId;
       this.connected = true;
+      this.everReady = true;
+      this.reconnectAttempts = 0;
+      globalThis.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = 0;
       this.players = new Set(msg.players || [msg.playerId]);
       this.syncNames(msg.names);
-      this.callbacks.onReady?.({ role: this.role, roomId: this.roomId, playerId: this.playerId, players: [...this.players], names: this.namesObject() });
+      this.callbacks.onReady?.({ role: this.role, roomId: this.roomId, playerId: this.playerId, players: [...this.players], names: this.namesObject(), reconnect: !!msg.reconnect });
       return;
     }
     if (msg.type === "players") {
@@ -160,7 +229,11 @@ export class Transport {
       this.callbacks.onPing?.(this.pingMs);
       return;
     }
-    if (msg.type === "error") this.callbacks.onError?.(msg.message || "error");
+    if (msg.type === "error") {
+      const message = msg.message || "error";
+      this.callbacks.onError?.(message);
+      if (RECONNECT_TRANSIENT_ERRORS.has(message) && this.everReady) this.scheduleIntentRetry(message);
+    }
   }
 
   makePeer(remoteId) {
@@ -306,6 +379,8 @@ export class Transport {
 
   close(sendLeave = true) {
     this.closedByClient = true;
+    globalThis.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = 0;
     globalThis.clearTimeout(this.helloTimer);
     this.helloTimer = 0;
     this.pendingOpenAction = null;
@@ -320,5 +395,10 @@ export class Transport {
     this.connected = false;
     this.players.clear();
     this.names.clear();
+    if (sendLeave) {
+      this.intent = null;
+      this.everReady = false;
+      this.reconnectAttempts = 0;
+    }
   }
 }

@@ -5,8 +5,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v39.3.22v";
-const SERVER_BUILD_ID = "v39.3.22v-20260525";
+const SERVER_VERSION = "v39.3.22w";
+const SERVER_BUILD_ID = "v39.3.22w-20260525";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -14,7 +14,8 @@ const RATE_WINDOW_MS = 1000;
 const RATE_LIMIT_PER_WINDOW = 120;
 const HEARTBEAT_INTERVAL_MS = 4_000;
 const HEARTBEAT_TIMEOUT_MS = 9_000;
-const SOFT_DISCONNECT_GRACE_MS = 45_000;
+const SOFT_DISCONNECT_GRACE_MS = 120_000;
+const HOST_RECONNECT_GRACE_MS = 5 * 60_000;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const rooms = new Map();
@@ -32,9 +33,15 @@ function isPlayerOnline(player) {
   return isOpen(player?.ws);
 }
 
+function touchRoomForSocket(ws) {
+  const room = ws?.nnRoom ? rooms.get(ws.nnRoom) : null;
+  if (room) room.touched = Date.now();
+}
+
 function markSocketAlive(ws) {
   ws.nnAlive = true;
   ws.nnLastSeen = Date.now();
+  touchRoomForSocket(ws);
 }
 
 function closeAbusiveSocket(ws, code = 1008, reason = "policy") {
@@ -130,12 +137,12 @@ function pruneClosedPlayers(room) {
   if (!removed.length) return removed;
 
   if (removed.includes(room.hostId)) {
-    detachPlayer(room, room.hostId);
-    closeRoom(room, "host_missing");
-    return removed;
+    markPlayerOffline(room, room.hostId, "host_socket_lost");
+    notifyPlayerLeft(room, room.hostId, "host_socket_lost");
   }
 
   for (const id of removed) {
+    if (id === room.hostId) continue;
     if (markPlayerOffline(room, id, "stale_socket")) notifyPlayerLeft(room, id, "stale_socket");
   }
   if (room.players.size === 0) rooms.delete(room.id);
@@ -164,13 +171,18 @@ function cleanRooms() {
     pruneClosedPlayers(room);
     if (!rooms.has(id)) continue;
     for (const [playerId, player] of [...room.players.entries()]) {
-      if (playerId === room.hostId) continue;
-      if (player.offlineAt && now - player.offlineAt > SOFT_DISCONNECT_GRACE_MS) {
+      if (!player.offlineAt) continue;
+      if (playerId === room.hostId) {
+        if (now - player.offlineAt > HOST_RECONNECT_GRACE_MS) closeRoom(room, "host_reconnect_timeout");
+        continue;
+      }
+      if (now - player.offlineAt > SOFT_DISCONNECT_GRACE_MS) {
         room.players.delete(playerId);
         notifyPlayerLeft(room, playerId, "disconnect_timeout");
       }
     }
-    if (room.players.size === 0 || now - room.touched > 60 * 60 * 1000) rooms.delete(id);
+    const hasOnlinePlayer = [...room.players.values()].some(isPlayerOnline);
+    if (room.players.size === 0 || (!hasOnlinePlayer && now - room.touched > SOFT_DISCONNECT_GRACE_MS) || now - room.touched > 6 * 60 * 60 * 1000) rooms.delete(id);
   }
 }
 
@@ -233,8 +245,7 @@ function handleSocketGone(ws, reason = "socket_closed") {
   }
   const id = ws.nnPlayerId;
   if (id === room.hostId) {
-    detachPlayer(room, id);
-    closeRoom(room, "host_missing");
+    if (markPlayerOffline(room, id, "host_socket_lost")) notifyPlayerLeft(room, id, "host_socket_lost");
     return;
   }
   if (markPlayerOffline(room, id, reason)) notifyPlayerLeft(room, id, reason);
@@ -243,7 +254,34 @@ function handleSocketGone(ws, reason = "socket_closed") {
 function handleCreate(ws, msg) {
   const roomId = normalizeRoomId(msg.roomId);
   if (!ROOM_RE.test(roomId)) return send(ws, { type: "error", message: "bad_room" });
-  if (rooms.has(roomId)) return send(ws, { type: "error", message: "room_exists" });
+  const existingRoom = rooms.get(roomId);
+  if (existingRoom) {
+    pruneClosedPlayers(existingRoom);
+    if (!rooms.has(roomId)) return handleCreate(ws, msg);
+    const previousHost = existingRoom.players.get(existingRoom.hostId);
+    if (previousHost && !isPlayerOnline(previousHost)) {
+      if ((ws.nnRoom || ws.nnPlayerId) && ws.nnRoom !== roomId) leave(ws);
+      existingRoom.players.set(existingRoom.hostId, {
+        ...previousHost,
+        ws,
+        name: normalizePlayerName(msg.name, "HOST"),
+        reconnect: true,
+        offlineAt: 0,
+        offlineReason: null,
+        joinedAt: previousHost.joinedAt || Date.now()
+      });
+      existingRoom.touched = Date.now();
+      ws.nnRoom = roomId;
+      ws.nnPlayerId = existingRoom.hostId;
+      ws.nnLeftIntentionally = false;
+      const playerList = roomPlayers(existingRoom);
+      const names = roomNames(existingRoom);
+      send(ws, { type: "created", roomId, playerId: existingRoom.hostId, players: playerList, names, reconnect: true });
+      broadcast(existingRoom, { type: "player_joined", playerId: existingRoom.hostId, players: playerList, names, reconnect: true }, existingRoom.hostId);
+      return;
+    }
+    return send(ws, { type: "error", message: "room_exists" });
+  }
   if (ws.nnRoom || ws.nnPlayerId) leave(ws);
 
   const room = {
@@ -269,8 +307,7 @@ function handleJoin(ws, msg) {
   if (!rooms.has(roomId)) return send(ws, { type: "error", message: "room_not_found" });
   const host = room.players.get(room.hostId);
   if (!isOpen(host?.ws)) {
-    closeRoom(room, "host_missing");
-    return send(ws, { type: "error", message: "room_not_found" });
+    return send(ws, { type: "error", message: "host_reconnecting" });
   }
   const existingSelf = ws.nnRoom === roomId && ws.nnPlayerId && room.players.has(ws.nnPlayerId);
   const playerId = existingSelf ? ws.nnPlayerId : nextPlayerId(room);
@@ -280,7 +317,15 @@ function handleJoin(ws, msg) {
   const reconnect = !!previousSlot && !isPlayerOnline(previousSlot);
   if ((ws.nnRoom || ws.nnPlayerId) && ws.nnRoom !== roomId) leave(ws);
 
-  room.players.set(playerId, { ws, joinedAt: Date.now(), name: normalizePlayerName(msg.name, playerId.toUpperCase()), reconnect });
+  room.players.set(playerId, {
+    ...(previousSlot || {}),
+    ws,
+    joinedAt: previousSlot?.joinedAt || Date.now(),
+    name: normalizePlayerName(msg.name, playerId.toUpperCase()),
+    reconnect,
+    offlineAt: 0,
+    offlineReason: null
+  });
   room.touched = Date.now();
   ws.nnRoom = roomId;
   ws.nnPlayerId = playerId;
@@ -297,7 +342,7 @@ function handleSignal(ws, msg) {
   const target = room.players.get(msg.to);
   if (!target) return;
   room.touched = Date.now();
-  send(target.ws, { type: "signal", from: ws.nnPlayerId, data: msg.data });
+  if (isPlayerOnline(target)) send(target.ws, { type: "signal", from: ws.nnPlayerId, data: msg.data });
 }
 
 function handleRelay(ws, msg) {
@@ -308,7 +353,7 @@ function handleRelay(ws, msg) {
 
   if (msg.to === "host") {
     const host = room.players.get(room.hostId);
-    if (host && room.hostId !== ws.nnPlayerId) send(host.ws, packet);
+    if (host && room.hostId !== ws.nnPlayerId && isPlayerOnline(host)) send(host.ws, packet);
     return;
   }
   if (msg.to === "all") {
@@ -316,7 +361,7 @@ function handleRelay(ws, msg) {
     return;
   }
   const target = room.players.get(msg.to);
-  if (target) send(target.ws, packet);
+  if (isPlayerOnline(target)) send(target.ws, packet);
 }
 
 const server = http.createServer((req, res) => {
@@ -354,7 +399,7 @@ wss.on("connection", (ws) => {
     if (msg.type === "signal") return handleSignal(ws, msg);
     if (msg.type === "relay") return handleRelay(ws, msg);
     if (msg.type === "leave") return leave(ws);
-    if (msg.type === "ping") return send(ws, { type: "pong", t: msg.t });
+    if (msg.type === "ping") { touchRoomForSocket(ws); return send(ws, { type: "pong", t: msg.t, roomId: ws.nnRoom || null, playerId: ws.nnPlayerId || null }); }
   });
 
   ws.on("close", () => handleSocketGone(ws, "socket_closed"));
@@ -376,4 +421,4 @@ function heartbeatClients() {
 
 setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.22v protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.22w protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

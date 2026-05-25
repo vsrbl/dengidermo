@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22v",
-  "buildId": "v39.3.22v-20260525",
+  "version": "v39.3.22w",
+  "buildId": "v39.3.22w-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-22v.js?v=39.3.22v",
-  "style": "./style.css?v=39.3.22v",
-  "config": "./config.js?v=39.3.22v",
+  "entry": "./src/main.v39-3-22w.js?v=39.3.22w",
+  "style": "./style.css?v=39.3.22w",
+  "config": "./config.js?v=39.3.22w",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22v action origin compensation hotfix: extends bounded host-side lag compensation beyond firing into dash, interact, and casino/action validation paths, while keeping damage authoritative and preserving smooth impulse reconciliation/local feedback isolation."
+  "notes": "v39.3.22w signaling liveness / reconnect hotfix: keeps active P2P rooms alive through WebSocket ping/pong touches, adds automatic signaling reconnect for host and guests, preserves host gameplay state across transient socket drops, and allows host slot reconnect without making the room permanently unavailable."
 }

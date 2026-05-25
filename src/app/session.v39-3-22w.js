@@ -2,7 +2,7 @@ import { isValidRoomId, normalizeRoomId, randomRoomId } from "../ui.js";
 import { normalizePlayerName } from "../core/names.js";
 import { CONNECT_TIMEOUT_MS } from "../core/constants.js";
 
-const SOFT_DISCONNECT_REASONS = new Set(["socket_closed", "socket_error", "stale_socket", "network_lost", "connection_lost"]);
+const SOFT_DISCONNECT_REASONS = new Set(["socket_closed", "socket_error", "stale_socket", "network_lost", "connection_lost", "host_socket_lost"]);
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory } from "../game/inventory.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "../game/state.js";
@@ -30,6 +30,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       onData: (msg, from, mode) => onNetData?.(msg, from, mode),
       onPing: (ms) => { app.pingMs = ms; },
       onPeerState: (_id, state) => { if (state === "open") app.transportMode = "P2P"; },
+      onReconnect: (info) => handleTransportReconnect(info),
       onError: (message) => handleConnectError(message),
       onClose: () => handleTransportClose()
     });
@@ -73,6 +74,10 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       app.ui.flashError(message);
       return;
     }
+    if (message === "host_reconnecting") {
+      app.transportMode = "RECONNECT";
+      return;
+    }
     app.ui.flashError(message);
   }
 
@@ -82,7 +87,16 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       app.ui.flashError("connection closed");
       return;
     }
-    if (app.running) app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "OFF", release: app.release });
+    if (app.running) {
+      app.transportMode = "RECONNECT";
+      app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "RECONNECT", release: app.release });
+    }
+  }
+
+  function handleTransportReconnect() {
+    if (!app.running) return;
+    app.transportMode = "RECONNECT";
+    app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "RECONNECT", release: app.release });
   }
 
   function currentMenuName() {
@@ -190,6 +204,21 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
 
   function handleReady(info) {
     setConnecting(false);
+    const sameActiveSession = app.running
+      && app.role === info.role
+      && app.roomId === info.roomId
+      && app.playerId === info.playerId;
+    if (sameActiveSession) {
+      app.players = Array.isArray(info.players) ? info.players.slice(0, 4) : app.players;
+      setPlayerNames(info.names);
+      app.playerName = playerDisplayName(app.playerId);
+      app.transportMode = "RELAY";
+      app.pingMs = null;
+      app.ui.showGame(app.roomId);
+      app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
+      return;
+    }
+
     resetRunIdentity(info);
 
     if (app.role === "host") {
@@ -251,8 +280,13 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
 
   function handlePlayerLeft(id, reason = "left") {
     if (app.role === "guest" && id === "p1") {
+      if (SOFT_DISCONNECT_REASONS.has(reason)) {
+        app.transportMode = "HOST RECONNECT";
+        app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "HOST RECONNECT", release: app.release });
+        return;
+      }
       leaveGame();
-      app.ui.flashError();
+      app.ui.flashError(reason || "host left");
       return;
     }
     if (app.role === "host" && SOFT_DISCONNECT_REASONS.has(reason)) {
@@ -263,6 +297,10 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
   }
 
   function handlePlayerReplaced(id) {
+    if (app.role === "guest" && id === "p1") {
+      app.transportMode = "RELAY";
+      return;
+    }
     if (app.role !== "host") return;
     markRemotePlayerConnected(id);
   }
