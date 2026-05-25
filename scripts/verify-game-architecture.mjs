@@ -380,4 +380,22 @@ for (const rel of hostileImpulseFiles) {
   assert.match(casinoClient, /casinoSpin[\s\S]+\.\.\.hint/, 'casino spin requests must include a bounded local action origin hint');
 }
 
+// v39.3.33 local visual smoothing guard: reconciliation must correct physics
+// without rendering/camera-following raw corrected physics directly every snapshot.
+{
+  const mainSrc = read('src/main.js');
+  const clientRuntime = read('src/app/clientRuntime.js');
+  const sessionRuntime = read('src/app/session.js');
+  const uiRuntime = read('src/ui.js');
+  assert.match(mainSrc, /localRenderPose/, 'app state must keep a localRenderPose separate from physics localPose');
+  assert.match(mainSrc, /const renderPose = app\.localRenderPose \|\| app\.localPose/, 'main loop must prefer localRenderPose for camera/render target');
+  assert.match(clientRuntime, /LOCAL_VISUAL_SMOOTH_RATE/, 'client runtime must define local visual smoothing constants');
+  assert.match(clientRuntime, /function updateLocalRenderPose/, 'client runtime must update a visual shell after prediction/reconciliation');
+  assert.match(clientRuntime, /function snapLocalRenderPose/, 'client runtime must snap the visual shell for room changes/large authoritative corrections');
+  assert.match(clientRuntime, /markLocalVisualSnap\("location_change"\)/, 'room/location changes must snap visual pose instead of smoothing across rooms');
+  assert.match(clientRuntime, /visualDriftPx/, 'reconciliation diagnostics must expose visual drift separately from physics drift');
+  assert.match(sessionRuntime, /app\.localRenderPose = \{ \.\.\.app\.localPose/, 'guest spawn must initialize localRenderPose from localPose');
+  assert.match(uiRuntime, /VIS D/, 'net HUD must expose local visual drift diagnostics');
+}
+
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);

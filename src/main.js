@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-32.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-32.js";
-import { createSessionRuntime } from "./app/session.v39-3-32.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-32.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-32.js";
-import { createDevControls } from "./app/devControls.v39-3-32.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-32.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-33.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-33.js";
+import { createSessionRuntime } from "./app/session.v39-3-33.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-33.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-33.js";
+import { createDevControls } from "./app/devControls.v39-3-33.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-33.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -52,6 +52,8 @@ function createAppState() {
     disconnectedPlayers: Object.create(null),
     snapshot: null,
     localPose: null,
+    localRenderPose: null,
+    localVisualStats: { mode: "idle", driftPx: 0, snap: false, reason: "init" },
     localWeapon: START_WEAPON,
     localInventory: createInventory([START_WEAPON]),
     localUpgradeChoices: [],
@@ -191,7 +193,7 @@ function updateHud() {
   app.ui.setProcFeed(app.rewardEventFeed.ingest(events, { playerId: app.playerId }));
   app.ui.setScreenMoment(app.momentFeed.ingest(events, { playerId: app.playerId, snapshot: app.snapshot }));
   app.ui.setKillCombo(app.killComboFeed.ingest(events, { playerId: app.playerId }));
-  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, reconcile: app.reconcileStats, hostSim: app.role === "host" ? app.hostSim : null, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
+  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, reconcile: app.reconcileStats, visual: app.localVisualStats, hostSim: app.role === "host" ? app.hostSim : null, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 
 function loop(now) {
@@ -208,8 +210,9 @@ function loop(now) {
     if (app.role === "host" && app.hostState) hostRuntime.update(rawDt, now, gameNow);
     if (app.role === "guest") clientRuntime.updateGuest(gameDt, now, gameNow);
     app.predictedProjectiles = updatePredictedProjectiles(app.predictedProjectiles, gameDt, app.snapshot);
-    updateCamera(app.camera, app.localPose || clientRuntime.currentLocalPlayerFromSnapshot(), dt);
-    render(app.renderer, app.snapshot, app.localPose, app.playerId, app.camera, app.input.mouse, app.predictedProjectiles, dt, gameDt);
+    const renderPose = app.localRenderPose || app.localPose || clientRuntime.currentLocalPlayerFromSnapshot();
+    updateCamera(app.camera, renderPose, dt);
+    render(app.renderer, app.snapshot, renderPose, app.playerId, app.camera, app.input.mouse, app.predictedProjectiles, dt, gameDt);
     updateHud();
   }
 

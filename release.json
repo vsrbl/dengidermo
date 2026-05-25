@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.32",
-  "buildId": "v39.3.32-20260525",
+  "version": "v39.3.33",
+  "buildId": "v39.3.33-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-32.js?v=39.3.32",
-  "style": "./style.css?v=39.3.32",
-  "config": "./config.js?v=39.3.32",
+  "entry": "./src/main.v39-3-33.js?v=39.3.33",
+  "style": "./style.css?v=39.3.33",
+  "config": "./config.js?v=39.3.33",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.32 interest-based snapshot priority: per-peer focused state packets keep nearby hazards, enemies, pickups, and critical effects ahead of far cosmetics during relay/P2P budget trimming."
+  "notes": "v39.3.33 local visual smoothing after reconciliation: separates guest physics/reconciliation pose from visible render/camera pose to reduce jitter while preserving host-authoritative gameplay."
 }

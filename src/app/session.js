@@ -219,7 +219,10 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.inputSeq = 0;
     app.lastAckedInputSeq = 0;
     app.predictionFrames = [];
-    app.reconcileStats = { mode: "idle", localSeq: 0, ackedSeq: 0, pendingInputs: 0, replayed: 0, driftPx: 0 };
+    app.reconcileStats = { mode: "idle", localSeq: 0, ackedSeq: 0, pendingInputs: 0, replayed: 0, driftPx: 0, visualDriftPx: 0 };
+    app.localRenderPose = null;
+    app.localVisualSnapReason = "";
+    app.localVisualStats = { mode: "visual-shell", reason: "run_reset", driftPx: 0, snap: true };
     app.hostSim = { mode: "fixed-step", accumulatorMs: 0, steps: 0, droppedSteps: 0, frameMs: 0, throttle: false };
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
@@ -252,6 +255,8 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       const p = spawnPoint(index);
       app.localInventory = createInventory([START_WEAPON]);
       app.localPose = { id: app.playerId, name: app.playerName, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: app.localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
+      app.localRenderPose = { ...app.localPose, _visualReason: "guest_spawn" };
+      app.localVisualStats = { mode: "visual-shell", reason: "guest_spawn", driftPx: 0, snap: true };
     }
 
     app.ui.showGame(app.roomId);
@@ -341,6 +346,9 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.hostInputs = Object.create(null);
     app.disconnectedPlayers = Object.create(null);
     app.localPose = null;
+    app.localRenderPose = null;
+    app.localVisualSnapReason = "";
+    app.localVisualStats = { mode: "visual-shell", reason: "leave", driftPx: 0, snap: true };
     app.predictedProjectiles = [];
     app.localInventory = createInventory([START_WEAPON]);
     upgradeClient?.reset();

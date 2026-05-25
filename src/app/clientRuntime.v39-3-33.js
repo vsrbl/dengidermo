@@ -18,6 +18,45 @@ const PREDICTION_BUFFER_LIMIT = 180;
 const RECONCILE_REPLAY_MAX_FRAMES = 120;
 const RECONCILE_MAX_FRAME_DT = 1 / 20;
 
+const LOCAL_VISUAL_SMOOTH_RATE = 22;
+const LOCAL_VISUAL_TELEPORT_D2 = 180 * 180;
+const LOCAL_VISUAL_SNAP_D2 = 420 * 420;
+
+function shortestAngleDelta(from = 0, to = 0) {
+  let delta = (to - from) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
+function cloneRenderPoseFromPhysics(pose, reason = "snap") {
+  if (!pose) return null;
+  return {
+    id: pose.id,
+    name: pose.name,
+    x: pose.x || 0,
+    y: pose.y || 0,
+    vx: pose.vx || 0,
+    vy: pose.vy || 0,
+    kx: pose.kx || 0,
+    ky: pose.ky || 0,
+    angle: pose.angle || 0,
+    radius: pose.radius || 13,
+    hp: pose.hp,
+    maxHp: pose.maxHp,
+    activeWeapon: pose.activeWeapon,
+    inventory: pose.inventory,
+    upgrades: pose.upgrades,
+    stats: pose.stats || {},
+    ability: pose.ability || null,
+    economy: pose.economy,
+    orbiterPressure: pose.orbiterPressure,
+    orbiterSlowMult: pose.orbiterSlowMult || 1,
+    skin: pose.skin,
+    _visualReason: reason
+  };
+}
+
 function inputTransportKey(input = {}) {
   const ax = Number.isFinite(input.aimX) ? Math.round(input.aimX / INPUT_AIM_QUANTIZE) : 0;
   const ay = Number.isFinite(input.aimY) ? Math.round(input.aimY / INPUT_AIM_QUANTIZE) : 0;
@@ -84,6 +123,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     resetPredictionBuffer("location_change");
     resetRendererSmooth(app.renderer);
     app.camera.ready = false;
+    markLocalVisualSnap("location_change");
     app.input.resetKeys();
   }
 
@@ -96,8 +136,82 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       ackedSeq: app.lastAckedInputSeq || 0,
       pendingInputs: 0,
       replayed: 0,
-      driftPx: 0
+      driftPx: 0,
+      visualDriftPx: Math.round(Math.sqrt(visualDriftD2()))
     };
+  }
+
+  function visualDriftD2() {
+    if (!app.localPose || !app.localRenderPose) return 0;
+    const dx = (app.localPose.x || 0) - (app.localRenderPose.x || 0);
+    const dy = (app.localPose.y || 0) - (app.localRenderPose.y || 0);
+    return dx * dx + dy * dy;
+  }
+
+  function snapLocalRenderPose(reason = "snap") {
+    app.localRenderPose = cloneRenderPoseFromPhysics(app.localPose, reason);
+    app.localVisualStats = {
+      mode: "visual-shell",
+      reason,
+      driftPx: 0,
+      snap: true
+    };
+  }
+
+  function markLocalVisualSnap(reason = "authoritative_snap") {
+    app.localVisualSnapReason = reason;
+  }
+
+  function updateLocalRenderPose(dt = 0, reason = "frame") {
+    if (!app.localPose) {
+      app.localRenderPose = null;
+      app.localVisualStats = { mode: "visual-shell", reason: "no_pose", driftPx: 0, snap: true };
+      return null;
+    }
+    if (!app.localRenderPose) {
+      snapLocalRenderPose(reason || "init");
+      return app.localRenderPose;
+    }
+
+    const d2 = visualDriftD2();
+    const snapReason = app.localVisualSnapReason;
+    const mustSnap = !!snapReason || d2 > LOCAL_VISUAL_SNAP_D2;
+    if (mustSnap) {
+      snapLocalRenderPose(snapReason || "large_visual_drift");
+      app.localVisualSnapReason = "";
+      return app.localRenderPose;
+    }
+
+    const t = d2 > LOCAL_VISUAL_TELEPORT_D2 ? 0.82 : Math.max(0, Math.min(1, 1 - Math.exp(-LOCAL_VISUAL_SMOOTH_RATE * Math.max(0, dt || 0))));
+    app.localRenderPose.x += ((app.localPose.x || 0) - (app.localRenderPose.x || 0)) * t;
+    app.localRenderPose.y += ((app.localPose.y || 0) - (app.localRenderPose.y || 0)) * t;
+    app.localRenderPose.vx = app.localPose.vx || 0;
+    app.localRenderPose.vy = app.localPose.vy || 0;
+    app.localRenderPose.kx = app.localPose.kx || 0;
+    app.localRenderPose.ky = app.localPose.ky || 0;
+    app.localRenderPose.angle += shortestAngleDelta(app.localRenderPose.angle || 0, app.localPose.angle || 0) * Math.min(1, t * 1.35);
+    app.localRenderPose.radius = app.localPose.radius || app.localRenderPose.radius || 13;
+    app.localRenderPose.hp = app.localPose.hp;
+    app.localRenderPose.maxHp = app.localPose.maxHp;
+    app.localRenderPose.activeWeapon = app.localPose.activeWeapon;
+    app.localRenderPose.inventory = app.localPose.inventory;
+    app.localRenderPose.upgrades = app.localPose.upgrades;
+    app.localRenderPose.stats = app.localPose.stats || {};
+    app.localRenderPose.ability = app.localPose.ability || null;
+    app.localRenderPose.economy = app.localPose.economy;
+    app.localRenderPose.orbiterPressure = app.localPose.orbiterPressure;
+    app.localRenderPose.orbiterSlowMult = app.localPose.orbiterSlowMult || 1;
+    app.localRenderPose.name = app.localPose.name;
+    app.localRenderPose.skin = app.localPose.skin;
+
+    app.localVisualStats = {
+      mode: "visual-shell",
+      reason,
+      driftPx: Math.round(Math.sqrt(visualDriftD2())),
+      snap: false,
+      smoothing: Math.round(t * 100)
+    };
+    return app.localRenderPose;
   }
 
   function hostPoseFromSnapshot(me) {
@@ -142,7 +256,9 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.ky = replayedPose.ky || 0;
     app.localPose.angle = replayedPose.angle || 0;
     app.localPose._hostImpulseSeq = hostImpulseSeq;
-    if (locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2) app.localPose._localDashPredictedAt = 0;
+    const hardSnap = !!(locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2);
+    if (hardSnap) app.localPose._localDashPredictedAt = 0;
+    if (hardSnap) markLocalVisualSnap(locationChanged ? "location_change" : hostImpulseHardDrift ? "host_impulse" : staleDeniedDash ? "dash_denied" : "large_reconcile");
 
     app.reconcileStats = {
       mode: "rollback-replay",
@@ -153,7 +269,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       driftPx: Math.round(Math.sqrt(d2)),
       hostImpulseSeq,
       extrapolateMs: Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, hostRttMs() * 0.5)),
-      snap: !!(locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2)
+      visualDriftPx: Math.round(Math.sqrt(visualDriftD2())),
+      snap: hardSnap
     };
   }
 
@@ -184,6 +301,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: Number.isFinite(me.vx) ? me.vx : 0, vy: Number.isFinite(me.vy) ? me.vy : 0, kx: Number.isFinite(me.kx) ? me.kx : 0, ky: Number.isFinite(me.ky) ? me.ky : 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1, _hostImpulseSeq: me.hostImpulseSeq || 0 };
       app.lastAckedInputSeq = Number.isFinite(me.inputSeq) ? Math.max(app.lastAckedInputSeq || 0, me.inputSeq) : (app.lastAckedInputSeq || 0);
       resetPredictionBuffer("initial_snapshot");
+      snapLocalRenderPose("initial_snapshot");
       return;
     }
     app.localPose.hp = me.hp;
@@ -259,6 +377,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const nowSec = (performance.now() / 1000) * GAME_SPEED;
     if (!canPredictDash(app.localPose, nowSec)) return;
     predictLocalDash(app.localPose, inputState, nowSec, app.snapshot?.location);
+    snapLocalRenderPose("local_dash");
     app.transport?.sendToHost({ t: "ability", ability: "dash", input: inputState, seq: app.abilitySeq });
   }
 
@@ -381,12 +500,15 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.y = clamp(app.localPose.y, app.localPose.radius, WORLD.h - app.localPose.radius);
     recordPredictionFrame(inputState, dt, now);
     tryLocalShoot(gameNow, inputState);
+    updateLocalRenderPose(dt, "prediction_frame");
   }
 
   function resetGuestPose(index) {
     app.localInventory = createInventory([START_WEAPON]);
     app.localWeapon = START_WEAPON;
     app.localCooldowns = Object.create(null);
+    app.localRenderPose = null;
+    app.localVisualStats = { mode: "visual-shell", reason: "guest_reset", driftPx: 0, snap: true };
   }
 
   return {
@@ -402,6 +524,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     tryLocalShoot,
     updateGuest,
     sendGuestInput,
+    updateLocalRenderPose,
+    snapLocalRenderPose,
     resetGuestPose
   };
 }
