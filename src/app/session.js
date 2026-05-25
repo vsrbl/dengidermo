@@ -35,6 +35,20 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     try { localStorage.setItem(key, String(token)); } catch { /* storage may be unavailable */ }
   }
 
+  function summarizeTransportModes(modes = {}) {
+    const values = Object.values(modes || {}).filter(Boolean);
+    if (!values.length) return "RELAY";
+    const p2p = values.filter((mode) => mode === "P2P").length;
+    if (p2p === values.length) return "P2P";
+    if (p2p === 0) return "RELAY";
+    return "MIXED";
+  }
+
+  function setTransportModes(modes = {}) {
+    app.transportModes = modes && typeof modes === "object" ? { ...modes } : {};
+    app.transportMode = summarizeTransportModes(app.transportModes);
+  }
+
   function makeTransport() {
     return new Transport(signalingUrl, {
       onReady: handleReady,
@@ -46,7 +60,11 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       onPlayerReplaced: handlePlayerReplaced,
       onData: (msg, from, mode) => onNetData?.(msg, from, mode),
       onPing: (ms) => { app.pingMs = ms; },
-      onPeerState: (_id, state) => { if (state === "open") app.transportMode = "P2P"; },
+      onPeerMode: (_id, _mode, modes) => setTransportModes(modes),
+      onPeerModes: (modes) => setTransportModes(modes),
+      onPeerState: (_id, state) => {
+        if (state === "relay" || state === "relay_oversize") setTransportModes(app.transport?.getPeerTransportModes?.() || app.transportModes);
+      },
       onError: (message) => handleConnectError(message),
       onClose: () => handleTransportClose()
     });
@@ -99,7 +117,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       app.ui.flashError("connection closed");
       return;
     }
-    if (app.running) app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "OFF", release: app.release });
+    if (app.running) app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "OFF", transportModes: app.transportModes, release: app.release });
   }
 
   function currentMenuName() {
@@ -194,6 +212,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.lastInputKey = "";
     app.lastSnapshotSent = 0;
     app.transportMode = "RELAY";
+    app.transportModes = {};
     app.pingMs = null;
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
@@ -229,7 +248,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     }
 
     app.ui.showGame(app.roomId);
-    app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
+    app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
   }
 
   function markRemotePlayerConnected(id) {

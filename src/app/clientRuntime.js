@@ -142,6 +142,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
         players: app.players,
         playerNames: app.playerNames,
         transportMode: app.transportMode,
+        transportModes: app.transportModes,
         release: app.release
       });
       return true;

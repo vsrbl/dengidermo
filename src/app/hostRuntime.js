@@ -1,4 +1,4 @@
-import { SNAPSHOT_RATE } from "../core/constants.js";
+import { SNAPSHOT_RATE_P2P, SNAPSHOT_RATE_RELAY, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES } from "../core/constants.js";
 import { addPlayer, makeSnapshot, removePlayer } from "../game/state.js";
 import { fireWeapon } from "../game/combat.js";
 import { emptyInput, normalizeHostInput, updateHostWorld } from "../game/simulation.js";
@@ -87,8 +87,56 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
   function applyCasinoSpinRequest(id, request = {}) {
     if (!app.hostState) return { ok: false, reason: "no_host_state" };
     const result = casinoSpinResultSnapshot(requestCasinoSpin(app.hostState, id, request));
-    if (id && id !== app.playerId) app.transport?.sendTo(id, { t: "casinoResult", result });
+    if (id && id !== app.playerId) app.transport?.sendTo(id, { t: "casinoResult", result }, { channel: "cmd" });
     return result;
+  }
+
+  function remotePlayerIds() {
+    return app.players.filter((id) => id && id !== app.playerId);
+  }
+
+  function snapshotModeForPeer(peerId) {
+    return app.transport?.getPeerTransportMode?.(peerId) === "P2P" ? "p2p" : "relay";
+  }
+
+  function snapshotIntervalForMode(mode) {
+    return 1000 / (mode === "p2p" ? SNAPSHOT_RATE_P2P : SNAPSHOT_RATE_RELAY);
+  }
+
+  function statePacketForMode(cache, mode) {
+    if (cache[mode]) return cache[mode];
+    const options = mode === "relay"
+      ? { mode: "relay", targetBytes: SNAPSHOT_RELAY_TARGET_BYTES, limitBytes: SNAPSHOT_RELAY_STATE_LIMIT_BYTES }
+      : { mode: "p2p" };
+    cache[mode] = buildNetworkStatePacket(app.snapshot, options);
+    return cache[mode];
+  }
+
+  function broadcastSnapshots(now) {
+    const peers = remotePlayerIds();
+    if (!peers.length) return;
+    if (!app.lastSnapshotSentByPeer) app.lastSnapshotSentByPeer = Object.create(null);
+    const packetCache = Object.create(null);
+    const metaByPeer = {};
+
+    for (const peerId of peers) {
+      const mode = snapshotModeForPeer(peerId);
+      const lastSent = app.lastSnapshotSentByPeer[peerId] || 0;
+      if (now - lastSent < snapshotIntervalForMode(mode)) continue;
+      const statePacket = statePacketForMode(packetCache, mode);
+      const sendMode = app.transport?.sendTo(peerId, statePacket.packet, {
+        channel: "state",
+        preferRelay: mode === "relay",
+        relayFallback: mode === "relay"
+      });
+      app.lastSnapshotSentByPeer[peerId] = now;
+      metaByPeer[peerId] = { ...statePacket.meta, requestedMode: mode, sentMode: sendMode || "none" };
+    }
+
+    if (Object.keys(metaByPeer).length) {
+      app.lastSnapshotPacket = Object.values(metaByPeer).at(-1);
+      app.lastSnapshotPackets = metaByPeer;
+    }
   }
 
   function handleNetData(msg, from) {
@@ -153,12 +201,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
       app.localLocationId = nextLocationId;
     }
 
-    if (now - app.lastSnapshotSent > 1000 / SNAPSHOT_RATE) {
-      app.lastSnapshotSent = now;
-      const statePacket = buildNetworkStatePacket(app.snapshot);
-      app.lastSnapshotPacket = statePacket.meta;
-      app.transport?.broadcast(statePacket.packet);
-    }
+    broadcastSnapshots(now);
   }
 
   return {

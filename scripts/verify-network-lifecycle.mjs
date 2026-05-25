@@ -38,7 +38,32 @@ const transportSrc = readFileSync(path.join(root, 'src/net/transport.js'), 'utf8
 const sessionSrc = readFileSync(path.join(root, 'src/app/session.js'), 'utf8');
 assert.match(transportSrc, /reconnectToken: options\.reconnectToken/, 'transport must send saved reconnect token on guest join');
 assert.match(transportSrc, /reconnectToken: msg\.reconnectToken/, 'transport must surface server-issued reconnect tokens');
+assert.match(transportSrc, /createPeerChannels/, 'transport must create split peer data channels');
+assert.match(transportSrc, /createDataChannel\(config\.label, config\.options\)/, 'transport must create data channels with explicit reliability options');
+assert.match(transportSrc, /CHANNEL_KIND_STATE[\s\S]*ordered: false[\s\S]*maxRetransmits: 0/, 'state channel must be unordered/unreliable');
+assert.match(transportSrc, /CHANNEL_KIND_CMD[\s\S]*ordered: true/, 'cmd channel must stay reliable ordered');
+assert.match(transportSrc, /CHANNEL_KIND_INPUT[\s\S]*ordered: false[\s\S]*maxRetransmits: 0/, 'input channel must be low-latency unordered/unreliable');
+assert.doesNotMatch(transportSrc, /createDataChannel\("game"\)/, 'transport must not put gameplay traffic on one legacy reliable game channel');
+assert.match(transportSrc, /dc\.bufferedAmount > config\.maxBufferedAmount/, 'transport must guard p2p bufferedAmount before sending');
+assert.match(transportSrc, /dropWhenBackpressured \? "dropped" : "unavailable"/, 'state packets must be droppable under p2p backpressure while commands relay fallback');
+assert.match(transportSrc, /RELAY_MESSAGE_HARD_LIMIT_BYTES/, 'transport must cap relay websocket messages before send');
+assert.match(transportSrc, /sendRelay\(to, data\)/, 'transport must centralize relay sending behind strict size checks');
+assert.match(transportSrc, /getPeerTransportMode\(remoteId\)/, 'transport must expose per-peer transport mode');
+assert.match(sessionSrc, /transportModes/, 'session must keep per-peer transport modes for HUD and host policy');
 assert.match(sessionSrc, /nncckkrr\.reconnect/, 'session must persist reconnect tokens per room');
+
+const hostRuntimeSrc = readFileSync(path.join(root, 'src/app/hostRuntime.js'), 'utf8');
+const constantsSrc = readFileSync(path.join(root, 'src/core/constants.js'), 'utf8');
+const uiSrc = readFileSync(path.join(root, 'src/ui.js'), 'utf8');
+assert.match(constantsSrc, /SNAPSHOT_RATE_P2P\s*=\s*40/, 'P2P snapshots should keep the high-rate target');
+assert.match(constantsSrc, /SNAPSHOT_RATE_RELAY\s*=\s*15/, 'relay snapshots must use relay-safe 15Hz cadence');
+assert.match(constantsSrc, /SNAPSHOT_RELAY_TARGET_BYTES\s*=\s*44 \* 1024/, 'relay snapshots must target well below the websocket limit');
+assert.match(hostRuntimeSrc, /lastSnapshotSentByPeer/, 'host must rate-limit snapshots independently per peer');
+assert.match(hostRuntimeSrc, /SNAPSHOT_RATE_P2P[\s\S]*SNAPSHOT_RATE_RELAY/, 'host must choose snapshot cadence from per-peer transport mode');
+assert.match(hostRuntimeSrc, /relayFallback: mode === "relay"/, 'host must prevent high-rate P2P snapshot fallback into relay');
+assert.match(uiSrc, /transportModes = null/, 'HUD setNet must accept per-peer transport modes');
+assert.match(uiSrc, /peerText/, 'HUD must render per-peer transport modes instead of one global last-packet mode');
+
 
 const child = spawn(process.execPath, ['server/server.js'], {
   cwd: root,

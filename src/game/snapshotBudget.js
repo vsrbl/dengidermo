@@ -3,6 +3,8 @@ import { visualEffectPriority } from "./visualEffects.js";
 export const SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES = 64 * 1024;
 export const SNAPSHOT_WARNING_BYTES = 52 * 1024;
 export const SNAPSHOT_NETWORK_TARGET_BYTES = SNAPSHOT_WARNING_BYTES;
+export const SNAPSHOT_RELAY_TARGET_BYTES = 44 * 1024;
+export const SNAPSHOT_RELAY_STATE_LIMIT_BYTES = SNAPSHOT_WARNING_BYTES;
 export const SNAPSHOT_EFFECT_LIMIT = 48;
 
 function estimateJsonBytes(value) {
@@ -308,6 +310,7 @@ export function buildNetworkStatePacket(snapshot, options = {}) {
         warningBytes: SNAPSHOT_WARNING_BYTES,
         targetBytes,
         limitBytes,
+        mode: options.mode || "default",
         degraded: false,
         emergency: false,
         stages: []
@@ -353,6 +356,7 @@ export function buildNetworkStatePacket(snapshot, options = {}) {
     warningBytes: SNAPSHOT_WARNING_BYTES,
     targetBytes,
     limitBytes,
+    mode: options.mode || "default",
     degraded: true,
     emergency,
     stages

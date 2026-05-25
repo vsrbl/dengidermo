@@ -92,14 +92,18 @@ export function createUi() {
     setTimeout(() => el.roomTitle.classList.remove("copy-flash"), 220);
   }
 
-  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, dev = null, release = null }) {
+  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, transportModes = null, dev = null, release = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
     const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
     const id = playerId || "--";
     const names = playerNames && typeof playerNames === "object" ? playerNames : {};
     const name = names[id] || id;
     const count = Array.isArray(players) ? players.length : 0;
-    const tr = transportMode || "LINK";
+    const peerModes = transportModes && typeof transportModes === "object" ? transportModes : {};
+    const peerText = Array.isArray(players)
+      ? players.filter((peerId) => peerId && peerId !== id).map((peerId) => `${names[peerId] || peerId}:${peerModes[peerId] || "RELAY"}`).join(" ")
+      : "";
+    const tr = peerText ? `${transportMode || "LINK"} [${peerText}]` : (transportMode || "LINK");
     const build = BUILD_ID.replace(`${VERSION}-`, "").toUpperCase();
     const releaseText = release?.status && release.status !== "ok" && release.status !== "checking"
       ? ` | ${String(release.message || release.status).toUpperCase().slice(0, 64)}`

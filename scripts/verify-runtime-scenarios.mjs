@@ -36,7 +36,7 @@ import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/ab
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
 import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
-import { buildNetworkStatePacket, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
+import { buildNetworkStatePacket, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -576,6 +576,12 @@ function assertUnlimitedCompanionStackScenario() {
   assert.ok(safePacket.meta.degraded, 'oversized network state packet should record degradation');
   assert.ok(safePacket.meta.stages.some((stage) => stage.startsWith('playerStatSnapshots')), 'hard budget should strip heavy stat snapshots before risking relay closure');
   assert.ok(safeBytes <= SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, `hard-budgeted packet ${safeBytes} bytes must stay under server relay limit ${SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES}`);
+
+  const relayPacket = buildNetworkStatePacket(overloaded, { mode: 'relay', targetBytes: SNAPSHOT_RELAY_TARGET_BYTES, limitBytes: SNAPSHOT_RELAY_STATE_LIMIT_BYTES });
+  const relayBytes = JSON.stringify(relayPacket.packet).length;
+  assert.equal(relayPacket.meta.mode, 'relay', 'relay-safe snapshot packet should record relay mode metadata');
+  assert.ok(relayPacket.meta.targetBytes === SNAPSHOT_RELAY_TARGET_BYTES, 'relay-safe packet should use the stricter relay target');
+  assert.ok(relayBytes <= SNAPSHOT_RELAY_STATE_LIMIT_BYTES, `relay-safe packet ${relayBytes} bytes must stay below strict relay cap ${SNAPSHOT_RELAY_STATE_LIMIT_BYTES}`);
 }
 
 

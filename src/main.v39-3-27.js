@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-25.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-25.js";
-import { createSessionRuntime } from "./app/session.v39-3-25.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-25.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-25.js";
-import { createDevControls } from "./app/devControls.v39-3-25.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-25.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-27.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-27.js";
+import { createSessionRuntime } from "./app/session.v39-3-27.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-27.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-27.js";
+import { createDevControls } from "./app/devControls.v39-3-27.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-27.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -43,6 +43,7 @@ function createAppState() {
     playerNames: {},
     pingMs: null,
     transportMode: "LINK",
+    transportModes: {},
     connecting: false,
     connectTimer: 0,
     hostState: null,
@@ -156,8 +157,6 @@ function isAuthoritativeHostPacket(msg) {
 
 function handleNetData(msg, from, mode) {
   if (!msg || !msg.t) return;
-  app.transportMode = mode === "p2p" ? "P2P" : "RELAY";
-
   if (app.role === "host") {
     hostRuntime.handleNetData(msg, from);
     return;
@@ -186,7 +185,7 @@ function updateHud() {
   app.ui.setProcFeed(app.rewardEventFeed.ingest(events, { playerId: app.playerId }));
   app.ui.setScreenMoment(app.momentFeed.ingest(events, { playerId: app.playerId, snapshot: app.snapshot }));
   app.ui.setKillCombo(app.killComboFeed.ingest(events, { playerId: app.playerId }));
-  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
+  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 
 function loop(now) {

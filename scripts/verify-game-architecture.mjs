@@ -278,7 +278,21 @@ assert.match(stateRuntime, /const companionPacket = companionSnapshots\(state\)/
 assert.doesNotMatch(stateRuntime, /Object\.values\(state\.companions \|\| \{\}\)\.map\(\(c\) => companionSnapshot\(c\)\)/, 'makeSnapshot must not send every companion entity during unlimited-stack runs');
 assert.match(stateRuntime, /const effectPacket = budgetEffects\(state\.effects\)/, 'makeSnapshot must route effects through the snapshot effect budget');
 assert.match(stateRuntime, /snapshot\.budget = buildSnapshotBudgetMeta/, 'makeSnapshot must expose snapshot budget metadata for tests/debug HUDs');
-assert.match(read('src/app/hostRuntime.js'), /buildNetworkStatePacket\(app\.snapshot\)/, 'host runtime must hard-budget network snapshots before broadcast');
+assert.match(read('src/app/hostRuntime.js'), /buildNetworkStatePacket\(app\.snapshot, options\)/, 'host runtime must hard-budget network snapshots per transport mode before send');
+assert.match(read('src/app/hostRuntime.js'), /SNAPSHOT_RATE_P2P[\s\S]*SNAPSHOT_RATE_RELAY/, 'host runtime must use different P2P and relay snapshot rates');
+assert.match(read('src/app/hostRuntime.js'), /getPeerTransportMode\?\.\(peerId\)/, 'host runtime must choose snapshot path per peer rather than from one global mode');
+assert.match(read('src/app/hostRuntime.js'), /preferRelay: mode === "relay"/, 'host runtime must explicitly relay only relay-mode peer snapshots');
+assert.match(read('src/app/hostRuntime.js'), /relayFallback: mode === "relay"/, 'host runtime must not fall back high-rate P2P snapshots into relay');
+assert.match(read('src/app/devControls.js'), /SNAPSHOT_RELAY_TARGET_BYTES/, 'dev snapshot broadcasts must use relay-safe snapshot budgets');
+assert.match(read('src/app/devControls.js'), /getPeerTransportMode\?\.\(peerId\)/, 'dev snapshot broadcasts must route per peer');
+const transportRuntime = read('src/net/transport.js');
+assert.match(transportRuntime, /CHANNEL_KIND_STATE[\s\S]*ordered: false[\s\S]*maxRetransmits: 0/, 'network state channel must be unreliable/unordered for fresh snapshots');
+assert.match(transportRuntime, /CHANNEL_KIND_CMD[\s\S]*ordered: true/, 'network command channel must remain reliable ordered');
+assert.match(transportRuntime, /CHANNEL_KIND_INPUT[\s\S]*ordered: false[\s\S]*maxRetransmits: 0/, 'network input channel must be split from state/cmd channels');
+assert.doesNotMatch(transportRuntime, /createDataChannel\("game"\)/, 'transport split must not use one monolithic game channel');
+assert.match(transportRuntime, /dc\.bufferedAmount > config\.maxBufferedAmount/, 'transport must apply bufferedAmount backpressure guards');
+assert.match(transportRuntime, /RELAY_MESSAGE_HARD_LIMIT_BYTES/, 'transport must strictly cap relay websocket envelopes before sending');
+assert.match(transportRuntime, /getPeerTransportModes/, 'transport must expose per-peer transport modes for relay-safe sending and HUD');
 assert.match(rendererRuntime, /function drawCompanionGroup/, 'renderer must support compressed companion group markers');
 
 const chests = read('src/game/chests.js');
