@@ -82,6 +82,9 @@ function assertHostAuthorityScenario() {
   assert.ok(guest.x > beforeX, 'host should still move guests from directional input');
   assert.ok(guest.x < beforeX + 20, 'directional input movement should stay within normal host-derived movement bounds');
   assert.ok(Math.abs(guest.y - beforeY) < 2, 'malicious py should not add vertical teleport drift while moving horizontally');
+  updateHostWorld(state, { p2: { right: true, aimAngle: 0, inputSeq: 42 } }, 1 / 60);
+  assert.equal(guest.lastInputSeq, 42, 'host should track last acknowledged input sequence for remote movement debugging');
+  assert.equal(makeSnapshot(state).players.find((p) => p.id === 'p2')?.inputSeq, 42, 'snapshot should expose last acknowledged input sequence');
 
   state.time = 10;
   const shotX = guest.x;

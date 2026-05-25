@@ -68,6 +68,7 @@ export class Transport {
     this.peers = new Map();
     this.channels = new Map();
     this.peerModes = new Map();
+    this.peerPings = new Map();
     this.pendingCandidates = new Map();
     this.connected = false;
     this.pingMs = null;
@@ -185,6 +186,7 @@ export class Transport {
       else this.players.delete(msg.playerId);
       this.closePeer(msg.playerId);
       this.peerModes.delete(msg.playerId);
+      this.peerPings.delete(msg.playerId);
       this.syncNames(msg.names);
       this.callbacks.onPeerModes?.(this.peerModesObject());
       this.callbacks.onPlayerLeft?.(msg.playerId, msg.reason || "left", { players: [...this.players], names: this.namesObject() });
@@ -295,6 +297,35 @@ export class Transport {
     return modes;
   }
 
+  getPeerPingMs(remoteId) {
+    const value = this.peerPings.get(remoteId);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  getPeerPings() {
+    const pings = {};
+    for (const id of this.players) {
+      if (!id || id === this.playerId) continue;
+      const value = this.getPeerPingMs(id);
+      if (Number.isFinite(value)) pings[id] = value;
+    }
+    return pings;
+  }
+
+  handleInternalPeerMessage(remoteId, msg) {
+    if (msg?.t === "netPing") {
+      this.sendViaDataChannel(remoteId, { t: "netPong", sentAt: msg.sentAt }, CHANNEL_KIND_CMD);
+      return true;
+    }
+    if (msg?.t === "netPong" && Number.isFinite(msg.sentAt)) {
+      const rtt = Math.max(0, Math.round(performance.now() - msg.sentAt));
+      this.peerPings.set(remoteId, rtt);
+      this.callbacks.onPeerPing?.(remoteId, rtt, this.getPeerPings());
+      return true;
+    }
+    return false;
+  }
+
   attachChannel(remoteId, dc) {
     const kind = isKnownChannelKind(dc.label) ? dc.label : CHANNEL_KIND_LEGACY;
     dc.binaryType = "arraybuffer";
@@ -308,7 +339,9 @@ export class Transport {
     };
     dc.onmessage = (e) => {
       const msg = typeof e.data === "string" ? safeJson(e.data) : null;
-      if (msg) this.callbacks.onData?.(msg, remoteId, "p2p", { channel: kind });
+      if (!msg) return;
+      if (this.handleInternalPeerMessage(remoteId, msg)) return;
+      this.callbacks.onData?.(msg, remoteId, "p2p", { channel: kind });
     };
     this.channelRecord(remoteId).set(kind, dc);
   }
@@ -458,6 +491,10 @@ export class Transport {
     if (!this.connected || now - this.lastPing < PING_RATE_MS) return;
     this.lastPing = now;
     this.sendWs({ type: "ping", t: now });
+    for (const id of this.players) {
+      if (!id || id === this.playerId) continue;
+      this.sendViaDataChannel(id, { t: "netPing", sentAt: now }, CHANNEL_KIND_CMD);
+    }
   }
 
   closePeer(id) {
@@ -469,6 +506,7 @@ export class Transport {
     this.channels.delete(id);
     this.peers.delete(id);
     this.pendingCandidates.delete(id);
+    this.peerPings.delete(id);
   }
 
   sendLeaveNotice() {
@@ -494,5 +532,6 @@ export class Transport {
     this.players.clear();
     this.names.clear();
     this.peerModes.clear();
+    this.peerPings.clear();
   }
 }

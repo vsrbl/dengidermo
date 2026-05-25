@@ -184,7 +184,8 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     ensureHostPlayers();
     const inputState = app.input.sample(app.localPose || app.hostState.players[app.playerId], app.camera);
     const me = app.hostState.players[app.playerId];
-    app.hostInputs[app.playerId] = inputState;
+    app.inputSeq = (app.inputSeq || 0) + 1;
+    app.hostInputs[app.playerId] = { ...inputState, inputSeq: app.inputSeq };
     updateHostWorld(app.hostState, app.hostInputs, dt);
     app.localPose = me;
     app.localInventory = ensureInventory(me);

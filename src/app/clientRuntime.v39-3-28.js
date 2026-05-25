@@ -10,13 +10,13 @@ import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
 import { roomGeometryIdentityMatches } from "../game/roomGeometry.js";
 
-const HOST_SMOOTH_RECONCILE_D2 = 72 * 72;
-const HOST_HARD_RECONCILE_D2 = 360 * 360;
-const HOST_IMPULSE_HARD_RECONCILE_D2 = 300 * 300;
-const HOST_NORMAL_CORRECTION_FACTOR = 0.045;
-const HOST_IMPULSE_CORRECTION_FACTOR = 0.10;
-const HOST_NORMAL_CORRECTION_MAX_STEP = 4;
-const HOST_IMPULSE_CORRECTION_MAX_STEP = 8;
+const HOST_SMOOTH_RECONCILE_D2 = 10 * 10;
+const HOST_HARD_RECONCILE_D2 = 240 * 240;
+const HOST_IMPULSE_HARD_RECONCILE_D2 = 260 * 260;
+const HOST_NORMAL_CORRECTION_FACTOR = 0.12;
+const HOST_IMPULSE_CORRECTION_FACTOR = 0.16;
+const HOST_NORMAL_CORRECTION_MAX_STEP = 9;
+const HOST_IMPULSE_CORRECTION_MAX_STEP = 13;
 const HOST_RECONCILE_EXTRAPOLATE_MS = 80;
 const INPUT_AIM_QUANTIZE = 16;
 
@@ -39,6 +39,14 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const fromSnapshot = app.snapshot?.players?.find((p) => p.id === app.playerId);
     if (fromSnapshot) return fromSnapshot;
     return app.localPose;
+  }
+
+  function hostRttMs() {
+    const p2p = app.transport?.getPeerPingMs?.("p1");
+    if (Number.isFinite(p2p)) return p2p;
+    const cached = app.peerPingMs?.p1;
+    if (Number.isFinite(cached)) return cached;
+    return Number.isFinite(app.pingMs) ? app.pingMs : 0;
   }
 
   function resetPredictionForLocationChange() {
@@ -80,10 +88,11 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.name = me.name || session.playerDisplayName(app.playerId);
     app.localPose.skin = me.skin;
     if ((me.ability?.dash?.cooldownLeft || 0) > 0) app.localPose._localDashPredictedAt = 0;
+    if (Number.isFinite(me.inputSeq)) app.lastAckedInputSeq = Math.max(app.lastAckedInputSeq || 0, me.inputSeq);
     const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
     const impulseChanged = hostImpulseSeq !== (app.localPose._hostImpulseSeq || 0);
     if (impulseChanged) app.localPose._hostImpulseSeq = hostImpulseSeq;
-    const oneWayMs = Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, Number(app.pingMs || 0) * 0.5));
+    const oneWayMs = Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, hostRttMs() * 0.5));
     const lead = (oneWayMs / 1000) * GAME_SPEED;
     const hostVx = (Number.isFinite(me.vx) ? me.vx : 0) + (Number.isFinite(me.kx) ? me.kx : 0);
     const hostVy = (Number.isFinite(me.vy) ? me.vy : 0) + (Number.isFinite(me.ky) ? me.ky : 0);
@@ -249,9 +258,11 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
   }
 
   function tryLocalShoot(nowSec, inputState) {
-    if (!app.localPose || !inputState.firePressed) return;
+    if (!app.localPose) return;
     const weaponId = WEAPONS[app.localWeapon] ? app.localWeapon : (WEAPONS[app.localPose.activeWeapon] ? app.localPose.activeWeapon : START_WEAPON);
     const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
+    const wantsFire = weapon.holdToFire ? inputState.fire : inputState.firePressed;
+    if (!wantsFire) return;
     const fireRateMult = Math.max(0.1, app.localPose.stats?.fireRateMult || 1);
     if (nowSec < (app.localCooldowns[weaponId] || 0)) return;
     app.localCooldowns[weaponId] = nowSec + 1 / (weapon.fireRate * fireRateMult);
@@ -276,7 +287,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     if (!changed && !due && !inputState.firePressed) return;
     app.lastInputKey = key;
     app.lastInputSent = now;
-    app.transport?.sendToHost({ t: "input", input: inputState });
+    app.inputSeq = (app.inputSeq || 0) + 1;
+    app.transport?.sendToHost({ t: "input", input: { ...inputState, inputSeq: app.inputSeq } }, { channel: "input" });
   }
 
   function updateGuest(dt, now, gameNow) {

@@ -12,6 +12,7 @@ export const WEAPONS = {
     radius: 4,
     color: "white",
     recoil: 48,
+    holdToFire: true,
     knockback: 170,
     hitPadding: 4,
     effects: [

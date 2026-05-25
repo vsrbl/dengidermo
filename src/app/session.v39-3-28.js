@@ -62,6 +62,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       onPing: (ms) => { app.pingMs = ms; },
       onPeerMode: (_id, _mode, modes) => setTransportModes(modes),
       onPeerModes: (modes) => setTransportModes(modes),
+      onPeerPing: (id, ms, pings) => { app.peerPingMs = { ...(pings || {}), [id]: ms }; },
       onPeerState: (_id, state) => {
         if (state === "relay" || state === "relay_oversize") setTransportModes(app.transport?.getPeerTransportModes?.() || app.transportModes);
       },
@@ -214,6 +215,9 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.transportMode = "RELAY";
     app.transportModes = {};
     app.pingMs = null;
+    app.peerPingMs = {};
+    app.inputSeq = 0;
+    app.lastAckedInputSeq = 0;
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
     app.disconnectedPlayers = Object.create(null);

@@ -50,6 +50,12 @@ function test(name, fn) {
   catch (e) { results.push(['fail', name, e]); }
 }
 
+test('shotgun is hold-to-fire rather than click-only', () => {
+  assert.equal(WEAPONS.shotgun.holdToFire, true, 'shotgun should keep the old hold-to-fire/зажим behavior');
+  assert.notEqual(WEAPONS.seeker.holdToFire, true, 'seeker should remain click/semi-auto unless explicitly changed');
+  assert.notEqual(WEAPONS.rocket.holdToFire, true, 'rocket should remain click/semi-auto unless explicitly changed');
+});
+
 test('shotgun spread is tight enough for a compact cone', () => {
   const spread = WEAPONS.shotgun.spread;
   const pellets = WEAPONS.shotgun.pellets;

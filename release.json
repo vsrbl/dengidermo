@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.27",
-  "buildId": "v39.3.27-20260525",
+  "version": "v39.3.28",
+  "buildId": "v39.3.28-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-27.js?v=39.3.27",
-  "style": "./style.css?v=39.3.27",
-  "config": "./config.js?v=39.3.27",
+  "entry": "./src/main.v39-3-28.js?v=39.3.28",
+  "style": "./style.css?v=39.3.28",
+  "config": "./config.js?v=39.3.28",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.27 relay-safe mode: sends per-peer snapshots at P2P or relay rates, hard-caps relay packets below the websocket close limit, and shows per-peer P2P/RELAY link status instead of one global last-packet mode."
+  "notes": "v39.3.28 position sync and shotgun hold-fire: tightens guest reconcile for visible drift, adds direct peer RTT and acknowledged input sequence diagnostics, and restores shotgun hold-to-fire behavior."
 }

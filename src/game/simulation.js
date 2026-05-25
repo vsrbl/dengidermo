@@ -19,7 +19,7 @@ import { tickVisualEffects } from "./visualEffects.js";
 import { updateOrbiterPressure } from "./orbiterPressure.js";
 
 export function emptyInput() {
-  return { left: false, right: false, up: false, down: false, aimAngle: 0, aimX: null, aimY: null, fire: false, firePressed: false, originX: null, originY: null, vx: 0, vy: 0, kx: 0, ky: 0 };
+  return { left: false, right: false, up: false, down: false, aimAngle: 0, aimX: null, aimY: null, fire: false, firePressed: false, originX: null, originY: null, vx: 0, vy: 0, kx: 0, ky: 0, inputSeq: 0 };
 }
 
 function smoothFactor(rate, dt) {
@@ -78,6 +78,7 @@ export function normalizeHostInput(raw = {}) {
   input.vy = Number.isFinite(raw.vy) ? clamp(raw.vy, -PLAYER_SPEED * 4, PLAYER_SPEED * 4) : 0;
   input.kx = Number.isFinite(raw.kx) ? clamp(raw.kx, -PLAYER_SPEED * 6, PLAYER_SPEED * 6) : 0;
   input.ky = Number.isFinite(raw.ky) ? clamp(raw.ky, -PLAYER_SPEED * 6, PLAYER_SPEED * 6) : 0;
+  input.inputSeq = Number.isFinite(raw.inputSeq) ? Math.max(0, Math.min(999999999, Math.floor(raw.inputSeq))) : 0;
   return input;
 }
 
@@ -87,6 +88,7 @@ export function updatePlayers(state, inputs, dt) {
   for (const [index, id] of ids.entries()) {
     const player = state.players[id];
     const input = normalizeHostInput(inputs[id]);
+    if (Number.isFinite(input.inputSeq)) player.lastInputSeq = Math.max(player.lastInputSeq || 0, input.inputSeq);
 
     if (player.hp <= 0) {
       player.deadTimer += dt;

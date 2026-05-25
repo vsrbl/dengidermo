@@ -156,6 +156,13 @@ assert.doesNotMatch(clientRuntime, /HOST_IMPULSE_RECONCILE_D2/, 'guest host impu
 assert.doesNotMatch(clientRuntime, /impulseDrift/, 'guest host impulse correction must not hard-snap on ordinary hostile knockback drift');
 assert.match(clientRuntime, /HOST_IMPULSE_CORRECTION_MAX_STEP/, 'guest host impulse correction must use capped soft convergence after hostile knockback');
 assert.match(clientRuntime, /HOST_RECONCILE_EXTRAPOLATE_MS/, 'guest reconcile should target an extrapolated host pose rather than stale snapshot position');
+
+assert.match(clientRuntime, /HOST_SMOOTH_RECONCILE_D2 = 10 \* 10/, 'guest local position reconciliation must correct visible sub-72px drift');
+assert.match(clientRuntime, /hostRttMs\(\)/, 'guest reconcile must prefer direct peer RTT when available');
+assert.match(clientRuntime, /weapon\.holdToFire \? inputState\.fire : inputState\.firePressed/, 'weapon fire mode must support hold-to-fire shotgun without making every weapon automatic');
+assert.match(read('src/data/weapons.js'), /shotgun:[\s\S]*holdToFire: true/, 'shotgun must be hold-to-fire instead of one-shot click-only');
+assert.match(read('src/game/state.js'), /inputSeq:/, 'snapshot must expose acknowledged movement input sequence for desync debugging');
+assert.match(read('src/net/transport.js'), /netPing/, 'transport must measure direct peer RTT, not only signaling ping');
 assert.match(clientRuntime, /hostImpulseHardDrift/, 'guest host impulse correction may only hard-snap on extreme hostile knockback drift');
 assert.match(clientRuntime, /app\.localPose\.kx \+= \(hostKx - app\.localPose\.kx\) \* 0\.22/, 'guest knockback velocity must blend gently toward host kx instead of snapping every hostile impulse');
 assert.match(hostRuntime, /normalizeHostInput\(msg\.input\)/, 'host runtime must sanitize remote input packets before storing them');
