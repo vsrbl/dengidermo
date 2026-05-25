@@ -53,7 +53,8 @@ export function movePlayer(player, input, dt, loc = null) {
     player.x = clamp(player.x + dx, player.radius, WORLD.w - player.radius);
     player.y = clamp(player.y + dy, player.radius, WORLD.h - player.radius);
   }
-  if (Number.isFinite(input.aimAngle)) player.angle = input.aimAngle;
+  if (Number.isFinite(input.aimX) && Number.isFinite(input.aimY)) player.angle = vecToAngle(input.aimX - player.x, input.aimY - player.y);
+  else if (Number.isFinite(input.aimAngle)) player.angle = input.aimAngle;
 }
 
 function bool(value) {
@@ -68,6 +69,8 @@ export function normalizeHostInput(raw = {}) {
   input.down = bool(raw.down);
   input.fire = bool(raw.fire);
   input.aimAngle = Number.isFinite(raw.aimAngle) ? raw.aimAngle : 0;
+  input.aimX = Number.isFinite(raw.aimX) ? clamp(raw.aimX, -WORLD.w, WORLD.w * 2) : null;
+  input.aimY = Number.isFinite(raw.aimY) ? clamp(raw.aimY, -WORLD.h, WORLD.h * 2) : null;
   return input;
 }
 
@@ -121,12 +124,14 @@ export function updateHostWorld(state, inputs, dt) {
   syncAllPlayerStatSnapshots(state);
 }
 
-export function makeShootPayload(playerId, pose, weapon, fireSeq) {
+export function makeShootPayload(playerId, pose, weapon, fireSeq, input = null) {
   return {
     playerId,
     fireSeq,
     weapon,
-    angle: pose.angle
+    angle: pose.angle,
+    aimX: Number.isFinite(input?.aimX) ? input.aimX : null,
+    aimY: Number.isFinite(input?.aimY) ? input.aimY : null
   };
 }
 

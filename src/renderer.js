@@ -707,7 +707,19 @@ function updatePredictedHoming(projectile, weapon, snapshot, dt) {
   projectile.vy = next.y * projectile.speed;
 }
 
+function acceptedProjectileIds(snapshot) {
+  const ids = new Set((snapshot?.projectiles || []).map((p) => p.id));
+  for (const e of snapshot?.events || []) {
+    if (e.type !== "shoot" || !e.playerId || !Number.isFinite(e.fireSeq)) continue;
+    const pellets = (WEAPONS[e.weaponId] || WEAPONS[START_WEAPON])?.pellets || 1;
+    const base = `${e.playerId}-${e.fireSeq}`;
+    for (let i = 0; i < pellets; i += 1) ids.add(pellets === 1 ? base : `${base}-${i}`);
+  }
+  return ids;
+}
+
 export function updatePredictedProjectiles(projectiles, dt, snapshot = null) {
+  const acceptedIds = acceptedProjectileIds(snapshot);
   for (const p of projectiles) {
     const weapon = WEAPONS[p.weaponId] || WEAPONS[START_WEAPON];
     const prevX = p.x;
@@ -727,6 +739,7 @@ export function updatePredictedProjectiles(projectiles, dt, snapshot = null) {
     p.life -= dt;
   }
   return projectiles.filter((p) => (
+    !acceptedIds.has(p.serverId || String(p.id).replace(/:local$/, "")) &&
     p.life > 0 &&
     (p.distance || 0) < (p.range || Infinity) &&
     p.x >= -80 && p.x <= WORLD.w + 80 &&

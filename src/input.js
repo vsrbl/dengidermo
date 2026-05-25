@@ -154,6 +154,8 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     input.fire = mouse.down;
     mouse.worldX = camera.x + mouse.x;
     mouse.worldY = camera.y + mouse.y;
+    input.aimX = mouse.worldX;
+    input.aimY = mouse.worldY;
     input.aimAngle = localPose ? inputAimFromMouse(localPose, { x: mouse.worldX, y: mouse.worldY }) : 0;
     return input;
   }

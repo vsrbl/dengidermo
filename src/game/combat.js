@@ -1,4 +1,4 @@
-import { angleToVec, clamp } from "../core/math.js";
+import { angleToVec, clamp, vecToAngle } from "../core/math.js";
 import { WORLD } from "../core/constants.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
@@ -40,7 +40,9 @@ export function fireWeapon(state, playerId, payload = {}) {
   const x = clamp(player.x, 0, WORLD.w);
   const y = clamp(player.y, 0, WORLD.h);
 
-  const angle = Number.isFinite(payload.angle) ? payload.angle : player.angle;
+  const angle = (Number.isFinite(payload.aimX) && Number.isFinite(payload.aimY))
+    ? vecToAngle(payload.aimX - x, payload.aimY - y)
+    : (Number.isFinite(payload.angle) ? payload.angle : player.angle);
   const dir = angleToVec(angle);
   const seq = payload.fireSeq || Math.floor(state.time * 1000);
   const pellets = weapon.pellets || 1;

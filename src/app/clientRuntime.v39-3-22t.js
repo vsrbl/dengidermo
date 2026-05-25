@@ -9,13 +9,14 @@ import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
 import { roomGeometryIdentityMatches } from "../game/roomGeometry.js";
 
-const HOST_SMOOTH_RECONCILE_D2 = 18 * 18;
-const HOST_HARD_RECONCILE_D2 = 192 * 192;
-const HOST_IMPULSE_HARD_RECONCILE_D2 = 168 * 168;
-const HOST_NORMAL_CORRECTION_FACTOR = 0.14;
-const HOST_IMPULSE_CORRECTION_FACTOR = 0.24;
-const HOST_NORMAL_CORRECTION_MAX_STEP = 12;
-const HOST_IMPULSE_CORRECTION_MAX_STEP = 20;
+const HOST_SMOOTH_RECONCILE_D2 = 72 * 72;
+const HOST_HARD_RECONCILE_D2 = 360 * 360;
+const HOST_IMPULSE_HARD_RECONCILE_D2 = 300 * 300;
+const HOST_NORMAL_CORRECTION_FACTOR = 0.045;
+const HOST_IMPULSE_CORRECTION_FACTOR = 0.10;
+const HOST_NORMAL_CORRECTION_MAX_STEP = 4;
+const HOST_IMPULSE_CORRECTION_MAX_STEP = 8;
+const HOST_RECONCILE_EXTRAPOLATE_MS = 80;
 
 export function createClientRuntime(app, { session, host, upgrades } = {}) {
   function currentLocalPlayerFromSnapshot() {
@@ -66,15 +67,21 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
     const impulseChanged = hostImpulseSeq !== (app.localPose._hostImpulseSeq || 0);
     if (impulseChanged) app.localPose._hostImpulseSeq = hostImpulseSeq;
-    const dx = me.x - app.localPose.x;
-    const dy = me.y - app.localPose.y;
+    const oneWayMs = Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, Number(app.pingMs || 0) * 0.5));
+    const lead = (oneWayMs / 1000) * GAME_SPEED;
+    const hostVx = (Number.isFinite(me.vx) ? me.vx : 0) + (Number.isFinite(me.kx) ? me.kx : 0);
+    const hostVy = (Number.isFinite(me.vy) ? me.vy : 0) + (Number.isFinite(me.ky) ? me.ky : 0);
+    const targetX = clamp(me.x + hostVx * lead, app.localPose.radius, WORLD.w - app.localPose.radius);
+    const targetY = clamp(me.y + hostVy * lead, app.localPose.radius, WORLD.h - app.localPose.radius);
+    const dx = targetX - app.localPose.x;
+    const dy = targetY - app.localPose.y;
     const d2 = dx * dx + dy * dy;
     const dashPredictionAge = app.localPose._localDashPredictedAt ? performance.now() - app.localPose._localDashPredictedAt : 0;
     const staleDeniedDash = app.localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
     const hostImpulseHardDrift = impulseChanged && d2 > HOST_IMPULSE_HARD_RECONCILE_D2;
     if (locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2) {
-      app.localPose.x = me.x;
-      app.localPose.y = me.y;
+      app.localPose.x = targetX;
+      app.localPose.y = targetY;
       app.localPose.vx = Number.isFinite(me.vx) ? me.vx : 0;
       app.localPose.vy = Number.isFinite(me.vy) ? me.vy : 0;
       app.localPose.kx = Number.isFinite(me.kx) ? me.kx : 0;
@@ -92,8 +99,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       if (impulseChanged) {
         const hostKx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
         const hostKy = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
-        app.localPose.kx += (hostKx - app.localPose.kx) * 0.45;
-        app.localPose.ky += (hostKy - app.localPose.ky) * 0.45;
+        app.localPose.kx += (hostKx - app.localPose.kx) * 0.22;
+        app.localPose.ky += (hostKy - app.localPose.ky) * 0.22;
       }
     }
   }
@@ -230,7 +237,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localCooldowns[weaponId] = nowSec + 1 / (weapon.fireRate * fireRateMult);
     app.fireSeq += 1;
     app.localPose.angle = inputState.aimAngle;
-    const payload = makeShootPayload(app.playerId, app.localPose, weaponId, app.fireSeq);
+    const payload = makeShootPayload(app.playerId, app.localPose, weaponId, app.fireSeq, inputState);
     const baseId = `${app.playerId}-${app.fireSeq}`;
     if (app.role === "guest") {
       app.predictedProjectiles.push(...makePredictedProjectile(baseId, app.playerId, weaponId, app.localPose, app.localPose.stats));
