@@ -6,6 +6,183 @@ export const SNAPSHOT_NETWORK_TARGET_BYTES = SNAPSHOT_WARNING_BYTES;
 export const SNAPSHOT_RELAY_TARGET_BYTES = 44 * 1024;
 export const SNAPSHOT_RELAY_STATE_LIMIT_BYTES = SNAPSHOT_WARNING_BYTES;
 export const SNAPSHOT_EFFECT_LIMIT = 48;
+export const SNAPSHOT_INTEREST_RADIUS = 820;
+export const SNAPSHOT_HAZARD_RADIUS = 980;
+export const SNAPSHOT_PICKUP_RADIUS = 760;
+export const SNAPSHOT_FAR_ENTITY_RESERVE = 24;
+
+function finiteNumber(value, fallback = 0) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function entityX(entity) {
+  return finiteNumber(entity?.x ?? entity?.cx ?? entity?.x2, 0);
+}
+
+function entityY(entity) {
+  return finiteNumber(entity?.y ?? entity?.cy ?? entity?.y2, 0);
+}
+
+function distSqToFocus(entity, focus) {
+  if (!focus) return Number.POSITIVE_INFINITY;
+  const dx = entityX(entity) - focus.x;
+  const dy = entityY(entity) - focus.y;
+  return dx * dx + dy * dy;
+}
+
+function resolveInterestFocus(snapshot, options = {}) {
+  if (Number.isFinite(options.focusX) && Number.isFinite(options.focusY)) {
+    return { id: options.focusPlayerId || null, x: options.focusX, y: options.focusY };
+  }
+  const players = Array.isArray(snapshot?.players) ? snapshot.players : [];
+  const player = players.find((p) => p?.id === options.focusPlayerId) || players[0] || null;
+  if (!player || !Number.isFinite(player.x) || !Number.isFinite(player.y)) return null;
+  return { id: player.id || null, x: player.x, y: player.y };
+}
+
+function effectInterestDistance(effect, focus) {
+  if (!focus || !effect) return Number.POSITIVE_INFINITY;
+  const points = [
+    [effect.x, effect.y],
+    [effect.x2, effect.y2],
+    [effect.cx, effect.cy]
+  ].filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (!points.length) return Number.POSITIVE_INFINITY;
+  return Math.min(...points.map(([x, y]) => {
+    const dx = x - focus.x;
+    const dy = y - focus.y;
+    return dx * dx + dy * dy;
+  }));
+}
+
+function sortByInterest(list, focus, options = {}) {
+  const radius = Number.isFinite(options.radius) ? options.radius : SNAPSHOT_INTEREST_RADIUS;
+  const radius2 = radius * radius;
+  const priorityOf = typeof options.priority === "function" ? options.priority : (() => 0);
+  const distanceOf = typeof options.distance === "function" ? options.distance : distSqToFocus;
+  return (Array.isArray(list) ? list : []).map((item, index) => {
+    const d2 = distanceOf(item, focus);
+    const near = d2 <= radius2;
+    return { item, index, near, d2, priority: priorityOf(item, focus) };
+  }).sort((a, b) => {
+    if (a.near !== b.near) return a.near ? -1 : 1;
+    if (b.priority !== a.priority) return b.priority - a.priority;
+    if (a.d2 !== b.d2) return a.d2 - b.d2;
+    return a.index - b.index;
+  }).map((entry) => entry.item);
+}
+
+function interestTrimArray(owner, key, limit, stages, label = key) {
+  const list = Array.isArray(owner?.[key]) ? owner[key] : null;
+  if (!list || list.length <= limit) return false;
+  owner[key] = list.slice(0, Math.max(0, limit));
+  stages.push(`${label}:interest:${list.length}->${owner[key].length}`);
+  return true;
+}
+
+function projectilePriority(projectile, focus) {
+  let score = 0;
+  if (projectile?.ownerId && focus?.id && projectile.ownerId !== focus.id) score += 4;
+  if (projectile?.kind && /hostile|enemy|bullet|rocket|bomb|laser|orb/i.test(projectile.kind)) score += 2;
+  if (Number.isFinite(projectile?.vx) && Number.isFinite(projectile?.vy) && focus) {
+    const toFocusX = focus.x - entityX(projectile);
+    const toFocusY = focus.y - entityY(projectile);
+    const closing = toFocusX * projectile.vx + toFocusY * projectile.vy;
+    if (closing > 0) score += 3;
+  }
+  return score;
+}
+
+function enemyPriority(enemy) {
+  let score = 0;
+  if (enemy?.elite) score += 4;
+  if (enemy?.kind && /boss|charger|bomber|shooter|glitch|prism/i.test(enemy.kind)) score += 2;
+  if ((enemy?.hp || 0) > 0) score += 1;
+  return score;
+}
+
+function pickupPriority(item) {
+  let score = 0;
+  if (item?.rarity && /rare|epic|legend|boss/i.test(String(item.rarity))) score += 3;
+  if (item?.rewardType || item?.kind === "weapon" || item?.kind === "ability") score += 2;
+  return score;
+}
+
+function effectPriority(effect, focus) {
+  return visualEffectPriority(effect) + (effectInterestDistance(effect, focus) <= SNAPSHOT_HAZARD_RADIUS * SNAPSHOT_HAZARD_RADIUS ? 2 : 0);
+}
+
+function stampInterestMeta(snapshot, meta) {
+  const base = snapshot.budget && typeof snapshot.budget === "object" ? snapshot.budget : {};
+  snapshot.budget = {
+    ...base,
+    interest: {
+      ...(base.interest || {}),
+      ...meta
+    }
+  };
+}
+
+function applyInterestPriority(snapshot, options = {}, stages = []) {
+  const focus = resolveInterestFocus(snapshot, options);
+  if (!focus) return { applied: false, focusPlayerId: options.focusPlayerId || null };
+  const before = {
+    enemies: Array.isArray(snapshot.enemies) ? snapshot.enemies.length : 0,
+    projectiles: Array.isArray(snapshot.projectiles) ? snapshot.projectiles.length : 0,
+    companions: Array.isArray(snapshot.companions) ? snapshot.companions.length : 0,
+    effects: Array.isArray(snapshot.effects) ? snapshot.effects.length : 0
+  };
+
+  snapshot.projectiles = sortByInterest(snapshot.projectiles, focus, {
+    radius: SNAPSHOT_HAZARD_RADIUS,
+    priority: projectilePriority
+  });
+  snapshot.enemies = sortByInterest(snapshot.enemies, focus, {
+    radius: SNAPSHOT_HAZARD_RADIUS,
+    priority: enemyPriority
+  });
+  snapshot.companions = sortByInterest(snapshot.companions, focus, {
+    radius: SNAPSHOT_INTEREST_RADIUS,
+    priority: (c) => c?.ownerId === focus.id ? 3 : (c?.group ? 1 : 0)
+  });
+  snapshot.loot = sortByInterest(snapshot.loot, focus, { radius: SNAPSHOT_PICKUP_RADIUS, priority: pickupPriority });
+  snapshot.rewardPickups = sortByInterest(snapshot.rewardPickups, focus, { radius: SNAPSHOT_PICKUP_RADIUS, priority: pickupPriority });
+  snapshot.economyPickups = sortByInterest(snapshot.economyPickups, focus, { radius: SNAPSHOT_PICKUP_RADIUS, priority: pickupPriority });
+  snapshot.interactables = sortByInterest(snapshot.interactables, focus, { radius: SNAPSHOT_PICKUP_RADIUS, priority: pickupPriority });
+  snapshot.effects = sortByInterest(snapshot.effects, focus, {
+    radius: SNAPSHOT_HAZARD_RADIUS,
+    priority: effectPriority,
+    distance: effectInterestDistance
+  });
+
+  const meta = {
+    applied: true,
+    focusPlayerId: focus.id || options.focusPlayerId || null,
+    focusX: Math.round(focus.x),
+    focusY: Math.round(focus.y),
+    hazardRadius: SNAPSHOT_HAZARD_RADIUS,
+    interestRadius: SNAPSHOT_INTEREST_RADIUS,
+    pickupRadius: SNAPSHOT_PICKUP_RADIUS,
+    counts: before
+  };
+  stampInterestMeta(snapshot, meta);
+  stages.push(`interest:${meta.focusPlayerId || "focus"}`);
+  return meta;
+}
+
+function applyRelayInterestPreTrim(snapshot, stages) {
+  let changed = false;
+  changed = interestTrimArray(snapshot, "effects", 24, stages, "effects") || changed;
+  changed = interestTrimArray(snapshot, "companions", 72, stages, "companions") || changed;
+  changed = interestTrimArray(snapshot, "projectiles", 144, stages, "projectiles") || changed;
+  changed = interestTrimArray(snapshot, "enemies", 128, stages, "enemies") || changed;
+  changed = interestTrimArray(snapshot, "loot", 80, stages, "loot") || changed;
+  changed = interestTrimArray(snapshot, "rewardPickups", 80, stages, "rewardPickups") || changed;
+  changed = interestTrimArray(snapshot, "economyPickups", 80, stages, "economyPickups") || changed;
+  changed = interestTrimArray(snapshot, "interactables", 80, stages, "interactables") || changed;
+  return changed;
+}
+
 
 function estimateJsonBytes(value) {
   try {
@@ -167,6 +344,7 @@ function minimalPlayer(player = {}) {
     netStatus: player.netStatus || "online",
     disconnected: !!player.disconnected,
     disconnectedAt: player.disconnectedAt || 0,
+    inputSeq: Math.max(0, Math.floor(player.inputSeq || 0)),
     hostImpulseSeq: player.hostImpulseSeq || 0,
     lastHostImpulse: player.lastHostImpulse || null,
     vx: player.vx || 0,
@@ -300,8 +478,12 @@ export function buildSnapshotBudgetMeta(snapshot, extra = {}) {
 export function buildNetworkStatePacket(snapshot, options = {}) {
   const targetBytes = Number.isFinite(options.targetBytes) ? options.targetBytes : SNAPSHOT_NETWORK_TARGET_BYTES;
   const limitBytes = Number.isFinite(options.limitBytes) ? options.limitBytes : SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES;
+  const mode = options.mode || "default";
+  const focusPlayerId = options.focusPlayerId || null;
   const originalBytes = estimateStatePacketBytes(snapshot);
-  if (originalBytes <= targetBytes) {
+  const stages = [];
+
+  if (originalBytes <= targetBytes && !focusPlayerId) {
     return {
       packet: { t: "state", snapshot },
       meta: {
@@ -310,7 +492,9 @@ export function buildNetworkStatePacket(snapshot, options = {}) {
         warningBytes: SNAPSHOT_WARNING_BYTES,
         targetBytes,
         limitBytes,
-        mode: options.mode || "default",
+        mode,
+        focusPlayerId,
+        interest: { applied: false, focusPlayerId },
         degraded: false,
         emergency: false,
         stages: []
@@ -319,7 +503,26 @@ export function buildNetworkStatePacket(snapshot, options = {}) {
   }
 
   const working = cloneJson(snapshot);
-  const stages = [];
+  const interestMeta = applyInterestPriority(working, options, stages);
+  if (mode === "relay") applyRelayInterestPreTrim(working, stages);
+
+  const interestBytes = estimateStatePacketBytes(working);
+  if (interestBytes <= targetBytes) {
+    return finalizeNetworkPacket(working, {
+      bytes: interestBytes,
+      originalBytes,
+      warningBytes: SNAPSHOT_WARNING_BYTES,
+      targetBytes,
+      limitBytes,
+      mode,
+      focusPlayerId,
+      interest: interestMeta,
+      degraded: interestBytes < originalBytes || stages.length > 0,
+      emergency: false,
+      stages
+    }, limitBytes);
+  }
+
   const measure = () => estimateStatePacketBytes(working);
   const maybeDone = () => measure() <= targetBytes;
 
@@ -356,7 +559,9 @@ export function buildNetworkStatePacket(snapshot, options = {}) {
     warningBytes: SNAPSHOT_WARNING_BYTES,
     targetBytes,
     limitBytes,
-    mode: options.mode || "default",
+    mode,
+    focusPlayerId,
+    interest: interestMeta,
     degraded: true,
     emergency,
     stages

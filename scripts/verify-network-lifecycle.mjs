@@ -23,6 +23,8 @@ assert.match(serverSrc, /function notifyPlayerLeft/, 'server explicit player-lef
 assert.match(serverSrc, /function heartbeatClients/, 'server heartbeat stale-disconnect detection missing');
 assert.match(serverSrc, /HEARTBEAT_TIMEOUT_MS/, 'server heartbeat timeout missing');
 assert.match(serverSrc, /SOFT_DISCONNECT_GRACE_MS/, 'server must retain transiently disconnected guest slots');
+assert.match(serverSrc, /HOST_SIGNAL_GRACE_MS/, 'server must retain transiently disconnected host signaling before closing the room');
+assert.match(serverSrc, /markHostSignalLost/, 'server must mark host signaling loss as soft instead of immediately closing active P2P rooms');
 assert.match(serverSrc, /createReconnectToken/, 'server must issue reconnect tokens');
 assert.match(serverSrc, /findReconnectPlayerId/, 'server must select offline slots by reconnect token only');
 assert.match(serverSrc, /nextEmptyPlayerId/, 'server must keep tokenless joins on empty slots only');
@@ -49,8 +51,14 @@ assert.match(transportSrc, /dropWhenBackpressured \? "dropped" : "unavailable"/,
 assert.match(transportSrc, /RELAY_MESSAGE_HARD_LIMIT_BYTES/, 'transport must cap relay websocket messages before send');
 assert.match(transportSrc, /sendRelay\(to, data\)/, 'transport must centralize relay sending behind strict size checks');
 assert.match(transportSrc, /getPeerTransportMode\(remoteId\)/, 'transport must expose per-peer transport mode');
+assert.match(transportSrc, /SOFT_PLAYER_LEFT_REASONS/, 'transport must classify soft player_left reasons separately from hard leaves');
+assert.match(transportSrc, /hasOpenPeerChannels\(\)/, 'transport must detect live P2P channels when signaling WebSocket closes');
+assert.match(transportSrc, /softSignalLoss[\s\S]*!softSignalLoss[\s\S]*this\.closePeer/, 'transport must not close live WebRTC peers for soft signaling-loss player_left events');
+assert.match(transportSrc, /signal_lost/, 'transport must surface signaling loss without forcing gameplay disconnect');
 assert.match(sessionSrc, /transportModes/, 'session must keep per-peer transport modes for HUD and host policy');
 assert.match(sessionSrc, /nncckkrr\.reconnect/, 'session must persist reconnect tokens per room');
+assert.match(sessionSrc, /host_signal_lost/, 'session must treat host signaling loss as soft while P2P may remain alive');
+assert.match(sessionSrc, /keeping P2P alive/, 'guest must warn but keep running when only host signaling is lost');
 
 const hostRuntimeSrc = readFileSync(path.join(root, 'src/app/hostRuntime.js'), 'utf8');
 const constantsSrc = readFileSync(path.join(root, 'src/core/constants.js'), 'utf8');
@@ -89,6 +97,17 @@ async function waitForServer() {
 function openWs() {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
+    ws.__verifyQueue = [];
+    ws.__verifyWaiter = null;
+    ws.on('message', (data) => {
+      if (ws.__verifyWaiter) {
+        const waiter = ws.__verifyWaiter;
+        ws.__verifyWaiter = null;
+        waiter(data);
+        return;
+      }
+      ws.__verifyQueue.push(data);
+    });
     const timer = setTimeout(() => reject(new Error('websocket open timeout')), 2000);
     ws.once('open', () => { clearTimeout(timer); resolve(ws); });
     ws.once('error', reject);
@@ -96,25 +115,35 @@ function openWs() {
 }
 function nextJson(ws, label, timeoutMs = 2500) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timeout waiting for ${label}`)), timeoutMs);
-    ws.once('message', (data) => {
-      clearTimeout(timer);
+    function parse(data) {
       try { resolve(JSON.parse(String(data))); }
       catch (err) { reject(err); }
-    });
+    }
+    const queued = ws.__verifyQueue?.shift?.();
+    if (queued) return parse(queued);
+    const timer = setTimeout(() => {
+      ws.__verifyWaiter = null;
+      reject(new Error(`timeout waiting for ${label}`));
+    }, timeoutMs);
+    ws.__verifyWaiter = (data) => {
+      clearTimeout(timer);
+      parse(data);
+    };
   });
 }
 function noJson(ws, label, timeoutMs = 250) {
   return new Promise((resolve, reject) => {
+    const queued = ws.__verifyQueue?.shift?.();
+    if (queued) return reject(new Error(`unexpected ${label}: ${String(queued)}`));
     const timer = setTimeout(() => {
-      ws.off('message', onMessage);
+      ws.__verifyWaiter = null;
       resolve();
     }, timeoutMs);
-    function onMessage(data) {
+    ws.__verifyWaiter = (data) => {
       clearTimeout(timer);
+      ws.__verifyWaiter = null;
       reject(new Error(`unexpected ${label}: ${String(data)}`));
-    }
-    ws.once('message', onMessage);
+    };
   });
 }
 
@@ -245,6 +274,44 @@ try {
   assert.ok(!left2.players.includes('p2'), 'explicit leave must remove the slot from authoritative player list');
 
   host.close();
+  guest.close();
+  observer.close();
+  thief.close();
+  wrongToken.close();
+  guest3.close();
+
+  const hostP2P = await openWs();
+  await nextJson(hostP2P, 'hostP2P hello');
+  hostP2P.send(JSON.stringify({ type: 'create', roomId: 'NET141', name: 'HOST' }));
+  const createdP2P = await nextJson(hostP2P, 'created NET141');
+  assert.equal(createdP2P.playerId, 'p1');
+
+  const guestP2P = await openWs();
+  await nextJson(guestP2P, 'guestP2P hello');
+  guestP2P.send(JSON.stringify({ type: 'join', roomId: 'NET141', name: 'GUEST' }));
+  const joinedP2P = await nextJson(guestP2P, 'joined NET141');
+  assert.equal(joinedP2P.playerId, 'p2');
+  const hostP2PNotice = await nextJson(hostP2P, 'NET141 player_joined');
+  assert.equal(hostP2PNotice.playerId, 'p2');
+
+  hostP2P.close();
+  const hostSignalLost = await nextJson(guestP2P, 'soft host signal loss');
+  assert.equal(hostSignalLost.type, 'player_left');
+  assert.equal(hostSignalLost.playerId, 'p1');
+  assert.equal(hostSignalLost.reason, 'host_signal_lost');
+  assert.ok(hostSignalLost.players.includes('p1'), 'host signal loss must keep p1 in the room player list during grace');
+  await noJson(guestP2P, 'room_closed immediately after host signaling loss');
+
+  const lateJoin = await openWs();
+  await nextJson(lateJoin, 'lateJoin hello');
+  lateJoin.send(JSON.stringify({ type: 'join', roomId: 'NET141', name: 'LATE' }));
+  const lateJoinError = await nextJson(lateJoin, 'late join while host signal lost');
+  assert.equal(lateJoinError.type, 'error');
+  assert.equal(lateJoinError.message, 'host_signal_lost', 'hostless signaling rooms must reject new joins without destroying existing P2P gameplay');
+  await noJson(guestP2P, 'room_closed after late hostless join');
+
+  guestP2P.close();
+  lateJoin.close();
 } finally {
   child.kill('SIGTERM');
   await sleep(100);

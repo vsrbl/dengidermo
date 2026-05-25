@@ -6,8 +6,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v39.3.28";
-const SERVER_BUILD_ID = "v39.3.28-20260525";
+const SERVER_VERSION = "v39.3.32";
+const SERVER_BUILD_ID = "v39.3.32-20260525";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -16,6 +16,7 @@ const RATE_LIMIT_PER_WINDOW = 120;
 const HEARTBEAT_INTERVAL_MS = 4_000;
 const HEARTBEAT_TIMEOUT_MS = 9_000;
 const SOFT_DISCONNECT_GRACE_MS = 45_000;
+const HOST_SIGNAL_GRACE_MS = 45_000;
 const ROOM_RE = /^[A-Z0-9-]{3,12}$/;
 const NAME_RE = /^[A-Z0-9_-]{1,12}$/;
 const RECONNECT_TOKEN_BYTES = 24;
@@ -116,6 +117,11 @@ function markPlayerOffline(room, playerId, reason = "socket_closed") {
   return true;
 }
 
+function markHostSignalLost(room, reason = "host_signal_lost") {
+  if (!room?.hostId) return false;
+  return markPlayerOffline(room, room.hostId, reason);
+}
+
 function notifyPlayerLeft(room, playerId, reason = "left") {
   sendToRoom(room, { type: "player_left", playerId, reason, players: rawRoomPlayers(room), names: rawRoomNames(room) });
 }
@@ -142,8 +148,7 @@ function pruneClosedPlayers(room) {
   if (!removed.length) return removed;
 
   if (removed.includes(room.hostId)) {
-    detachPlayer(room, room.hostId);
-    closeRoom(room, "host_missing");
+    if (markHostSignalLost(room, "host_signal_lost")) notifyPlayerLeft(room, room.hostId, "host_signal_lost");
     return removed;
   }
 
@@ -175,6 +180,11 @@ function cleanRooms() {
   for (const [id, room] of rooms) {
     pruneClosedPlayers(room);
     if (!rooms.has(id)) continue;
+    const host = room.players.get(room.hostId);
+    if (host?.offlineAt && now - host.offlineAt > HOST_SIGNAL_GRACE_MS) {
+      closeRoom(room, "host_signal_timeout");
+      continue;
+    }
     for (const [playerId, player] of [...room.players.entries()]) {
       if (playerId === room.hostId) continue;
       if (player.offlineAt && now - player.offlineAt > SOFT_DISCONNECT_GRACE_MS) {
@@ -250,8 +260,7 @@ function handleSocketGone(ws, reason = "socket_closed") {
   }
   const id = ws.nnPlayerId;
   if (id === room.hostId) {
-    detachPlayer(room, id);
-    closeRoom(room, "host_missing");
+    if (markHostSignalLost(room, "host_signal_lost")) notifyPlayerLeft(room, id, "host_signal_lost");
     return;
   }
   if (markPlayerOffline(room, id, reason)) notifyPlayerLeft(room, id, reason);
@@ -287,8 +296,7 @@ function handleJoin(ws, msg) {
   if (!rooms.has(roomId)) return send(ws, { type: "error", message: "room_not_found" });
   const host = room.players.get(room.hostId);
   if (!isOpen(host?.ws)) {
-    closeRoom(room, "host_missing");
-    return send(ws, { type: "error", message: "room_not_found" });
+    return send(ws, { type: "error", message: "host_signal_lost" });
   }
   const existingSelf = ws.nnRoom === roomId && ws.nnPlayerId && room.players.has(ws.nnPlayerId);
   const requestedReconnectToken = normalizeReconnectToken(msg.reconnectToken);
@@ -423,4 +431,4 @@ function heartbeatClients() {
 
 setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.28 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.32 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

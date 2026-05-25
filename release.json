@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.28",
-  "buildId": "v39.3.28-20260525",
+  "version": "v39.3.32",
+  "buildId": "v39.3.32-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-28.js?v=39.3.28",
-  "style": "./style.css?v=39.3.28",
-  "config": "./config.js?v=39.3.28",
+  "entry": "./src/main.v39-3-32.js?v=39.3.32",
+  "style": "./style.css?v=39.3.32",
+  "config": "./config.js?v=39.3.32",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.28 position sync and shotgun hold-fire: tightens guest reconcile for visible drift, adds direct peer RTT and acknowledged input sequence diagnostics, and restores shotgun hold-to-fire behavior."
+  "notes": "v39.3.32 interest-based snapshot priority: per-peer focused state packets keep nearby hazards, enemies, pickups, and critical effects ahead of far cosmetics during relay/P2P budget trimming."
 }

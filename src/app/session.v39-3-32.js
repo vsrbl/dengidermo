@@ -2,7 +2,7 @@ import { isValidRoomId, normalizeRoomId, randomRoomId } from "../ui.js";
 import { normalizePlayerName } from "../core/names.js";
 import { CONNECT_TIMEOUT_MS } from "../core/constants.js";
 
-const SOFT_DISCONNECT_REASONS = new Set(["socket_closed", "socket_error", "stale_socket", "network_lost", "connection_lost"]);
+const SOFT_DISCONNECT_REASONS = new Set(["socket_closed", "socket_error", "stale_socket", "network_lost", "connection_lost", "host_signal_lost"]);
 import { START_WEAPON } from "../data/weapons.js";
 import { createInventory } from "../game/inventory.js";
 import { addPlayer, createGameState, makeSnapshot, removePlayer, spawnPoint } from "../game/state.js";
@@ -218,6 +218,9 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.peerPingMs = {};
     app.inputSeq = 0;
     app.lastAckedInputSeq = 0;
+    app.predictionFrames = [];
+    app.reconcileStats = { mode: "idle", localSeq: 0, ackedSeq: 0, pendingInputs: 0, replayed: 0, driftPx: 0 };
+    app.hostSim = { mode: "fixed-step", accumulatorMs: 0, steps: 0, droppedSteps: 0, frameMs: 0, throttle: false };
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
     app.disconnectedPlayers = Object.create(null);
@@ -293,12 +296,18 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
   }
 
   function handlePlayerLeft(id, reason = "left") {
+    const softDisconnect = SOFT_DISCONNECT_REASONS.has(reason);
     if (app.role === "guest" && id === "p1") {
+      if (softDisconnect) {
+        markRemotePlayerDisconnected(id, reason);
+        app.ui.flashError("host signal lost; keeping P2P alive");
+        return;
+      }
       leaveGame();
       app.ui.flashError();
       return;
     }
-    if (app.role === "host" && SOFT_DISCONNECT_REASONS.has(reason)) {
+    if (app.role === "host" && softDisconnect) {
       markRemotePlayerDisconnected(id, reason);
       return;
     }

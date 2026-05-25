@@ -10,15 +10,13 @@ import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
 import { roomGeometryIdentityMatches } from "../game/roomGeometry.js";
 
-const HOST_SMOOTH_RECONCILE_D2 = 10 * 10;
 const HOST_HARD_RECONCILE_D2 = 240 * 240;
 const HOST_IMPULSE_HARD_RECONCILE_D2 = 260 * 260;
-const HOST_NORMAL_CORRECTION_FACTOR = 0.12;
-const HOST_IMPULSE_CORRECTION_FACTOR = 0.16;
-const HOST_NORMAL_CORRECTION_MAX_STEP = 9;
-const HOST_IMPULSE_CORRECTION_MAX_STEP = 13;
 const HOST_RECONCILE_EXTRAPOLATE_MS = 80;
 const INPUT_AIM_QUANTIZE = 16;
+const PREDICTION_BUFFER_LIMIT = 180;
+const RECONCILE_REPLAY_MAX_FRAMES = 120;
+const RECONCILE_MAX_FRAME_DT = 1 / 20;
 
 function inputTransportKey(input = {}) {
   const ax = Number.isFinite(input.aimX) ? Math.round(input.aimX / INPUT_AIM_QUANTIZE) : 0;
@@ -32,6 +30,38 @@ function inputTransportKey(input = {}) {
     ax,
     ay
   ].join("/");
+}
+
+function clonePredictionInput(input = {}) {
+  return {
+    left: !!input.left,
+    right: !!input.right,
+    up: !!input.up,
+    down: !!input.down,
+    fire: !!input.fire,
+    firePressed: !!input.firePressed,
+    aimAngle: Number.isFinite(input.aimAngle) ? input.aimAngle : 0,
+    aimX: Number.isFinite(input.aimX) ? input.aimX : null,
+    aimY: Number.isFinite(input.aimY) ? input.aimY : null,
+    inputSeq: Number.isFinite(input.inputSeq) ? Math.max(0, Math.floor(input.inputSeq)) : 0
+  };
+}
+
+export function prunePredictionFrames(frames = [], ackedInputSeq = 0) {
+  const ack = Math.max(0, Math.floor(Number.isFinite(ackedInputSeq) ? ackedInputSeq : 0));
+  return (Array.isArray(frames) ? frames : [])
+    .filter((frame) => frame && Number.isFinite(frame.inputSeq) && frame.inputSeq > ack)
+    .slice(-RECONCILE_REPLAY_MAX_FRAMES);
+}
+
+export function replayPredictionFrames(basePose, frames = [], location = null) {
+  const pose = { ...basePose };
+  for (const frame of (Array.isArray(frames) ? frames : [])) {
+    const dt = Math.max(0, Math.min(RECONCILE_MAX_FRAME_DT, Number.isFinite(frame.dt) ? frame.dt : 0));
+    if (dt <= 0) continue;
+    movePlayer(pose, frame.input || {}, dt, location);
+  }
+  return pose;
 }
 
 export function createClientRuntime(app, { session, host, upgrades } = {}) {
@@ -51,9 +81,91 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
 
   function resetPredictionForLocationChange() {
     app.predictedProjectiles = [];
+    resetPredictionBuffer("location_change");
     resetRendererSmooth(app.renderer);
     app.camera.ready = false;
     app.input.resetKeys();
+  }
+
+  function resetPredictionBuffer(reason = "reset") {
+    app.predictionFrames = [];
+    app.reconcileStats = {
+      mode: "rollback-replay",
+      reason,
+      localSeq: app.inputSeq || 0,
+      ackedSeq: app.lastAckedInputSeq || 0,
+      pendingInputs: 0,
+      replayed: 0,
+      driftPx: 0
+    };
+  }
+
+  function hostPoseFromSnapshot(me) {
+    const radius = app.localPose?.radius || me.radius || 13;
+    return {
+      ...app.localPose,
+      x: clamp(Number.isFinite(me.x) ? me.x : app.localPose.x, radius, WORLD.w - radius),
+      y: clamp(Number.isFinite(me.y) ? me.y : app.localPose.y, radius, WORLD.h - radius),
+      angle: Number.isFinite(me.angle) ? me.angle : (app.localPose.angle || 0),
+      vx: Number.isFinite(me.vx) ? me.vx : 0,
+      vy: Number.isFinite(me.vy) ? me.vy : 0,
+      kx: Number.isFinite(me.kx) ? me.kx : 0,
+      ky: Number.isFinite(me.ky) ? me.ky : 0,
+      radius
+    };
+  }
+
+  function reconcileLocalPoseFromHost(me, { locationChanged = false } = {}) {
+    if (!app.localPose) return;
+    const beforeX = app.localPose.x;
+    const beforeY = app.localPose.y;
+    const ackedInputSeq = Number.isFinite(me.inputSeq) ? Math.max(0, Math.floor(me.inputSeq)) : (app.lastAckedInputSeq || 0);
+    app.lastAckedInputSeq = Math.max(app.lastAckedInputSeq || 0, ackedInputSeq);
+    const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
+    const impulseChanged = hostImpulseSeq !== (app.localPose._hostImpulseSeq || 0);
+    const basePose = hostPoseFromSnapshot(me);
+    const pendingFrames = prunePredictionFrames(app.predictionFrames, app.lastAckedInputSeq);
+    const replayedPose = replayPredictionFrames(basePose, pendingFrames, app.snapshot?.location);
+    const dx = replayedPose.x - beforeX;
+    const dy = replayedPose.y - beforeY;
+    const d2 = dx * dx + dy * dy;
+    const dashPredictionAge = app.localPose._localDashPredictedAt ? performance.now() - app.localPose._localDashPredictedAt : 0;
+    const staleDeniedDash = app.localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
+    const hostImpulseHardDrift = impulseChanged && d2 > HOST_IMPULSE_HARD_RECONCILE_D2;
+
+    app.predictionFrames = pendingFrames;
+    app.localPose.x = replayedPose.x;
+    app.localPose.y = replayedPose.y;
+    app.localPose.vx = replayedPose.vx || 0;
+    app.localPose.vy = replayedPose.vy || 0;
+    app.localPose.kx = replayedPose.kx || 0;
+    app.localPose.ky = replayedPose.ky || 0;
+    app.localPose.angle = replayedPose.angle || 0;
+    app.localPose._hostImpulseSeq = hostImpulseSeq;
+    if (locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2) app.localPose._localDashPredictedAt = 0;
+
+    app.reconcileStats = {
+      mode: "rollback-replay",
+      localSeq: app.inputSeq || 0,
+      ackedSeq: app.lastAckedInputSeq || 0,
+      pendingInputs: pendingFrames.length,
+      replayed: pendingFrames.length,
+      driftPx: Math.round(Math.sqrt(d2)),
+      hostImpulseSeq,
+      extrapolateMs: Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, hostRttMs() * 0.5)),
+      snap: !!(locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2)
+    };
+  }
+
+  function recordPredictionFrame(inputState, dt, now) {
+    if (!app.predictionFrames) app.predictionFrames = [];
+    app.predictionFrames.push({
+      inputSeq: Math.max(0, Math.floor(inputState.inputSeq || 0)),
+      dt: Math.max(0, Math.min(RECONCILE_MAX_FRAME_DT, dt || 0)),
+      at: now || performance.now(),
+      input: clonePredictionInput(inputState)
+    });
+    if (app.predictionFrames.length > PREDICTION_BUFFER_LIMIT) app.predictionFrames = app.predictionFrames.slice(-PREDICTION_BUFFER_LIMIT);
   }
 
   function syncLocalFromSnapshot() {
@@ -69,7 +181,9 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     if (!app.localPose) {
       app.localWeapon = me.inventory?.activeWeapon || me.activeWeapon || START_WEAPON;
-      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: 0, vy: 0, kx: Number.isFinite(me.kx) ? me.kx : 0, ky: Number.isFinite(me.ky) ? me.ky : 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1, _hostImpulseSeq: me.hostImpulseSeq || 0 };
+      app.localPose = { ...me, inventory: app.localInventory, upgrades: me.upgrades || { choices: [] }, stats: me.stats || {}, activeWeapon: app.localWeapon, vx: Number.isFinite(me.vx) ? me.vx : 0, vy: Number.isFinite(me.vy) ? me.vy : 0, kx: Number.isFinite(me.kx) ? me.kx : 0, ky: Number.isFinite(me.ky) ? me.ky : 0, radius: 13, orbiterSlowMult: me.orbiterPressure?.slowMult || 1, _hostImpulseSeq: me.hostImpulseSeq || 0 };
+      app.lastAckedInputSeq = Number.isFinite(me.inputSeq) ? Math.max(app.lastAckedInputSeq || 0, me.inputSeq) : (app.lastAckedInputSeq || 0);
+      resetPredictionBuffer("initial_snapshot");
       return;
     }
     app.localPose.hp = me.hp;
@@ -88,46 +202,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.name = me.name || session.playerDisplayName(app.playerId);
     app.localPose.skin = me.skin;
     if ((me.ability?.dash?.cooldownLeft || 0) > 0) app.localPose._localDashPredictedAt = 0;
-    if (Number.isFinite(me.inputSeq)) app.lastAckedInputSeq = Math.max(app.lastAckedInputSeq || 0, me.inputSeq);
-    const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
-    const impulseChanged = hostImpulseSeq !== (app.localPose._hostImpulseSeq || 0);
-    if (impulseChanged) app.localPose._hostImpulseSeq = hostImpulseSeq;
-    const oneWayMs = Math.max(0, Math.min(HOST_RECONCILE_EXTRAPOLATE_MS, hostRttMs() * 0.5));
-    const lead = (oneWayMs / 1000) * GAME_SPEED;
-    const hostVx = (Number.isFinite(me.vx) ? me.vx : 0) + (Number.isFinite(me.kx) ? me.kx : 0);
-    const hostVy = (Number.isFinite(me.vy) ? me.vy : 0) + (Number.isFinite(me.ky) ? me.ky : 0);
-    const targetX = clamp(me.x + hostVx * lead, app.localPose.radius, WORLD.w - app.localPose.radius);
-    const targetY = clamp(me.y + hostVy * lead, app.localPose.radius, WORLD.h - app.localPose.radius);
-    const dx = targetX - app.localPose.x;
-    const dy = targetY - app.localPose.y;
-    const d2 = dx * dx + dy * dy;
-    const dashPredictionAge = app.localPose._localDashPredictedAt ? performance.now() - app.localPose._localDashPredictedAt : 0;
-    const staleDeniedDash = app.localPose._localDashPredictedAt && dashPredictionAge > DASH_DENIAL_RECONCILE_MS && (me.ability?.dash?.cooldownLeft || 0) <= 0 && d2 > 400;
-    const hostImpulseHardDrift = impulseChanged && d2 > HOST_IMPULSE_HARD_RECONCILE_D2;
-    if (locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2) {
-      app.localPose.x = targetX;
-      app.localPose.y = targetY;
-      app.localPose.vx = Number.isFinite(me.vx) ? me.vx : 0;
-      app.localPose.vy = Number.isFinite(me.vy) ? me.vy : 0;
-      app.localPose.kx = Number.isFinite(me.kx) ? me.kx : 0;
-      app.localPose.ky = Number.isFinite(me.ky) ? me.ky : 0;
-      app.localPose._localDashPredictedAt = 0;
-    } else {
-      if (d2 > HOST_SMOOTH_RECONCILE_D2) {
-        const distance = Math.sqrt(d2);
-        const factor = impulseChanged ? HOST_IMPULSE_CORRECTION_FACTOR : HOST_NORMAL_CORRECTION_FACTOR;
-        const maxStep = impulseChanged ? HOST_IMPULSE_CORRECTION_MAX_STEP : HOST_NORMAL_CORRECTION_MAX_STEP;
-        const step = Math.min(distance * factor, maxStep);
-        app.localPose.x += (dx / distance) * step;
-        app.localPose.y += (dy / distance) * step;
-      }
-      if (impulseChanged) {
-        const hostKx = Number.isFinite(me.kx) ? me.kx : app.localPose.kx;
-        const hostKy = Number.isFinite(me.ky) ? me.ky : app.localPose.ky;
-        app.localPose.kx += (hostKx - app.localPose.kx) * 0.22;
-        app.localPose.ky += (hostKy - app.localPose.ky) * 0.22;
-      }
-    }
+    reconcileLocalPoseFromHost(me, { locationChanged });
   }
 
   function handleNetData(msg) {
@@ -284,16 +359,18 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const key = inputTransportKey(inputState);
     const changed = key !== app.lastInputKey;
     const due = now - app.lastInputSent > 1000 / INPUT_RATE;
-    if (!changed && !due && !inputState.firePressed) return;
+    if (!changed && !due && !inputState.firePressed) return false;
     app.lastInputKey = key;
     app.lastInputSent = now;
-    app.inputSeq = (app.inputSeq || 0) + 1;
-    app.transport?.sendToHost({ t: "input", input: { ...inputState, inputSeq: app.inputSeq } }, { channel: "input" });
+    app.transport?.sendToHost({ t: "input", input: clonePredictionInput(inputState) }, { channel: "input" });
+    return true;
   }
 
   function updateGuest(dt, now, gameNow) {
     if (!app.localPose) return;
     const inputState = app.input.sample(app.localPose, app.camera);
+    app.inputSeq = (app.inputSeq || 0) + 1;
+    inputState.inputSeq = app.inputSeq;
     sendGuestInput(inputState, now);
     movePlayer(app.localPose, inputState, dt, app.snapshot?.location);
     inputState.aimAngle = (Number.isFinite(inputState.aimX) && Number.isFinite(inputState.aimY))
@@ -302,6 +379,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose.angle = inputState.aimAngle;
     app.localPose.x = clamp(app.localPose.x, app.localPose.radius, WORLD.w - app.localPose.radius);
     app.localPose.y = clamp(app.localPose.y, app.localPose.radius, WORLD.h - app.localPose.radius);
+    recordPredictionFrame(inputState, dt, now);
     tryLocalShoot(gameNow, inputState);
   }
 

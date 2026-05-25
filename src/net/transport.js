@@ -5,6 +5,15 @@ const CHANNEL_KIND_CMD = "cmd";
 const CHANNEL_KIND_INPUT = "input";
 const CHANNEL_KIND_LEGACY = "game";
 
+const SOFT_PLAYER_LEFT_REASONS = new Set([
+  "socket_closed",
+  "socket_error",
+  "stale_socket",
+  "network_lost",
+  "connection_lost",
+  "host_signal_lost"
+]);
+
 const TRANSPORT_CHANNELS = Object.freeze({
   [CHANNEL_KIND_STATE]: Object.freeze({
     label: CHANNEL_KIND_STATE,
@@ -71,6 +80,7 @@ export class Transport {
     this.peerPings = new Map();
     this.pendingCandidates = new Map();
     this.connected = false;
+    this.signalingConnected = false;
     this.pingMs = null;
     this.lastPing = 0;
     this.closedByClient = false;
@@ -96,6 +106,7 @@ export class Transport {
     this.pendingOpenAction = typeof onOpen === "function" ? onOpen : null;
     this.ws = new WebSocket(toWebSocketUrl(this.signalingUrl));
     this.ws.addEventListener("open", () => {
+      this.signalingConnected = true;
       globalThis.clearTimeout(this.helloTimer);
       this.helloTimer = globalThis.setTimeout(() => {
         if (this.helloReady || this.closedByClient) return;
@@ -109,6 +120,11 @@ export class Transport {
       this.helloTimer = 0;
       this.pendingOpenAction = null;
       this.helloReady = false;
+      this.signalingConnected = false;
+      if (!this.closedByClient && this.connected && this.hasOpenPeerChannels()) {
+        this.callbacks.onPeerState?.("signaling", "signal_lost");
+        return;
+      }
       this.connected = false;
       if (!this.closedByClient) this.callbacks.onClose?.();
     });
@@ -182,14 +198,21 @@ export class Transport {
       return;
     }
     if (msg.type === "player_left") {
+      const reason = msg.reason || "left";
+      const softSignalLoss = SOFT_PLAYER_LEFT_REASONS.has(reason);
       if (Array.isArray(msg.players)) this.players = new Set(msg.players);
-      else this.players.delete(msg.playerId);
-      this.closePeer(msg.playerId);
-      this.peerModes.delete(msg.playerId);
-      this.peerPings.delete(msg.playerId);
+      else if (!softSignalLoss) this.players.delete(msg.playerId);
+      if (!softSignalLoss) {
+        this.closePeer(msg.playerId);
+        this.peerModes.delete(msg.playerId);
+        this.peerPings.delete(msg.playerId);
+      } else if (msg.playerId && !this.isStateChannelOpen(msg.playerId)) {
+        this.setPeerMode(msg.playerId, "RELAY");
+      }
       this.syncNames(msg.names);
+      this.callbacks.onPeerState?.(msg.playerId, softSignalLoss ? "signal_lost" : "left");
       this.callbacks.onPeerModes?.(this.peerModesObject());
-      this.callbacks.onPlayerLeft?.(msg.playerId, msg.reason || "left", { players: [...this.players], names: this.namesObject() });
+      this.callbacks.onPlayerLeft?.(msg.playerId, reason, { players: [...this.players], names: this.namesObject(), soft: softSignalLoss });
       this.callbacks.onPlayers?.([...this.players], this.namesObject());
       return;
     }
@@ -282,6 +305,15 @@ export class Transport {
   isStateChannelOpen(remoteId) {
     const dc = this.getChannel(remoteId, CHANNEL_KIND_STATE);
     return dc?.readyState === "open";
+  }
+
+  hasOpenPeerChannels() {
+    for (const record of this.channels.values()) {
+      for (const dc of record.values()) {
+        if (dc?.readyState === "open") return true;
+      }
+    }
+    return false;
   }
 
   getPeerTransportMode(remoteId) {
@@ -528,6 +560,7 @@ export class Transport {
       try { ws.onclose = null; ws.close(); } catch { /* socket may already be closed */ }
     }
     this.ws = null;
+    this.signalingConnected = false;
     this.connected = false;
     this.players.clear();
     this.names.clear();

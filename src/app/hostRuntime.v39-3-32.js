@@ -1,4 +1,4 @@
-import { SNAPSHOT_RATE_P2P, SNAPSHOT_RATE_RELAY, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES } from "../core/constants.js";
+import { GAME_SPEED, HOST_SIM_FIXED_DT, HOST_SIM_MAX_CATCHUP_STEPS, HOST_SIM_MAX_FRAME_SECONDS, HOST_SIM_THROTTLE_WARN_MS, SNAPSHOT_RATE_P2P, SNAPSHOT_RATE_RELAY, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES } from "../core/constants.js";
 import { addPlayer, makeSnapshot, removePlayer } from "../game/state.js";
 import { fireWeapon } from "../game/combat.js";
 import { emptyInput, normalizeHostInput, updateHostWorld } from "../game/simulation.js";
@@ -11,6 +11,8 @@ import { buildNetworkStatePacket } from "../game/snapshotBudget.js";
 
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
+  let fixedStepAccumulator = 0;
+  let lastThrottleWarnAt = 0;
 
   function wire({ client } = {}) {
     clientRuntime = client || clientRuntime;
@@ -103,13 +105,14 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     return 1000 / (mode === "p2p" ? SNAPSHOT_RATE_P2P : SNAPSHOT_RATE_RELAY);
   }
 
-  function statePacketForMode(cache, mode) {
-    if (cache[mode]) return cache[mode];
+  function statePacketForPeer(cache, peerId, mode) {
+    const cacheKey = `${mode}:${peerId || "all"}`;
+    if (cache[cacheKey]) return cache[cacheKey];
     const options = mode === "relay"
-      ? { mode: "relay", targetBytes: SNAPSHOT_RELAY_TARGET_BYTES, limitBytes: SNAPSHOT_RELAY_STATE_LIMIT_BYTES }
-      : { mode: "p2p" };
-    cache[mode] = buildNetworkStatePacket(app.snapshot, options);
-    return cache[mode];
+      ? { mode: "relay", focusPlayerId: peerId, targetBytes: SNAPSHOT_RELAY_TARGET_BYTES, limitBytes: SNAPSHOT_RELAY_STATE_LIMIT_BYTES }
+      : { mode: "p2p", focusPlayerId: peerId };
+    cache[cacheKey] = buildNetworkStatePacket(app.snapshot, options);
+    return cache[cacheKey];
   }
 
   function broadcastSnapshots(now) {
@@ -123,7 +126,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
       const mode = snapshotModeForPeer(peerId);
       const lastSent = app.lastSnapshotSentByPeer[peerId] || 0;
       if (now - lastSent < snapshotIntervalForMode(mode)) continue;
-      const statePacket = statePacketForMode(packetCache, mode);
+      const statePacket = statePacketForPeer(packetCache, peerId, mode);
       const sendMode = app.transport?.sendTo(peerId, statePacket.packet, {
         channel: "state",
         preferRelay: mode === "relay",
@@ -136,6 +139,51 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     if (Object.keys(metaByPeer).length) {
       app.lastSnapshotPacket = Object.values(metaByPeer).at(-1);
       app.lastSnapshotPackets = metaByPeer;
+    }
+  }
+
+  function sampleHostInput() {
+    const inputState = app.input.sample(app.localPose || app.hostState.players[app.playerId], app.camera);
+    app.inputSeq = (app.inputSeq || 0) + 1;
+    app.hostInputs[app.playerId] = { ...inputState, inputSeq: app.inputSeq };
+    return inputState;
+  }
+
+  function syncHostFrameState(inputState, gameNow) {
+    const me = app.hostState.players[app.playerId];
+    app.localPose = me;
+    app.localInventory = ensureInventory(me);
+    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
+    app.localWeapon = getActiveWeaponId(me);
+    clientRuntime?.tryLocalShoot(gameNow, inputState);
+    app.snapshot = makeSnapshot(app.hostState);
+
+    const nextLocationId = app.snapshot.location?.id || null;
+    if (nextLocationId && app.localLocationId && nextLocationId !== app.localLocationId) {
+      app.localLocationId = nextLocationId;
+      fixedStepAccumulator = 0;
+      clientRuntime?.resetPredictionForLocationChange();
+    } else if (nextLocationId && !app.localLocationId) {
+      app.localLocationId = nextLocationId;
+    }
+  }
+
+  function writeHostSimStats({ frameRealDt, accumulatedGameDt, steps, droppedSteps }) {
+    const frameMs = Math.round(frameRealDt * 1000);
+    const throttle = frameMs >= HOST_SIM_THROTTLE_WARN_MS || droppedSteps > 0;
+    app.hostSim = {
+      mode: "fixed-step",
+      stepMs: Math.round(HOST_SIM_FIXED_DT * 1000),
+      accumulatorMs: Math.round(fixedStepAccumulator * 1000),
+      accumulatedMs: Math.round(accumulatedGameDt * 1000),
+      steps,
+      droppedSteps,
+      frameMs,
+      throttle
+    };
+    if (throttle && performance.now() - lastThrottleWarnAt > 2000) {
+      lastThrottleWarnAt = performance.now();
+      console.warn("Host simulation catch-up limited", app.hostSim);
     }
   }
 
@@ -180,28 +228,28 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     return false;
   }
 
-  function update(dt, now, gameNow) {
+  function update(frameRealDt, now, gameNow) {
     ensureHostPlayers();
-    const inputState = app.input.sample(app.localPose || app.hostState.players[app.playerId], app.camera);
-    const me = app.hostState.players[app.playerId];
-    app.inputSeq = (app.inputSeq || 0) + 1;
-    app.hostInputs[app.playerId] = { ...inputState, inputSeq: app.inputSeq };
-    updateHostWorld(app.hostState, app.hostInputs, dt);
-    app.localPose = me;
-    app.localInventory = ensureInventory(me);
-    upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
-    app.localWeapon = getActiveWeaponId(me);
-    clientRuntime?.tryLocalShoot(gameNow, inputState);
-    app.snapshot = makeSnapshot(app.hostState);
+    const inputState = sampleHostInput();
+    const safeFrameRealDt = Math.min(HOST_SIM_MAX_FRAME_SECONDS, Math.max(0, Number.isFinite(frameRealDt) ? frameRealDt : 0));
+    const accumulatedGameDt = safeFrameRealDt * GAME_SPEED;
+    fixedStepAccumulator += accumulatedGameDt;
 
-    const nextLocationId = app.snapshot.location?.id || null;
-    if (nextLocationId && app.localLocationId && nextLocationId !== app.localLocationId) {
-      app.localLocationId = nextLocationId;
-      clientRuntime?.resetPredictionForLocationChange();
-    } else if (nextLocationId && !app.localLocationId) {
-      app.localLocationId = nextLocationId;
+    let steps = 0;
+    while (fixedStepAccumulator >= HOST_SIM_FIXED_DT && steps < HOST_SIM_MAX_CATCHUP_STEPS) {
+      updateHostWorld(app.hostState, app.hostInputs, HOST_SIM_FIXED_DT);
+      fixedStepAccumulator -= HOST_SIM_FIXED_DT;
+      steps += 1;
     }
 
+    let droppedSteps = 0;
+    if (fixedStepAccumulator >= HOST_SIM_FIXED_DT) {
+      droppedSteps = Math.floor(fixedStepAccumulator / HOST_SIM_FIXED_DT);
+      fixedStepAccumulator = fixedStepAccumulator % HOST_SIM_FIXED_DT;
+    }
+
+    syncHostFrameState(inputState, gameNow);
+    writeHostSimStats({ frameRealDt, accumulatedGameDt, steps, droppedSteps });
     broadcastSnapshots(now);
   }
 

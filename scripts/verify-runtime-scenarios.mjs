@@ -36,7 +36,8 @@ import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/ab
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
 import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
-import { buildNetworkStatePacket, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
+import { buildNetworkStatePacket, SNAPSHOT_HAZARD_RADIUS, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
+import { prunePredictionFrames, replayPredictionFrames } from '../src/app/clientRuntime.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -57,6 +58,20 @@ function fresh(seed = 'UNIVERSAL-RUNTIME') {
   player.hp = 50;
   player.maxHp = 100;
   return { state, player };
+}
+
+function assertClientReconciliationReplayScenario() {
+  const base = { id: 'p2', x: 500, y: 500, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, stats: {}, orbiterSlowMult: 1 };
+  const frames = [
+    { inputSeq: 10, dt: 1 / 60, input: { right: true, aimAngle: 0, inputSeq: 10 } },
+    { inputSeq: 11, dt: 1 / 60, input: { right: true, aimAngle: 0, inputSeq: 11 } },
+    { inputSeq: 12, dt: 1 / 60, input: { right: true, aimAngle: 0, inputSeq: 12 } }
+  ];
+  const pending = prunePredictionFrames(frames, 10);
+  assert.deepEqual(pending.map((f) => f.inputSeq), [11, 12], 'client reconcile must keep only inputs newer than the host-acked sequence');
+  const replayed = replayPredictionFrames(base, pending, null);
+  assert.ok(replayed.x > base.x, 'client reconcile replay should advance from authoritative host pose using pending inputs');
+  assert.equal(prunePredictionFrames(frames, 12).length, 0, 'fully acked inputs should be removed from the prediction buffer');
 }
 
 function assertHostAuthorityScenario() {
@@ -588,6 +603,59 @@ function assertUnlimitedCompanionStackScenario() {
 }
 
 
+
+function assertInterestSnapshotPriorityScenario() {
+  const snapshot = {
+    tick: 1,
+    time: 0,
+    location: { id: 'interest-test', geometryHash: 'interest-hash', layoutId: 'open_arena' },
+    players: [
+      { id: 'p1', x: 1200, y: 800, hp: 100, inputSeq: 1 },
+      { id: 'p2', x: 180, y: 180, hp: 100, inputSeq: 11 }
+    ],
+    enemies: [],
+    projectiles: [],
+    companions: [],
+    loot: [],
+    rewardPickups: [],
+    economyPickups: [],
+    interactables: [],
+    portals: [],
+    effects: [],
+    events: [],
+    dev: { heavy: 'X'.repeat(18_000) },
+    director: null,
+    budget: { warningBytes: SNAPSHOT_WARNING_BYTES, limitBytes: SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES }
+  };
+
+  for (let i = 0; i < 260; i += 1) {
+    snapshot.projectiles.push({ id: `far-projectile-${i}`, ownerId: 'p1', kind: 'debug', x: 1800 + i, y: 1400, vx: 1, vy: 1, radius: 6, color: '#fff' });
+  }
+  for (let i = 0; i < 180; i += 1) {
+    snapshot.enemies.push({ id: `far-enemy-${i}`, kind: 'runner', x: 1700 + i, y: 1350, hp: 20 });
+  }
+  snapshot.projectiles.push({ id: 'near-hostile-projectile', ownerId: 'p1', kind: 'enemyBullet', x: 210, y: 190, vx: -300, vy: -20, radius: 7, color: '#f00' });
+  snapshot.enemies.push({ id: 'near-elite-enemy', kind: 'charger', x: 220, y: 210, hp: 100, elite: { id: 'verify' } });
+  snapshot.effects.push({ id: 'near-impact', type: 'playerDamageImpact', x: 185, y: 180, life: 0.2, maxLife: 0.2 });
+
+  const relayPacket = buildNetworkStatePacket(snapshot, {
+    mode: 'relay',
+    focusPlayerId: 'p2',
+    targetBytes: SNAPSHOT_RELAY_TARGET_BYTES,
+    limitBytes: SNAPSHOT_RELAY_STATE_LIMIT_BYTES
+  });
+  const sent = relayPacket.packet.snapshot;
+  assert.equal(relayPacket.meta.interest.applied, true, 'focused relay packet should record interest sorting');
+  assert.equal(relayPacket.meta.interest.focusPlayerId, 'p2', 'interest packet should target the destination peer');
+  assert.ok(relayPacket.meta.stages.some((stage) => stage.startsWith('interest:p2')), 'snapshot budget should record the per-peer interest stage');
+  assert.ok(sent.projectiles.some((p) => p.id === 'near-hostile-projectile'), 'near hostile projectile must survive relay interest trimming');
+  assert.ok(sent.enemies.some((e) => e.id === 'near-elite-enemy'), 'near elite enemy must survive relay interest trimming');
+  assert.equal(sent.projectiles[0].id, 'near-hostile-projectile', 'near hazard should be ordered before far projectiles so later caps keep it');
+  assert.equal(sent.enemies[0].id, 'near-elite-enemy', 'near enemy should be ordered before far enemies so later caps keep it');
+  assert.ok(sent.budget.interest.hazardRadius === SNAPSHOT_HAZARD_RADIUS, 'snapshot budget should expose interest hazard radius for HUD/debug');
+  assert.ok(JSON.stringify(relayPacket.packet).length <= SNAPSHOT_RELAY_STATE_LIMIT_BYTES, 'focused relay interest packet must remain below relay cap');
+}
+
 function assertRewardEventFeedScenario() {
   const install = buildRewardEventFeedItem({
     id: 'ev_install_verify',
@@ -811,6 +879,7 @@ function assertModifierScenario() {
   assert.ok(debtState.events.some((event) => event.type === 'room_modifier_debt' && event.action === 'applied'), 'applying casino debt should emit a room_modifier_debt event');
 
 }
+assertClientReconciliationReplayScenario();
 assertHostAuthorityScenario();
 assertHostImpulseReconcileScenario();
 assertFireOriginLagCompensationScenario();
@@ -826,9 +895,10 @@ assertEconomyDropScenario();
 assertQueuedLevelUpScenario();
 assertAbilityRewardScenario();
 assertUnlimitedCompanionStackScenario();
+assertInterestSnapshotPriorityScenario();
 assertStatSnapshotScenario();
 assertRewardEventFeedScenario();
 assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, host impulse reconciliation, fire-origin lag compensation, anomaly enemy stress pack plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, interest-based snapshot priority, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, client rollback/replay reconciliation, host impulse reconciliation, fire-origin lag compensation, anomaly enemy stress pack plus next-room casino debt');
