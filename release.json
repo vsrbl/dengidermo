@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22w",
-  "buildId": "v39.3.22w-20260525",
+  "version": "v39.3.25",
+  "buildId": "v39.3.25-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-22w.js?v=39.3.22w",
-  "style": "./style.css?v=39.3.22w",
-  "config": "./config.js?v=39.3.22w",
+  "entry": "./src/main.v39-3-25.js?v=39.3.25",
+  "style": "./style.css?v=39.3.25",
+  "config": "./config.js?v=39.3.25",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22w signaling liveness / reconnect hotfix: keeps active P2P rooms alive through WebSocket ping/pong touches, adds automatic signaling reconnect for host and guests, preserves host gameplay state across transient socket drops, and allows host slot reconnect without making the room permanently unavailable."
+  "notes": "v39.3.25 reconnect token: issues per-room reconnect tokens, requires a valid token to reclaim offline guest slots, rotates tokens after successful reconnect, stores tokens client-side, and verifies tokenless/wrong-token joins cannot steal identity."
 }

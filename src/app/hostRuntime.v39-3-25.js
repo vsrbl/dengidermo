@@ -7,6 +7,7 @@ import { chooseUpgrade } from "../game/upgrades.js";
 import { performDash } from "../game/abilities.js";
 import { requestInteractableActivation } from "../game/interactables.js";
 import { requestCasinoSpin, casinoSpinResultSnapshot } from "../game/casino.js";
+import { buildNetworkStatePacket } from "../game/snapshotBudget.js";
 
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
@@ -154,7 +155,9 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
 
     if (now - app.lastSnapshotSent > 1000 / SNAPSHOT_RATE) {
       app.lastSnapshotSent = now;
-      app.transport?.broadcast({ t: "state", snapshot: app.snapshot });
+      const statePacket = buildNetworkStatePacket(app.snapshot);
+      app.lastSnapshotPacket = statePacket.meta;
+      app.transport?.broadcast(statePacket.packet);
     }
   }
 

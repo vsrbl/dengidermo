@@ -36,7 +36,7 @@ import { grantAbility, hasAbility, ensureAbilityInventory } from '../src/game/ab
 import { buildPlayerStatSnapshot, STAT_SNAPSHOT_SCHEMA_VERSION } from '../src/game/statSnapshots.js';
 import { makeSnapshot } from '../src/game/state.js';
 import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
-import { SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
+import { buildNetworkStatePacket, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -547,7 +547,8 @@ function assertUnlimitedCompanionStackScenario() {
 
   for (let i = 0; i < 220; i += 1) heavy.effects.push({ id: `stress-fx-${i}`, type: i % 7 === 0 ? 'playerDamageImpact' : 'tinySpark', x: 300 + i, y: 400, life: 0.2, maxLife: 0.2 });
   const snap = makeSnapshot(heavy);
-  const bytes = JSON.stringify({ t: 'state', snapshot: snap }).length;
+  const statePacket = buildNetworkStatePacket(snap);
+  const bytes = JSON.stringify(statePacket.packet).length;
   assert.ok(snap.budget.companions.compressed, 'heavy companion snapshots should be compressed instead of sending every companion entity');
   assert.ok(snap.budget.companions.hidden > 0, 'companion snapshot compression should report hidden visual entities');
   assert.ok(snap.companions.length < Object.keys(heavy.companions).length, 'snapshot should send preview/group markers, not all companions');
@@ -556,8 +557,25 @@ function assertUnlimitedCompanionStackScenario() {
   assert.ok(snap.budget.effects.budgeted, 'effect storm should be budgeted with priority-aware truncation');
   assert.ok(snap.effects.length <= 48, 'effect snapshot should respect the effect budget');
   assert.ok(snap.effects.some((fx) => fx.type === 'playerDamageImpact'), 'critical player hit impact effects should survive effect budgeting');
-  assert.ok(bytes < SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, `stress snapshot ${bytes} bytes should stay under websocket message limit ${SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES}`);
+  assert.ok(bytes < SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, `stress snapshot packet ${bytes} bytes should stay under websocket message limit ${SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES}`);
+  assert.ok(bytes <= SNAPSHOT_NETWORK_TARGET_BYTES || statePacket.meta.degraded, 'network state packet builder should either fit the relay target or record degradation');
   assert.ok(snap.budget.warningBytes === SNAPSHOT_WARNING_BYTES, 'snapshot budget metadata should expose warning threshold');
+
+  const overloaded = JSON.parse(JSON.stringify(snap));
+  for (const p of overloaded.players) {
+    p.statSnapshot = { schemaVersion: 999, debugBlob: 'X'.repeat(18_000) };
+  }
+  for (let i = 0; i < 420; i += 1) {
+    overloaded.projectiles.push({ id: `overflow-proj-${i}`, ownerId: 'p1', weaponId: 'debug', kind: 'debug', x: i, y: i, vx: 1, vy: 1, radius: 6, color: '#fff' });
+  }
+  for (let i = 0; i < 320; i += 1) overloaded.events.push({ id: `overflow-event-${i}`, type: 'debug', message: 'Y'.repeat(80) });
+  const overloadedBytes = JSON.stringify({ t: 'state', snapshot: overloaded }).length;
+  assert.ok(overloadedBytes > SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, 'overloaded verification snapshot should exceed relay message limit before hard budget');
+  const safePacket = buildNetworkStatePacket(overloaded);
+  const safeBytes = JSON.stringify(safePacket.packet).length;
+  assert.ok(safePacket.meta.degraded, 'oversized network state packet should record degradation');
+  assert.ok(safePacket.meta.stages.some((stage) => stage.startsWith('playerStatSnapshots')), 'hard budget should strip heavy stat snapshots before risking relay closure');
+  assert.ok(safeBytes <= SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, `hard-budgeted packet ${safeBytes} bytes must stay under server relay limit ${SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES}`);
 }
 
 

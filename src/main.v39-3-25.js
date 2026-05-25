@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-22w.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-22w.js";
-import { createSessionRuntime } from "./app/session.v39-3-22w.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-22w.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-22w.js";
-import { createDevControls } from "./app/devControls.v39-3-22w.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-22w.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-25.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-25.js";
+import { createSessionRuntime } from "./app/session.v39-3-25.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-25.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-25.js";
+import { createDevControls } from "./app/devControls.v39-3-25.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-25.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -150,12 +150,21 @@ function boot() {
   requestAnimationFrame(loop);
 }
 
+function isAuthoritativeHostPacket(msg) {
+  return msg?.t === "state" || msg?.t === "casinoResult";
+}
+
 function handleNetData(msg, from, mode) {
   if (!msg || !msg.t) return;
   app.transportMode = mode === "p2p" ? "P2P" : "RELAY";
 
   if (app.role === "host") {
     hostRuntime.handleNetData(msg, from);
+    return;
+  }
+
+  if (isAuthoritativeHostPacket(msg) && from !== "p1") {
+    console.warn("Ignoring authoritative host packet from non-host peer", from, msg.t);
     return;
   }
 

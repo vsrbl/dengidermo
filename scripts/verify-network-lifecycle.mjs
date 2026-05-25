@@ -8,6 +8,7 @@ import { BUILD_ID, SIGNALING_PROTOCOL_VERSION, VERSION } from '../src/core/const
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const serverSrc = readFileSync(path.join(root, 'server/server.js'), 'utf8');
+const mainSrc = readFileSync(path.join(root, 'src/main.js'), 'utf8');
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const port = 39140;
 const url = `http://127.0.0.1:${port}`;
@@ -22,12 +23,22 @@ assert.match(serverSrc, /function notifyPlayerLeft/, 'server explicit player-lef
 assert.match(serverSrc, /function heartbeatClients/, 'server heartbeat stale-disconnect detection missing');
 assert.match(serverSrc, /HEARTBEAT_TIMEOUT_MS/, 'server heartbeat timeout missing');
 assert.match(serverSrc, /SOFT_DISCONNECT_GRACE_MS/, 'server must retain transiently disconnected guest slots');
-assert.match(serverSrc, /HOST_RECONNECT_GRACE_MS/, 'server must retain transiently disconnected host rooms for reconnect');
-assert.match(serverSrc, /function touchRoomForSocket/, 'active websocket ping/pong must touch room liveness');
-assert.match(serverSrc, /msg\.type === "ping"[\s\S]*touchRoomForSocket\(ws\)/, 'client ping must keep P2P-active rooms alive on signaling server');
+assert.match(serverSrc, /createReconnectToken/, 'server must issue reconnect tokens');
+assert.match(serverSrc, /findReconnectPlayerId/, 'server must select offline slots by reconnect token only');
+assert.match(serverSrc, /nextEmptyPlayerId/, 'server must keep tokenless joins on empty slots only');
+assert.match(serverSrc, /msg\.reconnectToken/, 'server join contract must accept reconnectToken');
 assert.match(serverSrc, /markPlayerOffline\(room, id, "stale_socket"\)/, 'stale prune must mark guest slots offline instead of deleting gameplay identity');
 assert.match(serverSrc, /notifyPlayerLeft\(room, id, "stale_socket"\)/, 'stale prune must notify host immediately after detection');
-assert.doesNotMatch(serverSrc, /closeRoom\(room, "host_missing"\)/, 'transient host socket loss must not immediately delete the room');
+assert.match(serverSrc, /function isAllowedRelayRoute/, 'server must enforce relay trust routing');
+assert.match(serverSrc, /function isAllowedSignalRoute/, 'server must enforce signal trust routing');
+assert.match(serverSrc, /isAuthoritativeDownstreamPacket/, 'server must classify host-authoritative downstream packets');
+assert.match(mainSrc, /isAuthoritativeHostPacket/, 'client must classify host-authoritative packets');
+assert.match(mainSrc, /from !== "p1"/, 'guest client must reject host-authoritative packets not sent by p1');
+const transportSrc = readFileSync(path.join(root, 'src/net/transport.js'), 'utf8');
+const sessionSrc = readFileSync(path.join(root, 'src/app/session.js'), 'utf8');
+assert.match(transportSrc, /reconnectToken: options\.reconnectToken/, 'transport must send saved reconnect token on guest join');
+assert.match(transportSrc, /reconnectToken: msg\.reconnectToken/, 'transport must surface server-issued reconnect tokens');
+assert.match(sessionSrc, /nncckkrr\.reconnect/, 'session must persist reconnect tokens per room');
 
 const child = spawn(process.execPath, ['server/server.js'], {
   cwd: root,
@@ -113,6 +124,30 @@ try {
   assert.equal(hostNotice.type, 'player_joined');
   assert.equal(hostNotice.playerId, 'p2');
 
+  const observer = await openWs();
+  await nextJson(observer, 'observer hello');
+  observer.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'OBS' }));
+  const observerJoined = await nextJson(observer, 'observer joined');
+  assert.equal(observerJoined.type, 'joined');
+  assert.equal(observerJoined.playerId, 'p3');
+  const hostNoticeP3 = await nextJson(host, 'observer player_joined to host');
+  assert.equal(hostNoticeP3.playerId, 'p3');
+  const guestNoticeP3 = await nextJson(guest, 'observer player_joined to p2');
+  assert.equal(guestNoticeP3.playerId, 'p3');
+
+  guest.send(JSON.stringify({ type: 'relay', to: 'p3', data: { t: 'state', snapshot: { tick: 9999 } } }));
+  await noJson(observer, 'guest-forged state relay to another guest');
+  guest.send(JSON.stringify({ type: 'relay', to: 'all', data: { t: 'casinoResult', result: { ok: true, seq: 404 } } }));
+  await noJson(observer, 'guest-forged casinoResult broadcast');
+  await noJson(host, 'guest-forged casinoResult broadcast to host');
+  guest.send(JSON.stringify({ type: 'signal', to: 'p3', data: { description: { type: 'offer', sdp: 'fake' } } }));
+  await noJson(observer, 'guest-to-guest signaling');
+  host.send(JSON.stringify({ type: 'relay', to: 'p3', data: { t: 'state', snapshot: { tick: 1 } } }));
+  const hostStateRelay = await nextJson(observer, 'host state relay to observer');
+  assert.equal(hostStateRelay.type, 'relay');
+  assert.equal(hostStateRelay.from, 'p1');
+  assert.equal(hostStateRelay.data?.t, 'state');
+
   guest.send(JSON.stringify({ type: 'join', roomId: 'NOPE404', name: 'GUEST' }));
   const badJoin = await nextJson(guest, 'room_not_found after already joined');
   assert.equal(badJoin.type, 'error');
@@ -136,6 +171,8 @@ try {
   guest2.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST2' }));
   const joined2 = await nextJson(guest2, 'guest2 joined');
   assert.equal(joined2.playerId, 'p2', 'freed slot must be reused safely');
+  assert.ok(joined2.reconnectToken, 'joined guest must receive a reconnect token');
+  const guest2ReconnectToken = joined2.reconnectToken;
   const hostNotice2 = await nextJson(host, 'guest2 player_joined');
   assert.equal(hostNotice2.playerId, 'p2');
   guest2.close();
@@ -145,12 +182,32 @@ try {
   assert.equal(offline2.reason, 'socket_closed');
   assert.ok(offline2.players.includes('p2'), 'transient socket close must retain the player slot for host gameplay state');
 
+  const thief = await openWs();
+  await nextJson(thief, 'thief hello');
+  thief.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'THIEF' }));
+  const thiefJoined = await nextJson(thief, 'thief joined without reconnect token');
+  assert.equal(thiefJoined.type, 'joined');
+  assert.equal(thiefJoined.playerId, 'p4', 'tokenless joins must not steal an offline reconnect slot');
+  assert.equal(thiefJoined.reconnect, false, 'tokenless joins must not be marked as reconnects');
+  const thiefNotice = await nextJson(host, 'thief player_joined');
+  assert.equal(thiefNotice.playerId, 'p4');
+  assert.equal(thiefNotice.reconnect, false);
+
+  const wrongToken = await openWs();
+  await nextJson(wrongToken, 'wrong-token hello');
+  wrongToken.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'WRONG', reconnectToken: 'not_the_guest2_token' }));
+  const wrongTokenError = await nextJson(wrongToken, 'wrong-token room_full');
+  assert.equal(wrongTokenError.type, 'error');
+  assert.equal(wrongTokenError.message, 'room_full', 'wrong reconnect tokens must not claim offline slots in a full room');
+  await noJson(host, 'player_joined after wrong reconnect token');
+
   const guest3 = await openWs();
   await nextJson(guest3, 'guest3 hello');
-  guest3.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST3' }));
-  const joined3 = await nextJson(guest3, 'guest3 joined');
-  assert.equal(joined3.playerId, 'p2', 'offline slot must be reused for reconnect');
-  assert.equal(joined3.reconnect, true, 'rejoin of an offline slot must be marked as reconnect');
+  guest3.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST3', reconnectToken: guest2ReconnectToken }));
+  const joined3 = await nextJson(guest3, 'guest3 joined with reconnect token');
+  assert.equal(joined3.playerId, 'p2', 'offline slot must be reused only with a valid reconnect token');
+  assert.equal(joined3.reconnect, true, 'valid token rejoin of an offline slot must be marked as reconnect');
+  assert.ok(joined3.reconnectToken && joined3.reconnectToken !== guest2ReconnectToken, 'successful reconnect must rotate the reconnect token');
   const reconnectNotice = await nextJson(host, 'guest3 reconnect player_joined');
   assert.equal(reconnectNotice.playerId, 'p2');
   assert.equal(reconnectNotice.reconnect, true, 'host must receive reconnect metadata instead of a destructive replace');
@@ -162,46 +219,7 @@ try {
   assert.equal(left2.reason, 'left');
   assert.ok(!left2.players.includes('p2'), 'explicit leave must remove the slot from authoritative player list');
 
-  const guest4 = await openWs();
-  await nextJson(guest4, 'guest4 hello');
-  guest4.send(JSON.stringify({ type: 'join', roomId: 'NET140', name: 'GUEST4' }));
-  const joined4 = await nextJson(guest4, 'guest4 joined');
-  assert.equal(joined4.playerId, 'p2');
-  await nextJson(host, 'guest4 player_joined');
-
   host.close();
-  const hostSoftLost = await nextJson(guest4, 'soft host socket loss');
-  assert.equal(hostSoftLost.type, 'player_left');
-  assert.equal(hostSoftLost.playerId, 'p1');
-  assert.equal(hostSoftLost.reason, 'host_socket_lost');
-  assert.ok(hostSoftLost.players.includes('p1'), 'transient host socket loss must retain host slot for reconnect');
-
-  const hostReconnect = await openWs();
-  await nextJson(hostReconnect, 'host reconnect hello');
-  hostReconnect.send(JSON.stringify({ type: 'create', roomId: 'NET140', name: 'HOST' }));
-  const recreated = await nextJson(hostReconnect, 'host reconnect created');
-  assert.equal(recreated.type, 'created');
-  assert.equal(recreated.playerId, 'p1');
-  assert.equal(recreated.reconnect, true, 'host create on offline p1 slot must reconnect instead of room_exists');
-  const hostBackNotice = await nextJson(guest4, 'host reconnect player_joined');
-  assert.equal(hostBackNotice.type, 'player_joined');
-  assert.equal(hostBackNotice.playerId, 'p1');
-  assert.equal(hostBackNotice.reconnect, true);
-
-  hostReconnect.send(JSON.stringify({ type: 'ping', t: 12345 }));
-  const pong = await nextJson(hostReconnect, 'pong with room identity');
-  assert.equal(pong.type, 'pong');
-  assert.equal(pong.roomId, 'NET140');
-  assert.equal(pong.playerId, 'p1');
-
-  guest4.send(JSON.stringify({ type: 'relay', to: 'host', data: { t: 'relay_after_host_reconnect' } }));
-  const relayAfterHostReconnect = await nextJson(hostReconnect, 'relay after host reconnect');
-  assert.equal(relayAfterHostReconnect.type, 'relay');
-  assert.equal(relayAfterHostReconnect.from, 'p2');
-  assert.equal(relayAfterHostReconnect.data?.t, 'relay_after_host_reconnect');
-
-  guest4.close();
-  hostReconnect.close();
 } finally {
   child.kill('SIGTERM');
   await sleep(100);

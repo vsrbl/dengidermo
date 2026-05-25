@@ -263,6 +263,8 @@ const companionsRuntime = read('src/game/companions.js');
 const stateRuntime = read('src/game/state.js');
 assert.match(snapshotBudget, /SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES\s*=\s*64 \* 1024/, 'snapshot budget must track the server websocket message limit');
 assert.match(snapshotBudget, /SNAPSHOT_WARNING_BYTES\s*=\s*52 \* 1024/, 'snapshot budget must expose a pre-limit warning threshold');
+assert.match(snapshotBudget, /SNAPSHOT_NETWORK_TARGET_BYTES\s*=\s*SNAPSHOT_WARNING_BYTES/, 'snapshot budget must define a relay-safe network target below the websocket hard limit');
+assert.match(snapshotBudget, /buildNetworkStatePacket/, 'snapshot budget must expose a send-time hard-budgeted state packet builder');
 assert.match(snapshotBudget, /budgetEffects/, 'snapshot budget must own priority-aware effect trimming');
 assert.match(snapshotBudget, /visualEffectPriority/, 'snapshot budget must share visual-effect priority with lifecycle runtime');
 assert.match(visualEffectsRuntime, /export function tickVisualEffects/, 'visual effect lifecycle must live outside projectiles.js');
@@ -276,6 +278,7 @@ assert.match(stateRuntime, /const companionPacket = companionSnapshots\(state\)/
 assert.doesNotMatch(stateRuntime, /Object\.values\(state\.companions \|\| \{\}\)\.map\(\(c\) => companionSnapshot\(c\)\)/, 'makeSnapshot must not send every companion entity during unlimited-stack runs');
 assert.match(stateRuntime, /const effectPacket = budgetEffects\(state\.effects\)/, 'makeSnapshot must route effects through the snapshot effect budget');
 assert.match(stateRuntime, /snapshot\.budget = buildSnapshotBudgetMeta/, 'makeSnapshot must expose snapshot budget metadata for tests/debug HUDs');
+assert.match(read('src/app/hostRuntime.js'), /buildNetworkStatePacket\(app\.snapshot\)/, 'host runtime must hard-budget network snapshots before broadcast');
 assert.match(rendererRuntime, /function drawCompanionGroup/, 'renderer must support compressed companion group markers');
 
 const chests = read('src/game/chests.js');
