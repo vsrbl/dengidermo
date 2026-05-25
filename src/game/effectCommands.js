@@ -15,7 +15,24 @@ export function pushVisualEffect(state, event = {}) {
   return fx;
 }
 
-export function addShake(state, power = 2.5, life = 0.12, source = null) {
+function normalizeShakeAudience(options = {}) {
+  if (!options || typeof options !== "object") return {};
+  const audience = typeof options.audience === "string" ? options.audience : null;
+  const targetId = typeof options.targetId === "string" ? options.targetId : null;
+  const ownerId = typeof options.ownerId === "string" ? options.ownerId : null;
+  const out = {};
+  if (audience) out.audience = audience;
+  if (targetId) out.targetId = targetId;
+  if (ownerId) out.ownerId = ownerId;
+  return out;
+}
+
+function shakeAudienceKey(meta = {}) {
+  const audience = meta.audience || (meta.targetId ? "target" : (meta.ownerId ? "owner" : "global"));
+  return `${audience}:${meta.targetId || "-"}:${meta.ownerId || "-"}`;
+}
+
+export function addShake(state, power = 2.5, life = 0.12, source = null, options = {}) {
   const p = Math.max(0, Math.min(SHAKE_MAX_POWER, Number.isFinite(power) ? power : 0));
   if (p <= 0) return null;
   const l = Math.max(0.05, Math.min(0.32, Number.isFinite(life) ? life : 0.12));
@@ -24,7 +41,9 @@ export function addShake(state, power = 2.5, life = 0.12, source = null) {
   // impulses per tick and combine them as energy, not as a linear sum.
   // Renderer then consumes each aggregate shake once and decays it locally.
   const tick = state.tick || 0;
-  const existing = state.effects.find((fx) => fx.type === "shake" && fx.tick === tick);
+  const meta = normalizeShakeAudience(options);
+  const audienceKey = shakeAudienceKey(meta);
+  const existing = state.effects.find((fx) => fx.type === "shake" && fx.tick === tick && (fx.audienceKey || shakeAudienceKey(fx)) === audienceKey);
   if (existing) {
     const current = Math.max(0, existing.power || 0);
     existing.power = Math.min(SHAKE_MAX_POWER, Math.hypot(current, p));
@@ -44,8 +63,12 @@ export function addShake(state, power = 2.5, life = 0.12, source = null) {
     tick,
     power: p,
     life: l,
-    maxLife: l
+    maxLife: l,
+    audience: meta.audience || (meta.targetId ? "target" : (meta.ownerId ? "owner" : "global")),
+    audienceKey
   };
+  if (meta.targetId) fx.targetId = meta.targetId;
+  if (meta.ownerId) fx.ownerId = meta.ownerId;
   if (source) fx.source = source;
   pushVisualEffect(state, fx);
   return fx;
@@ -86,7 +109,9 @@ export function executeEffectCommands(state, commands, ctx = {}, handlers = {}) 
         command.color ?? GREEN
       );
     } else if (command.type === "shake") {
-      addShake(state, command.power ?? 2.5, command.life ?? 0.12, command.source || null);
+      const ownerId = command.ownerId || ctx.projectile?.ownerId || ctx.sourcePlayer?.id || null;
+      const audience = command.audience || (ownerId ? "owner" : null);
+      addShake(state, command.power ?? 2.5, command.life ?? 0.12, command.source || null, { audience, ownerId, targetId: command.targetId || null });
     } else if (command.type === "visual" && command.event) {
       pushVisualEffect(state, command.event);
     } else if (command.type === "status" && command.target && command.status) {

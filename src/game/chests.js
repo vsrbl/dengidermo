@@ -27,10 +27,10 @@ function chestRevealSummary(spawned = []) {
   return unique.slice(0, 3).join("+").slice(0, 16);
 }
 
-function chestRevealEffects(state, interactable, chest, profile, revealLabel) {
+function chestRevealEffects(state, interactable, chest, profile, revealLabel, player = null) {
   const color = chestColor(chest);
   const radius = (interactable.radius || chest.radius || 24) + 18;
-  addShake(state, profile.shakePower || 1.4, profile.shakeLife || 0.08, `chest:${chest.id}`);
+  addShake(state, profile.shakePower || 1.4, profile.shakeLife || 0.08, `chest:${chest.id}`, player?.id ? { audience: "target", targetId: player.id } : {});
   addSpark(state, interactable.x, interactable.y, profile.sparkCount || 16, profile.sparkPower || 155, color);
   pushVisualEffect(state, {
     type: "rewardRevealPulse",
@@ -101,7 +101,7 @@ function denyChestOpenForCost(state, interactable, player, chest, cost, reason) 
     life: 0.48,
     maxLife: 0.48
   });
-  if (reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY) addShake(state, 1.4, 0.06, `chest-denied:${interactable.id}`);
+  if (reason === INTERACTABLE_DENIAL_REASONS.NOT_ENOUGH_MONEY) addShake(state, 1.4, 0.06, `chest-denied:${interactable.id}`, { audience: "target", targetId: player.id });
   pushEvent(state, {
     type: "chest",
     action: "open_denied",
@@ -169,7 +169,7 @@ export function activateChest(state, interactable, player, options = {}) {
   interactable.chestRewardCount = spawned.length;
   interactable.chestRevealLabel = chestRevealSummary(spawned);
 
-  chestRevealEffects(state, interactable, chest, profile, interactable.chestRevealLabel);
+  chestRevealEffects(state, interactable, chest, profile, interactable.chestRevealLabel, player);
   pushEvent(state, {
     type: "interactable",
     action: "opened",

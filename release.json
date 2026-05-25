@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.3.22r",
-  "buildId": "v39.3.22r-20260525",
+  "version": "v39.3.22s",
+  "buildId": "v39.3.22s-20260525",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-3-22r.js?v=39.3.22r",
-  "style": "./style.css?v=39.3.22r",
-  "config": "./config.js?v=39.3.22r",
+  "entry": "./src/main.v39-3-22s.js?v=39.3.22s",
+  "style": "./style.css?v=39.3.22s",
+  "config": "./config.js?v=39.3.22s",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.3.22r smooth host impulse reconcile hotfix: keeps the soft-disconnect/player impulse lifecycle fixes, but changes guest-side host impulse reconciliation from repeated hard snaps to capped soft convergence so hostile knockback/force waves do not make the guest jitter."
+  "notes": "v39.3.22s local feedback isolation hotfix: keeps the smooth host impulse/lifecycle fixes, then scopes camera shake to the affected local player or projectile owner so host damage, player-hit feedback, rocket shake, chest denial, and casino/chest reveal shakes no longer shake other clients."
 }

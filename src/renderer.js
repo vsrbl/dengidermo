@@ -452,7 +452,16 @@ function ensureShakeState(renderer) {
   return renderer.shake;
 }
 
-function ingestCameraShake(renderer, snapshot, dt) {
+function shakeVisibleToLocal(fx, localId) {
+  const audience = fx?.audience || (fx?.targetId ? "target" : (fx?.ownerId ? "owner" : "global"));
+  if (audience === "global") return true;
+  if (!localId) return false;
+  if (audience === "target" || audience === "player" || audience === "local") return fx.targetId === localId;
+  if (audience === "owner") return fx.ownerId === localId;
+  return false;
+}
+
+function ingestCameraShake(renderer, snapshot, dt, localId = null) {
   const shake = ensureShakeState(renderer);
   const safeDt = Math.max(0, Math.min(0.05, Number.isFinite(dt) ? dt : 0));
   shake.time += safeDt;
@@ -460,6 +469,7 @@ function ingestCameraShake(renderer, snapshot, dt) {
   let index = 0;
   for (const fx of snapshot?.effects || []) {
     if (fx.type !== "shake") continue;
+    if (!shakeVisibleToLocal(fx, localId)) continue;
     const id = fx.id || `legacy:${snapshot?.tick || 0}:${index}`;
     index += 1;
     if (shake.seen.has(id)) continue;
@@ -485,8 +495,8 @@ function ingestCameraShake(renderer, snapshot, dt) {
   return shake;
 }
 
-function cameraWithShake(cam, renderer, snapshot, dt) {
-  const shake = ingestCameraShake(renderer, snapshot, dt);
+function cameraWithShake(cam, renderer, snapshot, dt, localId = null) {
+  const shake = ingestCameraShake(renderer, snapshot, dt, localId);
   const power = Math.max(0, Math.min(SHAKE_RENDER_MAX, shake.power || 0));
   if (power <= 0) return cam;
   const t = shake.time;
@@ -525,7 +535,7 @@ function drawCrosshair(ctx, mouse) {
 
 export function render(renderer, snapshot, localPose, localId, cam, mouse, predictedProjectiles, renderDt, simDt = renderDt) {
   const { ctx, smooth } = renderer;
-  const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt) : cam;
+  const renderCam = snapshot ? cameraWithShake(cam, renderer, snapshot, renderDt, localId) : cam;
   drawGrid(ctx, renderCam, snapshot?.location);
   drawRoomGeometry(ctx, renderCam, snapshot?.location);
   if (!snapshot) {

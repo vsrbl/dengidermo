@@ -104,7 +104,13 @@ function emitPlayerDamageImpact(state, player, resolved, hit, spec = {}) {
     life: Math.max(0.16, Math.min(0.42, 0.18 + power * 0.08)),
     maxLife: Math.max(0.16, Math.min(0.42, 0.18 + power * 0.08))
   });
-  addShake(state, 1.6 + power * 2.25, Math.max(0.08, Math.min(0.18, 0.08 + power * 0.04)), `player-hit:${player.id}`);
+  addShake(
+    state,
+    1.6 + power * 2.25,
+    Math.max(0.08, Math.min(0.18, 0.08 + power * 0.04)),
+    `player-hit:${player.id}`,
+    { audience: "target", targetId: player.id }
+  );
   return player.lastDamageImpact;
 }
 

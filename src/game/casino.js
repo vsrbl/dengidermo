@@ -270,7 +270,7 @@ export function requestCasinoSpin(state, playerId, request = {}) {
   interactable.casinoLastResult = result;
   interactable.lastSpunBy = player.id;
 
-  addShake(state, revealProfile.shakePower, revealProfile.shakeLife, `casino:${interactable.id}`);
+  addShake(state, revealProfile.shakePower, revealProfile.shakeLife, `casino:${interactable.id}`, { audience: "target", targetId: player.id });
   addSpark(state, interactable.x, interactable.y, revealProfile.sparkCount, revealProfile.sparkPower, revealProfile.color);
   pushVisualEffect(state, {
     type: "rewardRevealPulse",
