@@ -2,13 +2,14 @@ import { CASINO_MACHINES } from "../data/casinoMachines.js";
 import { CASINO_STAKES } from "../data/casinoStakes.js";
 import { CASINO_SYMBOLS } from "../data/casinoSymbols.js";
 import { CASINO_REVEAL_TIMING } from "../data/revealAnimations.js";
+import { attachActionPoseHint } from "../game/playerActionHints.js";
 
 function moneyOf(player) {
   return Math.max(0, Math.floor(player?.economy?.money || 0));
 }
 
 function currentPlayer(app) {
-  return app.snapshot?.players?.find((p) => p.id === app.playerId) || app.localPose || null;
+  return app.localPose || app.snapshot?.players?.find((p) => p.id === app.playerId) || null;
 }
 
 function targetFromSnapshot(app, targetId) {
@@ -115,7 +116,9 @@ export function createCasinoClient(app, { host } = {}) {
     panel?.classList.add("casino-lock");
     setStatus("STAKE LOCK", "pending");
     refresh();
-    const request = { t: "casinoSpin", interactableId: openTarget.id, machineId: openTarget.casinoMachineId, stakeId, seq: app.casinoSeq };
+    const actionPose = currentPlayer(app);
+    const hint = actionPose ? attachActionPoseHint({}, actionPose) : {};
+    const request = { t: "casinoSpin", interactableId: openTarget.id, machineId: openTarget.casinoMachineId, stakeId, seq: app.casinoSeq, ...hint };
     if (app.role === "host") {
       const result = host?.applyCasinoSpinRequest(app.playerId, request);
       receiveResult(result || { ok: false, reason: "host_failed", seq: request.seq });

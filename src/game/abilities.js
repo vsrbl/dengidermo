@@ -1,6 +1,7 @@
 import { WORLD } from "../core/constants.js";
 import { clamp, norm } from "../core/math.js";
 import { roomGeometrySnapshot, roomGeometrySnapshotForState, sweepCircleInLocation } from "./roomGeometry.js";
+import { resolvePlayerActionPose } from "./playerActionHints.js";
 import { buildPlayerEffects, getEffect } from "./effects.js";
 import { pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
@@ -220,6 +221,18 @@ export function performDash(state, playerId, input = {}, request = {}) {
   if (seq && seq <= (dash.seqSeen || 0)) return { ok: false, reason: "old-seq" };
   if ((dash.charges || 0) <= 0) return { ok: false, reason: "cooldown" };
 
+  const dashStart = resolvePlayerActionPose(state, player, input, {
+    baseDrift: 64,
+    maxDrift: 170,
+    compensatedDrift: 8,
+    validateGeometry: true,
+    validateLineOfSight: true
+  });
+  if (dashStart.accepted) {
+    player.x = dashStart.x;
+    player.y = dashStart.y;
+  }
+
   const movement = applyDashMovement(player, input, cfg, roomGeometrySnapshotForState(state));
   dash.charges = Math.max(0, Math.floor(dash.charges || 0) - 1);
   if (dash.charges < Math.max(1, Math.floor(cfg.maxCharges || 1)) && !(dash.rechargeLeft > 0)) dash.rechargeLeft = cfg.cooldown;
@@ -228,7 +241,7 @@ export function performDash(state, playerId, input = {}, request = {}) {
   dash.flash = 0.22;
   if (seq) dash.seqSeen = seq;
   addDashVisuals(state, player, movement, cfg);
-  pushEvent(state, { type: "dash", playerId, x: player.x, y: player.y });
+  pushEvent(state, { type: "dash", playerId, x: player.x, y: player.y, compensatedOrigin: !!dashStart.compensated });
   return { ok: true, movement, config: cfg };
 }
 

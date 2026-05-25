@@ -1,14 +1,26 @@
-import { angleToVec, clamp, vecToAngle } from "../core/math.js";
-import { WORLD } from "../core/constants.js";
+import { angleToVec, vecToAngle } from "../core/math.js";
 import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { getActiveWeaponId, hasWeapon, switchWeapon } from "./inventory.js";
 import { makeProjectile } from "./projectiles.js";
 import { buildProjectileEffects } from "./effects.js";
 import { pushEvent } from "./events.js";
+import { resolvePlayerActionPose } from "./playerActionHints.js";
 
 function statMult(player, key) {
   return Math.max(0.1, player.stats?.[key] || 1);
 }
+
+
+function resolveFireOrigin(state, player, payload = {}) {
+  return resolvePlayerActionPose(state, player, payload, {
+    baseDrift: 52,
+    maxDrift: 190,
+    compensatedDrift: 6,
+    validateGeometry: true,
+    validateLineOfSight: true
+  });
+}
+
 
 function canFire(player, weaponId, weapon, now) {
   const nextAt = player.cooldowns?.[weaponId] || 0;
@@ -37,8 +49,9 @@ export function fireWeapon(state, playerId, payload = {}) {
   const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
   if (!canFire(player, weaponId, weapon, state.time)) return false;
 
-  const x = clamp(player.x, 0, WORLD.w);
-  const y = clamp(player.y, 0, WORLD.h);
+  const fireOrigin = resolveFireOrigin(state, player, payload);
+  const x = fireOrigin.x;
+  const y = fireOrigin.y;
 
   const angle = (Number.isFinite(payload.aimX) && Number.isFinite(payload.aimY))
     ? vecToAngle(payload.aimX - x, payload.aimY - y)
@@ -72,6 +85,6 @@ export function fireWeapon(state, playerId, payload = {}) {
   player.angle = angle;
   if (!player.cooldowns) player.cooldowns = {};
   player.cooldowns[weaponId] = state.time + 1 / (weapon.fireRate * statMult(player, "fireRateMult"));
-  pushEvent(state, { type: "shoot", playerId, weaponId, x, y, angle, fireSeq: seq });
+  pushEvent(state, { type: "shoot", playerId, weaponId, x, y, angle, fireSeq: seq, compensatedOrigin: !!fireOrigin.compensated });
   return true;
 }

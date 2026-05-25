@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-22t.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-22t.js";
-import { createSessionRuntime } from "./app/session.v39-3-22t.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-22t.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-22t.js";
-import { createDevControls } from "./app/devControls.v39-3-22t.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-22t.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-22v.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-22v.js";
+import { createSessionRuntime } from "./app/session.v39-3-22v.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-22v.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-22v.js";
+import { createDevControls } from "./app/devControls.v39-3-22v.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-22v.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -73,6 +73,7 @@ function createAppState() {
     momentFeed: createMomentFeed(),
     killComboFeed: createKillComboFeed(),
     lastInputSent: 0,
+    lastInputKey: "",
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
     lastSnapshotTick: -1,

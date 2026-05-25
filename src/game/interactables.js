@@ -9,6 +9,7 @@ import { executeRewardTable } from "./rewardResolver.js";
 import { activateChest, createChestRuntimeFields, isChestInteractableData, updateChestInteractable } from "./chests.js";
 import { createCasinoRuntimeFields, isCasinoInteractableData, updateCasinoInteractable } from "./casino.js";
 import { interactablePlacementBudgetAllows, resolveInteractablePoint } from "./interactableResolver.js";
+import { resolvePlayerActionPose } from "./playerActionHints.js";
 
 function colorForAccent(accent = "green") {
   if (accent === "red") return RED;
@@ -100,7 +101,8 @@ export function canActivateInteractable(state, interactable, player, options = {
   if (options.validateDistance !== false) {
     const radius = interactable.interactRadius || data.interactRadius || (interactable.radius || data.radius || 18) + 20;
     const r = radius + (player.radius || PLAYER_RADIUS);
-    if (dist2(player.x, player.y, interactable.x, interactable.y) > r * r) return { ok: false, reason: "too_far" };
+    const actorPose = options.actionPose || player;
+    if (dist2(actorPose.x, actorPose.y, interactable.x, interactable.y) > r * r) return { ok: false, reason: "too_far" };
   }
   return { ok: true, data };
 }
@@ -167,14 +169,15 @@ export function activateInteractable(state, interactable, player, options = {}) 
   return true;
 }
 
-function nearestInteractable(state, player, targetId = null) {
+function nearestInteractable(state, player, targetId = null, options = {}) {
   let best = null;
   let bestD2 = Infinity;
   for (const interactable of Object.values(state?.interactables || {})) {
     if (targetId && interactable.id !== targetId) continue;
-    const check = canActivateInteractable(state, interactable, player);
+    const check = canActivateInteractable(state, interactable, player, options);
     if (!check.ok) continue;
-    const d = dist2(player.x, player.y, interactable.x, interactable.y);
+    const actorPose = options.actionPose || player;
+    const d = dist2(actorPose.x, actorPose.y, interactable.x, interactable.y);
     if (d < bestD2) {
       best = interactable;
       bestD2 = d;
@@ -186,15 +189,23 @@ function nearestInteractable(state, player, targetId = null) {
 export function requestInteractableActivation(state, playerId, request = {}) {
   const player = state?.players?.[playerId];
   if (!player) return false;
+  const actionPose = resolvePlayerActionPose(state, player, request, {
+    baseDrift: 60,
+    maxDrift: 160,
+    compensatedDrift: 8,
+    validateGeometry: true,
+    validateLineOfSight: true
+  });
+  const options = actionPose.accepted ? { actionPose } : {};
   const targetId = typeof request.targetId === "string" ? request.targetId : null;
   if (targetId) {
     const requested = state?.interactables?.[targetId] || null;
     if (!requested) return false;
-    return activateInteractable(state, requested, player);
+    return activateInteractable(state, requested, player, options);
   }
-  const interactable = nearestInteractable(state, player, null);
+  const interactable = nearestInteractable(state, player, null, options);
   if (!interactable) return false;
-  return activateInteractable(state, interactable, player);
+  return activateInteractable(state, interactable, player, options);
 }
 
 export function updateInteractables(state, dt = 0.016) {

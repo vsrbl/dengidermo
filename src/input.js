@@ -16,13 +16,18 @@ function isEditableTarget(target) {
 
 export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevCommand, onAbility, onInteract, isGameActive = () => true } = {}) {
   const pressed = new Set();
-  const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0 };
+  const mouse = { x: VIEW.w / 2, y: VIEW.h / 2, down: false, inside: false, worldX: 0, worldY: 0, pressSeq: 0, sampledPressSeq: 0 };
   const uiState = { tabHeld: false };
 
   function resetKeys() {
     pressed.clear();
     mouse.down = false;
     uiState.tabHeld = false;
+  }
+
+  function registerFirePress() {
+    if (!mouse.down) mouse.pressSeq += 1;
+    mouse.down = true;
   }
 
   function activeForKeyboard(e) {
@@ -98,7 +103,7 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     }
     if (e.code === "Space" || e.code === "Enter") {
       e.preventDefault();
-      mouse.down = true;
+      if (!e.repeat) registerFirePress();
     }
   });
 
@@ -133,7 +138,7 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
   });
   canvas.addEventListener("mousedown", (e) => {
     if (!isGameActive() || e.button !== 0) return;
-    mouse.down = true;
+    registerFirePress();
     mouse.inside = true;
     setMouseFromEvent(e);
   });
@@ -152,6 +157,8 @@ export function createInput(canvas, { onEsc, onWeaponSlot, onWeaponCycle, onDevC
     input.up = pressed.has("up");
     input.down = pressed.has("down");
     input.fire = mouse.down;
+    input.firePressed = mouse.pressSeq !== mouse.sampledPressSeq;
+    if (input.firePressed) mouse.sampledPressSeq = mouse.pressSeq;
     mouse.worldX = camera.x + mouse.x;
     mouse.worldY = camera.y + mouse.y;
     input.aimX = mouse.worldX;

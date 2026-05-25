@@ -171,6 +171,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.playerName = playerDisplayName(app.playerId);
     app.lastSnapshotTick = -1;
     app.lastInputSent = 0;
+    app.lastInputKey = "";
     app.lastSnapshotSent = 0;
     app.transportMode = "RELAY";
     app.pingMs = null;

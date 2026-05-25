@@ -10,6 +10,7 @@ import { casinoRevealProfileForResult } from "../data/revealAnimations.js";
 import { addShake, addSpark, pushVisualEffect } from "./effectCommands.js";
 import { pushEvent } from "./events.js";
 import { ensurePlayerEconomy, grantMoney, grantXp, spendMoney } from "./playerEconomy.js";
+import { resolvePlayerActionPose } from "./playerActionHints.js";
 import { executeReward } from "./rewardResolver.js";
 
 const SPIN_COOLDOWN = 0.92;
@@ -205,9 +206,17 @@ export function validateCasinoSpin(state, playerId, request = {}) {
   const stakeId = typeof request.stakeId === "string" ? request.stakeId : "";
   const stake = getCasinoStake(stakeId);
   if (!stake || !allowedStake(machine, stakeId)) return { ok: false, reason: "bad_stake" };
+  const actionPose = resolvePlayerActionPose(state, player, request, {
+    baseDrift: 60,
+    maxDrift: 160,
+    compensatedDrift: 8,
+    validateGeometry: true,
+    validateLineOfSight: true
+  });
+  const actorPose = actionPose.accepted ? actionPose : player;
   const radius = interactable.interactRadius || data.interactRadius || machine.interactRadius || 62;
   const r = radius + (player.radius || PLAYER_RADIUS);
-  if (dist2(player.x, player.y, interactable.x, interactable.y) > r * r) return { ok: false, reason: "too_far" };
+  if (dist2(actorPose.x, actorPose.y, interactable.x, interactable.y) > r * r) return { ok: false, reason: "too_far" };
   const economy = ensurePlayerEconomy(player);
   if (economy.money < stake.cost) return { ok: false, reason: "not_enough_money", money: economy.money, cost: stake.cost };
   return { ok: true, player, interactable, data, machine, stake };

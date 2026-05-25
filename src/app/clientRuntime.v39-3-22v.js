@@ -4,6 +4,7 @@ import { START_WEAPON, WEAPONS } from "../data/weapons.js";
 import { makePredictedProjectile, resetRendererSmooth } from "../renderer.js";
 import { fireWeapon } from "../game/combat.js";
 import { makeShootPayload, movePlayer } from "../game/simulation.js";
+import { attachActionPoseHint } from "../game/playerActionHints.js";
 import { createInventory } from "../game/inventory.js";
 import { canPredictDash, predictLocalDash } from "../game/abilities.js";
 import { makeSnapshot } from "../game/state.js";
@@ -17,6 +18,21 @@ const HOST_IMPULSE_CORRECTION_FACTOR = 0.10;
 const HOST_NORMAL_CORRECTION_MAX_STEP = 4;
 const HOST_IMPULSE_CORRECTION_MAX_STEP = 8;
 const HOST_RECONCILE_EXTRAPOLATE_MS = 80;
+const INPUT_AIM_QUANTIZE = 16;
+
+function inputTransportKey(input = {}) {
+  const ax = Number.isFinite(input.aimX) ? Math.round(input.aimX / INPUT_AIM_QUANTIZE) : 0;
+  const ay = Number.isFinite(input.aimY) ? Math.round(input.aimY / INPUT_AIM_QUANTIZE) : 0;
+  return [
+    input.left ? 1 : 0,
+    input.right ? 1 : 0,
+    input.up ? 1 : 0,
+    input.down ? 1 : 0,
+    input.fire ? 1 : 0,
+    ax,
+    ay
+  ].join("/");
+}
 
 export function createClientRuntime(app, { session, host, upgrades } = {}) {
   function currentLocalPlayerFromSnapshot() {
@@ -146,6 +162,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     const pose = app.localPose || currentLocalPlayerFromSnapshot();
     if (!pose) return;
     const inputState = app.input.sample(pose, app.camera);
+    attachActionPoseHint(inputState, pose);
     app.abilitySeq += 1;
 
     if (app.role === "host") {
@@ -188,7 +205,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
   }
 
   function nearestInteractableTarget() {
-    const pose = currentLocalPlayerFromSnapshot();
+    const pose = app.localPose || currentLocalPlayerFromSnapshot();
     if (!pose) return null;
     let best = null;
     let bestD2 = Infinity;
@@ -213,7 +230,9 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       return;
     }
     app.interactSeq += 1;
-    const request = { t: "interact", targetId: target.id, seq: app.interactSeq };
+    const actionPose = app.localPose || currentLocalPlayerFromSnapshot();
+    const hint = actionPose ? attachActionPoseHint({}, actionPose) : {};
+    const request = { t: "interact", targetId: target.id, seq: app.interactSeq, ...hint };
     if (app.role === "host") {
       host.applyInteractRequest(app.playerId, request);
       app.snapshot = makeSnapshot(app.hostState);
@@ -229,14 +248,16 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
   }
 
   function tryLocalShoot(nowSec, inputState) {
-    if (!app.localPose || !inputState.fire) return;
+    if (!app.localPose || !inputState.firePressed) return;
     const weaponId = WEAPONS[app.localWeapon] ? app.localWeapon : (WEAPONS[app.localPose.activeWeapon] ? app.localPose.activeWeapon : START_WEAPON);
     const weapon = WEAPONS[weaponId] || WEAPONS[START_WEAPON];
     const fireRateMult = Math.max(0.1, app.localPose.stats?.fireRateMult || 1);
     if (nowSec < (app.localCooldowns[weaponId] || 0)) return;
     app.localCooldowns[weaponId] = nowSec + 1 / (weapon.fireRate * fireRateMult);
     app.fireSeq += 1;
-    app.localPose.angle = inputState.aimAngle;
+    app.localPose.angle = (Number.isFinite(inputState.aimX) && Number.isFinite(inputState.aimY))
+      ? Math.atan2(inputState.aimY - app.localPose.y, inputState.aimX - app.localPose.x)
+      : inputState.aimAngle;
     const payload = makeShootPayload(app.playerId, app.localPose, weaponId, app.fireSeq, inputState);
     const baseId = `${app.playerId}-${app.fireSeq}`;
     if (app.role === "guest") {
@@ -247,19 +268,28 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     else app.transport?.sendToHost({ t: "shoot", shoot: payload });
   }
 
+  function sendGuestInput(inputState, now) {
+    const key = inputTransportKey(inputState);
+    const changed = key !== app.lastInputKey;
+    const due = now - app.lastInputSent > 1000 / INPUT_RATE;
+    if (!changed && !due && !inputState.firePressed) return;
+    app.lastInputKey = key;
+    app.lastInputSent = now;
+    app.transport?.sendToHost({ t: "input", input: inputState });
+  }
+
   function updateGuest(dt, now, gameNow) {
     if (!app.localPose) return;
     const inputState = app.input.sample(app.localPose, app.camera);
+    sendGuestInput(inputState, now);
     movePlayer(app.localPose, inputState, dt, app.snapshot?.location);
+    inputState.aimAngle = (Number.isFinite(inputState.aimX) && Number.isFinite(inputState.aimY))
+      ? Math.atan2(inputState.aimY - app.localPose.y, inputState.aimX - app.localPose.x)
+      : inputState.aimAngle;
     app.localPose.angle = inputState.aimAngle;
     app.localPose.x = clamp(app.localPose.x, app.localPose.radius, WORLD.w - app.localPose.radius);
     app.localPose.y = clamp(app.localPose.y, app.localPose.radius, WORLD.h - app.localPose.radius);
     tryLocalShoot(gameNow, inputState);
-
-    if (now - app.lastInputSent > 1000 / INPUT_RATE) {
-      app.lastInputSent = now;
-      app.transport?.sendToHost({ t: "input", input: inputState });
-    }
   }
 
   function resetGuestPose(index) {
@@ -280,6 +310,7 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     requestInteract,
     tryLocalShoot,
     updateGuest,
+    sendGuestInput,
     resetGuestPose
   };
 }

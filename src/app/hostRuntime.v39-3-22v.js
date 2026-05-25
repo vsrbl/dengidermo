@@ -135,13 +135,13 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     ensureHostPlayers();
     const inputState = app.input.sample(app.localPose || app.hostState.players[app.playerId], app.camera);
     const me = app.hostState.players[app.playerId];
-    app.localPose = me;
     app.hostInputs[app.playerId] = inputState;
+    updateHostWorld(app.hostState, app.hostInputs, dt);
+    app.localPose = me;
     app.localInventory = ensureInventory(me);
     upgrades.syncFromHost(me.upgrades?.choices, me.upgrades?.offers, me.upgrades?.offerSeq);
     app.localWeapon = getActiveWeaponId(me);
     clientRuntime?.tryLocalShoot(gameNow, inputState);
-    updateHostWorld(app.hostState, app.hostInputs, dt);
     app.snapshot = makeSnapshot(app.hostState);
 
     const nextLocationId = app.snapshot.location?.id || null;

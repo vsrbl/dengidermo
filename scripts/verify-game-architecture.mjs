@@ -309,4 +309,31 @@ for (const rel of hostileImpulseFiles) {
   assert.doesNotMatch(src, /\btarget\.k[xy]\s*=/, `${rel} must not directly mutate target knockback velocity`);
 }
 
+// v39.3.22v network action feel guard: explicit guest actions may use bounded
+// origin lag compensation, but continuous movement/pose remains host-authoritative.
+{
+  const clientRuntime = read('src/app/clientRuntime.js');
+  const casinoClient = read('src/app/casinoClient.js');
+  const inputSrc = read('src/input.js');
+  const simSrc = read('src/game/simulation.js');
+  const combatSrc = read('src/game/combat.js');
+  const abilitiesSrc = read('src/game/abilities.js');
+  const interactablesSrc = read('src/game/interactables.js');
+  const casinoSrc = read('src/game/casino.js');
+  const actionHints = read('src/game/playerActionHints.js');
+  assert.match(inputSrc, /firePressed = mouse\.pressSeq !== mouse\.sampledPressSeq/, 'fire should expose a one-frame firePressed edge');
+  assert.match(clientRuntime, /!inputState\.firePressed/, 'local shooting must be edge-triggered, not every frame while mouse is held');
+  assert.match(clientRuntime, /sendGuestInput\(inputState, now\)/, 'guest input should be sent immediately on local changes before local movement prediction');
+  assert.match(simSrc, /originX: Number\.isFinite\(pose\?\.x\)/, 'shoot payload should include bounded local fire origin hint');
+  assert.match(actionHints, /export function resolvePlayerActionPose/, 'network action origin compensation must live in a shared bounded validator');
+  assert.match(actionHints, /firstSolidWallHitInState/, 'action origin compensation must reject wall-separated origin hints');
+  assert.match(combatSrc, /resolvePlayerActionPose\(state, player, payload/, 'host combat must use bounded action origin lag compensation');
+  assert.match(abilitiesSrc, /resolvePlayerActionPose\(state, player, input/, 'host dash must use bounded action origin lag compensation');
+  assert.match(interactablesSrc, /resolvePlayerActionPose\(state, player, request/, 'host interact validation must use bounded action origin lag compensation');
+  assert.match(casinoSrc, /resolvePlayerActionPose\(state, player, request/, 'host casino spin validation must use bounded action origin lag compensation');
+  assert.match(clientRuntime, /attachActionPoseHint\(inputState, pose\)/, 'dash requests must include a bounded local action origin hint');
+  assert.match(clientRuntime, /targetId: target\.id[\s\S]+\.\.\.hint/, 'interact requests must include a bounded local action origin hint');
+  assert.match(casinoClient, /casinoSpin[\s\S]+\.\.\.hint/, 'casino spin requests must include a bounded local action origin hint');
+}
+
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);

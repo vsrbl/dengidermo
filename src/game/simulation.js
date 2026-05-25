@@ -19,7 +19,7 @@ import { tickVisualEffects } from "./visualEffects.js";
 import { updateOrbiterPressure } from "./orbiterPressure.js";
 
 export function emptyInput() {
-  return { left: false, right: false, up: false, down: false, aimAngle: 0, fire: false };
+  return { left: false, right: false, up: false, down: false, aimAngle: 0, aimX: null, aimY: null, fire: false, firePressed: false, originX: null, originY: null, vx: 0, vy: 0, kx: 0, ky: 0 };
 }
 
 function smoothFactor(rate, dt) {
@@ -68,9 +68,16 @@ export function normalizeHostInput(raw = {}) {
   input.up = bool(raw.up);
   input.down = bool(raw.down);
   input.fire = bool(raw.fire);
+  input.firePressed = bool(raw.firePressed);
   input.aimAngle = Number.isFinite(raw.aimAngle) ? raw.aimAngle : 0;
   input.aimX = Number.isFinite(raw.aimX) ? clamp(raw.aimX, -WORLD.w, WORLD.w * 2) : null;
   input.aimY = Number.isFinite(raw.aimY) ? clamp(raw.aimY, -WORLD.h, WORLD.h * 2) : null;
+  input.originX = Number.isFinite(raw.originX) ? clamp(raw.originX, 0, WORLD.w) : null;
+  input.originY = Number.isFinite(raw.originY) ? clamp(raw.originY, 0, WORLD.h) : null;
+  input.vx = Number.isFinite(raw.vx) ? clamp(raw.vx, -PLAYER_SPEED * 4, PLAYER_SPEED * 4) : 0;
+  input.vy = Number.isFinite(raw.vy) ? clamp(raw.vy, -PLAYER_SPEED * 4, PLAYER_SPEED * 4) : 0;
+  input.kx = Number.isFinite(raw.kx) ? clamp(raw.kx, -PLAYER_SPEED * 6, PLAYER_SPEED * 6) : 0;
+  input.ky = Number.isFinite(raw.ky) ? clamp(raw.ky, -PLAYER_SPEED * 6, PLAYER_SPEED * 6) : 0;
   return input;
 }
 
@@ -131,7 +138,13 @@ export function makeShootPayload(playerId, pose, weapon, fireSeq, input = null) 
     weapon,
     angle: pose.angle,
     aimX: Number.isFinite(input?.aimX) ? input.aimX : null,
-    aimY: Number.isFinite(input?.aimY) ? input.aimY : null
+    aimY: Number.isFinite(input?.aimY) ? input.aimY : null,
+    originX: Number.isFinite(pose?.x) ? pose.x : null,
+    originY: Number.isFinite(pose?.y) ? pose.y : null,
+    vx: Number.isFinite(pose?.vx) ? pose.vx : 0,
+    vy: Number.isFinite(pose?.vy) ? pose.vy : 0,
+    kx: Number.isFinite(pose?.kx) ? pose.kx : 0,
+    ky: Number.isFinite(pose?.ky) ? pose.ky : 0
   };
 }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createGameState, addPlayer } from '../src/game/state.js';
-import { updateHostWorld } from '../src/game/simulation.js';
+import { makeShootPayload, updateHostWorld } from '../src/game/simulation.js';
 import { spawnEnemy, updateEnemies } from '../src/game/enemies.js';
 import { fireWeapon } from '../src/game/combat.js';
 import { beginRoomTransition } from '../src/game/roomFlow.js';
@@ -123,6 +123,33 @@ function assertHostImpulseReconcileScenario() {
   assert.ok(snapGuest.lastHostImpulse?.reason === 'verify_force_wave', 'snapshot should carry the impulse reason/source for desync debugging');
   assert.equal(typeof snapGuest.kx, 'number', 'snapshot should expose authoritative knockback velocity kx');
   assert.equal(typeof snapGuest.ky, 'number', 'snapshot should expose authoritative knockback velocity ky');
+}
+
+function assertFireOriginLagCompensationScenario() {
+  const state = createGameState('FIRE-ORIGIN-COMP');
+  const guest = addPlayer(state, 'p2', 1);
+  guest.x = 500;
+  guest.y = 500;
+  guest.vx = 270;
+  guest.inventory.weapons = ['shotgun'];
+  guest.inventory.activeWeapon = 'shotgun';
+  state.time = 10;
+
+  const payload = makeShootPayload('p2', { ...guest, x: 584, y: 500, angle: 0 }, 'shotgun', 11, { aimX: 900, aimY: 500 });
+  const fired = fireWeapon(state, 'p2', payload);
+  assert.equal(fired, true, 'guest shot should be accepted with bounded client fire origin hint');
+  const event = state.events.find((e) => e.type === 'shoot' && e.playerId === 'p2' && e.fireSeq === 11);
+  assert.ok(event, 'accepted shot should emit a shoot event');
+  assert.equal(Math.round(event.x), 584, 'bounded guest fire origin should be used instead of stale host position');
+  assert.equal(event.compensatedOrigin, true, 'accepted bounded origin should be marked for network debug');
+
+  state.time += 1;
+  const farPayload = makeShootPayload('p2', { ...guest, x: 900, y: 500, angle: 0 }, 'shotgun', 12, { aimX: 1200, aimY: 500 });
+  const farFired = fireWeapon(state, 'p2', farPayload);
+  assert.equal(farFired, true, 'shot with far origin hint should still fire from host truth');
+  const farEvent = state.events.find((e) => e.type === 'shoot' && e.playerId === 'p2' && e.fireSeq === 12);
+  assert.ok(farEvent, 'far-origin fallback should still emit a shoot event');
+  assert.notEqual(Math.round(farEvent.x), 900, 'far untrusted origin should be rejected');
 }
 
 function assertDamagePolicy() {
@@ -759,6 +786,7 @@ function assertModifierScenario() {
 }
 assertHostAuthorityScenario();
 assertHostImpulseReconcileScenario();
+assertFireOriginLagCompensationScenario();
 assertDamagePolicy();
 assertDamageScenarios();
 assertLinkedArmorScenario();
@@ -776,4 +804,4 @@ assertRewardEventFeedScenario();
 assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, host impulse reconciliation, anomaly enemy stress pack plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, host impulse reconciliation, fire-origin lag compensation, anomaly enemy stress pack plus next-room casino debt');
