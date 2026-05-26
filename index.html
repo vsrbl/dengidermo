@@ -1,20 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>netrogue zero</title>
+  <title>NETROGUE GREEN TEST</title>
   <link rel="stylesheet" href="./style.css" />
   <script src="./config.js"></script>
 </head>
 <body>
   <main>
-    <div class="top">
-      <div>NETROGUE ZERO</div>
+    <div class="panel top">
+      <div>
+        <div class="title">NETROGUE // GREEN TERMINAL TEST</div>
+        <div class="sub">server authoritative · zero deps · movement / shooting smoke test</div>
+      </div>
       <div id="hud">boot</div>
     </div>
-    <canvas id="game" width="960" height="600"></canvas>
-    <div class="help">WASD / arrows — move · server authoritative · no build · no P2P</div>
+    <div class="screen">
+      <canvas id="game"></canvas>
+      <div class="corner tl">┌</div><div class="corner tr">┐</div><div class="corner bl">└</div><div class="corner br">┘</div>
+      <div id="stage" class="stage">BOOT</div>
+    </div>
+    <div class="panel help">
+      <span>WASD / arrows — move</span>
+      <span>mouse — aim</span>
+      <span>hold LMB / Space — fast fire</span>
+      <span>@ you · & player · M enemy</span>
+    </div>
   </main>
   <script src="./game.js"></script>
 </body>
