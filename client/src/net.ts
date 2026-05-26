@@ -1,9 +1,53 @@
 import { parseServerMessage, type InputMessage, type ServerMessage } from './protocol';
 
-const DEFAULT_WS_URL =
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'ws://localhost:8787/ws'
-    : 'wss://dengidermo-1.onrender.com/ws';
+declare global {
+  interface Window {
+    NN_BACKEND_WS_URL?: string;
+    NN_BACKEND_HTTP_URL?: string;
+    NN_SIGNALING_URL?: string;
+    NN_COLYSEUS_URL?: string;
+  }
+}
+
+const LOCAL_WS_URL = 'ws://localhost:8787/ws';
+const PRODUCTION_WS_URL = 'wss://dengidermo-1.onrender.com/ws';
+
+function isLocalhost(): boolean {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
+function httpUrlToWsUrl(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.pathname === '/' || url.pathname === '') {
+      url.pathname = '/ws';
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveWsUrl(): string {
+  if (isLocalhost()) return import.meta.env.VITE_WS_URL || LOCAL_WS_URL;
+
+  if (typeof window.NN_BACKEND_WS_URL === 'string' && window.NN_BACKEND_WS_URL.trim() !== '') {
+    return window.NN_BACKEND_WS_URL.trim();
+  }
+
+  const httpUrl =
+    window.NN_BACKEND_HTTP_URL ||
+    window.NN_SIGNALING_URL ||
+    window.NN_COLYSEUS_URL;
+
+  if (typeof httpUrl === 'string' && httpUrl.trim() !== '') {
+    const wsUrl = httpUrlToWsUrl(httpUrl.trim());
+    if (wsUrl !== null) return wsUrl;
+  }
+
+  return import.meta.env.VITE_WS_URL || PRODUCTION_WS_URL;
+}
 
 export type ConnectionStatus = 'closed' | 'connecting' | 'open';
 
@@ -18,7 +62,7 @@ export class NetClient {
   pingMs: number | null = null;
   lastCloseReason = '';
 
-  constructor(url = import.meta.env.VITE_WS_URL || DEFAULT_WS_URL) {
+  constructor(url = resolveWsUrl()) {
     this.url = url;
   }
 

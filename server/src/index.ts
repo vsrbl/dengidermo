@@ -8,14 +8,26 @@ import { GameRoom, MAX_PLAYERS, SNAPSHOT_RATE, TICK_RATE } from './game.js';
 import { encodeServerMessage, parseClientMessage, type ServerMessage } from './protocol.js';
 
 const PORT = Number(process.env.PORT ?? 8787);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+const CLIENT_ORIGINS = (process.env.CLIENT_ORIGINS ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const MAX_MESSAGE_BYTES = 1024;
 const HEARTBEAT_MS = 15_000;
 const room = new GameRoom();
 
 const app = express();
 app.disable('x-powered-by');
-app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(cors({
+  origin(origin, callback) {
+    if (origin === undefined || CLIENT_ORIGINS.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin not allowed: ${origin}`));
+  },
+}));
 
 app.get('/', (_request, response) => {
   response.type('text/plain').send('netrogue authoritative server ok');

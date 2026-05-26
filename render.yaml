@@ -3,10 +3,11 @@ services:
     name: dengidermo-1
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build:server
+    buildCommand: npm install --no-audit --no-fund && npm run build:server
     startCommand: npm run start:server
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: CLIENT_ORIGIN
-        value: https://nncckkrr.space
+      - key: CLIENT_ORIGINS
+        value: https://nncckkrr.space,https://vsrbl.github.io,http://localhost:5173,http://127.0.0.1:5173
