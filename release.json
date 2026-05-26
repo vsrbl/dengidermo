@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.4.4",
-  "buildId": "v39.4.4-20260527",
+  "version": "v39.4.5",
+  "buildId": "v39.4.5-20260527",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-4-4.js?v=39.4.4",
-  "style": "./style.css?v=39.4.4",
-  "config": "./config.js?v=39.4.4",
+  "entry": "./src/main.v39-4-5.js?v=39.4.5",
+  "style": "./style.css?v=39.4.5",
+  "config": "./config.js?v=39.4.5",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.4.4 Colyseus SDK loading hotfix: ships the browser SDK as a first-party vendor file, serves it from unified Render before falling back to node_modules, and verifies PLAY SERVER can bootstrap without Colyseus SDK is not loaded."
+  "notes": "v39.4.5 visible server-mode deploy fingerprint: makes PLAY SERVER the primary authoritative path, labels P2P as legacy/desync-prone, adds /server and /fingerprint routes, and dynamically loads the Colyseus SDK from bundled/vendor fallbacks."
 }

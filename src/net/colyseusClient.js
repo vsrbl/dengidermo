@@ -8,8 +8,72 @@ function normalizeEndpoint(endpoint) {
   return raw.replace(/\/$/, '');
 }
 
+function sdkVersionQuery() {
+  return VERSION.replace(/^v/, '');
+}
+
+function unique(list) {
+  return Array.from(new Set(list.filter(Boolean)));
+}
+
+function sdkCandidates(endpoint) {
+  const version = sdkVersionQuery();
+  const candidates = [`./vendor/colyseus.js?v=${version}`];
+  try {
+    if (endpoint) candidates.push(new URL(`/vendor/colyseus.js?v=${version}`, endpoint).toString());
+  } catch {}
+  return unique(candidates);
+}
+
+function loadBrowserScript(globalObj, src) {
+  const doc = globalObj?.document || (typeof document !== 'undefined' ? document : null);
+  if (!doc?.createElement) return Promise.reject(new Error('document is not available'));
+  return new Promise((resolve, reject) => {
+    const existing = Array.from(doc.querySelectorAll('script[data-nn-colyseus-sdk]')).find((node) => node.getAttribute('src') === src);
+    if (existing?.dataset?.loaded === 'true') {
+      resolve();
+      return;
+    }
+    const script = existing || doc.createElement('script');
+    const cleanup = () => {
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+    };
+    const onLoad = () => {
+      cleanup();
+      script.dataset.loaded = 'true';
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error(`failed to load ${src}`));
+    };
+    script.dataset.nnColyseusSdk = 'true';
+    script.async = true;
+    script.src = src;
+    script.addEventListener('load', onLoad, { once: true });
+    script.addEventListener('error', onError, { once: true });
+    if (!existing) (doc.head || doc.documentElement).appendChild(script);
+  });
+}
+
 export function hasColyseusSdk(globalObj = window) {
+  // Keep the browser SDK injection contract explicit: window.Colyseus.Client is the expected UMD global.
   return !!(globalObj?.Colyseus?.Client);
+}
+
+export async function ensureColyseusSdk(globalObj = window, endpoint = '') {
+  if (hasColyseusSdk(globalObj)) return true;
+  let lastError = null;
+  for (const src of sdkCandidates(endpoint)) {
+    try {
+      await loadBrowserScript(globalObj, src);
+      if (hasColyseusSdk(globalObj)) return true;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`Colyseus SDK is not loaded after vendor fallback (${lastError?.message || 'unknown error'})`);
 }
 
 export function initialColyseusClientState(endpoint) {
@@ -29,11 +93,9 @@ export function initialColyseusClientState(endpoint) {
 
 export async function connectColyseusArena(options = {}) {
   const globalObj = options.globalObj || window;
-  if (!hasColyseusSdk(globalObj)) {
-    throw new Error('Colyseus SDK is not loaded. Add @colyseus/sdk or expose window.Colyseus.Client before enabling net2.');
-  }
   const endpoint = normalizeEndpoint(options.endpoint);
   if (!endpoint) throw new Error('Missing Colyseus endpoint');
+  await ensureColyseusSdk(globalObj, endpoint);
 
   const client = new globalObj.Colyseus.Client(endpoint);
   const room = await client.joinOrCreate(options.roomName || DEFAULT_ROOM, {

@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-4-4.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-4-4.js";
-import { createSessionRuntime } from "./app/session.v39-4-4.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-4-4.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-4-4.js";
-import { createDevControls } from "./app/devControls.v39-4-4.js";
-import { createCasinoClient } from "./app/casinoClient.v39-4-4.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-4-5.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-4-5.js";
+import { createSessionRuntime } from "./app/session.v39-4-5.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-4-5.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-4-5.js";
+import { createDevControls } from "./app/devControls.v39-4-5.js";
+import { createCasinoClient } from "./app/casinoClient.v39-4-5.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -158,12 +158,27 @@ function refreshReleaseIntegrity() {
   });
 }
 
+
+function shouldAutoStartServerMode() {
+  try {
+    const url = new URL(window.location.href);
+    const net = String(url.searchParams.get("net") || url.searchParams.get("mode") || "").toLowerCase();
+    return net === "server" || net === "colyseus" || url.pathname.replace(/\/+$/, "").endsWith("/server");
+  } catch {
+    return false;
+  }
+}
+
 function boot() {
   sessionRuntime.bindMenu();
   colyseusRuntime.bindMenu();
   app.ui.onUpgradePick((index) => upgradeClient.requestChoice(index));
   app.ui.showMenu();
+  app.ui.setMenuStatus("SERVER MODE READY — USE PLAY SERVER", "info");
   refreshReleaseIntegrity();
+  if (shouldAutoStartServerMode()) {
+    window.setTimeout(() => colyseusRuntime.start(), 0);
+  }
   requestAnimationFrame(loop);
 }
 

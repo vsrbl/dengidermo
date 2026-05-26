@@ -1,4 +1,4 @@
-# v39.4.4 — Colyseus SDK loading hotfix
+# v39.4.5 — Colyseus SDK loading hotfix
 
 This patch makes the default Render process boot the Colyseus authoritative server path instead of the old browser-host P2P signaling server.
 
@@ -28,7 +28,7 @@ node server/mainServer.js
 
 v39.4.0 added a side-by-side Colyseus spike, but Render still booted `server/server.js`, which meant production remained the old signaling/P2P relay server.
 
-v39.4.4 changes the default server entry:
+v39.4.5 changes the default server entry:
 
 ```text
 Render -> npm start -> server/mainServer.js -> Colyseus authoritative server
@@ -52,7 +52,7 @@ This patch still does not migrate the visible gameplay client to Colyseus. It on
 
 The next playable patch should connect the browser to `nn_arena` from an explicit experimental online mode.
 
-## v39.4.4 playable browser server mode
+## v39.4.5 playable browser server mode
 
 The menu now separates the old browser-hosted flow from the new server-authoritative flow:
 
@@ -64,6 +64,6 @@ PLAY SERVER -> Colyseus nn_arena path
 The unified Render server serves the Colyseus browser SDK from `/vendor/colyseus.js`, so the client does not depend on a CDN. `PLAY SERVER` connects to `nn_arena`, sends input-only frames, and renders the Colyseus schema state as a temporary `SERVER ARENA` snapshot. This is intentionally a small playable vertical slice: players, enemies, projectiles, server-owned movement, and server-owned shooting. Loot, upgrades, room flow, casino, and existing content migration remain future v39.4.x work.
 
 
-## v39.4.4 SDK loading hotfix
+## v39.4.5 SDK loading hotfix
 
 Ships `vendor/colyseus.js` with the project and serves that first from `/vendor/colyseus.js`, so `PLAY SERVER` does not depend on a missing generated `dist` file or a Render-only dynamic route.
