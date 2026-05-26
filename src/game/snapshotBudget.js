@@ -345,6 +345,7 @@ function minimalPlayer(player = {}) {
     disconnected: !!player.disconnected,
     disconnectedAt: player.disconnectedAt || 0,
     inputSeq: Math.max(0, Math.floor(player.inputSeq || 0)),
+    inputStream: player.inputStream || null,
     hostImpulseSeq: player.hostImpulseSeq || 0,
     lastHostImpulse: player.lastHostImpulse || null,
     vx: player.vx || 0,

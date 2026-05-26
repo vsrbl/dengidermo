@@ -38,6 +38,7 @@ import { makeSnapshot } from '../src/game/state.js';
 import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
 import { buildNetworkStatePacket, SNAPSHOT_HAZARD_RADIUS, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { prunePredictionFrames, replayPredictionFrames } from '../src/app/clientRuntime.js';
+import { acceptMonotonicHostInput } from '../src/app/hostRuntime.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -109,6 +110,30 @@ function assertHostAuthorityScenario() {
   assert.ok(projectile, 'valid hostile shoot request should spawn a projectile');
   assert.ok(Math.abs(projectile.y - shotY) < 20, 'projectile origin should use authoritative player y, not payload.y');
   assert.ok(projectile.x > shotX && projectile.x < shotX + 80, 'projectile origin should use authoritative player x, not payload.x');
+}
+
+
+function assertMonotonicInputStreamScenario() {
+  const state = createGameState('MONOTONIC-INPUT-STREAM');
+  const guest = addPlayer(state, 'p2', 1);
+  guest.x = 500;
+  guest.y = 500;
+  const app = { hostState: state, hostInputs: Object.create(null), inputStreamStats: Object.create(null) };
+
+  assert.equal(acceptMonotonicHostInput(app, 'p2', { right: true, aimAngle: 0, inputSeq: 100 }, 1000).accepted, true, 'first remote input should be accepted');
+  assert.equal(app.hostInputs.p2.inputSeq, 100, 'accepted input should become host movement input');
+  assert.equal(acceptMonotonicHostInput(app, 'p2', { left: true, aimAngle: 0, inputSeq: 99 }, 1010).accepted, false, 'older unordered input should be rejected');
+  assert.equal(app.hostInputs.p2.inputSeq, 100, 'stale input must not overwrite newer host movement input');
+  assert.equal(app.hostInputs.p2.right, true, 'stale input must not flip movement direction');
+  assert.equal(app.inputStreamStats.p2.staleDrops, 1, 'stale input drop should be counted');
+  assert.equal(guest.inputStream.staleDrops, 1, 'player snapshot source should expose stale drop count');
+
+  assert.equal(acceptMonotonicHostInput(app, 'p2', { up: true, aimAngle: 0, inputSeq: 101 }, 1020).accepted, true, 'newer input should be accepted after stale rejection');
+  assert.equal(app.hostInputs.p2.inputSeq, 101, 'newer input should advance the host movement stream');
+  updateHostWorld(state, app.hostInputs, 1 / 60);
+  const snapGuest = makeSnapshot(state).players.find((p) => p.id === 'p2');
+  assert.equal(snapGuest.inputSeq, 101, 'snapshot should acknowledge latest accepted monotonic input sequence');
+  assert.equal(snapGuest.inputStream.staleDrops, 1, 'snapshot should carry input stream stale diagnostics');
 }
 
 function assertHostImpulseReconcileScenario() {
@@ -881,6 +906,7 @@ function assertModifierScenario() {
 }
 assertClientReconciliationReplayScenario();
 assertHostAuthorityScenario();
+assertMonotonicInputStreamScenario();
 assertHostImpulseReconcileScenario();
 assertFireOriginLagCompensationScenario();
 assertDamagePolicy();
@@ -901,4 +927,4 @@ assertRewardEventFeedScenario();
 assertAnomalyEnemyStressScenario();
 assertModifierScenario();
 
-console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, interest-based snapshot priority, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, client rollback/replay reconciliation, host impulse reconciliation, fire-origin lag compensation, anomaly enemy stress pack plus next-room casino debt');
+console.log('universal runtime scenario verification passed: damage matrix, armor, linked armor, elite pulse, lifesteal, transition cleanup, loot economy drops, queued level-up offers, modifier stack/hooks, interactable reward pickups, active ability loot, unlimited companion stacks, snapshot budget compression, interest-based snapshot priority, casino activity, stat snapshot foundation, reward event feed foundation, host movement authority hardening, client rollback/replay reconciliation, monotonic input stream stale rejection, host impulse reconciliation, fire-origin lag compensation, anomaly enemy stress pack plus next-room casino debt');

@@ -18,9 +18,9 @@ const PREDICTION_BUFFER_LIMIT = 180;
 const RECONCILE_REPLAY_MAX_FRAMES = 120;
 const RECONCILE_MAX_FRAME_DT = 1 / 20;
 
-const LOCAL_VISUAL_SMOOTH_RATE = 22;
-const LOCAL_VISUAL_TELEPORT_D2 = 180 * 180;
-const LOCAL_VISUAL_SNAP_D2 = 420 * 420;
+const LOCAL_CORRECTION_OFFSET_DECAY_RATE = 34;
+const LOCAL_CORRECTION_OFFSET_CLEAR_D2 = 0.35 * 0.35;
+const LOCAL_CORRECTION_OFFSET_SNAP_D2 = 420 * 420;
 
 function shortestAngleDelta(from = 0, to = 0) {
   let delta = (to - from) % (Math.PI * 2);
@@ -29,18 +29,21 @@ function shortestAngleDelta(from = 0, to = 0) {
   return delta;
 }
 
-function cloneRenderPoseFromPhysics(pose, reason = "snap") {
+function cloneRenderPoseFromPhysics(pose, reason = "snap", offset = null) {
   if (!pose) return null;
+  const ox = Number.isFinite(offset?.x) ? offset.x : 0;
+  const oy = Number.isFinite(offset?.y) ? offset.y : 0;
+  const oa = Number.isFinite(offset?.angle) ? offset.angle : 0;
   return {
     id: pose.id,
     name: pose.name,
-    x: pose.x || 0,
-    y: pose.y || 0,
+    x: (pose.x || 0) + ox,
+    y: (pose.y || 0) + oy,
     vx: pose.vx || 0,
     vy: pose.vy || 0,
     kx: pose.kx || 0,
     ky: pose.ky || 0,
-    angle: pose.angle || 0,
+    angle: (pose.angle || 0) + oa,
     radius: pose.radius || 13,
     hp: pose.hp,
     maxHp: pose.maxHp,
@@ -55,6 +58,10 @@ function cloneRenderPoseFromPhysics(pose, reason = "snap") {
     skin: pose.skin,
     _visualReason: reason
   };
+}
+
+function zeroCorrectionOffset(reason = "clear") {
+  return { x: 0, y: 0, angle: 0, reason };
 }
 
 function inputTransportKey(input = {}) {
@@ -141,20 +148,29 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     };
   }
 
+  function localCorrectionOffset() {
+    if (!app.localCorrectionOffset) app.localCorrectionOffset = zeroCorrectionOffset("init");
+    return app.localCorrectionOffset;
+  }
+
   function visualDriftD2() {
-    if (!app.localPose || !app.localRenderPose) return 0;
-    const dx = (app.localPose.x || 0) - (app.localRenderPose.x || 0);
-    const dy = (app.localPose.y || 0) - (app.localRenderPose.y || 0);
-    return dx * dx + dy * dy;
+    const offset = app.localCorrectionOffset || null;
+    const ox = Number.isFinite(offset?.x) ? offset.x : 0;
+    const oy = Number.isFinite(offset?.y) ? offset.y : 0;
+    return ox * ox + oy * oy;
   }
 
   function snapLocalRenderPose(reason = "snap") {
-    app.localRenderPose = cloneRenderPoseFromPhysics(app.localPose, reason);
+    app.localCorrectionOffset = zeroCorrectionOffset(reason);
+    app.localRenderPose = cloneRenderPoseFromPhysics(app.localPose, reason, app.localCorrectionOffset);
+    app.localVisualSnapReason = "";
     app.localVisualStats = {
       mode: "visual-shell",
+      strategy: "correction-offset",
       reason,
       driftPx: 0,
-      snap: true
+      snap: true,
+      latency: "zero-local"
     };
   }
 
@@ -162,10 +178,21 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localVisualSnapReason = reason;
   }
 
+  function preserveVisualDuringCorrection(previousVisible, correctedPose, reason = "host_correction") {
+    if (!previousVisible || !correctedPose) return;
+    app.localCorrectionOffset = {
+      x: (previousVisible.x || 0) - (correctedPose.x || 0),
+      y: (previousVisible.y || 0) - (correctedPose.y || 0),
+      angle: shortestAngleDelta(correctedPose.angle || 0, previousVisible.angle || correctedPose.angle || 0),
+      reason
+    };
+  }
+
   function updateLocalRenderPose(dt = 0, reason = "frame") {
     if (!app.localPose) {
       app.localRenderPose = null;
-      app.localVisualStats = { mode: "visual-shell", reason: "no_pose", driftPx: 0, snap: true };
+      app.localCorrectionOffset = zeroCorrectionOffset("no_pose");
+      app.localVisualStats = { mode: "visual-shell", strategy: "correction-offset", reason: "no_pose", driftPx: 0, snap: true };
       return null;
     }
     if (!app.localRenderPose) {
@@ -173,43 +200,34 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
       return app.localRenderPose;
     }
 
+    const offset = localCorrectionOffset();
     const d2 = visualDriftD2();
     const snapReason = app.localVisualSnapReason;
-    const mustSnap = !!snapReason || d2 > LOCAL_VISUAL_SNAP_D2;
+    const mustSnap = !!snapReason || d2 > LOCAL_CORRECTION_OFFSET_SNAP_D2;
     if (mustSnap) {
-      snapLocalRenderPose(snapReason || "large_visual_drift");
-      app.localVisualSnapReason = "";
+      snapLocalRenderPose(snapReason || "large_correction_offset");
       return app.localRenderPose;
     }
 
-    const t = d2 > LOCAL_VISUAL_TELEPORT_D2 ? 0.82 : Math.max(0, Math.min(1, 1 - Math.exp(-LOCAL_VISUAL_SMOOTH_RATE * Math.max(0, dt || 0))));
-    app.localRenderPose.x += ((app.localPose.x || 0) - (app.localRenderPose.x || 0)) * t;
-    app.localRenderPose.y += ((app.localPose.y || 0) - (app.localRenderPose.y || 0)) * t;
-    app.localRenderPose.vx = app.localPose.vx || 0;
-    app.localRenderPose.vy = app.localPose.vy || 0;
-    app.localRenderPose.kx = app.localPose.kx || 0;
-    app.localRenderPose.ky = app.localPose.ky || 0;
-    app.localRenderPose.angle += shortestAngleDelta(app.localRenderPose.angle || 0, app.localPose.angle || 0) * Math.min(1, t * 1.35);
-    app.localRenderPose.radius = app.localPose.radius || app.localRenderPose.radius || 13;
-    app.localRenderPose.hp = app.localPose.hp;
-    app.localRenderPose.maxHp = app.localPose.maxHp;
-    app.localRenderPose.activeWeapon = app.localPose.activeWeapon;
-    app.localRenderPose.inventory = app.localPose.inventory;
-    app.localRenderPose.upgrades = app.localPose.upgrades;
-    app.localRenderPose.stats = app.localPose.stats || {};
-    app.localRenderPose.ability = app.localPose.ability || null;
-    app.localRenderPose.economy = app.localPose.economy;
-    app.localRenderPose.orbiterPressure = app.localPose.orbiterPressure;
-    app.localRenderPose.orbiterSlowMult = app.localPose.orbiterSlowMult || 1;
-    app.localRenderPose.name = app.localPose.name;
-    app.localRenderPose.skin = app.localPose.skin;
+    const decay = Math.exp(-LOCAL_CORRECTION_OFFSET_DECAY_RATE * Math.max(0, dt || 0));
+    offset.x = (offset.x || 0) * decay;
+    offset.y = (offset.y || 0) * decay;
+    offset.angle = (offset.angle || 0) * Math.exp(-LOCAL_CORRECTION_OFFSET_DECAY_RATE * 1.25 * Math.max(0, dt || 0));
+    if (visualDriftD2() <= LOCAL_CORRECTION_OFFSET_CLEAR_D2) {
+      offset.x = 0;
+      offset.y = 0;
+      offset.angle = 0;
+    }
 
+    app.localRenderPose = cloneRenderPoseFromPhysics(app.localPose, reason, offset);
     app.localVisualStats = {
       mode: "visual-shell",
-      reason,
+      strategy: "correction-offset",
+      reason: offset.reason || reason,
       driftPx: Math.round(Math.sqrt(visualDriftD2())),
       snap: false,
-      smoothing: Math.round(t * 100)
+      smoothing: Math.round((1 - decay) * 100),
+      latency: "zero-local"
     };
     return app.localRenderPose;
   }
@@ -233,6 +251,9 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     if (!app.localPose) return;
     const beforeX = app.localPose.x;
     const beforeY = app.localPose.y;
+    const previousVisible = app.localRenderPose
+      ? { ...app.localRenderPose }
+      : cloneRenderPoseFromPhysics(app.localPose, "pre_reconcile", app.localCorrectionOffset || zeroCorrectionOffset("pre_reconcile"));
     const ackedInputSeq = Number.isFinite(me.inputSeq) ? Math.max(0, Math.floor(me.inputSeq)) : (app.lastAckedInputSeq || 0);
     app.lastAckedInputSeq = Math.max(app.lastAckedInputSeq || 0, ackedInputSeq);
     const hostImpulseSeq = Number.isFinite(me.hostImpulseSeq) ? me.hostImpulseSeq : 0;
@@ -258,7 +279,11 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localPose._hostImpulseSeq = hostImpulseSeq;
     const hardSnap = !!(locationChanged || staleDeniedDash || hostImpulseHardDrift || d2 > HOST_HARD_RECONCILE_D2);
     if (hardSnap) app.localPose._localDashPredictedAt = 0;
-    if (hardSnap) markLocalVisualSnap(locationChanged ? "location_change" : hostImpulseHardDrift ? "host_impulse" : staleDeniedDash ? "dash_denied" : "large_reconcile");
+    if (hardSnap) {
+      markLocalVisualSnap(locationChanged ? "location_change" : hostImpulseHardDrift ? "host_impulse" : staleDeniedDash ? "dash_denied" : "large_reconcile");
+    } else {
+      preserveVisualDuringCorrection(previousVisible, app.localPose, "host_correction");
+    }
 
     app.reconcileStats = {
       mode: "rollback-replay",
@@ -508,7 +533,8 @@ export function createClientRuntime(app, { session, host, upgrades } = {}) {
     app.localWeapon = START_WEAPON;
     app.localCooldowns = Object.create(null);
     app.localRenderPose = null;
-    app.localVisualStats = { mode: "visual-shell", reason: "guest_reset", driftPx: 0, snap: true };
+    app.localCorrectionOffset = zeroCorrectionOffset("guest_reset");
+    app.localVisualStats = { mode: "visual-shell", strategy: "correction-offset", reason: "guest_reset", driftPx: 0, snap: true, latency: "zero-local" };
   }
 
   return {

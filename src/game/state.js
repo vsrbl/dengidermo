@@ -234,6 +234,15 @@ export function makeSnapshot(state) {
       disconnected: !!p.disconnected,
       disconnectedAt: p.disconnectedAt || 0,
       inputSeq: Math.max(0, Math.floor(p.lastInputSeq || 0)),
+      inputStream: p.inputStream ? {
+        lastAcceptedSeq: Math.max(0, Math.floor(p.inputStream.lastAcceptedSeq || p.lastInputSeq || 0)),
+        lastReceivedSeq: Math.max(0, Math.floor(p.inputStream.lastReceivedSeq || 0)),
+        lastRejectedSeq: Math.max(0, Math.floor(p.inputStream.lastRejectedSeq || 0)),
+        acceptedInputs: Math.max(0, Math.floor(p.inputStream.acceptedInputs || 0)),
+        staleDrops: Math.max(0, Math.floor(p.inputStream.staleDrops || 0)),
+        inputAgeMs: Math.max(0, Math.floor(p.inputStream.inputAgeMs || 0)),
+        stale: !!p.inputStream.stale
+      } : null,
       ...playerImpulseSnapshot(p),
       vx: Number((p.vx || 0).toFixed(1)),
       vy: Number((p.vy || 0).toFixed(1)),

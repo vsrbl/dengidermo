@@ -9,6 +9,106 @@ import { requestInteractableActivation } from "../game/interactables.js";
 import { requestCasinoSpin, casinoSpinResultSnapshot } from "../game/casino.js";
 import { buildNetworkStatePacket } from "../game/snapshotBudget.js";
 
+
+export function createInputStreamStats(initialSeq = -1) {
+  const safeInitialSeq = Number.isFinite(initialSeq) ? Math.max(-1, Math.floor(initialSeq)) : -1;
+  return {
+    lastAcceptedSeq: safeInitialSeq,
+    lastReceivedSeq: safeInitialSeq,
+    lastRejectedSeq: -1,
+    acceptedInputs: 0,
+    staleDrops: 0,
+    lastAcceptedAtMs: 0,
+    lastReceivedAtMs: 0,
+    lastRejectedAtMs: 0,
+    inputAgeMs: 0,
+    stale: false
+  };
+}
+
+function nowMs() {
+  const perf = globalThis.performance;
+  if (perf && typeof perf.now === "function") return perf.now();
+  return Date.now();
+}
+
+function inputStreamSnapshot(stats = null, atMs = nowMs()) {
+  if (!stats) return null;
+  const acceptedAt = Number.isFinite(stats.lastAcceptedAtMs) ? stats.lastAcceptedAtMs : 0;
+  const age = acceptedAt > 0 ? Math.max(0, Math.round(atMs - acceptedAt)) : 0;
+  return {
+    lastAcceptedSeq: Math.max(0, Math.floor(stats.lastAcceptedSeq || 0)),
+    lastReceivedSeq: Math.max(0, Math.floor(stats.lastReceivedSeq || 0)),
+    lastRejectedSeq: Math.max(0, Math.floor(stats.lastRejectedSeq || 0)),
+    acceptedInputs: Math.max(0, Math.floor(stats.acceptedInputs || 0)),
+    staleDrops: Math.max(0, Math.floor(stats.staleDrops || 0)),
+    inputAgeMs: age,
+    stale: !!stats.stale
+  };
+}
+
+function ensureInputStreamStats(app, playerId) {
+  if (!app.inputStreamStats) app.inputStreamStats = Object.create(null);
+  if (!app.inputStreamStats[playerId]) app.inputStreamStats[playerId] = createInputStreamStats();
+  return app.inputStreamStats[playerId];
+}
+
+function publishInputStreamStats(app, playerId, stats, atMs = nowMs()) {
+  const snapshot = inputStreamSnapshot(stats, atMs);
+  const player = app.hostState?.players?.[playerId];
+  if (player && snapshot) player.inputStream = snapshot;
+  return snapshot;
+}
+
+function refreshInputStreamAges(app, atMs = nowMs()) {
+  const byPlayer = app.inputStreamStats || {};
+  let staleDrops = 0;
+  let maxInputAgeMs = 0;
+  let maxAcceptedSeq = 0;
+  for (const playerId of Object.keys(byPlayer)) {
+    const snapshot = publishInputStreamStats(app, playerId, byPlayer[playerId], atMs);
+    if (!snapshot) continue;
+    staleDrops += snapshot.staleDrops || 0;
+    maxInputAgeMs = Math.max(maxInputAgeMs, snapshot.inputAgeMs || 0);
+    maxAcceptedSeq = Math.max(maxAcceptedSeq, snapshot.lastAcceptedSeq || 0);
+  }
+  app.inputStreamSummary = {
+    mode: "monotonic",
+    lastAcceptedSeq: maxAcceptedSeq,
+    inputAgeMs: maxInputAgeMs,
+    staleDrops,
+    players: Object.keys(byPlayer).length
+  };
+}
+
+export function acceptMonotonicHostInput(app, playerId, rawInput, atMs = nowMs()) {
+  if (!app || !playerId) return { accepted: false, reason: "missing_player" };
+  if (!app.hostInputs) app.hostInputs = Object.create(null);
+  const input = normalizeHostInput(rawInput);
+  const stats = ensureInputStreamStats(app, playerId);
+  const incomingSeq = Math.max(0, Math.floor(input.inputSeq || 0));
+  const lastAcceptedSeq = Number.isFinite(stats.lastAcceptedSeq) ? stats.lastAcceptedSeq : -1;
+  stats.lastReceivedSeq = incomingSeq;
+  stats.lastReceivedAtMs = atMs;
+
+  if (incomingSeq <= lastAcceptedSeq) {
+    stats.staleDrops = (stats.staleDrops || 0) + 1;
+    stats.lastRejectedSeq = incomingSeq;
+    stats.lastRejectedAtMs = atMs;
+    stats.stale = true;
+    publishInputStreamStats(app, playerId, stats, atMs);
+    return { accepted: false, stale: true, input, stats };
+  }
+
+  app.hostInputs[playerId] = input;
+  stats.lastAcceptedSeq = incomingSeq;
+  stats.acceptedInputs = (stats.acceptedInputs || 0) + 1;
+  stats.lastAcceptedAtMs = atMs;
+  stats.stale = false;
+  publishInputStreamStats(app, playerId, stats, atMs);
+  return { accepted: true, stale: false, input, stats };
+}
+
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
   let fixedStepAccumulator = 0;
@@ -194,7 +294,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     }
     if (from) session.markRemotePlayerConnected?.(from);
     if (msg.t === "input" && from) {
-      app.hostInputs[from] = normalizeHostInput(msg.input);
+      acceptMonotonicHostInput(app, from, msg.input);
       return true;
     }
     if (msg.t === "shoot" && from) {
@@ -248,6 +348,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
       fixedStepAccumulator = fixedStepAccumulator % HOST_SIM_FIXED_DT;
     }
 
+    refreshInputStreamAges(app);
     syncHostFrameState(inputState, gameNow);
     writeHostSimStats({ frameRealDt, accumulatedGameDt, steps, droppedSteps });
     broadcastSnapshots(now);

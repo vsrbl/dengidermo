@@ -221,9 +221,12 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.predictionFrames = [];
     app.reconcileStats = { mode: "idle", localSeq: 0, ackedSeq: 0, pendingInputs: 0, replayed: 0, driftPx: 0, visualDriftPx: 0 };
     app.localRenderPose = null;
+    app.localCorrectionOffset = { x: 0, y: 0, angle: 0, reason: "run_reset" };
     app.localVisualSnapReason = "";
-    app.localVisualStats = { mode: "visual-shell", reason: "run_reset", driftPx: 0, snap: true };
+    app.localVisualStats = { mode: "visual-shell", strategy: "correction-offset", reason: "run_reset", driftPx: 0, snap: true, latency: "zero-local" };
     app.hostSim = { mode: "fixed-step", accumulatorMs: 0, steps: 0, droppedSteps: 0, frameMs: 0, throttle: false };
+    app.inputStreamStats = Object.create(null);
+    app.inputStreamSummary = null;
     app.predictedProjectiles = [];
     app.localCooldowns = Object.create(null);
     app.disconnectedPlayers = Object.create(null);
@@ -255,8 +258,9 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       const p = spawnPoint(index);
       app.localInventory = createInventory([START_WEAPON]);
       app.localPose = { id: app.playerId, name: app.playerName, x: p.x, y: p.y, vx: 0, vy: 0, kx: 0, ky: 0, angle: 0, radius: 13, hp: 100, maxHp: 100, activeWeapon: START_WEAPON, inventory: app.localInventory, upgrades: { choices: [] }, stats: {}, ability: null, skin: index % 2 ? "green" : "default" };
+      app.localCorrectionOffset = { x: 0, y: 0, angle: 0, reason: "guest_spawn" };
       app.localRenderPose = { ...app.localPose, _visualReason: "guest_spawn" };
-      app.localVisualStats = { mode: "visual-shell", reason: "guest_spawn", driftPx: 0, snap: true };
+      app.localVisualStats = { mode: "visual-shell", strategy: "correction-offset", reason: "guest_spawn", driftPx: 0, snap: true, latency: "zero-local" };
     }
 
     app.ui.showGame(app.roomId);
@@ -298,6 +302,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     if (app.disconnectedPlayers) delete app.disconnectedPlayers[id];
     if (app.hostState) removePlayer(app.hostState, id);
     delete app.hostInputs[id];
+    if (app.inputStreamStats) delete app.inputStreamStats[id];
   }
 
   function handlePlayerLeft(id, reason = "left") {
@@ -344,11 +349,14 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     app.snapshot = null;
     app.hostState = null;
     app.hostInputs = Object.create(null);
+    app.inputStreamStats = Object.create(null);
+    app.inputStreamSummary = null;
     app.disconnectedPlayers = Object.create(null);
     app.localPose = null;
     app.localRenderPose = null;
+    app.localCorrectionOffset = { x: 0, y: 0, angle: 0, reason: "leave" };
     app.localVisualSnapReason = "";
-    app.localVisualStats = { mode: "visual-shell", reason: "leave", driftPx: 0, snap: true };
+    app.localVisualStats = { mode: "visual-shell", strategy: "correction-offset", reason: "leave", driftPx: 0, snap: true, latency: "zero-local" };
     app.predictedProjectiles = [];
     app.localInventory = createInventory([START_WEAPON]);
     upgradeClient?.reset();

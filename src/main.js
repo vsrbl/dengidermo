@@ -7,13 +7,13 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-33.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-3-33.js";
-import { createSessionRuntime } from "./app/session.v39-3-33.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-3-33.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-3-33.js";
-import { createDevControls } from "./app/devControls.v39-3-33.js";
-import { createCasinoClient } from "./app/casinoClient.v39-3-33.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-3-35.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-3-35.js";
+import { createSessionRuntime } from "./app/session.v39-3-35.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-3-35.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-3-35.js";
+import { createDevControls } from "./app/devControls.v39-3-35.js";
+import { createCasinoClient } from "./app/casinoClient.v39-3-35.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
@@ -49,11 +49,14 @@ function createAppState() {
     connectTimer: 0,
     hostState: null,
     hostInputs: Object.create(null),
+    inputStreamStats: Object.create(null),
+    inputStreamSummary: null,
     disconnectedPlayers: Object.create(null),
     snapshot: null,
     localPose: null,
     localRenderPose: null,
-    localVisualStats: { mode: "idle", driftPx: 0, snap: false, reason: "init" },
+    localCorrectionOffset: { x: 0, y: 0, angle: 0, reason: "init" },
+    localVisualStats: { mode: "idle", strategy: "correction-offset", driftPx: 0, snap: false, reason: "init", latency: "zero-local" },
     localWeapon: START_WEAPON,
     localInventory: createInventory([START_WEAPON]),
     localUpgradeChoices: [],
@@ -193,7 +196,8 @@ function updateHud() {
   app.ui.setProcFeed(app.rewardEventFeed.ingest(events, { playerId: app.playerId }));
   app.ui.setScreenMoment(app.momentFeed.ingest(events, { playerId: app.playerId, snapshot: app.snapshot }));
   app.ui.setKillCombo(app.killComboFeed.ingest(events, { playerId: app.playerId }));
-  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, reconcile: app.reconcileStats, visual: app.localVisualStats, hostSim: app.role === "host" ? app.hostSim : null, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
+  const inputStream = app.role === "host" ? app.inputStreamSummary : (snapMe?.inputStream || null);
+  app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, reconcile: app.reconcileStats, visual: app.localVisualStats, hostSim: app.role === "host" ? app.hostSim : null, inputStream, dev: app.snapshot?.dev || (app.role === "host" ? makeSnapshot(app.hostState)?.dev : null), release: app.release });
 }
 
 function loop(now) {

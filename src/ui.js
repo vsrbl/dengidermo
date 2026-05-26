@@ -92,7 +92,7 @@ export function createUi() {
     setTimeout(() => el.roomTitle.classList.remove("copy-flash"), 220);
   }
 
-  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, transportModes = null, reconcile = null, visual = null, hostSim = null, dev = null, release = null }) {
+  function setNet({ pingMs, role, playerId, players, playerNames, transportMode, transportModes = null, reconcile = null, visual = null, hostSim = null, inputStream = null, dev = null, release = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
     const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
     const id = playerId || "--";
@@ -112,15 +112,18 @@ export function createUi() {
       ? ` | REC ${reconcile.ackedSeq || 0}/${reconcile.localSeq || 0} P${reconcile.pendingInputs || 0} D${reconcile.driftPx || 0}`
       : "";
     const visualText = visual?.mode === "visual-shell"
-      ? ` | VIS D${visual.driftPx || 0}${visual.snap ? " SNAP" : ""}`
+      ? ` | VIS D${visual.driftPx || 0}${visual.strategy === "correction-offset" ? " OFF" : ""}${visual.snap ? " SNAP" : ""}`
       : "";
     const hostSimText = hostSim?.mode === "fixed-step"
       ? ` | SIM ${hostSim.steps || 0}x${hostSim.stepMs || 0}ms A${hostSim.accumulatorMs || 0}${hostSim.throttle ? " THROTTLE" : ""}`
       : "";
+    const inputStreamText = inputStream
+      ? ` | IN ${inputStream.lastAcceptedSeq || 0} A${inputStream.inputAgeMs || 0}ms S${inputStream.staleDrops || 0}${inputStream.stale ? " STALE" : ""}`
+      : "";
     const devText = dev?.enabled
       ? ` | DEV ${dev.calm ? "CALM" : "FULL"}${dev.spawnsPaused ? " SPAWN-OFF" : ""}${dev.god ? " GOD" : ""}${dev.flash ? ` | ${dev.flash}` : ""}`
       : "";
-    el.netStatus.textContent = `${VERSION.toUpperCase()} | BUILD ${build} | PING ${ping} MS | ${mode} ${name}(${id}) | ${count}/${MAX_PLAYERS} | ${tr}${reconcileText}${visualText}${hostSimText}${releaseText}${devText}`;
+    el.netStatus.textContent = `${VERSION.toUpperCase()} | BUILD ${build} | PING ${ping} MS | ${mode} ${name}(${id}) | ${count}/${MAX_PLAYERS} | ${tr}${reconcileText}${visualText}${hostSimText}${inputStreamText}${releaseText}${devText}`;
   }
 
   function setUpgradeMenu(choices = [], pending = false, selectedIndex = -1, offers = {}) {

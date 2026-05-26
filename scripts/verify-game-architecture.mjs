@@ -169,9 +169,13 @@ assert.match(read('src/ui.js'), /REC \$\{reconcile\.ackedSeq/, 'HUD must show re
 assert.match(clientRuntime, /weapon\.holdToFire \? inputState\.fire : inputState\.firePressed/, 'weapon fire mode must support hold-to-fire shotgun without making every weapon automatic');
 assert.match(read('src/data/weapons.js'), /shotgun:[\s\S]*holdToFire: true/, 'shotgun must be hold-to-fire instead of one-shot click-only');
 assert.match(read('src/game/state.js'), /inputSeq:/, 'snapshot must expose acknowledged movement input sequence for client reconciliation');
+assert.match(read('src/game/state.js'), /inputStream:/, 'snapshot must expose monotonic input stream diagnostics for jitter debugging');
 assert.match(read('src/net/transport.js'), /netPing/, 'transport must measure direct peer RTT, not only signaling ping');
 assert.match(clientRuntime, /hostImpulseHardDrift/, 'guest host impulse correction may only classify extreme hostile knockback drift as hard reconciliation');
-assert.match(hostRuntime, /normalizeHostInput\(msg\.input\)/, 'host runtime must sanitize remote input packets before storing them');
+assert.match(hostRuntime, /acceptMonotonicHostInput\(app, from, msg\.input\)/, 'host runtime must gate remote input packets through monotonic inputSeq before storing them');
+assert.match(hostRuntime, /incomingSeq <= lastAcceptedSeq/, 'host input stream must reject stale or duplicate unordered input packets');
+assert.match(hostRuntime, /staleDrops/, 'host input stream must count stale input drops for diagnostics');
+assert.match(hostRuntime, /publishInputStreamStats/, 'host input stream must publish per-player stale/input-age diagnostics');
 assert.match(hostRuntime, /normalizeHostInput\(request\.input\)/, 'host runtime must sanitize ability input packets before applying abilities');
 assert.match(inputRuntime, /input\.aimX = mouse\.worldX/, 'client input must send aim target coordinates so host can recompute aim from authoritative pose');
 assert.match(simulation, /input\.aimX/, 'host input normalization must preserve sanitized aim target coordinates');
@@ -380,22 +384,26 @@ for (const rel of hostileImpulseFiles) {
   assert.match(casinoClient, /casinoSpin[\s\S]+\.\.\.hint/, 'casino spin requests must include a bounded local action origin hint');
 }
 
-// v39.3.33 local visual smoothing guard: reconciliation must correct physics
-// without rendering/camera-following raw corrected physics directly every snapshot.
+// v39.3.35 correction-offset visual guard: local movement must render immediately
+// while only host reconciliation error is hidden by a decaying offset.
 {
   const mainSrc = read('src/main.js');
   const clientRuntime = read('src/app/clientRuntime.js');
   const sessionRuntime = read('src/app/session.js');
   const uiRuntime = read('src/ui.js');
   assert.match(mainSrc, /localRenderPose/, 'app state must keep a localRenderPose separate from physics localPose');
+  assert.match(mainSrc, /localCorrectionOffset/, 'app state must keep correction offset separate from physics and visual pose');
   assert.match(mainSrc, /const renderPose = app\.localRenderPose \|\| app\.localPose/, 'main loop must prefer localRenderPose for camera/render target');
-  assert.match(clientRuntime, /LOCAL_VISUAL_SMOOTH_RATE/, 'client runtime must define local visual smoothing constants');
-  assert.match(clientRuntime, /function updateLocalRenderPose/, 'client runtime must update a visual shell after prediction/reconciliation');
+  assert.match(clientRuntime, /LOCAL_CORRECTION_OFFSET_DECAY_RATE/, 'client runtime must define correction-offset decay constants instead of smoothing every local movement');
+  assert.match(clientRuntime, /function updateLocalRenderPose/, 'client runtime must rebuild localRenderPose from predicted localPose plus correction offset');
+  assert.match(clientRuntime, /preserveVisualDuringCorrection/, 'host reconciliation must preserve the previous visible pose by storing a correction offset');
+  assert.match(clientRuntime, /latency: "zero-local"/, 'local visual diagnostics must mark zero-local latency mode');
   assert.match(clientRuntime, /function snapLocalRenderPose/, 'client runtime must snap the visual shell for room changes/large authoritative corrections');
   assert.match(clientRuntime, /markLocalVisualSnap\("location_change"\)/, 'room/location changes must snap visual pose instead of smoothing across rooms');
   assert.match(clientRuntime, /visualDriftPx/, 'reconciliation diagnostics must expose visual drift separately from physics drift');
   assert.match(sessionRuntime, /app\.localRenderPose = \{ \.\.\.app\.localPose/, 'guest spawn must initialize localRenderPose from localPose');
   assert.match(uiRuntime, /VIS D/, 'net HUD must expose local visual drift diagnostics');
+  assert.match(uiRuntime, /OFF/, 'net HUD must show correction-offset mode diagnostics');
 }
 
 console.log(`universal game architecture verification passed (${gameFiles.length} game modules scanned)`);
