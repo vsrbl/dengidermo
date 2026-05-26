@@ -57,7 +57,7 @@ assertContains(mainServer, `const SERVER_VERSION = '${VERSION}'`, 'unified serve
 assertContains(mainServer, `const SERVER_BUILD_ID = '${BUILD_ID}'`, 'unified server build');
 assertContains(mainServer, `const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`, 'unified server protocol');
 assertContains(mainServer, 'unified-colyseus-authoritative', 'unified server health mode');
-assertContains(mainServer, 'legacySignaling: false', 'unified server legacy signaling status');
+assertContains(mainServer, 'legacySignaling: true', 'unified server legacy signaling compatibility status');
 assertContains(entry, 'checkReleaseIntegrity', 'entry release health check');
 assertContains(entry, 'initialReleaseState', 'entry release initial state');
 assertContains(entry, `./app/releaseIntegrity.v${entrySuffix}.js`, 'entry versioned release module');

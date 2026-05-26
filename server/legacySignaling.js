@@ -407,51 +407,12 @@ function handleRelay(ws, msg) {
   if (isPlayerOnline(target)) send(target.ws, packet);
 }
 
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url || "/", "http://localhost");
-  if (url.pathname === "/health") {
-    for (const room of rooms.values()) pruneClosedPlayers(room);
-    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION, startedAt: serverStartedAt, now: new Date().toISOString() }));
-    return;
-  }
-  res.writeHead(200, { "content-type": "text/plain", "access-control-allow-origin": "*", "cache-control": "no-store" });
-  res.end(`nncckkrr signaling ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID}\n`);
-});
 
-const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws) => {
-  ws.nnRoom = null;
-  ws.nnPlayerId = null;
-  ws.nnRateWindowStart = Date.now();
-  ws.nnRateCount = 0;
-  ws.nnLeftIntentionally = false;
-  markSocketAlive(ws);
-  send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION });
-
-  ws.on("pong", () => markSocketAlive(ws));
-
-  ws.on("message", (raw) => {
-    if (!acceptMessage(ws, raw)) return;
-    let msg = null;
-    try { msg = JSON.parse(raw.toString()); } catch { return; }
-    if (!msg || typeof msg.type !== "string") return;
-    if (msg.type === "create") return handleCreate(ws, msg);
-    if (msg.type === "join") return handleJoin(ws, msg);
-    if (msg.type === "signal") return handleSignal(ws, msg);
-    if (msg.type === "relay") return handleRelay(ws, msg);
-    if (msg.type === "leave") return leave(ws);
-    if (msg.type === "ping") return send(ws, { type: "pong", t: msg.t });
-  });
-
-  ws.on("close", () => handleSocketGone(ws, "socket_closed"));
-  ws.on("error", () => handleSocketGone(ws, "socket_error"));
-});
 
 function heartbeatClients() {
   const now = Date.now();
-  for (const ws of wss.clients) {
+  for (const ws of activeWss?.clients || []) {
     if (ws.readyState !== ws.OPEN) continue;
     if (ws.nnAlive === false && now - (ws.nnLastSeen || 0) > HEARTBEAT_TIMEOUT_MS) {
       try { ws.terminate(); } catch { /* socket may already be closed */ }
@@ -462,6 +423,70 @@ function heartbeatClients() {
   }
 }
 
-setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
-setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v39.4.2 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+let activeWss = null;
+
+function attachLegacySignaling(server, options = {}) {
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
+  activeWss = wss;
+  const shouldHandleUpgrade = typeof options.filter === "function" ? options.filter : () => true;
+
+  server.on("upgrade", (req, socket, head) => {
+    if (!shouldHandleUpgrade(req)) return;
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  });
+
+  wss.on("connection", (ws) => {
+    ws.nnRoom = null;
+    ws.nnPlayerId = null;
+    ws.nnRateWindowStart = Date.now();
+    ws.nnRateCount = 0;
+    ws.nnLeftIntentionally = false;
+    markSocketAlive(ws);
+    send(ws, { type: "hello", version: SERVER_VERSION, buildId: SERVER_BUILD_ID, channel: SERVER_RELEASE_CHANNEL, protocol: SIGNALING_PROTOCOL_VERSION });
+
+    ws.on("pong", () => markSocketAlive(ws));
+
+    ws.on("message", (raw) => {
+      if (!acceptMessage(ws, raw)) return;
+      let msg = null;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (!msg || typeof msg.type !== "string") return;
+      if (msg.type === "create") return handleCreate(ws, msg);
+      if (msg.type === "join") return handleJoin(ws, msg);
+      if (msg.type === "signal") return handleSignal(ws, msg);
+      if (msg.type === "relay") return handleRelay(ws, msg);
+      if (msg.type === "leave") return leave(ws);
+      if (msg.type === "ping") return send(ws, { type: "pong", t: msg.t });
+    });
+
+    ws.on("close", () => handleSocketGone(ws, "socket_closed"));
+    ws.on("error", () => handleSocketGone(ws, "socket_error"));
+  });
+
+  const heartbeatTimer = setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS);
+  const cleanTimer = setInterval(cleanRooms, 60_000);
+  heartbeatTimer.unref?.();
+  cleanTimer.unref?.();
+
+  return {
+    wss,
+    rooms,
+    startedAt: serverStartedAt,
+    roomCount() {
+      for (const room of rooms.values()) pruneClosedPlayers(room);
+      return rooms.size;
+    },
+    close() {
+      clearInterval(heartbeatTimer);
+      clearInterval(cleanTimer);
+      for (const client of wss.clients) {
+        try { client.close(1001, "server_shutdown"); } catch {}
+      }
+      wss.close();
+    }
+  };
+}
+
+module.exports = { attachLegacySignaling };

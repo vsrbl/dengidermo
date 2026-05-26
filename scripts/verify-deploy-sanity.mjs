@@ -113,7 +113,7 @@ assert.ok(mainServer.includes(`const SERVER_VERSION = '${VERSION}'`), 'unified s
 assert.ok(mainServer.includes(`const SERVER_BUILD_ID = '${BUILD_ID}'`), 'unified server build constant must match release');
 assert.ok(mainServer.includes(`const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`), 'unified server protocol constant must match release');
 assert.ok(mainServer.includes("gameServer.define('nn_arena'"), 'unified Render entry must define nn_arena Colyseus room');
-assert.ok(mainServer.includes("legacySignaling: false"), 'unified Render entry must explicitly mark legacy signaling disabled');
+assert.ok(mainServer.includes("legacySignaling: true"), 'unified Render entry must explicitly mark legacy signaling compatibility enabled');
 assert.ok(mainServer.includes("app.get('/health'"), 'unified Render entry must expose /health');
 assert.ok(mainServer.includes("app.use('/src'"), 'unified Render entry must serve the browser modules');
 assert.ok(mainServer.includes("nncckkrr unified Colyseus"), 'unified server banner must identify the Colyseus entry');

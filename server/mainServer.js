@@ -7,10 +7,11 @@ const express = require('express');
 const { Server } = require('@colyseus/core');
 const { WebSocketTransport } = require('@colyseus/ws-transport');
 const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaRoom');
+const { attachLegacySignaling } = require('./legacySignaling');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.1';
-const SERVER_BUILD_ID = 'v39.4.1-20260526';
+const SERVER_VERSION = 'v39.4.2';
+const SERVER_BUILD_ID = 'v39.4.2-20260526';
 const SERVER_RELEASE_CHANNEL = 'prod';
 const SIGNALING_PROTOCOL_VERSION = 2;
 const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
@@ -38,6 +39,28 @@ function publicFilePath(name) {
   return file;
 }
 
+
+function requestPath(req) {
+  try {
+    return new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname;
+  } catch {
+    return '/';
+  }
+}
+
+function isColyseusUpgrade(req) {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  // Colyseus joins through /matchmake over HTTP and then upgrades to /<processId>/<roomId>?sessionId=...
+  return /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(url.pathname)
+    || url.searchParams.has('sessionId')
+    || url.searchParams.has('reconnectionToken')
+    || url.searchParams.has('skipHandshake');
+}
+
+function isLegacySignalingUpgrade(req) {
+  return !isColyseusUpgrade(req);
+}
+
 const app = express();
 app.disable('x-powered-by');
 
@@ -52,7 +75,7 @@ app.get('/health', (_req, res) => {
     protocol: SIGNALING_PROTOCOL_VERSION,
     colyseusProtocol: COLYSEUS_PROTOCOL,
     rooms: ['nn_arena'],
-    legacySignaling: false
+    legacySignaling: true
   });
 });
 
@@ -66,6 +89,22 @@ app.get('/net2', (_req, res) => {
     version: SERVER_VERSION,
     buildId: SERVER_BUILD_ID,
     protocol: COLYSEUS_PROTOCOL
+  });
+});
+
+app.get('/favicon.ico', (_req, res) => {
+  res.status(204).end();
+});
+
+app.get('/legacy', (_req, res) => {
+  sendJson(res, 200, {
+    ok: true,
+    mode: 'legacy-signaling-compat',
+    version: SERVER_VERSION,
+    buildId: SERVER_BUILD_ID,
+    protocol: SIGNALING_PROTOCOL_VERSION,
+    rooms: legacySignaling.roomCount(),
+    websocket: '/'
   });
 });
 
@@ -99,18 +138,26 @@ app.use((req, res) => {
 
 const httpServer = http.createServer(app);
 
-const gameServer = new Server({
-  transport: new WebSocketTransport({
-    server: httpServer,
-    pingInterval: 3000,
-    pingMaxRetries: 2,
-    maxPayload: 16 * 1024,
-    perMessageDeflate: false
-  })
+const colyseusTransport = new WebSocketTransport({
+  noServer: true,
+  pingInterval: 3000,
+  pingMaxRetries: 2,
+  maxPayload: 16 * 1024,
+  perMessageDeflate: false
 });
 
+const gameServer = new Server({ transport: colyseusTransport });
+
 gameServer.define('nn_arena', AuthoritativeArenaRoom);
+colyseusTransport.attachToServer(httpServer, { filter: isColyseusUpgrade });
+
+const legacySignaling = attachLegacySignaling(httpServer, { filter: isLegacySignalingUpgrade });
+
+process.on('SIGTERM', () => {
+  legacySignaling.close();
+});
+
 
 gameServer.listen(PORT).then(() => {
-  console.log(`nncckkrr unified Colyseus ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION} colyseus ${COLYSEUS_PROTOCOL} build ${SERVER_BUILD_ID} on ${PORT}`);
+  console.log(`nncckkrr unified Colyseus+legacy ${SERVER_VERSION} protocol ${SIGNALING_PROTOCOL_VERSION} colyseus ${COLYSEUS_PROTOCOL} build ${SERVER_BUILD_ID} on ${PORT}`);
 });

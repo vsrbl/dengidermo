@@ -1,4 +1,4 @@
-# v39.4.1 — Unified Render server entry
+# v39.4.2 — Unified Render server entry
 
 This patch makes the default Render process boot the Colyseus authoritative server path instead of the old browser-host P2P signaling server.
 
@@ -28,7 +28,7 @@ node server/mainServer.js
 
 v39.4.0 added a side-by-side Colyseus spike, but Render still booted `server/server.js`, which meant production remained the old signaling/P2P relay server.
 
-v39.4.1 changes the default server entry:
+v39.4.2 changes the default server entry:
 
 ```text
 Render -> npm start -> server/mainServer.js -> Colyseus authoritative server

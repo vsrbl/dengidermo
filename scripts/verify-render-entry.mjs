@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import WebSocket from 'ws';
 import { BUILD_ID, SIGNALING_PROTOCOL_VERSION, VERSION } from '../src/core/constants.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,7 +25,7 @@ assert.ok(mainServer.includes("gameServer.define('nn_arena'"), 'unified server m
 assert.ok(mainServer.includes("app.get('/health'"), 'unified server must provide release health');
 assert.ok(mainServer.includes("app.get('/net2'"), 'unified server must provide net2 diagnostics');
 assert.ok(mainServer.includes("app.use('/src'"), 'unified server must serve browser modules');
-assert.ok(mainServer.includes('legacySignaling: false'), 'unified server must not pretend legacy P2P signaling is active');
+assert.ok(mainServer.includes('legacySignaling: true'), 'unified server must expose legacy P2P signaling compatibility until net2 client is playable');
 
 const child = spawn(process.execPath, ['server/mainServer.js'], {
   cwd: root,
@@ -57,12 +58,39 @@ try {
   assert.equal(health.buildId, BUILD_ID, 'health build must match release');
   assert.equal(health.channel, 'prod', 'health channel must match prod release');
   assert.equal(health.protocol, SIGNALING_PROTOCOL_VERSION, 'health protocol must match frontend release integrity');
-  assert.equal(health.legacySignaling, false, 'legacy signaling must be disabled on default Render entry');
+  assert.equal(health.legacySignaling, true, 'legacy signaling compatibility must stay available until net2 client is playable');
   assert.ok(health.rooms.includes('nn_arena'), 'health must expose nn_arena room');
 
   const net2 = await (await fetch(`${baseUrl}/net2?verify=${Date.now()}`)).json();
   assert.equal(net2.room, 'nn_arena', '/net2 must identify the Colyseus arena room');
   assert.equal(net2.authority, 'server', '/net2 must identify server authority');
+
+  const legacy = await (await fetch(`${baseUrl}/legacy?verify=${Date.now()}`)).json();
+  assert.equal(legacy.ok, true, '/legacy should expose legacy signaling compatibility status');
+  assert.equal(legacy.mode, 'legacy-signaling-compat', '/legacy must identify compatibility mode');
+
+  const favicon = await fetch(`${baseUrl}/favicon.ico?verify=${Date.now()}`);
+  assert.equal(favicon.status, 204, 'favicon should not produce a browser-visible 404');
+
+  await new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+    const timer = setTimeout(() => reject(new Error('legacy root websocket did not answer')), 1200);
+    ws.on('message', (raw) => {
+      const msg = JSON.parse(String(raw));
+      if (msg.type === 'hello') {
+        assert.equal(msg.version, VERSION, 'legacy root websocket hello must match release');
+        ws.send(JSON.stringify({ type: 'create', roomId: 'T42', name: 'HOST' }));
+        return;
+      }
+      if (msg.type === 'created') {
+        assert.equal(msg.playerId, 'p1', 'legacy root websocket must still support create for old client compatibility');
+        clearTimeout(timer);
+        ws.close();
+        resolve();
+      }
+    });
+    ws.on('error', reject);
+  });
 
   const index = await (await fetch(`${baseUrl}/?verify=${Date.now()}`)).text();
   assert.ok(index.includes(`name="nncckkrr-version" content="${VERSION}"`), 'unified server must serve current index');

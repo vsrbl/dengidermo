@@ -40,7 +40,7 @@ for (const rel of [
 const mainServer = read('server/mainServer.js');
 assert.ok(mainServer.includes("gameServer.define('nn_arena'"), 'unified server must expose nn_arena room');
 assert.ok(mainServer.includes('unified-colyseus-authoritative'), 'unified server health must identify authoritative Colyseus mode');
-assert.ok(mainServer.includes('legacySignaling: false'), 'unified server must not present the old P2P signaling path as active');
+assert.ok(mainServer.includes('legacySignaling: true'), 'unified server must expose the old P2P signaling path as compatibility until net2 client is playable');
 assert.ok(mainServer.includes("app.use('/src'"), 'unified server must serve static browser modules for Render');
 
 const server = read('server/colyseusServer.js');
