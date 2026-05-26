@@ -109,6 +109,25 @@ export function acceptMonotonicHostInput(app, playerId, rawInput, atMs = nowMs()
   return { accepted: true, stale: false, input, stats };
 }
 
+export function resetRemoteInputStream(app, playerId, atMs = nowMs()) {
+  if (!app || !playerId) return { reset: false, reason: "missing_player" };
+  if (!app.hostInputs) app.hostInputs = Object.create(null);
+  if (!app.inputStreamStats) app.inputStreamStats = Object.create(null);
+
+  app.hostInputs[playerId] = emptyInput();
+  const stats = createInputStreamStats(-1);
+  app.inputStreamStats[playerId] = stats;
+
+  const player = app.hostState?.players?.[playerId];
+  if (player) {
+    player.lastInputSeq = 0;
+    player.inputStream = inputStreamSnapshot(stats, atMs);
+  }
+
+  refreshInputStreamAges(app, atMs);
+  return { reset: true, playerId, input: app.hostInputs[playerId], stats, player: !!player };
+}
+
 export function createHostRuntime(app, { session, upgrades } = {}) {
   let clientRuntime = null;
   let fixedStepAccumulator = 0;
@@ -364,6 +383,7 @@ export function createHostRuntime(app, { session, upgrades } = {}) {
     applyAbilityRequest,
     applyInteractRequest,
     applyCasinoSpinRequest,
+    resetRemoteInputStream: (id) => resetRemoteInputStream(app, id),
     handleNetData,
     update
   };

@@ -6,8 +6,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v39.3.35";
-const SERVER_BUILD_ID = "v39.3.35-20260525";
+const SERVER_VERSION = "v39.3.37";
+const SERVER_BUILD_ID = "v39.3.37-20260526";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -120,6 +120,31 @@ function markPlayerOffline(room, playerId, reason = "socket_closed") {
 function markHostSignalLost(room, reason = "host_signal_lost") {
   if (!room?.hostId) return false;
   return markPlayerOffline(room, room.hostId, reason);
+}
+
+function canReclaimHost(room, reconnectToken) {
+  const host = room?.players?.get(room.hostId);
+  return !!room && !!reconnectToken && !!host && !isPlayerOnline(host) && host.reconnectToken === reconnectToken;
+}
+
+function reclaimHost(ws, room, msg, reconnectToken) {
+  if ((ws.nnRoom || ws.nnPlayerId) && ws.nnRoom !== room.id) leave(ws);
+  const nextReconnectToken = createReconnectToken();
+  room.players.set(room.hostId, {
+    ws,
+    joinedAt: Date.now(),
+    name: normalizePlayerName(msg.name, "HOST"),
+    reconnect: true,
+    reconnectToken: nextReconnectToken
+  });
+  room.touched = Date.now();
+  ws.nnRoom = room.id;
+  ws.nnPlayerId = room.hostId;
+  ws.nnLeftIntentionally = false;
+  const playerList = roomPlayers(room);
+  const names = roomNames(room);
+  send(ws, { type: "created", roomId: room.id, playerId: room.hostId, players: playerList, names, reconnect: true, reconnectToken: nextReconnectToken });
+  broadcast(room, { type: "player_joined", playerId: room.hostId, players: playerList, names, reconnect: true }, room.hostId);
 }
 
 function notifyPlayerLeft(room, playerId, reason = "left") {
@@ -269,7 +294,15 @@ function handleSocketGone(ws, reason = "socket_closed") {
 function handleCreate(ws, msg) {
   const roomId = normalizeRoomId(msg.roomId);
   if (!ROOM_RE.test(roomId)) return send(ws, { type: "error", message: "bad_room" });
-  if (rooms.has(roomId)) return send(ws, { type: "error", message: "room_exists" });
+  const existingRoom = rooms.get(roomId);
+  const requestedReconnectToken = normalizeReconnectToken(msg.reconnectToken);
+  if (existingRoom) {
+    pruneClosedPlayers(existingRoom);
+    if (rooms.has(roomId) && canReclaimHost(existingRoom, requestedReconnectToken)) {
+      return reclaimHost(ws, existingRoom, msg, requestedReconnectToken);
+    }
+    return send(ws, { type: "error", message: "room_exists" });
+  }
   if (ws.nnRoom || ws.nnPlayerId) leave(ws);
 
   const room = {
@@ -431,4 +464,4 @@ function heartbeatClients() {
 
 setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.35 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v39.3.37 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

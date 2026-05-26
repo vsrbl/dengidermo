@@ -27,6 +27,8 @@ assert.match(serverSrc, /HOST_SIGNAL_GRACE_MS/, 'server must retain transiently 
 assert.match(serverSrc, /markHostSignalLost/, 'server must mark host signaling loss as soft instead of immediately closing active P2P rooms');
 assert.match(serverSrc, /createReconnectToken/, 'server must issue reconnect tokens');
 assert.match(serverSrc, /findReconnectPlayerId/, 'server must select offline slots by reconnect token only');
+assert.match(serverSrc, /canReclaimHost/, 'server must allow p1 host signaling reclaim by reconnect token');
+assert.match(serverSrc, /reclaimHost/, 'server must restore the host websocket without destroying the room');
 assert.match(serverSrc, /nextEmptyPlayerId/, 'server must keep tokenless joins on empty slots only');
 assert.match(serverSrc, /msg\.reconnectToken/, 'server join contract must accept reconnectToken');
 assert.match(serverSrc, /markPlayerOffline\(room, id, "stale_socket"\)/, 'stale prune must mark guest slots offline instead of deleting gameplay identity');
@@ -38,7 +40,10 @@ assert.match(mainSrc, /isAuthoritativeHostPacket/, 'client must classify host-au
 assert.match(mainSrc, /from !== "p1"/, 'guest client must reject host-authoritative packets not sent by p1');
 const transportSrc = readFileSync(path.join(root, 'src/net/transport.js'), 'utf8');
 const sessionSrc = readFileSync(path.join(root, 'src/app/session.js'), 'utf8');
-assert.match(transportSrc, /reconnectToken: options\.reconnectToken/, 'transport must send saved reconnect token on guest join');
+assert.match(transportSrc, /this\.reconnectToken = options\.reconnectToken[\s\S]*sendGuestJoin[\s\S]*reconnectToken: this\.reconnectToken/, 'transport must keep and send saved reconnect token on guest join');
+assert.match(transportSrc, /sendHostCreate[\s\S]*reconnectToken: this\.reconnectToken/, 'transport must send the host reconnect token when reclaiming signaling');
+assert.match(transportSrc, /scheduleSignalingReconnect/, 'transport must retry signaling without a gameplay-level reconnect');
+assert.match(transportSrc, /preservePeers/, 'transport signaling reconnect must preserve RTCPeerConnection and DataChannels');
 assert.match(transportSrc, /reconnectToken: msg\.reconnectToken/, 'transport must surface server-issued reconnect tokens');
 assert.match(transportSrc, /createPeerChannels/, 'transport must create split peer data channels');
 assert.match(transportSrc, /createDataChannel\(config\.label, config\.options\)/, 'transport must create data channels with explicit reliability options');
@@ -59,6 +64,7 @@ assert.match(sessionSrc, /transportModes/, 'session must keep per-peer transport
 assert.match(sessionSrc, /nncckkrr\.reconnect/, 'session must persist reconnect tokens per room');
 assert.match(sessionSrc, /host_signal_lost/, 'session must treat host signaling loss as soft while P2P may remain alive');
 assert.match(sessionSrc, /keeping P2P alive/, 'guest must warn but keep running when only host signaling is lost');
+assert.match(sessionSrc, /handleSignalingReconnected/, 'session must update signaling metadata without resetting gameplay state');
 
 const hostRuntimeSrc = readFileSync(path.join(root, 'src/app/hostRuntime.js'), 'utf8');
 const constantsSrc = readFileSync(path.join(root, 'src/core/constants.js'), 'utf8');
@@ -310,8 +316,29 @@ try {
   assert.equal(lateJoinError.message, 'host_signal_lost', 'hostless signaling rooms must reject new joins without destroying existing P2P gameplay');
   await noJson(guestP2P, 'room_closed after late hostless join');
 
+  const hostReclaim = await openWs();
+  await nextJson(hostReclaim, 'hostReclaim hello');
+  hostReclaim.send(JSON.stringify({ type: 'create', roomId: 'NET141', name: 'HOST2', reconnectToken: createdP2P.reconnectToken }));
+  const reclaimed = await nextJson(hostReclaim, 'host reclaimed NET141');
+  assert.equal(reclaimed.type, 'created');
+  assert.equal(reclaimed.playerId, 'p1', 'host reconnect token must reclaim p1, not create a new role');
+  assert.equal(reclaimed.reconnect, true, 'host reclaim must be marked as reconnect');
+  assert.ok(reclaimed.reconnectToken && reclaimed.reconnectToken !== createdP2P.reconnectToken, 'host reclaim must rotate the reconnect token');
+  const guestReclaimNotice = await nextJson(guestP2P, 'guest sees host reclaim');
+  assert.equal(guestReclaimNotice.type, 'player_joined');
+  assert.equal(guestReclaimNotice.playerId, 'p1');
+  assert.equal(guestReclaimNotice.reconnect, true, 'guests must receive host reconnect metadata');
+  assert.ok(guestReclaimNotice.players.includes('p1') && guestReclaimNotice.players.includes('p2'), 'host reclaim must preserve the existing room roster');
+
+  guestP2P.send(JSON.stringify({ type: 'relay', to: 'host', data: { t: 'input', inputSeq: 7 } }));
+  const relayedAfterReclaim = await nextJson(hostReclaim, 'guest relay after host reclaim');
+  assert.equal(relayedAfterReclaim.type, 'relay');
+  assert.equal(relayedAfterReclaim.from, 'p2');
+  assert.equal(relayedAfterReclaim.data?.inputSeq, 7, 'guest traffic must route to the reclaimed host signaling socket');
+
   guestP2P.close();
   lateJoin.close();
+  hostReclaim.close();
 } finally {
   child.kill('SIGTERM');
   await sleep(100);

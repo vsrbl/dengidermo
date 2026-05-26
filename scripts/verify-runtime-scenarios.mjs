@@ -38,7 +38,7 @@ import { makeSnapshot } from '../src/game/state.js';
 import { applyPlayerImpulse } from '../src/game/playerImpulse.js';
 import { buildNetworkStatePacket, SNAPSHOT_HAZARD_RADIUS, SNAPSHOT_NETWORK_TARGET_BYTES, SNAPSHOT_RELAY_STATE_LIMIT_BYTES, SNAPSHOT_RELAY_TARGET_BYTES, SNAPSHOT_SERVER_MESSAGE_LIMIT_BYTES, SNAPSHOT_WARNING_BYTES } from '../src/game/snapshotBudget.js';
 import { prunePredictionFrames, replayPredictionFrames } from '../src/app/clientRuntime.js';
-import { acceptMonotonicHostInput } from '../src/app/hostRuntime.js';
+import { acceptMonotonicHostInput, resetRemoteInputStream } from '../src/app/hostRuntime.js';
 import { buildRewardEventFeedItem } from '../src/rewardEventFeed.js';
 import {
   PROJECTILE_DAMAGE_SOURCES,
@@ -134,6 +134,45 @@ function assertMonotonicInputStreamScenario() {
   const snapGuest = makeSnapshot(state).players.find((p) => p.id === 'p2');
   assert.equal(snapGuest.inputSeq, 101, 'snapshot should acknowledge latest accepted monotonic input sequence');
   assert.equal(snapGuest.inputStream.staleDrops, 1, 'snapshot should carry input stream stale diagnostics');
+}
+
+function assertReconnectInputStreamResetScenario() {
+  const state = createGameState('RECONNECT-INPUT-STREAM-RESET');
+  const guest = addPlayer(state, 'p2', 1);
+  guest.x = 321;
+  guest.y = 654;
+  guest.hp = 77;
+  guest.upgrades.taken.overclock = 2;
+  const app = { hostState: state, hostInputs: Object.create(null), inputStreamStats: Object.create(null) };
+
+  assert.equal(acceptMonotonicHostInput(app, 'p2', { right: true, aimAngle: 0, inputSeq: 5000 }, 1000).accepted, true, 'pre-disconnect high inputSeq should be accepted');
+  updateHostWorld(state, app.hostInputs, 1 / 60);
+  assert.equal(guest.lastInputSeq, 5000, 'host should remember the high pre-disconnect inputSeq before reconnect');
+
+  const preserved = {
+    x: guest.x,
+    y: guest.y,
+    hp: guest.hp,
+    upgrades: { ...guest.upgrades.taken },
+    economy: { ...(guest.economy || {}) }
+  };
+  const reset = resetRemoteInputStream(app, 'p2', 2000);
+  assert.equal(reset.reset, true, 'valid reconnect reset should report success');
+  assert.equal(app.hostInputs.p2.inputSeq, 0, 'reconnect reset should clear only the stored host input frame');
+  assert.equal(app.inputStreamStats.p2.lastAcceptedSeq, -1, 'reconnect reset should reopen the monotonic stream from seq 1');
+  assert.equal(app.inputStreamStats.p2.staleDrops, 0, 'reconnect reset should clear stale drop diagnostics for the new client stream');
+  assert.equal(guest.lastInputSeq, 0, 'reconnect reset should clear the host acknowledged movement sequence');
+  assert.equal(guest.x, preserved.x, 'reconnect input reset must preserve player x position');
+  assert.equal(guest.y, preserved.y, 'reconnect input reset must preserve player y position');
+  assert.equal(guest.hp, preserved.hp, 'reconnect input reset must preserve hp');
+  assert.deepEqual(guest.upgrades.taken, preserved.upgrades, 'reconnect input reset must preserve upgrades');
+  assert.deepEqual(guest.economy, preserved.economy, 'reconnect input reset must preserve player economy');
+
+  assert.equal(acceptMonotonicHostInput(app, 'p2', { left: true, aimAngle: 0, inputSeq: 1 }, 2010).accepted, true, 'seq 1 from a valid reconnecting client should be accepted after reset');
+  updateHostWorld(state, app.hostInputs, 1 / 60);
+  const snapGuest = makeSnapshot(state).players.find((p) => p.id === 'p2');
+  assert.equal(snapGuest.inputSeq, 1, 'snapshot should acknowledge the new reconnect input stream sequence');
+  assert.equal(snapGuest.inputStream.lastAcceptedSeq, 1, 'input stream diagnostics should expose the accepted reconnect seq');
 }
 
 function assertHostImpulseReconcileScenario() {
@@ -907,6 +946,7 @@ function assertModifierScenario() {
 assertClientReconciliationReplayScenario();
 assertHostAuthorityScenario();
 assertMonotonicInputStreamScenario();
+assertReconnectInputStreamResetScenario();
 assertHostImpulseReconcileScenario();
 assertFireOriginLagCompensationScenario();
 assertDamagePolicy();

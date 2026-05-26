@@ -58,6 +58,7 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       },
       onPlayerLeft: handlePlayerLeft,
       onPlayerReplaced: handlePlayerReplaced,
+      onSignalingReconnected: handleSignalingReconnected,
       onData: (msg, from, mode) => onNetData?.(msg, from, mode),
       onPing: (ms) => { app.pingMs = ms; },
       onPeerMode: (_id, _mode, modes) => setTransportModes(modes),
@@ -119,6 +120,20 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
       return;
     }
     if (app.running) app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: "OFF", transportModes: app.transportModes, release: app.release });
+  }
+
+  function handleSignalingReconnected(info = {}) {
+    if (!app.running) return;
+    if (info.roomId) app.roomId = info.roomId;
+    if (info.playerId) app.playerId = info.playerId;
+    app.players = Array.isArray(info.players) ? info.players.slice(0, 4) : app.players;
+    setPlayerNames(info.names);
+    if (info.reconnectToken) {
+      app.reconnectToken = info.reconnectToken;
+      saveReconnectToken(app.roomId, app.reconnectToken);
+    }
+    app.transportMode = app.transport?.getPeerTransportModes ? summarizeTransportModes(app.transport.getPeerTransportModes()) : app.transportMode;
+    app.ui.setNet({ pingMs: app.pingMs, role: app.role, playerId: app.playerId, players: app.players, playerNames: app.playerNames, transportMode: app.transportMode, transportModes: app.transportModes, release: app.release });
   }
 
   function currentMenuName() {
@@ -324,9 +339,14 @@ export function createSessionRuntime(app, { signalingUrl, devConfig, onNetData }
     dropRemotePlayer(id);
   }
 
-  function handlePlayerReplaced(id) {
+  function handlePlayerReplaced(id, meta = {}) {
+    if (app.role === "guest" && id === "p1" && meta?.reconnect) {
+      markRemotePlayerConnected(id);
+      return;
+    }
     if (app.role !== "host") return;
     markRemotePlayerConnected(id);
+    if (meta?.reconnect) hostRuntime?.resetRemoteInputStream?.(id);
   }
 
   function leaveGame() {
