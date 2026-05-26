@@ -1,15 +1,21 @@
 {
   "name": "nncckkrr-signaling",
-  "version": "39.3.37",
+  "version": "39.4.1",
   "private": true,
   "type": "commonjs",
   "engines": {
     "node": "20.x"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node mainServer.js",
+    "start:colyseus": "node colyseusServer.js",
+    "start:legacy-signaling": "node server.js"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@colyseus/core": "^0.17.43",
+    "@colyseus/ws-transport": "^0.17.13",
+    "@colyseus/schema": "^4.0.8",
+    "express": "^5.1.0"
   }
 }

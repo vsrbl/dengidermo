@@ -1,0 +1,130 @@
+'use strict';
+
+const schema = require('@colyseus/schema');
+const { Schema, MapSchema, defineTypes } = schema;
+
+class PlayerState extends Schema {
+  constructor() {
+    super();
+    this.x = 0;
+    this.y = 0;
+    this.hp = 100;
+    this.online = true;
+    this.lastInputSeq = 0;
+  }
+}
+
+defineTypes(PlayerState, {
+  x: 'number',
+  y: 'number',
+  hp: 'number',
+  online: 'boolean',
+  lastInputSeq: 'number'
+});
+
+class EnemyState extends Schema {
+  constructor() {
+    super();
+    this.x = 0;
+    this.y = 0;
+    this.hp = 40;
+  }
+}
+
+defineTypes(EnemyState, {
+  x: 'number',
+  y: 'number',
+  hp: 'number'
+});
+
+class ProjectileState extends Schema {
+  constructor() {
+    super();
+    this.x = 0;
+    this.y = 0;
+    this.ownerId = '';
+  }
+}
+
+defineTypes(ProjectileState, {
+  x: 'number',
+  y: 'number',
+  ownerId: 'string'
+});
+
+class ArenaRoomState extends Schema {
+  constructor() {
+    super();
+    this.tick = 0;
+    this.timeMs = 0;
+    this.serverHz = 60;
+    this.authority = 'server';
+    this.players = new MapSchema();
+    this.enemies = new MapSchema();
+    this.projectiles = new MapSchema();
+  }
+}
+
+defineTypes(ArenaRoomState, {
+  tick: 'number',
+  timeMs: 'number',
+  serverHz: 'number',
+  authority: 'string',
+  players: { map: PlayerState },
+  enemies: { map: EnemyState },
+  projectiles: { map: ProjectileState }
+});
+
+function upsertMapEntry(map, key, Type) {
+  let item = map.get(key);
+  if (!item) {
+    item = new Type();
+    map.set(key, item);
+  }
+  return item;
+}
+
+function syncArenaToSchema(schemaState, arena) {
+  schemaState.tick = arena.tick;
+  schemaState.timeMs = Math.round(arena.timeMs);
+
+  for (const [id, source] of Object.entries(arena.players)) {
+    const target = upsertMapEntry(schemaState.players, id, PlayerState);
+    target.x = source.x;
+    target.y = source.y;
+    target.hp = source.hp;
+    target.online = !!source.online;
+    target.lastInputSeq = source.lastInputSeq;
+  }
+  for (const id of Array.from(schemaState.players.keys())) {
+    if (!arena.players[id]) schemaState.players.delete(id);
+  }
+
+  for (const [id, source] of Object.entries(arena.enemies)) {
+    const target = upsertMapEntry(schemaState.enemies, id, EnemyState);
+    target.x = source.x;
+    target.y = source.y;
+    target.hp = source.hp;
+  }
+  for (const id of Array.from(schemaState.enemies.keys())) {
+    if (!arena.enemies[id]) schemaState.enemies.delete(id);
+  }
+
+  for (const [id, source] of Object.entries(arena.projectiles)) {
+    const target = upsertMapEntry(schemaState.projectiles, id, ProjectileState);
+    target.x = source.x;
+    target.y = source.y;
+    target.ownerId = source.ownerId;
+  }
+  for (const id of Array.from(schemaState.projectiles.keys())) {
+    if (!arena.projectiles[id]) schemaState.projectiles.delete(id);
+  }
+}
+
+module.exports = {
+  ArenaRoomState,
+  PlayerState,
+  EnemyState,
+  ProjectileState,
+  syncArenaToSchema
+};

@@ -96,13 +96,27 @@ for (const staleSuffix of ['38-13-7', '38-13-8', '38-14-1', '38-14-2', '38-14-3'
 }
 
 const server = read('server/server.js');
-assert.ok(server.includes(`const SERVER_VERSION = "${VERSION}"`), 'server version constant must match release');
+const mainServer = read('server/mainServer.js');
+const renderYaml = read('render.yaml');
+assert.equal(pkg.scripts?.start, 'node server/mainServer.js', 'Render npm start must boot unified Colyseus server');
+assert.equal(pkg.scripts?.['start:legacy-signaling'], 'node server/server.js', 'legacy signaling server must stay available behind explicit script');
+assert.ok(renderYaml.includes('startCommand: npm start'), 'Render must run npm start');
+assert.ok(server.includes(`const SERVER_VERSION = "${VERSION}"`), 'legacy server version constant must match release');
 assert.ok(server.includes(`const SERVER_BUILD_ID = "${BUILD_ID}"`), 'server build constant must match release');
 assert.ok(server.includes(`const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`), 'server protocol constant must match release');
 assert.ok(server.includes('channel: SERVER_RELEASE_CHANNEL'), 'server health must expose release channel');
 assert.ok(server.includes('buildId: SERVER_BUILD_ID'), 'server health must expose build id');
 assert.ok(server.includes('protocol: SIGNALING_PROTOCOL_VERSION'), 'server health must expose protocol');
 assert.ok(server.includes(`nncckkrr signaling ${VERSION} protocol`), 'server banner must include current version/protocol');
+
+assert.ok(mainServer.includes(`const SERVER_VERSION = '${VERSION}'`), 'unified server version constant must match release');
+assert.ok(mainServer.includes(`const SERVER_BUILD_ID = '${BUILD_ID}'`), 'unified server build constant must match release');
+assert.ok(mainServer.includes(`const SIGNALING_PROTOCOL_VERSION = ${SIGNALING_PROTOCOL_VERSION}`), 'unified server protocol constant must match release');
+assert.ok(mainServer.includes("gameServer.define('nn_arena'"), 'unified Render entry must define nn_arena Colyseus room');
+assert.ok(mainServer.includes("legacySignaling: false"), 'unified Render entry must explicitly mark legacy signaling disabled');
+assert.ok(mainServer.includes("app.get('/health'"), 'unified Render entry must expose /health');
+assert.ok(mainServer.includes("app.use('/src'"), 'unified Render entry must serve the browser modules');
+assert.ok(mainServer.includes("nncckkrr unified Colyseus"), 'unified server banner must identify the Colyseus entry');
 
 const releaseModule = read(`src/app/releaseIntegrity.v${suffix}.js`);
 assert.ok(releaseModule.includes('SERVER OK'), 'release module must expose ok status');

@@ -1,13 +1,13 @@
 {
   "name": "nncckkrr-space",
-  "version": "39.3.37",
+  "version": "39.4.1",
   "private": true,
   "type": "commonjs",
   "engines": {
     "node": "20.x"
   },
   "scripts": {
-    "start": "node server/server.js",
+    "start": "node server/mainServer.js",
     "check:syntax": "node scripts/verify-syntax.mjs",
     "check:modules": "node scripts/verify-module-exports.mjs",
     "check:release": "node scripts/verify-release-integrity.mjs",
@@ -27,14 +27,23 @@
     "check:runtime-scenarios": "node scripts/verify-runtime-scenarios.mjs",
     "check:legacy-critical": "npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:shake && npm run check:hooks",
     "check:test-suite": "node scripts/verify-test-suite-wiring.mjs",
-    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:game-architecture && npm run check:content-foundation && npm run check:content-registries && npm run check:modifier-contracts && npm run check:runtime-scenarios && npm run check:legacy-critical && npm run check:test-suite",
+    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:game-architecture && npm run check:content-foundation && npm run check:content-registries && npm run check:modifier-contracts && npm run check:runtime-scenarios && npm run check:legacy-critical && npm run check:render-entry && npm run check:colyseus-spike && npm run check:test-suite",
     "check:dev": "node scripts/verify-dev.mjs",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
     "check:shake": "node scripts/verify-shake.mjs",
-    "check:hooks": "node scripts/verify-hook-pipeline.mjs"
+    "check:hooks": "node scripts/verify-hook-pipeline.mjs",
+    "start:colyseus": "node server/colyseusServer.js",
+    "check:colyseus-spike": "node scripts/verify-colyseus-spike.mjs",
+    "start:legacy-signaling": "node server/server.js",
+    "check:render-entry": "node scripts/verify-render-entry.mjs"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@colyseus/core": "^0.17.43",
+    "@colyseus/ws-transport": "^0.17.13",
+    "@colyseus/schema": "^4.0.8",
+    "@colyseus/sdk": "^0.17.26",
+    "express": "^5.1.0"
   }
 }
