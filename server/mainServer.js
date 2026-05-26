@@ -10,8 +10,8 @@ const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaR
 const { attachLegacySignaling } = require('./legacySignaling');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.5';
-const SERVER_BUILD_ID = 'v39.4.5-20260527';
+const SERVER_VERSION = 'v39.4.6';
+const SERVER_BUILD_ID = 'v39.4.6-20260527';
 const SERVER_RELEASE_CHANNEL = 'prod';
 const SIGNALING_PROTOCOL_VERSION = 2;
 const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
@@ -107,7 +107,7 @@ app.get('/net2', (_req, res) => {
 app.get('/fingerprint', (_req, res) => {
   sendJson(res, 200, {
     ok: true,
-    visibleBuild: 'v39.4.5-server-mode-visible-fingerprint',
+    visibleBuild: 'v39.4.6-server-mode-local-prediction',
     authority: 'server',
     defaultOnlineMode: 'colyseus',
     legacyMode: 'p2p-compat-only',

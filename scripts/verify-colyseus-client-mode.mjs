@@ -34,6 +34,9 @@ assert.ok(runtime.includes('PLAY SERVER') || runtime.includes('server connecting
 assert.ok(runtime.includes('sendColyseusInput'), 'Colyseus runtime must send input frames to server');
 assert.ok(runtime.includes('buildServerSnapshot'), 'Colyseus runtime must convert schema state into renderer snapshots');
 assert.ok(runtime.includes('SERVER ARENA'), 'Colyseus runtime must mark the temporary authoritative arena clearly');
+assert.ok(runtime.includes('predictLocalPose'), 'server mode must locally predict the own player instead of waiting for server patches');
+assert.ok(runtime.includes('local-prediction-corrected'), 'server mode HUD diagnostics must expose local prediction/correction strategy');
+assert.ok(runtime.includes('LOCAL_RECONCILE_SNAP_PX'), 'server mode prediction must keep an authoritative snap safety threshold');
 
 const clientAdapter = read('src/net/colyseusClient.js');
 assert.ok(clientAdapter.includes('new globalObj.Colyseus.Client'), 'browser adapter must use injected Colyseus SDK global');
@@ -51,6 +54,8 @@ assert.ok(schema.includes("vx: 'number'"), 'schema projectile state must expose 
 
 const room = read('server/colyseus/rooms/AuthoritativeArenaRoom.js');
 assert.ok(room.includes('name: options.name'), 'room must preserve player display name in authoritative state');
+assert.ok(room.includes('const PATCH_RATE_MS = 1000 / 60'), 'temporary authoritative arena should patch at 60Hz for responsive feel');
+assert.ok(room.includes('patchRate: 60'), 'join metadata should report the 60Hz server-mode patch rate');
 
 const child = spawn(process.execPath, ['server/mainServer.js'], {
   cwd: root,

@@ -5,6 +5,12 @@ import { connectColyseusArena, initialColyseusClientState, sendColyseusInput } f
 
 const DEFAULT_ROOM = "nn_arena";
 const INPUT_SEND_MS = 1000 / 60;
+const ARENA_WIDTH = 1600;
+const ARENA_HEIGHT = 900;
+const PLAYER_SPEED = 280;
+const PLAYER_RADIUS = 13;
+const LOCAL_RECONCILE_SNAP_PX = 96;
+const LOCAL_RECONCILE_BLEND = 0.18;
 
 function normalizeEndpoint(endpoint) {
   return String(endpoint || window.NN_COLYSEUS_URL || window.NN_SIGNALING_URL || "").replace(/\/$/, "");
@@ -25,17 +31,20 @@ function readNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function buildServerSnapshot(roomState, localPlayerId = "") {
-  const players = mapEntries(roomState?.players).map(([id, p]) => ({
+function buildServerSnapshot(roomState, localPlayerId = "", options = {}) {
+  const localPoseOverride = options.localPoseOverride || null;
+  const players = mapEntries(roomState?.players).map(([id, p]) => {
+    const localOverride = id === localPlayerId ? localPoseOverride : null;
+    return ({
     id,
     name: p.name || id,
-    x: readNumber(p.x),
-    y: readNumber(p.y),
-    vx: 0,
-    vy: 0,
+    x: readNumber(localOverride?.x, readNumber(p.x)),
+    y: readNumber(localOverride?.y, readNumber(p.y)),
+    vx: readNumber(localOverride?.vx, 0),
+    vy: readNumber(localOverride?.vy, 0),
     hp: readNumber(p.hp, 100),
     maxHp: readNumber(p.maxHp, 100),
-    angle: readNumber(p.angle, 0),
+    angle: readNumber(localOverride?.angle, readNumber(p.angle, 0)),
     online: p.online !== false,
     activeWeapon: START_WEAPON,
     inventory: createInventory([START_WEAPON]),
@@ -48,7 +57,8 @@ function buildServerSnapshot(roomState, localPlayerId = "") {
       inputAgeMs: 0,
       staleDrops: 0
     }
-  }));
+    });
+  });
 
   const enemies = mapEntries(roomState?.enemies).map(([id, e]) => ({
     id,
@@ -112,6 +122,79 @@ function findLocalPlayerId(room, state) {
   return "";
 }
 
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizedMove(sampled = {}) {
+  const dx = (sampled.right ? 1 : 0) - (sampled.left ? 1 : 0);
+  const dy = (sampled.down ? 1 : 0) - (sampled.up ? 1 : 0);
+  const len = Math.hypot(dx, dy);
+  if (!Number.isFinite(len) || len <= 0.0001) return { x: 0, y: 0 };
+  return { x: dx / len, y: dy / len };
+}
+
+function angleFromAim(sampled, pose) {
+  const ax = Number(sampled?.aimX);
+  const ay = Number(sampled?.aimY);
+  if (Number.isFinite(ax) && Number.isFinite(ay) && pose) {
+    return Math.atan2(ay - pose.y, ax - pose.x);
+  }
+  return readNumber(pose?.angle, 0);
+}
+
+function copyServerPose(player) {
+  if (!player) return null;
+  return {
+    id: player.id,
+    x: readNumber(player.x),
+    y: readNumber(player.y),
+    vx: 0,
+    vy: 0,
+    hp: readNumber(player.hp, 100),
+    maxHp: readNumber(player.maxHp, 100),
+    angle: readNumber(player.angle, 0),
+    radius: PLAYER_RADIUS
+  };
+}
+
+function reconcileLocalPrediction(predicted, serverPose) {
+  if (!serverPose) return predicted;
+  if (!predicted) return { ...serverPose };
+  const dx = serverPose.x - predicted.x;
+  const dy = serverPose.y - predicted.y;
+  const drift = Math.hypot(dx, dy);
+  if (drift > LOCAL_RECONCILE_SNAP_PX) {
+    return { ...serverPose, serverDriftPx: drift, serverSnap: true };
+  }
+  return {
+    ...predicted,
+    x: predicted.x + dx * LOCAL_RECONCILE_BLEND,
+    y: predicted.y + dy * LOCAL_RECONCILE_BLEND,
+    hp: serverPose.hp,
+    maxHp: serverPose.maxHp,
+    serverDriftPx: drift,
+    serverSnap: false
+  };
+}
+
+function predictLocalPose(predicted, sampled, dtSeconds) {
+  if (!predicted) return predicted;
+  const move = normalizedMove(sampled);
+  const vx = move.x * PLAYER_SPEED;
+  const vy = move.y * PLAYER_SPEED;
+  const next = {
+    ...predicted,
+    vx,
+    vy,
+    x: clamp(predicted.x + vx * dtSeconds, PLAYER_RADIUS, ARENA_WIDTH - PLAYER_RADIUS),
+    y: clamp(predicted.y + vy * dtSeconds, PLAYER_RADIUS, ARENA_HEIGHT - PLAYER_RADIUS)
+  };
+  next.angle = angleFromAim(sampled, next);
+  return next;
+}
+
 function resetForServerMode(app, state) {
   app.running = true;
   app.role = "server";
@@ -157,7 +240,9 @@ export function createColyseusRuntime(app, { endpoint } = {}) {
     room: null,
     state: initialColyseusClientState(endpoint),
     connecting: false,
-    lastInputSentAt: 0
+    lastInputSentAt: 0,
+    lastUpdateAt: 0,
+    predictedLocalPose: null
   };
   runtime.state.endpoint = normalizeEndpoint(endpoint);
 
@@ -193,6 +278,8 @@ export function createColyseusRuntime(app, { endpoint } = {}) {
       runtime.state.enabled = true;
       runtime.state.endpoint = normalizeEndpoint(runtime.state.endpoint || endpoint);
       resetForServerMode(app, runtime.state);
+      runtime.lastUpdateAt = 0;
+      runtime.predictedLocalPose = null;
       setStatus("", "info");
     } catch (err) {
       runtime.state.status = "error";
@@ -234,7 +321,20 @@ export function createColyseusRuntime(app, { endpoint } = {}) {
     app.playerId = runtime.state.playerId || app.playerId;
     app.roomId = runtime.state.roomId || app.roomId || "SERVER";
 
-    const snapshot = buildServerSnapshot(room.state, app.playerId);
+    const serverSnapshot = buildServerSnapshot(room.state, app.playerId);
+    const serverMe = serverSnapshot.players.find((p) => p.id === app.playerId) || serverSnapshot.players[0] || null;
+    if (serverMe) app.playerId = serverMe.id;
+
+    const dtSeconds = runtime.lastUpdateAt > 0 ? Math.min(0.05, Math.max(0, (now - runtime.lastUpdateAt) / 1000)) : 0;
+    runtime.lastUpdateAt = now;
+
+    runtime.predictedLocalPose = reconcileLocalPrediction(runtime.predictedLocalPose, copyServerPose(serverMe));
+    const samplePose = runtime.predictedLocalPose || serverMe;
+    const sampled = samplePose ? app.input.sample(samplePose, app.camera) : null;
+    if (sampled) runtime.predictedLocalPose = predictLocalPose(runtime.predictedLocalPose, sampled, dtSeconds);
+
+    const visualMe = runtime.predictedLocalPose || serverMe;
+    const snapshot = buildServerSnapshot(room.state, app.playerId, { localPoseOverride: visualMe });
     app.snapshot = snapshot;
     app.players = snapshot.players.map((p) => p.id);
     app.playerNames = Object.fromEntries(snapshot.players.map((p) => [p.id, p.name || p.id]));
@@ -246,18 +346,25 @@ export function createColyseusRuntime(app, { endpoint } = {}) {
     }
 
     if (Number.isFinite(runtime.state.lastAckSeq)) app.lastAckedInputSeq = runtime.state.lastAckSeq;
+    const driftPx = readNumber(runtime.predictedLocalPose?.serverDriftPx, 0);
     app.reconcileStats = {
-      mode: "server-authoritative",
+      mode: "server-authoritative-local-prediction",
       localSeq: app.inputSeq,
       ackedSeq: app.lastAckedInputSeq,
       pendingInputs: Math.max(0, app.inputSeq - app.lastAckedInputSeq),
       replayed: 0,
-      driftPx: 0
+      driftPx
     };
-    app.localVisualStats = { mode: "server-authoritative", strategy: "server-state", driftPx: 0, snap: false, reason: "server_mode", latency: "server" };
+    app.localVisualStats = {
+      mode: "server-authoritative",
+      strategy: "local-prediction-corrected",
+      driftPx,
+      snap: !!runtime.predictedLocalPose?.serverSnap,
+      reason: "server_mode_prediction",
+      latency: "zero-local-render"
+    };
 
-    if (!me || now - runtime.lastInputSentAt < INPUT_SEND_MS) return;
-    const sampled = app.input.sample(me, app.camera);
+    if (!me || !sampled || now - runtime.lastInputSentAt < INPUT_SEND_MS) return;
     const aimX = Number.isFinite(sampled.aimX) ? sampled.aimX - me.x : Math.cos(me.angle || 0);
     const aimY = Number.isFinite(sampled.aimY) ? sampled.aimY - me.y : Math.sin(me.angle || 0);
     const input = {

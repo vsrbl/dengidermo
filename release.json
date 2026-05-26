@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.4.5",
-  "buildId": "v39.4.5-20260527",
+  "version": "v39.4.6",
+  "buildId": "v39.4.6-20260527",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-4-5.js?v=39.4.5",
-  "style": "./style.css?v=39.4.5",
-  "config": "./config.js?v=39.4.5",
+  "entry": "./src/main.v39-4-6.js?v=39.4.6",
+  "style": "./style.css?v=39.4.6",
+  "config": "./config.js?v=39.4.6",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.4.5 visible server-mode deploy fingerprint: makes PLAY SERVER the primary authoritative path, labels P2P as legacy/desync-prone, adds /server and /fingerprint routes, and dynamically loads the Colyseus SDK from bundled/vendor fallbacks."
+  "notes": "v39.4.6 server-mode feel hotfix: adds client-side local prediction/correction for PLAY SERVER, keeps input at 60Hz, raises Colyseus patch rate to 60Hz for the temporary authoritative arena, and marks diagnostics as zero-local-render."
 }

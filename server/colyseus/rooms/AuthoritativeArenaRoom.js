@@ -15,7 +15,7 @@ const { ArenaRoomState, syncArenaToSchema } = require('../schema');
 
 const MAX_CLIENTS = 4;
 const RECONNECT_GRACE_SECONDS = 20;
-const PATCH_RATE_MS = 1000 / 30;
+const PATCH_RATE_MS = 1000 / 60;
 
 function slotName(index) {
   return `p${index + 1}`;
@@ -66,6 +66,7 @@ class AuthoritativeArenaRoom extends Room {
 
     client.userData = client.userData || {};
     client.userData.playerId = playerId;
+    client.userData.name = options.name || playerId;
     this.sessionToPlayerId.set(client.sessionId, playerId);
     this.playerIdToSession.set(playerId, client.sessionId);
     addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: options.name || playerId });
@@ -76,7 +77,7 @@ class AuthoritativeArenaRoom extends Room {
       roomId: this.roomId,
       authority: 'server',
       tickRate: 60,
-      patchRate: 30,
+      patchRate: 60,
       protocol: 'colyseus-authoritative-spike-v1'
     });
     this.broadcast('serverEvent', { type: 'player_joined', playerId }, { except: client });
@@ -100,7 +101,7 @@ class AuthoritativeArenaRoom extends Room {
 
     try {
       await this.allowReconnection(client, RECONNECT_GRACE_SECONDS);
-      const player = addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: options.name || playerId });
+      const player = addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: client.userData?.name || playerId });
       player.online = true;
       syncArenaToSchema(this.state, this.arena);
       this.broadcast('serverEvent', { type: 'player_reconnected', playerId });
