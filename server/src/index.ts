@@ -14,7 +14,7 @@ const CLIENT_ORIGINS = (process.env.CLIENT_ORIGINS ?? process.env.CLIENT_ORIGIN 
   .filter(Boolean);
 const MAX_MESSAGE_BYTES = 1024;
 const HEARTBEAT_MS = 15_000;
-const SERVER_VERSION = 'netrogue-server-0.1.1';
+const SERVER_VERSION = 'netrogue-server-0.1.2';
 const room = new GameRoom();
 
 const app = express();

@@ -3,8 +3,8 @@ services:
     name: dengidermo-1
     runtime: node
     plan: free
-    buildCommand: npm install --no-audit --no-fund && npm run build:server
-    startCommand: npm run start:server
+    buildCommand: npm install --omit=dev --no-audit --no-fund
+    startCommand: npm start
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
