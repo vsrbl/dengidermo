@@ -16,9 +16,13 @@ const input: InputState = { up: false, down: false, left: false, right: false };
 let infoLine = 'connecting';
 let lastFrameTime = performance.now();
 let lastHeartbeatTime = 0;
+let openSince = 0;
+let welcomeSeen = false;
 
 net.onMessage((message) => {
   if (message.t === 'welcome') {
+    welcomeSeen = true;
+    infoLine = 'joined netrogue server';
     game.applyWelcome(message);
     resizeCanvas();
     return;
@@ -35,6 +39,13 @@ net.onMessage((message) => {
 });
 
 net.onStatus((status) => {
+  if (status === 'open') {
+    openSince = performance.now();
+    welcomeSeen = false;
+    infoLine = 'socket open; waiting for welcome';
+    return;
+  }
+
   infoLine = status;
 });
 
@@ -120,6 +131,10 @@ function drawPlayers(): void {
 }
 
 function updateHud(): void {
+  if (net.status === 'open' && !welcomeSeen && openSince > 0 && performance.now() - openSince > 2500) {
+    infoLine = 'protocol mismatch: Render is not running the new /ws server';
+  }
+
   const ping = net.pingMs === null ? '—' : `${Math.round(net.pingMs)} ms`;
   const players = `${game.players.size}/4`;
   const correction = game.lastCorrection.toFixed(3);

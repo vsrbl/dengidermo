@@ -14,6 +14,7 @@ const CLIENT_ORIGINS = (process.env.CLIENT_ORIGINS ?? process.env.CLIENT_ORIGIN 
   .filter(Boolean);
 const MAX_MESSAGE_BYTES = 1024;
 const HEARTBEAT_MS = 15_000;
+const SERVER_VERSION = 'netrogue-server-0.1.1';
 const room = new GameRoom();
 
 const app = express();
@@ -30,11 +31,11 @@ app.use(cors({
 }));
 
 app.get('/', (_request, response) => {
-  response.type('text/plain').send('netrogue authoritative server ok');
+  response.type('text/plain').send(`${SERVER_VERSION} ok /ws players ${room.size}/${MAX_PLAYERS}`);
 });
 
 app.get('/health', (_request, response) => {
-  response.json({ ok: true, players: room.size, maxPlayers: MAX_PLAYERS, tick: room.tick });
+  response.json({ ok: true, version: SERVER_VERSION, wsPath: '/ws', players: room.size, maxPlayers: MAX_PLAYERS, tick: room.tick });
 });
 
 const server = http.createServer(app);
@@ -110,7 +111,7 @@ setInterval(() => {
 }, HEARTBEAT_MS);
 
 server.listen(PORT, () => {
-  console.log(`netrogue server listening on :${PORT}`);
+  console.log(`${SERVER_VERSION} listening on :${PORT}`);
 });
 
 function broadcastInfo(text: string): void {
