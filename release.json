@@ -1,14 +1,14 @@
 {
   "name": "nncckkrr.space",
-  "version": "v39.4.2",
-  "buildId": "v39.4.2-20260526",
+  "version": "v39.4.3",
+  "buildId": "v39.4.3-20260526",
   "channel": "prod",
   "protocol": 2,
   "createdAt": "2026-05-25",
-  "entry": "./src/main.v39-4-2.js?v=39.4.2",
-  "style": "./style.css?v=39.4.2",
-  "config": "./config.js?v=39.4.2",
+  "entry": "./src/main.v39-4-3.js?v=39.4.3",
+  "style": "./style.css?v=39.4.3",
+  "config": "./config.js?v=39.4.3",
   "healthPath": "/health",
   "signalingUrl": "https://dengidermo-1.onrender.com",
-  "notes": "v39.4.2 unified Render entry hotfix: npm start serves Colyseus nn_arena and keeps legacy P2P signaling compatibility on the same port while the browser client migration to net2 is still in progress; also hardens favicon/static smoke coverage."
+  "notes": "v39.4.3 playable Colyseus client mode: menu now separates legacy P2P Create/Join from PLAY SERVER, loads the Colyseus browser SDK from the unified Render server, connects browser clients to nn_arena, sends input-only frames, and renders authoritative server state."
 }

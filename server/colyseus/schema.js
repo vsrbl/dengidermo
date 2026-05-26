@@ -9,6 +9,10 @@ class PlayerState extends Schema {
     this.x = 0;
     this.y = 0;
     this.hp = 100;
+    this.maxHp = 100;
+    this.angle = 0;
+    this.name = '';
+    this.sessionId = '';
     this.online = true;
     this.lastInputSeq = 0;
   }
@@ -18,6 +22,10 @@ defineTypes(PlayerState, {
   x: 'number',
   y: 'number',
   hp: 'number',
+  maxHp: 'number',
+  angle: 'number',
+  name: 'string',
+  sessionId: 'string',
   online: 'boolean',
   lastInputSeq: 'number'
 });
@@ -42,6 +50,8 @@ class ProjectileState extends Schema {
     super();
     this.x = 0;
     this.y = 0;
+    this.vx = 0;
+    this.vy = 0;
     this.ownerId = '';
   }
 }
@@ -49,6 +59,8 @@ class ProjectileState extends Schema {
 defineTypes(ProjectileState, {
   x: 'number',
   y: 'number',
+  vx: 'number',
+  vy: 'number',
   ownerId: 'string'
 });
 
@@ -93,6 +105,10 @@ function syncArenaToSchema(schemaState, arena) {
     target.x = source.x;
     target.y = source.y;
     target.hp = source.hp;
+    target.maxHp = 100;
+    target.angle = Number.isFinite(source.angle) ? source.angle : 0;
+    target.name = source.name || id;
+    target.sessionId = source.sessionId || '';
     target.online = !!source.online;
     target.lastInputSeq = source.lastInputSeq;
   }
@@ -114,6 +130,8 @@ function syncArenaToSchema(schemaState, arena) {
     const target = upsertMapEntry(schemaState.projectiles, id, ProjectileState);
     target.x = source.x;
     target.y = source.y;
+    target.vx = source.vx || 0;
+    target.vy = source.vy || 0;
     target.ownerId = source.ownerId;
   }
   for (const id of Array.from(schemaState.projectiles.keys())) {

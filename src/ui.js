@@ -19,6 +19,7 @@ export function createUi() {
     menuStatus: document.getElementById("menuStatus"),
     createBtn: document.getElementById("createBtn"),
     joinBtn: document.getElementById("joinBtn"),
+    serverBtn: document.getElementById("serverBtn"),
     roomTitle: document.getElementById("roomTitle"),
     netStatus: document.getElementById("netStatus"),
     directorDebug: document.getElementById("directorDebug"),
@@ -94,7 +95,7 @@ export function createUi() {
 
   function setNet({ pingMs, role, playerId, players, playerNames, transportMode, transportModes = null, reconcile = null, visual = null, hostSim = null, inputStream = null, dev = null, release = null }) {
     const ping = pingMs === null || pingMs === undefined ? "--" : String(pingMs);
-    const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : "--";
+    const mode = role === "host" ? "HOST" : role === "guest" ? "GUEST" : role === "server" ? "SERVER" : "--";
     const id = playerId || "--";
     const names = playerNames && typeof playerNames === "object" ? playerNames : {};
     const name = names[id] || id;

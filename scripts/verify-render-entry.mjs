@@ -25,6 +25,7 @@ assert.ok(mainServer.includes("gameServer.define('nn_arena'"), 'unified server m
 assert.ok(mainServer.includes("app.get('/health'"), 'unified server must provide release health');
 assert.ok(mainServer.includes("app.get('/net2'"), 'unified server must provide net2 diagnostics');
 assert.ok(mainServer.includes("app.use('/src'"), 'unified server must serve browser modules');
+assert.ok(mainServer.includes("app.get('/vendor/colyseus.js'"), 'unified server must serve Colyseus browser SDK vendor route');
 assert.ok(mainServer.includes('legacySignaling: true'), 'unified server must expose legacy P2P signaling compatibility until net2 client is playable');
 
 const child = spawn(process.execPath, ['server/mainServer.js'], {
@@ -91,6 +92,10 @@ try {
     });
     ws.on('error', reject);
   });
+
+  const vendor = await fetch(`${baseUrl}/vendor/colyseus.js?verify=${Date.now()}`);
+  assert.equal(vendor.status, 200, 'unified server must serve Colyseus browser SDK vendor bundle');
+  assert.ok((await vendor.text()).includes('Colyseus'), 'vendor bundle should contain Colyseus SDK text');
 
   const index = await (await fetch(`${baseUrl}/?verify=${Date.now()}`)).text();
   assert.ok(index.includes(`name="nncckkrr-version" content="${VERSION}"`), 'unified server must serve current index');

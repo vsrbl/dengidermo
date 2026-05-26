@@ -68,7 +68,7 @@ class AuthoritativeArenaRoom extends Room {
     client.userData.playerId = playerId;
     this.sessionToPlayerId.set(client.sessionId, playerId);
     this.playerIdToSession.set(playerId, client.sessionId);
-    addPlayer(this.arena, playerId, { sessionId: client.sessionId });
+    addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: options.name || playerId });
     syncArenaToSchema(this.state, this.arena);
 
     client.send('joined', {
@@ -100,7 +100,7 @@ class AuthoritativeArenaRoom extends Room {
 
     try {
       await this.allowReconnection(client, RECONNECT_GRACE_SECONDS);
-      const player = addPlayer(this.arena, playerId, { sessionId: client.sessionId });
+      const player = addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: options.name || playerId });
       player.online = true;
       syncArenaToSchema(this.state, this.arena);
       this.broadcast('serverEvent', { type: 'player_reconnected', playerId });

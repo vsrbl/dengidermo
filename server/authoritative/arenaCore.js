@@ -83,6 +83,7 @@ function addPlayer(state, playerId, options = {}) {
   if (existing) {
     existing.online = true;
     existing.sessionId = options.sessionId || existing.sessionId || '';
+    if (options.name) existing.name = String(options.name).slice(0, 12);
     existing.input = existing.input || neutralInput();
     return existing;
   }
@@ -90,6 +91,7 @@ function addPlayer(state, playerId, options = {}) {
   const player = {
     id: playerId,
     sessionId: options.sessionId || '',
+    name: String(options.name || playerId).slice(0, 12),
     x: Number(options.x) || spawn.x,
     y: Number(options.y) || spawn.y,
     vx: 0,
@@ -99,7 +101,8 @@ function addPlayer(state, playerId, options = {}) {
     online: true,
     lastInputSeq: 0,
     lastShotMs: -9999,
-    input: neutralInput()
+    input: neutralInput(),
+    angle: 0
   };
   state.players[playerId] = player;
   return player;
@@ -147,6 +150,7 @@ function applyInput(state, playerId, rawInput = {}) {
   }
   player.lastInputSeq = input.seq;
   player.input = input;
+  player.angle = Math.atan2(input.aimY || 0, input.aimX || 1);
   state.metrics.acceptedInputs += 1;
   return { accepted: true, seq: input.seq };
 }

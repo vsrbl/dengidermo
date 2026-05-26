@@ -38,6 +38,7 @@ export async function connectColyseusArena(options = {}) {
   const client = new globalObj.Colyseus.Client(endpoint);
   const room = await client.joinOrCreate(options.roomName || DEFAULT_ROOM, {
     playerId: options.playerId,
+    name: options.name || '',
     clientVersion: VERSION
   });
 

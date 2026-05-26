@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-space",
-  "version": "39.4.2",
+  "version": "39.4.3",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -27,7 +27,7 @@
     "check:runtime-scenarios": "node scripts/verify-runtime-scenarios.mjs",
     "check:legacy-critical": "npm run check:dev && npm run check:matrix && npm run check:feel && npm run check:shake && npm run check:hooks",
     "check:test-suite": "node scripts/verify-test-suite-wiring.mjs",
-    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:game-architecture && npm run check:content-foundation && npm run check:content-registries && npm run check:modifier-contracts && npm run check:runtime-scenarios && npm run check:legacy-critical && npm run check:render-entry && npm run check:colyseus-spike && npm run check:test-suite",
+    "check:all": "npm run check:syntax && npm run check:modules && npm run check:release && npm run check:deploy && npm run check:network && npm run check:roomflow && npm run check:director && npm run check:effects && npm run check:geometry && npm run check:room-identity && npm run check:ui && npm run check:architecture && npm run check:game-architecture && npm run check:content-foundation && npm run check:content-registries && npm run check:modifier-contracts && npm run check:runtime-scenarios && npm run check:legacy-critical && npm run check:render-entry && npm run check:colyseus-spike && npm run check:colyseus-client && npm run check:test-suite",
     "check:dev": "node scripts/verify-dev.mjs",
     "check:matrix": "node scripts/verify-combat-matrix.mjs",
     "check:feel": "node scripts/verify-feel.mjs",
@@ -36,7 +36,8 @@
     "start:colyseus": "node server/colyseusServer.js",
     "check:colyseus-spike": "node scripts/verify-colyseus-spike.mjs",
     "start:legacy-signaling": "node server/server.js",
-    "check:render-entry": "node scripts/verify-render-entry.mjs"
+    "check:render-entry": "node scripts/verify-render-entry.mjs",
+    "check:colyseus-client": "node scripts/verify-colyseus-client-mode.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0",

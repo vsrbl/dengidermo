@@ -10,8 +10,8 @@ const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaR
 const { attachLegacySignaling } = require('./legacySignaling');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.2';
-const SERVER_BUILD_ID = 'v39.4.2-20260526';
+const SERVER_VERSION = 'v39.4.3';
+const SERVER_BUILD_ID = 'v39.4.3-20260526';
 const SERVER_RELEASE_CHANNEL = 'prod';
 const SIGNALING_PROTOCOL_VERSION = 2;
 const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
@@ -31,6 +31,16 @@ function noStoreStatic(res) {
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff'
   });
+}
+
+
+function colyseusSdkBrowserBundlePath() {
+  try {
+    const pkg = require.resolve('@colyseus/sdk/package.json');
+    return path.join(path.dirname(pkg), 'dist', 'colyseus.js');
+  } catch {
+    return path.join(PROJECT_ROOT, 'node_modules', '@colyseus', 'sdk', 'dist', 'colyseus.js');
+  }
 }
 
 function publicFilePath(name) {
@@ -94,6 +104,15 @@ app.get('/net2', (_req, res) => {
 
 app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
+});
+
+
+app.get('/vendor/colyseus.js', (_req, res, next) => {
+  const bundle = colyseusSdkBrowserBundlePath();
+  if (!fs.existsSync(bundle)) return next();
+  noStoreStatic(res);
+  res.type('application/javascript; charset=utf-8');
+  res.sendFile(bundle);
 });
 
 app.get('/legacy', (_req, res) => {

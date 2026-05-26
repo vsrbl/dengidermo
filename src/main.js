@@ -7,16 +7,17 @@ import { START_WEAPON } from "./data/weapons.js";
 import { createInventory } from "./game/inventory.js";
 import { makeSnapshot } from "./game/state.js";
 import { readDevConfig } from "./dev/mode.js";
-import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-4-2.js";
-import { createUpgradeClient } from "./app/upgradeClient.v39-4-2.js";
-import { createSessionRuntime } from "./app/session.v39-4-2.js";
-import { createHostRuntime } from "./app/hostRuntime.v39-4-2.js";
-import { createClientRuntime } from "./app/clientRuntime.v39-4-2.js";
-import { createDevControls } from "./app/devControls.v39-4-2.js";
-import { createCasinoClient } from "./app/casinoClient.v39-4-2.js";
+import { checkReleaseIntegrity, initialReleaseState } from "./app/releaseIntegrity.v39-4-3.js";
+import { createUpgradeClient } from "./app/upgradeClient.v39-4-3.js";
+import { createSessionRuntime } from "./app/session.v39-4-3.js";
+import { createHostRuntime } from "./app/hostRuntime.v39-4-3.js";
+import { createClientRuntime } from "./app/clientRuntime.v39-4-3.js";
+import { createDevControls } from "./app/devControls.v39-4-3.js";
+import { createCasinoClient } from "./app/casinoClient.v39-4-3.js";
 import { createRewardEventFeed } from "./rewardEventFeed.js";
 import { createMomentFeed } from "./momentFeed.js";
 import { createKillComboFeed } from "./killComboFeed.js";
+import { createColyseusRuntime } from "./net/colyseusRuntime.js";
 
 const SIGNALING_URL = window.NN_SIGNALING_URL || "https://dengidermo-1.onrender.com";
 
@@ -89,13 +90,15 @@ function createAppState() {
     lastSnapshotSent: 0,
     lastFrame: performance.now(),
     lastSnapshotTick: -1,
-    release: initialReleaseState(SIGNALING_URL)
+    release: initialReleaseState(SIGNALING_URL),
+    netMode: "legacy"
   };
 }
 
 const app = createAppState();
 let hostRuntime = null;
 let clientRuntime = null;
+let colyseusRuntime = null;
 
 const upgradeClient = createUpgradeClient(app, {
   applyUpgradeRequest: (id, request) => hostRuntime?.applyUpgradeRequest(id, request)
@@ -112,17 +115,18 @@ clientRuntime = createClientRuntime(app, { session: sessionRuntime, host: hostRu
 const devControls = createDevControls(app);
 const casinoClient = createCasinoClient(app, { host: hostRuntime });
 app.casinoClient = casinoClient;
+colyseusRuntime = createColyseusRuntime(app, { endpoint: window.NN_COLYSEUS_URL || SIGNALING_URL });
 
 sessionRuntime.wire({ host: hostRuntime, upgrades: upgradeClient });
 hostRuntime.wire({ client: clientRuntime });
 
 app.input = createInput(app.canvas, {
-  onEsc: () => sessionRuntime.leaveGame(),
-  onWeaponSlot: (slot) => clientRuntime.requestWeaponSlot(slot),
-  onWeaponCycle: (dir) => clientRuntime.requestWeaponCycle(dir),
+  onEsc: () => app.role === "server" ? colyseusRuntime.leave() : sessionRuntime.leaveGame(),
+  onWeaponSlot: (slot) => { if (app.role !== "server") clientRuntime.requestWeaponSlot(slot); },
+  onWeaponCycle: (dir) => { if (app.role !== "server") clientRuntime.requestWeaponCycle(dir); },
   onDevCommand: (command) => devControls.request(command),
-  onAbility: (ability) => clientRuntime.requestAbility(ability),
-  onInteract: () => clientRuntime.requestInteract(),
+  onAbility: (ability) => { if (app.role !== "server") clientRuntime.requestAbility(ability); },
+  onInteract: () => { if (app.role !== "server") clientRuntime.requestInteract(); },
   isGameActive: () => app.running
 });
 
@@ -156,6 +160,7 @@ function refreshReleaseIntegrity() {
 
 function boot() {
   sessionRuntime.bindMenu();
+  colyseusRuntime.bindMenu();
   app.ui.onUpgradePick((index) => upgradeClient.requestChoice(index));
   app.ui.showMenu();
   refreshReleaseIntegrity();
@@ -210,9 +215,13 @@ function loop(now) {
   if (app.running) {
     upgradeClient.tick(now);
     casinoClient.tick();
-    app.transport?.tickPing(now);
-    if (app.role === "host" && app.hostState) hostRuntime.update(rawDt, now, gameNow);
-    if (app.role === "guest") clientRuntime.updateGuest(gameDt, now, gameNow);
+    if (app.role === "server") {
+      colyseusRuntime.update(now);
+    } else {
+      app.transport?.tickPing(now);
+      if (app.role === "host" && app.hostState) hostRuntime.update(rawDt, now, gameNow);
+      if (app.role === "guest") clientRuntime.updateGuest(gameDt, now, gameNow);
+    }
     app.predictedProjectiles = updatePredictedProjectiles(app.predictedProjectiles, gameDt, app.snapshot);
     const renderPose = app.localRenderPose || app.localPose || clientRuntime.currentLocalPlayerFromSnapshot();
     updateCamera(app.camera, renderPose, dt);

@@ -6,8 +6,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v39.4.2";
-const SERVER_BUILD_ID = "v39.4.2-20260526";
+const SERVER_VERSION = "v39.4.3";
+const SERVER_BUILD_ID = "v39.4.3-20260526";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
