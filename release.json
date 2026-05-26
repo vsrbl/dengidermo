@@ -1,0 +1,14 @@
+{
+  "name": "nncckkrr.space",
+  "version": "v39.3.37",
+  "buildId": "v39.3.37-20260526",
+  "channel": "prod",
+  "protocol": 2,
+  "createdAt": "2026-05-25",
+  "entry": "./src/main.v39-3-37.js?v=39.3.37",
+  "style": "./style.css?v=39.3.37",
+  "config": "./config.js?v=39.3.37",
+  "healthPath": "/health",
+  "signalingUrl": "https://dengidermo-1.onrender.com",
+  "notes": "v39.3.37 signaling reconnect + host reclaim: signaling WebSocket reconnects without closing live WebRTC peers, p1 can reclaim the room with a host token, and guests keep running through host signaling timeouts while P2P is alive."
+}
