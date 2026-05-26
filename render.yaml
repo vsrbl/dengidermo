@@ -1,11 +1,12 @@
 services:
   - type: web
     name: dengidermo-1
-    env: node
+    runtime: node
     plan: free
-    buildCommand: npm install --no-audit --no-fund
-    startCommand: npm start
-    autoDeploy: true
+    buildCommand: npm install && npm run build:server
+    startCommand: npm run start:server
     envVars:
       - key: NODE_VERSION
-        value: 20.x
+        value: 20
+      - key: CLIENT_ORIGIN
+        value: https://nncckkrr.space
