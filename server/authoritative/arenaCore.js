@@ -9,8 +9,13 @@ const PROJECTILE_RADIUS = 5;
 const PROJECTILE_SPEED = 720;
 const PROJECTILE_TTL_MS = 900;
 const PLAYER_FIRE_COOLDOWN_MS = 150;
+const ENEMY_TOUCH_DAMAGE = 8;
+const ENEMY_TOUCH_COOLDOWN_MS = 650;
+const PICKUP_RADIUS = 11;
+const PICKUP_TTL_MS = 14000;
 const FIXED_DT_MS = 1000 / 60;
 const DEFAULT_ENEMY_COUNT = 5;
+const COMPACT_COMBAT_SNAPSHOT_PROTOCOL = 'compact-combat-snapshot-v1';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -40,14 +45,21 @@ function createArenaState(options = {}) {
     timeMs: 0,
     seed,
     nextProjectileId: 1,
+    nextPickupId: 1,
+    nextCombatEventSeq: 1,
     players: {},
     enemies: {},
     projectiles: {},
+    pickups: {},
+    combatEvents: [],
     metrics: {
       acceptedInputs: 0,
       staleInputs: 0,
       shotsFired: 0,
-      enemyHits: 0
+      enemyHits: 0,
+      enemyKills: 0,
+      playerHits: 0,
+      pickupsSpawned: 0
     }
   };
 
@@ -59,7 +71,9 @@ function createArenaState(options = {}) {
       x: Math.round(240 + rng() * (ARENA_WIDTH - 480)),
       y: Math.round(180 + rng() * (ARENA_HEIGHT - 360)),
       hp: 40,
-      radius: ENEMY_RADIUS
+      maxHp: 40,
+      radius: ENEMY_RADIUS,
+      lastTouchMsByPlayer: {}
     };
   }
   return state;
@@ -85,6 +99,10 @@ function addPlayer(state, playerId, options = {}) {
     existing.sessionId = options.sessionId || existing.sessionId || '';
     if (options.name) existing.name = String(options.name).slice(0, 12);
     existing.input = existing.input || neutralInput();
+    existing.queuedInput = existing.queuedInput || null;
+    existing.lastInputSeq = Number.isFinite(existing.lastInputSeq) ? existing.lastInputSeq : 0;
+    existing.lastProcessedInputSeq = Number.isFinite(existing.lastProcessedInputSeq) ? existing.lastProcessedInputSeq : 0;
+    existing.serverTick = Number.isFinite(existing.serverTick) ? existing.serverTick : 0;
     return existing;
   }
   const spawn = spawnForSlot(playerId);
@@ -100,8 +118,11 @@ function addPlayer(state, playerId, options = {}) {
     radius: PLAYER_RADIUS,
     online: true,
     lastInputSeq: 0,
+    lastProcessedInputSeq: 0,
+    serverTick: 0,
     lastShotMs: -9999,
     input: neutralInput(),
+    queuedInput: null,
     angle: 0
   };
   state.players[playerId] = player;
@@ -113,6 +134,7 @@ function markPlayerOffline(state, playerId) {
   if (!player) return;
   player.online = false;
   player.input = neutralInput();
+  player.queuedInput = null;
 }
 
 function removePlayer(state, playerId) {
@@ -149,10 +171,19 @@ function applyInput(state, playerId, rawInput = {}) {
     return { accepted: false, reason: 'stale', lastInputSeq: player.lastInputSeq, seq: input.seq };
   }
   player.lastInputSeq = input.seq;
-  player.input = input;
+  player.queuedInput = input;
   player.angle = Math.atan2(input.aimY || 0, input.aimX || 1);
   state.metrics.acceptedInputs += 1;
   return { accepted: true, seq: input.seq };
+}
+
+function consumeQueuedInput(player, tick) {
+  if (player.queuedInput) {
+    player.input = player.queuedInput;
+    player.lastProcessedInputSeq = player.queuedInput.seq;
+    player.serverTick = tick;
+    player.queuedInput = null;
+  }
 }
 
 function createProjectile(state, player, input) {
@@ -175,6 +206,7 @@ function createProjectile(state, player, input) {
 function stepPlayers(state, dtSeconds) {
   for (const player of Object.values(state.players)) {
     if (!player.online || player.hp <= 0) continue;
+    consumeQueuedInput(player, state.tick);
     const input = player.input || neutralInput();
     const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     const dy = (input.down ? 1 : 0) - (input.up ? 1 : 0);
@@ -207,6 +239,78 @@ function nearestLivingPlayer(state, enemy) {
   return best;
 }
 
+
+function pushCombatEvent(state, event = {}) {
+  if (!state) return null;
+  const item = {
+    seq: state.nextCombatEventSeq++,
+    tick: state.tick,
+    timeMs: Math.round(state.timeMs),
+    ...event
+  };
+  if (!Array.isArray(state.combatEvents)) state.combatEvents = [];
+  state.combatEvents.push(item);
+  if (state.combatEvents.length > 48) state.combatEvents.splice(0, state.combatEvents.length - 48);
+  return item;
+}
+
+function spawnCombatPickup(state, source, type, amount = 1) {
+  if (!state || !source) return null;
+  if (!state.pickups) state.pickups = {};
+  const id = `cp${state.nextPickupId++}`;
+  const jitterSeed = state.nextPickupId * 0.61803398875;
+  const angle = (jitterSeed % 1) * Math.PI * 2;
+  const spread = type === 'money' ? 18 : 28;
+  const pickup = {
+    id,
+    type,
+    amount: Math.max(1, Math.round(Number(amount) || 1)),
+    x: clamp(source.x + Math.cos(angle) * spread, PICKUP_RADIUS, ARENA_WIDTH - PICKUP_RADIUS),
+    y: clamp(source.y + Math.sin(angle) * spread, PICKUP_RADIUS, ARENA_HEIGHT - PICKUP_RADIUS),
+    spawnX: source.x,
+    spawnY: source.y,
+    radius: PICKUP_RADIUS,
+    ageMs: 0,
+    sourceId: source.id || '',
+    sourceType: source.kind || 'enemy'
+  };
+  state.pickups[id] = pickup;
+  state.metrics.pickupsSpawned += 1;
+  pushCombatEvent(state, { type: 'pickup_spawned', pickupId: id, pickupType: pickup.type, amount: pickup.amount, sourceId: pickup.sourceId });
+  return pickup;
+}
+
+function killEnemy(state, enemy, source = {}) {
+  if (!state?.enemies?.[enemy?.id]) return false;
+  delete state.enemies[enemy.id];
+  state.metrics.enemyKills += 1;
+  pushCombatEvent(state, { type: 'enemy_killed', enemyId: enemy.id, sourceId: source.ownerId || source.playerId || '', sourceType: source.type || 'projectile' });
+  spawnCombatPickup(state, enemy, 'money', 1);
+  spawnCombatPickup(state, enemy, 'xp', 1);
+  return true;
+}
+
+function damageEnemy(state, enemy, amount, source = {}) {
+  if (!state?.enemies?.[enemy?.id]) return { killed: false, hp: 0 };
+  const damage = Math.max(0, Number(amount) || 0);
+  if (damage <= 0) return { killed: false, hp: enemy.hp };
+  enemy.hp = Math.max(0, enemy.hp - damage);
+  state.metrics.enemyHits += 1;
+  pushCombatEvent(state, { type: 'enemy_damaged', enemyId: enemy.id, amount: damage, hp: enemy.hp, sourceId: source.ownerId || source.playerId || '', sourceType: source.type || 'projectile' });
+  if (enemy.hp <= 0) return { killed: killEnemy(state, enemy, source), hp: 0 };
+  return { killed: false, hp: enemy.hp };
+}
+
+function damagePlayer(state, player, amount, source = {}) {
+  if (!state?.players?.[player?.id] || player.hp <= 0) return { hp: 0 };
+  const damage = Math.max(0, Number(amount) || 0);
+  if (damage <= 0) return { hp: player.hp };
+  player.hp = Math.max(0, player.hp - damage);
+  state.metrics.playerHits += 1;
+  pushCombatEvent(state, { type: 'player_damaged', playerId: player.id, amount: damage, hp: player.hp, sourceId: source.enemyId || source.sourceId || '', sourceType: source.type || 'enemy_touch' });
+  return { hp: player.hp };
+}
+
 function stepEnemies(state, dtSeconds) {
   for (const enemy of Object.values(state.enemies)) {
     const target = nearestLivingPlayer(state, enemy);
@@ -237,15 +341,39 @@ function stepProjectiles(state, dtSeconds, dtMs) {
       continue;
     }
 
-    for (const [enemyId, enemy] of Object.entries(state.enemies)) {
+    for (const enemy of Object.values(state.enemies)) {
       const hitRange = projectile.radius + enemy.radius;
       if (Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y) <= hitRange) {
-        enemy.hp -= projectile.damage;
-        state.metrics.enemyHits += 1;
+        damageEnemy(state, enemy, projectile.damage, { type: 'projectile', ownerId: projectile.ownerId, projectileId });
         delete state.projectiles[projectileId];
-        if (enemy.hp <= 0) delete state.enemies[enemyId];
         break;
       }
+    }
+  }
+}
+
+function stepEnemyContactDamage(state) {
+  for (const enemy of Object.values(state.enemies)) {
+    if (!enemy.lastTouchMsByPlayer) enemy.lastTouchMsByPlayer = {};
+    for (const player of Object.values(state.players)) {
+      if (!player.online || player.hp <= 0) continue;
+      const range = (enemy.radius || ENEMY_RADIUS) + (player.radius || PLAYER_RADIUS);
+      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) > range) continue;
+      const last = Number(enemy.lastTouchMsByPlayer[player.id] || -9999);
+      if (state.timeMs - last < ENEMY_TOUCH_COOLDOWN_MS) continue;
+      enemy.lastTouchMsByPlayer[player.id] = state.timeMs;
+      damagePlayer(state, player, ENEMY_TOUCH_DAMAGE, { type: 'enemy_touch', enemyId: enemy.id });
+    }
+  }
+}
+
+function stepPickups(state, dtMs) {
+  if (!state.pickups) state.pickups = {};
+  for (const [id, pickup] of Object.entries(state.pickups)) {
+    pickup.ageMs = (Number(pickup.ageMs) || 0) + dtMs;
+    if (pickup.ageMs >= PICKUP_TTL_MS) {
+      delete state.pickups[id];
+      pushCombatEvent(state, { type: 'pickup_expired', pickupId: id, pickupType: pickup.type || 'unknown' });
     }
   }
 }
@@ -258,10 +386,76 @@ function stepArena(state, dtMs = FIXED_DT_MS) {
   stepPlayers(state, dtSeconds);
   stepEnemies(state, dtSeconds);
   stepProjectiles(state, dtSeconds, boundedDtMs);
+  stepEnemyContactDamage(state);
+  stepPickups(state, boundedDtMs);
   return state;
 }
 
+function compactNumber(value, scale = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * scale) / scale;
+}
+
+function estimatePacketBytes(payload) {
+  try { return Buffer.byteLength(JSON.stringify(payload)); } catch { return 0; }
+}
+
+function compactCombatSnapshot(state) {
+  const enemies = Object.entries(state.enemies).map(([id, e]) => ([
+    id,
+    Math.round(e.x),
+    Math.round(e.y),
+    Math.round(e.hp),
+    Math.round(e.radius || ENEMY_RADIUS)
+  ]));
+  const projectiles = Object.entries(state.projectiles).map(([id, p]) => ([
+    id,
+    Math.round(p.x),
+    Math.round(p.y),
+    compactNumber(p.vx, 10),
+    compactNumber(p.vy, 10),
+    p.ownerId || '',
+    Math.round(p.radius || PROJECTILE_RADIUS)
+  ]));
+  const pickups = Object.entries(state.pickups || {}).map(([id, item]) => ([
+    id,
+    Math.round(item.x),
+    Math.round(item.y),
+    item.type || 'money',
+    Math.round(item.amount || 1),
+    Math.round(item.radius || PICKUP_RADIUS),
+    item.sourceId || '',
+    Math.round(item.spawnX ?? item.x),
+    Math.round(item.spawnY ?? item.y)
+  ]));
+  const payload = {
+    protocol: COMPACT_COMBAT_SNAPSHOT_PROTOCOL,
+    tick: state.tick,
+    timeMs: Math.round(state.timeMs),
+    enemies,
+    projectiles,
+    pickups,
+    counts: {
+      enemies: enemies.length,
+      projectiles: projectiles.length,
+      pickups: pickups.length
+    },
+    combat: {
+      authority: 'server-owned-combat-damage-v1',
+      enemyHits: state.metrics.enemyHits,
+      enemyKills: state.metrics.enemyKills,
+      playerHits: state.metrics.playerHits,
+      pickupsSpawned: state.metrics.pickupsSpawned
+    },
+    events: Array.isArray(state.combatEvents) ? state.combatEvents.slice(-16) : []
+  };
+  payload.byteEstimate = estimatePacketBytes(payload);
+  return payload;
+}
+
 function compactSnapshot(state) {
+  const combat = compactCombatSnapshot(state);
   return {
     authority: state.authority,
     tick: state.tick,
@@ -271,7 +465,9 @@ function compactSnapshot(state) {
       y: Math.round(p.y),
       hp: Math.round(p.hp),
       online: !!p.online,
-      lastInputSeq: p.lastInputSeq
+      lastInputSeq: p.lastInputSeq,
+      lastProcessedInputSeq: p.lastProcessedInputSeq || 0,
+      serverTick: p.serverTick || 0
     }])),
     enemies: Object.fromEntries(Object.entries(state.enemies).map(([id, e]) => [id, {
       x: Math.round(e.x),
@@ -283,6 +479,14 @@ function compactSnapshot(state) {
       y: Math.round(p.y),
       ownerId: p.ownerId
     }])),
+    pickups: Object.fromEntries(Object.entries(state.pickups || {}).map(([id, item]) => [id, {
+      x: Math.round(item.x),
+      y: Math.round(item.y),
+      type: item.type,
+      amount: item.amount
+    }])),
+    combat,
+    combatEvents: Array.isArray(state.combatEvents) ? state.combatEvents.slice(-16) : [],
     metrics: { ...state.metrics }
   };
 }
@@ -298,5 +502,10 @@ module.exports = {
   applyInput,
   stepArena,
   compactSnapshot,
+  compactCombatSnapshot,
+  COMPACT_COMBAT_SNAPSHOT_PROTOCOL,
+  damageEnemy,
+  damagePlayer,
+  spawnCombatPickup,
   sanitizeInput
 };

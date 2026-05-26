@@ -6,10 +6,10 @@ const { WebSocketTransport } = require('@colyseus/ws-transport');
 const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaRoom');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.6';
-const SERVER_BUILD_ID = 'v39.4.6-20260527';
+const SERVER_VERSION = 'v39.4.10';
+const SERVER_BUILD_ID = 'v39.4.10-20260527';
 const SERVER_RELEASE_CHANNEL = 'net2-colyseus-spike';
-const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
+const COLYSEUS_PROTOCOL = 'colyseus-authoritative-combat-damage-v4';
 
 function sendJson(res, status, body) {
   const json = JSON.stringify(body);

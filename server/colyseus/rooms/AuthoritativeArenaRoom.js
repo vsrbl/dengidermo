@@ -6,6 +6,7 @@ const {
   addPlayer,
   applyInput,
   compactSnapshot,
+  compactCombatSnapshot,
   createArenaState,
   markPlayerOffline,
   removePlayer,
@@ -35,14 +36,14 @@ class AuthoritativeArenaRoom extends Room {
     this.arena = createArenaState({ seed: options.seed || Date.now(), enemyCount: options.enemyCount ?? 5 });
     this.setState(new ArenaRoomState());
     this.setPatchRate(PATCH_RATE_MS);
-    this.setMetadata({ mode: 'authoritative-colyseus-spike', maxClients: MAX_CLIENTS });
+    this.setMetadata({ mode: 'authoritative-colyseus-combat-damage', maxClients: MAX_CLIENTS });
 
     this.onMessage('input', (client, payload) => this.handleInput(client, payload));
     this.onMessage('cmd', (client, payload) => this.handleCommand(client, payload));
     this.onMessage('debugSnapshot', (client) => client.send('debugSnapshot', compactSnapshot(this.arena)));
 
     this.setSimulationInterval(() => this.update(), FIXED_DT_MS);
-    syncArenaToSchema(this.state, this.arena);
+    syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
   }
 
   allocatePlayerId(preferredId) {
@@ -70,7 +71,7 @@ class AuthoritativeArenaRoom extends Room {
     this.sessionToPlayerId.set(client.sessionId, playerId);
     this.playerIdToSession.set(playerId, client.sessionId);
     addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: options.name || playerId });
-    syncArenaToSchema(this.state, this.arena);
+    syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
 
     client.send('joined', {
       playerId,
@@ -78,7 +79,7 @@ class AuthoritativeArenaRoom extends Room {
       authority: 'server',
       tickRate: 60,
       patchRate: 60,
-      protocol: 'colyseus-authoritative-spike-v1'
+      protocol: 'colyseus-authoritative-combat-damage-v4'
     });
     this.broadcast('serverEvent', { type: 'player_joined', playerId }, { except: client });
   }
@@ -88,13 +89,13 @@ class AuthoritativeArenaRoom extends Room {
     if (!playerId) return;
 
     markPlayerOffline(this.arena, playerId);
-    syncArenaToSchema(this.state, this.arena);
+    syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
     this.broadcast('serverEvent', { type: 'player_offline', playerId });
 
     if (consented) {
       this.forgetPlayer(client.sessionId, playerId);
       removePlayer(this.arena, playerId);
-      syncArenaToSchema(this.state, this.arena);
+      syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
       this.broadcast('serverEvent', { type: 'player_left', playerId });
       return;
     }
@@ -103,12 +104,12 @@ class AuthoritativeArenaRoom extends Room {
       await this.allowReconnection(client, RECONNECT_GRACE_SECONDS);
       const player = addPlayer(this.arena, playerId, { sessionId: client.sessionId, name: client.userData?.name || playerId });
       player.online = true;
-      syncArenaToSchema(this.state, this.arena);
+      syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
       this.broadcast('serverEvent', { type: 'player_reconnected', playerId });
     } catch {
       this.forgetPlayer(client.sessionId, playerId);
       removePlayer(this.arena, playerId);
-      syncArenaToSchema(this.state, this.arena);
+      syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
       this.broadcast('serverEvent', { type: 'player_timeout', playerId });
     }
   }
@@ -122,7 +123,7 @@ class AuthoritativeArenaRoom extends Room {
     const playerId = this.sessionToPlayerId.get(client.sessionId) || client.userData?.playerId;
     const result = applyInput(this.arena, playerId, payload);
     if (result.accepted) {
-      client.send('inputAck', { seq: result.seq, tick: this.arena.tick });
+      client.send('inputAck', { seq: result.seq, tick: this.arena.tick, queued: true, processed: false });
     } else if (result.reason === 'stale') {
       client.send('inputReject', { reason: result.reason, seq: result.seq, lastInputSeq: result.lastInputSeq, tick: this.arena.tick });
     }
@@ -141,7 +142,8 @@ class AuthoritativeArenaRoom extends Room {
 
   update() {
     stepArena(this.arena, FIXED_DT_MS);
-    syncArenaToSchema(this.state, this.arena);
+    syncArenaToSchema(this.state, this.arena, { syncFastCombat: false });
+    this.broadcast('combatSnapshot', compactCombatSnapshot(this.arena));
   }
 }
 

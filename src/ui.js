@@ -111,7 +111,9 @@ export function createUi() {
       : "";
     const reconcileText = reconcile?.mode === "rollback-replay"
       ? ` | REC ${reconcile.ackedSeq || 0}/${reconcile.localSeq || 0} P${reconcile.pendingInputs || 0} D${reconcile.driftPx || 0}`
-      : "";
+      : reconcile?.mode === "server-authoritative-reconcile"
+        ? ` | REC ${reconcile.serverAckSeq || reconcile.ackedSeq || 0}/${reconcile.localSeq || 0} P${reconcile.pendingInputCount ?? reconcile.pendingInputs ?? 0} E${reconcile.predictionErrorPx ?? reconcile.driftPx ?? 0} S${reconcile.correctionSnapCount || 0}${reconcile.remoteInterpolationMode ? ` INT${reconcile.remoteInterpolationDelayMs || 0}/B${reconcile.remoteBufferedFrames || 0}` : ""}${reconcile.combatSnapshotMode ? ` CMP${reconcile.compactEnemyCount ?? 0}/${reconcile.compactProjectileCount ?? 0}/PK${reconcile.compactPickupCount ?? 0} ${Math.round((reconcile.combatSnapshotBytes||0)/1024)}K` : ""}${reconcile.serverDamageAuthority ? ` D${reconcile.serverEnemyHits||0}/${reconcile.serverEnemyKills||0}H${reconcile.serverPlayerHits||0}` : ""}${reconcile.avgServerRttMs ? ` RTT${Math.round(reconcile.avgServerRttMs)}` : ""}`
+        : "";
     const visualText = visual?.mode === "visual-shell"
       ? ` | VIS D${visual.driftPx || 0}${visual.strategy === "correction-offset" ? " OFF" : ""}${visual.snap ? " SNAP" : ""}`
       : "";
@@ -214,7 +216,6 @@ export function createUi() {
 
 
 
-  // UI rendering for TAB stats and proc feed lives in src/ui/* modules.
 
 function economyQueueTier(queue) {
     return queue >= 4 ? 3 : queue >= 2 ? 2 : queue > 0 ? 1 : 0;
@@ -415,7 +416,7 @@ function economyDisplayValues(playerId, eco) {
   el.roomTitle.addEventListener("click", async () => {
     const text = el.roomTitle.textContent.trim();
     if (!text || text === "------") return;
-    try { await navigator.clipboard.writeText(text); } catch { /* clipboard can fail on http */ }
+    try { await navigator.clipboard.writeText(text); } catch { /* clipboard fail */ }
     flashCopied();
   });
 

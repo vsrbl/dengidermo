@@ -76,7 +76,8 @@ core.stepArena(state, core.FIXED_DT_MS);
 assert.ok(Object.keys(state.projectiles).length >= 1, 'server authoritative projectile must be spawned from input');
 const snapshot = core.compactSnapshot(state);
 assert.equal(snapshot.authority, 'server', 'compact snapshot must declare server authority');
-assert.equal(snapshot.players.p1.lastInputSeq, 2, 'compact snapshot must include ackable input sequence');
+assert.equal(snapshot.players.p1.lastInputSeq, 2, 'compact snapshot must include latest accepted input sequence');
+assert.equal(snapshot.players.p1.lastProcessedInputSeq, 2, 'compact snapshot must include latest server-processed input sequence');
 core.markPlayerOffline(state, 'p1');
 assert.equal(state.players.p1.online, false, 'offline player must stay in state for reconnect grace');
 

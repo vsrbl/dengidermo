@@ -15,6 +15,10 @@ class PlayerState extends Schema {
     this.sessionId = '';
     this.online = true;
     this.lastInputSeq = 0;
+    this.lastProcessedInputSeq = 0;
+    this.serverTick = 0;
+    this.vx = 0;
+    this.vy = 0;
   }
 }
 
@@ -27,7 +31,11 @@ defineTypes(PlayerState, {
   name: 'string',
   sessionId: 'string',
   online: 'boolean',
-  lastInputSeq: 'number'
+  lastInputSeq: 'number',
+  lastProcessedInputSeq: 'number',
+  serverTick: 'number',
+  vx: 'number',
+  vy: 'number'
 });
 
 class EnemyState extends Schema {
@@ -96,7 +104,8 @@ function upsertMapEntry(map, key, Type) {
   return item;
 }
 
-function syncArenaToSchema(schemaState, arena) {
+function syncArenaToSchema(schemaState, arena, options = {}) {
+  const syncFastCombat = options.syncFastCombat !== false;
   schemaState.tick = arena.tick;
   schemaState.timeMs = Math.round(arena.timeMs);
 
@@ -107,35 +116,44 @@ function syncArenaToSchema(schemaState, arena) {
     target.hp = source.hp;
     target.maxHp = 100;
     target.angle = Number.isFinite(source.angle) ? source.angle : 0;
+    target.vx = Number.isFinite(source.vx) ? source.vx : 0;
+    target.vy = Number.isFinite(source.vy) ? source.vy : 0;
     target.name = source.name || id;
     target.sessionId = source.sessionId || '';
     target.online = !!source.online;
     target.lastInputSeq = source.lastInputSeq;
+    target.lastProcessedInputSeq = Number.isFinite(source.lastProcessedInputSeq) ? source.lastProcessedInputSeq : 0;
+    target.serverTick = Number.isFinite(source.serverTick) ? source.serverTick : arena.tick;
   }
   for (const id of Array.from(schemaState.players.keys())) {
     if (!arena.players[id]) schemaState.players.delete(id);
   }
 
-  for (const [id, source] of Object.entries(arena.enemies)) {
-    const target = upsertMapEntry(schemaState.enemies, id, EnemyState);
-    target.x = source.x;
-    target.y = source.y;
-    target.hp = source.hp;
-  }
-  for (const id of Array.from(schemaState.enemies.keys())) {
-    if (!arena.enemies[id]) schemaState.enemies.delete(id);
-  }
+  if (syncFastCombat) {
+    for (const [id, source] of Object.entries(arena.enemies)) {
+      const target = upsertMapEntry(schemaState.enemies, id, EnemyState);
+      target.x = source.x;
+      target.y = source.y;
+      target.hp = source.hp;
+    }
+    for (const id of Array.from(schemaState.enemies.keys())) {
+      if (!arena.enemies[id]) schemaState.enemies.delete(id);
+    }
 
-  for (const [id, source] of Object.entries(arena.projectiles)) {
-    const target = upsertMapEntry(schemaState.projectiles, id, ProjectileState);
-    target.x = source.x;
-    target.y = source.y;
-    target.vx = source.vx || 0;
-    target.vy = source.vy || 0;
-    target.ownerId = source.ownerId;
-  }
-  for (const id of Array.from(schemaState.projectiles.keys())) {
-    if (!arena.projectiles[id]) schemaState.projectiles.delete(id);
+    for (const [id, source] of Object.entries(arena.projectiles)) {
+      const target = upsertMapEntry(schemaState.projectiles, id, ProjectileState);
+      target.x = source.x;
+      target.y = source.y;
+      target.vx = source.vx || 0;
+      target.vy = source.vy || 0;
+      target.ownerId = source.ownerId;
+    }
+    for (const id of Array.from(schemaState.projectiles.keys())) {
+      if (!arena.projectiles[id]) schemaState.projectiles.delete(id);
+    }
+  } else {
+    for (const id of Array.from(schemaState.enemies.keys())) schemaState.enemies.delete(id);
+    for (const id of Array.from(schemaState.projectiles.keys())) schemaState.projectiles.delete(id);
   }
 }
 

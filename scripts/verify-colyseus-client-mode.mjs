@@ -35,8 +35,10 @@ assert.ok(runtime.includes('sendColyseusInput'), 'Colyseus runtime must send inp
 assert.ok(runtime.includes('buildServerSnapshot'), 'Colyseus runtime must convert schema state into renderer snapshots');
 assert.ok(runtime.includes('SERVER ARENA'), 'Colyseus runtime must mark the temporary authoritative arena clearly');
 assert.ok(runtime.includes('predictLocalPose'), 'server mode must locally predict the own player instead of waiting for server patches');
-assert.ok(runtime.includes('local-prediction-corrected'), 'server mode HUD diagnostics must expose local prediction/correction strategy');
-assert.ok(runtime.includes('LOCAL_RECONCILE_SNAP_PX'), 'server mode prediction must keep an authoritative snap safety threshold');
+assert.ok(runtime.includes('input-seq-replay-reconciliation'), 'server mode HUD diagnostics must expose inputSeq replay/reconciliation strategy');
+assert.ok(runtime.includes('LOCAL_RECONCILE_SNAP_PX'), 'server mode reconciliation must keep an authoritative snap safety threshold');
+assert.ok(runtime.includes('prunePredictionFrames'), 'server mode reconciliation must prune acked prediction inputs');
+assert.ok(runtime.includes('replayPredictionFrames'), 'server mode reconciliation must replay unacked prediction inputs after server ack');
 
 const clientAdapter = read('src/net/colyseusClient.js');
 assert.ok(clientAdapter.includes('new globalObj.Colyseus.Client'), 'browser adapter must use injected Colyseus SDK global');
@@ -50,12 +52,15 @@ assert.ok(mainServer.includes("@colyseus/sdk"), 'vendor route must still keep @c
 const schema = read('server/colyseus/schema.js');
 assert.ok(schema.includes("sessionId: 'string'"), 'schema player state must expose sessionId so the browser can identify its local slot');
 assert.ok(schema.includes("angle: 'number'"), 'schema player state must expose aiming angle for renderer');
-assert.ok(schema.includes("vx: 'number'"), 'schema projectile state must expose velocity for renderer smoothing');
+assert.ok(schema.includes("vx: 'number'"), 'schema state must expose velocity for renderer smoothing');
+assert.ok(schema.includes("lastProcessedInputSeq: 'number'"), 'schema player state must expose processed input ack for reconciliation');
+assert.ok(schema.includes("serverTick: 'number'"), 'schema player state must expose server tick for ack diagnostics');
 
 const room = read('server/colyseus/rooms/AuthoritativeArenaRoom.js');
 assert.ok(room.includes('name: options.name'), 'room must preserve player display name in authoritative state');
 assert.ok(room.includes('const PATCH_RATE_MS = 1000 / 60'), 'temporary authoritative arena should patch at 60Hz for responsive feel');
 assert.ok(room.includes('patchRate: 60'), 'join metadata should report the 60Hz server-mode patch rate');
+assert.ok(room.includes('colyseus-authoritative-combat-damage-v4'), 'join metadata should advertise the reconciliation protocol');
 
 const child = spawn(process.execPath, ['server/mainServer.js'], {
   cwd: root,
@@ -109,6 +114,7 @@ try {
   await sleep(220);
   const movedA = roomA.state.players.get(localA[0]);
   assert.ok(Number(movedA.x) > startX, 'server-mode input must move player on authoritative server');
+  assert.ok(Number(movedA.lastProcessedInputSeq) >= 8, 'server-mode schema must ack the latest server-processed input sequence');
   const debugSnapshot = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('debugSnapshot timed out')), 1200);
     roomA.onMessage('debugSnapshot', (payload) => {

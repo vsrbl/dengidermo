@@ -6,8 +6,8 @@ const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS_DEFAULT = 4;
-const SERVER_VERSION = "v39.4.6";
-const SERVER_BUILD_ID = "v39.4.6-20260527";
+const SERVER_VERSION = "v39.4.10";
+const SERVER_BUILD_ID = "v39.4.10-20260527";
 const SERVER_RELEASE_CHANNEL = "prod";
 const SIGNALING_PROTOCOL_VERSION = 2;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -464,4 +464,4 @@ function heartbeatClients() {
 
 setInterval(heartbeatClients, HEARTBEAT_INTERVAL_MS).unref();
 setInterval(cleanRooms, 60_000).unref();
-server.listen(PORT, () => console.log(`nncckkrr signaling v39.4.6 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));
+server.listen(PORT, () => console.log(`nncckkrr signaling v39.4.10 protocol ${SIGNALING_PROTOCOL_VERSION} build ${SERVER_BUILD_ID} on ${PORT}`));

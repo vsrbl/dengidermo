@@ -85,7 +85,11 @@ export function initialColyseusClientState(endpoint) {
     roomId: '',
     playerId: '',
     lastAckSeq: 0,
+    lastQueuedSeq: 0,
     lastReject: null,
+    lastCombatSnapshot: null,
+    lastCombatSnapshotAt: 0,
+    combatSnapshotCount: 0,
     error: null,
     version: VERSION
   };
@@ -115,10 +119,16 @@ export async function connectColyseusArena(options = {}) {
     state.roomId = payload?.roomId || state.roomId;
   });
   room.onMessage('inputAck', (payload) => {
-    state.lastAckSeq = Number(payload?.seq || state.lastAckSeq || 0);
+    state.lastQueuedSeq = Number(payload?.seq || state.lastQueuedSeq || 0);
+    if (payload?.processed === true) state.lastAckSeq = Number(payload?.seq || state.lastAckSeq || 0);
   });
   room.onMessage('inputReject', (payload) => {
     state.lastReject = payload || null;
+  });
+  room.onMessage('combatSnapshot', (payload) => {
+    state.lastCombatSnapshot = payload || null;
+    state.lastCombatSnapshotAt = Date.now();
+    state.combatSnapshotCount += 1;
   });
   room.onLeave((code) => {
     state.status = 'left';

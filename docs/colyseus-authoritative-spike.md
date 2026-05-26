@@ -1,4 +1,4 @@
-# v39.4.6 — Colyseus server-mode feel hotfix
+# v39.4.9 — Colyseus server-mode compact combat snapshots
 
 This patch makes the default Render process boot the Colyseus authoritative server path instead of the old browser-host P2P signaling server.
 
@@ -72,3 +72,30 @@ Ships `vendor/colyseus.js` with the project and serves that first from `/vendor/
 ## v39.4.6 server-mode feel hotfix
 
 PLAY SERVER now uses local client-side movement prediction with soft server correction instead of rendering the local player directly from Colyseus schema patches. The temporary Colyseus arena also patches at 60Hz to reduce visible stutter while the authoritative migration is still in spike mode.
+
+
+## v39.4.7 server-mode input ack + reconciliation
+
+PLAY SERVER now uses server-processed `lastProcessedInputSeq` from the Colyseus schema as the local reconciliation ack. Inputs are queued on receipt, applied by the fixed server tick, and only then exposed as processed in player state. The browser keeps a bounded pending-input buffer, discards frames up to the server ack, replays unacked frames from the authoritative pose, and renders the corrected predicted local player.
+
+Diagnostics now expose local seq, server ack seq, pending input count, prediction error, snap count, server tick, and the Colyseus session id. The old P2P buttons remain compatibility-only and are not part of this path.
+
+
+## v39.4.9 remote interpolation buffer
+
+PLAY SERVER now separates local and remote rendering responsibilities:
+
+```text
+local player -> inputSeq ack/replay prediction and reconciliation
+remote players -> bounded interpolation buffer
+enemies/projectiles -> bounded interpolation buffer
+```
+
+The browser stores recent server snapshots and renders non-local entities about 110ms behind the newest received state. This avoids drawing every Colyseus schema patch raw and creates the foundation for smoother remote players, enemies, and projectiles before the later compact high-load snapshot protocol. The local player still uses the v39.4.7 server-processed ack/replay path, so movement remains responsive while server authority is preserved.
+
+HUD diagnostics now include interpolation delay and buffered frame count as `INT<delay>/B<frames>`.
+
+
+## v39.4.9 compact combat snapshots
+
+Server mode now keeps player identity and input ack data in Colyseus Schema, but sends fast combat entities through a compact `combatSnapshot` message. Enemies and projectiles are encoded as dense rows and merged into the client render snapshot before the remote interpolation buffer. This prepares high-load projectile/enemy traffic for meat-grinder gameplay without trusting the client for combat, loot, economy, or casino outcomes.
