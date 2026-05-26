@@ -6,8 +6,8 @@ const { WebSocketTransport } = require('@colyseus/ws-transport');
 const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaRoom');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.3';
-const SERVER_BUILD_ID = 'v39.4.3-20260526';
+const SERVER_VERSION = 'v39.4.4';
+const SERVER_BUILD_ID = 'v39.4.4-20260527';
 const SERVER_RELEASE_CHANNEL = 'net2-colyseus-spike';
 const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
 

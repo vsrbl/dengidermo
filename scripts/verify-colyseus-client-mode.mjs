@@ -21,7 +21,8 @@ const index = read('index.html');
 assert.ok(index.includes('id="serverBtn"'), 'menu must expose a PLAY SERVER button');
 assert.ok(index.includes('CREATE P2P LEGACY'), 'legacy create must be visibly labeled as P2P');
 assert.ok(index.includes('JOIN P2P LEGACY'), 'legacy join must be visibly labeled as P2P');
-assert.ok(index.includes(`./vendor/colyseus.js?v=${expectedVersion}`), 'index must load Colyseus browser SDK from Render vendor route');
+assert.ok(index.includes(`./vendor/colyseus.js?v=${expectedVersion}`), 'index must load Colyseus browser SDK from first-party vendor route');
+assert.ok(fs.existsSync(path.join(root, 'vendor', 'colyseus.js')), 'Colyseus browser SDK must ship as vendor/colyseus.js so static deploys do not 404');
 
 const entry = read(`src/main.v${suffix}.js`);
 assert.ok(entry.includes('createColyseusRuntime'), 'current entry must create the playable Colyseus runtime');
@@ -40,7 +41,8 @@ assert.ok(clientAdapter.includes('name: options.name'), 'browser adapter must pa
 
 const mainServer = read('server/mainServer.js');
 assert.ok(mainServer.includes("app.get('/vendor/colyseus.js'"), 'unified Render server must serve the browser Colyseus SDK bundle');
-assert.ok(mainServer.includes("@colyseus/sdk"), 'vendor route must resolve @colyseus/sdk from production dependencies');
+assert.ok(mainServer.includes("vendor', 'colyseus.js"), 'vendor route must prefer bundled SDK before node_modules fallback');
+assert.ok(mainServer.includes("@colyseus/sdk"), 'vendor route must still keep @colyseus/sdk fallback for production dependencies');
 
 const schema = read('server/colyseus/schema.js');
 assert.ok(schema.includes("sessionId: 'string'"), 'schema player state must expose sessionId so the browser can identify its local slot');
@@ -81,6 +83,7 @@ try {
   assert.equal(vendor.status, 200, 'Render entry must serve Colyseus browser SDK bundle');
   const vendorText = await vendor.text();
   assert.ok(vendorText.includes('Colyseus'), 'vendor bundle must look like the Colyseus SDK');
+  assert.ok(vendorText.includes('exports.Client = Client'), 'vendor bundle must expose Colyseus.Client for browser runtime');
 
   const browserEntry = await (await fetch(`${baseUrl}/src/main.v${suffix}.js?verify=${Date.now()}`)).text();
   assert.ok(browserEntry.includes('createColyseusRuntime'), 'served browser entry must include server mode runtime');
@@ -94,11 +97,22 @@ try {
   assert.ok(localA, 'schema state must let client identify its own player via sessionId');
   assert.equal(localA[1].name, 'ALPHA', 'server-mode player name should replicate through authoritative state');
   const startX = Number(localA[1].x);
-  roomA.send('input', { seq: 1, right: true, shoot: true, aimX: 1, aimY: 0 });
+  for (let seq = 1; seq <= 8; seq += 1) {
+    roomA.send('input', { seq, right: true, shoot: true, aimX: 1, aimY: 0 });
+    await sleep(25);
+  }
   await sleep(220);
   const movedA = roomA.state.players.get(localA[0]);
   assert.ok(Number(movedA.x) > startX, 'server-mode input must move player on authoritative server');
-  assert.ok(roomA.state.projectiles.size >= 1, 'server-mode shooting must spawn authoritative projectile');
+  const debugSnapshot = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('debugSnapshot timed out')), 1200);
+    roomA.onMessage('debugSnapshot', (payload) => {
+      clearTimeout(timeout);
+      resolve(payload);
+    });
+    roomA.send('debugSnapshot');
+  });
+  assert.ok(debugSnapshot.metrics.shotsFired >= 1, 'server-mode shooting must spawn authoritative projectile events');
   await roomA.leave();
   await roomB.leave();
 } finally {

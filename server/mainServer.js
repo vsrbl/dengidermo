@@ -10,8 +10,8 @@ const { AuthoritativeArenaRoom } = require('./colyseus/rooms/AuthoritativeArenaR
 const { attachLegacySignaling } = require('./legacySignaling');
 
 const PORT = Number(process.env.PORT || process.env.COLYSEUS_PORT || 2567);
-const SERVER_VERSION = 'v39.4.3';
-const SERVER_BUILD_ID = 'v39.4.3-20260526';
+const SERVER_VERSION = 'v39.4.4';
+const SERVER_BUILD_ID = 'v39.4.4-20260527';
 const SERVER_RELEASE_CHANNEL = 'prod';
 const SIGNALING_PROTOCOL_VERSION = 2;
 const COLYSEUS_PROTOCOL = 'colyseus-authoritative-spike-v1';
@@ -35,12 +35,14 @@ function noStoreStatic(res) {
 
 
 function colyseusSdkBrowserBundlePath() {
+  const bundled = path.join(PROJECT_ROOT, 'vendor', 'colyseus.js');
+  if (fs.existsSync(bundled)) return bundled;
   try {
     const pkg = require.resolve('@colyseus/sdk/package.json');
-    return path.join(path.dirname(pkg), 'dist', 'colyseus.js');
-  } catch {
-    return path.join(PROJECT_ROOT, 'node_modules', '@colyseus', 'sdk', 'dist', 'colyseus.js');
-  }
+    const packaged = path.join(path.dirname(pkg), 'dist', 'colyseus.js');
+    if (fs.existsSync(packaged)) return packaged;
+  } catch {}
+  return path.join(PROJECT_ROOT, 'node_modules', '@colyseus', 'sdk', 'dist', 'colyseus.js');
 }
 
 function publicFilePath(name) {

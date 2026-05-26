@@ -69,7 +69,8 @@ assert.ok(index.includes(`name="nncckkrr-release-manifest" content="./release.js
 assert.ok(index.includes(`href="./style.css?v=${expectedVersion}"`), 'index stylesheet must be cache-busted to release version');
 assert.ok(index.includes(`src="./config.js?v=${expectedVersion}"`), 'index config must be cache-busted to release version');
 assert.ok(index.includes(`src="./${currentEntry}?v=${expectedVersion}"`), 'index entry must be cache-busted to release version');
-assert.ok(index.includes(`src="./vendor/colyseus.js?v=${expectedVersion}"`), 'index must load Colyseus browser SDK from Render vendor route');
+assert.ok(index.includes(`src="./vendor/colyseus.js?v=${expectedVersion}"`), 'index must load Colyseus browser SDK from first-party vendor route');
+assert.ok(exists('vendor/colyseus.js'), 'Colyseus browser SDK must be committed as vendor/colyseus.js for static deploys and Render fallback');
 assert.ok(index.includes('id="serverBtn"'), 'index must expose playable Colyseus server mode button');
 assert.ok(index.includes(`${VERSION.toUpperCase()} | BUILD ${BUILD_ID.replace(`${VERSION}-`, '').toUpperCase()}`), 'index HUD must expose current version/build');
 
@@ -119,6 +120,7 @@ assert.ok(mainServer.includes("legacySignaling: true"), 'unified Render entry mu
 assert.ok(mainServer.includes("app.get('/health'"), 'unified Render entry must expose /health');
 assert.ok(mainServer.includes("app.use('/src'"), 'unified Render entry must serve the browser modules');
 assert.ok(mainServer.includes("app.get('/vendor/colyseus.js'"), 'unified Render entry must serve Colyseus browser SDK for server mode');
+assert.ok(mainServer.includes("vendor', 'colyseus.js"), 'unified Render entry must prefer bundled SDK to avoid SDK 404s');
 assert.ok(mainServer.includes("nncckkrr unified Colyseus"), 'unified server banner must identify the Colyseus entry');
 
 const releaseModule = read(`src/app/releaseIntegrity.v${suffix}.js`);

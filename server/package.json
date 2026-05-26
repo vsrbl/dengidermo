@@ -1,6 +1,6 @@
 {
   "name": "nncckkrr-signaling",
-  "version": "39.4.3",
+  "version": "39.4.4",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -16,6 +16,7 @@
     "@colyseus/core": "^0.17.43",
     "@colyseus/ws-transport": "^0.17.13",
     "@colyseus/schema": "^4.0.8",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "@colyseus/sdk": "^0.17.26"
   }
 }
