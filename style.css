@@ -134,3 +134,7 @@ button:disabled { opacity: .3; cursor: default; }
 #menu-status.err { color: var(--red); }
 #menu-status.ok { color: var(--green); }
 #menu-controls { color: #444; font-size: 11px; margin-top: 16px; line-height: 1.7; }
+
+/* install pick feedback */
+#install-choices .choice.picked { border-color: #00ff66; color: #00ff66; }
+#install-choices .choice.dimmed { opacity: 0.25; pointer-events: none; }

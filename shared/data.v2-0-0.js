@@ -19,22 +19,22 @@ export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];
 // ---- enemies ------------------------------------------------------------
 // kinds communicate mechanics: silhouette + behavior contract
 export const ENEMIES = {
-  grunt:   { label: 'GRT', hp: 26,  spd: 95,  size: 24, dmg: 10, touch: true,  xp: 6,  gld: 4,  score: 1 },
-  runner:  { label: 'RUN', hp: 16,  spd: 195, size: 18, dmg: 8,  touch: true,  xp: 7,  gld: 4,  score: 1 },
+  grunt:   { label: 'GRT', hp: 26,  spd: 115,  size: 24, dmg: 10, touch: true,  xp: 6,  gld: 4,  score: 1 },
+  runner:  { label: 'RUN', hp: 16,  spd: 215, size: 18, dmg: 8,  touch: true,  xp: 7,  gld: 4,  score: 1 },
   tank:    { label: 'TNK', hp: 120, spd: 55,  size: 42, dmg: 18, touch: true,  xp: 18, gld: 12, score: 3, armor: 0.35 },
-  shooter: { label: 'SHT', hp: 30,  spd: 80,  size: 24, dmg: 9,  ranged: true, fireCd: 1.7, bulletSpd: 260, keep: 320, xp: 10, gld: 7, score: 2 },
+  shooter: { label: 'SHT', hp: 30,  spd: 80,  size: 24, dmg: 9,  ranged: true, fireCd: 1.4, bulletSpd: 260, keep: 320, xp: 10, gld: 7, score: 2 },
   charger: { label: 'CHG', hp: 44,  spd: 75,  size: 28, dmg: 22, charges: true, windup: 0.75, chargeSpd: 520, chargeTime: 0.55, chargeCd: 2.4, xp: 12, gld: 8, score: 2 },
   bomber:  { label: 'BMB', hp: 22,  spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2 },
   bouncer: { label: 'BNC', hp: 38,  spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2 },   // no fatigue, no stun
   glitch:  { label: 'GLT', hp: 34,  spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2 },
-  boss:    { label: 'BOS', hp: 900, spd: 60,  size: 72, dmg: 26, boss: true, armor: 0.25, fireCd: 2.6, bulletSpd: 230, xp: 140, gld: 120, score: 20 }
+  boss:    { label: 'BOS', hp: 1300, spd: 60,  size: 72, dmg: 26, boss: true, armor: 0.25, fireCd: 2.6, bulletSpd: 230, xp: 140, gld: 120, score: 20 }
 };
 
 // which kinds can spawn at which loop
 export const SPAWN_POOLS = [
-  ['grunt', 'runner', 'shooter'],                                              // loop 0
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber'],                         // loop 1
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank'],      // loop 2
+  ['grunt', 'runner', 'shooter', 'charger'],                                   // loop 0
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer'],              // loop 1
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch'], // loop 2
   ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch'] // loop 3+
 ];
 

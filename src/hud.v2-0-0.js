@@ -1,5 +1,5 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P } from './state.v1-0-0.js';
+import { P } from './state.v2-0-0.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = { blackout: 'BLACKOUT', static_rain: 'STATIC RAIN', greed: 'GREED SIGNAL' };
@@ -11,7 +11,7 @@ export class Hud {
     this.bannerTimer = null;
     this.promptTimer = null;
     this.casino = { open: false, spinning: false, betId: null };
-    this.install = { open: false, choices: [], expires: 0, total: 15 };
+    this.install = { open: false, choices: [], expires: 0, total: 15, locked: false };
     this.names = new Map();
 
     $('casino-stakes').querySelectorAll('button').forEach(btn => {
@@ -183,7 +183,7 @@ export class Hud {
 
   // ------------------------------------------------- install modal
   openInstall(choices, pending) {
-    this.install = { open: true, choices, expires: 15, total: 15 };
+    this.install = { open: true, choices, expires: 15, total: 15, locked: false };
     $('install-pending').textContent = `x${pending}`;
     const box = $('install-choices');
     box.innerHTML = '';
@@ -203,7 +203,15 @@ export class Hud {
     });
     $('install-modal').classList.remove('hidden');
   }
-  pick(i) { this.net.sendPick(i); }
+  pick(i) {
+    // guard against double-picks: lock until the next offer (or close) arrives
+    if (this.install.locked || !this.install.open) return;
+    if (i < 0 || i >= this.install.choices.length) return;
+    this.install.locked = true;
+    const els = document.querySelectorAll('#install-choices .choice');
+    els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
+    this.net.sendPick(i);
+  }
   closeInstall() { this.install.open = false; $('install-modal').classList.add('hidden'); }
 
   // ------------------------------------------------- casino modal

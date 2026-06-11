@@ -1,5 +1,5 @@
 // nncckkrr room generation: walls, pillars, chests, BET terminals, spawns
-import { CHESTS, ROOM_MODS, ROOM_SEQUENCE } from './data.js';
+import { CHESTS, ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-0.js';
 
 export const WORLD_W = 2200;
 export const WORLD_H = 1500;
@@ -111,7 +111,7 @@ export function generateRoom(seed, runDepth, loopIndex) {
     o.x = p.x; o.y = p.y; o.opened = false;
   }
   // kill quota objective
-  const baseQuota = category === 'boss' ? 1 : 10 + roomInLoop * 3 + loopIndex * 4;
+  const baseQuota = category === 'boss' ? 1 : 14 + roomInLoop * 4 + loopIndex * 6;
   return {
     seed, runDepth, loopIndex, roomInLoop,
     roomId: `${category}-${String(runDepth).padStart(2, '0')}`,

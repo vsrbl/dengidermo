@@ -1,10 +1,10 @@
-// nncckkrr boot: menu, connection, game loop
-import { Net, VERSION } from './net.v1-0-0.js';
-import { Input } from './input.v1-0-0.js';
-import { GameState, P } from './state.v1-0-0.js';
-import { Effects } from './effects.v1-0-0.js';
-import { Renderer } from './render.v1-0-0.js';
-import { Hud } from './hud.v1-0-0.js';
+// nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
+import { Net, VERSION } from './net.v2-0-0.js';
+import { Input } from './input.v2-0-0.js';
+import { GameState, P } from './state.v2-0-0.js';
+import { Effects } from './effects.v2-0-0.js';
+import { Renderer } from './render.v2-0-0.js';
+import { Hud } from './hud.v2-0-0.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -28,25 +28,33 @@ $('hud-version').textContent = VERSION;
 // ---------------------------------------------------------------- menu
 const status = $('menu-status');
 function setStatus(text, cls = '') { status.textContent = text; status.className = cls; }
-
+function playerName() {
+  const name = ($('name-input').value || 'PLAYER').trim().toUpperCase() || 'PLAYER';
+  localStorage.setItem('nnc_name', name);
+  return name;
+}
 $('name-input').value = localStorage.getItem('nnc_name') || '';
 
 async function connect() {
-  setStatus('подключение к серверу…');
+  setStatus('подключение…');
   try {
-    const name = ($('name-input').value || 'PLAYER').trim().toUpperCase() || 'PLAYER';
-    localStorage.setItem('nnc_name', name);
-    await net.connect(WS_URL, name);
-    setStatus('сервер на связи', 'ok');
+    await net.connect(WS_URL, playerName());
+    setStatus('на связи', 'ok');
     return true;
   } catch (e) {
-    setStatus('сервер недоступен — попробуй ещё раз (бесплатный хостинг просыпается ~40 сек)', 'err');
+    setStatus('сервер-связной недоступен — попробуй ещё раз (просыпается ~40 сек). СОЛО работает и без него', 'err');
     return false;
   }
 }
 
+// SOLO: no network at all — works even with the server down
+$('btn-solo').addEventListener('click', () => {
+  state.localMode = true;
+  net.startSolo(playerName());
+});
 $('btn-create').addEventListener('click', async () => {
   $('btn-create').disabled = true;
+  state.localMode = true;            // host = sim in this browser, zero latency
   if (net.connected || await connect()) net.createRoom();
   $('btn-create').disabled = false;
 });
@@ -54,20 +62,21 @@ $('btn-join').addEventListener('click', async () => {
   const code = $('room-input').value.trim().toUpperCase();
   if (code.length !== 4) { setStatus('код комнаты — 4 символа', 'err'); return; }
   $('btn-join').disabled = true;
+  state.localMode = false;
   if (net.connected || await connect()) net.joinRoom(code);
   $('btn-join').disabled = false;
 });
 $('room-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-join').click(); });
 $('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create').click(); });
 
-// warm up the backend (free hosting cold start)
+// status probe (informational only — solo never needs it)
 fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '/health')
   .then(r => r.json())
   .then(h => {
-    setStatus(`сервер на связи · ${h.version} · комнат: ${h.rooms}`, 'ok');
-    if (h.version !== VERSION) setStatus(`ВЕРСИИ РАЗОШЛИСЬ: клиент ${VERSION}, сервер ${h.version}`, 'err');
+    setStatus(`связной на месте · ${h.version} · комнат: ${h.rooms}`, 'ok');
+    if (h.version !== VERSION) setStatus(`ВЕРСИИ РАЗОШЛИСЬ: клиент ${VERSION}, связной ${h.version}`, 'err');
   })
-  .catch(() => setStatus('бужу сервер… (до ~40 сек на бесплатном хостинге)'));
+  .catch(() => setStatus('связной спит (нужен только для игры с друзьями) — СОЛО доступно сразу'));
 
 // ---------------------------------------------------------------- net handlers
 net.on('welcome', (m) => {
@@ -106,7 +115,6 @@ function frame(now) {
   const me = state.me();
   const room = state.room;
 
-  // modal state machine
   const modalOpen = hud.casino.open || hud.install.open;
   input.blocked = modalOpen;
 
@@ -118,20 +126,19 @@ function frame(now) {
     if (hud.install.open) hud.pick(num);
     else if (hud.casino.open && !hud.casino.spinning) hud.placeBet(['low', 'mid', 'high'][num]);
   }
-  // close install modal when server stops offering (offer applied → new offer or none)
   if (hud.install.open && me && me[P.PEND] === 0 && room && room.phase !== 'install') hud.closeInstall();
   if (room && room.phase === 'play' && hud.install.open) hud.closeInstall();
 
-  // input → prediction + send at ~30Hz
   const mv = input.moveVec();
   const aim = renderer.screenToWorld(input.mouseX, input.mouseY);
-  const sendNow = now - lastSend >= 33;
+  const sendNow = now - lastSend >= (state.localMode ? 16 : 33);
   if (sendNow) {
+    const sdt = Math.min(0.05, (now - (lastSend || now - 16)) / 1000);
     lastSend = now;
     const dash = input.takeDash();
     const inter = input.takeInter();
     const wpn = input.takeWeapon(me ? me[P.WEAPONS].length : 1);
-    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, wpn, 0.033);
+    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, wpn, sdt);
     net.sendInput(pkt);
   }
 

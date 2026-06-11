@@ -1,7 +1,8 @@
 // nncckkrr client state: snapshot buffer, interpolation, prediction + reconciliation
 const PLAYER_SIZE = 28;
 const DASH_DIST = 175;
-const INTERP_DELAY = 110; // ms behind server for remote entities
+const INTERP_DELAY = 110; // ms behind host for remote entities (guest mode)
+const INTERP_DELAY_LOCAL = 40; // sim runs in this browser at 60Hz
 
 // player row indices
 export const P = {
@@ -30,6 +31,7 @@ export class GameState {
     this.latest = null;
     this.room = null;
     this.myId = null;
+    this.localMode = false; // solo/host: snapshots arrive every sim tick
     // prediction
     this.pred = { x: 0, y: 0, init: false };
     this.history = [];      // [{seq, mx, my, dt, dash, speed}]
@@ -48,7 +50,7 @@ export class GameState {
   addSnapshot(s) {
     s._recv = performance.now();
     this.snaps.push(s);
-    if (this.snaps.length > 8) this.snaps.shift();
+    if (this.snaps.length > 12) this.snaps.shift();
     this.latest = s;
     this.room = s.room;
     const me = this.me();
@@ -136,7 +138,7 @@ export class GameState {
   // interpolated entities at render time
   interp() {
     const now = performance.now();
-    const rt = now - INTERP_DELAY;
+    const rt = now - (this.localMode ? INTERP_DELAY_LOCAL : INTERP_DELAY);
     let a = null, b = null;
     for (let i = this.snaps.length - 1; i >= 1; i--) {
       if (this.snaps[i - 1]._recv <= rt && this.snaps[i]._recv >= rt) { a = this.snaps[i - 1]; b = this.snaps[i]; break; }

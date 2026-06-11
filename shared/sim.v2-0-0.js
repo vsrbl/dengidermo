@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.js';
+} from './data.v2-0-0.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-0.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -14,7 +14,7 @@ const DASH_INVULN = 0.3;
 const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
-const MAX_ENEMIES = 45;
+const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
 const INTERACT_DIST = 95;
@@ -131,7 +131,7 @@ export function resetRun(run, players) {
 // ---------------------------------------------------------------- spawning
 function scaling(run) {
   const loop = Math.floor(run.runDepth / 4);
-  return 1 + run.runDepth * 0.12 + loop * 0.35;
+  return 1 + run.runDepth * 0.16 + loop * 0.45;
 }
 function spawnEnemy(run, players, kind, canElite = true) {
   const def = ENEMIES[kind];
@@ -139,12 +139,12 @@ function spawnEnemy(run, players, kind, canElite = true) {
   const p = enemySpawnPoint(mulberry32((Math.random() * 1e9) >>> 0), run.plan.walls, [...players.values()].filter(pl => pl.alive));
   const sc = scaling(run);
   const loop = Math.floor(run.runDepth / 4);
-  const elite = canElite && loop >= 1 && rng() < 0.12;
+  const elite = canElite && loop >= 1 && rng() < 0.18;
   const e = {
     id: nid(), kind, x: p.x, y: p.y,
     hp: Math.round(def.hp * sc * (elite ? 2.2 : 1)),
     maxHp: Math.round(def.hp * sc * (elite ? 2.2 : 1)),
-    dmg: Math.round(def.dmg * (1 + (sc - 1) * 0.55) * (elite ? 1.5 : 1)),
+    dmg: Math.round(def.dmg * (1 + (sc - 1) * 0.7) * (elite ? 1.5 : 1)),
     size: Math.round(def.size * (elite ? 1.18 : 1)),
     spd: def.spd, elite,
     state: 'move', st: 0, // state timer
@@ -179,17 +179,17 @@ function director(run, players, dt) {
   }
   if (run.portal.open) return; // calm after objective
   const greed = plan.modifierIds.includes('greed');
-  const totalBudget = plan.quota + 6;
+  const totalBudget = plan.quota + 14;
   if (run.spawned >= totalBudget) return;
   run.directorT -= dt * (greed ? 1.25 : 1);
   if (run.directorT > 0) return;
   const loop = Math.floor(run.runDepth / 4);
   const pool = SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
-  const batch = 1 + Math.floor(Math.random() * Math.min(3, 1 + loop));
+  const batch = 2 + Math.floor(Math.random() * Math.min(4, 2 + loop));
   for (let i = 0; i < batch && run.enemies.length < MAX_ENEMIES && run.spawned < totalBudget; i++) {
     spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)]);
   }
-  run.directorT = Math.max(0.8, 2.4 - loop * 0.2 - run.runDepth * 0.02);
+  run.directorT = Math.max(0.55, 1.7 - loop * 0.18 - run.runDepth * 0.03);
 }
 
 // ---------------------------------------------------------------- damage

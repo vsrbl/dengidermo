@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=1-0-0">
+<link rel="stylesheet" href="style.css?v=2-0-0">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -13,7 +13,7 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version">v1.0.0</span>
+      <span id="hud-version">v2.0.0</span>
       <span class="sep">|</span>
       <span id="hud-room">----</span>
       <span class="sep">|</span>
@@ -83,8 +83,9 @@
 <div id="menu" class="overlay">
   <div class="menu-box">
     <div id="logo">nncckkrr</div>
-    <div id="menu-sub">co-op roguelike // 4P online</div>
+    <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off">
+    <button id="btn-solo">СОЛО (БЕЗ СЕТИ)</button>
     <button id="btn-create">СОЗДАТЬ КОМНАТУ</button>
     <div id="join-row">
       <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off">
@@ -95,7 +96,7 @@
   </div>
 </div>
 
-<script src="config.js?v=1-0-0"></script>
-<script type="module" src="src/main.v1-0-0.js"></script>
+<script src="config.js?v=2-0-0"></script>
+<script type="module" src="src/main.v2-0-0.js"></script>
 </body>
 </html>

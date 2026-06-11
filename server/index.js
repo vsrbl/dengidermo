@@ -1,17 +1,24 @@
-// nncckkrr server entry: http + websocket, room registry
+// nncckkrr signaling server v2 — a phonebook, NOT a game server.
+// The simulation runs in the host player's browser. This server only:
+//   1) hands out room codes, 2) relays WebRTC handshakes, 3) relays game
+//   messages as a fallback when a direct WebRTC connection can't be made.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
-import {
-  VERSION, BUILD_ID, PROTOCOL, MAX_PLAYERS,
-  C, S, MAX_MESSAGE_BYTES, RATE_LIMIT_PER_WINDOW, RATE_WINDOW_MS
-} from './protocol.js';
-import { Room } from './room.js';
+
+const VERSION = 'v2.0.0';
+const BUILD_ID = 'v2.0.0-20260611';
+const PROTOCOL = 2;
+const MAX_PLAYERS = 4;
+const MAX_MESSAGE_BYTES = 64 * 1024;
+const RATE_LIMIT_PER_WINDOW = 300;
+const RATE_WINDOW_MS = 1000;
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGINS = (process.env.CLIENT_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
-const rooms = new Map(); // roomId -> Room
+// roomCode -> { host: ws, guests: Map<gid, ws> }
+const rooms = new Map();
 
 function roomCode() {
   const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -28,11 +35,11 @@ const server = http.createServer((req, res) => {
   };
   if (req.url === '/' || req.url === '/health') {
     let players = 0;
-    for (const r of rooms.values()) players += r.playerCount;
+    for (const r of rooms.values()) players += 1 + r.guests.size;
     res.writeHead(200, headers);
     res.end(JSON.stringify({
       ok: true, version: VERSION, buildId: BUILD_ID, protocol: PROTOCOL,
-      rooms: rooms.size, players, maxPlayersPerRoom: MAX_PLAYERS
+      role: 'signaling', rooms: rooms.size, players, maxPlayersPerRoom: MAX_PLAYERS
     }));
     return;
   }
@@ -43,81 +50,88 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MESSAGE_BYTES });
 
 wss.on('connection', (ws, req) => {
-  // origin check (allow no-origin for bots/tests in dev; enforce when list set)
   const origin = req.headers.origin;
   if (ORIGINS.length && origin && !ORIGINS.includes(origin)) {
     ws.close(4003, 'origin not allowed');
     return;
   }
-  const playerId = crypto.randomBytes(4).toString('hex');
-  let name = 'player';
-  let room = null;
+  let name = 'PLAYER';
+  let role = null;        // 'host' | 'guest'
+  let code = null;        // room code this socket belongs to
+  let gid = null;         // guest id
   let msgCount = 0;
   let windowStart = Date.now();
 
-  const send = (msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
-  const fail = (error) => send({ t: S.ERROR, error });
+  const send = (sock, msg) => { if (sock && sock.readyState === 1) sock.send(JSON.stringify(msg)); };
+  const fail = (error) => send(ws, { t: 'error', error });
 
   ws.on('message', (data) => {
     const now = Date.now();
     if (now - windowStart > RATE_WINDOW_MS) { windowStart = now; msgCount = 0; }
     if (++msgCount > RATE_LIMIT_PER_WINDOW) return;
-    let m;
-    try { m = JSON.parse(data.toString()); } catch { return; }
-    if (!m || typeof m.t !== 'string') return;
+    let m; try { m = JSON.parse(data.toString()); } catch { return; }
+    const room = code ? rooms.get(code) : null;
 
     switch (m.t) {
-      case C.HELLO: {
-        if ((m.proto | 0) !== PROTOCOL) { fail(`protocol mismatch: server ${PROTOCOL}`); ws.close(4001, 'protocol'); return; }
-        if (typeof m.name === 'string' && m.name.trim()) name = m.name.trim().slice(0, 12);
-        send({ t: 'hello_ok', version: VERSION, buildId: BUILD_ID, protocol: PROTOCOL, id: playerId });
+      case 'hello': {
+        if (m.proto !== PROTOCOL) { fail(`protocol mismatch: server ${PROTOCOL}`); ws.close(4001); return; }
+        name = String(m.name || 'PLAYER').slice(0, 12);
+        send(ws, { t: 'hello_ok', version: VERSION });
         break;
       }
-      case C.CREATE: {
-        if (room) return;
-        const id = roomCode();
-        const r = new Room(id, (rid) => rooms.delete(rid));
-        rooms.set(id, r);
-        const res = r.addPlayer(playerId, name, ws);
-        if (res.error) { fail(res.error); return; }
-        room = r;
+      case 'host': {
+        if (role) return;
+        role = 'host';
+        code = roomCode();
+        rooms.set(code, { host: ws, guests: new Map() });
+        send(ws, { t: 'host_ok', code });
         break;
       }
-      case C.JOIN: {
-        if (room) return;
-        const id = String(m.roomId || '').toUpperCase().trim();
-        const r = rooms.get(id);
+      case 'join': {
+        if (role) return;
+        const c = String(m.code || '').toUpperCase();
+        const r = rooms.get(c);
         if (!r) { fail('room not found'); return; }
-        const res = r.addPlayer(playerId, name, ws);
-        if (res.error) { fail(res.error); return; }
-        room = r;
+        if (r.guests.size + 1 >= MAX_PLAYERS) { fail('room full'); return; }
+        role = 'guest';
+        code = c;
+        gid = crypto.randomBytes(4).toString('hex');
+        r.guests.set(gid, ws);
+        send(ws, { t: 'join_ok', code: c });
+        send(r.host, { t: 'guest_join', gid, name });
         break;
       }
-      case C.INPUT: if (room) room.handleInput(playerId, m); break;
-      case C.CASINO: if (room) room.handleCasino(playerId, m.stake); break;
-      case C.PICK: if (room) room.handlePick(playerId, m.choice); break;
-      case C.PING: send({ t: S.PONG, ts: m.ts ?? null, now: Date.now() }); break;
-      case C.LEAVE: if (room) { room.removePlayer(playerId); room = null; } break;
+      case 'rtc': {        // WebRTC handshake relay
+        if (!room) return;
+        if (role === 'host' && room.guests.has(m.to)) send(room.guests.get(m.to), { t: 'rtc', from: 'host', d: m.d });
+        else if (role === 'guest') send(room.host, { t: 'rtc', from: gid, d: m.d });
+        break;
+      }
+      case 'g': {          // guest -> host game message (relay fallback)
+        if (room && role === 'guest') send(room.host, { t: 'g', from: gid, d: m.d });
+        break;
+      }
+      case 'h': {          // host -> guest game message (relay fallback)
+        if (room && role === 'host' && room.guests.has(m.to)) send(room.guests.get(m.to), { t: 'h', d: m.d });
+        break;
+      }
+      case 'leave': ws.close(); break;
     }
   });
 
-  ws.on('close', () => { if (room) room.removePlayer(playerId); });
-  ws.on('error', () => { if (room) room.removePlayer(playerId); });
-});
-
-// keepalive: terminate dead sockets
-setInterval(() => {
-  for (const ws of wss.clients) {
-    if (ws.isAlive === false) { ws.terminate(); continue; }
-    ws.isAlive = false;
-    ws.ping();
-  }
-}, 30_000);
-wss.on('connection', (ws) => {
-  ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('close', () => {
+    const room = code ? rooms.get(code) : null;
+    if (!room) return;
+    if (role === 'host') {
+      for (const g of room.guests.values()) send(g, { t: 'room_closed' });
+      rooms.delete(code);
+    } else if (role === 'guest') {
+      room.guests.delete(gid);
+      send(room.host, { t: 'guest_leave', gid });
+    }
+  });
 });
 
 server.listen(PORT, () => {
-  console.log(`nncckkrr ${VERSION} (${BUILD_ID}) proto ${PROTOCOL} listening :${PORT}`);
+  console.log(`nncckkrr signaling ${VERSION} (${BUILD_ID}) proto ${PROTOCOL} listening :${PORT}`);
 });
