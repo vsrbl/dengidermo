@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.8 — contextual help placement + softer gun audio */
+/* nncckkrr v2.0.9 — stable help + recoil / hit knockback */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -156,7 +156,7 @@ button:disabled { opacity: .3; cursor: none; }
 #install-choices .choice.picked { border-color: #00ff66; color: #00ff66; }
 #install-choices .choice.dimmed { opacity: 0.25; pointer-events: none; }
 
-/* v2.0.8 casino width lock: long jackpot/static text must not stretch the modal */
+/* v2.0.9 casino width lock: long jackpot/static text must not stretch the modal */
 #casino-modal .panel {
   width: min(460px, calc(100vw - 32px));
   min-width: 0;
@@ -175,8 +175,9 @@ button:disabled { opacity: .3; cursor: none; }
 #casino-stakes { flex-wrap: nowrap; }
 #casino-stakes button { min-width: 96px; }
 
-/* v2.0.8 context help: hover glossary anchored beside the active panel */
+/* v2.0.9 context help: hover glossary anchored beside the active panel */
 .helpable {
+  pointer-events: auto;
   border-bottom: 1px dotted currentColor;
   text-decoration: none;
   text-underline-offset: 3px;
@@ -195,7 +196,7 @@ button:disabled { opacity: .3; cursor: none; }
   background: rgba(5, 5, 5, .965);
   box-shadow: 0 0 0 4px rgba(0,255,102,.06), 0 0 24px rgba(0,255,102,.16);
   padding: 13px 15px;
-  z-index: 55;
+  z-index: 80;
   pointer-events: none;
   animation: helpsnap .08s steps(3);
 }
