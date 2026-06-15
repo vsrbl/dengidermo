@@ -57,7 +57,7 @@ export class Input {
   updateCursor() {
     if (!this.cursorEl) return;
     this.cursorEl.classList.toggle('hidden', !this._cursorVisible);
-    this.cursorEl.style.transform = `translate3d(${this.mouseX - 14}px, ${this.mouseY - 14}px, 0)`;
+    this.cursorEl.style.transform = `translate3d(${this.mouseX - 8}px, ${this.mouseY - 8}px, 0)`;
   }
 
   moveVec() {

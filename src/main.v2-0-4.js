@@ -1,10 +1,11 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-2.js';
-import { Input } from './input.v2-0-2.js';
-import { GameState, P } from './state.v2-0-2.js';
-import { Effects } from './effects.v2-0-2.js';
-import { Renderer } from './render.v2-0-2.js';
-import { Hud } from './hud.v2-0-2.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-4.js';
+import { Input } from './input.v2-0-4.js';
+import { GameState, P } from './state.v2-0-4.js';
+import { Effects } from './effects.v2-0-4.js';
+import { Renderer } from './render.v2-0-4.js';
+import { Hud } from './hud.v2-0-4.js';
+import { AudioBus } from './audio.v2-0-4.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -18,6 +19,7 @@ const state = new GameState();
 const effects = new Effects();
 const renderer = new Renderer(canvas);
 const hud = new Hud(net);
+const audio = new AudioBus();
 
 let inGame = false;
 let lastSend = 0;
@@ -90,6 +92,7 @@ net.on('walls', (m) => state.setWalls(m.walls, m.world));
 net.on('s', (m) => {
   state.addSnapshot(m);
   for (const f of m.fx) {
+    audio.handleFx(f, { myId: state.myId });
     effects.handleFx(f, { myId: state.myId });
     hud.handleFx(f, state.myId, state);
   }

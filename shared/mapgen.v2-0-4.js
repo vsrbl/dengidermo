@@ -1,10 +1,10 @@
 // nncckkrr room generation: walls, pillars, chests, BET terminals, spawns
-import { ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-2.js';
+import { ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-4.js';
 
 export const WORLD_W = 2200;
 export const WORLD_H = 1500;
 export const WALL_T = 40;       // gameplay safe border / portal offset
-const EDGE_T = 420;             // rendered outer walls extend far outside the camera
+const EDGE_T = 900;             // huge outer walls: no visible field behind borders
 const SAFE = 95;
 
 export function mulberry32(seed) {
@@ -58,7 +58,7 @@ function genWalls(rng, category, loopIndex) {
     return walls;
   }
 
-  const variant = Math.floor(rng() * 7);
+  const variant = Math.floor(rng() * 9);
   const extra = Math.min(7, loopIndex * 2);
   const blocks = 4 + Math.floor(rng() * 6) + Math.floor(extra * rng());
 
@@ -123,16 +123,37 @@ function genWalls(rng, category, loopIndex) {
       const w = 45 + rng() * 120, h = 45 + rng() * 120;
       addRandomBlock(rng, walls, SAFE + rng() * (WORLD_W - SAFE * 2 - w), SAFE + rng() * (WORLD_H - SAFE * 2 - h), w, h);
     }
-  } else { // edge-bite blocks: arena feels more enclosed, still playable
+  } else if (variant === 6) { // edge-bite blocks: arena feels more enclosed, still playable
     for (let i = 0; i < blocks; i++) {
       const side = Math.floor(rng() * 4);
-      const w = 70 + rng() * 180, h = 70 + rng() * 180;
+      const w = 70 + rng() * 220, h = 70 + rng() * 220;
       let x = SAFE + rng() * (WORLD_W - SAFE * 2 - w), y = SAFE + rng() * (WORLD_H - SAFE * 2 - h);
-      if (side === 0) y = SAFE + rng() * 90;
-      if (side === 1) y = WORLD_H - SAFE - h - rng() * 90;
-      if (side === 2) x = SAFE + rng() * 90;
-      if (side === 3) x = WORLD_W - SAFE - w - rng() * 90;
+      if (side === 0) y = SAFE + rng() * 100;
+      if (side === 1) y = WORLD_H - SAFE - h - rng() * 100;
+      if (side === 2) x = SAFE + rng() * 100;
+      if (side === 3) x = WORLD_W - SAFE - w - rng() * 100;
       addRandomBlock(rng, walls, x, y, w, h);
+    }
+  } else if (variant === 7) { // broken diagonal signal barricades
+    const diag = rng() < 0.5 ? 1 : -1;
+    const count = 4 + Math.floor(rng() * 4) + Math.min(4, loopIndex);
+    for (let i = 0; i < count; i++) {
+      const w = 90 + rng() * 210, h = 42 + rng() * 74;
+      const t = (i + 0.5) / count;
+      const x = WORLD_W * (0.14 + t * 0.72) + (rng() - 0.5) * 250 - w / 2;
+      const y = WORLD_H * (diag > 0 ? 0.16 + t * 0.68 : 0.84 - t * 0.68) + (rng() - 0.5) * 180 - h / 2;
+      addRandomBlock(rng, walls, x, y, w, h);
+    }
+  } else { // micro-arena debris cloud; high randomness, no maze
+    const centers = 1 + Math.floor(rng() * 4);
+    for (let c = 0; c < centers; c++) {
+      const cx = SAFE + 220 + rng() * (WORLD_W - SAFE * 2 - 440);
+      const cy = SAFE + 170 + rng() * (WORLD_H - SAFE * 2 - 340);
+      const n = 2 + Math.floor(rng() * 4);
+      for (let i = 0; i < n; i++) {
+        const w = 38 + rng() * 120, h = 38 + rng() * 120;
+        addRandomBlock(rng, walls, cx + (rng() - 0.5) * 360 - w / 2, cy + (rng() - 0.5) * 280 - h / 2, w, h);
+      }
     }
   }
   return walls;
@@ -180,18 +201,21 @@ function genInteractables(rng, category, loopIndex, greed) {
   let id = 1;
   if (category === 'boss') return objs; // boss room: reward spawns after kill
 
-  const density = rng() + loopIndex * 0.035 + (greed ? 0.2 : 0);
-  const bscCount = density < 0.18 ? 0 : density < 0.72 ? 1 : density < 1.08 ? 2 : 3;
+  const mood = rng(); // each room gets a loot personality, not just smooth density
+  const density = rng() * 1.35 + loopIndex * 0.055 + (greed ? 0.28 : 0);
+  let bscCount = density < 0.16 ? 0 : density < 0.62 ? 1 : density < 1.04 ? 2 : 3 + Math.floor(rng() * 2);
+  let paidCount = density < 0.28 ? 0 : density < 0.75 ? 1 : density < 1.14 ? 2 : 3 + Math.floor(rng() * 2);
+  if (mood < 0.12) { bscCount = 0; paidCount = rng() < 0.55 ? 0 : 1; }           // dead/quiet room
+  else if (mood > 0.86) { bscCount += 1 + Math.floor(rng() * 2); paidCount += 1; } // greedy pocket
   for (let i = 0; i < bscCount; i++) objs.push({ id: `c${id++}`, type: 'chest', chest: 'basic_chest' });
 
-  const paidCount = density < 0.35 ? 0 : density < 0.85 ? 1 : density < 1.2 ? 2 : 3;
   for (let i = 0; i < paidCount; i++) {
     const roll = rng();
-    const chest = roll < 0.42 ? 'weapon_chest' : roll < 0.78 ? 'ability_chest' : 'rare_chest';
+    const chest = roll < 0.34 ? 'weapon_chest' : roll < 0.68 ? 'ability_chest' : 'rare_chest';
     objs.push({ id: `c${id++}`, type: 'chest', chest });
   }
-  if (rng() < 0.10 + loopIndex * 0.035 + (greed ? 0.05 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
-  if (rng() < 0.56 + loopIndex * 0.035) objs.push({ id: `b${id++}`, type: 'bet' });
+  if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
+  if (rng() < 0.48 + loopIndex * 0.05 + (mood > 0.75 ? 0.18 : 0)) objs.push({ id: `b${id++}`, type: 'bet' });
   return objs;
 }
 
@@ -215,8 +239,7 @@ export function generateRoom(seed, runDepth, loopIndex) {
   const walls = genWalls(rng, category, loopIndex);
   const interactables = genInteractables(rng, category, loopIndex, greed);
   const blockers = [
-    { x: WORLD_W / 2, y: WORLD_H / 2, r: 290 },
-    { x: WORLD_W / 2, y: WALL_T + 110, r: 180 }
+    { x: WORLD_W / 2, y: WORLD_H / 2, r: 290 }
   ];
   const usePocket = rng() < 0.42 && interactables.length >= 2;
   const pockets = [freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers)];
@@ -230,7 +253,7 @@ export function generateRoom(seed, runDepth, loopIndex) {
   }
   // softer opening, harsh late-loop ramp
   const late = Math.max(0, loopIndex - 2);
-  const baseQuota = category === 'boss' ? 1 : 8 + roomInLoop * 2 + loopIndex * 5 + Math.floor(Math.pow(late, 1.65) * 7);
+  const baseQuota = category === 'boss' ? 1 : Math.round((8 + roomInLoop * 2 + loopIndex * 5 + Math.floor(Math.pow(late, 1.65) * 7)) * 2);
   return {
     seed, runDepth, loopIndex, roomInLoop,
     roomId: `${category}-${String(runDepth).padStart(2, '0')}`,
@@ -240,6 +263,22 @@ export function generateRoom(seed, runDepth, loopIndex) {
     w: WORLD_W, h: WORLD_H
   };
 }
+
+
+export function portalSpot(seed, walls, interactables = []) {
+  const rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
+  const blockers = [
+    { x: WORLD_W / 2, y: WORLD_H / 2, r: 360 },
+    ...interactables.map(o => ({ x: o.x, y: o.y, r: 210 }))
+  ];
+  // favor any quadrant, but keep it readable and clear of walls/chests/player spawn.
+  for (let tries = 0; tries < 140; tries++) {
+    const p = freeSpot(rng, walls, 125, blockers);
+    if (dist2ish(p.x, p.y, WORLD_W / 2, WORLD_H / 2) > 420 * 420) return p;
+  }
+  return freeSpot(rng, walls, 125, blockers);
+}
+function dist2ish(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 
 export function spawnPoint(idx) {
   const pts = [

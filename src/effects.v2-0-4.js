@@ -48,12 +48,17 @@ export class Effects {
         this.kick(f.elite ? 5 : 2);
         break;
       case 'blast':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: f.r, ttl: 0.4, color: '#f3f3f3' });
-        this.kick(6);
+        if (f.style === 'rocket') {
+          this.add({ kind: 'rocketBlast', x: f.x, y: f.y, r: f.r, ttl: 0.28, color: '#f3f3f3' });
+          this.kick(8);
+        } else {
+          this.add({ kind: 'ring', x: f.x, y: f.y, r: f.r, ttl: 0.34, color: f.style === 'proc' ? '#66f6ff' : '#f3f3f3' });
+          this.kick(f.style === 'proc' ? 4 : 6);
+        }
         break;
       case 'dash':
-        this.add({ kind: 'trail', x: f.fx, y: f.fy, x2: f.tx, y2: f.ty, ttl: 0.25, color: '#66f6ff' });
-        if (mine) this.zoomKick = 0.4;
+        this.add({ kind: 'dashCut', x: f.fx, y: f.fy, x2: f.tx, y2: f.ty, ttl: 0.18, color: '#66f6ff' });
+        if (mine) this.zoomKick = 0.42;
         break;
       case 'levelup':
         if (mine) { this.sweep = 0.01; this.sweepColor = '#00ff66'; this.kick(5); }
@@ -62,6 +67,16 @@ export class Effects {
         if (f.type === 'GLD') this.float(f.x, f.y, `+${f.val}`, '#00ff66', 12);
         else if (f.type === 'EXP') this.float(f.x, f.y, `+${f.val} EXP`, '#66f6ff', 11);
         else if (f.type === 'HEA') this.float(f.x, f.y, `+${f.val} HP`, '#00ff66', 13);
+        break;
+      case 'denied':
+        if (mine) {
+          if (typeof f.x === 'number' && typeof f.y === 'number') {
+            this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.55, color: '#ff3048' });
+            this.float(f.x, f.y - 34, f.cost ? `NO GLD ${f.have}/${f.cost}` : 'NO GLD', '#ff3048', 14);
+          }
+          this.hitFlash = Math.max(this.hitFlash, 0.18);
+          this.kick(6);
+        }
         break;
       case 'portal_open':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 160, ttl: 0.8, color: '#00ff66' });
@@ -136,6 +151,57 @@ export class Effects {
           ctx.lineTo(e.x + Math.cos(a) * d2, e.y + Math.sin(a) * d2);
           ctx.stroke();
         }
+      } else if (e.kind === 'rocketBlast') {
+        const step = Math.min(1, Math.floor(p * 6) / 5);
+        const base = e.r * (0.28 + step * 0.9);
+        ctx.globalAlpha = 1 - p;
+        ctx.strokeStyle = e.color; ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) {
+          const s = base * (0.55 + i * 0.35);
+          const jx = (Math.sin(e.t * 80 + i * 17) * 3) | 0;
+          const jy = (Math.cos(e.t * 70 + i * 11) * 3) | 0;
+          ctx.strokeRect(e.x - s / 2 + jx, e.y - s / 2 + jy, s, s);
+        }
+        ctx.globalAlpha = (1 - p) * 0.75;
+        ctx.strokeStyle = '#ff3048'; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+        const arms = 8;
+        for (let i = 0; i < arms; i++) {
+          const a = (i / arms) * Math.PI * 2 + (i % 2 ? 0.2 : -0.15);
+          const d1 = base * 0.18, d2 = base * (0.55 + ((i * 13) % 5) * 0.05);
+          const sx = e.x + Math.cos(a) * d1, sy = e.y + Math.sin(a) * d1;
+          const ex = e.x + Math.cos(a) * d2, ey = e.y + Math.sin(a) * d2;
+          ctx.beginPath(); ctx.moveTo(Math.round(sx), Math.round(sy)); ctx.lineTo(Math.round(ex), Math.round(ey)); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.globalAlpha = (1 - p) * 0.28;
+        ctx.fillStyle = e.color;
+        const block = Math.max(6, e.r * 0.16);
+        for (let i = 0; i < 10; i++) {
+          const a = (i * 2.399 + e.x * 0.01);
+          const d = base * (0.15 + (i % 5) * 0.13);
+          ctx.fillRect(Math.round(e.x + Math.cos(a) * d - block / 2), Math.round(e.y + Math.sin(a) * d - block / 2), block, block);
+        }
+      } else if (e.kind === 'dashCut') {
+        const dx = e.x2 - e.x, dy = e.y2 - e.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const nx = -uy, ny = ux;
+        const step = Math.floor(p * 5);
+        ctx.globalAlpha = (1 - p) * 0.95;
+        ctx.strokeStyle = e.color; ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          if (((i + step) % 3) === 0) continue;
+          const a = (i / 6) * len; const b = Math.min(len, a + len * 0.12);
+          const off = ((i % 2) ? 7 : -7) * (1 - p);
+          ctx.beginPath();
+          ctx.moveTo(Math.round(e.x + ux * a + nx * off), Math.round(e.y + uy * a + ny * off));
+          ctx.lineTo(Math.round(e.x + ux * b + nx * off), Math.round(e.y + uy * b + ny * off));
+          ctx.stroke();
+        }
+        ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.55;
+        ctx.fillRect(Math.round(e.x2 - 9), Math.round(e.y2 - 9), 18, 18);
+        ctx.globalAlpha = (1 - p) * 0.25;
+        ctx.fillRect(Math.round(e.x - 13), Math.round(e.y - 13), 26, 26);
       } else if (e.kind === 'trail') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 4 * (1 - p);
         ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x2, e.y2); ctx.stroke();
@@ -145,6 +211,17 @@ export class Effects {
         ctx.beginPath();
         ctx.moveTo(e.x - s, e.y - s); ctx.lineTo(e.x + s, e.y + s);
         ctx.moveTo(e.x + s, e.y - s); ctx.lineTo(e.x - s, e.y + s);
+        ctx.stroke();
+      } else if (e.kind === 'denybox') {
+        const s = 34 + p * 18;
+        const jitter = Math.sin(e.t * 70) * 3 * (1 - p);
+        ctx.strokeStyle = e.color; ctx.globalAlpha = 0.95 * (1 - p); ctx.lineWidth = 3;
+        ctx.setLineDash([5, 4]);
+        ctx.strokeRect(e.x - s / 2 + jitter, e.y - s / 2, s, s);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(e.x - s * 0.34 + jitter, e.y); ctx.lineTo(e.x + s * 0.34 + jitter, e.y);
+        ctx.moveTo(e.x + jitter, e.y - s * 0.34); ctx.lineTo(e.x + jitter, e.y + s * 0.34);
         ctx.stroke();
       }
       ctx.restore();

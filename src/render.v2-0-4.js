@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-2.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-4.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -136,12 +136,22 @@ export class Renderer {
 
     // bullets
     for (const b of view.bullets) {
-      const [, bx, by, vx, vy, size, fromP] = b;
+      const [, bx, by, vx, vy, size, fromP, rocket] = b;
       ctx.save();
       ctx.translate(bx, by);
       ctx.rotate(Math.atan2(vy, vx));
-      ctx.fillStyle = fromP ? COL.fg : COL.red;
-      ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);
+      if (rocket) {
+        ctx.strokeStyle = COL.fg; ctx.lineWidth = 2;
+        ctx.strokeRect(-size * 1.2, -size * 0.7, size * 2.2, size * 1.4);
+        ctx.fillStyle = 'rgba(255,48,72,0.65)';
+        ctx.fillRect(-size * 1.75, -size * 0.35, size * 0.55, size * 0.7);
+        ctx.strokeStyle = COL.red; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(-size * 2.6, 0); ctx.lineTo(-size * 5.2, 0); ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = fromP ? COL.fg : COL.red;
+        ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);
+      }
       ctx.restore();
     }
 
@@ -284,15 +294,7 @@ export class Renderer {
       }
     }
 
-    // crosshair
-    ctx.strokeStyle = COL.green; ctx.lineWidth = 1.5;
-    const mx = mouse.x, my = mouse.y, ch = 7;
-    ctx.beginPath();
-    ctx.moveTo(mx - ch, my); ctx.lineTo(mx - 3, my);
-    ctx.moveTo(mx + 3, my); ctx.lineTo(mx + ch, my);
-    ctx.moveTo(mx, my - ch); ctx.lineTo(mx, my - 3);
-    ctx.moveTo(mx, my + 3); ctx.lineTo(mx, my + ch);
-    ctx.stroke();
+    // custom cursor is a DOM overlay so it stays identical above menus and casino.
 
     // screen effects
     effects.drawScreen(ctx, this.w, this.h);

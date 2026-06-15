@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-2.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-2.js';
+} from './data.v2-0-4.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-4.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -15,6 +15,7 @@ const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
 const PLAYER_HIT_INVULN = 0.12;
+const DIFFICULTY_MULT = 2; // requested harder pass: roughly 2x pressure versus v2.0.2
 const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
@@ -115,7 +116,8 @@ export function startRoom(run, players) {
   run.pendingStrikes = [];
   run.kills = 0; run.spawned = 0;
   run.directorT = 1.4; run.rainT = 3.5;
-  run.portal = { x: run.plan.w / 2, y: WALL_T + 110, open: false };
+  const pp = portalSpot(seed + 0x51F15EED, run.plan.walls, run.plan.interactables);
+  run.portal = { x: pp.x, y: pp.y, open: false };
   run.phase = 'play'; run.phaseT = 0;
   let i = 0;
   for (const p of players.values()) {
@@ -148,15 +150,18 @@ function difficulty(run) {
   const late = Math.max(0, loop - 2);
   const depth = run.runDepth;
   // First loop is deliberately readable. After several loops, pressure ramps hard.
+  const hpBase = 0.74 + depth * 0.055 + loop * 0.11 + Math.pow(late, 1.55) * 0.34;
+  const dmgBase = 0.62 + depth * 0.045 + loop * 0.09 + Math.pow(late, 1.45) * 0.26;
   return {
     loop, late,
-    hp: 0.74 + depth * 0.055 + loop * 0.11 + Math.pow(late, 1.55) * 0.34,
-    dmg: 0.62 + depth * 0.045 + loop * 0.09 + Math.pow(late, 1.45) * 0.26,
-    eliteChance: loop <= 0 ? 0 : Math.min(0.34, 0.045 + loop * 0.035 + late * 0.04),
-    eliteHp: 1.65 + loop * 0.12,
-    eliteDmg: 1.25 + loop * 0.05,
-    maxActive: Math.min(MAX_ENEMIES, Math.round(8 + depth * 1.15 + loop * 4 + Math.pow(late, 1.5) * 8)),
-    addCap: Math.min(24, 8 + loop * 3 + late * 4)
+    // Keep control readable, but make the room pressure about 2x: denser spawns, bigger quotas, harsher elites.
+    hp: hpBase * 1.30,
+    dmg: dmgBase * 1.25,
+    eliteChance: loop <= 0 ? 0 : Math.min(0.58, (0.045 + loop * 0.035 + late * 0.04) * 1.75),
+    eliteHp: 1.75 + loop * 0.16,
+    eliteDmg: 1.34 + loop * 0.07,
+    maxActive: Math.min(MAX_ENEMIES, Math.round((8 + depth * 1.15 + loop * 4 + Math.pow(late, 1.5) * 8) * DIFFICULTY_MULT)),
+    addCap: Math.min(42, Math.round((8 + loop * 3 + late * 4) * DIFFICULTY_MULT))
   };
 }
 function scaling(run) {
@@ -209,7 +214,7 @@ function director(run, players, dt) {
     if (boss && boss.hp < boss.maxHp * 0.55) {
       run.directorT -= dt;
       if (run.directorT <= 0 && run.enemies.length < df.addCap) {
-        run.directorT = Math.max(1.7, 7.2 - df.loop * 0.55 - df.late * 0.75);
+        run.directorT = Math.max(0.9, (7.2 - df.loop * 0.55 - df.late * 0.75) / DIFFICULTY_MULT);
         const pool = df.loop < 2 ? ['grunt','runner'] : ['grunt','runner','shooter','bouncer','glitch'];
         spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)], df.loop >= 3);
       }
@@ -218,19 +223,19 @@ function director(run, players, dt) {
   }
   if (run.portal.open) return; // calm after objective
   const greed = plan.modifierIds.includes('greed');
-  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 8);
-  const totalBudget = plan.quota + 5 + df.loop * 5 + lateBudget;
+  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 14);
+  const totalBudget = Math.round((plan.quota + 5 + df.loop * 5 + lateBudget) * DIFFICULTY_MULT);
   if (run.spawned >= totalBudget) return;
   run.directorT -= dt * (greed ? 1.18 : 1);
   if (run.directorT > 0) return;
   const pool = spawnPool(run);
-  const baseBatch = df.loop === 0 ? 1 : 1 + Math.floor(Math.min(4, df.loop / 1.35));
+  const baseBatch = df.loop === 0 ? 2 : 2 + Math.floor(Math.min(6, df.loop / 1.15));
   const chaosBonus = df.late > 0 && Math.random() < Math.min(0.85, df.late * 0.18) ? 1 + Math.floor(Math.random() * Math.min(4, df.late + 1)) : 0;
-  const batch = Math.min(8, baseBatch + chaosBonus + (greed && Math.random() < 0.35 ? 1 : 0));
+  const batch = Math.min(12, baseBatch + chaosBonus + (greed && Math.random() < 0.45 ? 1 : 0));
   for (let i = 0; i < batch && run.enemies.length < df.maxActive && run.spawned < totalBudget; i++) {
     spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)]);
   }
-  run.directorT = Math.max(0.34, 3.9 - df.loop * 0.42 - run.runDepth * 0.035 - df.late * 0.40);
+  run.directorT = Math.max(0.20, (3.9 - df.loop * 0.42 - run.runDepth * 0.035 - df.late * 0.40) / DIFFICULTY_MULT);
 }
 
 // ---------------------------------------------------------------- damage
@@ -338,15 +343,15 @@ function fireWeapon(run, players, p, dt) {
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
         dmg: w.dmg * p.stats.dmgMul, from: 'p', owner: p.id,
         life: w.life, delay, size: w.size, aoe: w.aoe || 0, homing: w.homing || 0,
-        knock: w.knock || 0, proc: p.stats.procBlast
+        knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist: w.detonateDist || 0
       });
     }
   }
-  run.fx.push({ t: 'shot', id: p.id, w: w.label });
+  run.fx.push({ t: 'shot', id: p.id, w: w.label, x: Math.round(p.x), y: Math.round(p.y) });
 }
 
-function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false) {
-  run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r) });
+function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style = 'blast') {
+  run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style });
   for (const e of [...run.enemies]) {
     if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) damageEnemy(run, players, e, dmg, owner, 0, 0, 0);
   }
@@ -377,25 +382,31 @@ function stepBullets(run, players, dt) {
         b.vx = n.x * sp; b.vy = n.y * sp;
       }
     }
+    const ox = b.x, oy = b.y;
     b.x += b.vx * dt; b.y += b.vy * dt;
+    b.travelled = (b.travelled || 0) + Math.hypot(b.x - ox, b.y - oy);
+    if (b.detonateDist && b.travelled >= b.detonateDist) {
+      explode(run, players, b.x, b.y, b.aoe || 70, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
+      b.life = -1; continue;
+    }
     // walls
     let hitWall = false;
     for (const w of walls) {
       if (aabbHit(b.x, b.y, b.size / 2, w)) { hitWall = true; break; }
     }
     if (hitWall) {
-      if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false);
+      if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
       b.life = -1; continue;
     }
     if (b.from === 'p') {
       for (const e of run.enemies) {
         if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
-          if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false);
+          if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
           else {
             const n = norm(b.vx, b.vy);
             damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y);
             const blasts = chanceStacks(b.proc || 0);
-            for (let bi = 0; bi < blasts; bi++) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false);
+            for (let bi = 0; bi < blasts; bi++) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false, 'proc');
           }
           b.life = -1; break;
         }
@@ -512,7 +523,7 @@ function stepEnemies(run, players, dt) {
         if (dT < 80) { e.state = 'fuse'; e.st = 0; run.fx.push({ t: 'fuse', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: def.blast, dur: def.fuse }); }
       } else if (e.state === 'fuse') {
         if (e.st >= def.fuse) {
-          explode(run, players, e.x, e.y, def.blast, e.dmg, null, true);
+          explode(run, players, e.x, e.y, def.blast, e.dmg, null, true, 'danger');
           e.hp = 0;
           run.enemies = run.enemies.filter(x => x.id !== e.id);
           run.kills++;
@@ -704,7 +715,10 @@ function tryInteract(run, players, p) {
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
   if (def.cost > 0) {
-    if (p.economy.money < def.cost) { run.fx.push({ t: 'denied', id: p.id, obj: o.id }); return; }
+    if (p.economy.money < def.cost) {
+      run.fx.push({ t: 'denied', id: p.id, obj: o.id, x: o.x, y: o.y, cost: def.cost, have: p.economy.money, chest: def.label });
+      return;
+    }
     p.economy.money -= def.cost;
   }
   o.opened = true;
@@ -926,7 +940,7 @@ export function buildSnapshot(run, players) {
     Math.round((e.dirX || 0) * 100), Math.round((e.dirY || 0) * 100)
   ]);
   const bs = run.bullets.map(b => [
-    b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0
+    b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0, b.kind === 'rocketgun' ? 1 : 0
   ]);
   const ks = run.pickups.map(k => [k.id, k.type, Math.round(k.x), Math.round(k.y)]);
   const os = run.plan.interactables.map(o => [

@@ -1,5 +1,5 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P } from './state.v2-0-2.js';
+import { P } from './state.v2-0-4.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = { blackout: 'BLACKOUT', static_rain: 'STATIC RAIN', greed: 'GREED SIGNAL' };
@@ -121,7 +121,7 @@ export class Hud {
         break;
       case 'weapon_get': this.feed(`${name(f.id)} ВЗЯЛ ${f.w}`, 'c'); break;
       case 'ability_get': if (f.id === myId) this.feed(f.label, 'c'); break;
-      case 'denied': if (f.id === myId) this.denyPrompt('НЕДОСТАТОЧНО GLD'); break;
+      case 'denied': if (f.id === myId) this.denyPrompt(f.cost ? `НЕТ GLD ${f.have}/${f.cost}` : 'НЕДОСТАТОЧНО GLD'); break;
       case 'bet_ui': if (f.id === myId) this.openCasino(); break;
       case 'casino': this.casinoResult(f, myId); break;
       case 'install': if (f.id === myId) this.feed(`INSTALL: ${f.label}`, f.cursed ? 'p' : 'g'); break;
@@ -158,7 +158,7 @@ export class Hud {
     prompt.classList.remove('hidden');
     prompt.classList.add('deny');
     clearTimeout(this.promptTimer);
-    this.promptTimer = setTimeout(() => { prompt.classList.add('hidden'); prompt.classList.remove('deny'); this.promptTimer = null; }, 1200);
+    this.promptTimer = setTimeout(() => { prompt.classList.add('hidden'); prompt.classList.remove('deny'); this.promptTimer = null; }, 1500);
   }
 
   // ------------------------------------------------- TAB panel

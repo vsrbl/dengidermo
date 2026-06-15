@@ -11,7 +11,7 @@ export const WEAPONS = {
   },
   rocketgun: {
     id: 'rocketgun', label: 'RKT', name: 'ROCKETGUN',
-    cooldown: 0.92, pellets: 1, spread: 0.02, dmg: 32, speed: 360, life: 2.0, size: 8, aoe: 85, knock: 160
+    cooldown: 0.92, pellets: 1, spread: 0.02, dmg: 32, speed: 360, life: 2.0, size: 8, aoe: 85, knock: 160, detonateDist: 520
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];

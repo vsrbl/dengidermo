@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.2 — terminal noir */
+/* nncckkrr v2.0.4 — rocket dash audio pass */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -14,14 +14,18 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 *, *::before, *::after { cursor: none !important; }
 canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #custom-cursor {
-  position: fixed; left: 0; top: 0; width: 28px; height: 28px; pointer-events: none;
+  position: fixed; left: 0; top: 0; width: 16px; height: 16px; pointer-events: none;
   z-index: 9999; transform: translate3d(-100px, -100px, 0); mix-blend-mode: screen;
-  filter: drop-shadow(0 0 6px rgba(0,255,102,.85));
+  filter: drop-shadow(0 0 5px rgba(0,255,102,.7));
 }
-#custom-cursor .cx, #custom-cursor .cy, #custom-cursor .cc { position: absolute; display: block; }
-#custom-cursor .cx { left: 0; right: 0; top: 13px; height: 1px; background: var(--green); }
-#custom-cursor .cy { top: 0; bottom: 0; left: 13px; width: 1px; background: var(--green); }
-#custom-cursor .cc { left: 10px; top: 10px; width: 8px; height: 8px; border: 1px solid var(--green); background: rgba(0,255,102,.08); }
+#custom-cursor .cx, #custom-cursor .cy { display: none; }
+#custom-cursor .cc {
+  position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; display: block;
+  border: 1px solid var(--green); background: rgba(0,255,102,.045);
+}
+#custom-cursor .cc::after {
+  content: ''; position: absolute; left: 4px; top: 4px; width: 2px; height: 2px; background: var(--green);
+}
 #custom-cursor.hidden { opacity: 0; }
 .hidden { display: none !important; }
 
