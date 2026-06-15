@@ -1,11 +1,11 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-4.js';
-import { Input } from './input.v2-0-4.js';
-import { GameState, P } from './state.v2-0-4.js';
-import { Effects } from './effects.v2-0-4.js';
-import { Renderer } from './render.v2-0-4.js';
-import { Hud } from './hud.v2-0-4.js';
-import { AudioBus } from './audio.v2-0-4.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-6.js';
+import { Input } from './input.v2-0-6.js';
+import { GameState, P } from './state.v2-0-6.js';
+import { Effects } from './effects.v2-0-6.js';
+import { Renderer } from './render.v2-0-6.js';
+import { Hud } from './hud.v2-0-6.js';
+import { AudioBus } from './audio.v2-0-6.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -18,8 +18,8 @@ const input = new Input(canvas);
 const state = new GameState();
 const effects = new Effects();
 const renderer = new Renderer(canvas);
-const hud = new Hud(net);
 const audio = new AudioBus();
+const hud = new Hud(net, audio);
 
 let inGame = false;
 let lastSend = 0;
