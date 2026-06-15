@@ -3,8 +3,8 @@
 //   host  — sim runs here; guests connect via WebRTC (direct) with ws relay fallback
 //   guest — inputs go to the host's browser, not to a far-away server
 // The Render server is ONLY a phonebook (signaling + relay fallback), never the game.
-import { VERSION, PROTOCOL, GAME_SPEED } from '../shared/protocol.v2-0-10.js';
-import { LocalRoom } from './local.v2-0-10.js';
+import { VERSION, PROTOCOL, GAME_SPEED } from '../shared/protocol.v2-0-5.js';
+import { LocalRoom } from './local.v2-0-5.js';
 
 export { VERSION, PROTOCOL, GAME_SPEED };
 

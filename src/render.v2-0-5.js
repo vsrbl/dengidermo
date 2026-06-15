@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-10.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-5.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -193,6 +193,42 @@ export class Renderer {
         this.square(ex + (Math.random() - 0.5) * j, ey + (Math.random() - 0.5) * j, size, {
           stroke: COL.purple, lw: 2, fill: 'rgba(180,92,255,0.1)'
         });
+      } else if (kind === 'echo') {
+        this.square(ex, ey, size, { stroke: COL.purple, lw: 2, fill: 'rgba(180,92,255,0.06)' });
+        this.square(ex + Math.sin(now * 12) * 4, ey, size * 0.72, { stroke: '#777', lw: 1 });
+        this.label('ECH', ex, ey - size / 2 - 9, COL.purple, 9);
+      } else if (kind === 'orbiter') {
+        this.square(ex, ey, size, { stroke: COL.cyan, lw: 2.5, fill: 'rgba(102,246,255,0.05)' });
+        const fx = (dirX / 100) || 1, fy = (dirY / 100) || 0;
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 4; ctx.beginPath();
+        ctx.moveTo(ex + fx * size * 0.55 - fy * size * 0.3, ey + fy * size * 0.55 + fx * size * 0.3);
+        ctx.lineTo(ex + fx * size * 0.55 + fy * size * 0.3, ey + fy * size * 0.55 - fx * size * 0.3); ctx.stroke();
+        this.label('ORB', ex, ey - size / 2 - 9, COL.cyan, 9);
+      } else if (kind === 'anchor') {
+        this.square(ex, ey, size, { stroke: COL.purple, lw: 5, fill: 'rgba(180,92,255,0.08)' });
+        this.square(ex, ey, size * 0.55, { stroke: COL.purple, lw: 2, rotate: Math.PI / 4 });
+        ctx.save(); ctx.globalAlpha = 0.16 + Math.sin(now * 4) * 0.05; ctx.strokeStyle = COL.purple; ctx.setLineDash([10, 10]); ctx.strokeRect(ex - 125, ey - 125, 250, 250); ctx.restore();
+        this.label('ANC', ex, ey - size / 2 - 9, COL.purple, 9);
+      } else if (kind === 'splitter') {
+        this.square(ex, ey, size, { stroke, lw: 2, fill: 'rgba(255,255,255,0.04)' });
+        this.square(ex, ey, size * 0.55, { stroke, lw: 1, rotate: Math.PI / 4 });
+        this.label('SPL', ex, ey - size / 2 - 9, COL.dim, 9);
+      } else if (kind === 'prism') {
+        this.square(ex, ey, size, { stroke: COL.cyan, lw: 2, rotate: Math.PI / 4, fill: 'rgba(102,246,255,0.05)' });
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ex - size/2, ey); ctx.lineTo(ex + size/2, ey); ctx.moveTo(ex, ey - size/2); ctx.lineTo(ex, ey + size/2); ctx.stroke();
+        this.label('PRS', ex, ey - size / 2 - 9, COL.cyan, 9);
+      } else if (kind === 'pulse') {
+        this.square(ex, ey, size, { stroke: COL.red, lw: 2.5, fill: 'rgba(255,48,72,0.07)' });
+        const fx = (dirX / 100) || 1, fy = (dirY / 100) || 0; ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + fx * 54, ey + fy * 54); ctx.stroke(); ctx.setLineDash([]);
+        this.label('PLS', ex, ey - size / 2 - 9, COL.red, 9);
+      } else if (kind === 'leech') {
+        this.square(ex, ey, size, { stroke: COL.green, lw: 2, fill: 'rgba(0,255,102,0.06)' });
+        ctx.strokeStyle = COL.green; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ex - size*0.35, ey); ctx.lineTo(ex + size*0.35, ey); ctx.moveTo(ex, ey - size*0.35); ctx.lineTo(ex, ey + size*0.35); ctx.stroke();
+        this.label('LCH', ex, ey - size / 2 - 9, COL.green, 9);
+      } else if (kind === 'herald') {
+        this.square(ex, ey, size, { stroke: COL.red, lw: 4, fill: 'rgba(255,48,72,0.06)' });
+        this.square(ex, ey, size * 0.65, { stroke: COL.purple, lw: 2 });
+        this.label('HRD', ex, ey - size / 2 - 9, COL.red, 9);
       } else if (kind === 'boss') {
         this.square(ex, ey, size, { stroke, lw: 6, fill: 'rgba(255,255,255,0.05)' });
         this.square(ex, ey, size * 0.55, { stroke: COL.red, lw: 2, rotate: now * 1.2 });

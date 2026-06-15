@@ -6,8 +6,9 @@ export class Input {
     this.fire = false;
     this.dashEdge = false;
     this.interEdge = false;
+    this.activeEdge = false;
     this.weaponSel = -1;
-    this.tabOpen = false;
+    this.tabHeld = false;
     this.escEdge = false;
     this.numEdge = -1;   // 1/2/3 pressed this frame (for modals)
     this.blocked = false; // modal open: block game actions
@@ -18,7 +19,7 @@ export class Input {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       const c = e.code;
-      if (c === 'Tab') { e.preventDefault(); this.tabOpen = !this.tabOpen; return; }
+      if (c === 'Tab') { e.preventDefault(); this.tabHeld = true; return; }
       if (c === 'Escape') { this.escEdge = true; return; }
       if (c === 'Digit1' || c === 'Digit2' || c === 'Digit3') {
         this.numEdge = Number(c.slice(5)) - 1;
@@ -29,15 +30,16 @@ export class Input {
       this.keys.add(c);
       if (c === 'ShiftLeft' || c === 'ShiftRight') this.dashEdge = true;
       if (c === 'KeyE') this.interEdge = true;
+      if (c === 'KeyQ') this.activeEdge = true;
       if (c === 'Space') { e.preventDefault(); this.fire = true; }
     });
     window.addEventListener('keyup', (e) => {
       const c = e.code;
-      if (c === 'Tab') { e.preventDefault(); return; }
+      if (c === 'Tab') { e.preventDefault(); this.tabHeld = false; return; }
       this.keys.delete(c);
       if (c === 'Space') this.fire = false;
     });
-    window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; this.tabHeld = false; });
 
     window.addEventListener('mousemove', (e) => {
       this.mouseX = e.clientX; this.mouseY = e.clientY; this._cursorVisible = true; this.updateCursor();
@@ -74,6 +76,7 @@ export class Input {
   // consume edges (call once per send tick)
   takeDash() { const v = this.dashEdge; this.dashEdge = false; return v; }
   takeInter() { const v = this.interEdge; this.interEdge = false; return v; }
+  takeActive() { const v = this.activeEdge; this.activeEdge = false; return v; }
   takeWeapon(count) {
     let w = this.weaponSel; this.weaponSel = -1;
     if (this.wheelDir !== 0 && count > 0) {

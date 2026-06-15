@@ -1,9 +1,9 @@
 // nncckkrr server simulation — single source of truth, no client authority
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
-  rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-10.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-10.js';
+  rollUpgradeChoices, defaultStats, spinCasino, UPGRADE_LABELS
+} from './data.v2-0-5.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-5.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -14,12 +14,7 @@ const DASH_INVULN = 0.3;
 const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
-const ENEMY_PLAYER_PAD = 7;
-const ENEMY_PLAYER_PUSH = 0.36;
-const ENEMY_SELF_PUSH = 0.84;
 const PLAYER_HIT_INVULN = 0.12;
-const SHOT_RECOIL_SCALE = 1;
-const HIT_KNOCK_SCALE = 0.075;
 const DIFFICULTY_MULT = 2; // requested harder pass: roughly 2x pressure versus v2.0.2
 const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
@@ -54,32 +49,6 @@ function collideWalls(x, y, half, walls, ox, oy) {
 }
 function dist2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d }; }
-function fallbackDir(seed = 1) { const a = (Math.sin(seed * 999.13) * 43758.5453 % 1) * Math.PI * 2; return { x: Math.cos(a), y: Math.sin(a) }; }
-function separateEnemyPlayer(run, e, p, walls, playerFrac = ENEMY_PLAYER_PUSH, enemyFrac = ENEMY_SELF_PUSH) {
-  if (!p?.alive || !e) return false;
-  const min = (PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD;
-  let dx = p.x - e.x, dy = p.y - e.y;
-  let d = Math.hypot(dx, dy);
-  if (d < 0.001) {
-    const fb = fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
-    dx = fb.x; dy = fb.y; d = 1;
-  }
-  if (d >= min) return false;
-  const n = { x: dx / d, y: dy / d };
-  const overlap = min - d;
-  const def = ENEMIES[e.kind] || {};
-  const pPush = Math.min(30, overlap * playerFrac + 3);
-  const ePush = def.boss ? 0 : Math.min(46, overlap * enemyFrac + 5);
-  if (pPush > 0) {
-    const pc = collideWalls(p.x + n.x * pPush, p.y + n.y * pPush, PLAYER_SIZE / 2, walls, p.x, p.y);
-    p.x = pc.x; p.y = pc.y;
-  }
-  if (ePush > 0) {
-    const ec = collideWalls(e.x - n.x * ePush, e.y - n.y * ePush, e.size / 2, walls, e.x, e.y);
-    e.x = ec.x; e.y = ec.y;
-  }
-  return true;
-}
 function chanceStacks(v) {
   const full = Math.floor(Math.max(0, v));
   return full + (Math.random() < Math.max(0, v - full) ? 1 : 0);
@@ -108,6 +77,7 @@ export function createRun(seedBase) {
     directorT: 1.2,
     rainT: 3,
     fx: [],                  // dopamine events flushed each snapshot
+    hunterSpawned: false, hunterTarget: null, roomAge: 0,
     tick: 0
   };
 }
@@ -120,19 +90,19 @@ export function createPlayer(id, name, idx) {
     aimX: sp.x, aimY: sp.y - 100,
     moveX: 0, moveY: 0, fire: false,
     weapons: ['shotgun'], weaponIdx: 0, cd: 0,
-    dashCharges: 1, dashTimer: 0, invuln: 0,
+    dashCharges: 1, dashTimer: 0, invuln: 0, activeCd: 0, activeBuffT: 0,
     stats: defaultStats(),
     economy: { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 },
     lastSeq: 0,
     droneCd: 0, orbHits: new Map(),
     offer: null,
     touch: new Map(),
-    wantDash: false, wantInteract: false, wantWeapon: -1,
+    wantDash: false, wantInteract: false, wantActive: false, wantWeapon: -1,
     connected: true
   };
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
-export function speed(p) { return PLAYER_SPEED * p.stats.spdMul; }
+export function speed(p) { return PLAYER_SPEED * p.stats.spdMul * (p.slowT > 0 ? (p.slowMul || 0.6) : 1); }
 export function dashMax(p) { return 1 + p.stats.dashAdd; }
 
 export function startRoom(run, players) {
@@ -145,6 +115,7 @@ export function startRoom(run, players) {
   }
   run.enemies = []; run.bullets = []; run.pickups = [];
   run.pendingStrikes = [];
+  run.hunterSpawned = false; run.hunterTarget = null; run.roomAge = 0;
   run.kills = 0; run.spawned = 0;
   run.directorT = 1.4; run.rainT = 3.5;
   const pp = portalSpot(seed + 0x51F15EED, run.plan.walls, run.plan.interactables);
@@ -158,9 +129,18 @@ export function startRoom(run, players) {
     else p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
     p.offer = null;
+    if (p.stats.debtEngine > 0 && run.plan.category !== 'boss' && !run.plan.modifierIds.includes('static_rain')) run.plan.modifierIds.push('static_rain');
   }
   if (run.plan.category === 'boss') spawnEnemy(run, players, 'boss', false);
-  run.fx.push({ t: 'room', roomId: run.plan.roomId, loop: loopIndex, depth: run.runDepth, mods: run.plan.modifierIds, cat: run.plan.category });
+  else if (run.plan.modifierIds.includes('hunter_contract')) {
+    const h = spawnEnemy(run, players, 'herald', true);
+    h.hunter = true; run.hunterSpawned = true; run.hunterTarget = h.id;
+    run.fx.push({ t: 'contract', label: 'HUNTER CONTRACT', x: Math.round(h.x), y: Math.round(h.y) });
+  }
+  if (run.plan.specialRoomId === 'reward_pocket') {
+    for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18));
+  }
+  run.fx.push({ t: 'room', roomId: run.plan.roomId, loop: loopIndex, depth: run.runDepth, mods: run.plan.modifierIds, cat: run.plan.category, special: run.plan.specialRoomId });
 }
 
 export function resetRun(run, players) {
@@ -170,7 +150,7 @@ export function resetRun(run, players) {
     p.weapons = ['shotgun']; p.weaponIdx = 0;
     p.stats = defaultStats();
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.alive = true; p.hp = PLAYER_HP;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP;
   }
   startRoom(run, players);
 }
@@ -203,6 +183,8 @@ function spawnPool(run) {
   if (run.runDepth === 0) return ['grunt','grunt','grunt','runner'];
   if (run.runDepth === 1) return ['grunt','grunt','runner','shooter'];
   if (run.runDepth === 2) return ['grunt','runner','runner','shooter','charger'];
+  if (loop === 1) return ['grunt','runner','shooter','charger','bomber','bouncer','splitter'];
+  if (loop === 2) return ['grunt','runner','shooter','charger','bomber','bouncer','tank','glitch','anchor','leech','pulse'];
   return SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
 }
 function spawnEnemy(run, players, kind, canElite = true) {
@@ -222,12 +204,17 @@ function spawnEnemy(run, players, kind, canElite = true) {
     spd: def.spd, elite,
     state: 'move', st: 0, // state timer
     vx: 0, vy: 0, fireCd: (def.fireCd || 0) * (0.75 + rng() * 0.75),
-    dirX: 0, dirY: 0
+    dirX: 0, dirY: 0, aux: 0
   };
   if (kind === 'bouncer') {
     const a = rng() * Math.PI * 2;
     e.vx = Math.cos(a) * def.spd; e.vy = Math.sin(a) * def.spd;
   }
+  if (kind === 'splitter') e.splitStage = 0;
+  if (kind === 'orbiter') e.phase = rng() * Math.PI * 2;
+  if (kind === 'herald') e.summonCd = def.summonCd * (0.55 + rng() * 0.5);
+  if (kind === 'leech') e.healCd = def.healCd * (0.6 + rng() * 0.6);
+  if (kind === 'echo') e.fireCd = def.mirrorFireCd * (0.5 + rng() * 0.8);
   run.enemies.push(e);
   run.spawned++;
   return e;
@@ -284,14 +271,18 @@ function damagePlayer(run, p, dmg, srcX, srcY) {
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
   const def = ENEMIES[e.kind];
   if (def.armor) dmg *= (1 - def.armor);
+  if (e.kind === 'orbiter' && def.shield && (kx || ky)) {
+    // Front shield faces the player/target. Hits coming into the shield face are reduced.
+    const incomingTowardEnemy = norm(kx || 0, ky || 0);
+    const face = norm(e.dirX || 1, e.dirY || 0);
+    const dot = incomingTowardEnemy.x * face.x + incomingTowardEnemy.y * face.y;
+    if (dot > 0.25) { dmg *= (1 - def.shield); run.fx.push({ t: 'shield', x: Math.round(e.x), y: Math.round(e.y), id: e.id }); }
+  }
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
-  run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y), size: Math.round(e.size || 24), heavy: dmg >= 18, kx: Math.round((kx || 0) * 100) / 100, ky: Math.round((ky || 0) * 100) / 100 });
-  if (knock && !def.boss) {
-    const n = Math.hypot(kx || 0, ky || 0) > 0.001 ? norm(kx, ky) : fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
-    const impulse = Math.min(28, 2.5 + knock * HIT_KNOCK_SCALE + (dmg >= 18 ? 3 : 0));
-    const c = collideWalls(e.x + n.x * impulse, e.y + n.y * impulse, e.size / 2, run.plan.walls, e.x, e.y);
-    e.x = c.x; e.y = c.y;
+  run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y) });
+  if (knock && !def.boss && e.kind !== 'bouncer') {
+    e.x += kx * knock * 0.02; e.y += ky * knock * 0.02;
   }
   const p = owner ? players.get(owner) : null;
   if (p && p.stats.lifesteal > 0 && p.alive) {
@@ -305,6 +296,31 @@ function killEnemy(run, players, e, killer) {
   run.enemies = run.enemies.filter(x => x.id !== e.id);
   run.kills++;
   run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
+  if (e.kind === 'splitter' && (e.splitStage || 0) < 2) {
+    const children = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < children && run.enemies.length < MAX_ENEMIES; i++) {
+      const ch = spawnEnemy(run, players, 'splitter', false);
+      ch.x = e.x + (Math.random() - 0.5) * 70; ch.y = e.y + (Math.random() - 0.5) * 70;
+      ch.splitStage = (e.splitStage || 0) + 1;
+      ch.size = Math.max(16, Math.round(e.size * 0.68));
+      ch.maxHp = Math.max(10, Math.round(e.maxHp * 0.38)); ch.hp = ch.maxHp;
+      ch.spd = Math.round(e.spd * 1.35); ch.dmg = Math.max(5, Math.round(e.dmg * 0.72));
+    }
+    run.fx.push({ t: 'split', x: Math.round(e.x), y: Math.round(e.y) });
+  }
+  if (e.hunter || e.id === run.hunterTarget) {
+    run.hunterTarget = null;
+    run.fx.push({ t: 'contract_done', x: Math.round(e.x), y: Math.round(e.y) });
+    for (const p of players.values()) if (p.alive && p.connected) {
+      const pool = UPGRADES.filter(u => u.tier === 1 || u.tier === 2);
+      const u = pool[Math.floor(Math.random() * pool.length)];
+      if (u) { u.apply(p.stats); p.hp = Math.min(p.hp, maxHp(p)); run.fx.push({ t: 'install', id: p.id, label: 'HUNTER: ' + u.label, cursed: !!u.cursed }); }
+    }
+  }
+  if (run.plan.modifierIds.includes('casino_virus') && e.elite && Math.random() < 0.42) {
+    if (Math.random() < 0.62) { dropPickup(run, e.x, e.y, 'GLD', 18 + Math.round(Math.random() * 26)); run.fx.push({ t: 'casino_tick', x: Math.round(e.x), y: Math.round(e.y), good: 1 }); }
+    else { run.staticDebt = true; run.fx.push({ t: 'casino_tick', x: Math.round(e.x), y: Math.round(e.y), good: 0 }); }
+  }
   // drops
   const greed = run.plan.modifierIds.includes('greed');
   const mult = (e.elite ? 2.5 : 1) * (def.boss ? 1 : 1);
@@ -364,38 +380,39 @@ function fireWeapon(run, players, p, dt) {
   if (!p.fire || !p.alive || p.cd > 0) return;
   const w = WEAPONS[p.weapons[p.weaponIdx]];
   if (!w) return;
-  p.cd = w.cooldown / p.stats.fireMul;
+  const tempFire = p.activeBuffT > 0 ? 1.65 + p.stats.activeOver * 0.20 : 1;
+  p.cd = w.cooldown / (p.stats.fireMul * tempFire);
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
-  const recoil = (w.recoil || 0) * SHOT_RECOIL_SCALE;
-  if (recoil > 0) {
-    const c = collideWalls(p.x - dir.x * recoil, p.y - dir.y * recoil, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
-    p.x = c.x; p.y = c.y;
-  }
-  const shots = 1 + chanceStacks(p.stats.echoShot);
+  const shots = 1 + chanceStacks(p.stats.echoShot + (run.plan.modifierIds.includes('mirror_room') ? 0.18 : 0));
+  const pellets = w.pellets + (w.id === 'shotgun' ? p.stats.shgPellets : 0);
+  const homing = (w.homing || 0) + (w.id === 'seeker' ? p.stats.sekChain * 1.25 : 0);
+  const life = w.life + (w.id === 'seeker' ? p.stats.sekChain * 0.18 : 0);
+  const detonateDist = (w.detonateDist || 0) + (w.id === 'rocketgun' ? p.stats.rktCluster * 35 : 0);
   for (let s = 0; s < shots; s++) {
-    const delay = s * 0.06;
-    for (let i = 0; i < w.pellets; i++) {
+    const delay = s * 0.045;
+    for (let i = 0; i < pellets; i++) {
       if (run.bullets.length >= MAX_BULLETS) break;
       const ang = Math.atan2(dir.y, dir.x) + (Math.random() - 0.5) * w.spread;
       run.bullets.push({
         id: nid(), x: p.x + dir.x * 18, y: p.y + dir.y * 18,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
         dmg: w.dmg * p.stats.dmgMul, from: 'p', owner: p.id,
-        life: w.life, delay, size: w.size, aoe: w.aoe || 0, homing: w.homing || 0,
-        knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist: w.detonateDist || 0
+        life, delay, size: w.size, aoe: w.aoe || 0, homing,
+        knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist,
+        bounces: w.id === 'shotgun' ? p.stats.shgBounce : 0,
+        sekSplit: w.id === 'seeker' ? p.stats.sekSplit : 0,
+        rktCluster: w.id === 'rocketgun' ? p.stats.rktCluster : 0,
+        rktMines: w.id === 'rocketgun' ? p.stats.rktMines : 0,
+        mineDist: 0
       });
     }
   }
   run.fx.push({ t: 'shot', id: p.id, w: w.label, x: Math.round(p.x), y: Math.round(p.y) });
 }
-
 function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style = 'blast') {
   run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style });
   for (const e of [...run.enemies]) {
-    if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) {
-      const n = norm(e.x - x, e.y - y);
-      damageEnemy(run, players, e, dmg, owner, style === 'rocket' ? 95 : 36, n.x, n.y);
-    }
+    if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) damageEnemy(run, players, e, dmg, owner, 0, 0, 0);
   }
   if (hurtPlayers) {
     for (const p of players.values()) {
@@ -404,10 +421,37 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
   }
 }
 
+function rocketAftermath(run, players, b) {
+  if (b.rktCluster > 0) {
+    const pieces = Math.min(10, b.rktCluster * 2);
+    for (let i = 0; i < pieces; i++) {
+      const a = (i / pieces) * Math.PI * 2 + Math.random() * 0.35;
+      const d = 52 + Math.random() * 74;
+      explode(run, players, b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 38 + b.rktCluster * 5, b.dmg * 0.36, b.owner, false, 'proc');
+    }
+  }
+}
+
+function spawnSeekerFragments(run, owner, x, y, count, dmg) {
+  if (count <= 0) return;
+  const n = Math.min(8, count * 2);
+  for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.35;
+    run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, dmg, from: 'p', owner, life: 0.85, size: 4, homing: 6.0, kind: 'seeker' });
+  }
+}
+
 function stepBullets(run, players, dt) {
   const walls = run.plan.walls;
   for (const b of run.bullets) {
-    if (b.delay > 0) { b.delay -= dt; continue; }
+    if (b.delay > 0) {
+      b.delay -= dt;
+      if (b.delay <= 0 && b.mine) {
+        explode(run, players, b.x, b.y, b.aoe || 55, b.dmg, b.owner, false, 'rocket');
+        b.life = -1;
+      }
+      continue;
+    }
     b.life -= dt;
     if (b.homing > 0 && b.from === 'p') {
       let best = null, bd = 330 * 330;
@@ -426,27 +470,51 @@ function stepBullets(run, players, dt) {
     }
     const ox = b.x, oy = b.y;
     b.x += b.vx * dt; b.y += b.vy * dt;
-    b.travelled = (b.travelled || 0) + Math.hypot(b.x - ox, b.y - oy);
+    const moved = Math.hypot(b.x - ox, b.y - oy);
+    b.travelled = (b.travelled || 0) + moved;
+    if (b.rktMines > 0) {
+      b.mineDist = (b.mineDist || 0) + moved;
+      if (b.mineDist > 160 && run.bullets.length < MAX_BULLETS) {
+        b.mineDist = 0;
+        run.bullets.push({ id: nid(), x: b.x, y: b.y, vx: 0, vy: 0, dmg: b.dmg * 0.34, from: 'p', owner: b.owner, life: 1.0, delay: 0.42, size: 10, aoe: 50 + b.rktMines * 6, kind: 'mine', mine: true });
+        run.fx.push({ t: 'mine', x: Math.round(b.x), y: Math.round(b.y) });
+      }
+    }
     if (b.detonateDist && b.travelled >= b.detonateDist) {
       explode(run, players, b.x, b.y, b.aoe || 70, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
+      rocketAftermath(run, players, b);
       b.life = -1; continue;
     }
     // walls
-    let hitWall = false;
+    let hitWall = false, hitWallAxis = '';
     for (const w of walls) {
-      if (aabbHit(b.x, b.y, b.size / 2, w)) { hitWall = true; break; }
+      if (aabbHit(b.x, b.y, b.size / 2, w)) {
+        hitWall = true;
+        const prevX = aabbHit(ox, b.y, b.size / 2, w);
+        const prevY = aabbHit(b.x, oy, b.size / 2, w);
+        hitWallAxis = prevX ? 'y' : prevY ? 'x' : (Math.abs(b.vx) > Math.abs(b.vy) ? 'x' : 'y');
+        break;
+      }
     }
     if (hitWall) {
-      if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
+      if (b.bounces > 0) {
+        if (hitWallAxis === 'x') b.vx *= -0.82; else b.vy *= -0.82;
+        b.x = ox; b.y = oy; b.bounces--; b.life *= 0.82;
+        run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y) });
+        continue;
+      }
+      if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
       b.life = -1; continue;
     }
     if (b.from === 'p') {
       for (const e of run.enemies) {
         if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
-          if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
+          if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
           else {
             const n = norm(b.vx, b.vy);
+            const beforeHp = e.hp;
             damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y);
+            if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48);
             const blasts = chanceStacks(b.proc || 0);
             for (let bi = 0; bi < blasts; bi++) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false, 'proc');
           }
@@ -464,7 +532,6 @@ function stepBullets(run, players, dt) {
   }
   run.bullets = run.bullets.filter(b => b.life > 0);
 }
-
 // ---------------------------------------------------------------- enemies
 function nearestAlive(players, x, y) {
   let best = null, bd = Infinity;
@@ -486,7 +553,6 @@ function stepEnemies(run, players, dt) {
     const half = e.size / 2;
 
     if (e.kind === 'bouncer') {
-      // pinball: constant speed, bounce off walls & players, no fatigue
       let nx = e.x + e.vx * dt, ny = e.y + e.vy * dt;
       for (const w of walls) {
         if (aabbHit(nx, e.y, half, w)) { e.vx *= -1; nx = e.x; }
@@ -494,22 +560,13 @@ function stepEnemies(run, players, dt) {
       }
       e.x = nx; e.y = ny;
       if (!e.touchCds) e.touchCds = new Map();
-      for (const [k, v] of e.touchCds) {
-        const nv = v - dt;
-        if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv);
-      }
+      for (const [k, v] of e.touchCds) { const nv = v - dt; if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv); }
       for (const p of players.values()) {
         if (!p.alive) continue;
-        if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD) ** 2) {
-          let n = norm(p.x - e.x, p.y - e.y);
-          if (!n.x && !n.y) n = fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
-          if (!e.touchCds.has(p.id)) {
-            damagePlayer(run, p, e.dmg, e.x, e.y);
-            e.touchCds.set(p.id, TOUCH_CD * 0.55);
-          }
-          // push player and separate bodies even during damage cooldown, so BNC never sits inside the player.
-          separateEnemyPlayer(run, e, p, walls, 0.60, 0.95);
-          const pushed = collideWalls(p.x + n.x * def.push * 0.10, p.y + n.y * def.push * 0.10, PLAYER_SIZE / 2, walls, p.x, p.y);
+        if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
+          const n = norm(p.x - e.x, p.y - e.y);
+          if (!e.touchCds.has(p.id)) { damagePlayer(run, p, e.dmg, e.x, e.y); e.touchCds.set(p.id, TOUCH_CD * 0.55); }
+          const pushed = collideWalls(p.x + n.x * def.push * 0.25, p.y + n.y * def.push * 0.25, PLAYER_SIZE / 2, walls, p.x, p.y);
           p.x = pushed.x; p.y = pushed.y;
           e.vx = -n.x * def.spd; e.vy = -n.y * def.spd;
         }
@@ -522,13 +579,9 @@ function stepEnemies(run, players, dt) {
     const dT = Math.hypot(target.x - e.x, target.y - e.y);
 
     if (e.kind === 'shooter') {
-      // keep distance, fire
       let mv = 0;
       if (dT > def.keep + 40) mv = 1; else if (dT < def.keep - 60) mv = -1;
-      if (mv !== 0) {
-        const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y);
-        e.x = c.x; e.y = c.y;
-      }
+      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
         e.fireCd = def.fireCd;
@@ -539,108 +592,170 @@ function stepEnemies(run, players, dt) {
     } else if (e.kind === 'charger') {
       if (e.state === 'move') {
         if (dT < 300) { e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
-        else {
-          const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y);
-          e.x = c.x; e.y = c.y;
-        }
+        else { const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
       } else if (e.state === 'windup') {
-        e.dirX = toT.x; e.dirY = toT.y; // track until launch
+        e.dirX = toT.x; e.dirY = toT.y;
         if (e.st >= def.windup) { e.state = 'charge'; e.st = 0; }
       } else if (e.state === 'charge') {
         const c = collideWalls(e.x + e.dirX * def.chargeSpd * dt, e.y + e.dirY * def.chargeSpd * dt, half, walls, e.x, e.y);
-        const blocked = (c.x === e.x && c.y === e.y);
-        e.x = c.x; e.y = c.y;
-        for (const p of players.values()) {
-          if (p.alive && dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD) ** 2) {
-            separateEnemyPlayer(run, e, p, walls, 0.65, 0.55);
-            damagePlayer(run, p, e.dmg, e.x, e.y);
-            e.state = 'cool'; e.st = 0;
-          }
-        }
+        const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
+        for (const p of players.values()) if (p.alive && dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) { damagePlayer(run, p, e.dmg, e.x, e.y); e.state = 'cool'; e.st = 0; }
         if (e.st >= def.chargeTime || blocked) { e.state = 'cool'; e.st = 0; }
-      } else if (e.state === 'cool') {
-        if (e.st >= def.chargeCd) { e.state = 'move'; e.st = 0; }
-      }
+      } else if (e.state === 'cool') { if (e.st >= def.chargeCd) { e.state = 'move'; e.st = 0; } }
     } else if (e.kind === 'bomber') {
       if (e.state === 'move') {
-        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y);
-        e.x = c.x; e.y = c.y;
+        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
         if (dT < 80) { e.state = 'fuse'; e.st = 0; run.fx.push({ t: 'fuse', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: def.blast, dur: def.fuse }); }
       } else if (e.state === 'fuse') {
         if (e.st >= def.fuse) {
           explode(run, players, e.x, e.y, def.blast, e.dmg, null, true, 'danger');
-          e.hp = 0;
-          run.enemies = run.enemies.filter(x => x.id !== e.id);
-          run.kills++;
+          run.enemies = run.enemies.filter(x => x.id !== e.id); run.kills++;
           run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
-          dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6));
-          dropPickup(run, e.x + 10, e.y, 'EXP', def.xp);
+          dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6)); dropPickup(run, e.x + 10, e.y, 'EXP', def.xp);
           if (quotaCanOpenPortal(run)) openPortal(run);
         }
       }
     } else if (e.kind === 'glitch') {
       if (e.state === 'move') {
-        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y);
-        e.x = c.x; e.y = c.y;
+        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
         if (e.st >= def.blinkCd && dT < 600) {
-          // blink near player (telegraphed by fx)
-          const a = Math.random() * Math.PI * 2;
-          const bx = target.x + Math.cos(a) * 90, by = target.y + Math.sin(a) * 90;
+          const a = Math.random() * Math.PI * 2; const bx = target.x + Math.cos(a) * 90, by = target.y + Math.sin(a) * 90;
           run.fx.push({ t: 'blink', id: e.id, fx: Math.round(e.x), fy: Math.round(e.y), tx: Math.round(bx), ty: Math.round(by) });
-          e.x = bx; e.y = by;
-          e.state = 'strike'; e.st = 0;
+          e.x = bx; e.y = by; e.state = 'strike'; e.st = 0;
         }
       } else if (e.state === 'strike') {
-        if (e.st >= def.strikeCd) {
-          if (dT < 75) { separateEnemyPlayer(run, e, target, walls, 0.55, 0.45); damagePlayer(run, target, e.dmg, e.x, e.y); }
-          run.fx.push({ t: 'gstrike', x: Math.round(e.x), y: Math.round(e.y) });
-          e.state = 'move'; e.st = 0;
+        if (e.st >= def.strikeCd) { if (dT < 75) damagePlayer(run, target, e.dmg, e.x, e.y); run.fx.push({ t: 'gstrike', x: Math.round(e.x), y: Math.round(e.y) }); e.state = 'move'; e.st = 0; }
+      }
+    } else if (e.kind === 'echo') {
+      const keep = 220;
+      let mv = dT > keep ? 1 : dT < keep * 0.65 ? -0.8 : 0;
+      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      e.fireCd -= dt;
+      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
+        e.fireCd = def.mirrorFireCd;
+        const a = Math.atan2(toT.y, toT.x) + (Math.random() - 0.5) * 0.38;
+        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * 280, vy: Math.sin(a) * 280, dmg: e.dmg, from: 'e', life: 2.2, delay: 0.22, size: 7 });
+        run.fx.push({ t: 'echo_shot', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+      }
+      e.dirX = toT.x; e.dirY = toT.y;
+    } else if (e.kind === 'orbiter') {
+      e.phase += dt * 1.15;
+      const desired = { x: target.x + Math.cos(e.phase) * def.orbitR, y: target.y + Math.sin(e.phase) * def.orbitR };
+      const mv = norm(desired.x - e.x, desired.y - e.y);
+      const c = collideWalls(e.x + mv.x * e.spd * dt, e.y + mv.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      e.fireCd -= dt;
+      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
+        e.fireCd = def.fireCd;
+        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * def.bulletSpd, vy: toT.y * def.bulletSpd, dmg: e.dmg, from: 'e', life: 2.1, size: 6 });
+      }
+      e.dirX = toT.x; e.dirY = toT.y;
+      touchDamage(run, e, players, dt);
+    } else if (e.kind === 'anchor') {
+      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      for (const p of players.values()) {
+        if (!p.alive) continue;
+        const d = Math.sqrt(dist2(p.x, p.y, e.x, e.y));
+        if (d < def.fieldR) {
+          p.slowT = 0.18; p.slowMul = 0.56;
+          const n = norm(e.x - p.x, e.y - p.y);
+          const cc = collideWalls(p.x + n.x * def.pull * dt, p.y + n.y * def.pull * dt, PLAYER_SIZE / 2, walls, p.x, p.y); p.x = cc.x; p.y = cc.y;
         }
       }
+      for (const pk of [...run.pickups]) {
+        if (dist2(pk.x, pk.y, e.x, e.y) < (def.fieldR + 90) ** 2) {
+          const n = norm(e.x - pk.x, e.y - pk.y); pk.x += n.x * 180 * dt; pk.y += n.y * 180 * dt;
+          if (dist2(pk.x, pk.y, e.x, e.y) < (e.size * 0.7) ** 2) { run.pickups = run.pickups.filter(x => x !== pk); run.fx.push({ t: 'consume', x: Math.round(e.x), y: Math.round(e.y) }); }
+        }
+      }
+      e.fxT = (e.fxT || 0) - dt;
+      if (e.fxT <= 0) { e.fxT = 0.22; run.fx.push({ t: 'field', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: def.fieldR }); }
+      touchDamage(run, e, players, dt);
+    } else if (e.kind === 'splitter') {
+      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      touchDamage(run, e, players, dt);
+    } else if (e.kind === 'prism') {
+      let mv = dT > 360 ? 1 : dT < 260 ? -1 : 0;
+      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      e.fireCd -= dt;
+      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 3) {
+        e.fireCd = def.fireCd;
+        const base = Math.atan2(toT.y, toT.x);
+        for (const da of [-0.34, 0, 0.34]) run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(base + da) * def.beamSpd, vy: Math.sin(base + da) * def.beamSpd, dmg: e.dmg, from: 'e', life: 2.3, size: 5 });
+        run.fx.push({ t: 'prism', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+      }
+      e.dirX = toT.x; e.dirY = toT.y;
+    } else if (e.kind === 'pulse') {
+      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      e.fireCd -= dt;
+      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 5) {
+        e.fireCd = def.fireCd;
+        const nx = -toT.y, ny = toT.x;
+        for (let i = -2; i <= 2; i++) run.bullets.push({ id: nid(), x: e.x + nx * i * 18, y: e.y + ny * i * 18, vx: toT.x * def.waveSpd, vy: toT.y * def.waveSpd, dmg: e.dmg, from: 'e', life: 1.4, size: 9 });
+        run.fx.push({ t: 'pulse_wave', id: e.id, x: Math.round(e.x), y: Math.round(e.y), dx: toT.x, dy: toT.y });
+      }
+      e.dirX = toT.x; e.dirY = toT.y;
+      touchDamage(run, e, players, dt);
+    } else if (e.kind === 'leech') {
+      let ally = null, missing = 0;
+      for (const a of run.enemies) {
+        if (a.id === e.id || a.hp >= a.maxHp) continue;
+        const miss = a.maxHp - a.hp;
+        if (miss > missing && dist2(a.x, a.y, e.x, e.y) < def.linkR * def.linkR) { ally = a; missing = miss; }
+      }
+      if (ally) {
+        const toA = norm(ally.x - e.x, ally.y - e.y);
+        const dd = Math.hypot(ally.x - e.x, ally.y - e.y);
+        if (dd > 170) { const c = collideWalls(e.x + toA.x * e.spd * dt, e.y + toA.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+        e.healCd -= dt;
+        e.fxT = (e.fxT || 0) - dt;
+        if (e.fxT <= 0) { e.fxT = 0.18; run.fx.push({ t: 'leech_link', id: e.id, target: ally.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(ally.x), y2: Math.round(ally.y) }); }
+        if (e.healCd <= 0) { e.healCd = def.healCd; ally.hp = Math.min(ally.maxHp, ally.hp + def.heal); run.fx.push({ t: 'heal_enemy', x: Math.round(ally.x), y: Math.round(ally.y), val: def.heal }); }
+      } else {
+        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+        touchDamage(run, e, players, dt);
+      }
+    } else if (e.kind === 'herald') {
+      const keep = 420;
+      const mv = dT > keep ? 1 : dT < keep - 120 ? -0.7 : 0;
+      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      e.summonCd -= dt;
+      e.fxT = (e.fxT || 0) - dt;
+      if (e.fxT <= 0) { e.fxT = 0.14; run.fx.push({ t: 'tether', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(target.x), y2: Math.round(target.y) }); }
+      if (dT < 480 && e.st > 0.9) { e.st = 0; damagePlayer(run, target, def.tetherDmg, e.x, e.y); }
+      if (e.summonCd <= 0 && run.enemies.length < difficulty(run).maxActive) {
+        e.summonCd = Math.max(1.7, def.summonCd - difficulty(run).loop * 0.25);
+        const pool = ['grunt','runner','runner','glitch','bouncer','pulse'];
+        for (let i = 0; i < 2 + Math.min(3, difficulty(run).loop); i++) spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)], false);
+        run.fx.push({ t: 'summon', x: Math.round(e.x), y: Math.round(e.y) });
+      }
+      e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'boss') {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y);
-      e.x = c.x; e.y = c.y;
+      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
         e.fireCd = def.fireCd * (e.hp < e.maxHp * 0.5 ? 0.65 : 1);
-        const n = 10;
-        const base = Math.random() * Math.PI * 2;
-        for (let i = 0; i < n; i++) {
-          const a = base + (i / n) * Math.PI * 2;
-          run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * def.bulletSpd, vy: Math.sin(a) * def.bulletSpd, dmg: Math.round(e.dmg * 0.6), from: 'e', life: 3.2, size: 9 });
-        }
+        const n = 10; const base = Math.random() * Math.PI * 2;
+        for (let i = 0; i < n; i++) { const a = base + (i / n) * Math.PI * 2; run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * def.bulletSpd, vy: Math.sin(a) * def.bulletSpd, dmg: Math.round(e.dmg * 0.6), from: 'e', life: 3.2, size: 9 }); }
         run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
       }
-      // touch
       touchDamage(run, e, players, dt);
     } else {
-      // grunt / runner / tank: chase + touch
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y);
-      e.x = c.x; e.y = c.y;
+      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
       touchDamage(run, e, players, dt);
     }
   }
 }
 
 function touchDamage(run, e, players, dt) {
-  if (!e.touchCds) e.touchCds = new Map();
-  for (const [k, v] of e.touchCds) {
-    const nv = v - dt;
-    if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv);
-  }
-  const walls = run.plan?.walls || [];
   for (const p of players.values()) {
     if (!p.alive) continue;
     const key = p.id;
-    const hitR = (PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD;
-    if (dist2(p.x, p.y, e.x, e.y) < hitR * hitR) {
-      // Collision always creates body separation, even while touch damage is on cooldown.
-      // This prevents enemies from living inside the player and blocking aim/hits.
-      separateEnemyPlayer(run, e, p, walls);
-      if (!e.touchCds.has(key)) {
-        damagePlayer(run, p, e.dmg, e.x, e.y);
-        e.touchCds.set(key, TOUCH_CD);
-      }
+    const cd = e.touchCds?.get(key) || 0;
+    if (cd > 0) { e.touchCds.set(key, cd - dt); continue; }
+    if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
+      damagePlayer(run, p, e.dmg, e.x, e.y);
+      if (!e.touchCds) e.touchCds = new Map();
+      e.touchCds.set(key, TOUCH_CD);
     }
   }
 }
@@ -669,7 +784,7 @@ function stepCompanions(run, players, dt, now) {
           const di = Math.floor(Math.random() * p.stats.drones);
           const dp = orbitalPos(p, di, Math.max(1, p.stats.drones), now + 100);
           const n = norm(best.x - dp.x, best.y - dp.y);
-          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: 8 * p.stats.dmgMul, from: 'p', owner: p.id, life: 1.1, size: 4 });
+          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: 8 * p.stats.dmgMul, from: 'p', owner: p.id, life: 1.1, size: 4, proc: p.stats.droneProc ? Math.min(0.9, p.stats.procBlast * 0.55 + p.stats.droneProc * 0.10) : 0 });
         }
       }
     }
@@ -678,6 +793,14 @@ function stepCompanions(run, players, dt, now) {
       for (const [k, v] of p.orbHits) { if (v <= now) p.orbHits.delete(k); }
       for (let i = 0; i < p.stats.orbitals; i++) {
         const op = orbitalPos(p, i, p.stats.orbitals, now);
+        if (p.stats.orbReflect > 0) {
+          for (const b of [...run.bullets]) {
+            if (b.from === 'e' && dist2(b.x, b.y, op.x, op.y) < (20 + p.stats.orbReflect * 4) ** 2) {
+              run.bullets = run.bullets.filter(x => x !== b);
+              run.fx.push({ t: 'bullet_cut', id: p.id, x: Math.round(op.x), y: Math.round(op.y), count: 1 });
+            }
+          }
+        }
         for (const e of run.enemies) {
           if (p.orbHits.has(e.id)) continue;
           if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 12) ** 2) {
@@ -716,6 +839,15 @@ function stepPickups(run, players, dt) {
 // ---------------------------------------------------------------- room mods
 function stepMods(run, players, dt) {
   if (run.phase !== 'play') return;
+  run.roomAge = (run.roomAge || 0) + dt;
+  if (run.plan.modifierIds.includes('hunter_contract') && run.hunterTarget && run.roomAge > 38) {
+    const h = run.enemies.find(e => e.id === run.hunterTarget);
+    if (h && !h.hunterEscalated) {
+      h.hunterEscalated = true; h.elite = true; h.maxHp = Math.round(h.maxHp * 1.55); h.hp = h.maxHp; h.dmg = Math.round(h.dmg * 1.35); h.size = Math.round(h.size * 1.12);
+      run.fx.push({ t: 'contract_fail', x: Math.round(h.x), y: Math.round(h.y) });
+      for (let i = 0; i < 5; i++) spawnEnemy(run, players, ['runner','glitch','bouncer'][Math.floor(Math.random()*3)], false);
+    }
+  }
   if (run.plan.modifierIds.includes('static_rain')) {
     run.rainT -= dt;
     if (run.rainT <= 0) {
@@ -768,14 +900,17 @@ function tryInteract(run, players, p) {
 
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
-  if (def.cost > 0) {
-    if (p.economy.money < def.cost) {
-      run.fx.push({ t: 'denied', id: p.id, obj: o.id, x: o.x, y: o.y, cost: def.cost, have: p.economy.money, chest: def.label });
+  const debtFloor = run.plan.modifierIds.includes('debt_floor');
+  const cost = debtFloor && def.cost > 0 ? Math.max(0, Math.floor(def.cost * 0.5)) : def.cost;
+  if (cost > 0) {
+    if (p.economy.money < cost) {
+      run.fx.push({ t: 'denied', id: p.id, obj: o.id, x: o.x, y: o.y, cost, have: p.economy.money, chest: def.label });
       return;
     }
-    p.economy.money -= def.cost;
+    p.economy.money -= cost;
   }
   o.opened = true;
+  if (debtFloor && o.chest !== 'basic_chest') { run.staticDebt = true; run.fx.push({ t: 'debt', id: p.id, x: o.x, y: o.y }); }
   const rng = Math.random;
   const rewards = [];
   if (o.chest === 'basic_chest') {
@@ -794,14 +929,17 @@ function openChest(run, players, p, o) {
       rewards.push(WEAPONS[w].label);
       run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[w].label });
     } else {
-      p.stats.dmgMul *= 1.2;
-      rewards.push('DMG +20%');
+      const cur = p.weapons[p.weaponIdx];
+      const pool = cur === 'shotgun' ? ['shg_bounce','shg_teeth'] : cur === 'seeker' ? ['sek_split','sek_chain'] : ['rkt_cluster','rkt_mines'];
+      const u = UPGRADES.find(x => x.id === pool[Math.floor(rng() * pool.length)]);
+      if (u) { u.apply(p.stats); rewards.push(u.label); }
+      else { p.stats.dmgMul *= 1.2; rewards.push('DMG +20%'); }
     }
   } else if (o.chest === 'ability_chest') {
-    p.stats.dashAdd += 1;
+    const pool = ['dash','voidstep','dashcut','dashclone','q_snap','q_blood','q_over'];
+    const u = UPGRADES.find(x => x.id === pool[Math.floor(rng() * pool.length)]);
+    if (u) { u.apply(p.stats); rewards.push(u.label); run.fx.push({ t: 'ability_get', id: p.id, label: u.label }); }
     p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
-    rewards.push('DASH +1');
-    run.fx.push({ t: 'ability_get', id: p.id, label: 'DASH +1' });
   } else if (o.chest === 'rare_chest') {
     const pool = UPGRADES.filter(u => u.tier === 1);
     const u = pool[Math.floor(rng() * pool.length)];
@@ -840,6 +978,11 @@ export function handleCasino(run, players, p, stakeKey) {
   if (pl.xp) addXp(run, p, pl.xp);
   if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
   if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  if (pl.ability) {
+    const pool = ['dash','voidstep','dashcut','dashclone','q_snap','q_blood','q_over'];
+    const u = UPGRADES.find(x => x.id === pool[Math.floor(Math.random() * pool.length)]);
+    if (u) { u.apply(p.stats); pl.abilityLabel = u.label; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  }
   if (pl.weapon) {
     const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
     if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
@@ -898,10 +1041,41 @@ function stepInstall(run, players, dt) {
 }
 
 // ---------------------------------------------------------------- players
+function doActive(run, players, p) {
+  if (p.activeCd > 0) return;
+  const hasAny = p.stats.activeSnap || p.stats.activeBlood || p.stats.activeOver;
+  if (!hasAny) { run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
+  p.activeCd = Math.max(1.4, 6.0 - p.stats.luck * 0.08);
+  if (p.stats.activeBlood > 0 && p.hp > 18) {
+    const cost = Math.min(18, Math.max(8, Math.round(maxHp(p) * 0.10)));
+    p.hp = Math.max(1, p.hp - cost);
+    explode(run, players, p.x, p.y, 150 + p.stats.activeBlood * 18, (34 + p.stats.activeBlood * 8) * p.stats.dmgMul, p.id, false, 'blood');
+    run.fx.push({ t: 'active', id: p.id, label: 'BLOOD PULSE', x: Math.round(p.x), y: Math.round(p.y) });
+  }
+  if (p.stats.activeSnap > 0) {
+    const r = 270 + p.stats.activeSnap * 25;
+    for (const e of [...run.enemies]) {
+      if (dist2(e.x, e.y, p.x, p.y) < r * r) {
+        const n = norm(p.x - e.x, p.y - e.y);
+        e.x += n.x * (55 + p.stats.activeSnap * 12); e.y += n.y * (55 + p.stats.activeSnap * 12);
+        damageEnemy(run, players, e, (16 + p.stats.activeSnap * 5) * p.stats.dmgMul, p.id, 0, 0, 0);
+      }
+    }
+    run.fx.push({ t: 'active', id: p.id, label: 'FIELD SNAP', x: Math.round(p.x), y: Math.round(p.y), r });
+  }
+  if (p.stats.activeOver > 0) {
+    p.activeBuffT = Math.max(p.activeBuffT, 4.0 + p.stats.activeOver * 0.7);
+    run.fx.push({ t: 'active', id: p.id, label: 'OVERCLOCK', x: Math.round(p.x), y: Math.round(p.y) });
+  }
+}
+
 function stepPlayers(run, players, dt) {
   for (const p of players.values()) {
     if (!p.connected) continue;
     p.invuln = Math.max(0, p.invuln - dt);
+    p.activeCd = Math.max(0, (p.activeCd || 0) - dt);
+    p.activeBuffT = Math.max(0, (p.activeBuffT || 0) - dt);
+    p.slowT = Math.max(0, (p.slowT || 0) - dt);
     // dash regen
     const dm = dashMax(p);
     if (p.dashCharges < dm) {
@@ -925,12 +1099,30 @@ function stepPlayers(run, players, dt) {
       if (Math.hypot(dx, dy) < 0.01) { const n = norm(p.aimX - p.x, p.aimY - p.y); dx = n.x; dy = n.y; }
       const n = norm(dx, dy);
       const c = collideWalls(p.x + n.x * DASH_DIST, p.y + n.y * DASH_DIST, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
+      const ox = p.x, oy = p.y;
       run.fx.push({ t: 'dash', id: p.id, fx: Math.round(p.x), fy: Math.round(p.y), tx: Math.round(c.x), ty: Math.round(c.y) });
+      if (p.stats.voidStep > 0) {
+        const mx = (ox + c.x) / 2, my = (oy + c.y) / 2;
+        explode(run, players, mx, my, 58 + p.stats.voidStep * 12, (18 + p.stats.voidStep * 7) * p.stats.dmgMul, p.id, false, 'void');
+      }
+      if (p.stats.dashClone > 0) explode(run, players, ox, oy, 46 + p.stats.dashClone * 8, (10 + p.stats.dashClone * 5) * p.stats.dmgMul, p.id, false, 'echo');
+      if (p.stats.dashCut > 0) {
+        const minx = Math.min(ox, c.x) - 80, maxx = Math.max(ox, c.x) + 80, miny = Math.min(oy, c.y) - 80, maxy = Math.max(oy, c.y) + 80;
+        let cut = 0;
+        run.bullets = run.bullets.filter(b => {
+          if (b.from !== 'e') return true;
+          if (b.x >= minx && b.x <= maxx && b.y >= miny && b.y <= maxy) { cut++; return false; }
+          return true;
+        });
+        if (cut) run.fx.push({ t: 'bullet_cut', id: p.id, x: Math.round((ox + c.x) / 2), y: Math.round((oy + c.y) / 2), count: cut });
+      }
       p.x = c.x; p.y = c.y;
       p.dashCharges--;
       p.invuln = Math.max(p.invuln, DASH_INVULN);
     }
     p.wantDash = false;
+    if (p.wantActive && run.phase === 'play') doActive(run, players, p);
+    p.wantActive = false;
     // weapon switch
     if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) p.weaponIdx = p.wantWeapon;
     p.wantWeapon = -1;
@@ -985,7 +1177,7 @@ export function buildSnapshot(run, players) {
       p.economy.level, p.economy.pending, Math.round(p.economy.money),
       Math.round(p.economy.xp), p.economy.nextLevelXp,
       p.stats.drones, p.stats.orbitals, p.lastSeq, p.name, p.invuln > 0 ? 1 : 0,
-      Math.round(speed(p))
+      Math.round(speed(p)), Math.ceil((p.activeCd || 0) * 10) / 10, p.activeBuffT > 0 ? 1 : 0
     ]);
   }
   const es = run.enemies.map(e => [
@@ -1006,7 +1198,7 @@ export function buildSnapshot(run, players) {
   return {
     t: 's', tick: run.tick, now: run.now,
     room: {
-      id: run.plan.roomId, cat: run.plan.category,
+      id: run.plan.roomId, cat: run.plan.category, special: run.plan.specialRoomId || '',
       loop: run.plan.loopIndex, depth: run.runDepth, inLoop: run.plan.roomInLoop,
       mods: run.plan.modifierIds, quota: run.plan.quota, kills: run.kills,
       w: run.plan.w, h: run.plan.h,

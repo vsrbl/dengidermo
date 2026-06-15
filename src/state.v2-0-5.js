@@ -1,5 +1,5 @@
 // nncckkrr client state: snapshot buffer, interpolation, prediction + reconciliation
-import { ENEMIES } from '../shared/data.v2-0-10.js';
+import { ENEMIES } from '../shared/data.v2-0-5.js';
 const PLAYER_SIZE = 28;
 const DASH_DIST = 175;
 const INTERP_DELAY = 110; // ms behind host for remote entities (guest mode)
@@ -9,7 +9,7 @@ const INTERP_DELAY_LOCAL = 40; // sim runs in this browser at 60Hz
 export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
-  DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22
+  DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -93,7 +93,7 @@ export class GameState {
   }
 
   // apply local input for prediction; returns input packet to send
-  applyLocalInput(mv, aim, fire, dash, inter, wpn, dt) {
+  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt) {
     const me = this.me();
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
@@ -118,7 +118,7 @@ export class GameState {
     return {
       seq: this.seq, mx: mv.x, my: mv.y,
       ax: Math.round(aim.x), ay: Math.round(aim.y),
-      fire, dash: dash || undefined, inter: inter || undefined,
+      fire, dash: dash || undefined, inter: inter || undefined, active: active || undefined,
       wpn: wpn >= 0 ? wpn : undefined
     };
   }

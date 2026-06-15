@@ -1,11 +1,11 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-10.js';
-import { Input } from './input.v2-0-10.js';
-import { GameState, P } from './state.v2-0-10.js';
-import { Effects } from './effects.v2-0-10.js';
-import { Renderer } from './render.v2-0-10.js';
-import { Hud } from './hud.v2-0-10.js';
-import { AudioBus } from './audio.v2-0-10.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-5.js';
+import { Input } from './input.v2-0-5.js';
+import { GameState, P } from './state.v2-0-5.js';
+import { Effects } from './effects.v2-0-5.js';
+import { Renderer } from './render.v2-0-5.js';
+import { Hud } from './hud.v2-0-5.js';
+import { AudioBus } from './audio.v2-0-5.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -18,8 +18,8 @@ const input = new Input(canvas);
 const state = new GameState();
 const effects = new Effects();
 const renderer = new Renderer(canvas);
+const hud = new Hud(net);
 const audio = new AudioBus();
-const hud = new Hud(net, audio);
 
 let inGame = false;
 let lastSend = 0;
@@ -142,8 +142,9 @@ function frame(now) {
     lastSend = now;
     const dash = input.takeDash();
     const inter = input.takeInter();
+    const active = input.takeActive();
     const wpn = input.takeWeapon(me ? me[P.WEAPONS].length : 1);
-    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, wpn, sdt);
+    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt);
     net.sendInput(pkt);
   }
 
@@ -152,6 +153,6 @@ function frame(now) {
   const view = state.interp();
   renderer.draw(state, effects, view, myPos, { x: input.mouseX, y: input.mouseY }, now / 1000);
   hud.update(state, dt * GAME_SPEED);
-  hud.setTab(input.tabOpen, state);
+  hud.setTab(input.tabHeld, state);
 }
 requestAnimationFrame(frame);

@@ -1,5 +1,5 @@
 // nncckkrr room generation: walls, pillars, chests, BET terminals, spawns
-import { ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-10.js';
+import { ROOM_MODS, ROOM_SEQUENCE, SPECIAL_ROOMS } from './data.v2-0-5.js';
 
 export const WORLD_W = 2200;
 export const WORLD_H = 1500;
@@ -58,7 +58,7 @@ function genWalls(rng, category, loopIndex) {
     return walls;
   }
 
-  const variant = Math.floor(rng() * 9);
+  const variant = Math.floor(rng() * 12);
   const extra = Math.min(7, loopIndex * 2);
   const blocks = 4 + Math.floor(rng() * 6) + Math.floor(extra * rng());
 
@@ -144,7 +144,7 @@ function genWalls(rng, category, loopIndex) {
       const y = WORLD_H * (diag > 0 ? 0.16 + t * 0.68 : 0.84 - t * 0.68) + (rng() - 0.5) * 180 - h / 2;
       addRandomBlock(rng, walls, x, y, w, h);
     }
-  } else { // micro-arena debris cloud; high randomness, no maze
+  } else if (variant === 8) { // micro-arena debris cloud; high randomness, no maze
     const centers = 1 + Math.floor(rng() * 4);
     for (let c = 0; c < centers; c++) {
       const cx = SAFE + 220 + rng() * (WORLD_W - SAFE * 2 - 440);
@@ -154,6 +154,30 @@ function genWalls(rng, category, loopIndex) {
         const w = 38 + rng() * 120, h = 38 + rng() * 120;
         addRandomBlock(rng, walls, cx + (rng() - 0.5) * 360 - w / 2, cy + (rng() - 0.5) * 280 - h / 2, w, h);
       }
+    }
+  } else if (variant === 9) { // terminal teeth: side jaws with central lanes
+    const side = rng() < 0.5;
+    for (let i = 0; i < 4 + Math.floor(rng() * 3); i++) {
+      const w = side ? 70 + rng() * 90 : 180 + rng() * 300;
+      const h = side ? 160 + rng() * 300 : 70 + rng() * 90;
+      const x = side ? (rng() < 0.5 ? SAFE + rng() * 170 : WORLD_W - SAFE - w - rng() * 170) : SAFE + rng() * (WORLD_W - SAFE * 2 - w);
+      const y = side ? SAFE + rng() * (WORLD_H - SAFE * 2 - h) : (rng() < 0.5 ? SAFE + rng() * 160 : WORLD_H - SAFE - h - rng() * 160);
+      addRandomBlock(rng, walls, x, y, w, h);
+    }
+  } else if (variant === 10) { // casino pockets: small hazard islands and reward corners
+    for (let i = 0; i < 5 + Math.floor(rng() * 5); i++) {
+      const w = 36 + rng() * 84, h = 36 + rng() * 84;
+      const x = WORLD_W * (0.15 + rng() * 0.7) - w / 2;
+      const y = WORLD_H * (0.15 + rng() * 0.7) - h / 2;
+      addRandomBlock(rng, walls, x, y, w, h);
+    }
+  } else { // broken spokes; cover points point toward center but leave readable gaps
+    const spokes = 5 + Math.floor(rng() * 4);
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2 + rng() * 0.35;
+      const d = 300 + rng() * 430;
+      const w = 55 + rng() * 120, h = 40 + rng() * 110;
+      addRandomBlock(rng, walls, WORLD_W / 2 + Math.cos(a) * d - w / 2, WORLD_H / 2 + Math.sin(a) * d - h / 2, w, h);
     }
   }
   return walls;
@@ -196,13 +220,16 @@ function pocketSpot(rng, walls, center, margin, blockers) {
 }
 
 // chest/interactable budget: more texture — empty rooms, pockets, strange clusters, late greed.
-function genInteractables(rng, category, loopIndex, greed) {
+function genInteractables(rng, category, loopIndex, greed, modIds = [], specialRoomId = '') {
   const objs = [];
   let id = 1;
   if (category === 'boss') return objs; // boss room: reward spawns after kill
 
   const mood = rng(); // each room gets a loot personality, not just smooth density
-  const density = rng() * 1.35 + loopIndex * 0.055 + (greed ? 0.28 : 0);
+  const debtFloor = modIds.includes('debt_floor');
+  const contract = specialRoomId === 'signal_contract';
+  const rewardPocket = specialRoomId === 'reward_pocket';
+  const density = rng() * 1.35 + loopIndex * 0.055 + (greed ? 0.28 : 0) + (debtFloor ? 0.45 : 0) + (rewardPocket ? 0.6 : 0);
   let bscCount = density < 0.16 ? 0 : density < 0.62 ? 1 : density < 1.04 ? 2 : 3 + Math.floor(rng() * 2);
   let paidCount = density < 0.28 ? 0 : density < 0.75 ? 1 : density < 1.14 ? 2 : 3 + Math.floor(rng() * 2);
   if (mood < 0.12) { bscCount = 0; paidCount = rng() < 0.55 ? 0 : 1; }           // dead/quiet room
@@ -214,56 +241,84 @@ function genInteractables(rng, category, loopIndex, greed) {
     const chest = roll < 0.34 ? 'weapon_chest' : roll < 0.68 ? 'ability_chest' : 'rare_chest';
     objs.push({ id: `c${id++}`, type: 'chest', chest });
   }
-  if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
-  if (rng() < 0.48 + loopIndex * 0.05 + (mood > 0.75 ? 0.18 : 0)) objs.push({ id: `b${id++}`, type: 'bet' });
+  if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0) + (debtFloor ? 0.14 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
+  if (rng() < 0.48 + loopIndex * 0.05 + (mood > 0.75 ? 0.18 : 0) + (contract ? 0.28 : 0)) objs.push({ id: `b${id++}`, type: 'bet' });
+  if (contract) objs.push({ id: `c${id++}`, type: 'chest', chest: rng() < 0.5 ? 'rare_chest' : 'ability_chest' });
   return objs;
 }
 
 export function generateRoom(seed, runDepth, loopIndex) {
   const rng = mulberry32(seed);
   const roomInLoop = runDepth % ROOM_SEQUENCE.length;
-  const category = ROOM_SEQUENCE[roomInLoop];
+  const baseCategory = ROOM_SEQUENCE[roomInLoop];
+  let category = baseCategory;
+  let specialRoomId = '';
+  let activityId = '';
+
+  // Route replacement rules: non-boss rooms can become special/directive rooms.
+  if (category !== 'boss' && loopIndex >= 1) {
+    const specialChance = Math.min(0.34, 0.10 + loopIndex * 0.035);
+    if (rng() < specialChance) {
+      const specials = Object.keys(SPECIAL_ROOMS);
+      specialRoomId = specials[Math.floor(rng() * specials.length)];
+      activityId = specialRoomId;
+    }
+  }
+
   const modifierIds = [];
   if (loopIndex >= 1 && category !== 'boss') {
-    const modChance = Math.min(0.70, 0.16 + loopIndex * 0.08);
+    const modChance = Math.min(0.82, 0.20 + loopIndex * 0.085 + (specialRoomId ? 0.18 : 0));
     if (rng() < modChance) {
       const keys = Object.keys(ROOM_MODS);
       modifierIds.push(keys[Math.floor(rng() * keys.length)]);
-      if (loopIndex >= 4 && rng() < 0.22) {
+      if (loopIndex >= 2 && rng() < 0.20 + loopIndex * 0.035) {
+        const extra = keys[Math.floor(rng() * keys.length)];
+        if (!modifierIds.includes(extra)) modifierIds.push(extra);
+      }
+      if (loopIndex >= 5 && rng() < 0.18) {
         const extra = keys[Math.floor(rng() * keys.length)];
         if (!modifierIds.includes(extra)) modifierIds.push(extra);
       }
     }
   }
+  if (specialRoomId === 'signal_contract') {
+    const contractMods = ['greed', 'static_rain', 'debt_floor', 'hunter_contract', 'casino_virus', 'mirror_room'];
+    const picked = contractMods[Math.floor(rng() * contractMods.length)];
+    if (!modifierIds.includes(picked)) modifierIds.push(picked);
+  } else if (specialRoomId === 'debt_node') {
+    if (!modifierIds.includes('debt_floor')) modifierIds.push('debt_floor');
+  } else if (specialRoomId === 'reward_pocket') {
+    if (!modifierIds.includes('greed') && rng() < 0.55) modifierIds.push('greed');
+  }
+
   const greed = modifierIds.includes('greed');
   const walls = genWalls(rng, category, loopIndex);
-  const interactables = genInteractables(rng, category, loopIndex, greed);
+  const interactables = genInteractables(rng, category, loopIndex, greed, modifierIds, specialRoomId);
   const blockers = [
     { x: WORLD_W / 2, y: WORLD_H / 2, r: 290 }
   ];
-  const usePocket = rng() < 0.42 && interactables.length >= 2;
-  const pockets = [freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers)];
+  const usePocket = rng() < (specialRoomId === 'reward_pocket' ? 0.88 : 0.42) && interactables.length >= 2;
+  const pockets = [freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers)];
   for (let i = 0; i < interactables.length; i++) {
     const o = interactables[i];
-    const clustered = usePocket && rng() < 0.65;
+    const clustered = usePocket && rng() < (specialRoomId === 'reward_pocket' ? 0.85 : 0.65);
     const p = clustered ? pocketSpot(rng, walls, pockets[i % pockets.length], 82, blockers) : freeSpot(rng, walls, 86, blockers);
     o.x = p.x; o.y = p.y; o.opened = false;
-    // not too close, but allow visible reward pockets instead of perfectly even spacing
     blockers.push({ x: o.x, y: o.y, r: clustered ? 128 : 178 });
   }
-  // softer opening, harsh late-loop ramp
   const late = Math.max(0, loopIndex - 2);
-  const baseQuota = category === 'boss' ? 1 : Math.round((8 + roomInLoop * 2 + loopIndex * 5 + Math.floor(Math.pow(late, 1.65) * 7)) * 2);
+  let baseQuota = category === 'boss' ? 1 : Math.round((8 + roomInLoop * 2 + loopIndex * 5 + Math.floor(Math.pow(late, 1.65) * 7)) * 2);
+  if (specialRoomId === 'signal_contract') baseQuota = Math.max(8, Math.round(baseQuota * 0.72));
+  if (modifierIds.includes('hunter_contract')) baseQuota = Math.max(6, Math.round(baseQuota * 0.82));
   return {
     seed, runDepth, loopIndex, roomInLoop,
-    roomId: `${category}-${String(runDepth).padStart(2, '0')}`,
-    category, modifierIds,
+    roomId: `${specialRoomId ? specialRoomId : category}-${String(runDepth).padStart(2, '0')}`,
+    category, baseCategory, specialRoomId, activityId, modifierIds,
     walls, interactables,
     quota: baseQuota,
     w: WORLD_W, h: WORLD_H
   };
 }
-
 
 export function portalSpot(seed, walls, interactables = []) {
   const rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
