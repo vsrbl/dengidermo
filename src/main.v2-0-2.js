@@ -1,10 +1,10 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-1.js';
-import { Input } from './input.v2-0-1.js';
-import { GameState, P } from './state.v2-0-1.js';
-import { Effects } from './effects.v2-0-1.js';
-import { Renderer } from './render.v2-0-1.js';
-import { Hud } from './hud.v2-0-1.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-2.js';
+import { Input } from './input.v2-0-2.js';
+import { GameState, P } from './state.v2-0-2.js';
+import { Effects } from './effects.v2-0-2.js';
+import { Renderer } from './render.v2-0-2.js';
+import { Hud } from './hud.v2-0-2.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};

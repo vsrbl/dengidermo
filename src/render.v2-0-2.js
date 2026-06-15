@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-1.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-2.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -204,6 +204,25 @@ export class Renderer {
       if (elite && kind !== 'boss') this.label('ELITE', ex, ey - size / 2 - 8, COL.red, 8);
     }
 
+    // player-to-cursor tether: thin, always green, visible even while input is blocked by modals
+    if (myPos && mouse) {
+      const mw = this.screenToWorld(mouse.x, mouse.y);
+      const dx = mw.x - myPos.x, dy = mw.y - myPos.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const ux = dx / d, uy = dy / d;
+      const endD = Math.min(d, 420);
+      ctx.save();
+      ctx.globalAlpha = 0.18 + 0.08 * Math.sin(now * 7);
+      ctx.strokeStyle = COL.green;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(myPos.x + ux * 24, myPos.y + uy * 24);
+      ctx.lineTo(myPos.x + ux * Math.max(30, endD - 18), myPos.y + uy * Math.max(30, endD - 18));
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // players + companions
     for (const p of view.players) {
       const isMe = p[P.ID] === state.myId;
@@ -267,7 +286,7 @@ export class Renderer {
 
     // crosshair
     ctx.strokeStyle = COL.green; ctx.lineWidth = 1.5;
-    const mx = mouse.x, my = mouse.y, ch = 8;
+    const mx = mouse.x, my = mouse.y, ch = 7;
     ctx.beginPath();
     ctx.moveTo(mx - ch, my); ctx.lineTo(mx - 3, my);
     ctx.moveTo(mx + 3, my); ctx.lineTo(mx + ch, my);

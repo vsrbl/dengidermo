@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-1.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-1.js';
+} from './data.v2-0-2.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-2.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -143,26 +143,49 @@ export function resetRun(run, players) {
 }
 
 // ---------------------------------------------------------------- spawning
-function scaling(run) {
+function difficulty(run) {
   const loop = Math.floor(run.runDepth / 4);
-  return 1 + run.runDepth * 0.16 + loop * 0.45;
+  const late = Math.max(0, loop - 2);
+  const depth = run.runDepth;
+  // First loop is deliberately readable. After several loops, pressure ramps hard.
+  return {
+    loop, late,
+    hp: 0.74 + depth * 0.055 + loop * 0.11 + Math.pow(late, 1.55) * 0.34,
+    dmg: 0.62 + depth * 0.045 + loop * 0.09 + Math.pow(late, 1.45) * 0.26,
+    eliteChance: loop <= 0 ? 0 : Math.min(0.34, 0.045 + loop * 0.035 + late * 0.04),
+    eliteHp: 1.65 + loop * 0.12,
+    eliteDmg: 1.25 + loop * 0.05,
+    maxActive: Math.min(MAX_ENEMIES, Math.round(8 + depth * 1.15 + loop * 4 + Math.pow(late, 1.5) * 8)),
+    addCap: Math.min(24, 8 + loop * 3 + late * 4)
+  };
+}
+function scaling(run) {
+  return difficulty(run).hp;
+}
+function spawnPool(run) {
+  const loop = Math.floor(run.runDepth / 4);
+  if (run.runDepth === 0) return ['grunt','grunt','grunt','runner'];
+  if (run.runDepth === 1) return ['grunt','grunt','runner','shooter'];
+  if (run.runDepth === 2) return ['grunt','runner','runner','shooter','charger'];
+  return SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
 }
 function spawnEnemy(run, players, kind, canElite = true) {
   const def = ENEMIES[kind];
   const rng = Math.random;
   const p = enemySpawnPoint(mulberry32((Math.random() * 1e9) >>> 0), run.plan.walls, [...players.values()].filter(pl => pl.alive));
-  const sc = scaling(run);
-  const loop = Math.floor(run.runDepth / 4);
-  const elite = canElite && loop >= 1 && rng() < 0.18;
+  const df = difficulty(run);
+  const elite = canElite && rng() < df.eliteChance;
+  const hpMul = Math.max(0.42, df.hp) * (elite ? df.eliteHp : 1);
+  const dmgMul = Math.max(0.40, df.dmg) * (elite ? df.eliteDmg : 1);
   const e = {
     id: nid(), kind, x: p.x, y: p.y,
-    hp: Math.round(def.hp * sc * (elite ? 2.2 : 1)),
-    maxHp: Math.round(def.hp * sc * (elite ? 2.2 : 1)),
-    dmg: Math.round(def.dmg * (1 + (sc - 1) * 0.7) * (elite ? 1.5 : 1)),
+    hp: Math.max(4, Math.round(def.hp * hpMul)),
+    maxHp: Math.max(4, Math.round(def.hp * hpMul)),
+    dmg: Math.max(1, Math.round(def.dmg * dmgMul)),
     size: Math.round(def.size * (elite ? 1.18 : 1)),
     spd: def.spd, elite,
     state: 'move', st: 0, // state timer
-    vx: 0, vy: 0, fireCd: (def.fireCd || 0) * (0.6 + rng() * 0.6),
+    vx: 0, vy: 0, fireCd: (def.fireCd || 0) * (0.75 + rng() * 0.75),
     dirX: 0, dirY: 0
   };
   if (kind === 'bouncer') {
@@ -179,31 +202,35 @@ function director(run, players, dt) {
   const alive = [...players.values()].filter(p => p.alive);
   if (!alive.length) return;
   const plan = run.plan;
+  const df = difficulty(run);
   if (plan.category === 'boss') {
-    // boss adds
+    // boss adds: gentler first boss, nasty after several loops
     const boss = run.enemies.find(e => e.kind === 'boss');
     if (boss && boss.hp < boss.maxHp * 0.55) {
       run.directorT -= dt;
-      if (run.directorT <= 0 && run.enemies.length < 14) {
-        run.directorT = 5.5;
-        spawnEnemy(run, players, Math.random() < 0.6 ? 'runner' : 'grunt', false);
+      if (run.directorT <= 0 && run.enemies.length < df.addCap) {
+        run.directorT = Math.max(1.7, 7.2 - df.loop * 0.55 - df.late * 0.75);
+        const pool = df.loop < 2 ? ['grunt','runner'] : ['grunt','runner','shooter','bouncer','glitch'];
+        spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)], df.loop >= 3);
       }
     }
     return;
   }
   if (run.portal.open) return; // calm after objective
   const greed = plan.modifierIds.includes('greed');
-  const totalBudget = plan.quota + 14;
+  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 8);
+  const totalBudget = plan.quota + 5 + df.loop * 5 + lateBudget;
   if (run.spawned >= totalBudget) return;
-  run.directorT -= dt * (greed ? 1.25 : 1);
+  run.directorT -= dt * (greed ? 1.18 : 1);
   if (run.directorT > 0) return;
-  const loop = Math.floor(run.runDepth / 4);
-  const pool = SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
-  const batch = 2 + Math.floor(Math.random() * Math.min(4, 2 + loop));
-  for (let i = 0; i < batch && run.enemies.length < MAX_ENEMIES && run.spawned < totalBudget; i++) {
+  const pool = spawnPool(run);
+  const baseBatch = df.loop === 0 ? 1 : 1 + Math.floor(Math.min(4, df.loop / 1.35));
+  const chaosBonus = df.late > 0 && Math.random() < Math.min(0.85, df.late * 0.18) ? 1 + Math.floor(Math.random() * Math.min(4, df.late + 1)) : 0;
+  const batch = Math.min(8, baseBatch + chaosBonus + (greed && Math.random() < 0.35 ? 1 : 0));
+  for (let i = 0; i < batch && run.enemies.length < df.maxActive && run.spawned < totalBudget; i++) {
     spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)]);
   }
-  run.directorT = Math.max(0.55, 1.7 - loop * 0.18 - run.runDepth * 0.03);
+  run.directorT = Math.max(0.34, 3.9 - df.loop * 0.42 - run.runDepth * 0.035 - df.late * 0.40);
 }
 
 // ---------------------------------------------------------------- damage

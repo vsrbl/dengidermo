@@ -1,5 +1,5 @@
 // nncckkrr client state: snapshot buffer, interpolation, prediction + reconciliation
-import { ENEMIES } from '../shared/data.v2-0-1.js';
+import { ENEMIES } from '../shared/data.v2-0-2.js';
 const PLAYER_SIZE = 28;
 const DASH_DIST = 175;
 const INTERP_DELAY = 110; // ms behind host for remote entities (guest mode)

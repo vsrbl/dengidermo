@@ -11,6 +11,9 @@ export class Input {
     this.escEdge = false;
     this.numEdge = -1;   // 1/2/3 pressed this frame (for modals)
     this.blocked = false; // modal open: block game actions
+    this.cursorEl = document.getElementById('custom-cursor');
+    this._cursorVisible = false;
+    this.updateCursor();
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -36,8 +39,12 @@ export class Input {
     });
     window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; this.tabHeld = false; });
 
-    canvas.addEventListener('mousemove', (e) => { this.mouseX = e.clientX; this.mouseY = e.clientY; });
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0 && !this.blocked) this.fire = true; });
+    window.addEventListener('mousemove', (e) => {
+      this.mouseX = e.clientX; this.mouseY = e.clientY; this._cursorVisible = true; this.updateCursor();
+    });
+    window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursor(); });
+    window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursor(); });
+    window.addEventListener('mousedown', (e) => { if (e.button === 0 && !this.blocked) this.fire = true; });
     window.addEventListener('mouseup', (e) => { if (e.button === 0) this.fire = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('wheel', (e) => {
@@ -45,6 +52,12 @@ export class Input {
       this.wheelDir = e.deltaY > 0 ? 1 : -1;
     }, { passive: true });
     this.wheelDir = 0;
+  }
+
+  updateCursor() {
+    if (!this.cursorEl) return;
+    this.cursorEl.classList.toggle('hidden', !this._cursorVisible);
+    this.cursorEl.style.transform = `translate3d(${this.mouseX - 14}px, ${this.mouseY - 14}px, 0)`;
   }
 
   moveVec() {
