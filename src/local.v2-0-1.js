@@ -1,10 +1,10 @@
 // nncckkrr local room: the simulation runs in the HOST'S BROWSER (or solo, offline).
 // Host input is applied directly (zero latency); guests connect via WebRTC/relay.
-import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS } from '../shared/protocol.v2-0-0.js';
+import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-0-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
   handleCasino, handlePick
-} from '../shared/sim.v2-0-0.js';
+} from '../shared/sim.v2-0-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
 const SNAP_EVERY = Math.max(1, Math.round(SIM_HZ / SNAPSHOT_HZ));
@@ -22,6 +22,7 @@ export class LocalRoom {
     this.guestFx = [];            // fx accumulated between guest snapshots
     this.offersSent = new Map();
     this.lastTickAt = performance.now();
+    this.simNow = this.lastTickAt / 1000;
     this.timer = setInterval(() => this.tick(), TICK_MS);
     this.hostId = null;
   }
@@ -51,7 +52,7 @@ export class LocalRoom {
     const p = createPlayer(guestId, name, this.players.size);
     this.players.set(guestId, p);
     this.channels.set(guestId, channel);
-    channel.send(this.welcomeMsg(guestId));
+    channel.send(this.welcomeMsg(guestId), true);
     this.run.fx.push({ t: 'join', id: guestId, name: p.name });
     return true;
   }
@@ -71,13 +72,17 @@ export class LocalRoom {
     if (m.t === 'input') this.handleInput(playerId, m);
     else if (m.t === 'casino') {
       const p = this.players.get(playerId);
-      if (p) handleCasino(this.run, this.players, p, String(m.stake || ''));
+      if (!p) return;
+      const result = handleCasino(this.run, this.players, p, String(m.stake || ''));
+      this.sendTo(playerId, { ...(result || { ok: false, error: 'BET FAILED' }), t: 'casino_result' }, true);
     } else if (m.t === 'pick') {
       const p = this.players.get(playerId);
-      if (p) handlePick(this.run, this.players, p, m.choice);
+      if (!p) return;
+      const ok = handlePick(this.run, this.players, p, m.choice);
+      if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
+      else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid INSTALL choice' }, true);
     } else if (m.t === 'ping') {
-      const ch = this.channels.get(playerId);
-      if (ch) ch.send({ t: 'pong', ts: m.ts });
+      this.sendTo(playerId, { t: 'pong', ts: m.ts }, true);
     }
   }
 
@@ -85,7 +90,9 @@ export class LocalRoom {
     const p = this.players.get(playerId);
     if (!p) return;
     const num = v => (typeof v === 'number' && isFinite(v)) ? v : 0;
-    p.lastSeq = Math.max(p.lastSeq, num(m.seq) | 0);
+    const seq = num(m.seq) | 0;
+    if (seq <= p.lastSeq) return; // unordered rtc input: never apply stale packets
+    p.lastSeq = seq;
     p.moveX = Math.max(-1, Math.min(1, num(m.mx)));
     p.moveY = Math.max(-1, Math.min(1, num(m.my)));
     p.aimX = Math.max(0, Math.min(this.run.plan.w, num(m.ax)));
@@ -100,17 +107,18 @@ export class LocalRoom {
     const now = performance.now();
     let dt = (now - this.lastTickAt) / 1000;
     this.lastTickAt = now;
-    dt = Math.min(dt, 0.1);
+    dt = Math.min(dt, 0.1) * GAME_SPEED;
+    this.simNow += dt;
     if (this.players.size === 0) return;
 
     const prevDepth = this.run.runDepth;
     const prevSeed = this.run.plan.seed;
-    step(this.run, this.players, dt, now / 1000);
+    step(this.run, this.players, dt, this.simNow);
 
     if (this.run.plan.seed !== prevSeed || this.run.runDepth !== prevDepth) {
       const wallMsg = { t: 'walls', walls: buildWalls(this.run), world: { w: this.run.plan.w, h: this.run.plan.h } };
       this.onLocal(wallMsg);
-      this.broadcastGuests(wallMsg);
+      this.broadcastGuests(wallMsg, true);
     }
 
     // upgrade offers
@@ -120,7 +128,7 @@ export class LocalRoom {
         this.offersSent.set(pid, p.offer);
         const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending };
         if (pid === this.hostId) this.onLocal(msg);
-        else { const ch = this.channels.get(pid); if (ch) ch.send(msg); }
+        else this.sendTo(pid, msg, true);
       }
       if (!p.offer && sent) this.offersSent.delete(pid);
     }
@@ -140,13 +148,21 @@ export class LocalRoom {
     } else this.guestFx = [];
   }
 
-  broadcastGuests(msg) {
-    for (const ch of this.channels.values()) ch.send(msg);
+  sendTo(playerId, msg, reliable = false) {
+    if (playerId === this.hostId) this.onLocal(msg);
+    else {
+      const ch = this.channels.get(playerId);
+      if (ch) ch.send(msg, reliable);
+    }
+  }
+
+  broadcastGuests(msg, reliable = false) {
+    for (const ch of this.channels.values()) ch.send(msg, reliable);
   }
 
   close() {
     clearInterval(this.timer);
-    this.broadcastGuests({ t: S.ROOM_CLOSED });
+    this.broadcastGuests({ t: S.ROOM_CLOSED }, true);
     this.players.clear();
     this.channels.clear();
   }

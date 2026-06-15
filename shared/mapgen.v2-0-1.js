@@ -1,5 +1,5 @@
 // nncckkrr room generation: walls, pillars, chests, BET terminals, spawns
-import { CHESTS, ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-0.js';
+import { CHESTS, ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-1.js';
 
 export const WORLD_W = 2200;
 export const WORLD_H = 1500;
@@ -42,7 +42,7 @@ function genWalls(rng, category) {
       y = WALL_T + 150 + rng() * (WORLD_H - 300 - ph - WALL_T * 2);
     } else if (variant === 1) { // rows
       x = WORLD_W * (0.2 + 0.3 * (i % 3)) - pw / 2;
-      y = WORLD_H * (0.3 + 0.4 * Math.floor(i / 3) % 1) - ph / 2 + (rng() - 0.5) * 120;
+      y = WORLD_H * (0.28 + 0.22 * (Math.floor(i / 3) % 3)) - ph / 2 + (rng() - 0.5) * 120;
     } else { // ring
       const ang = (i / pillars) * Math.PI * 2 + rng() * 0.4;
       x = WORLD_W / 2 + Math.cos(ang) * WORLD_W * 0.28 - pw / 2;
@@ -57,13 +57,20 @@ function genWalls(rng, category) {
   return walls;
 }
 
-function freeSpot(rng, walls, margin = 70) {
+function freeSpot(rng, walls, margin = 70, blockers = []) {
   for (let tries = 0; tries < 80; tries++) {
     const x = WALL_T + margin + rng() * (WORLD_W - (WALL_T + margin) * 2);
     const y = WALL_T + margin + rng() * (WORLD_H - (WALL_T + margin) * 2);
     let ok = true;
     for (const w of walls) {
       if (x > w.x - margin && x < w.x + w.w + margin && y > w.y - margin && y < w.y + w.h + margin) { ok = false; break; }
+    }
+    if (ok) {
+      for (const b of blockers) {
+        const dx = x - b.x, dy = y - b.y;
+        const minD = b.r || margin * 2.1;
+        if (dx * dx + dy * dy < minD * minD) { ok = false; break; }
+      }
     }
     if (ok) return { x: Math.round(x), y: Math.round(y) };
   }
@@ -106,9 +113,14 @@ export function generateRoom(seed, runDepth, loopIndex) {
   const greed = modifierIds.includes('greed');
   const walls = genWalls(rng, category);
   const interactables = genInteractables(rng, category, loopIndex, greed);
+  const blockers = [
+    { x: WORLD_W / 2, y: WORLD_H / 2, r: 260 },
+    { x: WORLD_W / 2, y: WALL_T + 110, r: 160 }
+  ];
   for (const o of interactables) {
-    const p = freeSpot(rng, walls, 90);
+    const p = freeSpot(rng, walls, 90, blockers);
     o.x = p.x; o.y = p.y; o.opened = false;
+    blockers.push({ x: o.x, y: o.y, r: 190 });
   }
   // kill quota objective
   const baseQuota = category === 'boss' ? 1 : 14 + roomInLoop * 4 + loopIndex * 6;

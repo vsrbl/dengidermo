@@ -1,11 +1,12 @@
 // nncckkrr protocol + version constants (single source of truth)
-export const VERSION = 'v2.0.0';
-export const BUILD_ID = 'v2.0.0-20260611';
+export const VERSION = 'v2.0.1';
+export const BUILD_ID = 'v2.0.1-20260615';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;
 export const SIM_HZ = 60;
 export const SNAPSHOT_HZ = 20;
+export const GAME_SPEED = 2; // global sim/prediction tempo multiplier
 export const MAX_MESSAGE_BYTES = 64 * 1024;
 export const RATE_LIMIT_PER_WINDOW = 300;
 export const RATE_WINDOW_MS = 1000;

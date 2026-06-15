@@ -1,10 +1,10 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION } from './net.v2-0-0.js';
-import { Input } from './input.v2-0-0.js';
-import { GameState, P } from './state.v2-0-0.js';
-import { Effects } from './effects.v2-0-0.js';
-import { Renderer } from './render.v2-0-0.js';
-import { Hud } from './hud.v2-0-0.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-1.js';
+import { Input } from './input.v2-0-1.js';
+import { GameState, P } from './state.v2-0-1.js';
+import { Effects } from './effects.v2-0-1.js';
+import { Renderer } from './render.v2-0-1.js';
+import { Hud } from './hud.v2-0-1.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -95,6 +95,8 @@ net.on('s', (m) => {
   }
 });
 net.on('offer', (m) => hud.openInstall(m.choices, m.pending));
+net.on('offer_close', () => hud.closeInstall());
+net.on('casino_result', (m) => hud.casinoResult(m, state.myId));
 net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? 'комната не найдена' : m.error === 'room full' ? 'комната заполнена (4/4)' : m.error, 'err'); });
 net.on('room_closed', () => location.reload());
 net.on('_closed', () => {
@@ -133,7 +135,7 @@ function frame(now) {
   const aim = renderer.screenToWorld(input.mouseX, input.mouseY);
   const sendNow = now - lastSend >= (state.localMode ? 16 : 33);
   if (sendNow) {
-    const sdt = Math.min(0.05, (now - (lastSend || now - 16)) / 1000);
+    const sdt = Math.min(0.05, (now - (lastSend || now - 16)) / 1000) * GAME_SPEED;
     lastSend = now;
     const dash = input.takeDash();
     const inter = input.takeInter();
@@ -146,7 +148,7 @@ function frame(now) {
   const myPos = state.myRenderPos(dt);
   const view = state.interp();
   renderer.draw(state, effects, view, myPos, { x: input.mouseX, y: input.mouseY }, now / 1000);
-  hud.update(state, dt);
+  hud.update(state, dt * GAME_SPEED);
   hud.setTab(input.tabHeld, state);
 }
 requestAnimationFrame(frame);

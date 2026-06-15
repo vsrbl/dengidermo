@@ -1,4 +1,5 @@
 // nncckkrr client state: snapshot buffer, interpolation, prediction + reconciliation
+import { ENEMIES } from '../shared/data.v2-0-1.js';
 const PLAYER_SIZE = 28;
 const DASH_DIST = 175;
 const INTERP_DELAY = 110; // ms behind host for remote entities (guest mode)
@@ -10,8 +11,8 @@ export const P = {
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22
 };
-export const ENEMY_KINDS = ['grunt','runner','tank','shooter','charger','bomber','bouncer','glitch','boss'];
-export const ENEMY_LABELS = ['GRT','RUN','TNK','SHT','CHG','BMB','BNC','GLT','BOS'];
+export const ENEMY_KINDS = Object.keys(ENEMIES);
+export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
 
 function aabbHit(x, y, half, w) {
   return x + half > w.x && x - half < w.x + w.w && y + half > w.y && y - half < w.y + w.h;

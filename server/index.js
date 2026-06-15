@@ -6,15 +6,15 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.0.0';
-const BUILD_ID = 'v2.0.0-20260611';
+const VERSION = 'v2.0.1';
+const BUILD_ID = 'v2.0.1-20260615';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;
 const RATE_LIMIT_PER_WINDOW = 300;
 const RATE_WINDOW_MS = 1000;
 
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 10777);
 const ORIGINS = (process.env.CLIENT_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 // roomCode -> { host: ws, guests: Map<gid, ws> }

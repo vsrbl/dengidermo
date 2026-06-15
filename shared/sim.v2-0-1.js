@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-0.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-0.js';
+} from './data.v2-0-1.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, mulberry32, WALL_T } from './mapgen.v2-0-1.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -14,6 +14,7 @@ const DASH_INVULN = 0.3;
 const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
+const PLAYER_HIT_INVULN = 0.12;
 const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
@@ -47,6 +48,18 @@ function collideWalls(x, y, half, walls, ox, oy) {
 }
 function dist2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d }; }
+function chanceStacks(v) {
+  const full = Math.floor(Math.max(0, v));
+  return full + (Math.random() < Math.max(0, v - full) ? 1 : 0);
+}
+function openPortal(run) {
+  if (run.portal.open) return;
+  run.portal.open = true;
+  run.fx.push({ t: 'portal_open', x: run.portal.x, y: run.portal.y });
+}
+function quotaCanOpenPortal(run) {
+  return run.plan.category !== 'boss' && run.kills >= run.plan.quota;
+}
 
 // ---------------------------------------------------------------- state
 export function createRun(seedBase) {
@@ -99,6 +112,7 @@ export function startRoom(run, players) {
     run.staticDebt = false;
   }
   run.enemies = []; run.bullets = []; run.pickups = [];
+  run.pendingStrikes = [];
   run.kills = 0; run.spawned = 0;
   run.directorT = 1.4; run.rainT = 3.5;
   run.portal = { x: run.plan.w / 2, y: WALL_T + 110, open: false };
@@ -196,6 +210,7 @@ function director(run, players, dt) {
 function damagePlayer(run, p, dmg, srcX, srcY) {
   if (!p.alive || p.invuln > 0) return;
   p.hp -= dmg;
+  p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
   run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y) });
   if (p.hp <= 0) {
     p.hp = 0; p.alive = false;
@@ -235,12 +250,10 @@ function killEnemy(run, players, e, killer) {
     run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y) });
     // boss reward burst
     for (let i = 0; i < 6; i++) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', 20 + Math.round(Math.random() * 20));
+    openPortal(run);
   }
   // proc blast on kill? (proc handled at bullet hit)
-  if (!run.portal.open && run.kills >= run.plan.quota) {
-    run.portal.open = true;
-    run.fx.push({ t: 'portal_open', x: run.portal.x, y: run.portal.y });
-  }
+  if (quotaCanOpenPortal(run)) openPortal(run);
 }
 
 function dropPickup(run, x, y, type, val) {
@@ -287,7 +300,7 @@ function fireWeapon(run, players, p, dt) {
   if (!w) return;
   p.cd = w.cooldown / p.stats.fireMul;
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
-  const shots = Math.random() < p.stats.echoShot ? 2 : 1;
+  const shots = 1 + chanceStacks(p.stats.echoShot);
   for (let s = 0; s < shots; s++) {
     const delay = s * 0.06;
     for (let i = 0; i < w.pellets; i++) {
@@ -297,7 +310,7 @@ function fireWeapon(run, players, p, dt) {
         id: nid(), x: p.x + dir.x * 18, y: p.y + dir.y * 18,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
         dmg: w.dmg * p.stats.dmgMul, from: 'p', owner: p.id,
-        life: w.life + delay, size: w.size, aoe: w.aoe || 0, homing: w.homing || 0,
+        life: w.life, delay, size: w.size, aoe: w.aoe || 0, homing: w.homing || 0,
         knock: w.knock || 0, proc: p.stats.procBlast
       });
     }
@@ -320,6 +333,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false) {
 function stepBullets(run, players, dt) {
   const walls = run.plan.walls;
   for (const b of run.bullets) {
+    if (b.delay > 0) { b.delay -= dt; continue; }
     b.life -= dt;
     if (b.homing > 0 && b.from === 'p') {
       let best = null, bd = 330 * 330;
@@ -353,7 +367,8 @@ function stepBullets(run, players, dt) {
           else {
             const n = norm(b.vx, b.vy);
             damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y);
-            if (b.proc && Math.random() < b.proc) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false);
+            const blasts = chanceStacks(b.proc || 0);
+            for (let bi = 0; bi < blasts; bi++) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false);
           }
           b.life = -1; break;
         }
@@ -398,12 +413,20 @@ function stepEnemies(run, players, dt) {
         if (aabbHit(e.x, ny, half, w)) { e.vy *= -1; ny = e.y; }
       }
       e.x = nx; e.y = ny;
+      if (!e.touchCds) e.touchCds = new Map();
+      for (const [k, v] of e.touchCds) {
+        const nv = v - dt;
+        if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv);
+      }
       for (const p of players.values()) {
         if (!p.alive) continue;
         if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
           const n = norm(p.x - e.x, p.y - e.y);
-          damagePlayer(run, p, e.dmg, e.x, e.y);
-          // push player, bounce self away
+          if (!e.touchCds.has(p.id)) {
+            damagePlayer(run, p, e.dmg, e.x, e.y);
+            e.touchCds.set(p.id, TOUCH_CD * 0.55);
+          }
+          // push player, bounce self away even during damage cooldown
           const pushed = collideWalls(p.x + n.x * def.push * 0.25, p.y + n.y * def.push * 0.25, PLAYER_SIZE / 2, walls, p.x, p.y);
           p.x = pushed.x; p.y = pushed.y;
           e.vx = -n.x * def.spd; e.vy = -n.y * def.spd;
@@ -469,7 +492,7 @@ function stepEnemies(run, players, dt) {
           run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
           dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6));
           dropPickup(run, e.x + 10, e.y, 'EXP', def.xp);
-          if (!run.portal.open && run.kills >= run.plan.quota) { run.portal.open = true; run.fx.push({ t: 'portal_open', x: run.portal.x, y: run.portal.y }); }
+          if (quotaCanOpenPortal(run)) openPortal(run);
         }
       }
     } else if (e.kind === 'glitch') {
@@ -607,9 +630,10 @@ function stepMods(run, players, dt) {
       run.rainT = 2.6 + Math.random() * 2.4;
       const alive = [...players.values()].filter(p => p.alive);
       const nearPlayer = Math.random() < 0.55 && alive.length;
-      const x = nearPlayer ? alive[Math.floor(Math.random() * alive.length)].x + (Math.random() - 0.5) * 260
+      const target = nearPlayer ? alive[Math.floor(Math.random() * alive.length)] : null;
+      const x = target ? target.x + (Math.random() - 0.5) * 260
         : WALL_T + Math.random() * (run.plan.w - WALL_T * 2);
-      const y = nearPlayer ? alive[Math.floor(Math.random() * alive.length)].y + (Math.random() - 0.5) * 260
+      const y = target ? target.y + (Math.random() - 0.5) * 260
         : WALL_T + Math.random() * (run.plan.h - WALL_T * 2);
       const r = 80;
       run.fx.push({ t: 'rain_warn', x: Math.round(x), y: Math.round(y), r, dur: 1.2 });
@@ -701,14 +725,19 @@ function openChest(run, players, p, o) {
 }
 
 export function handleCasino(run, players, p, stakeKey) {
-  if (!p.alive || run.phase !== 'play') return null;
+  const fail = (error) => ({ ok: false, error, stakeKey });
+  if (!p.alive) return fail('ИГРОК DOWN');
+  if (run.phase !== 'play') return fail('BET ДОСТУПЕН ТОЛЬКО В БОЮ');
   const stakes = { low: 20, mid: 50, high: 120 };
   const stake = stakes[stakeKey];
-  if (!stake) return null;
+  if (!stake) return fail('НЕВЕРНАЯ СТАВКА');
   // must be near an unopened bet terminal
   const near = run.plan.interactables.find(o => o.type === 'bet' && dist2(p.x, p.y, o.x, o.y) < (INTERACT_DIST + 30) ** 2);
-  if (!near) return null;
-  if (p.economy.money < stake) { run.fx.push({ t: 'denied', id: p.id, obj: near.id }); return null; }
+  if (!near) return fail('ПОДОЙДИ К BET TERMINAL');
+  if (p.economy.money < stake) {
+    run.fx.push({ t: 'denied', id: p.id, obj: near.id });
+    return fail('НЕДОСТАТОЧНО GLD');
+  }
   p.economy.money -= stake;
   const res = spinCasino(Math.random, stakeKey, p.stats.luck);
   const pl = res.payload;
@@ -722,8 +751,10 @@ export function handleCasino(run, players, p, stakeKey) {
     else { p.stats.dmgMul *= 1.15; pl.weaponLabel = 'DMG +15%'; }
   }
   if (pl.static) run.staticDebt = true;
-  run.fx.push({ t: 'casino', id: p.id, symbols: res.symbols, outcome: res.outcome, payload: pl, stake });
-  return res;
+  const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
+  const fx = { ok: true, t: 'casino', id: p.id, seq, symbols: res.symbols, outcome: res.outcome, payload: pl, stake };
+  run.fx.push(fx);
+  return fx;
 }
 
 // ---------------------------------------------------------------- transition
@@ -741,17 +772,19 @@ function beginTransition(run, players) {
 }
 
 export function handlePick(run, players, p, choiceIdx) {
-  if (run.phase !== 'install' || !p.offer) return;
-  const id = p.offer.choices[choiceIdx | 0];
+  if (run.phase !== 'install' || !p.offer) return false;
+  const idx = choiceIdx | 0;
+  if (idx < 0 || idx >= p.offer.choices.length) return false;
+  const id = p.offer.choices[idx];
   const u = UPGRADES.find(x => x.id === id);
-  if (u) {
-    u.apply(p.stats);
-    p.hp = Math.min(p.hp, maxHp(p));
-    p.dashCharges = Math.min(dashMax(p), p.dashCharges);
-    p.economy.pending = Math.max(0, p.economy.pending - 1);
-    run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed });
-  }
+  if (!u) return false;
+  u.apply(p.stats);
+  p.hp = Math.min(p.hp, maxHp(p));
+  p.dashCharges = Math.min(dashMax(p), p.dashCharges);
+  p.economy.pending = Math.max(0, p.economy.pending - 1);
+  run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed });
   p.offer = p.economy.pending > 0 ? { choices: rollUpgradeChoices(Math.random, p.stats.luck), expires: OFFER_TIMEOUT } : null;
+  return true;
 }
 
 function stepInstall(run, players, dt) {

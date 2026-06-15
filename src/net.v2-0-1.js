@@ -3,13 +3,17 @@
 //   host  — sim runs here; guests connect via WebRTC (direct) with ws relay fallback
 //   guest — inputs go to the host's browser, not to a far-away server
 // The Render server is ONLY a phonebook (signaling + relay fallback), never the game.
-import { VERSION, PROTOCOL } from '../shared/protocol.v2-0-0.js';
-import { LocalRoom } from './local.v2-0-0.js';
+import { VERSION, PROTOCOL, GAME_SPEED } from '../shared/protocol.v2-0-1.js';
+import { LocalRoom } from './local.v2-0-1.js';
 
-export { VERSION, PROTOCOL };
+export { VERSION, PROTOCOL, GAME_SPEED };
 
 const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] };
 const newId = () => Math.random().toString(36).slice(2, 10);
+const safeSendDc = (dc, obj) => {
+  if (!dc || dc.readyState !== 'open') return false;
+  try { dc.send(JSON.stringify(obj)); return true; } catch { return false; }
+};
 
 export class Net {
   constructor() {
@@ -18,13 +22,15 @@ export class Net {
     this.roomId = null;
     this.ping = 0;
     this.connected = false;   // signaling ws connected
-    this.direct = false;       // guest: WebRTC channel open
+    this.direct = false;       // guest: unreliable WebRTC input/snapshot channel open
+    this.ctrlDirect = false;   // guest: reliable WebRTC command channel open
     this.handlers = {};
     this.room = null;          // LocalRoom when solo/host
     this.ws = null;            // signaling socket
-    this.peers = new Map();    // host: gid -> {pc, dc, open}
+    this.peers = new Map();    // host: gid -> {pc, dc, ctrlDc, open, ctrlOpen}
     this._pc = null;           // guest: peer connection
-    this._dc = null;           // guest: data channel
+    this._dc = null;           // guest: unreliable channel
+    this._ctrlDc = null;       // guest: reliable channel
     this._pingTimer = null;
   }
 
@@ -70,7 +76,7 @@ export class Net {
         this.connected = false;
         if (!settled) { settled = true; reject(new Error('closed: ' + ev.code)); }
         // guest on relay (no direct rtc) loses the game when signaling drops
-        if (this.mode === 'guest' && !this.direct) this.emit('_closed', ev);
+        if (this.mode === 'guest' && !this.direct && !this.ctrlDirect) this.emit('_closed', ev);
         if (this.mode === 'host') this._wsDown = true; // existing rtc guests keep playing
       };
     });
@@ -90,18 +96,31 @@ export class Net {
         if (!this.room) break;
         const gid = m.gid;
         const relayCh = { send: (obj) => this._wsSend({ t: 'h', to: gid, d: obj }) };
-        const peer = { pc: null, dc: null, open: false, relayCh };
-        peer.ch = { send: (obj) => (peer.open ? peer.dc.send(JSON.stringify(obj)) : relayCh.send(obj)) };
+        const peer = { pc: null, dc: null, ctrlDc: null, open: false, ctrlOpen: false, relayCh };
+        peer.ch = {
+          send: (obj, reliable = false) => {
+            const sent = reliable
+              ? safeSendDc(peer.ctrlDc, obj)
+              : safeSendDc(peer.dc, obj);
+            if (!sent) relayCh.send(obj);
+          }
+        };
         this.peers.set(gid, peer);
         if (!this.room.addGuest(gid, String(m.name || 'PLAYER').slice(0, 12), peer.ch)) { this.peers.delete(gid); break; }
         try {
           const pc = new RTCPeerConnection(ICE);
           peer.pc = pc;
+          const onMsg = (ev) => { try { this.room.handleMsg(gid, JSON.parse(ev.data)); } catch {} };
           const dc = pc.createDataChannel('game', { ordered: false, maxRetransmits: 0 });
           peer.dc = dc;
           dc.onopen = () => { peer.open = true; };
           dc.onclose = () => { peer.open = false; };
-          dc.onmessage = (ev) => { try { this.room.handleMsg(gid, JSON.parse(ev.data)); } catch {} };
+          dc.onmessage = onMsg;
+          const ctrlDc = pc.createDataChannel('ctrl', { ordered: true });
+          peer.ctrlDc = ctrlDc;
+          ctrlDc.onopen = () => { peer.ctrlOpen = true; };
+          ctrlDc.onclose = () => { peer.ctrlOpen = false; };
+          ctrlDc.onmessage = onMsg;
           pc.onicecandidate = (e) => { if (e.candidate) this._wsSend({ t: 'rtc', to: gid, d: { ice: e.candidate } }); };
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -112,7 +131,7 @@ export class Net {
       case 'guest_leave': {
         if (this.room) this.room.removeGuest(m.gid);
         const peer = this.peers.get(m.gid);
-        if (peer && peer.pc && !peer.open) { try { peer.pc.close(); } catch {} this.peers.delete(m.gid); }
+        if (peer) { try { peer.pc?.close(); } catch {} this.peers.delete(m.gid); }
         break;
       }
       case 'join_ok': this.roomId = m.code; break;
@@ -129,9 +148,10 @@ export class Net {
               this._pc = pc;
               pc.ondatachannel = (e) => {
                 const dc = e.channel;
-                this._dc = dc;
-                dc.onopen = () => { this.direct = true; };
-                dc.onclose = () => { this.direct = false; };
+                const isCtrl = dc.label === 'ctrl';
+                if (isCtrl) this._ctrlDc = dc; else this._dc = dc;
+                dc.onopen = () => { if (isCtrl) this.ctrlDirect = true; else this.direct = true; };
+                dc.onclose = () => { if (isCtrl) this.ctrlDirect = false; else this.direct = false; };
                 dc.onmessage = (ev) => { try { this._dispatch(JSON.parse(ev.data)); } catch {} };
               };
               pc.onicecandidate = (e) => { if (e.candidate) this._wsSend({ t: 'rtc', to: 'host', d: { ice: e.candidate } }); };
@@ -164,7 +184,7 @@ export class Net {
     this.mode = 'guest';
     this._wsSend({ t: 'join', code });
     if (!this._pingTimer) {
-      this._pingTimer = setInterval(() => this._toHost({ t: 'ping', ts: performance.now() }), 2000);
+      this._pingTimer = setInterval(() => this._toHost({ t: 'ping', ts: performance.now() }, true), 2000);
     }
   }
 
@@ -179,18 +199,19 @@ export class Net {
     this.emit(m.t, m);
   }
 
-  _toHost(m) {
-    if (this.direct && this._dc && this._dc.readyState === 'open') this._dc.send(JSON.stringify(m));
-    else this._wsSend({ t: 'g', d: m });
+  _toHost(m, reliable = false) {
+    if (reliable && this.ctrlDirect && safeSendDc(this._ctrlDc, m)) return;
+    if (!reliable && this.direct && safeSendDc(this._dc, m)) return;
+    this._wsSend({ t: 'g', d: m });
   }
 
   // ---------------------------------------------------------- game API (same as v1)
   createRoom() { this.hostRoom(this._name); }
-  sendInput(i) { this._game({ t: 'input', ...i }); }
-  sendCasino(stake) { this._game({ t: 'casino', stake }); }
-  sendPick(choice) { this._game({ t: 'pick', choice }); }
-  _game(m) {
+  sendInput(i) { this._game({ t: 'input', ...i }, false); }
+  sendCasino(stake) { this._game({ t: 'casino', stake }, true); }
+  sendPick(choice) { this._game({ t: 'pick', choice }, true); }
+  _game(m, reliable = false) {
     if (this.room) { this.room.handleMsg(this.id, m); this.ping = 0; }
-    else if (this.mode === 'guest') this._toHost(m);
+    else if (this.mode === 'guest') this._toHost(m, reliable);
   }
 }

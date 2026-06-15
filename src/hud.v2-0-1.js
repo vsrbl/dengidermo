@@ -1,8 +1,9 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P } from './state.v2-0-0.js';
+import { P } from './state.v2-0-1.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = { blackout: 'BLACKOUT', static_rain: 'STATIC RAIN', greed: 'GREED SIGNAL' };
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export class Hud {
   constructor(net) {
@@ -10,7 +11,7 @@ export class Hud {
     this.feedLines = [];
     this.bannerTimer = null;
     this.promptTimer = null;
-    this.casino = { open: false, spinning: false, betId: null };
+    this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0 };
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false };
     this.names = new Map();
 
@@ -174,7 +175,7 @@ export class Hud {
     let html = '<tr><th>ИГРОК</th><th>HP</th><th>LVL</th><th>GLD</th><th>DASH</th><th>DRN</th><th>ORB</th><th>INSTALL</th></tr>';
     for (const p of state.latest.players) {
       const cls = p[P.ID] === state.myId ? 'me' : (!p[P.ALIVE] ? 'dead' : '');
-      html += `<tr class="${cls}"><td>${p[P.NAME]}</td><td>${p[P.ALIVE] ? p[P.HP] + '/' + p[P.MAXHP] : 'DOWN'}</td>` +
+      html += `<tr class="${cls}"><td>${esc(p[P.NAME])}</td><td>${p[P.ALIVE] ? p[P.HP] + '/' + p[P.MAXHP] : 'DOWN'}</td>` +
         `<td>${p[P.LVL]}</td><td>${p[P.GLD]}</td><td>${p[P.DASH]}/${p[P.DASHMAX]}</td>` +
         `<td>${p[P.DRONES]}</td><td>${p[P.ORBITALS]}</td><td>${p[P.PEND] > 0 ? 'x' + p[P.PEND] : '—'}</td></tr>`;
     }
@@ -212,65 +213,111 @@ export class Hud {
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
     this.net.sendPick(i);
   }
-  closeInstall() { this.install.open = false; $('install-modal').classList.add('hidden'); }
+  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); }
 
   // ------------------------------------------------- casino modal
+  clearReels() {
+    clearTimeout(this.casino.timeout);
+    this.casino.timeout = null;
+    document.querySelectorAll('.reel').forEach(r => {
+      if (r._iv) clearInterval(r._iv);
+      r._iv = null;
+      r.classList.remove('spin');
+    });
+  }
   openCasino() {
+    this.clearReels();
     this.casino.open = true;
+    this.casino.spinning = false;
     $('casino-modal').classList.remove('hidden');
     $('casino-result').textContent = '';
+    $('casino-result').style.color = '';
     document.querySelectorAll('.reel').forEach(r => { r.textContent = '—'; r.className = 'reel'; });
   }
-  closeCasino() { this.casino.open = false; this.casino.spinning = false; $('casino-modal').classList.add('hidden'); }
+  closeCasino() {
+    this.clearReels();
+    this.casino.open = false;
+    this.casino.spinning = false;
+    $('casino-modal').classList.add('hidden');
+  }
   placeBet(stake) {
     if (this.casino.spinning) return;
     this.casino.spinning = true;
+    const token = ++this.casino.spinToken;
     $('casino-result').textContent = '';
+    $('casino-result').style.color = '';
     const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'STC'];
     document.querySelectorAll('.reel').forEach(r => {
+      if (r._iv) clearInterval(r._iv);
       r.className = 'reel spin';
       r._iv = setInterval(() => { r.textContent = syms[Math.floor(Math.random() * syms.length)]; }, 70);
     });
     this.net.sendCasino(stake);
-    // safety: unlock if no result comes back
-    setTimeout(() => { if (this.casino.spinning) this.stopReels(null); }, 4000);
+    // safety: command is reliable now, so no answer usually means no confirmation/no charge
+    clearTimeout(this.casino.timeout);
+    this.casino.timeout = setTimeout(() => {
+      if (this.casino.spinning && token === this.casino.spinToken) {
+        this.stopReels(null);
+        const el = $('casino-result');
+        el.textContent = 'НЕТ ОТВЕТА — СТАВКА НЕ ПОДТВЕРЖДЕНА';
+        el.style.color = '#ff3048';
+      }
+    }, 4000);
   }
   stopReels(f) {
+    clearTimeout(this.casino.timeout);
+    this.casino.timeout = null;
     const reels = [...document.querySelectorAll('.reel')];
     reels.forEach((r, i) => {
       setTimeout(() => {
-        clearInterval(r._iv);
+        if (r._iv) clearInterval(r._iv);
+        r._iv = null;
         r.classList.remove('spin');
         if (f) {
           r.textContent = f.symbols[i];
           r.classList.add(f.outcome === 'LOSE' || f.outcome === 'STC' ? 'lose' : 'win');
         } else r.textContent = '—';
         if (i === 2) this.casino.spinning = false;
-      }, 280 * (i + 1));
+      }, 220 * (i + 1));
     });
   }
+  casinoDenied(f) {
+    if (!this.casino.open) this.openCasino();
+    this.clearReels();
+    this.casino.spinning = false;
+    document.querySelectorAll('.reel').forEach(r => { r.textContent = 'ERR'; r.className = 'reel lose'; });
+    const el = $('casino-result');
+    el.textContent = f.error || 'BET FAILED';
+    el.style.color = '#ff3048';
+  }
   casinoResult(f, myId) {
+    if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
       const RES = { JCK: 'JACKPOT', LOSE: 'проиграл', STC: 'STATIC' };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
+    if (f.seq && this.casino.lastResultSeq === f.seq) return; // direct result + later snapshot duplicate
+    if (f.seq) this.casino.lastResultSeq = f.seq;
     if (!this.casino.open) this.openCasino();
     this.stopReels(f);
+    const resultToken = ++this.casino.spinToken;
     setTimeout(() => {
+      if (resultToken !== this.casino.spinToken) return;
       const el = $('casino-result');
       const pl = f.payload || {};
-      const parts = [];
+      const parts = [`-${f.stake} GLD`];
       if (pl.gld) parts.push(`+${pl.gld} GLD`);
       if (pl.xp) parts.push(`+${pl.xp} EXP`);
       if (pl.heal) parts.push(`+${pl.heal} HP`);
       if (pl.dash) parts.push('DASH +1');
       if (pl.weaponLabel) parts.push(pl.weaponLabel);
       if (pl.static) parts.push('STATIC DEBT → СЛЕД. КОМНАТА');
-      if (f.outcome === 'LOSE') parts.push(`-${f.stake} GLD`);
       if (f.outcome === 'JCK') parts.unshift('☰ JACKPOT ☰');
+      if (pl.gld) parts.push(`NET ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       el.textContent = parts.join(' · ');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
-    }, 900);
+    }, 760);
   }
+
 }
