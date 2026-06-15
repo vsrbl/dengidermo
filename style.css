@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.7 — tooltip casino audio hotfix */
+/* nncckkrr v2.0.9 — inspect tooltip/tab language hotfix */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -26,6 +26,8 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #custom-cursor .cc::after {
   content: ''; position: absolute; left: 4px; top: 4px; width: 2px; height: 2px; background: var(--green);
 }
+#custom-cursor.inspect .cc { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(102,246,255,.35), 0 0 10px rgba(102,246,255,.45); }
+#custom-cursor.inspect .cc::before { content: ''; position: absolute; left: -5px; top: 5px; width: 20px; height: 1px; background: var(--cyan); opacity: .85; }
 #custom-cursor.hidden { opacity: 0; }
 .hidden { display: none !important; }
 
@@ -38,6 +40,7 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #hud-version { color: var(--fg); }
 #hud-mods { color: var(--purple); margin-left: 10px; }
 #hud-ping { margin-left: 10px; font-size: 11px; }
+#hud-inspect { margin-left: 10px; color: var(--cyan); border: 1px solid var(--cyan); padding: 1px 5px; font-size: 10px; letter-spacing: 2px; }
 #hud-objective { color: var(--fg); font-size: 13px; text-align: right; }
 #hud-objective .done { color: var(--green); }
 
@@ -94,7 +97,7 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   align-items: center; justify-content: center; background: rgba(5,5,5,.34);
   z-index: 50; pointer-events: none;
 }
-#tab-panel .panel { min-width: 560px; animation: tabdrop .12s steps(4); }
+#tab-panel .panel { min-width: 560px; animation: tabdrop .12s steps(4); pointer-events: auto; }
 @keyframes tabdrop { from { transform: translateY(calc(-7vh - 18px)); opacity: 0; } }
 #tab-run { color: var(--dim); font-size: 13px; margin-bottom: 12px; white-space: pre; }
 #tab-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -191,6 +194,8 @@ button:disabled { opacity: .3; cursor: none; }
 #explain-tip.purple .et-title { color: var(--purple); }
 #explain-tip.cyan { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(102,246,255,.08), 0 0 18px rgba(102,246,255,.18); }
 #explain-tip.cyan .et-title { color: var(--cyan); }
+.term { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; text-decoration-thickness: 1px; color: inherit; }
+.term[data-explain] { pointer-events: auto; }
 #hud [data-explain] { pointer-events: auto; }
 #hud-prompt[data-explain] { pointer-events: auto; }
 .choice.picked { border-color: var(--green); color: var(--green); background: rgba(0,255,102,.08); }
