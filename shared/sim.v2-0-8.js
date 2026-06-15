@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-7.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-7.js';
+} from './data.v2-0-8.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-8.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -14,6 +14,9 @@ const DASH_INVULN = 0.3;
 const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
+const ENEMY_PLAYER_PAD = 7;
+const ENEMY_PLAYER_PUSH = 0.36;
+const ENEMY_SELF_PUSH = 0.84;
 const PLAYER_HIT_INVULN = 0.12;
 const DIFFICULTY_MULT = 2; // requested harder pass: roughly 2x pressure versus v2.0.2
 const MAX_ENEMIES = 60;
@@ -49,6 +52,32 @@ function collideWalls(x, y, half, walls, ox, oy) {
 }
 function dist2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d }; }
+function fallbackDir(seed = 1) { const a = (Math.sin(seed * 999.13) * 43758.5453 % 1) * Math.PI * 2; return { x: Math.cos(a), y: Math.sin(a) }; }
+function separateEnemyPlayer(run, e, p, walls, playerFrac = ENEMY_PLAYER_PUSH, enemyFrac = ENEMY_SELF_PUSH) {
+  if (!p?.alive || !e) return false;
+  const min = (PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD;
+  let dx = p.x - e.x, dy = p.y - e.y;
+  let d = Math.hypot(dx, dy);
+  if (d < 0.001) {
+    const fb = fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
+    dx = fb.x; dy = fb.y; d = 1;
+  }
+  if (d >= min) return false;
+  const n = { x: dx / d, y: dy / d };
+  const overlap = min - d;
+  const def = ENEMIES[e.kind] || {};
+  const pPush = Math.min(30, overlap * playerFrac + 3);
+  const ePush = def.boss ? 0 : Math.min(46, overlap * enemyFrac + 5);
+  if (pPush > 0) {
+    const pc = collideWalls(p.x + n.x * pPush, p.y + n.y * pPush, PLAYER_SIZE / 2, walls, p.x, p.y);
+    p.x = pc.x; p.y = pc.y;
+  }
+  if (ePush > 0) {
+    const ec = collideWalls(e.x - n.x * ePush, e.y - n.y * ePush, e.size / 2, walls, e.x, e.y);
+    e.x = ec.x; e.y = ec.y;
+  }
+  return true;
+}
 function chanceStacks(v) {
   const full = Math.floor(Math.max(0, v));
   return full + (Math.random() < Math.max(0, v - full) ? 1 : 0);
@@ -255,7 +284,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
   if (def.armor) dmg *= (1 - def.armor);
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
-  run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y) });
+  run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y), size: Math.round(e.size || 24), heavy: dmg >= 18, kx: Math.round((kx || 0) * 100) / 100, ky: Math.round((ky || 0) * 100) / 100 });
   if (knock && !def.boss && e.kind !== 'bouncer') {
     e.x += kx * knock * 0.02; e.y += ky * knock * 0.02;
   }
@@ -458,14 +487,16 @@ function stepEnemies(run, players, dt) {
       }
       for (const p of players.values()) {
         if (!p.alive) continue;
-        if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
-          const n = norm(p.x - e.x, p.y - e.y);
+        if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD) ** 2) {
+          let n = norm(p.x - e.x, p.y - e.y);
+          if (!n.x && !n.y) n = fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
           if (!e.touchCds.has(p.id)) {
             damagePlayer(run, p, e.dmg, e.x, e.y);
             e.touchCds.set(p.id, TOUCH_CD * 0.55);
           }
-          // push player, bounce self away even during damage cooldown
-          const pushed = collideWalls(p.x + n.x * def.push * 0.25, p.y + n.y * def.push * 0.25, PLAYER_SIZE / 2, walls, p.x, p.y);
+          // push player and separate bodies even during damage cooldown, so BNC never sits inside the player.
+          separateEnemyPlayer(run, e, p, walls, 0.60, 0.95);
+          const pushed = collideWalls(p.x + n.x * def.push * 0.10, p.y + n.y * def.push * 0.10, PLAYER_SIZE / 2, walls, p.x, p.y);
           p.x = pushed.x; p.y = pushed.y;
           e.vx = -n.x * def.spd; e.vy = -n.y * def.spd;
         }
@@ -507,7 +538,8 @@ function stepEnemies(run, players, dt) {
         const blocked = (c.x === e.x && c.y === e.y);
         e.x = c.x; e.y = c.y;
         for (const p of players.values()) {
-          if (p.alive && dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
+          if (p.alive && dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD) ** 2) {
+            separateEnemyPlayer(run, e, p, walls, 0.65, 0.55);
             damagePlayer(run, p, e.dmg, e.x, e.y);
             e.state = 'cool'; e.st = 0;
           }
@@ -547,7 +579,7 @@ function stepEnemies(run, players, dt) {
         }
       } else if (e.state === 'strike') {
         if (e.st >= def.strikeCd) {
-          if (dT < 75) damagePlayer(run, target, e.dmg, e.x, e.y);
+          if (dT < 75) { separateEnemyPlayer(run, e, target, walls, 0.55, 0.45); damagePlayer(run, target, e.dmg, e.x, e.y); }
           run.fx.push({ t: 'gstrike', x: Math.round(e.x), y: Math.round(e.y) });
           e.state = 'move'; e.st = 0;
         }
@@ -578,15 +610,24 @@ function stepEnemies(run, players, dt) {
 }
 
 function touchDamage(run, e, players, dt) {
+  if (!e.touchCds) e.touchCds = new Map();
+  for (const [k, v] of e.touchCds) {
+    const nv = v - dt;
+    if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv);
+  }
+  const walls = run.plan?.walls || [];
   for (const p of players.values()) {
     if (!p.alive) continue;
     const key = p.id;
-    const cd = e.touchCds?.get(key) || 0;
-    if (cd > 0) { e.touchCds.set(key, cd - dt); continue; }
-    if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
-      damagePlayer(run, p, e.dmg, e.x, e.y);
-      if (!e.touchCds) e.touchCds = new Map();
-      e.touchCds.set(key, TOUCH_CD);
+    const hitR = (PLAYER_SIZE + e.size) / 2 + ENEMY_PLAYER_PAD;
+    if (dist2(p.x, p.y, e.x, e.y) < hitR * hitR) {
+      // Collision always creates body separation, even while touch damage is on cooldown.
+      // This prevents enemies from living inside the player and blocking aim/hits.
+      separateEnemyPlayer(run, e, p, walls);
+      if (!e.touchCds.has(key)) {
+        damagePlayer(run, p, e.dmg, e.x, e.y);
+        e.touchCds.set(key, TOUCH_CD);
+      }
     }
   }
 }

@@ -36,8 +36,10 @@ export class Effects {
     const mine = f.id === info.myId;
     switch (f.t) {
       case 'ehit':
-        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18 });
-        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 16, f.y - 14, String(f.dmg), '#f3f3f3', Math.min(22, 11 + f.dmg * 0.18));
+        this.add({ kind: 'enemyHitBox', x: f.x, y: f.y, size: f.size || 24, ttl: f.heavy ? 0.24 : 0.16, heavy: !!f.heavy, kx: f.kx || 0, ky: f.ky || 0 });
+        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: f.heavy ? 0.22 : 0.16, heavy: !!f.heavy });
+        if (f.heavy) this.kick(1.6);
+        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 16, f.y - 14, String(f.dmg), f.heavy ? '#ff3048' : '#f3f3f3', Math.min(24, 12 + f.dmg * 0.22));
         break;
       case 'phit':
         if (mine) { this.hitFlash = Math.min(1, 0.35 + f.dmg * 0.02); this.kick(4 + f.dmg * 0.35); }
@@ -205,9 +207,40 @@ export class Effects {
       } else if (e.kind === 'trail') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 4 * (1 - p);
         ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x2, e.y2); ctx.stroke();
+      } else if (e.kind === 'enemyHitBox') {
+        const s0 = (e.size || 24) + (e.heavy ? 18 : 10);
+        const s = s0 + p * (e.heavy ? 18 : 10);
+        const snap = Math.floor(p * 5);
+        ctx.globalAlpha = (1 - p) * (e.heavy ? 0.95 : 0.72);
+        ctx.strokeStyle = e.heavy ? '#ff3048' : '#f3f3f3';
+        ctx.lineWidth = e.heavy ? 3 : 2;
+        ctx.setLineDash(e.heavy ? [9, 5] : [5, 5]);
+        ctx.strokeRect(Math.round(e.x - s / 2), Math.round(e.y - s / 2), Math.round(s), Math.round(s));
+        ctx.setLineDash([]);
+        // terminal-style broken impact ticks around the enemy square
+        ctx.strokeStyle = '#00ff66';
+        ctx.globalAlpha = (1 - p) * 0.55;
+        const r = s * 0.62;
+        for (let i = 0; i < 4; i++) {
+          if (((i + snap) % 4) === 1) continue;
+          const a = i * Math.PI / 2 + 0.22;
+          const x1 = e.x + Math.cos(a) * r;
+          const y1 = e.y + Math.sin(a) * r;
+          const x2 = e.x + Math.cos(a) * (r + 13);
+          const y2 = e.y + Math.sin(a) * (r + 13);
+          ctx.beginPath(); ctx.moveTo(Math.round(x1), Math.round(y1)); ctx.lineTo(Math.round(x2), Math.round(y2)); ctx.stroke();
+        }
+        if (e.kx || e.ky) {
+          ctx.globalAlpha = (1 - p) * 0.45;
+          ctx.strokeStyle = '#f3f3f3';
+          ctx.beginPath();
+          ctx.moveTo(Math.round(e.x - e.kx * 18), Math.round(e.y - e.ky * 18));
+          ctx.lineTo(Math.round(e.x + e.kx * 30), Math.round(e.y + e.ky * 30));
+          ctx.stroke();
+        }
       } else if (e.kind === 'hitmark') {
-        ctx.strokeStyle = '#f3f3f3'; ctx.globalAlpha = 1 - p; ctx.lineWidth = 2;
-        const s = 8;
+        ctx.strokeStyle = e.heavy ? '#ff3048' : '#f3f3f3'; ctx.globalAlpha = 1 - p; ctx.lineWidth = e.heavy ? 3 : 2;
+        const s = e.heavy ? 12 : 8;
         ctx.beginPath();
         ctx.moveTo(e.x - s, e.y - s); ctx.lineTo(e.x + s, e.y + s);
         ctx.moveTo(e.x + s, e.y - s); ctx.lineTo(e.x - s, e.y + s);

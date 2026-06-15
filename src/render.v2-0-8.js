@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-7.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-8.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
