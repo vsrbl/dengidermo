@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.5 — rocket dash audio pass */
+/* nncckkrr v2.0.7 — tooltip casino audio hotfix */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -74,9 +74,13 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 @keyframes feedin { from { transform: translateX(20px); opacity: 0; } }
 
 /* ---------- overlays ---------- */
-.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(5,5,5,.78); z-index: 10; }
+.overlay {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(5,5,5,.78); z-index: 30; padding: 0;
+}
+.overlay > .panel, .overlay > .menu-box { transform: translateY(-7vh); }
 .panel { border: 1px solid var(--fg); background: var(--bg); padding: 22px 28px; min-width: 360px;
+  max-width: min(92vw, 760px); max-height: 76vh; overflow: auto;
   box-shadow: 0 0 0 4px rgba(243,243,243,.06); }
 .panel-title { font-size: 18px; letter-spacing: 4px; margin-bottom: 14px; }
 .panel-title.green { color: var(--green); }
@@ -86,9 +90,12 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 .hint { color: var(--dim); font-size: 11px; margin-top: 12px; }
 
 /* TAB */
-#tab-panel { align-items: flex-start; justify-content: center; background: rgba(5,5,5,.28); padding-top: 46px; }
+#tab-panel {
+  align-items: center; justify-content: center; background: rgba(5,5,5,.34);
+  z-index: 50; pointer-events: none;
+}
 #tab-panel .panel { min-width: 560px; animation: tabdrop .12s steps(4); }
-@keyframes tabdrop { from { transform: translateY(-18px); opacity: 0; } }
+@keyframes tabdrop { from { transform: translateY(calc(-7vh - 18px)); opacity: 0; } }
 #tab-run { color: var(--dim); font-size: 13px; margin-bottom: 12px; white-space: pre; }
 #tab-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 #tab-table td, #tab-table th { border-bottom: 1px solid #222; padding: 4px 8px; text-align: left; }
@@ -97,6 +104,7 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #tab-table .dead { color: var(--red); }
 
 /* install */
+#install-modal { z-index: 35; }
 #install-choices { display: flex; flex-direction: column; gap: 8px; }
 .choice { border: 1px solid var(--fg); padding: 10px 14px; cursor: none; pointer-events: auto;
   font-size: 15px; letter-spacing: 1px; background: rgba(255,255,255,.03); }
@@ -109,6 +117,7 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #install-timer-bar { height: 100%; width: 100%; background: var(--green); }
 
 /* casino */
+#casino-modal { z-index: 35; }
 #reels { display: flex; gap: 10px; justify-content: center; margin: 10px 0 16px; }
 .reel { display: inline-block; width: 74px; height: 58px; border: 1px solid var(--fg);
   font-size: 17px; line-height: 58px; text-align: center; letter-spacing: 2px; background: rgba(255,255,255,.03); }
@@ -136,7 +145,7 @@ button:disabled { opacity: .3; cursor: none; }
 @keyframes bannerin { from { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }
 
 /* menu */
-#menu { background: var(--bg); }
+#menu { background: var(--bg); z-index: 35; }
 .menu-box { display: flex; flex-direction: column; gap: 14px; width: 320px; text-align: center; }
 #logo { font-size: 42px; letter-spacing: 8px; animation: logoflick 3s infinite steps(1); }
 @keyframes logoflick { 0%,92%,96%,100% { opacity: 1; } 94%,98% { opacity: .55; } }
@@ -155,3 +164,35 @@ button:disabled { opacity: .3; cursor: none; }
 /* install pick feedback */
 #install-choices .choice.picked { border-color: #00ff66; color: #00ff66; }
 #install-choices .choice.dimmed { opacity: 0.25; pointer-events: none; }
+
+/* ---------- explain tooltip / helper window ---------- */
+#explain-tip {
+  position: fixed;
+  left: 0; top: 0;
+  max-width: min(360px, calc(100vw - 28px));
+  min-width: 190px;
+  padding: 10px 12px;
+  border: 1px solid var(--green);
+  background: rgba(5,5,5,.94);
+  color: var(--fg);
+  z-index: 9998;
+  pointer-events: none;
+  transform: translate3d(-999px,-999px,0);
+  box-shadow: 0 0 0 2px rgba(0,255,102,.08), 0 0 18px rgba(0,255,102,.18);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: .8px;
+}
+#explain-tip .et-title { color: var(--green); font-size: 12px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
+#explain-tip .et-body { color: #cfcfcf; }
+#explain-tip.red { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,48,72,.08), 0 0 18px rgba(255,48,72,.18); }
+#explain-tip.red .et-title { color: var(--red); }
+#explain-tip.purple { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(180,92,255,.08), 0 0 18px rgba(180,92,255,.18); }
+#explain-tip.purple .et-title { color: var(--purple); }
+#explain-tip.cyan { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(102,246,255,.08), 0 0 18px rgba(102,246,255,.18); }
+#explain-tip.cyan .et-title { color: var(--cyan); }
+#hud [data-explain] { pointer-events: auto; }
+#hud-prompt[data-explain] { pointer-events: auto; }
+.choice.picked { border-color: var(--green); color: var(--green); background: rgba(0,255,102,.08); }
+.choice.dimmed { opacity: .35; }
+#casino-stakes button:disabled { opacity: .35; border-color: #333; color: #333; }

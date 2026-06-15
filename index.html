@@ -4,34 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2-0-2">
+<link rel="stylesheet" href="style.css?v=2-0-7">
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="custom-cursor" aria-hidden="true"><span class="cc"></span></div>
+<div id="explain-tip" class="hidden" aria-hidden="true"><div class="et-title"></div><div class="et-body"></div></div>
 
 <!-- HUD -->
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version">v2.0.5</span>
+      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия клиента. Если сайт/сервер показывают разные версии — надо обновить деплой или сделать hard refresh.">v2.0.7</span>
       <span class="sep">|</span>
-      <span id="hud-room">----</span>
+      <span id="hud-room" data-explain-title="ROOM" data-explain="Код сетевой комнаты и текущая игровая локация внутри run.">----</span>
       <span class="sep">|</span>
-      <span id="hud-loop">LOOP 0 / DEPTH 0</span>
-      <span id="hud-mods"></span>
+      <span id="hud-loop" data-explain-title="LOOP / DEPTH" data-explain="DEPTH — сколько комнат пройдено. LOOP — полный оборот маршрута; чем выше loop, тем жёстче правила и враги.">LOOP 0 / DEPTH 0</span>
+      <span id="hud-mods" data-explain-title="ROOM MODS" data-explain="Активные правила комнаты: blackout, static rain, greed/debt/casino/mirror и другие события."></span>
       <span id="hud-ping"></span>
     </div>
-    <div id="hud-objective"></div>
+    <div id="hud-objective" data-explain-title="OBJECTIVE" data-explain="Текущая цель комнаты. Обычно зачистка врагов, boss kill или переход через портал."></div>
   </div>
   <div id="hud-bottom">
     <div id="hud-left">
-      <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text">100 / 100</span></div>
-      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text">0 / 40</span></div>
+      <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="HP" data-explain="Здоровье игрока. При падении до 0 ты становишься DOWN до следующей комнаты/перезапуска.">100 / 100</span></div>
+      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="EXP" data-explain="Опыт копит уровни. Level-up не прерывает бой, а добавляет INSTALL выбор между комнатами.">0 / 40</span></div>
       <div id="hud-stats-line">
-        <span id="hud-gld">GLD 0</span>
-        <span id="hud-lvl">LVL 0</span>
-        <span id="hud-install" class="hidden">INSTALL x0</span>
+        <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и BET terminal. Подбор GLD шарится между живыми игроками.">GLD 0</span>
+        <span id="hud-lvl" data-explain-title="LVL / Q" data-explain="Текущий уровень и статус активной способности Q: ready, cooldown или overclock.">LVL 0</span>
+        <span id="hud-install" class="hidden" data-explain-title="INSTALL" data-explain="Очередь апгрейдов. Выбор появится после портала/перехода, не во время боя.">INSTALL x0</span>
       </div>
     </div>
     <div id="hud-right">
@@ -39,14 +40,14 @@
       <div id="weapon-slots"></div>
     </div>
   </div>
-  <div id="hud-prompt" class="hidden"></div>
+  <div id="hud-prompt" class="hidden" data-explain-title="INTERACT" data-explain="Подойди и нажми E. Здесь показываются сундуки, BET terminal и портал."></div>
   <div id="feed"></div>
 </div>
 
 <!-- TAB stats panel -->
 <div id="tab-panel" class="overlay hidden">
   <div class="panel">
-    <div class="panel-title">RUN STATUS</div>
+    <div class="panel-title" data-explain-title="TAB PANEL" data-explain="Вспомогательная панель: run status, loop/depth, модификаторы, союзники и текущие ресурсы.">RUN STATUS</div>
     <div id="tab-run"></div>
     <table id="tab-table"></table>
   </div>
@@ -55,7 +56,7 @@
 <!-- install / upgrade picker -->
 <div id="install-modal" class="overlay hidden">
   <div class="panel green-edge">
-    <div class="panel-title green">INSTALL <span id="install-pending"></span></div>
+    <div class="panel-title green" data-explain-title="INSTALL" data-explain="Выбери один из трёх апгрейдов. Если накоплено несколько INSTALL, варианты будут идти по очереди.">INSTALL <span id="install-pending"></span></div>
     <div id="install-choices"></div>
     <div id="install-timer"><div id="install-timer-bar"></div></div>
     <div class="hint">1 / 2 / 3 — выбрать</div>
@@ -65,13 +66,13 @@
 <!-- casino modal -->
 <div id="casino-modal" class="overlay hidden">
   <div class="panel red-edge">
-    <div class="panel-title red">BET TERMINAL</div>
+    <div class="panel-title red" data-explain-title="BET TERMINAL" data-explain="Риск за GLD: ставка списывается, хост крутит символы, результат может дать GLD/EXP/HEA/WPN/ABL/JACKPOT или STATIC debt.">BET TERMINAL</div>
     <div id="reels"><span class="reel">—</span><span class="reel">—</span><span class="reel">—</span></div>
     <div id="casino-result"></div>
     <div id="casino-stakes">
-      <button data-stake="low">LOW<br>20</button>
-      <button data-stake="mid">MID<br>50</button>
-      <button data-stake="high">HIGH<br>120</button>
+      <button data-stake="low" data-explain-title="LOW BET" data-explain="Ставка 20 GLD. Низкий риск: подходит в начале run или когда денег мало.">LOW<br>20</button>
+      <button data-stake="mid" data-explain-title="MID BET" data-explain="Ставка 50 GLD. Средний риск и нормальный шанс получить ощутимую награду.">MID<br>50</button>
+      <button data-stake="high" data-explain-title="HIGH BET" data-explain="Ставка 120 GLD. Жёсткий риск, но jackpot и редкие награды ощущаются сильнее.">HIGH<br>120</button>
     </div>
     <div class="hint">1 / 2 / 3 — ставка · ESC — выйти</div>
   </div>
@@ -85,19 +86,19 @@
   <div class="menu-box">
     <div id="logo">nncckkrr</div>
     <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
-    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off">
-    <button id="btn-solo">СОЛО (БЕЗ СЕТИ)</button>
-    <button id="btn-create">СОЗДАТЬ КОМНАТУ</button>
+    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="NAME" data-explain="Имя игрока в комнате и TAB панели. Ограничено 12 символами.">
+    <button id="btn-solo" data-explain-title="SOLO" data-explain="Запускает игру локально без сервера. Лучший режим для быстрой проверки геймплея.">СОЛО (БЕЗ СЕТИ)</button>
+    <button id="btn-create" data-explain-title="HOST ROOM" data-explain="Создаёт co-op комнату. Твой браузер становится хостом симуляции, гости подключаются к тебе.">СОЗДАТЬ КОМНАТУ</button>
     <div id="join-row">
-      <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off">
-      <button id="btn-join">ВОЙТИ</button>
+      <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="ROOM CODE" data-explain="4-символьный код комнаты друга.">
+      <button id="btn-join" data-explain-title="JOIN" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">подключение…</div>
-    <div id="menu-controls">WASD — движение · ЛКМ — огонь · SHIFT — рывок · E — взаимодействие · TAB — статы</div>
+    <div id="menu-controls" data-explain-title="CONTROLS" data-explain="WASD/стрелки — движение · ЛКМ/Space — огонь · Shift — dash · E — interact · Q — active ability · TAB — helper panel">WASD — движение · ЛКМ — огонь · SHIFT — рывок · E — взаимодействие · Q — активка · TAB — статы</div>
   </div>
 </div>
 
-<script src="config.js?v=2-0-2"></script>
-<script type="module" src="src/main.v2-0-5.js?v=2.0.5"></script>
+<script src="config.js?v=2-0-7"></script>
+<script type="module" src="src/main.v2-0-7.js?v=2.0.7"></script>
 </body>
 </html>
