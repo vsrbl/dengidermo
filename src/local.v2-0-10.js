@@ -1,10 +1,10 @@
 // nncckkrr local room: the simulation runs in the HOST'S BROWSER (or solo, offline).
 // Host input is applied directly (zero latency); guests connect via WebRTC/relay.
-import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-0-8.js';
+import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-0-10.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
   handleCasino, handlePick
-} from '../shared/sim.v2-0-8.js';
+} from '../shared/sim.v2-0-10.js';
 
 const TICK_MS = 1000 / SIM_HZ;
 const SNAP_EVERY = Math.max(1, Math.round(SIM_HZ / SNAPSHOT_HZ));

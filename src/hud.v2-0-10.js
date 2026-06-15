@@ -1,5 +1,5 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P } from './state.v2-0-8.js';
+import { P } from './state.v2-0-10.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = { blackout: 'BLACKOUT', static_rain: 'STATIC RAIN', greed: 'GREED SIGNAL' };
@@ -101,50 +101,55 @@ export class Hud {
   helpToken(id, label, cls = '') { return helpToken(id, label, cls); }
 
   bindContextHelp() {
-    // v2.0.8: use elementFromPoint on pointermove, not only event.target.
-    // This survives modal overlays, DOM re-renders, nested spans, and prevents the panel from vanishing forever.
-    const resolveHelp = (clientX, clientY, fallback = null) => {
-      const direct = fallback?.closest?.('[data-help]');
-      if (direct) return direct;
-      const el = document.elementFromPoint(clientX, clientY);
-      return el?.closest?.('[data-help]') || null;
-    };
-
-    document.addEventListener('pointermove', e => {
-      this.helpPointer = { x: e.clientX, y: e.clientY };
-      const el = resolveHelp(e.clientX, e.clientY, e.target);
-      if (el?.dataset?.help) this.showHelp(el.dataset.help, el);
-      else if (!$('context-help')?.classList.contains('hidden')) this.hideHelpSoon(90);
-    }, { passive: true });
+    // v2.0.10: rollback to the old reliable hover model, with only one extra feature:
+    // place the help card beside the owning menu/panel. No per-frame DOM anchoring,
+    // no elementsFromPoint loops, no fighting TAB redraws.
+    document.addEventListener('pointermove', e => { this.helpPointer = { x: e.clientX, y: e.clientY }; }, { passive: true });
 
     document.addEventListener('pointerover', e => {
       this.helpPointer = { x: e.clientX, y: e.clientY };
-      const el = resolveHelp(e.clientX, e.clientY, e.target);
-      if (el?.dataset?.help) this.showHelp(el.dataset.help, el);
-    }, { passive: true });
+      const el = e.target?.closest?.('[data-help]');
+      if (!el || el.closest?.('#context-help')) return;
+      this.showHelp(el.dataset.help, el);
+    });
 
     document.addEventListener('focusin', e => {
       const el = e.target?.closest?.('[data-help]');
-      if (el) this.showHelp(el.dataset.help, el);
+      if (!el || el.closest?.('#context-help')) return;
+      this.showHelp(el.dataset.help, el);
     });
-    document.addEventListener('focusout', () => this.hideHelpSoon(80));
+
+    document.addEventListener('pointerout', e => {
+      this.helpPointer = { x: e.clientX, y: e.clientY };
+      const from = e.target?.closest?.('[data-help]');
+      if (!from) return;
+      const to = e.relatedTarget?.closest?.('[data-help]');
+      if (to === from) return;
+      this.hideHelpSoon(170);
+    });
+
+    document.addEventListener('focusout', () => this.hideHelpSoon(170));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') this.hideHelp(); });
+    window.addEventListener('blur', () => this.hideHelp(), { passive: true });
     window.addEventListener('resize', () => this.hideHelp(), { passive: true });
-    window.addEventListener('blur', () => this.hideHelp());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.hideHelp(); });
-    document.addEventListener('pointerdown', e => {
-      const el = resolveHelp(e.clientX, e.clientY, e.target);
-      if (!el) this.hideHelp();
-    }, { passive: true });
+  }
+
+  helpPanelFor(anchor = null) {
+    if (!anchor) return null;
+    return anchor.closest?.('.panel') ||
+      anchor.closest?.('#hud-prompt') ||
+      anchor.closest?.('#hud-bottom') ||
+      anchor.closest?.('#hud-top') ||
+      anchor;
   }
 
   showHelp(id, anchor = null) {
     const info = HELP[id];
-    if (!info) return;
-    clearTimeout(this.helpHideTimer);
-    this.helpAnchor = anchor;
-    this.helpVisibleId = id;
     const box = $('context-help');
+    if (!info || !box) return;
+    clearTimeout(this.helpHideTimer);
+
     $('context-help-title').textContent = info.title;
     $('context-help-body').textContent = info.body;
     box.className = 'context-help';
@@ -152,71 +157,76 @@ export class Hud {
     else if (id.includes('stake') || id.includes('casino') || id.includes('BET')) box.classList.add('red');
     else if (id.includes('DASH') || id.includes('ABL') || id.includes('dash') || id.includes('SEK')) box.classList.add('cyan');
     else box.classList.add('green');
-    box.style.display = 'block';
+
+    const panel = this.helpPanelFor(anchor);
+    this.helpPanelRect = panel?.getBoundingClientRect?.() || anchor?.getBoundingClientRect?.() || null;
     box.classList.remove('hidden');
-    this.positionHelp(anchor);
-    requestAnimationFrame(() => this.positionHelp(anchor));
+    this.positionHelp();
   }
 
-  positionHelp(anchor = null) {
+  positionHelp() {
     const box = $('context-help');
     if (!box || box.classList.contains('hidden')) return;
-    const activePanel = anchor?.closest?.('.panel') || anchor?.closest?.('#hud-prompt') || anchor?.closest?.('#hud-bottom') || anchor?.closest?.('#hud-top') || anchor;
-    const r = activePanel?.getBoundingClientRect?.() || { left: 20, right: 20, top: window.innerHeight / 2 - 80, bottom: window.innerHeight / 2 + 80, height: 160 };
-    const gap = 12;
     const margin = 14;
+    const gap = 12;
+    const r = this.helpPanelRect || { left: window.innerWidth / 2 - 180, right: window.innerWidth / 2 + 180, top: window.innerHeight / 2 - 120, bottom: window.innerHeight / 2 + 120, height: 240 };
+
+    box.style.left = '-9999px';
+    box.style.top = '-9999px';
     box.style.right = 'auto';
     box.style.bottom = 'auto';
     box.style.transform = 'none';
-    box.style.maxWidth = Math.min(320, window.innerWidth - margin * 2) + 'px';
-    const bw = box.offsetWidth || 320;
-    const bh = box.offsetHeight || 140;
+    box.style.maxWidth = Math.min(320, Math.max(230, window.innerWidth - margin * 2)) + 'px';
+
+    const bw = box.offsetWidth || 310;
+    const bh = box.offsetHeight || 132;
     let left = r.right + gap;
+    let top = r.top + Math.max(0, ((r.height || (r.bottom - r.top) || bh) - bh) / 2);
     box.classList.remove('left-side');
+
     if (left + bw + margin > window.innerWidth) {
       left = r.left - bw - gap;
       box.classList.add('left-side');
     }
-    if (left < margin) left = Math.min(Math.max(margin, r.left), window.innerWidth - bw - margin);
-    let top = r.top + Math.max(0, (r.height - bh) / 2);
+    if (left < margin) left = Math.max(margin, Math.min(window.innerWidth - bw - margin, r.left));
     if (top + bh + margin > window.innerHeight) top = window.innerHeight - bh - margin;
     if (top < margin) top = margin;
+
     box.style.left = `${Math.round(left)}px`;
     box.style.top = `${Math.round(top)}px`;
   }
 
   ensureHelpStillValid() {
+    // Only hide when all hover-help menus are closed. Do not hide because TAB redraws rows.
     const box = $('context-help');
     if (!box || box.classList.contains('hidden')) return;
-    let a = this.helpAnchor;
-    if (!a || !document.body.contains(a) || a.closest?.('.hidden')) {
-      const p = this.helpPointer || { x: -1, y: -1 };
-      const fresh = document.elementFromPoint(p.x, p.y)?.closest?.('[data-help]');
-      if (fresh?.dataset?.help) { this.showHelp(fresh.dataset.help, fresh); return; }
-      this.hideHelp(); return;
-    }
-    // If the pointer is no longer on any helpable element and the anchor is not focused, do not leave stale help.
-    const p = this.helpPointer || { x: -1, y: -1 };
-    const hover = document.elementFromPoint(p.x, p.y)?.closest?.('[data-help]');
-    if (!hover && document.activeElement !== a) { this.hideHelpSoon(80); return; }
-    this.positionHelp(a);
+    const activeMenu = !($('install-modal')?.classList.contains('hidden')) ||
+      !($('casino-modal')?.classList.contains('hidden')) ||
+      !($('tab-panel')?.classList.contains('hidden'));
+    const hudVisible = !$('hud')?.classList.contains('hidden');
+    if (!activeMenu && !hudVisible) this.hideHelp();
   }
 
-  hideHelpSoon(ms = 120) {
+  hideHelpSoon(ms = 170) {
     clearTimeout(this.helpHideTimer);
-    this.helpHideTimer = setTimeout(() => this.hideHelp(), ms);
+    this.helpHideTimer = setTimeout(() => {
+      const p = this.helpPointer || { x: -1, y: -1 };
+      const el = document.elementFromPoint?.(p.x, p.y)?.closest?.('[data-help]');
+      if (el && !el.closest?.('#context-help')) { this.showHelp(el.dataset.help, el); return; }
+      this.hideHelp();
+    }, ms);
   }
 
   hideHelp() {
     clearTimeout(this.helpHideTimer);
-    this.helpAnchor = null;
-    this.helpVisibleId = null;
     const box = $('context-help');
     if (!box) return;
     box.classList.add('hidden');
-    box.style.display = '';
     box.style.left = '';
     box.style.top = '';
+    box.style.right = '';
+    box.style.bottom = '';
+    this.helpPanelRect = null;
   }
 
   // ------------------------------------------------- per-frame update

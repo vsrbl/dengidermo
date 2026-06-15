@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino
-} from './data.v2-0-8.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-8.js';
+} from './data.v2-0-10.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-10.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -18,6 +18,8 @@ const ENEMY_PLAYER_PAD = 7;
 const ENEMY_PLAYER_PUSH = 0.36;
 const ENEMY_SELF_PUSH = 0.84;
 const PLAYER_HIT_INVULN = 0.12;
+const SHOT_RECOIL_SCALE = 1;
+const HIT_KNOCK_SCALE = 0.075;
 const DIFFICULTY_MULT = 2; // requested harder pass: roughly 2x pressure versus v2.0.2
 const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
@@ -285,8 +287,11 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
   run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y), size: Math.round(e.size || 24), heavy: dmg >= 18, kx: Math.round((kx || 0) * 100) / 100, ky: Math.round((ky || 0) * 100) / 100 });
-  if (knock && !def.boss && e.kind !== 'bouncer') {
-    e.x += kx * knock * 0.02; e.y += ky * knock * 0.02;
+  if (knock && !def.boss) {
+    const n = Math.hypot(kx || 0, ky || 0) > 0.001 ? norm(kx, ky) : fallbackDir(Number.parseInt(String(e.id || '1'), 36) || run.tick || 1);
+    const impulse = Math.min(28, 2.5 + knock * HIT_KNOCK_SCALE + (dmg >= 18 ? 3 : 0));
+    const c = collideWalls(e.x + n.x * impulse, e.y + n.y * impulse, e.size / 2, run.plan.walls, e.x, e.y);
+    e.x = c.x; e.y = c.y;
   }
   const p = owner ? players.get(owner) : null;
   if (p && p.stats.lifesteal > 0 && p.alive) {
@@ -361,6 +366,11 @@ function fireWeapon(run, players, p, dt) {
   if (!w) return;
   p.cd = w.cooldown / p.stats.fireMul;
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
+  const recoil = (w.recoil || 0) * SHOT_RECOIL_SCALE;
+  if (recoil > 0) {
+    const c = collideWalls(p.x - dir.x * recoil, p.y - dir.y * recoil, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
+    p.x = c.x; p.y = c.y;
+  }
   const shots = 1 + chanceStacks(p.stats.echoShot);
   for (let s = 0; s < shots; s++) {
     const delay = s * 0.06;
@@ -382,7 +392,10 @@ function fireWeapon(run, players, p, dt) {
 function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style = 'blast') {
   run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style });
   for (const e of [...run.enemies]) {
-    if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) damageEnemy(run, players, e, dmg, owner, 0, 0, 0);
+    if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) {
+      const n = norm(e.x - x, e.y - y);
+      damageEnemy(run, players, e, dmg, owner, style === 'rocket' ? 95 : 36, n.x, n.y);
+    }
   }
   if (hurtPlayers) {
     for (const p of players.values()) {

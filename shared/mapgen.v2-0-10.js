@@ -1,5 +1,5 @@
 // nncckkrr room generation: walls, pillars, chests, BET terminals, spawns
-import { ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-9.js';
+import { ROOM_MODS, ROOM_SEQUENCE } from './data.v2-0-10.js';
 
 export const WORLD_W = 2200;
 export const WORLD_H = 1500;

@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.9 — stable help + recoil / hit knockback */
+/* nncckkrr v2.0.10 — stable help + recoil / hit knockback */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -156,7 +156,7 @@ button:disabled { opacity: .3; cursor: none; }
 #install-choices .choice.picked { border-color: #00ff66; color: #00ff66; }
 #install-choices .choice.dimmed { opacity: 0.25; pointer-events: none; }
 
-/* v2.0.9 casino width lock: long jackpot/static text must not stretch the modal */
+/* v2.0.10 casino width lock: long jackpot/static text must not stretch the modal */
 #casino-modal .panel {
   width: min(460px, calc(100vw - 32px));
   min-width: 0;
@@ -175,7 +175,7 @@ button:disabled { opacity: .3; cursor: none; }
 #casino-stakes { flex-wrap: nowrap; }
 #casino-stakes button { min-width: 96px; }
 
-/* v2.0.9 context help: hover glossary anchored beside the active panel */
+/* v2.0.10 context help: hover glossary anchored beside the active panel */
 .helpable {
   pointer-events: auto;
   border-bottom: 1px dotted currentColor;

@@ -1,4 +1,4 @@
-// nncckkrr procedural audio v2.0.8: restrained terminal-noise SFX, softer gun layer.
+// nncckkrr procedural audio v2.0.10: restrained terminal-noise SFX, softer gun layer.
 // No external assets. WebAudio unlocks on the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
