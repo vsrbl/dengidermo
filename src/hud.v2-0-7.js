@@ -1,5 +1,5 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P } from './state.v2-0-6.js';
+import { P } from './state.v2-0-7.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = { blackout: 'BLACKOUT', static_rain: 'STATIC RAIN', greed: 'GREED SIGNAL' };
@@ -86,6 +86,7 @@ export class Hud {
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false };
     this.names = new Map();
     this.helpHideTimer = null;
+    this.helpAnchor = null;
 
     $('casino-stakes').querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', () => this.placeBet(btn.dataset.stake));
@@ -100,26 +101,36 @@ export class Hud {
   bindContextHelp() {
     document.addEventListener('pointerover', e => {
       const el = e.target?.closest?.('[data-help]');
-      if (el) this.showHelp(el.dataset.help);
+      if (el) this.showHelp(el.dataset.help, el);
     });
     document.addEventListener('focusin', e => {
       const el = e.target?.closest?.('[data-help]');
-      if (el) this.showHelp(el.dataset.help);
+      if (el) this.showHelp(el.dataset.help, el);
     });
     document.addEventListener('pointerout', e => {
       const from = e.target?.closest?.('[data-help]');
       if (!from) return;
       const to = e.relatedTarget?.closest?.('[data-help]');
-      if (to === from) return;
-      this.hideHelpSoon();
+      if (to && (to === from || from.contains(to))) return;
+      this.hideHelpSoon(110);
     });
+    document.addEventListener('pointermove', e => {
+      if (e.target?.closest?.('[data-help]')) return;
+      if (!$('context-help')?.classList.contains('hidden')) this.hideHelpSoon(140);
+    }, { passive: true });
+    document.addEventListener('focusout', () => this.hideHelpSoon(80));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') this.hideHelp(); });
+    window.addEventListener('resize', () => this.hideHelp(), { passive: true });
+    window.addEventListener('blur', () => this.hideHelp());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.hideHelp(); });
+    document.addEventListener('pointerdown', e => { if (!e.target?.closest?.('[data-help]')) this.hideHelp(); }, { passive: true });
   }
 
-  showHelp(id) {
+  showHelp(id, anchor = null) {
     const info = HELP[id];
     if (!info) return;
     clearTimeout(this.helpHideTimer);
+    this.helpAnchor = anchor;
     const box = $('context-help');
     $('context-help-title').textContent = info.title;
     $('context-help-body').textContent = info.body;
@@ -129,20 +140,62 @@ export class Hud {
     else if (id.includes('DASH') || id.includes('ABL') || id.includes('dash') || id.includes('SEK')) box.classList.add('cyan');
     else box.classList.add('green');
     box.classList.remove('hidden');
+    this.positionHelp(anchor);
   }
 
-  hideHelpSoon() {
+  positionHelp(anchor = null) {
+    const box = $('context-help');
+    if (!box || box.classList.contains('hidden')) return;
+    const activePanel = anchor?.closest?.('.panel') || anchor?.closest?.('#hud-prompt') || anchor?.closest?.('#hud-bottom') || anchor?.closest?.('#hud-top') || anchor;
+    const r = activePanel?.getBoundingClientRect?.() || { left: 20, right: 20, top: window.innerHeight / 2 - 80, bottom: window.innerHeight / 2 + 80, height: 160 };
+    const gap = 12;
+    const margin = 14;
+    box.style.right = 'auto';
+    box.style.bottom = 'auto';
+    box.style.transform = 'none';
+    box.style.maxWidth = Math.min(320, window.innerWidth - margin * 2) + 'px';
+    const bw = box.offsetWidth || 320;
+    const bh = box.offsetHeight || 140;
+    let left = r.right + gap;
+    box.classList.remove('left-side');
+    if (left + bw + margin > window.innerWidth) {
+      left = r.left - bw - gap;
+      box.classList.add('left-side');
+    }
+    if (left < margin) left = Math.min(Math.max(margin, r.left), window.innerWidth - bw - margin);
+    let top = r.top + Math.max(0, (r.height - bh) / 2);
+    if (top + bh + margin > window.innerHeight) top = window.innerHeight - bh - margin;
+    if (top < margin) top = margin;
+    box.style.left = `${Math.round(left)}px`;
+    box.style.top = `${Math.round(top)}px`;
+  }
+
+  ensureHelpStillValid() {
+    const box = $('context-help');
+    if (!box || box.classList.contains('hidden')) return;
+    const a = this.helpAnchor;
+    if (!a || !document.body.contains(a) || a.closest?.('.hidden')) { this.hideHelp(); return; }
+    this.positionHelp(a);
+  }
+
+  hideHelpSoon(ms = 120) {
     clearTimeout(this.helpHideTimer);
-    this.helpHideTimer = setTimeout(() => this.hideHelp(), 180);
+    this.helpHideTimer = setTimeout(() => this.hideHelp(), ms);
   }
 
   hideHelp() {
     clearTimeout(this.helpHideTimer);
-    $('context-help')?.classList.add('hidden');
+    this.helpAnchor = null;
+    const box = $('context-help');
+    if (!box) return;
+    box.classList.add('hidden');
+    box.style.left = '';
+    box.style.top = '';
   }
 
   // ------------------------------------------------- per-frame update
   update(state, dt) {
+    this.ensureHelpStillValid();
     const me = state.me();
     const room = state.room;
     if (!me || !room) return;
@@ -287,7 +340,7 @@ export class Hud {
   // ------------------------------------------------- TAB panel
   setTab(visible, state) {
     const panel = $('tab-panel');
-    if (!visible) { panel.classList.add('hidden'); return; }
+    if (!visible) { panel.classList.add('hidden'); this.hideHelp(); return; }
     panel.classList.remove('hidden');
     const room = state.room;
     if (!room || !state.latest) return;
@@ -338,7 +391,7 @@ export class Hud {
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
     this.net.sendPick(i);
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); }
+  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); this.hideHelp(); }
 
   // ------------------------------------------------- casino modal
   clearReels() {
@@ -367,6 +420,7 @@ export class Hud {
     this.casino.open = false;
     this.casino.spinning = false;
     $('casino-modal').classList.add('hidden');
+    this.hideHelp();
   }
   placeBet(stake) {
     if (this.casino.spinning) return;

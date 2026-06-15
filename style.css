@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.6 — rocket dash audio pass */
+/* nncckkrr v2.0.7 — contextual help placement + softer gun audio */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -156,7 +156,7 @@ button:disabled { opacity: .3; cursor: none; }
 #install-choices .choice.picked { border-color: #00ff66; color: #00ff66; }
 #install-choices .choice.dimmed { opacity: 0.25; pointer-events: none; }
 
-/* v2.0.6 casino width lock: long jackpot/static text must not stretch the modal */
+/* v2.0.7 casino width lock: long jackpot/static text must not stretch the modal */
 #casino-modal .panel {
   width: min(460px, calc(100vw - 32px));
   min-width: 0;
@@ -175,7 +175,7 @@ button:disabled { opacity: .3; cursor: none; }
 #casino-stakes { flex-wrap: nowrap; }
 #casino-stakes button { min-width: 96px; }
 
-/* v2.0.6 context help: hover glossary for unclear abbreviations */
+/* v2.0.7 context help: hover glossary anchored beside the active panel */
 .helpable {
   border-bottom: 1px dotted currentColor;
   text-decoration: none;
@@ -186,26 +186,40 @@ button:disabled { opacity: .3; cursor: none; }
 }
 .context-help {
   position: fixed;
-  right: 22px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: min(320px, calc(100vw - 44px));
-  min-height: 128px;
+  left: 16px;
+  top: 16px;
+  transform: none;
+  width: min(300px, calc(100vw - 28px));
+  min-height: 118px;
   border: 1px solid var(--green);
-  background: rgba(5, 5, 5, .96);
-  box-shadow: 0 0 0 4px rgba(0,255,102,.06), 0 0 28px rgba(0,255,102,.18);
-  padding: 14px 16px;
+  background: rgba(5, 5, 5, .965);
+  box-shadow: 0 0 0 4px rgba(0,255,102,.06), 0 0 24px rgba(0,255,102,.16);
+  padding: 13px 15px;
   z-index: 55;
   pointer-events: none;
-  animation: helpsnap .09s steps(3);
+  animation: helpsnap .08s steps(3);
 }
 .context-help::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0, rgba(255,255,255,.035) 1px, transparent 1px, transparent 7px);
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,.032) 0, rgba(255,255,255,.032) 1px, transparent 1px, transparent 7px);
   pointer-events: none;
-  opacity: .35;
+  opacity: .32;
+}
+.context-help::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 22px;
+  width: 7px;
+  height: 1px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+.context-help.left-side::after {
+  left: auto;
+  right: -7px;
 }
 #context-help-title {
   position: relative;
@@ -222,19 +236,14 @@ button:disabled { opacity: .3; cursor: none; }
   line-height: 1.55;
   letter-spacing: .5px;
 }
-.context-help.red { border-color: var(--red); box-shadow: 0 0 0 4px rgba(255,48,72,.06), 0 0 28px rgba(255,48,72,.18); }
+.context-help.red { color: var(--red); border-color: var(--red); box-shadow: 0 0 0 4px rgba(255,48,72,.06), 0 0 24px rgba(255,48,72,.16); }
 .context-help.red #context-help-title { color: var(--red); }
-.context-help.purple { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(180,92,255,.06), 0 0 28px rgba(180,92,255,.18); }
+.context-help.purple { color: var(--purple); border-color: var(--purple); box-shadow: 0 0 0 4px rgba(180,92,255,.06), 0 0 24px rgba(180,92,255,.16); }
 .context-help.purple #context-help-title { color: var(--purple); }
-.context-help.cyan { border-color: var(--cyan); box-shadow: 0 0 0 4px rgba(102,246,255,.06), 0 0 28px rgba(102,246,255,.16); }
+.context-help.cyan { color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 0 4px rgba(102,246,255,.06), 0 0 24px rgba(102,246,255,.14); }
 .context-help.cyan #context-help-title { color: var(--cyan); }
-@keyframes helpsnap { from { transform: translateY(-50%) translateX(14px); opacity: 0; } }
-
-#install-modal .panel,
-#casino-modal .panel,
-#tab-panel .panel {
-  margin-right: min(340px, 26vw);
-}
+.context-help.green { color: var(--green); }
+@keyframes helpsnap { from { transform: translateX(10px); opacity: 0; } }
 #install-modal .panel { max-width: 520px; }
 #tab-run { white-space: pre-wrap; }
 #casino-result .helpable { display: inline; }
@@ -242,18 +251,13 @@ button:disabled { opacity: .3; cursor: none; }
 
 @media (max-width: 920px) {
   .context-help {
-    left: 16px;
-    right: 16px;
-    top: auto;
-    bottom: 18px;
-    transform: none;
-    width: auto;
+    width: min(300px, calc(100vw - 28px));
+    max-height: 42vh;
+    overflow: hidden;
   }
   #install-modal .panel,
   #casino-modal .panel,
   #tab-panel .panel {
     margin-right: 0;
-    margin-bottom: 160px;
   }
-  @keyframes helpsnap { from { transform: translateY(14px); opacity: 0; } }
 }

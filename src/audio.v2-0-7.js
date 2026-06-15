@@ -1,4 +1,4 @@
-// nncckkrr procedural audio v2.0.6: dry terminal-noise SFX, no comedy beeps.
+// nncckkrr procedural audio v2.0.7: restrained terminal-noise SFX, softer gun layer.
 // No external assets. WebAudio unlocks on the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
@@ -10,10 +10,10 @@ export class AudioBus {
     this.comp = null;
     this.enabled = true;
     this.active = 0;
-    this.maxVoices = 18;
+    this.maxVoices = 16;
     this.last = new Map();
     this.cooldowns = {
-      shot: 0.04, shot_shg: 0.04, shot_sek: 0.05, rocket_launch: 0.11,
+      shot: 0.09, shot_shg: 0.095, shot_sek: 0.14, rocket_launch: 0.16,
       rocket_blast: 0.18, blast: 0.12, dash: 0.08, pickup: 0.055,
       hit: 0.055, phit: 0.13, denied: 0.22, chest: 0.13,
       portal: 0.55, levelup: 0.45, install: 0.18,
@@ -41,7 +41,7 @@ export class AudioBus {
     if (!this.ctx) {
       this.ctx = new Ctx();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.28;
+      this.master.gain.value = 0.22;
       this.comp = this.ctx.createDynamicsCompressor();
       this.comp.threshold.value = -20;
       this.comp.knee.value = 8;
@@ -124,31 +124,27 @@ export class AudioBus {
     switch (type) {
       case 'shot':
       case 'shot_shg':
-        // dry black/white shotgun: thud + static crack, not a happy laser
-        this.click(950, 0.055);
-        this.noise(0.045, 0.06, 1300, 3.5, 0.004, 'bandpass');
-        this.tone(118, 0.045, 'square', 0.045, 0.62);
+        // softened gun layer: dry muzzle tick + low body, less sharp high crack
+        this.noise(0.026, 0.030, 720, 2.4, 0, 'bandpass');
+        this.tone(92, 0.034, 'square', 0.026, 0.78, 0.002);
         break;
       case 'shot_sek':
-        // seeker: thin cyan-ish digital ping, still restrained
-        this.click(1700, 0.04);
-        this.tone(310, 0.05, 'square', 0.035, 1.35, 0.006);
-        this.noise(0.032, 0.028, 3400, 8, 0.01, 'bandpass');
+        // seeker was too piercing; make it a quiet tracking chirp, not a laser beep
+        this.noise(0.020, 0.016, 1350, 5.0, 0, 'bandpass');
+        this.tone(180, 0.026, 'triangle', 0.014, 1.12, 0.004);
         break;
       case 'rocket_launch':
-        this.tone(82, 0.16, 'sawtooth', 0.12, 1.35);
-        this.noise(0.09, 0.075, 360, 1.6, 0.004, 'lowpass');
-        this.click(520, 0.04, 0.018);
+        this.tone(72, 0.13, 'sawtooth', 0.085, 1.24);
+        this.noise(0.07, 0.052, 330, 1.4, 0.004, 'lowpass');
         break;
       case 'rocket_blast':
-        this.tone(48, 0.2, 'square', 0.17, 0.42);
-        this.noise(0.16, 0.13, 180, 0.8, 0, 'lowpass');
-        this.noise(0.055, 0.07, 2600, 6, 0.018, 'bandpass');
-        this.click(760, 0.05, 0.035);
+        this.tone(46, 0.18, 'square', 0.145, 0.42);
+        this.noise(0.14, 0.105, 170, 0.8, 0, 'lowpass');
+        this.noise(0.040, 0.040, 2100, 5, 0.018, 'bandpass');
         break;
       case 'blast':
-        this.tone(76, 0.13, 'square', 0.095, 0.5);
-        this.noise(0.09, 0.075, 420, 1.4, 0, 'lowpass');
+        this.tone(70, 0.105, 'square', 0.070, 0.55);
+        this.noise(0.07, 0.055, 390, 1.2, 0, 'lowpass');
         break;
       case 'dash':
         this.noise(0.052, 0.055, 3600, 12, 0, 'bandpass');
@@ -232,6 +228,8 @@ export class AudioBus {
     const mine = f.id === info.myId;
     switch (f.t) {
       case 'shot': {
+        const remote = f.id && info.myId && f.id !== info.myId;
+        if (remote && f.w !== 'RKT') break; // remote bullet spam is visual, not loud
         if (f.w === 'RKT') this.play('rocket_launch');
         else if (f.w === 'SEK') this.play('shot_sek');
         else this.play('shot_shg');
