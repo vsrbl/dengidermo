@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.69 — contract payout clarity / WPN fire-rate tag cleanup
+# PATCH NOTES v2.0.72 — contract payout clarity / WPN fire-rate tag cleanup
 
 ## WPN chest clarity
 

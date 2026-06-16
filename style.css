@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.69 — room objectives / instant TAB */
+/* nncckkrr v2.0.72 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -51,6 +51,8 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #hud-objective .room-intel .term { color: var(--red); border-color: rgba(255,60,80,.42); padding: 1px 5px; background: rgba(255,60,80,.045); }
 #hud-objective .room-objective { color: var(--green); font-size: 10px; line-height: 1.25; margin-bottom: 3px; max-width: 680px; }
 #hud-objective .room-objective .term { color: var(--green); border-color: rgba(0,255,102,.40); padding: 1px 5px; background: rgba(0,255,102,.045); }
+#hud-objective .room-objective .term.danger { color: var(--red); border-color: rgba(255,60,80,.46); background: rgba(255,60,80,.055); }
+#hud-objective .room-objective .term.good { color: var(--green); border-color: rgba(0,255,102,.52); background: rgba(0,255,102,.065); }
 #hud-objective .room-prophecy { color: var(--dim); font-size: 11px; margin-bottom: 3px; max-width: 680px; }
 #hud-objective .room-prophecy .term { color: var(--gold); border-color: rgba(255,211,77,.45); padding: 1px 5px; background: rgba(255,211,77,.055); }
 #hud-objective .done { color: var(--green); }
@@ -1020,3 +1022,62 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px)),
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
+
+/* v2.0.72 — WPN chest readability: role + effect + exact change */
+.weapon-choice {
+  padding: 9px 12px;
+}
+.weapon-choice .wpn-choice-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.weapon-choice .wpn-choice-read,
+.weapon-choice .wpn-choice-change {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.25;
+  letter-spacing: .11em;
+  color: var(--dim);
+  white-space: normal;
+}
+.weapon-choice .wpn-choice-change {
+  color: rgba(102,246,255,.86);
+}
+.weapon-choice .wpn-tags {
+  float: none;
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.weapon-choice .wpn-role,
+.weapon-choice .wpn-tag {
+  font-size: 8px;
+  letter-spacing: .14em;
+  border: 1px solid rgba(102,246,255,.35);
+  color: var(--cyan);
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+.weapon-choice .wpn-role.dps { border-color: rgba(0,255,102,.42); color: var(--green); }
+.weapon-choice .wpn-role.range { border-color: rgba(102,246,255,.50); color: var(--cyan); }
+.weapon-choice .wpn-role.status { border-color: rgba(180,92,255,.45); color: var(--purple); }
+.weapon-choice .wpn-role.control { border-color: rgba(243,243,243,.36); color: var(--fg); }
+.weapon-choice .wpn-role.synergy { border-color: rgba(255,216,91,.42); color: var(--gold); }
+.weapon-choice .wpn-role.new { border-color: rgba(102,246,255,.55); color: var(--cyan); }
+.weapon-choice .wpn-role.utility { border-color: rgba(170,170,170,.35); color: var(--dim); }
+.weapon-choice .wpn-tag.element.fire { border-color: rgba(255,48,72,.45); color: var(--red); }
+.weapon-choice .wpn-tag.element.freeze { border-color: rgba(102,246,255,.50); color: var(--cyan); }
+.weapon-choice .wpn-tag.element.poison { border-color: rgba(0,255,102,.45); color: var(--green); }
+.weapon-choice .wpn-tag.element.drone { border-color: rgba(180,92,255,.45); color: var(--purple); }
+.weapon-choice:hover .wpn-choice-read,
+.weapon-choice:hover .wpn-choice-change,
+.weapon-choice:hover .wpn-role,
+.weapon-choice:hover .wpn-tag { color: var(--bg); border-color: rgba(0,0,0,.45); }
+.weapon-choice.disabled .wpn-choice-read,
+.weapon-choice.disabled .wpn-choice-change { color: #555; }
