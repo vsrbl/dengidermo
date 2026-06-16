@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.22 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.23 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -282,3 +282,8 @@ button:disabled { opacity: .3; cursor: none; }
   color: var(--dim);
   border-color: #333;
 }
+.choice .choice-sub { display:block; margin-top:4px; font-size:10px; letter-spacing:.12em; opacity:.85; color:#66f6ff; }
+.choice .choice-preview { display:block; margin-top:3px; font-size:11px; line-height:1.25; opacity:.78; color:#f3f3f3; }
+.choice.tone-red .choice-sub { color:#ff3048; }
+.choice.tone-purple .choice-sub { color:#b45cff; }
+.choice.tone-green .choice-sub { color:#00ff66; }
