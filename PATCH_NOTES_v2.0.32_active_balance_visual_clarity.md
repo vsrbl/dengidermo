@@ -1,4 +1,4 @@
-# v2.0.36 — active balance / visual clarity pass
+# v2.0.39 — active balance / visual clarity pass
 
 ## Intent
 Active abilities from v2.0.31 were too hard: too much radius, duration, slow, damage and visual noise. This patch cuts active power back and makes the visual language consistent/readable.
@@ -21,5 +21,5 @@ Active abilities from v2.0.31 were too hard: too much radius, duration, slow, da
 - Void Cut line is a stable segmented digital tear with less pulsing.
 
 ## Version
-- Bumped to `v2.0.36`.
-- Module filenames updated from `v2-0-31` to `v2-0-36`.
+- Bumped to `v2.0.39`.
+- Module filenames updated from `v2-0-31` to `v2-0-39`.
