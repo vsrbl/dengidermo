@@ -1,8 +1,8 @@
-# PATCH NOTES v2.0.66 — room objectives / instant TAB
+# PATCH NOTES v2.0.67 — room objectives / instant TAB
 
 ## Main idea
 
-v2.0.66 adds a small objective layer to rooms so each room has an extra readable mini-goal beyond just clearing quota. Objectives are shown in HUD/TAB and pay a small GLD/EXP bonus plus a Tape Log record when completed.
+v2.0.67 adds a small objective layer to rooms so each room has an extra readable mini-goal beyond just clearing quota. Objectives are shown in HUD/TAB and pay a small GLD/EXP bonus plus a Tape Log record when completed.
 
 ## TAB UX
 
