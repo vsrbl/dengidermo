@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.27 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.28 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -316,7 +316,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.27 — skin rarities / locked inventory */
+/* v2.0.28 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -350,7 +350,7 @@ button:disabled { opacity: .3; cursor: none; }
 @keyframes skinPulseSuper { 0%{ transform:translate(0,0) rotate(0); } 33%{ transform:translate(-1px,1px); } 66%{ transform:translate(1px,-1px); } 100%{ transform:translate(0,0); } }
 @keyframes skinPulseLegend { 0%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(1px,0) scale(1.06); } 100%{ transform:translate(0,0) scale(1); } }
 
-/* v2.0.27 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.28 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
