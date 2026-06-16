@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.12">
+<link rel="stylesheet" href="style.css?v=2.0.13">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -15,7 +15,7 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.12</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.13</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -64,6 +64,15 @@
   </div>
 </div>
 
+<!-- weapon chest picker -->
+<div id="weapon-modal" class="overlay hidden">
+  <div class="panel cyan-edge">
+    <div class="panel-title cyan" data-explain-title="WPN-СУНДУК" data-explain="Выбери одну награду из оружейного сундука: новое оружие, апгрейд оружия или усиление урона/скорострельности. Апгрейд пушки, которой у тебя нет, будет неактивен.">WPN CHEST <span class="subtle">SELECT 1/3</span></div>
+    <div id="weapon-choices"></div>
+    <div class="hint"><span class="term" data-explain-title="ВЫБОР WPN" data-explain="Клавиши 1, 2 и 3 выбирают доступный вариант. Серые варианты требуют оружие, которого у тебя ещё нет.">1 / 2 / 3</span> — выбрать доступный вариант</div>
+  </div>
+</div>
+
 <!-- casino modal -->
 <div id="casino-modal" class="overlay hidden">
   <div class="panel red-edge">
@@ -99,7 +108,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.12"></script>
-<script type="module" src="src/main.v2-0-12.js?v=2.0.12"></script>
+<script src="config.js?v=2.0.13"></script>
+<script type="module" src="src/main.v2-0-13.js?v=2.0.13"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.12 — player enemy body separation hotfix */
+/* nncckkrr v2.0.13 — WPN chest choice + casino polish */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -88,8 +88,11 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 .panel-title { font-size: 18px; letter-spacing: 4px; margin-bottom: 14px; }
 .panel-title.green { color: var(--green); }
 .panel-title.red { color: var(--red); }
+.panel-title.cyan { color: var(--cyan); }
+.subtle { color: var(--dim); font-size: 11px; letter-spacing: 2px; }
 .green-edge { border-color: var(--green); box-shadow: 0 0 24px rgba(0,255,102,.25); }
 .red-edge { border-color: var(--red); box-shadow: 0 0 24px rgba(255,48,72,.25); }
+.cyan-edge { border-color: var(--cyan); box-shadow: 0 0 24px rgba(102,246,255,.20); }
 .hint { color: var(--dim); font-size: 11px; margin-top: 12px; }
 
 /* TAB */
@@ -119,8 +122,18 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #install-timer { height: 3px; background: #222; margin-top: 14px; }
 #install-timer-bar { height: 100%; width: 100%; background: var(--green); }
 
+/* weapon chest picker */
+#weapon-modal { z-index: 35; }
+#weapon-choices { display: flex; flex-direction: column; gap: 8px; }
+.weapon-choice { border-color: var(--cyan); }
+.weapon-choice:hover { background: var(--cyan); color: var(--bg); }
+.weapon-choice.disabled { opacity: .34; border-color: #333; color: #555; background: rgba(255,255,255,.015); }
+.weapon-choice.disabled:hover { background: rgba(255,48,72,.07); color: var(--red); border-color: var(--red); }
+.weapon-choice .lock { float: right; color: var(--red); font-size: 11px; letter-spacing: 1px; margin-left: 12px; }
+
 /* casino */
 #casino-modal { z-index: 35; }
+#casino-modal .panel { width: min(92vw, 520px); min-width: min(92vw, 420px); box-sizing: border-box; }
 #reels { display: flex; gap: 10px; justify-content: center; margin: 10px 0 16px; }
 .reel { display: inline-block; width: 74px; height: 58px; border: 1px solid var(--fg);
   font-size: 17px; line-height: 58px; text-align: center; letter-spacing: 2px; background: rgba(255,255,255,.03); }
@@ -128,7 +141,9 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 @keyframes reelspin { 50% { transform: translateY(2px); opacity: .4; } }
 .reel.win { border-color: var(--green); color: var(--green); box-shadow: 0 0 14px rgba(0,255,102,.5); }
 .reel.lose { border-color: var(--red); color: var(--red); }
-#casino-result { text-align: center; min-height: 22px; font-size: 15px; margin-bottom: 12px; letter-spacing: 2px; }
+#casino-result { text-align: center; min-height: 44px; max-width: 100%; font-size: 13px; margin-bottom: 12px; letter-spacing: 1px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }
+#casino-result span { display: inline-block; margin: 2px 5px; white-space: nowrap; }
+#casino-result span:first-child { display: block; margin-bottom: 4px; letter-spacing: 2px; }
 #casino-stakes { display: flex; gap: 10px; justify-content: center; }
 #casino-stakes button { pointer-events: auto; }
 
