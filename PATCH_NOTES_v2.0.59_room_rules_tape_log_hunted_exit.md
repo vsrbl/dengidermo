@@ -1,8 +1,8 @@
-# nncckkrr.space v2.0.59 — room rules / tape log / hunted exit
+# nncckkrr.space v2.0.60 — room rules / tape log / hunted exit
 
 ## Главная идея
 
-v2.0.58 добавил room identity: музыку, prophecy, invoice, размеры комнат и первые новые modifiers. v2.0.59 делает следующий слой: новые правила комнат должны реально менять бой и оставлять dopamine-след после зачистки.
+v2.0.58 добавил room identity: музыку, prophecy, invoice, размеры комнат и первые новые modifiers. v2.0.60 делает следующий слой: новые правила комнат должны реально менять бой и оставлять dopamine-след после зачистки.
 
 ## Новые room modifiers
 
@@ -59,7 +59,7 @@ After-room invoice теперь может писать короткие tape-с
 
 ## Технические проверки
 
-- Обновлены versioned filenames/imports до `v2.0.59`.
+- Обновлены versioned filenames/imports до `v2.0.60`.
 - Обновлены `protocol`, `server`, `package`, `index.html` cache query.
 - `node --check server/index.js`
 - `node --check shared/*.js`
