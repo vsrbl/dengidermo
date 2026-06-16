@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.62 — static rain readability / dash radius
+# PATCH NOTES v2.0.63 — static rain readability / dash radius
 
 - Reworked `STATIC RAIN` into a readable one-room pending debt instead of an unclear cascading chain.
 - HUD now shows the current room's `STATIC RAIN LVL X` in the top-right objective block.
