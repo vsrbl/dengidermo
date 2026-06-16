@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.54 static stack / loop prices / chill rooms
+# PATCH NOTES — v2.0.55 static stack / loop prices / chill rooms
 
 - `STATIC RAIN` now tracks how many strikes landed in a room. If the room produced many strikes, the next room receives stacked static rain pressure.
 - Static rain stacks increase strike frequency, strike count, radius, and damage.

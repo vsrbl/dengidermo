@@ -1,0 +1,25 @@
+# PATCH NOTES — v2.0.55 menu versions / ability align / skin cleanup
+
+- Main menu now always shows a visible build line:
+  - CLIENT version
+  - BUILD id
+  - PROTO id
+  - SERVER version/build/proto after `/health` responds
+- Fixed stale cache query strings in `index.html`:
+  - `style.css?v=2.0.55`
+  - `config.js?v=2.0.55`
+  - `src/main.v2-0-55.js?v=2.0.55`
+- Network/status text is now always English regardless of selected UI language:
+  - `CONNECTING…`
+  - `NETWORK READY`
+  - `UPDATE REQUIRED: CLIENT ... / SERVER ...`
+  - `ROOM NOT FOUND`, `ROOM FULL`, etc.
+- Added language buttons to both the main menu and HUD when missing from the static HTML.
+- Fixed ABL / Q ability chest card alignment:
+  - titles/actions now start from the same left column;
+  - short labels no longer shift right compared to long labels;
+  - tags keep their own right column.
+- Skin cleanup:
+  - `DEBT RED` no longer has the crooked inner cross;
+  - `BRUISE PURPLE` now has a straight aligned X;
+  - `BLACK LIME` keeps lime outline but its interior is fully black.

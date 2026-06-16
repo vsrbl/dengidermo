@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.54 elemental status hotfix
+# PATCH NOTES — v2.0.55 elemental status hotfix
 
 - Починен весь путь elemental WPN effects: bullet upgrade → bullet data → hit → enemy status → snapshot → render.
 - `FIRE BULLETS` теперь на каждом попадании явно ставит `BURN`, показывает hit-VFX и рамку `BURN` на враге.

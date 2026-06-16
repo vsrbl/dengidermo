@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.54 void laser duration / sound / minimal pass
+# PATCH NOTES — v2.0.55 void laser duration / sound / minimal pass
 
 - `VOID CUT / VOID LASER` duration increased by +2 seconds at the base formula.
 - Kept upgrade scaling: upgrades still increase length, damage, and duration.

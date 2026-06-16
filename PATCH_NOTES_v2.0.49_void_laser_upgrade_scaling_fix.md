@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.54 void laser upgrade scaling fix
+# PATCH NOTES — v2.0.55 void laser upgrade scaling fix
 
 - Fixed `VOID LASER` upgrades not feeling visible.
 - Removed `activeScale()` from laser reach/duration because the global active nerf compressed the upgrade steps too much.
