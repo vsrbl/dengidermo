@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.45_void_laser_weapon_link_rework
+# PATCH NOTES — v2.0.46_void_laser_weapon_link_rework
 
 ## Главная цель
 
