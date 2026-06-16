@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.51 i18n player-facing cleanup
+# PATCH NOTES — v2.0.54 i18n player-facing cleanup
 
 ## Player-facing explanations cleanup
 
@@ -31,7 +31,7 @@
 
 ## New code
 
-- Added `src/i18n.v2-0-51.js`:
+- Added `src/i18n.v2-0-54.js`:
   - language state;
   - static UI translation pass;
   - player-facing text cleanup helpers;

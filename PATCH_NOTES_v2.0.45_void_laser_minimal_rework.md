@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.51 void laser minimal rework
+# PATCH NOTES — v2.0.54 void laser minimal rework
 
 - `VOID CUT` сохранён по имени, но по визуалу и поведению это теперь быстрый тонкий `VOID LASER` из игрока.
 - Убрано ощущение толстой lingering-полосы.

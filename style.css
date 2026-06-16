@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.51 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.54 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -154,7 +154,7 @@ button:hover { background: var(--fg); color: var(--bg); }
 button:disabled { opacity: .3; cursor: none; }
 
 
-/* v2.0.51 — active CASINO mutation roll strip */
+/* v2.0.54 — active CASINO mutation roll strip */
 #active-roll { position: fixed; left: 50%; top: 82px; transform: translateX(-50%); z-index: 18; pointer-events: none;
   min-width: 260px; max-width: min(92vw, 520px); padding: 8px 14px; border: 1px solid var(--green); background: rgba(0,0,0,.88);
   color: var(--green); text-align: center; font-size: 12px; letter-spacing: 2px; box-shadow: 0 0 18px rgba(0,255,102,.18); }
@@ -330,7 +330,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.51 — skin rarities / locked inventory */
+/* v2.0.54 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -349,7 +349,7 @@ button:disabled { opacity: .3; cursor: none; }
 .rarity-rare { color:#b45cff; }
 .rarity-superrare { color:#ff3048; }
 .rarity-legendary { color:#ffd34d; text-shadow:0 0 10px rgba(255,211,77,.5); }
-/* v2.0.51: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
+/* v2.0.54: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
 #skin-editor[data-rarity="rare"] .skin-core,
 #skin-editor[data-rarity="superrare"] .skin-core,
 #skin-editor[data-rarity="legendary"] .skin-core,
@@ -363,7 +363,7 @@ button:disabled { opacity: .3; cursor: none; }
   opacity:.32; pointer-events:none;
 }
 
-/* v2.0.51 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.54 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
@@ -425,7 +425,7 @@ button:disabled { opacity: .3; cursor: none; }
 #skin-editor.locked .skin-rarity { opacity: .85; }
 
 
-/* v2.0.51 — Ability chest compact cards; detailed info lives in hover tooltip */
+/* v2.0.54 — Ability chest compact cards; detailed info lives in hover tooltip */
 #ability-modal .panel {
   width: min(94vw, 640px);
   min-width: min(94vw, 420px);
@@ -501,7 +501,7 @@ button:disabled { opacity: .3; cursor: none; }
 }
 
 
-/* v2.0.51 — lightweight developer panel */
+/* v2.0.54 — lightweight developer panel */
 #dev-panel {
   position: fixed;
   right: 14px;
@@ -566,7 +566,7 @@ button:disabled { opacity: .3; cursor: none; }
 #dev-panel button:hover { border-color: var(--cyan); color: var(--cyan); }
 
 
-/* v2.0.51 — fixed skin selector window / revealed locked skins / no visual stick */
+/* v2.0.54 — fixed skin selector window / revealed locked skins / no visual stick */
 #skin-editor {
   width: 248px;
   height: 118px;
@@ -673,7 +673,7 @@ button:disabled { opacity: .3; cursor: none; }
 }
 #skin-editor.locked .skin-core:after { display: block !important; }
 
-/* v2.0.51 — aligned fixed-width skin selector; same width as menu controls */
+/* v2.0.54 — aligned fixed-width skin selector; same width as menu controls */
 #menu .menu-box {
   width: min(390px, 92vw);
   box-sizing: border-box;
@@ -736,7 +736,7 @@ button:disabled { opacity: .3; cursor: none; }
 #menu #skin-note { font-size: 8px; letter-spacing: .14em; color: #5a5a5a; }
 #menu #skin-editor.locked #skin-preview:before { content: 'LOCKED'; }
 
-/* v2.0.51 — compact elemental WPN tags */
+/* v2.0.54 — compact elemental WPN tags */
 .weapon-choice .wpn-tags {
   float: right;
   display: inline-flex;
@@ -762,7 +762,7 @@ button:disabled { opacity: .3; cursor: none; }
 @keyframes activeRollFlicker { 0% { transform: translateY(-1px); opacity: .65; } 100% { transform: translateY(1px); opacity: 1; } }
 
 
-/* v2.0.51 — skin selector alignment + visible rarity color language */
+/* v2.0.54 — skin selector alignment + visible rarity color language */
 #menu #skin-editor {
   width: 100%;
   height: 124px;
@@ -816,7 +816,7 @@ button:disabled { opacity: .3; cursor: none; }
   background: rgba(255,255,255,.016);
 }
 
-/* v2.0.51 — skin selector arrow hotfix: drawn chevrons, not font glyphs */
+/* v2.0.54 — skin selector arrow hotfix: drawn chevrons, not font glyphs */
 #menu #skin-editor {
   grid-template-columns: 46px minmax(0, 1fr) 46px;
   column-gap: 10px;
@@ -865,7 +865,7 @@ button:disabled { opacity: .3; cursor: none; }
   filter: drop-shadow(0 0 7px rgba(0,255,102,.65));
 }
 
-/* v2.0.51 — language selector + player-facing text cleanup */
+/* v2.0.54 — language selector + player-facing text cleanup */
 .lang-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
