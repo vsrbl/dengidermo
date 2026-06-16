@@ -1,4 +1,4 @@
-# v2.0.44 — skin selector / seeker readability fix
+# v2.0.43 — skin selector / seeker readability fix
 
 ## Skin selector
 

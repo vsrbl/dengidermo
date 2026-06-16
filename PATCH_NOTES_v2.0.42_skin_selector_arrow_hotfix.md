@@ -1,4 +1,4 @@
-# v2.0.44 — skin selector arrow hotfix
+# v2.0.43 — skin selector arrow hotfix
 
 Small UI hotfix for the skin selector.
 

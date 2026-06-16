@@ -1,4 +1,4 @@
-# v2.0.44 — BLACK BOX stealth / CASINO mutation roll
+# v2.0.43 — BLACK BOX stealth / CASINO mutation roll
 
 ## BLACK BOX rework
 
@@ -36,5 +36,5 @@ Extra casts from CASINO do not trigger CASINO again, to prevent infinite recursi
 
 ## Version
 
-- Bumped to `v2.0.44`.
-- Module filenames updated from `v2-0-33` to `v2-0-44`.
+- Bumped to `v2.0.43`.
+- Module filenames updated from `v2-0-33` to `v2-0-43`.
