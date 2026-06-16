@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.33">
+<link rel="stylesheet" href="style.css?v=2.0.36">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -15,7 +15,7 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.33</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.36</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -98,6 +98,7 @@
 </div>
 
 <!-- center banners -->
+<div id="active-roll" class="hidden"></div>
 <div id="banner" class="hidden"></div>
 
 <!-- menu -->
@@ -115,10 +116,10 @@
     </div>
     <div id="menu-status">подключение…</div>
     <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ/Пробел — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши или Пробел стреляют активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="ПКМ включает или выключает подсказки по объектам мира.">ПКМ</span> — осмотр</div>
-    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые закрытые скины. Открыты только базовые; остальные редко падают из SKN-комнат или казино. Закрытый скин не раскрывает имя и рисунок.">
-      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад. Закрытые скины показывают только редкость и замок.">‹</button>
-      <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span><span class="skin-stick"></span></div>
-      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Листать вперёд. Открытый скин выбирается сразу; закрытый остаётся неизвестным.">›</button>
+    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые скин-пресеты. Закрытые теперь показывают имя, редкость и внешний вид, но выбрать их нельзя до unlock.">
+      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад. Закрытые скины видны, но помечены LOCKED.">‹</button>
+      <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span></div>
+      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Листать вперёд. Открытый скин выбирается сразу; закрытый только показывается.">›</button>
       <div id="skin-meta">
         <div id="skin-name">TERMINAL MINT</div>
         <div id="skin-note">готовый пресет</div>
@@ -127,7 +128,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.33"></script>
-<script type="module" src="src/main.v2-0-33.js?v=2.0.33"></script>
+<script src="config.js?v=2.0.36"></script>
+<script type="module" src="src/main.v2-0-36.js?v=2.0.36"></script>
 </body>
 </html>
