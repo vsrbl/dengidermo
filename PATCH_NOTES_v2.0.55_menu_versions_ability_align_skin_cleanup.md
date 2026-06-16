@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.55 menu versions / ability align / skin cleanup
+# PATCH NOTES — v2.0.56 menu versions / ability align / skin cleanup
 
 - Main menu now always shows a visible build line:
   - CLIENT version
@@ -6,9 +6,9 @@
   - PROTO id
   - SERVER version/build/proto after `/health` responds
 - Fixed stale cache query strings in `index.html`:
-  - `style.css?v=2.0.55`
-  - `config.js?v=2.0.55`
-  - `src/main.v2-0-55.js?v=2.0.55`
+  - `style.css?v=2.0.56`
+  - `config.js?v=2.0.56`
+  - `src/main.v2-0-56.js?v=2.0.56`
 - Network/status text is now always English regardless of selected UI language:
   - `CONNECTING…`
   - `NETWORK READY`

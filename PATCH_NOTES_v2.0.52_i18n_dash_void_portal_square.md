@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.55 i18n dash void portal square
+# PATCH NOTES — v2.0.56 i18n dash void portal square
 
 - Player-facing text audit pass:
   - removed remaining technical/internal wording from tooltips and offer previews;

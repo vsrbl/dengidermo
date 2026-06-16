@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.55 void laser link builder
+# PATCH NOTES — v2.0.56 void laser link builder
 
 - `VOID CUT / VOID LASER` is now a builder-style beam.
 - Level I starts as one shorter segment from the player.
