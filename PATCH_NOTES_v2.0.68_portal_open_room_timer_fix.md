@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.68 — portal-open room timer fix
+# PATCH NOTES v2.0.69 — portal-open room timer fix
 
 Timer semantics hotfix.
 
