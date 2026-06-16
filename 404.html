@@ -1,7 +1,138 @@
 <!doctype html>
 <html lang="ru">
-<head><meta charset="UTF-8"><title>nncckkrr // 404</title>
-<style>body{background:#050505;color:#f3f3f3;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}a{color:#00ff66}</style>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nncckkrr</title>
+<link rel="stylesheet" href="style.css?v=2.0.73">
 </head>
-<body><div>SIGNAL LOST // 404<br><a href="/">&gt; reconnect</a></div></body>
+<body>
+<canvas id="game"></canvas>
+<div id="custom-cursor" aria-hidden="true"><span class="cc"></span></div>
+<div id="explain-tip" class="hidden" aria-hidden="true"><div class="et-title"></div><div class="et-body"></div></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="hud-top">
+    <div id="hud-meta">
+      <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
+      <span class="sep">|</span>
+      <span id="hud-version" data-explain-title="VERSION" data-explain="Loaded client build. Co-op requires matching fresh builds.">v2.0.73</span>
+      <span class="sep">|</span>
+      <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
+      <span class="sep">|</span>
+      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и враги.">LOOP 0 / DEPTH 0</span>
+      <span id="hud-mods" data-explain-title="ПРАВИЛА КОМНАТЫ" data-explain="Активные правила комнаты: темнота, статический дождь, жадность, долг, казино-вирус, зеркало и другие события."></span>
+      <span id="hud-ping"></span>
+      <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Правой кнопкой мыши включается режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, врагов, подборов и BET-терминала.">ОСМОТР</span>
+    </div>
+    <div id="hud-objective" data-explain-title="ЦЕЛЬ" data-explain="Текущая цель комнаты: зачистка врагов, убийство босса или переход через портал."></div>
+  </div>
+  <div id="hud-bottom">
+    <div id="hud-left">
+      <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="ЗДОРОВЬЕ" data-explain="Здоровье игрока. При падении до 0 ты выбываешь до следующей комнаты или перезапуска.">100 / 100</span></div>
+      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт копит уровни. Повышение уровня не прерывает бой, а добавляет INSTALL-выбор между комнатами.">0 / 40</span></div>
+      <div id="hud-stats-line">
+        <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и BET-терминала. Подбор GLD делится между живыми игроками.">GLD 0</span>
+        <span id="hud-lvl" data-explain-title="УРОВЕНЬ / Q" data-explain="Текущий уровень и статус активной способности Q: готова, перезаряжается или работает усиление.">LVL 0</span>
+        <span id="hud-install" class="hidden" data-explain-title="INSTALL" data-explain="Очередь апгрейдов. Выбор появится после портала и перехода, не во время боя.">INSTALL x0</span>
+      </div>
+    </div>
+    <div id="hud-right">
+      <div id="dash-pips"></div>
+      <div id="weapon-slots"></div>
+    </div>
+  </div>
+  <div id="hud-prompt" class="hidden" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="Подойди и нажми E. Здесь показываются сундуки, BET-терминал и портал."></div>
+  <div id="feed"></div>
+</div>
+
+<!-- TAB stats panel -->
+<div id="tab-panel" class="overlay hidden">
+  <div class="panel">
+    <div class="panel-title" data-explain-title="ВСПОМОГАТЕЛЬНАЯ ПАНЕЛЬ" data-explain="Панель забега: цикл, глубина, правила комнаты, союзники и текущие ресурсы. TAB теперь включает/выключает её.">RUN STATUS</div>
+    <div id="tab-run"></div>
+    <table id="tab-table"></table>
+  </div>
+</div>
+
+<!-- install / upgrade picker -->
+<div id="install-modal" class="overlay hidden">
+  <div class="panel green-edge">
+    <div class="panel-title green" data-explain-title="INSTALL" data-explain="Выбери один из трёх апгрейдов. Если накоплено несколько INSTALL, варианты будут идти по очереди.">INSTALL <span id="install-pending"></span></div>
+    <div id="install-choices"></div>
+    <div id="install-timer"><div id="install-timer-bar"></div></div>
+    <div class="hint"><span class="term" data-explain-title="БЫСТРЫЙ ВЫБОР" data-explain="Клавиши 1, 2 и 3 выбирают соответствующий INSTALL-вариант.">1 / 2 / 3</span> — выбрать</div>
+  </div>
+</div>
+
+<!-- weapon chest picker -->
+<div id="weapon-modal" class="overlay hidden">
+  <div class="panel cyan-edge">
+    <div class="panel-title cyan" data-explain-title="WPN-СУНДУК" data-explain="Выбери одну награду из оружейного сундука: новое оружие, апгрейд оружия или усиление урона/скорострельности. Апгрейд пушки, которой у тебя нет, будет неактивен.">WPN CHEST <span class="subtle">SELECT 1/3</span></div>
+    <div id="weapon-choices"></div>
+    <div class="hint"><span class="term" data-explain-title="ВЫБОР WPN" data-explain="Клавиши 1, 2 и 3 выбирают доступный вариант. Серые варианты требуют оружие, которого у тебя ещё нет.">1 / 2 / 3</span> — выбрать доступный вариант</div>
+  </div>
+</div>
+
+<!-- ability chest picker -->
+<div id="ability-modal" class="overlay hidden">
+  <div class="panel cyan-edge">
+    <div class="panel-title cyan" data-explain-title="ABL-СУНДУК" data-explain="Выбери одну награду из сундука способностей: рывок, ветку DASH, Q-активку или мобильность. Это не оружейные апгрейды.">ABL CHEST <span class="subtle">SELECT 1/3</span></div>
+    <div id="ability-choices"></div>
+    <div class="hint"><span class="term" data-explain-title="ВЫБОР ABL" data-explain="Клавиши 1, 2 и 3 выбирают один доступный вариант из сундука способностей.">1 / 2 / 3</span> — выбрать вариант</div>
+  </div>
+</div>
+
+<!-- casino modal -->
+<div id="casino-modal" class="overlay hidden">
+  <div class="panel red-edge">
+    <div class="panel-title red" data-explain-title="BET-ТЕРМИНАЛ" data-explain="Риск за GLD: ставка списывается, хост крутит символы, результат может дать GLD, EXP, HEA, WPN, ABL, джекпот или статический долг.">BET TERMINAL</div>
+    <div id="reels"><span class="reel">—</span><span class="reel">—</span><span class="reel">—</span></div>
+    <div id="casino-result"></div>
+    <div id="casino-stakes">
+      <button data-stake="low" data-explain-title="LOW BET" data-explain="Ставка 20 GLD. Низкий риск: подходит в начале run или когда денег мало.">LOW<br>20</button>
+      <button data-stake="mid" data-explain-title="MID BET" data-explain="Ставка 50 GLD. Средний риск и нормальный шанс получить ощутимую награду.">MID<br>50</button>
+      <button data-stake="high" data-explain-title="HIGH BET" data-explain="Ставка 120 GLD. Жёсткий риск, но jackpot и редкие награды ощущаются сильнее.">HIGH<br>120</button>
+    </div>
+    <div class="hint"><span class="term" data-explain-title="СТАВКА" data-explain="Клавиши 1, 2 и 3 запускают LOW, MID или HIGH ставку.">1 / 2 / 3</span> — ставка · <span class="term" data-explain-title="ВЫХОД" data-explain="ESC закрывает казино, если барабаны не крутятся.">ESC</span> — выйти</div>
+  </div>
+</div>
+
+<!-- center banners -->
+<div id="active-roll" class="hidden"></div>
+<div id="banner" class="hidden"></div>
+
+<!-- menu -->
+<div id="menu" class="overlay">
+  <div class="menu-box">
+    <div id="logo">nncckkrr</div>
+    <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
+    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
+    <div id="lang-row" class="lang-row" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></div>
+
+    <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает игру локально без сервера. Лучший режим для быстрой проверки геймплея.">СОЛО (БЕЗ СЕТИ)</button>
+    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
+    <div id="join-row">
+      <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД КОМНАТЫ" data-explain="Четырёхсимвольный код комнаты друга.">
+      <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
+    </div>
+    <div id="menu-status">CONNECTING…</div>
+    <div id="menu-version" class="menu-version">CLIENT v2.0.73 · SERVER …</div>
+    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ/Пробел — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши или Пробел стреляют активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="ПКМ включает или выключает подсказки по объектам мира.">ПКМ</span> — осмотр</div>
+    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые скин-пресеты. Закрытые теперь показывают имя, редкость и внешний вид, но выбрать их нельзя до unlock.">
+      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад. Закрытые скины видны, но помечены LOCKED.">‹</button>
+      <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span></div>
+      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Листать вперёд. Открытый скин выбирается сразу; закрытый только показывается.">›</button>
+      <div id="skin-meta">
+        <div id="skin-name">TERMINAL MINT</div>
+        <div id="skin-note">готовый пресет</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2.0.73"></script>
+<script type="module" src="src/main.v2-0-73.js?v=2.0.73"></script>
+</body>
 </html>
