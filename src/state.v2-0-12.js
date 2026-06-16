@@ -1,5 +1,5 @@
 // nncckkrr client state: snapshot buffer, interpolation, prediction + reconciliation
-import { ENEMIES } from '../shared/data.v2-0-7.js';
+import { ENEMIES } from '../shared/data.v2-0-12.js';
 const PLAYER_SIZE = 28;
 const DASH_DIST = 175;
 const INTERP_DELAY = 110; // ms behind host for remote entities (guest mode)
@@ -9,7 +9,8 @@ const INTERP_DELAY_LOCAL = 40; // sim runs in this browser at 60Hz
 export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
-  DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24
+  DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
+  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());

@@ -43,6 +43,16 @@ export class Effects {
         if (mine) { this.hitFlash = Math.min(1, 0.35 + f.dmg * 0.02); this.kick(4 + f.dmg * 0.35); }
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.15 });
         break;
+      case 'shot': {
+        const dx = (f.dx || 100) / 100, dy = (f.dy || 0) / 100;
+        const col = f.kind === 'seeker' ? '#66f6ff' : (f.kind === 'rocketgun' ? '#ff3048' : '#f3f3f3');
+        this.add({ kind: 'muzzle', x: f.mx || f.x, y: f.my || f.y, dx, dy, ttl: f.kind === 'rocketgun' ? 0.16 : 0.10, color: col, weapon: f.kind || f.w });
+        if (mine) { this.kick(f.kind === 'rocketgun' ? 7 : f.kind === 'shotgun' ? 4.5 : 2.5); this.zoomKick = Math.max(this.zoomKick, f.kind === 'rocketgun' ? 0.25 : 0.12); }
+        break;
+      }
+      case 'impact':
+        this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 0) / 100, dy: (f.dy || 0) / 100, ttl: f.wall ? 0.18 : 0.14, weapon: f.kind || '', color: f.kind === 'seeker' ? '#66f6ff' : '#f3f3f3' });
+        break;
       case 'kill':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: f.size * 1.6, ttl: 0.35, color: f.elite ? '#ff3048' : '#f3f3f3' });
         this.kick(f.elite ? 5 : 2);
@@ -72,10 +82,19 @@ export class Effects {
         if (mine) {
           if (typeof f.x === 'number' && typeof f.y === 'number') {
             this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.55, color: '#ff3048' });
-            this.float(f.x, f.y - 34, f.cost ? `NO GLD ${f.have}/${f.cost}` : 'NO GLD', '#ff3048', 14);
+            this.float(f.x, f.y - 34, f.cost ? `NO GLD ${f.have}/${f.cost}` : 'ОТКАЗ', '#ff3048', 14);
           }
           this.hitFlash = Math.max(this.hitFlash, 0.18);
           this.kick(6);
+        }
+        break;
+      case 'active_denied':
+        if (mine) {
+          if (typeof f.x === 'number' && typeof f.y === 'number') {
+            this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.45, color: '#66f6ff' });
+            this.float(f.x, f.y - 34, 'НЕТ АКТИВКИ', '#66f6ff', 13);
+          }
+          this.kick(3);
         }
         break;
       case 'portal_open':
@@ -138,6 +157,13 @@ export class Effects {
         if (mine) { this.sweep = 0.01; this.sweepColor = '#66f6ff'; this.kick(5); }
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: f.r || 160, ttl: 0.3, color: '#66f6ff' });
         break;
+      case 'enemy_combo':
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 135, ttl: 0.42, color: f.label && f.label.includes('ANCHOR') ? '#b45cff' : (f.label && f.label.includes('ORB') ? '#66f6ff' : '#ff3048') });
+        this.float(f.x, f.y - 44, f.label || 'COMBO', f.label && f.label.includes('ORB') ? '#66f6ff' : '#ff3048', 11);
+        break;
+      case 'path_turn':
+        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.10 });
+        break;
       case 'contract':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 180, ttl: 0.8, color: '#ff3048' });
         break;
@@ -182,7 +208,39 @@ export class Effects {
     for (const e of this.list) {
       const p = e.t / (e.ttl ?? 0.6);
       ctx.save();
-      if (e.kind === 'ring') {
+      if (e.kind === 'muzzle') {
+        const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
+        const snap = Math.floor(p * 5);
+        ctx.globalAlpha = (1 - p) * 0.95;
+        ctx.strokeStyle = e.color; ctx.lineWidth = e.weapon === 'rocketgun' ? 3 : 2;
+        const len = e.weapon === 'rocketgun' ? 64 : e.weapon === 'seeker' ? 42 : 34;
+        for (let i = 0; i < (e.weapon === 'shotgun' ? 7 : 3); i++) {
+          const off = (i - 3) * (e.weapon === 'shotgun' ? 5 : 3);
+          const start = 5 + (i % 2) * 4 + snap;
+          const end = len * (0.35 + (i % 3) * 0.15);
+          ctx.beginPath();
+          ctx.moveTo(Math.round(e.x + nx * off + dx * start), Math.round(e.y + ny * off + dy * start));
+          ctx.lineTo(Math.round(e.x + nx * off + dx * end), Math.round(e.y + ny * off + dy * end));
+          ctx.stroke();
+        }
+        ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.32;
+        const block = e.weapon === 'rocketgun' ? 18 : 10;
+        ctx.fillRect(Math.round(e.x + dx * 10 - block/2), Math.round(e.y + dy * 10 - block/2), block, block);
+      } else if (e.kind === 'impact') {
+        const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
+        ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 2;
+        const count = e.weapon === 'shotgun' ? 5 : 3;
+        for (let i = 0; i < count; i++) {
+          const off = (i - (count - 1) / 2) * 7;
+          const len = 8 + i * 3 + p * 14;
+          ctx.beginPath();
+          ctx.moveTo(Math.round(e.x + nx * off), Math.round(e.y + ny * off));
+          ctx.lineTo(Math.round(e.x - dx * len + nx * off * 0.5), Math.round(e.y - dy * len + ny * off * 0.5));
+          ctx.stroke();
+        }
+        ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.35;
+        const b = 4 + p * 10; ctx.fillRect(Math.round(e.x - b/2), Math.round(e.y - b/2), b, b);
+      } else if (e.kind === 'ring') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = 1 - p; ctx.lineWidth = 3 - p * 2;
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.3 + p * 0.7), 0, Math.PI * 2); ctx.stroke();
       } else if (e.kind === 'warnring') {

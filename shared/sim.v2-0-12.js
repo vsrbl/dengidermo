@@ -2,8 +2,8 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   rollUpgradeChoices, defaultStats, spinCasino, UPGRADE_LABELS
-} from './data.v2-0-5.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-5.js';
+} from './data.v2-0-12.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-12.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -49,6 +49,198 @@ function collideWalls(x, y, half, walls, ox, oy) {
 }
 function dist2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d }; }
+
+function rotateVec(v, a) {
+  const c = Math.cos(a), si = Math.sin(a);
+  return { x: v.x * c - v.y * si, y: v.x * si + v.y * c };
+}
+function wallPenalty(x, y, half, walls) {
+  let penalty = 0;
+  for (const w of walls) if (aabbHit(x, y, half, w)) penalty += 1;
+  return penalty;
+}
+function enemySpeed(e) {
+  let mul = 1;
+  if (e.rallyT > 0) mul *= 1.24;
+  if (e.anchorT > 0) mul *= 0.94;
+  if (e.leechLinkT > 0) mul *= 0.96;
+  return e.spd * mul;
+}
+function enemyDamageValue(e, mul = 1) {
+  let m = mul;
+  if (e.rallyT > 0) m *= 1.14;
+  if (e.anchorT > 0) m *= 1.08;
+  return Math.max(1, Math.round(e.dmg * m));
+}
+function enemyBulletSpeed(base, e) {
+  let m = 1;
+  if (e.rallyT > 0) m *= 1.12;
+  if (e.anchorT > 0) m *= 1.08;
+  return base * m;
+}
+function enemyFireCooldown(base, e) {
+  let m = 1;
+  if (e.rallyT > 0) m *= 1.16;
+  if (e.anchorT > 0) m *= 1.08;
+  return Math.max(0.28, base / m);
+}
+function steerMove(run, e, dir, speedValue, dt, opts = {}) {
+  const walls = run.plan?.walls || [];
+  const half = e.size / 2;
+  const base = norm(dir.x || 0, dir.y || 0);
+  const amount = Math.max(0, speedValue * dt);
+  if (!amount) return { x: e.x, y: e.y, moved: 0, blocked: false };
+  const target = opts.target || null;
+  const sideBias = e.steerSide || ((parseInt(e.id, 36) || 1) % 2 ? 1 : -1);
+  const directLook = Math.max(half + 18, Math.min(95, amount * 7 + half));
+  const directBlocked = wallPenalty(e.x + base.x * directLook, e.y + base.y * directLook, half, walls) > 0;
+  const angles = directBlocked
+    ? [0, 0.42 * sideBias, -0.42 * sideBias, 0.82 * sideBias, -0.82 * sideBias, 1.22 * sideBias, -1.22 * sideBias, 1.58 * sideBias, -1.58 * sideBias, Math.PI]
+    : [0, 0.25 * sideBias, -0.25 * sideBias, 0.55 * sideBias, -0.55 * sideBias];
+  let best = null;
+  for (const a of angles) {
+    const v = rotateVec(base, a);
+    const ox = e.x, oy = e.y;
+    const nx0 = ox + v.x * amount;
+    const ny0 = oy + v.y * amount;
+    const c = collideWalls(nx0, ny0, half, walls, ox, oy);
+    const moved = Math.hypot(c.x - ox, c.y - oy);
+    const lookPenalty = wallPenalty(ox + v.x * directLook, oy + v.y * directLook, half, walls);
+    let score = moved * 1.3 - lookPenalty * 95 - Math.abs(a) * 8;
+    if (target) score -= Math.hypot(target.x - c.x, target.y - c.y) * 0.035;
+    if (a * sideBias > 0) score += 2.5;
+    if (!best || score > best.score) best = { x: c.x, y: c.y, moved, score, angle: a, blocked: lookPenalty > 0 || moved < amount * 0.35 };
+  }
+  if (!best) return { x: e.x, y: e.y, moved: 0, blocked: true };
+  const prevX = e.x, prevY = e.y;
+  e.x = best.x; e.y = best.y;
+  if (best.moved < amount * 0.25 || best.blocked) e.stuckT = (e.stuckT || 0) + dt;
+  else e.stuckT = Math.max(0, (e.stuckT || 0) - dt * 2);
+  if ((e.stuckT || 0) > 0.45) {
+    e.steerSide = -(e.steerSide || sideBias);
+    e.stuckT = 0.12;
+    run.fx.push({ t: 'path_turn', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+  }
+  return { x: e.x, y: e.y, moved: Math.hypot(e.x - prevX, e.y - prevY), blocked: best.blocked };
+}
+function resolveEnemyCrowd(run, walls, dt) {
+  const arr = run.enemies;
+  const n = arr.length;
+  const maxPairs = n > 42 ? 3 : 5;
+  for (let pass = 0; pass < maxPairs; pass++) {
+    for (let i = 0; i < n; i++) {
+      const a = arr[i]; if (!a) continue;
+      for (let j = i + 1; j < n; j++) {
+        const b = arr[j]; if (!b) continue;
+        const minD = (a.size + b.size) / 2 + 5;
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d = Math.hypot(dx, dy);
+        if (d >= minD) continue;
+        if (d < 0.001) { dx = ((i * 17 + j * 31) % 100) / 50 - 1; dy = ((i * 29 + j * 13) % 100) / 50 - 1; d = Math.hypot(dx, dy) || 1; }
+        const nx = dx / d, ny = dy / d;
+        const overlap = (minD - d) * 0.5;
+        const heavyA = a.kind === 'boss' || a.kind === 'tank' || a.kind === 'anchor' || a.kind === 'herald';
+        const heavyB = b.kind === 'boss' || b.kind === 'tank' || b.kind === 'anchor' || b.kind === 'herald';
+        const am = heavyA ? 0.35 : 0.65;
+        const bm = heavyB ? 0.35 : 0.65;
+        const ac = collideWalls(a.x - nx * overlap * am, a.y - ny * overlap * am, a.size / 2, walls, a.x, a.y);
+        const bc = collideWalls(b.x + nx * overlap * bm, b.y + ny * overlap * bm, b.size / 2, walls, b.x, b.y);
+        a.x = ac.x; a.y = ac.y; b.x = bc.x; b.y = bc.y;
+      }
+    }
+  }
+}
+function stepEnemySynergies(run, players, dt) {
+  const alive = [...players.values()].filter(p => p.alive);
+  for (const e of run.enemies) {
+    e.rallyT = Math.max(0, (e.rallyT || 0) - dt);
+    e.anchorT = Math.max(0, (e.anchorT || 0) - dt);
+    e.leechLinkT = Math.max(0, (e.leechLinkT || 0) - dt);
+    e.orbShieldT = Math.max(0, (e.orbShieldT || 0) - dt);
+    e.comboCd = Math.max(0, (e.comboCd || 0) - dt);
+  }
+  const anchors = run.enemies.filter(e => e.kind === 'anchor');
+  for (const a of anchors) {
+    const def = ENEMIES.anchor;
+    let count = 0;
+    for (const e of run.enemies) {
+      if (e.id === a.id || e.kind === 'boss') continue;
+      if (dist2(e.x, e.y, a.x, a.y) < def.fieldR * def.fieldR) { e.anchorT = 0.26; count++; }
+    }
+    if (count && (a.comboCd || 0) <= 0) { a.comboCd = 0.85; run.fx.push({ t: 'enemy_combo', label: 'ANCHOR FIELD', x: Math.round(a.x), y: Math.round(a.y) }); }
+  }
+  const heralds = run.enemies.filter(e => e.kind === 'herald');
+  for (const h of heralds) {
+    h.rallyCd = (h.rallyCd || 0) - dt;
+    if (h.rallyCd > 0) continue;
+    h.rallyCd = 1.15;
+    const target = nearestAlive(players, h.x, h.y);
+    let rallied = 0;
+    for (const e of run.enemies) {
+      if (e.id === h.id || e.kind === 'boss' || e.kind === 'anchor') continue;
+      if (dist2(e.x, e.y, h.x, h.y) < 560 * 560) {
+        e.rallyT = Math.max(e.rallyT || 0, 2.1);
+        if (target) e.rallyTargetId = target.id;
+        rallied++;
+        if (rallied >= 7) break;
+      }
+    }
+    if (rallied) run.fx.push({ t: 'enemy_combo', label: 'HERALD RALLY', x: Math.round(h.x), y: Math.round(h.y) });
+  }
+  const orbiters = run.enemies.filter(e => e.kind === 'orbiter');
+  for (const o of orbiters) {
+    let guarded = 0;
+    for (const e of run.enemies) {
+      if (e.id === o.id || e.kind === 'boss') continue;
+      if (!['shooter','prism','pulse','leech'].includes(e.kind)) continue;
+      if (dist2(e.x, e.y, o.x, o.y) < 230 * 230) { e.orbShieldT = 0.30; guarded++; }
+    }
+    if (guarded && (o.comboCd || 0) <= 0) { o.comboCd = 1.0; run.fx.push({ t: 'enemy_combo', label: 'ORB GUARD', x: Math.round(o.x), y: Math.round(o.y) }); }
+  }
+  // Splitting enemies agitate nearby runners: a small swarm moment after a split pack appears.
+  const splitters = run.enemies.filter(e => e.kind === 'splitter');
+  for (const s of splitters) {
+    if ((s.splitStage || 0) <= 0 || (s.comboCd || 0) > 0) continue;
+    let aggro = 0;
+    for (const e of run.enemies) {
+      if (e.id === s.id || !['runner','grunt','glitch'].includes(e.kind)) continue;
+      if (dist2(e.x, e.y, s.x, s.y) < 300 * 300) { e.rallyT = Math.max(e.rallyT || 0, 1.1); aggro++; }
+    }
+    if (aggro) { s.comboCd = 2.2; run.fx.push({ t: 'enemy_combo', label: 'SPL SWARM', x: Math.round(s.x), y: Math.round(s.y) }); }
+  }
+}
+
+function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
+  if (!p || !p.alive || !e) return null;
+  const pad = opts.pad ?? 7;
+  const minD = (PLAYER_SIZE + e.size) / 2 + pad;
+  let dx = p.x - e.x;
+  let dy = p.y - e.y;
+  let d = Math.hypot(dx, dy);
+  if (d >= minD) return null;
+  if (d < 0.001) {
+    dx = (p.aimX || p.x + 1) - p.x;
+    dy = (p.aimY || p.y) - p.y;
+    d = Math.hypot(dx, dy) || 1;
+  }
+  const nx = dx / d;
+  const ny = dy / d;
+  const overlap = minD - d;
+  const bossy = e.kind === 'boss' || e.kind === 'tank';
+  const enemyMove = overlap * (bossy ? 0.42 : 0.78);
+  const playerMove = overlap * (bossy ? 0.78 : 0.48) + (opts.playerKick ?? 0);
+  const ec = collideWalls(e.x - nx * enemyMove, e.y - ny * enemyMove, e.size / 2, walls, e.x, e.y);
+  const pc = collideWalls(p.x + nx * playerMove, p.y + ny * playerMove, PLAYER_SIZE / 2, walls, p.x, p.y);
+  e.x = ec.x; e.y = ec.y;
+  p.x = pc.x; p.y = pc.y;
+  if (opts.fx && Math.random() < 0.18) run.fx.push({ t: 'body_push', x: Math.round((e.x + p.x) / 2), y: Math.round((e.y + p.y) / 2) });
+  return { nx, ny, overlap };
+}
+function resolveEnemyPlayerBodies(run, players, walls) {
+  for (const e of run.enemies) {
+    for (const p of players.values()) resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 8 });
+  }
+}
 function chanceStacks(v) {
   const full = Math.floor(Math.max(0, v));
   return full + (Math.random() < Math.max(0, v - full) ? 1 : 0);
@@ -90,6 +282,8 @@ export function createPlayer(id, name, idx) {
     aimX: sp.x, aimY: sp.y - 100,
     moveX: 0, moveY: 0, fire: false,
     weapons: ['shotgun'], weaponIdx: 0, cd: 0,
+    shgCharges: 4, shgReload: 0, fireWasDown: false,
+    recoilT: 0, recoilX: 0, recoilY: 0,
     dashCharges: 1, dashTimer: 0, invuln: 0, activeCd: 0, activeBuffT: 0,
     stats: defaultStats(),
     economy: { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 },
@@ -147,7 +341,8 @@ export function resetRun(run, players) {
   run.runDepth = 0;
   run.staticDebt = false;
   for (const p of players.values()) {
-    p.weapons = ['shotgun']; p.weaponIdx = 0;
+    p.weapons = ['shotgun']; p.weaponIdx = 0; p.cd = 0;
+    p.shgCharges = 4; p.shgReload = 0; p.fireWasDown = false; p.recoilT = 0; p.recoilX = 0; p.recoilY = 0;
     p.stats = defaultStats();
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
     p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP;
@@ -271,6 +466,9 @@ function damagePlayer(run, p, dmg, srcX, srcY) {
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
   const def = ENEMIES[e.kind];
   if (def.armor) dmg *= (1 - def.armor);
+  if (e.anchorT > 0) dmg *= 0.88;
+  if (e.leechLinkT > 0) dmg *= 0.82;
+  if (e.orbShieldT > 0) dmg *= 0.76;
   if (e.kind === 'orbiter' && def.shield && (kx || ky)) {
     // Front shield faces the player/target. Hits coming into the shield face are reduced.
     const incomingTowardEnemy = norm(kx || 0, ky || 0);
@@ -376,25 +574,41 @@ function addXp(run, p, val) {
 
 // ---------------------------------------------------------------- shooting
 function fireWeapon(run, players, p, dt) {
-  p.cd -= dt;
-  if (!p.fire || !p.alive || p.cd > 0) return;
+  p.cd = Math.max(0, (p.cd || 0) - dt);
+  if (!p.fire) { p.fireWasDown = false; return; }
+  if (!p.alive) return;
   const w = WEAPONS[p.weapons[p.weaponIdx]];
   if (!w) return;
   const tempFire = p.activeBuffT > 0 ? 1.65 + p.stats.activeOver * 0.20 : 1;
-  p.cd = w.cooldown / (p.stats.fireMul * tempFire);
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
-  const shots = 1 + chanceStacks(p.stats.echoShot + (run.plan.modifierIds.includes('mirror_room') ? 0.18 : 0));
+  if (w.id === 'shotgun') {
+    if (p.fireWasDown) return;
+    if ((p.shgCharges ?? 4) <= 0) { p.fireWasDown = true; return; }
+    p.fireWasDown = true;
+    p.shgCharges = Math.max(0, (p.shgCharges ?? 4) - 1);
+    p.cd = 0; // shotgun is gated by click edges + 4-charge ammo, not by cooldown
+  } else {
+    if (p.cd > 0) return;
+    p.cd = w.cooldown / (p.stats.fireMul * tempFire);
+  }
+
+  const echoBase = p.stats.echoShot + (run.plan.modifierIds.includes('mirror_room') ? 0.18 : 0);
+  const echoMul = w.id === 'seeker' ? 0.38 : (w.id === 'rocketgun' ? 0.18 : 1);
+  const shots = 1 + chanceStacks(echoBase * echoMul);
   const pellets = w.pellets + (w.id === 'shotgun' ? p.stats.shgPellets : 0);
-  const homing = (w.homing || 0) + (w.id === 'seeker' ? p.stats.sekChain * 1.25 : 0);
-  const life = w.life + (w.id === 'seeker' ? p.stats.sekChain * 0.18 : 0);
+  const homing = (w.homing || 0) + (w.id === 'seeker' ? p.stats.sekChain * 0.7 : 0);
+  const life = w.life + (w.id === 'seeker' ? p.stats.sekChain * 0.14 : 0);
   const detonateDist = (w.detonateDist || 0) + (w.id === 'rocketgun' ? p.stats.rktCluster * 35 : 0);
+  const originX = p.x + dir.x * 24;
+  const originY = p.y + dir.y * 24;
   for (let s = 0; s < shots; s++) {
-    const delay = s * 0.045;
+    const delay = s * (w.id === 'shotgun' ? 0.018 : 0.055);
     for (let i = 0; i < pellets; i++) {
       if (run.bullets.length >= MAX_BULLETS) break;
-      const ang = Math.atan2(dir.y, dir.x) + (Math.random() - 0.5) * w.spread;
+      const spreadKick = w.id === 'shotgun' ? (Math.random() - 0.5) * w.spread : (Math.random() - 0.5) * w.spread;
+      const ang = Math.atan2(dir.y, dir.x) + spreadKick;
       run.bullets.push({
-        id: nid(), x: p.x + dir.x * 18, y: p.y + dir.y * 18,
+        id: nid(), x: originX, y: originY,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
         dmg: w.dmg * p.stats.dmgMul, from: 'p', owner: p.id,
         life, delay, size: w.size, aoe: w.aoe || 0, homing,
@@ -407,7 +621,15 @@ function fireWeapon(run, players, p, dt) {
       });
     }
   }
-  run.fx.push({ t: 'shot', id: p.id, w: w.label, x: Math.round(p.x), y: Math.round(p.y) });
+  const recoil = w.id === 'shotgun' ? 36 : (w.id === 'rocketgun' ? 54 : 18);
+  p.recoilT = Math.max(p.recoilT || 0, w.id === 'rocketgun' ? 0.16 : 0.09);
+  p.recoilX = -dir.x * recoil;
+  p.recoilY = -dir.y * recoil;
+  run.fx.push({
+    t: 'shot', id: p.id, w: w.label, kind: w.id,
+    x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(originX), my: Math.round(originY),
+    dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: p.shgCharges ?? 0
+  });
 }
 function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style = 'blast') {
   run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style });
@@ -500,9 +722,10 @@ function stepBullets(run, players, dt) {
       if (b.bounces > 0) {
         if (hitWallAxis === 'x') b.vx *= -0.82; else b.vy *= -0.82;
         b.x = ox; b.y = oy; b.bounces--; b.life *= 0.82;
-        run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y) });
+        run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind });
         continue;
       }
+      run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, wall: 1, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
       if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
       b.life = -1; continue;
     }
@@ -512,7 +735,7 @@ function stepBullets(run, players, dt) {
           if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
           else {
             const n = norm(b.vx, b.vy);
-            const beforeHp = e.hp;
+            run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
             damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y);
             if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48);
             const blasts = chanceStacks(b.proc || 0);
@@ -546,11 +769,13 @@ function nearestAlive(players, x, y) {
 function stepEnemies(run, players, dt) {
   if (run.phase !== 'play') return;
   const walls = run.plan.walls;
+  stepEnemySynergies(run, players, dt);
   for (const e of [...run.enemies]) {
     const def = ENEMIES[e.kind];
     const target = nearestAlive(players, e.x, e.y);
     e.st += dt;
     const half = e.size / 2;
+    const spd = enemySpeed(e);
 
     if (e.kind === 'bouncer') {
       let nx = e.x + e.vx * dt, ny = e.y + e.vy * dt;
@@ -563,12 +788,10 @@ function stepEnemies(run, players, dt) {
       for (const [k, v] of e.touchCds) { const nv = v - dt; if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv); }
       for (const p of players.values()) {
         if (!p.alive) continue;
-        if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
-          const n = norm(p.x - e.x, p.y - e.y);
-          if (!e.touchCds.has(p.id)) { damagePlayer(run, p, e.dmg, e.x, e.y); e.touchCds.set(p.id, TOUCH_CD * 0.55); }
-          const pushed = collideWalls(p.x + n.x * def.push * 0.25, p.y + n.y * def.push * 0.25, PLAYER_SIZE / 2, walls, p.x, p.y);
-          p.x = pushed.x; p.y = pushed.y;
-          e.vx = -n.x * def.spd; e.vy = -n.y * def.spd;
+        const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: def.push * 0.10, fx: true });
+        if (sep) {
+          if (!e.touchCds.has(p.id)) { damagePlayer(run, p, enemyDamageValue(e), e.x, e.y); e.touchCds.set(p.id, TOUCH_CD * 0.55); }
+          e.vx = -sep.nx * def.spd; e.vy = -sep.ny * def.spd;
         }
       }
       continue;
@@ -581,30 +804,34 @@ function stepEnemies(run, players, dt) {
     if (e.kind === 'shooter') {
       let mv = 0;
       if (dT > def.keep + 40) mv = 1; else if (dT < def.keep - 60) mv = -1;
-      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      if (mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
-        e.fireCd = def.fireCd;
-        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * def.bulletSpd, vy: toT.y * def.bulletSpd, dmg: e.dmg, from: 'e', life: 2.6, size: 7 });
+        e.fireCd = enemyFireCooldown(def.fireCd, e);
+        const bspd = enemyBulletSpeed(def.bulletSpd, e);
+        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * bspd, vy: toT.y * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.6, size: 7 });
         run.fx.push({ t: 'eshot', id: e.id });
       }
       e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'charger') {
       if (e.state === 'move') {
         if (dT < 300) { e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
-        else { const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+        else { steerMove(run, e, toT, spd, dt, { target }); }
       } else if (e.state === 'windup') {
         e.dirX = toT.x; e.dirY = toT.y;
         if (e.st >= def.windup) { e.state = 'charge'; e.st = 0; }
       } else if (e.state === 'charge') {
         const c = collideWalls(e.x + e.dirX * def.chargeSpd * dt, e.y + e.dirY * def.chargeSpd * dt, half, walls, e.x, e.y);
         const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
-        for (const p of players.values()) if (p.alive && dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) { damagePlayer(run, p, e.dmg, e.x, e.y); e.state = 'cool'; e.st = 0; }
+        for (const p of players.values()) if (p.alive) {
+          const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: 16, fx: true });
+          if (sep) { damagePlayer(run, p, enemyDamageValue(e), e.x, e.y); e.state = 'cool'; e.st = 0; }
+        }
         if (e.st >= def.chargeTime || blocked) { e.state = 'cool'; e.st = 0; }
       } else if (e.state === 'cool') { if (e.st >= def.chargeCd) { e.state = 'move'; e.st = 0; } }
     } else if (e.kind === 'bomber') {
       if (e.state === 'move') {
-        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+        steerMove(run, e, toT, spd, dt, { target });
         if (dT < 80) { e.state = 'fuse'; e.st = 0; run.fx.push({ t: 'fuse', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: def.blast, dur: def.fuse }); }
       } else if (e.state === 'fuse') {
         if (e.st >= def.fuse) {
@@ -617,24 +844,25 @@ function stepEnemies(run, players, dt) {
       }
     } else if (e.kind === 'glitch') {
       if (e.state === 'move') {
-        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+        steerMove(run, e, toT, spd, dt, { target });
         if (e.st >= def.blinkCd && dT < 600) {
           const a = Math.random() * Math.PI * 2; const bx = target.x + Math.cos(a) * 90, by = target.y + Math.sin(a) * 90;
           run.fx.push({ t: 'blink', id: e.id, fx: Math.round(e.x), fy: Math.round(e.y), tx: Math.round(bx), ty: Math.round(by) });
           e.x = bx; e.y = by; e.state = 'strike'; e.st = 0;
         }
       } else if (e.state === 'strike') {
-        if (e.st >= def.strikeCd) { if (dT < 75) damagePlayer(run, target, e.dmg, e.x, e.y); run.fx.push({ t: 'gstrike', x: Math.round(e.x), y: Math.round(e.y) }); e.state = 'move'; e.st = 0; }
+        if (e.st >= def.strikeCd) { if (dT < 75) damagePlayer(run, target, enemyDamageValue(e), e.x, e.y); run.fx.push({ t: 'gstrike', x: Math.round(e.x), y: Math.round(e.y) }); e.state = 'move'; e.st = 0; }
       }
     } else if (e.kind === 'echo') {
       const keep = 220;
       let mv = dT > keep ? 1 : dT < keep * 0.65 ? -0.8 : 0;
-      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      if (mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
-        e.fireCd = def.mirrorFireCd;
+        e.fireCd = enemyFireCooldown(def.mirrorFireCd, e);
         const a = Math.atan2(toT.y, toT.x) + (Math.random() - 0.5) * 0.38;
-        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * 280, vy: Math.sin(a) * 280, dmg: e.dmg, from: 'e', life: 2.2, delay: 0.22, size: 7 });
+        const bspd = enemyBulletSpeed(280, e);
+        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * bspd, vy: Math.sin(a) * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.2, delay: 0.22, size: 7 });
         run.fx.push({ t: 'echo_shot', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
       }
       e.dirX = toT.x; e.dirY = toT.y;
@@ -642,16 +870,17 @@ function stepEnemies(run, players, dt) {
       e.phase += dt * 1.15;
       const desired = { x: target.x + Math.cos(e.phase) * def.orbitR, y: target.y + Math.sin(e.phase) * def.orbitR };
       const mv = norm(desired.x - e.x, desired.y - e.y);
-      const c = collideWalls(e.x + mv.x * e.spd * dt, e.y + mv.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, mv, spd, dt, { target: desired });
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
-        e.fireCd = def.fireCd;
-        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * def.bulletSpd, vy: toT.y * def.bulletSpd, dmg: e.dmg, from: 'e', life: 2.1, size: 6 });
+        e.fireCd = enemyFireCooldown(def.fireCd, e);
+        const bspd = enemyBulletSpeed(def.bulletSpd, e);
+        run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * bspd, vy: toT.y * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.1, size: 6 });
       }
       e.dirX = toT.x; e.dirY = toT.y;
       touchDamage(run, e, players, dt);
     } else if (e.kind === 'anchor') {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, toT, spd, dt, { target });
       for (const p of players.values()) {
         if (!p.alive) continue;
         const d = Math.sqrt(dist2(p.x, p.y, e.x, e.y));
@@ -671,26 +900,28 @@ function stepEnemies(run, players, dt) {
       if (e.fxT <= 0) { e.fxT = 0.22; run.fx.push({ t: 'field', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: def.fieldR }); }
       touchDamage(run, e, players, dt);
     } else if (e.kind === 'splitter') {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, toT, spd, dt, { target });
       touchDamage(run, e, players, dt);
     } else if (e.kind === 'prism') {
       let mv = dT > 360 ? 1 : dT < 260 ? -1 : 0;
-      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      if (mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 3) {
-        e.fireCd = def.fireCd;
+        e.fireCd = enemyFireCooldown(def.fireCd, e);
         const base = Math.atan2(toT.y, toT.x);
-        for (const da of [-0.34, 0, 0.34]) run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(base + da) * def.beamSpd, vy: Math.sin(base + da) * def.beamSpd, dmg: e.dmg, from: 'e', life: 2.3, size: 5 });
+        const bspd = enemyBulletSpeed(def.beamSpd, e);
+        for (const da of [-0.34, 0, 0.34]) run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(base + da) * bspd, vy: Math.sin(base + da) * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.3, size: 5 });
         run.fx.push({ t: 'prism', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
       }
       e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'pulse') {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, toT, spd, dt, { target });
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 5) {
-        e.fireCd = def.fireCd;
+        e.fireCd = enemyFireCooldown(def.fireCd, e);
         const nx = -toT.y, ny = toT.x;
-        for (let i = -2; i <= 2; i++) run.bullets.push({ id: nid(), x: e.x + nx * i * 18, y: e.y + ny * i * 18, vx: toT.x * def.waveSpd, vy: toT.y * def.waveSpd, dmg: e.dmg, from: 'e', life: 1.4, size: 9 });
+        const wspd = enemyBulletSpeed(def.waveSpd, e);
+        for (let i = -2; i <= 2; i++) run.bullets.push({ id: nid(), x: e.x + nx * i * 18, y: e.y + ny * i * 18, vx: toT.x * wspd, vy: toT.y * wspd, dmg: enemyDamageValue(e), from: 'e', life: 1.4, size: 9 });
         run.fx.push({ t: 'pulse_wave', id: e.id, x: Math.round(e.x), y: Math.round(e.y), dx: toT.x, dy: toT.y });
       }
       e.dirX = toT.x; e.dirY = toT.y;
@@ -705,23 +936,23 @@ function stepEnemies(run, players, dt) {
       if (ally) {
         const toA = norm(ally.x - e.x, ally.y - e.y);
         const dd = Math.hypot(ally.x - e.x, ally.y - e.y);
-        if (dd > 170) { const c = collideWalls(e.x + toA.x * e.spd * dt, e.y + toA.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+        if (dd > 170) { steerMove(run, e, toA, spd, dt, { target: ally }); }
         e.healCd -= dt;
         e.fxT = (e.fxT || 0) - dt;
         if (e.fxT <= 0) { e.fxT = 0.18; run.fx.push({ t: 'leech_link', id: e.id, target: ally.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(ally.x), y2: Math.round(ally.y) }); }
-        if (e.healCd <= 0) { e.healCd = def.healCd; ally.hp = Math.min(ally.maxHp, ally.hp + def.heal); run.fx.push({ t: 'heal_enemy', x: Math.round(ally.x), y: Math.round(ally.y), val: def.heal }); }
+        if (e.healCd <= 0) { e.healCd = def.healCd; ally.hp = Math.min(ally.maxHp, ally.hp + def.heal); ally.leechLinkT = Math.max(ally.leechLinkT || 0, 1.4); run.fx.push({ t: 'heal_enemy', x: Math.round(ally.x), y: Math.round(ally.y), val: def.heal }); }
       } else {
-        const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+        steerMove(run, e, toT, spd, dt, { target });
         touchDamage(run, e, players, dt);
       }
     } else if (e.kind === 'herald') {
       const keep = 420;
       const mv = dT > keep ? 1 : dT < keep - 120 ? -0.7 : 0;
-      if (mv !== 0) { const c = collideWalls(e.x + toT.x * e.spd * mv * dt, e.y + toT.y * e.spd * mv * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y; }
+      if (mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       e.summonCd -= dt;
       e.fxT = (e.fxT || 0) - dt;
       if (e.fxT <= 0) { e.fxT = 0.14; run.fx.push({ t: 'tether', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(target.x), y2: Math.round(target.y) }); }
-      if (dT < 480 && e.st > 0.9) { e.st = 0; damagePlayer(run, target, def.tetherDmg, e.x, e.y); }
+      if (dT < 480 && e.st > 0.9) { e.st = 0; damagePlayer(run, target, enemyDamageValue(e, def.tetherDmg / Math.max(1, e.dmg)), e.x, e.y); }
       if (e.summonCd <= 0 && run.enemies.length < difficulty(run).maxActive) {
         e.summonCd = Math.max(1.7, def.summonCd - difficulty(run).loop * 0.25);
         const pool = ['grunt','runner','runner','glitch','bouncer','pulse'];
@@ -730,31 +961,41 @@ function stepEnemies(run, players, dt) {
       }
       e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'boss') {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, toT, spd, dt, { target });
       e.fireCd -= dt;
       if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
         e.fireCd = def.fireCd * (e.hp < e.maxHp * 0.5 ? 0.65 : 1);
         const n = 10; const base = Math.random() * Math.PI * 2;
-        for (let i = 0; i < n; i++) { const a = base + (i / n) * Math.PI * 2; run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * def.bulletSpd, vy: Math.sin(a) * def.bulletSpd, dmg: Math.round(e.dmg * 0.6), from: 'e', life: 3.2, size: 9 }); }
+        for (let i = 0; i < n; i++) { const a = base + (i / n) * Math.PI * 2; run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * def.bulletSpd, vy: Math.sin(a) * def.bulletSpd, dmg: enemyDamageValue(e, 0.6), from: 'e', life: 3.2, size: 9 }); }
         run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
       }
       touchDamage(run, e, players, dt);
     } else {
-      const c = collideWalls(e.x + toT.x * e.spd * dt, e.y + toT.y * e.spd * dt, half, walls, e.x, e.y); e.x = c.x; e.y = c.y;
+      steerMove(run, e, toT, spd, dt, { target });
       touchDamage(run, e, players, dt);
     }
   }
+  // Anti-zator pass: enemies should surround/flow, not stack into one blocked clump.
+  resolveEnemyCrowd(run, walls, dt);
+  // Safety pass: even ranged/non-touch enemies must never remain inside a player.
+  resolveEnemyPlayerBodies(run, players, walls);
 }
 
 function touchDamage(run, e, players, dt) {
+  const walls = run.plan?.walls || [];
+  if (!e.touchCds) e.touchCds = new Map();
   for (const p of players.values()) {
     if (!p.alive) continue;
     const key = p.id;
-    const cd = e.touchCds?.get(key) || 0;
-    if (cd > 0) { e.touchCds.set(key, cd - dt); continue; }
-    if (dist2(p.x, p.y, e.x, e.y) < ((PLAYER_SIZE + e.size) / 2) ** 2) {
-      damagePlayer(run, p, e.dmg, e.x, e.y);
-      if (!e.touchCds) e.touchCds = new Map();
+    const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 9, playerKick: 6, fx: true });
+    const cd = e.touchCds.get(key) || 0;
+    if (cd > 0) {
+      const nv = cd - dt;
+      if (nv <= 0) e.touchCds.delete(key); else e.touchCds.set(key, nv);
+      continue;
+    }
+    if (sep) {
+      damagePlayer(run, p, enemyDamageValue(e), e.x, e.y);
       e.touchCds.set(key, TOUCH_CD);
     }
   }
@@ -1044,7 +1285,7 @@ function stepInstall(run, players, dt) {
 function doActive(run, players, p) {
   if (p.activeCd > 0) return;
   const hasAny = p.stats.activeSnap || p.stats.activeBlood || p.stats.activeOver;
-  if (!hasAny) { run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
+  if (!hasAny) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ АКТИВКИ', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
   p.activeCd = Math.max(1.4, 6.0 - p.stats.luck * 0.08);
   if (p.stats.activeBlood > 0 && p.hp > 18) {
     const cost = Math.min(18, Math.max(8, Math.round(maxHp(p) * 0.10)));
@@ -1076,6 +1317,20 @@ function stepPlayers(run, players, dt) {
     p.activeCd = Math.max(0, (p.activeCd || 0) - dt);
     p.activeBuffT = Math.max(0, (p.activeBuffT || 0) - dt);
     p.slowT = Math.max(0, (p.slowT || 0) - dt);
+    // weapon recoil / ammo regen
+    if (typeof p.shgCharges !== 'number') p.shgCharges = 4;
+    if (typeof p.shgReload !== 'number') p.shgReload = 0;
+    const shgDef = WEAPONS.shotgun;
+    if (p.shgCharges < shgDef.charges) {
+      p.shgReload += dt * Math.max(0.25, p.stats.fireMul);
+      const every = shgDef.chargeRegen;
+      while (p.shgCharges < shgDef.charges && p.shgReload >= every) { p.shgReload -= every; p.shgCharges++; }
+    } else p.shgReload = 0;
+    if ((p.recoilT || 0) > 0 && run.phase === 'play') {
+      const step = Math.min(dt, p.recoilT);
+      const c = collideWalls(p.x + (p.recoilX || 0) * step, p.y + (p.recoilY || 0) * step, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
+      p.x = c.x; p.y = c.y; p.recoilT -= step;
+    }
     // dash regen
     const dm = dashMax(p);
     if (p.dashCharges < dm) {
@@ -1164,6 +1419,23 @@ export function step(run, players, dt, now) {
   }
 }
 
+// ---------------------------------------------------------------- active ability snapshot
+function activeSummary(stats) {
+  const modules = [];
+  if (stats.activeSnap > 0) modules.push({ label: 'FIELD SNAP', count: stats.activeSnap, desc: `стягивает врагов к тебе и наносит импульсный урон` });
+  if (stats.activeBlood > 0) modules.push({ label: 'BLOOD PULSE', count: stats.activeBlood, desc: `тратит часть HP ради красного квадратного взрыва` });
+  if (stats.activeOver > 0) modules.push({ label: 'OVERCLOCK', count: stats.activeOver, desc: `временно ускоряет стрельбу` });
+  if (!modules.length) {
+    return {
+      label: 'НЕТ АКТИВКИ',
+      desc: 'Q сейчас ничего не запускает. Получи Q-апгрейд через INSTALL, ABL/RAR-награду или казино, чтобы установить активную способность.'
+    };
+  }
+  const label = modules.length === 1 ? `Q: ${modules[0].label}` : `Q: COMBO x${modules.length}`;
+  const desc = modules.map(m => `${m.label}${m.count > 1 ? ' x' + m.count : ''} — ${m.desc}`).join(' · ');
+  return { label, desc };
+}
+
 // ---------------------------------------------------------------- snapshot
 export function buildSnapshot(run, players) {
   const ps = [];
@@ -1177,7 +1449,9 @@ export function buildSnapshot(run, players) {
       p.economy.level, p.economy.pending, Math.round(p.economy.money),
       Math.round(p.economy.xp), p.economy.nextLevelXp,
       p.stats.drones, p.stats.orbitals, p.lastSeq, p.name, p.invuln > 0 ? 1 : 0,
-      Math.round(speed(p)), Math.ceil((p.activeCd || 0) * 10) / 10, p.activeBuffT > 0 ? 1 : 0
+      Math.round(speed(p)), Math.ceil((p.activeCd || 0) * 10) / 10, p.activeBuffT > 0 ? 1 : 0,
+      activeSummary(p.stats).label, activeSummary(p.stats).desc,
+      p.shgCharges ?? 4, (p.shgCharges ?? 4) >= WEAPONS.shotgun.charges ? 0 : Math.max(0, Math.ceil(((WEAPONS.shotgun.chargeRegen - (p.shgReload || 0)) / Math.max(0.25, p.stats.fireMul)) * 10) / 10)
     ]);
   }
   const es = run.enemies.map(e => [
@@ -1186,7 +1460,7 @@ export function buildSnapshot(run, players) {
     Math.round((e.dirX || 0) * 100), Math.round((e.dirY || 0) * 100)
   ]);
   const bs = run.bullets.map(b => [
-    b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0, b.kind === 'rocketgun' ? 1 : 0
+    b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0, b.kind === 'rocketgun' ? 1 : 0, b.kind || ''
   ]);
   const ks = run.pickups.map(k => [k.id, k.type, Math.round(k.x), Math.round(k.y)]);
   const os = run.plan.interactables.map(o => [

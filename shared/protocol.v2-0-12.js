@@ -1,6 +1,6 @@
 // nncckkrr protocol + version constants (single source of truth)
-export const VERSION = 'v2.0.5';
-export const BUILD_ID = 'v2.0.5-20260615';
+export const VERSION = 'v2.0.12';
+export const BUILD_ID = 'v2.0.12-20260616';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;

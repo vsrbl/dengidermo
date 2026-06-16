@@ -13,7 +13,7 @@ export class AudioBus {
     this.maxVoices = 16;
     this.last = new Map();
     this.cooldowns = {
-      shot_shg: 0.055, shot_sek: 0.06, shot: 0.04,
+      shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
       dash: 0.07, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
@@ -29,7 +29,7 @@ export class AudioBus {
       dash: 6, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 2, shot_sek: 2, shot: 2, install: 5, contract: 7, debt: 7, shield: 4
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4
     };
     this._unlock = () => this.unlock();
     if (typeof window !== 'undefined') {
@@ -116,21 +116,26 @@ export class AudioBus {
     if (!this.can(type)) return;
     switch (type) {
       case 'shot_shg':
-        this.tone(210, 0.035, 'square', 0.045, 0.62);
-        this.noise(0.035, 0.04, 1900, 5);
+        // dry chunky terminal buckshot: low punch + bright click, short enough for 4-charge bursts
+        this.tone(145, 0.048, 'square', 0.062, 0.56);
+        this.tone(305, 0.028, 'square', 0.035, 0.42, 0.006);
+        this.noise(0.04, 0.045, 1450, 4.2);
+        this.noise(0.018, 0.022, 3600, 10, 0.006);
         break;
       case 'shot_sek':
-        this.tone(720, 0.052, 'square', 0.05, 1.45);
-        this.tone(1120, 0.035, 'triangle', 0.025, 0.9, 0.018);
+        // slower seeking ping, not a machinegun chirp
+        this.tone(430, 0.075, 'triangle', 0.05, 1.15);
+        this.tone(870, 0.065, 'square', 0.032, 0.74, 0.028);
+        this.noise(0.018, 0.018, 2600, 9);
         break;
       case 'shot':
         this.tone(520, 0.045, 'square', 0.055, 0.72);
         this.noise(0.035, 0.035, 2600, 8);
         break;
       case 'rocket_launch':
-        this.tone(95, 0.13, 'sawtooth', 0.105, 1.65);
-        this.noise(0.08, 0.055, 380, 2.2);
-        this.tone(760, 0.045, 'square', 0.03, 0.52, 0.015);
+        this.tone(72, 0.18, 'sawtooth', 0.13, 1.25);
+        this.noise(0.10, 0.065, 320, 1.8);
+        this.tone(520, 0.05, 'square', 0.028, 0.46, 0.02);
         break;
       case 'rocket_blast':
         this.tone(62, 0.17, 'square', 0.16, 0.42);
@@ -141,6 +146,10 @@ export class AudioBus {
       case 'blast':
         this.tone(118, 0.095, 'square', 0.095, 0.58);
         this.noise(0.065, 0.055, 620, 2.5);
+        break;
+      case 'impact':
+        this.noise(0.018, 0.018, 2200, 8);
+        this.tone(360, 0.018, 'square', 0.018, 0.3);
         break;
       case 'dash':
         this.tone(390, 0.045, 'square', 0.065, 2.25);
@@ -285,6 +294,7 @@ export class AudioBus {
         else this.play('pickup');
         break;
       case 'ehit': this.play('hit'); break;
+      case 'impact': this.play('impact'); break;
       case 'phit': if (mine) this.play('phit'); break;
       case 'denied': if (mine) this.play('denied'); break;
       case 'active_denied': if (mine) this.play('active'); break;
@@ -321,6 +331,7 @@ export class AudioBus {
       case 'contract_fail': this.play('denied'); break;
       case 'debt': this.play('debt'); break;
       case 'shield': this.play('shield'); break;
+      case 'enemy_combo': this.play(f.label && f.label.includes('ORB') ? 'shield' : (f.label && f.label.includes('ANCHOR') ? 'debt' : 'enemy')); break;
       case 'split': case 'summon': case 'pulse_wave': case 'prism': case 'echo_shot': case 'leech_link': this.play('enemy'); break;
       case 'boss_down': this.play('jackpot'); break;
       case 'run_lost': this.play('phit'); break;

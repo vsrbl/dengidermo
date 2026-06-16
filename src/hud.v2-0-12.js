@@ -1,10 +1,11 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P, ENEMY_KINDS } from './state.v2-0-9.js';
-import { UPGRADES, WEAPONS, CHESTS, ROOM_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-0-9.js';
+import { P, ENEMY_KINDS } from './state.v2-0-12.js';
+import { UPGRADES, WEAPONS, CHESTS, ROOM_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-0-12.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(ROOM_MODS).map(m => [m.id, m.label]));
 const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
+const WEAPON_BY_LABEL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
 const CHEST_BY_LABEL = Object.fromEntries(Object.entries(CHESTS).map(([id, c]) => [c.label, { id, ...c }]));
 const CHEST_DESC = {
   BSC: 'Бесплатный базовый сундук: GLD/EXP и редкий HEA. Хорошая безопасная награда.',
@@ -227,16 +228,24 @@ export class Hud {
 
     // weapon slots
     const slots = $('weapon-slots');
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX];
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + ':' + (me[P.SHG] ?? '');
     if (slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
       me[P.WEAPONS].forEach((w, i) => {
         const s = document.createElement('span');
         s.className = 'wslot' + (i === me[P.WIDX] ? ' active' : '');
-        const wd = WEAPONS[w];
-        s.textContent = `${i + 1} ${wd?.label || w}`;
-        this.setExplain(s, wd?.name || w.toUpperCase(), wd ? `Оружие ${wd.label}: урон ${wd.dmg}, перезарядка ${wd.cooldown}s, скорость ${wd.speed}. ${wd.aoe ? 'Ракета: взрывается при попадании, об стену или после дистанции.' : wd.homing ? 'Наводящийся снаряд: держит цель.' : 'Дробовик: несколько дробин, сильнее близко.'}` : 'Слот оружия.', 'cyan');
+        const wd = WEAPONS[w] || WEAPON_BY_LABEL[w];
+        const isShg = (wd?.label || w) === 'SHG';
+        s.textContent = `${i + 1} ${wd?.label || w}${isShg ? ' ' + (me[P.SHG] ?? 4) + '/4' : ''}`;
+        const desc = wd ? (
+          wd.label === 'SHG'
+            ? `Дробовик на 4 заряда. Можно быстро выпустить заряды почти без задержки; каждый заряд восстанавливается примерно за ${wd.chargeRegen}s. Сейчас зарядов: ${me[P.SHG] ?? 4}/4.`
+            : wd.label === 'SEK'
+              ? `Медленный самонаводящийся снаряд: урон ${wd.dmg}, перезарядка ${wd.cooldown}s, скорость ${wd.speed}. Не спамит экран, зато держит цель.`
+              : `Тяжёлая ракетница: урон ${wd.dmg}, перезарядка ${wd.cooldown}s, AoE ${wd.aoe}. Ракета взрывается при попадании, об стену или после дистанции.`
+        ) : 'Слот оружия.';
+        this.setExplain(s, wd?.name || String(w).toUpperCase(), desc, 'cyan');
         slots.appendChild(s);
       });
     }

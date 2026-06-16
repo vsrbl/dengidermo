@@ -3,15 +3,15 @@
 export const WEAPONS = {
   shotgun: {
     id: 'shotgun', label: 'SHG', name: 'SHOTGUN',
-    cooldown: 0.55, pellets: 6, spread: 0.38, dmg: 7, speed: 620, life: 0.45, size: 5, knock: 60
+    cooldown: 0.035, charges: 4, chargeRegen: 0.25, pellets: 6, spread: 0.42, dmg: 8, speed: 700, life: 0.42, size: 5, knock: 82
   },
   seeker: {
     id: 'seeker', label: 'SEK', name: 'SEEKER',
-    cooldown: 0.34, pellets: 1, spread: 0.05, dmg: 13, speed: 480, life: 1.6, size: 6, homing: 7.5, knock: 30
+    cooldown: 0.72, pellets: 1, spread: 0.025, dmg: 20, speed: 340, life: 1.95, size: 7, homing: 4.6, knock: 36
   },
   rocketgun: {
     id: 'rocketgun', label: 'RKT', name: 'ROCKETGUN',
-    cooldown: 0.92, pellets: 1, spread: 0.02, dmg: 32, speed: 360, life: 2.0, size: 8, aoe: 85, knock: 160, detonateDist: 520
+    cooldown: 1.45, pellets: 1, spread: 0.015, dmg: 46, speed: 335, life: 2.25, size: 9, aoe: 94, knock: 210, detonateDist: 560
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];

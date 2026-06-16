@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-9.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-12.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -134,20 +134,30 @@ export class Renderer {
       }
     }
 
-    // bullets
+    // bullets — each weapon gets distinct signal language
     for (const b of view.bullets) {
-      const [, bx, by, vx, vy, size, fromP, rocket] = b;
+      const [, bx, by, vx, vy, size, fromP, rocket, kind] = b;
       ctx.save();
       ctx.translate(bx, by);
       ctx.rotate(Math.atan2(vy, vx));
       if (rocket) {
         ctx.strokeStyle = COL.fg; ctx.lineWidth = 2;
-        ctx.strokeRect(-size * 1.2, -size * 0.7, size * 2.2, size * 1.4);
-        ctx.fillStyle = 'rgba(255,48,72,0.65)';
-        ctx.fillRect(-size * 1.75, -size * 0.35, size * 0.55, size * 0.7);
-        ctx.strokeStyle = COL.red; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
-        ctx.beginPath(); ctx.moveTo(-size * 2.6, 0); ctx.lineTo(-size * 5.2, 0); ctx.stroke();
+        ctx.strokeRect(-size * 1.35, -size * 0.75, size * 2.6, size * 1.5);
+        ctx.fillStyle = 'rgba(255,48,72,0.7)';
+        ctx.fillRect(-size * 1.95, -size * 0.38, size * 0.65, size * 0.76);
+        ctx.strokeStyle = COL.red; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(-size * 2.8, 0); ctx.lineTo(-size * 5.9, 0); ctx.stroke();
         ctx.setLineDash([]);
+        ctx.globalAlpha = 0.35; ctx.fillStyle = COL.red; ctx.fillRect(-size * 3.2, -2, size * 1.0, 4);
+      } else if (kind === 'seeker') {
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 2;
+        ctx.strokeRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
+        ctx.globalAlpha = 0.45; ctx.strokeStyle = COL.cyan; ctx.setLineDash([3, 4]);
+        ctx.beginPath(); ctx.moveTo(-size * 1.5, 0); ctx.lineTo(-size * 3.2, 0); ctx.stroke(); ctx.setLineDash([]);
+      } else if (kind === 'shotgun') {
+        ctx.fillStyle = fromP ? COL.fg : COL.red;
+        ctx.fillRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
+        ctx.globalAlpha = 0.35; ctx.fillRect(-size * 2.5, -size * 0.25, size * 1.2, size * 0.5);
       } else {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);

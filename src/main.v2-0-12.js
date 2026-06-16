@@ -1,11 +1,11 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-5.js';
-import { Input } from './input.v2-0-5.js';
-import { GameState, P } from './state.v2-0-5.js';
-import { Effects } from './effects.v2-0-5.js';
-import { Renderer } from './render.v2-0-5.js';
-import { Hud } from './hud.v2-0-5.js';
-import { AudioBus } from './audio.v2-0-5.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-12.js';
+import { Input } from './input.v2-0-12.js';
+import { GameState, P } from './state.v2-0-12.js';
+import { Effects } from './effects.v2-0-12.js';
+import { Renderer } from './render.v2-0-12.js';
+import { Hud } from './hud.v2-0-12.js';
+import { AudioBus } from './audio.v2-0-12.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -125,6 +125,7 @@ function frame(now) {
 
   if (input.takeEsc()) {
     if (hud.casino.open && !hud.casino.spinning) hud.closeCasino();
+    else if (input.tabOpen) input.tabOpen = false;
   }
   const num = input.takeNum();
   if (num >= 0) {
@@ -153,6 +154,8 @@ function frame(now) {
   const view = state.interp();
   renderer.draw(state, effects, view, myPos, { x: input.mouseX, y: input.mouseY }, now / 1000);
   hud.update(state, dt * GAME_SPEED);
-  hud.setTab(input.tabHeld, state);
+  hud.setInspect(input.inspectMode);
+  hud.setWorldHover(state, input, renderer);
+  hud.setTab(input.tabOpen, state);
 }
 requestAnimationFrame(frame);
