@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.32 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.33 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -316,7 +316,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.32 — skin rarities / locked inventory */
+/* v2.0.33 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -335,7 +335,7 @@ button:disabled { opacity: .3; cursor: none; }
 .rarity-rare { color:#b45cff; }
 .rarity-superrare { color:#ff3048; }
 .rarity-legendary { color:#ffd34d; text-shadow:0 0 10px rgba(255,211,77,.5); }
-/* v2.0.32: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
+/* v2.0.33: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
 #skin-editor[data-rarity="rare"] .skin-core,
 #skin-editor[data-rarity="superrare"] .skin-core,
 #skin-editor[data-rarity="legendary"] .skin-core,
@@ -349,7 +349,7 @@ button:disabled { opacity: .3; cursor: none; }
   opacity:.32; pointer-events:none;
 }
 
-/* v2.0.32 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.33 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
@@ -411,7 +411,7 @@ button:disabled { opacity: .3; cursor: none; }
 #skin-editor.locked .skin-rarity { opacity: .85; }
 
 
-/* v2.0.32 — Ability chest compact cards; detailed info lives in hover tooltip */
+/* v2.0.33 — Ability chest compact cards; detailed info lives in hover tooltip */
 #ability-modal .panel {
   width: min(94vw, 640px);
   min-width: min(94vw, 420px);
@@ -487,7 +487,7 @@ button:disabled { opacity: .3; cursor: none; }
 }
 
 
-/* v2.0.32 — lightweight developer panel */
+/* v2.0.33 — lightweight developer panel */
 #dev-panel {
   position: fixed;
   right: 14px;

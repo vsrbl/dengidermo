@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.32_skin_dash_seeker_audio_rework
+# nncckkrr.space v2.0.33_skin_dash_seeker_audio_rework
 
 Focus: unlocked skins were too jittery/laggy on the player body. Skin personality now lives in dash effects and legendary dash audio, while the player silhouette stays stable/readable.
 
@@ -43,7 +43,7 @@ Legendary skin unlock also has a stronger unlock sound/visual sweep.
 
 ## Technical
 
-- Version bumped to `v2.0.32`.
-- Versioned module filenames changed from `v2-0-29` to `v2-0-32`.
+- Version bumped to `v2.0.33`.
+- Versioned module filenames changed from `v2-0-29` to `v2-0-33`.
 - `dash` FX packets now include skin id, rarity, dash colors/style, and optional legendary SFX id.
 - No bullet skin system was added; only seeker itself was visually/audio tuned.
