@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.60 — room info / Static Rain audit
+# PATCH NOTES v2.0.61 — room info / Static Rain audit
 
 ## Player-facing room information
 

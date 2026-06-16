@@ -44,11 +44,13 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #hud-objective { color: var(--fg); font-size: 13px; text-align: right; }
 #hud-objective .static-rain-status { color: var(--cyan); font-size: 12px; margin-bottom: 3px; text-shadow: 0 0 10px rgba(102,246,255,.22); }
 #hud-objective .static-rain-status .term { border-color: rgba(102,246,255,.55); padding: 1px 5px; background: rgba(102,246,255,.06); }
-#hud-objective .room-current { color: var(--fg); font-size: 12px; margin-bottom: 3px; max-width: 620px; }
+#hud-objective .room-current { color: var(--fg); font-size: 12px; margin-bottom: 3px; max-width: 680px; }
 #hud-objective .room-current .term { color: var(--cyan); border-color: rgba(102,246,255,.45); padding: 1px 5px; background: rgba(102,246,255,.045); }
-#hud-objective .room-rule { color: var(--dim); font-size: 10px; line-height: 1.25; margin-bottom: 4px; max-width: 620px; opacity: .94; }
+#hud-objective .room-intel { color: var(--gold); font-size: 10px; line-height: 1.24; margin-bottom: 3px; max-width: 680px; opacity: .96; }
+#hud-objective .room-intel .term { color: var(--red); border-color: rgba(255,60,80,.42); padding: 1px 5px; background: rgba(255,60,80,.045); }
+#hud-objective .room-rule { color: var(--dim); font-size: 10px; line-height: 1.25; margin-bottom: 4px; max-width: 680px; opacity: .94; }
 #hud-objective .room-rule .term { color: var(--purple); border-color: rgba(196,122,255,.42); padding: 1px 5px; background: rgba(196,122,255,.045); }
-#hud-objective .room-prophecy { color: var(--dim); font-size: 11px; margin-bottom: 3px; max-width: 620px; }
+#hud-objective .room-prophecy { color: var(--dim); font-size: 11px; margin-bottom: 3px; max-width: 680px; }
 #hud-objective .room-prophecy .term { color: var(--gold); border-color: rgba(255,211,77,.45); padding: 1px 5px; background: rgba(255,211,77,.055); }
 #hud-objective .done { color: var(--green); }
 
