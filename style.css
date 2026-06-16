@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.21 — rocket ricochet + all projectile range */
+/* nncckkrr v2.0.22 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -217,3 +217,68 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.picked { border-color: var(--green); color: var(--green); background: rgba(0,255,102,.08); }
 .choice.dimmed { opacity: .35; }
 #casino-stakes button:disabled { opacity: .35; border-color: #333; color: #333; }
+
+/* ---------- skin editor ---------- */
+#skin-editor {
+  border: 1px solid #222;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 10px;
+  text-align: left;
+  background: rgba(255,255,255,.025);
+}
+#skin-preview {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  align-self: center;
+  justify-self: center;
+}
+#skin-preview .skin-core {
+  position: absolute;
+  left: 13px;
+  top: 13px;
+  width: 26px;
+  height: 26px;
+  background: #f3f3f3;
+  border: 2px solid #00ff66;
+  box-shadow: 0 0 10px rgba(0,255,102,.22);
+}
+#skin-preview .skin-stick {
+  position: absolute;
+  left: 37px;
+  top: 25px;
+  width: 18px;
+  height: 2px;
+  background: #00ff66;
+  box-shadow: 0 0 8px rgba(0,255,102,.55);
+}
+.skin-row { display: flex; flex-direction: column; gap: 6px; }
+.skin-row label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+#menu input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 46px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #333;
+  background: #050505;
+}
+#menu input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+#menu input[type="color"]::-webkit-color-swatch { border: none; }
+#btn-skin-reset {
+  grid-column: 1 / -1;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--dim);
+  border-color: #333;
+}

@@ -6,8 +6,8 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.0.21';
-const BUILD_ID = 'v2.0.21-20260616';
+const VERSION = 'v2.0.22';
+const BUILD_ID = 'v2.0.22-20260616';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -56,6 +56,7 @@ wss.on('connection', (ws, req) => {
     return;
   }
   let name = 'PLAYER';
+  let skin = null;
   let role = null;        // 'host' | 'guest'
   let code = null;        // room code this socket belongs to
   let gid = null;         // guest id
@@ -76,6 +77,7 @@ wss.on('connection', (ws, req) => {
       case 'hello': {
         if (m.proto !== PROTOCOL) { fail(`protocol mismatch: server ${PROTOCOL}`); ws.close(4001); return; }
         name = String(m.name || 'PLAYER').slice(0, 12);
+        skin = m.skin && typeof m.skin === 'object' ? m.skin : null;
         send(ws, { t: 'hello_ok', version: VERSION });
         break;
       }
@@ -98,7 +100,7 @@ wss.on('connection', (ws, req) => {
         gid = crypto.randomBytes(4).toString('hex');
         r.guests.set(gid, ws);
         send(ws, { t: 'join_ok', code: c });
-        send(r.host, { t: 'guest_join', gid, name });
+        send(r.host, { t: 'guest_join', gid, name, skin: (m.skin && typeof m.skin === 'object') ? m.skin : skin });
         break;
       }
       case 'rtc': {        // WebRTC handshake relay
