@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.28 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.29 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -316,7 +316,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.28 — skin rarities / locked inventory */
+/* v2.0.29 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -350,7 +350,7 @@ button:disabled { opacity: .3; cursor: none; }
 @keyframes skinPulseSuper { 0%{ transform:translate(0,0) rotate(0); } 33%{ transform:translate(-1px,1px); } 66%{ transform:translate(1px,-1px); } 100%{ transform:translate(0,0); } }
 @keyframes skinPulseLegend { 0%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(1px,0) scale(1.06); } 100%{ transform:translate(0,0) scale(1); } }
 
-/* v2.0.28 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.29 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
@@ -410,3 +410,99 @@ button:disabled { opacity: .3; cursor: none; }
 }
 #skin-editor.locked #skin-note { color:#484848; }
 #skin-editor.locked .skin-rarity { opacity: .85; }
+
+
+/* v2.0.29 — Ability chest readable cards */
+#ability-modal .panel {
+  width: min(94vw, 760px);
+  min-width: min(94vw, 520px);
+  text-align: center;
+}
+#ability-modal .panel-title { text-align: center; letter-spacing: .20em; }
+#ability-choices { gap: 12px; align-items: stretch; }
+.ability-card {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: rgba(0,0,0,.72);
+}
+.ability-card:hover { color: var(--fg); background: rgba(102,246,255,.08); }
+.ability-card .abl-card-top {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 9px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.ability-card .abl-key {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: .12em;
+}
+.ability-card .abl-name {
+  font-size: 16px;
+  letter-spacing: .12em;
+  line-height: 1.2;
+  text-align: left;
+}
+.ability-card .abl-action {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--dim);
+}
+.ability-card .abl-tags {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 240px;
+}
+.ability-card .rarity-tag,
+.ability-card .abl-role {
+  float: none;
+  margin: 0;
+  border: 1px solid rgba(255,255,255,.18);
+  padding: 3px 6px;
+  font-size: 9px;
+  letter-spacing: .14em;
+  line-height: 1;
+  background: rgba(255,255,255,.035);
+}
+.ability-card .abl-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 11px 14px 13px;
+}
+.ability-card .abl-section {
+  min-height: 58px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.025);
+  padding: 9px 10px;
+  line-height: 1.45;
+  color: #d7f8fb;
+}
+.ability-card .abl-section-title {
+  margin-bottom: 5px;
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: var(--dim);
+  text-align: center;
+}
+.ability-card.tone-red .abl-section { color: #ffd4da; }
+.ability-card.tone-purple .abl-section { color: #ead8ff; }
+.ability-card.tone-green .abl-section { color: #d7ffe5; }
+.ability-card.tone-cyan .abl-section { color: #d7fbff; }
+.ability-card.picked { background: rgba(0,255,102,.08); }
+.ability-card.dimmed { opacity: .24; }
+@media (max-width: 720px) {
+  #ability-modal .panel { min-width: 0; }
+  .ability-card .abl-card-top { grid-template-columns: 42px minmax(0,1fr); }
+  .ability-card .abl-tags { grid-column: 1 / -1; justify-content: center; max-width: none; }
+  .ability-card .abl-card-body { grid-template-columns: 1fr; }
+}
