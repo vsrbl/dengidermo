@@ -1,4 +1,4 @@
-# v2.0.43 — BULLET FREEZE true freeze pass
+# v2.0.44 — BULLET FREEZE true freeze pass
 
 ## Goal
 `BULLET FREEZE` should read as a real freeze/control ability, not as a generic slow/damage aura.
@@ -23,6 +23,6 @@
 - Updated `BULLET FREEZE` description and role to clarify it is `FREEZE / CONTROL`.
 
 ## Technical
-- Bumped to `v2.0.43`.
-- Module filenames updated from `v2-0-34` to `v2-0-43`.
+- Bumped to `v2.0.44`.
+- Module filenames updated from `v2-0-34` to `v2-0-44`.
 - Snapshot enemy rows now include a frozen flag after exposed state.

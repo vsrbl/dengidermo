@@ -1,4 +1,4 @@
-# v2.0.43 — seeker pitch / team pickups / guest feel
+# v2.0.44 — seeker pitch / team pickups / guest feel
 
 ## Seeker SFX
 - `SEK` shot sound moved higher again.
@@ -21,5 +21,5 @@
 - Guest camera now follows local predicted player position directly instead of smoothing toward it.
 
 ## Version
-- Bumped to `v2.0.43`.
-- Module filenames/imports updated to `v2-0-43`.
+- Bumped to `v2.0.44`.
+- Module filenames/imports updated to `v2-0-44`.

@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.43 — signal spike charges + weapon chain
+# PATCH NOTES v2.0.44 — signal spike charges + weapon chain
 
 ## SIGNAL SPIKE core
 
@@ -29,5 +29,5 @@
 
 ## Version
 
-- Version bumped to `v2.0.43`.
-- Module filenames/imports updated to `v2-0-43`.
+- Version bumped to `v2.0.44`.
+- Module filenames/imports updated to `v2-0-44`.
