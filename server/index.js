@@ -6,8 +6,8 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.0.47';
-const BUILD_ID = 'v2.0.47-20260616';
+const VERSION = 'v2.0.48';
+const BUILD_ID = 'v2.0.48-20260616';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;
