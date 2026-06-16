@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.43">
+<link rel="stylesheet" href="style.css?v=2.0.50">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -15,11 +15,13 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.49</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры. Для co-op у всех должна быть одна свежая версия.">v2.0.50</span>
       <span class="sep">|</span>
-      <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
+      <span id="hud-lang" class="lang-mini" data-explain-title="ЯЗЫК" data-explain="Меняет язык интерфейса и подсказок."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и враги.">LOOP 0 / DEPTH 0</span>
+      <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код комнаты и текущая локация забега.">----</span>
+      <span class="sep">|</span>
+      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="Глубина — пройденные комнаты. Цикл делает комнаты опаснее.">LOOP 0 / DEPTH 0</span>
       <span id="hud-mods" data-explain-title="ПРАВИЛА КОМНАТЫ" data-explain="Активные правила комнаты: темнота, статический дождь, жадность, долг, казино-вирус, зеркало и другие события."></span>
       <span id="hud-ping"></span>
       <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Правой кнопкой мыши включается режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, врагов, подборов и BET-терминала.">ОСМОТР</span>
@@ -48,7 +50,7 @@
 <!-- TAB stats panel -->
 <div id="tab-panel" class="overlay hidden">
   <div class="panel">
-    <div class="panel-title" data-explain-title="ВСПОМОГАТЕЛЬНАЯ ПАНЕЛЬ" data-explain="Панель забега: цикл, глубина, правила комнаты, союзники и текущие ресурсы. TAB теперь включает/выключает её.">RUN STATUS</div>
+    <div class="panel-title" data-explain-title="ВСПОМОГАТЕЛЬНАЯ ПАНЕЛЬ" data-explain="Панель забега: цикл, глубина, правила комнаты, союзники и текущие ресурсы.">RUN STATUS</div>
     <div id="tab-run"></div>
     <table id="tab-table"></table>
   </div>
@@ -85,7 +87,7 @@
 <!-- casino modal -->
 <div id="casino-modal" class="overlay hidden">
   <div class="panel red-edge">
-    <div class="panel-title red" data-explain-title="BET-ТЕРМИНАЛ" data-explain="Риск за GLD: ставка списывается, хост крутит символы, результат может дать GLD, EXP, HEA, WPN, ABL, джекпот или статический долг.">BET TERMINAL</div>
+    <div class="panel-title red" data-explain-title="BET-ТЕРМИНАЛ" data-explain="Риск за GLD: ставка списывается, барабаны крутятся, результат даёт награду или опасность.">BET TERMINAL</div>
     <div id="reels"><span class="reel">—</span><span class="reel">—</span><span class="reel">—</span></div>
     <div id="casino-result"></div>
     <div id="casino-stakes">
@@ -105,17 +107,21 @@
 <div id="menu" class="overlay">
   <div class="menu-box">
     <div id="logo">nncckkrr</div>
-    <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
-    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
+    <div id="menu-sub">co-op roguelike // соло или до 4 игроков</div>
+    <div id="lang-row" class="lang-row" data-explain-title="ЯЗЫК" data-explain="Меняет язык интерфейса, подсказок, меню и игровых сообщений.">
+      <button type="button" data-lang-btn="ru">RU</button>
+      <button type="button" data-lang-btn="en">ENG</button>
+    </div>
+    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. До 12 символов.">
 
-    <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает игру локально без сервера. Лучший режим для быстрой проверки геймплея.">СОЛО (БЕЗ СЕТИ)</button>
-    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт кооперативную комнату. Твой браузер ведёт симуляцию, гости подключаются к тебе.">СОЗДАТЬ КОМНАТУ</button>
+    <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает локальный забег без сети. Удобно для тренировки и быстрой игры.">СОЛО</button>
+    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
     <div id="join-row">
       <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД КОМНАТЫ" data-explain="Четырёхсимвольный код комнаты друга.">
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">подключение…</div>
-    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ/Пробел — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши или Пробел стреляют активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="ПКМ включает или выключает подсказки по объектам мира.">ПКМ</span> — осмотр</div>
+    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ/Пробел — огонь · Shift — рывок · E — взаимодействие · Q — активка · TAB — панель · ПКМ — осмотр"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши или Пробел стреляют активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="ПКМ включает или выключает подсказки по объектам мира.">ПКМ</span> — осмотр</div>
     <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые скин-пресеты. Закрытые теперь показывают имя, редкость и внешний вид, но выбрать их нельзя до unlock.">
       <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад. Закрытые скины видны, но помечены LOCKED.">‹</button>
       <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span></div>
@@ -128,7 +134,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.43"></script>
-<script type="module" src="src/main.v2-0-49.js?v=2.0.49"></script>
+<script src="config.js?v=2.0.50"></script>
+<script type="module" src="src/main.v2-0-50.js?v=2.0.50"></script>
 </body>
 </html>
