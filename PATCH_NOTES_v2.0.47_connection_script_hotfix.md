@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.50 connection script hotfix
+# PATCH NOTES — v2.0.51 connection script hotfix
 
 ## Fix
 - Исправлен критический stale script reference в `index.html`.
@@ -6,6 +6,6 @@
 - Из-за этого сайт мог грузить старый/битый клиент, ловить mismatch или бесконечно висеть на подключении, хотя GitHub Pages и Render health выглядели OK.
 
 ## Now
-- `index.html` подключает `src/main.v2-0-50.js?v=2.0.50`.
-- Все module filenames/imports обновлены на `v2-0-50`.
-- Server/protocol/package version обновлены на `v2.0.50`.
+- `index.html` подключает `src/main.v2-0-51.js?v=2.0.51`.
+- Все module filenames/imports обновлены на `v2-0-51`.
+- Server/protocol/package version обновлены на `v2.0.51`.
