@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.23">
+<link rel="stylesheet" href="style.css?v=2.0.25">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -15,7 +15,7 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.23</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.25</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -107,14 +107,14 @@
     <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
 
-    <div id="skin-editor" data-explain-title="СКИН" data-explain="Настрой три части игрока: внутренность квадрата, обводку и палочку направления. Цвет сохраняется в браузере и виден другим игрокам.">
+    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые раскраски игрока. Стрелками переключаются три элемента модели: внутренняя часть, обводка и палочка направления. Ручного color picker больше нет — только авторские пресеты.">
+      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Переключить на предыдущий готовый пресет скина.">‹</button>
       <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span><span class="skin-stick"></span></div>
-      <div class="skin-row">
-        <label data-explain-title="ВНУТРЕННОСТЬ" data-explain="Цвет внутренней части квадрата игрока.">ВНУТРИ <input id="skin-fill" type="color" value="#f3f3f3"></label>
-        <label data-explain-title="ОБВОДКА" data-explain="Цвет рамки вокруг игрока.">ОБВОДКА <input id="skin-outline" type="color" value="#00ff66"></label>
-        <label data-explain-title="ПАЛОЧКА" data-explain="Цвет короткой палочки/ствола, которая торчит из игрока в сторону прицела.">ПАЛОЧКА <input id="skin-barrel" type="color" value="#00ff66"></label>
+      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Переключить на следующий готовый пресет скина.">›</button>
+      <div id="skin-meta">
+        <div id="skin-name">TERMINAL MINT</div>
+        <div id="skin-note">готовый пресет</div>
       </div>
-      <button id="btn-skin-reset" type="button" data-explain-title="СБРОС СКИНА" data-explain="Вернуть стандартный бело-зелёный стиль игрока.">СБРОСИТЬ СКИН</button>
     </div>
     <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает игру локально без сервера. Лучший режим для быстрой проверки геймплея.">СОЛО (БЕЗ СЕТИ)</button>
     <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт кооперативную комнату. Твой браузер ведёт симуляцию, гости подключаются к тебе.">СОЗДАТЬ КОМНАТУ</button>
@@ -127,7 +127,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.23"></script>
-<script type="module" src="src/main.v2-0-23.js?v=2.0.23"></script>
+<script src="config.js?v=2.0.25"></script>
+<script type="module" src="src/main.v2-0-25.js?v=2.0.25"></script>
 </body>
 </html>

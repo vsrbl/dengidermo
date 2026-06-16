@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.23 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.25 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -218,72 +218,100 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.dimmed { opacity: .35; }
 #casino-stakes button:disabled { opacity: .35; border-color: #333; color: #333; }
 
-/* ---------- skin editor ---------- */
+/* ---------- skin preset selector ---------- */
 #skin-editor {
   border: 1px solid #222;
   padding: 10px;
   display: grid;
-  grid-template-columns: 58px 1fr;
-  gap: 10px;
-  text-align: left;
+  grid-template-columns: 34px 62px 34px;
+  grid-template-rows: 62px auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px 10px;
+  text-align: center;
   background: rgba(255,255,255,.025);
 }
 #skin-preview {
   position: relative;
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   align-self: center;
   justify-self: center;
+  border: 1px dashed #242424;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 6px);
 }
 #skin-preview .skin-core {
   position: absolute;
-  left: 13px;
-  top: 13px;
-  width: 26px;
-  height: 26px;
+  left: 16px;
+  top: 16px;
+  width: 28px;
+  height: 28px;
   background: #f3f3f3;
   border: 2px solid #00ff66;
-  box-shadow: 0 0 10px rgba(0,255,102,.22);
+  box-shadow: 0 0 12px rgba(0,255,102,.32);
 }
+#skin-preview .skin-core:after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(0,0,0,.35);
+  transform: rotate(45deg);
+}
+#skin-editor[data-skin="debt_red"] .skin-core:after,
+#skin-editor[data-skin="bruise_purple"] .skin-core:after { border-color: rgba(255,255,255,.22); }
+#skin-editor[data-skin="bad_tv"] .skin-core:after { inset: 2px; transform: none; border-style: dashed; }
+#skin-editor[data-skin="casino_gold"] .skin-core:after { border-color: rgba(255,211,77,.55); box-shadow: inset 0 0 0 2px rgba(0,0,0,.18); }
 #skin-preview .skin-stick {
   position: absolute;
-  left: 37px;
-  top: 25px;
-  width: 18px;
+  left: 41px;
+  top: 29px;
+  width: 20px;
   height: 2px;
   background: #00ff66;
-  box-shadow: 0 0 8px rgba(0,255,102,.55);
+  box-shadow: 0 0 10px rgba(0,255,102,.7);
 }
-.skin-row { display: flex; flex-direction: column; gap: 6px; }
-.skin-row label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--dim);
-  font-size: 10px;
-  letter-spacing: 1.5px;
+#skin-preview .skin-stick:after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: -2px;
+  width: 4px;
+  height: 6px;
+  border: 1px solid currentColor;
+  color: inherit;
 }
-#menu input[type="color"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 46px;
-  height: 22px;
+.skin-arrow {
+  width: 32px;
+  height: 54px;
   padding: 0;
-  border: 1px solid #333;
-  background: #050505;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--green);
+  border-color: #263a2d;
+  background: rgba(0,255,102,.035);
 }
-#menu input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
-#menu input[type="color"]::-webkit-color-swatch { border: none; }
-#btn-skin-reset {
-  grid-column: 1 / -1;
-  padding: 6px 10px;
-  font-size: 10px;
+.skin-arrow:hover { color: var(--fg); border-color: var(--green); background: rgba(0,255,102,.08); }
+#skin-meta { grid-column: 1 / -1; min-height: 36px; }
+#skin-name {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--fg);
+}
+#skin-note {
+  margin-top: 4px;
+  font-size: 9px;
+  line-height: 1.25;
   color: var(--dim);
-  border-color: #333;
+  letter-spacing: .8px;
 }
-.choice .choice-sub { display:block; margin-top:4px; font-size:10px; letter-spacing:.12em; opacity:.85; color:#66f6ff; }
-.choice .choice-preview { display:block; margin-top:3px; font-size:11px; line-height:1.25; opacity:.78; color:#f3f3f3; }
-.choice.tone-red .choice-sub { color:#ff3048; }
-.choice.tone-purple .choice-sub { color:#b45cff; }
-.choice.tone-green .choice-sub { color:#00ff66; }
+.choice .choice-sub { display:block; margin-top:4px; font-size:10px; letter-spacing:.14em; opacity:.9; color:#66f6ff; }
+.choice .choice-preview { display:none; }
+.choice .rarity-tag { float:right; margin-left:8px; font-size:9px; letter-spacing:.16em; opacity:.9; }
+.choice.tone-red, .choice.rarity-cursed { border-color:#5a1d28; box-shadow: inset 0 0 0 1px rgba(255,48,72,.15); }
+.choice.tone-purple, .choice.rarity-rare { border-color:#51306f; box-shadow: inset 0 0 0 1px rgba(180,92,255,.14); }
+.choice.tone-green, .choice.rarity-common { border-color:#1f5a34; box-shadow: inset 0 0 0 1px rgba(0,255,102,.1); }
+.choice.tone-cyan, .choice.rarity-core { border-color:#23525a; box-shadow: inset 0 0 0 1px rgba(102,246,255,.12); }
+.choice.tone-red .choice-sub, .choice.rarity-cursed .choice-sub { color:#ff3048; }
+.choice.tone-purple .choice-sub, .choice.rarity-rare .choice-sub { color:#b45cff; }
+.choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
+.choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
