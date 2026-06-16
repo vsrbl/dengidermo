@@ -1,4 +1,4 @@
-# v2.0.41 — skin menu alignment + elemental WPN upgrades
+# v2.0.43 — skin menu alignment + elemental WPN upgrades
 
 ## Skin selector
 

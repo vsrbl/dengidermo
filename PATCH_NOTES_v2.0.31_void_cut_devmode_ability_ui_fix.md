@@ -1,4 +1,4 @@
-# v2.0.41 — void cut line field / dev mode / compact ability UI
+# v2.0.43 — void cut line field / dev mode / compact ability UI
 
 ## Main fixes
 

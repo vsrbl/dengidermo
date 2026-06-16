@@ -1,4 +1,4 @@
-# v2.0.41 — legendary skin dash identity / layered SFX
+# v2.0.43 — legendary skin dash identity / layered SFX
 
 ## Goal
 Legendary skins should not be just a recolored dash with a different beep. The player body stays static, but dash becomes the place where the skin identity appears.
@@ -15,5 +15,5 @@ Legendary skins should not be just a recolored dash with a different beep. The p
 - Still no animated player skin body; identity lives in dash VFX/SFX.
 
 ## Version
-- Bumped to `v2.0.41`.
-- Module filenames updated from `v2-0-32` to `v2-0-41`.
+- Bumped to `v2.0.43`.
+- Module filenames updated from `v2-0-32` to `v2-0-43`.
