@@ -1,4 +1,4 @@
-# v2.0.39 — herald_casino_seeker_rework
+# v2.0.41 — herald_casino_seeker_rework
 
 ## Herald summon readability
 

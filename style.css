@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.39 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.41 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -154,7 +154,7 @@ button:hover { background: var(--fg); color: var(--bg); }
 button:disabled { opacity: .3; cursor: none; }
 
 
-/* v2.0.39 — active CASINO mutation roll strip */
+/* v2.0.41 — active CASINO mutation roll strip */
 #active-roll { position: fixed; left: 50%; top: 82px; transform: translateX(-50%); z-index: 18; pointer-events: none;
   min-width: 260px; max-width: min(92vw, 520px); padding: 8px 14px; border: 1px solid var(--green); background: rgba(0,0,0,.88);
   color: var(--green); text-align: center; font-size: 12px; letter-spacing: 2px; box-shadow: 0 0 18px rgba(0,255,102,.18); }
@@ -330,7 +330,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.39 — skin rarities / locked inventory */
+/* v2.0.41 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -349,7 +349,7 @@ button:disabled { opacity: .3; cursor: none; }
 .rarity-rare { color:#b45cff; }
 .rarity-superrare { color:#ff3048; }
 .rarity-legendary { color:#ffd34d; text-shadow:0 0 10px rgba(255,211,77,.5); }
-/* v2.0.39: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
+/* v2.0.41: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
 #skin-editor[data-rarity="rare"] .skin-core,
 #skin-editor[data-rarity="superrare"] .skin-core,
 #skin-editor[data-rarity="legendary"] .skin-core,
@@ -363,7 +363,7 @@ button:disabled { opacity: .3; cursor: none; }
   opacity:.32; pointer-events:none;
 }
 
-/* v2.0.39 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.41 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
@@ -425,7 +425,7 @@ button:disabled { opacity: .3; cursor: none; }
 #skin-editor.locked .skin-rarity { opacity: .85; }
 
 
-/* v2.0.39 — Ability chest compact cards; detailed info lives in hover tooltip */
+/* v2.0.41 — Ability chest compact cards; detailed info lives in hover tooltip */
 #ability-modal .panel {
   width: min(94vw, 640px);
   min-width: min(94vw, 420px);
@@ -501,7 +501,7 @@ button:disabled { opacity: .3; cursor: none; }
 }
 
 
-/* v2.0.39 — lightweight developer panel */
+/* v2.0.41 — lightweight developer panel */
 #dev-panel {
   position: fixed;
   right: 14px;
@@ -566,7 +566,7 @@ button:disabled { opacity: .3; cursor: none; }
 #dev-panel button:hover { border-color: var(--cyan); color: var(--cyan); }
 
 
-/* v2.0.39 — fixed skin selector window / revealed locked skins / no visual stick */
+/* v2.0.41 — fixed skin selector window / revealed locked skins / no visual stick */
 #skin-editor {
   width: 248px;
   height: 118px;
@@ -673,7 +673,7 @@ button:disabled { opacity: .3; cursor: none; }
 }
 #skin-editor.locked .skin-core:after { display: block !important; }
 
-/* v2.0.39 — aligned fixed-width skin selector; same width as menu controls */
+/* v2.0.41 — aligned fixed-width skin selector; same width as menu controls */
 #menu .menu-box {
   width: min(390px, 92vw);
   box-sizing: border-box;
@@ -736,7 +736,7 @@ button:disabled { opacity: .3; cursor: none; }
 #menu #skin-note { font-size: 8px; letter-spacing: .14em; color: #5a5a5a; }
 #menu #skin-editor.locked #skin-preview:before { content: 'LOCKED'; }
 
-/* v2.0.39 — compact elemental WPN tags */
+/* v2.0.41 — compact elemental WPN tags */
 .weapon-choice .wpn-tags {
   float: right;
   display: inline-flex;
@@ -760,3 +760,58 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll.stopping .roll-symbols span.win { background: rgba(0,255,102,.10); }
 #active-roll.stopping .roll-symbols span.lose { background: rgba(255,48,72,.12); }
 @keyframes activeRollFlicker { 0% { transform: translateY(-1px); opacity: .65; } 100% { transform: translateY(1px); opacity: 1; } }
+
+
+/* v2.0.41 — skin selector alignment + visible rarity color language */
+#menu #skin-editor {
+  width: 100%;
+  height: 124px;
+  min-height: 124px;
+  max-height: 124px;
+  padding: 10px 12px;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  grid-template-rows: 62px 38px;
+  column-gap: 10px;
+  box-sizing: border-box;
+}
+#menu #skin-preview {
+  position: relative;
+  justify-self: center;
+  align-self: center;
+  width: 60px;
+  height: 60px;
+  margin: 0;
+}
+#menu #skin-preview .skin-core,
+#skin-preview .skin-core {
+  left: 50% !important;
+  top: 50% !important;
+  width: 26px !important;
+  height: 26px !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+}
+#menu #skin-preview .skin-core:after,
+#skin-preview .skin-core:after {
+  transform: none !important;
+}
+#menu .skin-arrow { align-self: center; }
+#menu #skin-meta { padding: 0 6px; }
+#menu #skin-name { color: var(--fg); }
+#menu #skin-note { color: #777; }
+#menu #skin-editor[data-rarity="basic"] { border-color: rgba(255,255,255,.26); box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }
+#menu #skin-editor[data-rarity="uncommon"] { border-color: rgba(102,246,255,.44); box-shadow: inset 0 0 0 1px rgba(102,246,255,.08), 0 0 14px rgba(102,246,255,.045); }
+#menu #skin-editor[data-rarity="rare"] { border-color: rgba(180,92,255,.52); box-shadow: inset 0 0 0 1px rgba(180,92,255,.10), 0 0 16px rgba(180,92,255,.055); }
+#menu #skin-editor[data-rarity="superrare"] { border-color: rgba(255,48,72,.58); box-shadow: inset 0 0 0 1px rgba(255,48,72,.11), 0 0 18px rgba(255,48,72,.065); }
+#menu #skin-editor[data-rarity="legendary"] { border-color: rgba(255,211,77,.72); box-shadow: inset 0 0 0 1px rgba(255,211,77,.15), 0 0 22px rgba(255,211,77,.09); }
+#menu #skin-editor[data-rarity="uncommon"] #skin-note { color: #66f6ff; }
+#menu #skin-editor[data-rarity="rare"] #skin-note { color: #b45cff; }
+#menu #skin-editor[data-rarity="superrare"] #skin-note { color: #ff3048; }
+#menu #skin-editor[data-rarity="legendary"] #skin-note { color: #ffd34d; }
+#menu #skin-editor[data-rarity="uncommon"] #skin-preview { border-color: rgba(102,246,255,.42); }
+#menu #skin-editor[data-rarity="rare"] #skin-preview { border-color: rgba(180,92,255,.50); }
+#menu #skin-editor[data-rarity="superrare"] #skin-preview { border-color: rgba(255,48,72,.54); }
+#menu #skin-editor[data-rarity="legendary"] #skin-preview { border-color: rgba(255,211,77,.68); }
+#menu #skin-editor.locked[data-rarity] {
+  background: rgba(255,255,255,.016);
+}

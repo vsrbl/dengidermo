@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.39_active_ability_expansion_ui
+# nncckkrr.space v2.0.41_active_ability_expansion_ui
 
 Source: v2.0.28_active_duration_aura_rework
 Date: 2026-06-16
@@ -83,6 +83,6 @@ No clean `COMBO FOUND` messaging was added. The new interactions appear as dirty
 
 ## Versioning
 
-- Version bumped to v2.0.39.
-- Versioned module filenames changed from v2-0-28 to v2-0-39.
+- Version bumped to v2.0.41.
+- Versioned module filenames changed from v2-0-28 to v2-0-41.
 - Imports, index.html, package.json, protocol, and server version updated.

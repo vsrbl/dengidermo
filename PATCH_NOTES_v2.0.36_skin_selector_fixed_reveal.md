@@ -1,4 +1,4 @@
-# v2.0.39 — fixed skin selector / revealed locked skins
+# v2.0.41 — fixed skin selector / revealed locked skins
 
 ## Skin selector
 
@@ -20,5 +20,5 @@
 
 ## Tech
 
-- Bumped to `v2.0.39`.
-- Module filenames updated from `v2-0-39` to `v2-0-39`.
+- Bumped to `v2.0.41`.
+- Module filenames updated from `v2-0-41` to `v2-0-41`.
