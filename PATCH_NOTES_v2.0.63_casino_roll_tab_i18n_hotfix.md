@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.63 — casino roll audio / TAB dossier / install i18n hotfix
+# PATCH NOTES v2.0.65 — casino roll audio / TAB dossier / install i18n hotfix
 
 ## Fixes
 

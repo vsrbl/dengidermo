@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.63 — HUD safe zones / feed cleanup
+# nncckkrr.space v2.0.65 — HUD safe zones / feed cleanup
 
 This is a small clarity hotfix after v2.0.61 room dossier.
 

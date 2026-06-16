@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.63 — casino roll cleanup / tab dossier / install i18n */
+/* nncckkrr v2.0.65 — tape archive / seeker audio polish */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -140,16 +140,19 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   align-items: center; justify-content: center; background: rgba(5,5,5,.34);
   z-index: 50; pointer-events: none;
 }
-#tab-panel .panel { width: min(96vw, 1180px); min-width: min(96vw, 900px); max-width: 1180px; max-height: none; overflow: visible; animation: tabdrop .12s steps(4); pointer-events: auto; transform: translateY(-3vh); padding: 18px 22px; }
+#tab-panel .panel { width: min(98vw, 1420px); min-width: min(96vw, 960px); max-width: 1420px; max-height: none; overflow: visible; animation: tabdrop .12s steps(4); pointer-events: auto; transform: translateY(-3vh); padding: 18px 22px; }
 @keyframes tabdrop { from { transform: translateY(calc(-7vh - 18px)); opacity: 0; } }
 #tab-run { color: var(--dim); font-size: 12px; margin-bottom: 12px; white-space: normal; }
-.tab-dossier { display: grid; grid-template-columns: 1fr 1fr .86fr; gap: 10px; margin-bottom: 12px; }
+.tab-dossier { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .tab-card { border: 1px solid rgba(243,243,243,.18); background: rgba(255,255,255,.025); padding: 9px 10px; min-height: 132px; overflow: hidden; }
 .tab-card.current { border-color: rgba(102,246,255,.35); }
 .tab-card.next { border-color: rgba(255,211,77,.32); }
 .tab-card.run { border-color: rgba(196,122,255,.30); }
+.tab-card.memory { border-color: rgba(0,255,102,.28); }
+.tab-card.tapes { border-color: rgba(255,211,77,.28); }
 .tab-card h3 { font-size: 12px; color: var(--fg); margin-bottom: 7px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tab-card p { margin-top: 5px; line-height: 1.28; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-card .tape-row { color: var(--fg); }
 .tab-card .rules { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .muted { opacity: .55; }
 #tab-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }

@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.63 — music / room identity / dopamine pass
+# PATCH NOTES v2.0.65 — music / room identity / dopamine pass
 
 Main goal: make rooms feel like authored micro-scenarios instead of only random waves.
 

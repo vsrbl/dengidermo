@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.63 — room dossier / encounter grammar
+# nncckkrr.space v2.0.65 — room dossier / encounter grammar
 
 Фокус патча: игрок должен постоянно понимать, **что за комната сейчас**, **что в ней опасно**, **за что она награждает**, и **что ждёт дальше**.
 
