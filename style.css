@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.30 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.31 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -203,7 +203,7 @@ button:disabled { opacity: .3; cursor: none; }
   letter-spacing: .8px;
 }
 #explain-tip .et-title { color: var(--green); font-size: 12px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
-#explain-tip .et-body { color: #cfcfcf; }
+#explain-tip .et-body { color: #cfcfcf; white-space: pre-line; }
 #explain-tip.red { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,48,72,.08), 0 0 18px rgba(255,48,72,.18); }
 #explain-tip.red .et-title { color: var(--red); }
 #explain-tip.purple { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(180,92,255,.08), 0 0 18px rgba(180,92,255,.18); }
@@ -316,7 +316,7 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
 
-/* v2.0.30 — skin rarities / locked inventory */
+/* v2.0.31 — skin rarities / locked inventory */
 #skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
 #skin-editor.locked #skin-preview:before {
   content: 'LOCK';
@@ -335,7 +335,7 @@ button:disabled { opacity: .3; cursor: none; }
 .rarity-rare { color:#b45cff; }
 .rarity-superrare { color:#ff3048; }
 .rarity-legendary { color:#ffd34d; text-shadow:0 0 10px rgba(255,211,77,.5); }
-/* v2.0.30: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
+/* v2.0.31: no animated skin bodies/previews. Rarity personality moved to dash VFX/SFX. */
 #skin-editor[data-rarity="rare"] .skin-core,
 #skin-editor[data-rarity="superrare"] .skin-core,
 #skin-editor[data-rarity="legendary"] .skin-core,
@@ -349,7 +349,7 @@ button:disabled { opacity: .3; cursor: none; }
   opacity:.32; pointer-events:none;
 }
 
-/* v2.0.30 — cleaner menu + hidden locked skin silhouettes */
+/* v2.0.31 — cleaner menu + hidden locked skin silhouettes */
 #menu .menu-box {
   width: min(390px, 92vw);
   gap: 9px;
@@ -411,29 +411,28 @@ button:disabled { opacity: .3; cursor: none; }
 #skin-editor.locked .skin-rarity { opacity: .85; }
 
 
-/* v2.0.30 — Ability chest readable cards */
+/* v2.0.31 — Ability chest compact cards; detailed info lives in hover tooltip */
 #ability-modal .panel {
-  width: min(94vw, 760px);
-  min-width: min(94vw, 520px);
+  width: min(94vw, 640px);
+  min-width: min(94vw, 420px);
   text-align: center;
 }
 #ability-modal .panel-title { text-align: center; letter-spacing: .20em; }
-#ability-choices { gap: 12px; align-items: stretch; }
+#ability-choices { gap: 10px; align-items: stretch; }
 .ability-card {
   position: relative;
   padding: 0;
   overflow: hidden;
-  text-align: left;
-  background: rgba(0,0,0,.72);
+  text-align: center;
+  background: rgba(0,0,0,.76);
 }
 .ability-card:hover { color: var(--fg); background: rgba(102,246,255,.08); }
 .ability-card .abl-card-top {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px 9px;
-  border-bottom: 1px solid rgba(255,255,255,.12);
+  padding: 13px 14px;
 }
 .ability-card .abl-key {
   margin: 0;
@@ -441,17 +440,24 @@ button:disabled { opacity: .3; cursor: none; }
   font-size: 13px;
   letter-spacing: .12em;
 }
+.ability-card .abl-title-wrap { text-align: center; min-width: 0; }
 .ability-card .abl-name {
   font-size: 16px;
-  letter-spacing: .12em;
-  line-height: 1.2;
-  text-align: left;
+  letter-spacing: .14em;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ability-card .abl-action {
-  margin-top: 4px;
-  font-size: 10px;
+  margin-top: 5px;
+  font-size: 9px;
   letter-spacing: .16em;
   color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ability-card .abl-tags {
   display: flex;
@@ -459,7 +465,7 @@ button:disabled { opacity: .3; cursor: none; }
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  max-width: 240px;
+  max-width: 230px;
 }
 .ability-card .rarity-tag,
 .ability-card .abl-role {
@@ -472,36 +478,75 @@ button:disabled { opacity: .3; cursor: none; }
   line-height: 1;
   background: rgba(255,255,255,.035);
 }
-.ability-card .abl-card-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 11px 14px 13px;
-}
-.ability-card .abl-section {
-  min-height: 58px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.025);
-  padding: 9px 10px;
-  line-height: 1.45;
-  color: #d7f8fb;
-}
-.ability-card .abl-section-title {
-  margin-bottom: 5px;
-  font-size: 9px;
-  letter-spacing: .18em;
-  color: var(--dim);
-  text-align: center;
-}
-.ability-card.tone-red .abl-section { color: #ffd4da; }
-.ability-card.tone-purple .abl-section { color: #ead8ff; }
-.ability-card.tone-green .abl-section { color: #d7ffe5; }
-.ability-card.tone-cyan .abl-section { color: #d7fbff; }
 .ability-card.picked { background: rgba(0,255,102,.08); }
 .ability-card.dimmed { opacity: .24; }
 @media (max-width: 720px) {
   #ability-modal .panel { min-width: 0; }
   .ability-card .abl-card-top { grid-template-columns: 42px minmax(0,1fr); }
   .ability-card .abl-tags { grid-column: 1 / -1; justify-content: center; max-width: none; }
-  .ability-card .abl-card-body { grid-template-columns: 1fr; }
 }
+
+
+/* v2.0.31 — lightweight developer panel */
+#dev-panel {
+  position: fixed;
+  right: 14px;
+  top: 58px;
+  z-index: 80;
+  width: min(360px, calc(100vw - 28px));
+  border: 1px solid #66f6ff;
+  background: rgba(0,0,0,.88);
+  box-shadow: 0 0 0 2px rgba(102,246,255,.08), 0 0 32px rgba(102,246,255,.10);
+  padding: 12px;
+  color: var(--fg);
+  font-size: 12px;
+  text-align: left;
+}
+#dev-panel.hidden { display: none; }
+#dev-panel .dev-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: .20em;
+  color: var(--cyan);
+  border-bottom: 1px solid rgba(102,246,255,.25);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+#dev-panel .dev-title span { color: var(--dim); font-size: 10px; }
+#dev-panel .dev-note { color: var(--dim); font-size: 10px; margin-bottom: 10px; letter-spacing: .08em; }
+#dev-panel .dev-row {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#dev-panel label { color: var(--dim); font-size: 10px; letter-spacing: .12em; }
+#dev-panel select {
+  width: 100%;
+  background: #050505;
+  color: var(--fg);
+  border: 1px solid #333;
+  padding: 6px 8px;
+  font-family: inherit;
+}
+#dev-panel .dev-muts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.025);
+  margin-bottom: 10px;
+}
+#dev-panel .dev-muts label { color: #cfcfcf; letter-spacing: .06em; }
+#dev-panel .dev-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+#dev-panel button {
+  min-height: 30px;
+  padding: 6px 8px;
+  font-size: 10px;
+  letter-spacing: .12em;
+  border-color: #333;
+}
+#dev-panel button:hover { border-color: var(--cyan); color: var(--cyan); }
