@@ -1,11 +1,11 @@
 // nncckkrr boot v2: solo (offline), host (sim in your browser), guest (direct to host)
-import { Net, VERSION, GAME_SPEED } from './net.v2-0-13.js';
-import { Input } from './input.v2-0-13.js';
-import { GameState, P } from './state.v2-0-13.js';
-import { Effects } from './effects.v2-0-13.js';
-import { Renderer } from './render.v2-0-13.js';
-import { Hud } from './hud.v2-0-13.js';
-import { AudioBus } from './audio.v2-0-13.js';
+import { Net, VERSION, GAME_SPEED } from './net.v2-0-14.js';
+import { Input } from './input.v2-0-14.js';
+import { GameState, P } from './state.v2-0-14.js';
+import { Effects } from './effects.v2-0-14.js';
+import { Renderer } from './render.v2-0-14.js';
+import { Hud } from './hud.v2-0-14.js';
+import { AudioBus } from './audio.v2-0-14.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -101,6 +101,8 @@ net.on('offer', (m) => hud.openInstall(m.choices, m.pending));
 net.on('offer_close', () => hud.closeInstall());
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
+net.on('ability_offer', (m) => hud.openAbilityChest(m.choices));
+net.on('ability_offer_close', () => hud.closeAbilityChest());
 net.on('casino_result', (m) => hud.casinoResult(m, state.myId));
 net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? 'комната не найдена' : m.error === 'room full' ? 'комната заполнена (4/4)' : m.error, 'err'); });
 net.on('room_closed', () => location.reload());
@@ -122,22 +124,26 @@ function frame(now) {
   const me = state.me();
   const room = state.room;
 
-  const modalOpen = hud.casino.open || hud.install.open || hud.weapon.open;
+  const modalOpen = hud.casino.open || hud.install.open || hud.weapon.open || hud.ability.open;
   input.blocked = modalOpen;
 
   if (input.takeEsc()) {
     if (hud.casino.open && !hud.casino.spinning) hud.closeCasino();
+    else if (hud.weapon.open) hud.closeWeaponChest();
+    else if (hud.ability.open) hud.closeAbilityChest();
     else if (input.tabOpen) input.tabOpen = false;
   }
   const num = input.takeNum();
   if (num >= 0) {
     if (hud.install.open) hud.pick(num);
     else if (hud.weapon.open) hud.pickWeapon(num);
+    else if (hud.ability.open) hud.pickAbility(num);
     else if (hud.casino.open && !hud.casino.spinning) hud.placeBet(['low', 'mid', 'high'][num]);
   }
   if (hud.install.open && me && me[P.PEND] === 0 && room && room.phase !== 'install') hud.closeInstall();
   if (room && room.phase === 'play' && hud.install.open) hud.closeInstall();
   if (room && room.phase !== 'play' && hud.weapon.open) hud.closeWeaponChest();
+  if (room && room.phase !== 'play' && hud.ability.open) hud.closeAbilityChest();
 
   const mv = input.moveVec();
   const aim = renderer.screenToWorld(input.mouseX, input.mouseY);

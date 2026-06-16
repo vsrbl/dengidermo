@@ -3,8 +3,8 @@
 //   host  — sim runs here; guests connect via WebRTC (direct) with ws relay fallback
 //   guest — inputs go to the host's browser, not to a far-away server
 // The Render server is ONLY a phonebook (signaling + relay fallback), never the game.
-import { VERSION, PROTOCOL, GAME_SPEED } from '../shared/protocol.v2-0-12.js';
-import { LocalRoom } from './local.v2-0-12.js';
+import { VERSION, PROTOCOL, GAME_SPEED } from '../shared/protocol.v2-0-14.js';
+import { LocalRoom } from './local.v2-0-14.js';
 
 export { VERSION, PROTOCOL, GAME_SPEED };
 
@@ -210,6 +210,8 @@ export class Net {
   sendInput(i) { this._game({ t: 'input', ...i }, false); }
   sendCasino(stake) { this._game({ t: 'casino', stake }, true); }
   sendPick(choice) { this._game({ t: 'pick', choice }, true); }
+  sendWeaponPick(choice) { this._game({ t: 'weapon_pick', choice }, true); }
+  sendAbilityPick(choice) { this._game({ t: 'ability_pick', choice }, true); }
   _game(m, reliable = false) {
     if (this.room) { this.room.handleMsg(this.id, m); this.ping = 0; }
     else if (this.mode === 'guest') this._toHost(m, reliable);

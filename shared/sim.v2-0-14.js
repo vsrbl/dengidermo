@@ -1,9 +1,10 @@
 // nncckkrr server simulation — single source of truth, no client authority
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
+  WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES,
   rollUpgradeChoices, defaultStats, spinCasino, UPGRADE_LABELS
-} from './data.v2-0-12.js';
-import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-12.js';
+} from './data.v2-0-14.js';
+import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-0-14.js';
 
 const PLAYER_SIZE = 28;
 const PLAYER_SPEED = 260;
@@ -290,6 +291,8 @@ export function createPlayer(id, name, idx) {
     lastSeq: 0,
     droneCd: 0, orbHits: new Map(),
     offer: null,
+    weaponChestOffer: null,
+    abilityChestOffer: null,
     touch: new Map(),
     wantDash: false, wantInteract: false, wantActive: false, wantWeapon: -1,
     connected: true
@@ -323,6 +326,7 @@ export function startRoom(run, players) {
     else p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
     p.offer = null;
+    p.weaponChestOffer = null;
     if (p.stats.debtEngine > 0 && run.plan.category !== 'boss' && !run.plan.modifierIds.includes('static_rain')) run.plan.modifierIds.push('static_rain');
   }
   if (run.plan.category === 'boss') spawnEnemy(run, players, 'boss', false);
@@ -345,7 +349,7 @@ export function resetRun(run, players) {
     p.shgCharges = 4; p.shgReload = 0; p.fireWasDown = false; p.recoilT = 0; p.recoilX = 0; p.recoilY = 0;
     p.stats = defaultStats();
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.weaponChestOffer = null; p.abilityChestOffer = null;
   }
   startRoom(run, players);
 }
@@ -510,7 +514,7 @@ function killEnemy(run, players, e, killer) {
     run.hunterTarget = null;
     run.fx.push({ t: 'contract_done', x: Math.round(e.x), y: Math.round(e.y) });
     for (const p of players.values()) if (p.alive && p.connected) {
-      const pool = UPGRADES.filter(u => u.tier === 1 || u.tier === 2);
+      const pool = HERO_UPGRADES.filter(u => u.tier === 1 || u.tier === 2);
       const u = pool[Math.floor(Math.random() * pool.length)];
       if (u) { u.apply(p.stats); p.hp = Math.min(p.hp, maxHp(p)); run.fx.push({ t: 'install', id: p.id, label: 'HUNTER: ' + u.label, cursed: !!u.cursed }); }
     }
@@ -649,7 +653,7 @@ function rocketAftermath(run, players, b) {
     for (let i = 0; i < pieces; i++) {
       const a = (i / pieces) * Math.PI * 2 + Math.random() * 0.35;
       const d = 52 + Math.random() * 74;
-      explode(run, players, b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 38 + b.rktCluster * 5, b.dmg * 0.36, b.owner, false, 'proc');
+      explode(run, players, b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 38 + b.rktCluster * 5, b.dmg * 0.36, b.owner, false, 'rocket');
     }
   }
 }
@@ -703,7 +707,7 @@ function stepBullets(run, players, dt) {
       }
     }
     if (b.detonateDist && b.travelled >= b.detonateDist) {
-      explode(run, players, b.x, b.y, b.aoe || 70, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast');
+      explode(run, players, b.x, b.y, b.aoe || 70, b.dmg, b.owner, false, (b.kind === 'rocketgun' || b.mine) ? 'rocket' : 'blast');
       rocketAftermath(run, players, b);
       b.life = -1; continue;
     }
@@ -726,13 +730,13 @@ function stepBullets(run, players, dt) {
         continue;
       }
       run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, wall: 1, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
-      if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
+      if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, (b.kind === 'rocketgun' || b.mine) ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
       b.life = -1; continue;
     }
     if (b.from === 'p') {
       for (const e of run.enemies) {
         if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
-          if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, b.kind === 'rocketgun' ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
+          if (b.aoe) { explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, false, (b.kind === 'rocketgun' || b.mine) ? 'rocket' : 'blast'); rocketAftermath(run, players, b); }
           else {
             const n = norm(b.vx, b.vy);
             run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
@@ -1139,6 +1143,98 @@ function tryInteract(run, players, p) {
   }
 }
 
+
+function weaponChoiceDisabled(p, opt) {
+  if (!opt) return 'НЕТ ВАРИАНТА';
+  if (opt.kind === 'weapon' && p.weapons.includes(opt.weapon)) return 'УЖЕ ЕСТЬ';
+  if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return `НУЖЕН ${WEAPONS[opt.reqWeapon]?.label || opt.reqWeapon}`;
+  return '';
+}
+
+function makeWeaponChestChoices(p, rng = Math.random) {
+  const pool = WEAPON_CHEST_REWARDS
+    .filter(opt => !(opt.kind === 'weapon' && p.weapons.includes(opt.weapon)))
+    .map(opt => {
+      const disabledReason = weaponChoiceDisabled(p, opt);
+      return { ...opt, disabled: disabledReason ? 1 : 0, disabledReason };
+    });
+  const choices = [];
+  const used = new Set();
+  let guard = 0;
+  while (choices.length < 3 && guard++ < 100 && pool.length) {
+    const opt = pool[Math.floor(rng() * pool.length)];
+    if (!opt || used.has(opt.id)) continue;
+    used.add(opt.id);
+    choices.push(opt);
+  }
+  const enabled = pool.filter(o => !o.disabled);
+  if (enabled.length && choices.every(o => o.disabled)) choices[0] = enabled[Math.floor(rng() * enabled.length)];
+  return choices;
+}
+
+
+function makeAbilityChestChoices(p, rng = Math.random) {
+  const pool = ABILITY_CHEST_REWARDS.slice();
+  const choices = [];
+  const used = new Set();
+  let guard = 0;
+  while (choices.length < 3 && guard++ < 100 && pool.length) {
+    const opt = pool[Math.floor(rng() * pool.length)];
+    if (!opt || used.has(opt.id)) continue;
+    used.add(opt.id);
+    choices.push(opt);
+  }
+  return choices;
+}
+
+function applyAbilityChestOption(run, players, p, opt) {
+  if (!opt) return false;
+  if (opt.kind === 'ability_upgrade') {
+    const u = UPGRADES.find(x => x.id === opt.upgrade);
+    if (!u) return false;
+    u.apply(p.stats);
+    p.dashCharges = Math.min(dashMax(p), p.dashCharges + (opt.upgrade === 'dash' ? 1 : 0));
+    run.fx.push({ t: 'ability_get', id: p.id, label: u.label, x: Math.round(p.x), y: Math.round(p.y) });
+  } else if (opt.kind === 'stat') {
+    if (opt.stat === 'spd') p.stats.spdMul *= 1.12;
+    else if (opt.stat === 'dashflow') p.stats.dashRegenMul *= 1.2;
+    else return false;
+    run.fx.push({ t: 'ability_get', id: p.id, label: opt.label, x: Math.round(p.x), y: Math.round(p.y) });
+  } else return false;
+  p.hp = Math.min(p.hp, maxHp(p));
+  p.dashCharges = Math.min(dashMax(p), p.dashCharges);
+  run.fx.push({ t: 'chest_open', id: p.id, chest: 'ABL', rewards: [opt.label], x: Math.round(p.x), y: Math.round(p.y) });
+  return true;
+}
+
+function applyWeaponChestOption(run, players, p, opt) {
+  if (!opt) return false;
+  const disabledReason = weaponChoiceDisabled(p, opt);
+  if (disabledReason) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, chest: 'WPN' });
+    return false;
+  }
+  if (opt.kind === 'weapon') {
+    if (!p.weapons.includes(opt.weapon)) {
+      p.weapons.push(opt.weapon);
+      run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[opt.weapon]?.label || opt.label });
+    }
+  } else if (opt.kind === 'weapon_upgrade') {
+    const u = UPGRADES.find(x => x.id === opt.upgrade);
+    if (!u) return false;
+    u.apply(p.stats);
+    run.fx.push({ t: 'weapon_mod', id: p.id, label: u.label, w: u.branch });
+  } else if (opt.kind === 'stat') {
+    if (opt.stat === 'dmg') p.stats.dmgMul *= 1.18;
+    else if (opt.stat === 'fire') p.stats.fireMul *= 1.14;
+    run.fx.push({ t: 'weapon_mod', id: p.id, label: opt.label, w: 'ALL' });
+  } else return false;
+  p.hp = Math.min(p.hp, maxHp(p));
+  p.dashCharges = Math.min(dashMax(p), p.dashCharges);
+  run.fx.push({ t: 'chest_open', id: p.id, chest: 'WPN', rewards: [opt.label], x: Math.round(p.x), y: Math.round(p.y) });
+  return true;
+}
+
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
   const debtFloor = run.plan.modifierIds.includes('debt_floor');
@@ -1163,32 +1259,23 @@ function openChest(run, players, p, o) {
     if (rng() < 0.15) dropPickup(run, o.x, o.y - 50, 'HEA', 20);
     rewards.push('LOOT');
   } else if (o.chest === 'weapon_chest') {
-    const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
-    if (unowned.length) {
-      const w = unowned[Math.floor(rng() * unowned.length)];
-      p.weapons.push(w);
-      rewards.push(WEAPONS[w].label);
-      run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[w].label });
-    } else {
-      const cur = p.weapons[p.weaponIdx];
-      const pool = cur === 'shotgun' ? ['shg_bounce','shg_teeth'] : cur === 'seeker' ? ['sek_split','sek_chain'] : ['rkt_cluster','rkt_mines'];
-      const u = UPGRADES.find(x => x.id === pool[Math.floor(rng() * pool.length)]);
-      if (u) { u.apply(p.stats); rewards.push(u.label); }
-      else { p.stats.dmgMul *= 1.2; rewards.push('DMG +20%'); }
-    }
+    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng), chestId: o.id };
+    run.fx.push({ t: 'weapon_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
+    run.fx.push({ t: 'chest_open', id: p.id, obj: o.id, chest: def.label, rewards: ['ВЫБОР WPN'], x: o.x, y: o.y });
+    return;
   } else if (o.chest === 'ability_chest') {
-    const pool = ['dash','voidstep','dashcut','dashclone','q_snap','q_blood','q_over'];
-    const u = UPGRADES.find(x => x.id === pool[Math.floor(rng() * pool.length)]);
-    if (u) { u.apply(p.stats); rewards.push(u.label); run.fx.push({ t: 'ability_get', id: p.id, label: u.label }); }
-    p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng), chestId: o.id };
+    run.fx.push({ t: 'ability_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
+    run.fx.push({ t: 'chest_open', id: p.id, obj: o.id, chest: def.label, rewards: ['ВЫБОР ABL'], x: o.x, y: o.y });
+    return;
   } else if (o.chest === 'rare_chest') {
-    const pool = UPGRADES.filter(u => u.tier === 1);
+    const pool = HERO_UPGRADES.filter(u => u.tier === 1);
     const u = pool[Math.floor(rng() * pool.length)];
     u.apply(p.stats);
     p.hp = Math.min(p.hp, maxHp(p));
     rewards.push(u.label);
   } else if (o.chest === 'cursed_chest') {
-    const pool = UPGRADES.filter(u => u.tier === 2);
+    const pool = HERO_UPGRADES.filter(u => u.tier === 2);
     const u = pool[Math.floor(rng() * pool.length)];
     u.apply(p.stats);
     p.hp = Math.min(p.hp, maxHp(p));
@@ -1196,6 +1283,27 @@ function openChest(run, players, p, o) {
     rewards.push(u.label, 'CURSE: STATIC DEBT');
   }
   run.fx.push({ t: 'chest_open', id: p.id, obj: o.id, chest: def.label, rewards, x: o.x, y: o.y, cursed: !!def.cursed });
+}
+
+
+export function handleWeaponPick(run, players, p, choiceIdx) {
+  if (!p.weaponChestOffer) return false;
+  const idx = choiceIdx | 0;
+  if (idx < 0 || idx >= p.weaponChestOffer.choices.length) return false;
+  const opt = p.weaponChestOffer.choices[idx];
+  const ok = applyWeaponChestOption(run, players, p, opt);
+  if (ok) p.weaponChestOffer = null;
+  return ok;
+}
+
+export function handleAbilityPick(run, players, p, choiceIdx) {
+  if (!p.abilityChestOffer) return false;
+  const idx = choiceIdx | 0;
+  if (idx < 0 || idx >= p.abilityChestOffer.choices.length) return false;
+  const opt = p.abilityChestOffer.choices[idx];
+  const ok = applyAbilityChestOption(run, players, p, opt);
+  if (ok) p.abilityChestOffer = null;
+  return ok;
 }
 
 export function handleCasino(run, players, p, stakeKey) {
@@ -1227,7 +1335,7 @@ export function handleCasino(run, players, p, stakeKey) {
   if (pl.weapon) {
     const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
     if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
-    else { p.stats.dmgMul *= 1.15; pl.weaponLabel = 'DMG +15%'; }
+    else { p.stats.dmgMul *= 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
   }
   if (pl.static) run.staticDebt = true;
   const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
@@ -1322,7 +1430,9 @@ function stepPlayers(run, players, dt) {
     if (typeof p.shgReload !== 'number') p.shgReload = 0;
     const shgDef = WEAPONS.shotgun;
     if (p.shgCharges < shgDef.charges) {
-      p.shgReload += dt * Math.max(0.25, p.stats.fireMul);
+      // SHG is a shell/charge weapon: fire-rate upgrades help only slightly so the reload remains readable.
+      const reloadScale = Math.max(0.55, 0.78 + Math.min(1.5, Math.max(0, p.stats.fireMul - 1)) * 0.18);
+      p.shgReload += dt * reloadScale;
       const every = shgDef.chargeRegen;
       while (p.shgCharges < shgDef.charges && p.shgReload >= every) { p.shgReload -= every; p.shgCharges++; }
     } else p.shgReload = 0;
@@ -1335,7 +1445,7 @@ function stepPlayers(run, players, dt) {
     const dm = dashMax(p);
     if (p.dashCharges < dm) {
       p.dashTimer += dt;
-      if (p.dashTimer >= DASH_REGEN) { p.dashTimer = 0; p.dashCharges++; }
+      if (p.dashTimer >= DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) { p.dashTimer = 0; p.dashCharges++; }
     } else p.dashTimer = 0;
 
     if (!p.alive) continue;
@@ -1451,7 +1561,7 @@ export function buildSnapshot(run, players) {
       p.stats.drones, p.stats.orbitals, p.lastSeq, p.name, p.invuln > 0 ? 1 : 0,
       Math.round(speed(p)), Math.ceil((p.activeCd || 0) * 10) / 10, p.activeBuffT > 0 ? 1 : 0,
       activeSummary(p.stats).label, activeSummary(p.stats).desc,
-      p.shgCharges ?? 4, (p.shgCharges ?? 4) >= WEAPONS.shotgun.charges ? 0 : Math.max(0, Math.ceil(((WEAPONS.shotgun.chargeRegen - (p.shgReload || 0)) / Math.max(0.25, p.stats.fireMul)) * 10) / 10)
+      p.shgCharges ?? 4, (p.shgCharges ?? 4) >= WEAPONS.shotgun.charges ? 0 : Math.max(0, Math.ceil(((WEAPONS.shotgun.chargeRegen - (p.shgReload || 0)) / Math.max(0.55, 0.78 + Math.min(1.5, Math.max(0, p.stats.fireMul - 1)) * 0.18)) * 10) / 10)
     ]);
   }
   const es = run.enemies.map(e => [

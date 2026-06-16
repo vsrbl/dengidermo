@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.13 — WPN chest choice + casino polish */
+/* nncckkrr v2.0.14 — WPN chest choice + casino polish */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -124,12 +124,13 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 
 /* weapon chest picker */
 #weapon-modal { z-index: 35; }
-#weapon-choices { display: flex; flex-direction: column; gap: 8px; }
-.weapon-choice { border-color: var(--cyan); }
-.weapon-choice:hover { background: var(--cyan); color: var(--bg); }
-.weapon-choice.disabled { opacity: .34; border-color: #333; color: #555; background: rgba(255,255,255,.015); }
-.weapon-choice.disabled:hover { background: rgba(255,48,72,.07); color: var(--red); border-color: var(--red); }
-.weapon-choice .lock { float: right; color: var(--red); font-size: 11px; letter-spacing: 1px; margin-left: 12px; }
+#ability-modal { z-index: 35; }
+#weapon-choices, #ability-choices { display: flex; flex-direction: column; gap: 8px; }
+.weapon-choice, .ability-choice { border-color: var(--cyan); }
+.weapon-choice:hover, .ability-choice:hover { background: var(--cyan); color: var(--bg); }
+.weapon-choice.disabled, .ability-choice.disabled { opacity: .34; border-color: #333; color: #555; background: rgba(255,255,255,.015); }
+.weapon-choice.disabled:hover, .ability-choice.disabled:hover { background: rgba(255,48,72,.07); color: var(--red); border-color: var(--red); }
+.weapon-choice .lock, .ability-choice .lock { float: right; color: var(--red); font-size: 11px; letter-spacing: 1px; margin-left: 12px; }
 
 /* casino */
 #casino-modal { z-index: 35; }

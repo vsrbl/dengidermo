@@ -1,5 +1,5 @@
 // nncckkrr renderer: squares, labels above, silhouettes that telegraph mechanics
-import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-12.js';
+import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-0-14.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -314,6 +314,13 @@ export class Renderer {
       ctx.strokeStyle = isMe ? COL.green : '#555'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(px + (ax - px) / al * 18, py + (ay - py) / al * 18);
       ctx.lineTo(px + (ax - px) / al * 28, py + (ay - py) / al * 28); ctx.stroke();
+      const activeW = Array.isArray(p[P.WEAPONS]) ? p[P.WEAPONS][p[P.WIDX]] : '';
+      if (activeW === 'SHG') {
+        const ammo = `${p[P.SHG] ?? 4}/4`;
+        const wait = p[P.SHGRELOAD] ? ` · ${p[P.SHGRELOAD]}s` : '';
+        const col = (p[P.SHG] ?? 4) <= 0 ? COL.red : ((p[P.SHG] ?? 4) < 4 ? COL.cyan : COL.green);
+        this.label(`SHG ${ammo}${wait}`, px, py - 38, col, 9);
+      }
       this.label(p[P.NAME], px, py - 24, isMe ? COL.green : COL.dim, 10);
     }
 

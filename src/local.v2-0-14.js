@@ -1,10 +1,10 @@
 // nncckkrr local room: the simulation runs in the HOST'S BROWSER (or solo, offline).
 // Host input is applied directly (zero latency); guests connect via WebRTC/relay.
-import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-0-13.js';
+import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-0-14.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handlePick, handleWeaponPick
-} from '../shared/sim.v2-0-13.js';
+  handleCasino, handlePick, handleWeaponPick, handleAbilityPick
+} from '../shared/sim.v2-0-14.js';
 
 const TICK_MS = 1000 / SIM_HZ;
 const SNAP_EVERY = Math.max(1, Math.round(SIM_HZ / SNAPSHOT_HZ));
@@ -22,6 +22,7 @@ export class LocalRoom {
     this.guestFx = [];            // fx accumulated between guest snapshots
     this.offersSent = new Map();
     this.weaponOffersSent = new Map();
+    this.abilityOffersSent = new Map();
     this.lastTickAt = performance.now();
     this.simNow = this.lastTickAt / 1000;
     this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -65,6 +66,7 @@ export class LocalRoom {
     this.channels.delete(guestId);
     this.offersSent.delete(guestId);
     this.weaponOffersSent.delete(guestId);
+    this.abilityOffersSent.delete(guestId);
     this.run.fx.push({ t: 'leave', id: guestId, name: p.name });
   }
 
@@ -89,6 +91,12 @@ export class LocalRoom {
       const ok = handleWeaponPick(this.run, this.players, p, m.choice);
       if (ok && !p.weaponChestOffer) this.sendTo(playerId, { t: 'weapon_offer_close' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid WPN choice' }, true);
+    } else if (m.t === 'ability_pick') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const ok = handleAbilityPick(this.run, this.players, p, m.choice);
+      if (ok && !p.abilityChestOffer) this.sendTo(playerId, { t: 'ability_offer_close' }, true);
+      else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid ABL choice' }, true);
     } else if (m.t === 'ping') {
       this.sendTo(playerId, { t: 'pong', ts: m.ts }, true);
     }
@@ -152,6 +160,18 @@ export class LocalRoom {
         else this.sendTo(pid, msg, true);
       }
       if (!p.weaponChestOffer && sent) this.weaponOffersSent.delete(pid);
+    }
+
+    // ABL chest choice offers
+    for (const [pid, p] of this.players) {
+      const sent = this.abilityOffersSent.get(pid);
+      if (p.abilityChestOffer && sent !== p.abilityChestOffer) {
+        this.abilityOffersSent.set(pid, p.abilityChestOffer);
+        const msg = { t: 'ability_offer', choices: p.abilityChestOffer.choices };
+        if (pid === this.hostId) this.onLocal(msg);
+        else this.sendTo(pid, msg, true);
+      }
+      if (!p.abilityChestOffer && sent) this.abilityOffersSent.delete(pid);
     }
 
     this.tickN++;

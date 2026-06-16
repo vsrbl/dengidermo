@@ -3,7 +3,7 @@
 export const WEAPONS = {
   shotgun: {
     id: 'shotgun', label: 'SHG', name: 'SHOTGUN',
-    cooldown: 0.035, charges: 4, chargeRegen: 0.25, pellets: 6, spread: 0.42, dmg: 8, speed: 700, life: 0.42, size: 5, knock: 82
+    cooldown: 0.035, charges: 4, chargeRegen: 0.8, pellets: 6, spread: 0.42, dmg: 8, speed: 700, life: 0.42, size: 5, knock: 82
   },
   seeker: {
     id: 'seeker', label: 'SEK', name: 'SEEKER',
@@ -112,6 +112,19 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'WEAPON FIRE +14%', desc: 'Ускоряет перезарядку оружия. Доступно всегда.' }
 ];
 
+
+export const ABILITY_CHEST_REWARDS = [
+  { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Даёт дополнительный заряд рывка. Простая, всегда полезная мобильность.' },
+  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID STEP', desc: 'Рывок оставляет циановый разрез, который наносит урон по линии.' },
+  { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH CUTS BULLETS', desc: 'Рывок стирает вражеские пули рядом с траекторией.' },
+  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH CLONE', desc: 'Рывок оставляет echo-всплеск в точке старта.' },
+  { id: 'abl_q_snap', kind: 'ability_upgrade', upgrade: 'q_snap', label: 'Q: FIELD SNAP', desc: 'Устанавливает или усиливает Q-активку: стянуть врагов и ударить импульсом.' },
+  { id: 'abl_q_blood', kind: 'ability_upgrade', upgrade: 'q_blood', label: 'Q: BLOOD PULSE', desc: 'Устанавливает или усиливает Q-активку: потратить HP ради красного квадратного взрыва.' },
+  { id: 'abl_q_over', kind: 'ability_upgrade', upgrade: 'q_over', label: 'Q: OVERCLOCK', desc: 'Устанавливает или усиливает Q-активку: временно ускорить стрельбу.' },
+  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. Это награда ABL, не level-up оружейная ветка.' },
+  { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Ускоряет восстановление рывка на 20%.' }
+];
+
 export function rollUpgradeChoices(rng, luck, count = 3) {
   const choices = [];
   const used = new Set();
@@ -133,7 +146,7 @@ export function rollUpgradeChoices(rng, luck, count = 3) {
 export function defaultStats() {
   return {
     dmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
-    dashAdd: 0, drones: 0, orbitals: 0, luck: 0,
+    dashAdd: 0, dashRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
     shgBounce: 0, shgPellets: 0, sekSplit: 0, sekChain: 0, rktCluster: 0, rktMines: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,

@@ -1,6 +1,6 @@
 // nncckkrr protocol + version constants (single source of truth)
-export const VERSION = 'v2.0.13';
-export const BUILD_ID = 'v2.0.13-20260616';
+export const VERSION = 'v2.0.14';
+export const BUILD_ID = 'v2.0.14-20260616';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;
@@ -20,6 +20,7 @@ export const C = {
   CASINO: 'casino',
   PICK: 'pick',       // INSTALL pick {choiceIdx}
   WEAPON_PICK: 'weapon_pick', // WPN chest pick {choiceIdx}
+  ABILITY_PICK: 'ability_pick', // ABL chest pick {choiceIdx}
   PING: 'ping',
   LEAVE: 'leave'
 };
@@ -31,6 +32,7 @@ export const S = {
   EVENTS: 'events',
   OFFER: 'offer',     // INSTALL choices
   WEAPON_OFFER: 'weapon_offer',
+  ABILITY_OFFER: 'ability_offer',
   ERROR: 'error',
   PONG: 'pong',
   ROOM_CLOSED: 'room_closed'

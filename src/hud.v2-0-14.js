@@ -1,6 +1,6 @@
 // nncckkrr HUD: bars, pips, feed, banners, TAB panel, install + casino modals
-import { P, ENEMY_KINDS } from './state.v2-0-13.js';
-import { UPGRADES, WEAPONS, CHESTS, ROOM_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-0-13.js';
+import { P, ENEMY_KINDS } from './state.v2-0-14.js';
+import { UPGRADES, WEAPONS, CHESTS, ROOM_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-0-14.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(ROOM_MODS).map(m => [m.id, m.label]));
@@ -43,6 +43,7 @@ export class Hud {
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false };
     this.weapon = { open: false, choices: [], locked: false };
+    this.ability = { open: false, choices: [], locked: false };
     this.names = new Map();
 
     this.initExplain();
@@ -63,7 +64,14 @@ export class Hud {
     this.tipData = null;
     this.domTipActive = false;
     this.mouse = { x: 0, y: 0 };
-    const move = (e) => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.placeTip(); };
+    const move = (e) => {
+      this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+      if (this.tipData?.source === 'dom') {
+        const under = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-explain]');
+        if (!under) { this.domTipActive = false; this.hideTip(); }
+      }
+      this.placeTip();
+    };
     window.addEventListener('mousemove', move, { passive: true });
     document.addEventListener('mouseover', (e) => {
       const el = e.target.closest?.('[data-explain]');
@@ -286,7 +294,7 @@ export class Hud {
         const mods = (f.mods || []).map(m => MOD_LABELS[m] || m).join(' + ');
         this.banner(f.cat === 'boss' ? 'ЭТАЖ БОССА' : `${f.roomId}`, `LOOP ${f.loop} · DEPTH ${f.depth}${mods ? ' · ' + mods : ''}`,
           f.cat === 'boss' ? 'red' : (mods ? 'purple' : ''));
-        this.closeCasino(); this.closeWeaponChest();
+        this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
         break;
       }
       case 'join': this.feed(`${f.name} ПОДКЛЮЧИЛСЯ`, 'g'); break;
@@ -315,7 +323,7 @@ export class Hud {
       case 'transition': this.banner('INSTALL-ФАЗА', 'распределение апгрейдов', 'green'); break;
       case 'run_lost':
         this.banner('ЗАБЕГ ПРОВАЛЕН', `LOOP ${f.loop} · DEPTH ${f.depth} — перезапуск…`, 'red');
-        this.closeInstall(); this.closeCasino(); this.closeWeaponChest();
+        this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest(); this.closeAbilityChest();
         break;
     }
   }
@@ -414,7 +422,7 @@ export class Hud {
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
     this.net.sendPick(i);
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); }
+  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); this.hideTip(); }
 
   // ------------------------------------------------- WPN chest modal
   openWeaponChest(choices = []) {
@@ -447,7 +455,40 @@ export class Hud {
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
     this.net.sendWeaponPick(i);
   }
-  closeWeaponChest() { this.weapon.open = false; this.weapon.locked = false; $('weapon-modal').classList.add('hidden'); }
+  closeWeaponChest() { this.weapon.open = false; this.weapon.locked = false; $('weapon-modal').classList.add('hidden'); this.hideTip(); }
+
+  // ------------------------------------------------- ABL chest modal
+  openAbilityChest(choices = []) {
+    this.ability = { open: true, choices, locked: false };
+    const box = $('ability-choices');
+    box.innerHTML = '';
+    choices.forEach((opt, i) => {
+      const d = document.createElement('div');
+      d.className = 'choice ability-choice' + (opt.disabled ? ' disabled' : '');
+      const locked = opt.disabled ? `<span class="lock">${esc(opt.disabledReason || 'ЗАКРЫТО')}</span>` : '';
+      d.innerHTML = `<span class="key">[${i + 1}]</span>${esc(opt.label || opt.id)}${locked}`;
+      const title = opt.disabled ? `${opt.label || opt.id} / НЕДОСТУПНО` : (opt.label || opt.id);
+      const body = `${opt.desc || 'Награда сундука способностей.'}${opt.disabled ? ` Недоступно: ${opt.disabledReason || 'условие не выполнено'}.` : ' Можно выбрать сейчас.'}`;
+      this.setExplain(d, title, body, opt.disabled ? 'red' : 'cyan');
+      d.addEventListener('click', () => {
+        if (opt.disabled) { this.playUiSound('denied'); return; }
+        this.pickAbility(i);
+      });
+      box.appendChild(d);
+    });
+    $('ability-modal').classList.remove('hidden');
+    this.playUiSound('chest_ability');
+  }
+  pickAbility(i) {
+    if (this.ability.locked || !this.ability.open) return;
+    const opt = this.ability.choices[i];
+    if (!opt || opt.disabled) { this.playUiSound('denied'); return; }
+    this.ability.locked = true;
+    const els = document.querySelectorAll('#ability-choices .choice');
+    els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
+    this.net.sendAbilityPick(i);
+  }
+  closeAbilityChest() { this.ability.open = false; this.ability.locked = false; $('ability-modal').classList.add('hidden'); this.hideTip(); }
 
   // ------------------------------------------------- casino modal
   setCasinoButtons(disabled) {
@@ -480,6 +521,7 @@ export class Hud {
     this.casino.spinning = false;
     this.setCasinoButtons(false);
     $('casino-modal').classList.add('hidden');
+    this.hideTip();
   }
   placeBet(stake) {
     if (this.casino.spinning || !this.casino.open) return;
