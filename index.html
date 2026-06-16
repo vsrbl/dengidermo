@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.25">
+<link rel="stylesheet" href="style.css?v=2.0.26">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -15,7 +15,7 @@
 <div id="hud" class="hidden">
   <div id="hud-top">
     <div id="hud-meta">
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.25</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия клиента. Если после деплоя видишь старую версию — обнови страницу без кэша.">v2.0.26</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -107,10 +107,10 @@
     <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
 
-    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые раскраски игрока. Стрелками переключаются три элемента модели: внутренняя часть, обводка и палочка направления. Ручного color picker больше нет — только авторские пресеты.">
-      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Переключить на предыдущий готовый пресет скина.">‹</button>
+    <div id="skin-editor" data-explain-title="СКИН" data-explain="Готовые скины с редкостью. Сначала открыты только базовые; остальные выпадают через casino SKN. Стрелки листают пресеты, закрытые показываются как LOCKED.">
+      <button id="skin-prev" class="skin-arrow" type="button" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад по скинам. Закрытые скины видны в меню, но не выбираются до unlock.">‹</button>
       <div id="skin-preview" aria-hidden="true"><span class="skin-core"></span><span class="skin-stick"></span></div>
-      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Переключить на следующий готовый пресет скина.">›</button>
+      <button id="skin-next" class="skin-arrow" type="button" data-explain-title="СЛЕДУЮЩИЙ СКИН" data-explain="Листать вперёд по скинам. Если скин открыт, он сразу становится выбранным.">›</button>
       <div id="skin-meta">
         <div id="skin-name">TERMINAL MINT</div>
         <div id="skin-note">готовый пресет</div>
@@ -127,7 +127,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.25"></script>
-<script type="module" src="src/main.v2-0-25.js?v=2.0.25"></script>
+<script src="config.js?v=2.0.26"></script>
+<script type="module" src="src/main.v2-0-26.js?v=2.0.26"></script>
 </body>
 </html>

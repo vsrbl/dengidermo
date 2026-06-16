@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.25 — player skin menu + full cursor tether */
+/* nncckkrr v2.0.26 — player skin menu + full cursor tether */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -315,3 +315,37 @@ button:disabled { opacity: .3; cursor: none; }
 .choice.tone-purple .choice-sub, .choice.rarity-rare .choice-sub { color:#b45cff; }
 .choice.tone-green .choice-sub, .choice.rarity-common .choice-sub { color:#00ff66; }
 .choice.tone-cyan .choice-sub, .choice.rarity-core .choice-sub { color:#66f6ff; }
+
+/* v2.0.26 — skin rarities / locked inventory */
+#skin-editor.locked #skin-preview { filter: grayscale(1) contrast(.72); opacity: .65; }
+#skin-editor.locked #skin-preview:before {
+  content: 'LOCK';
+  position:absolute; inset: 21px 0 auto 0;
+  text-align:center; color:#ff3048; font-size:9px; letter-spacing:.22em; z-index:4;
+  text-shadow:0 0 8px rgba(255,48,72,.6);
+}
+#skin-editor.selected { border-color: rgba(0,255,102,.45); box-shadow: inset 0 0 0 1px rgba(0,255,102,.12); }
+#skin-editor[data-rarity="uncommon"] { border-color: rgba(102,246,255,.28); }
+#skin-editor[data-rarity="rare"] { border-color: rgba(180,92,255,.34); }
+#skin-editor[data-rarity="superrare"] { border-color: rgba(255,48,72,.4); }
+#skin-editor[data-rarity="legendary"] { border-color: rgba(255,211,77,.55); box-shadow: 0 0 18px rgba(255,211,77,.08), inset 0 0 0 1px rgba(255,211,77,.13); }
+.skin-rarity { display:inline-block; margin-left:6px; font-size:8px; letter-spacing:.16em; vertical-align:middle; opacity:.95; }
+.rarity-basic { color:#00ff66; }
+.rarity-uncommon { color:#66f6ff; }
+.rarity-rare { color:#b45cff; }
+.rarity-superrare { color:#ff3048; }
+.rarity-legendary { color:#ffd34d; text-shadow:0 0 10px rgba(255,211,77,.5); }
+#skin-editor[data-rarity="rare"] .skin-core { animation: skinPulseRare 1.8s steps(4) infinite; }
+#skin-editor[data-rarity="superrare"] .skin-core { animation: skinPulseSuper .95s steps(3) infinite; }
+#skin-editor[data-rarity="legendary"] .skin-core { animation: skinPulseLegend .8s steps(2) infinite; }
+#skin-editor[data-rarity="legendary"] #skin-preview:after,
+#skin-editor[data-rarity="superrare"] #skin-preview:after {
+  content:''; position:absolute; left:9px; right:9px; top:8px; height:1px;
+  background: currentColor; color:rgba(255,255,255,.55);
+  box-shadow: 0 10px 0 rgba(255,255,255,.25), 0 22px 0 rgba(255,255,255,.35), 0 35px 0 rgba(255,255,255,.18);
+  opacity:.45; pointer-events:none;
+}
+#skin-editor.locked .skin-core, #skin-editor.locked .skin-stick { animation:none !important; }
+@keyframes skinPulseRare { 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(1px,-1px); } }
+@keyframes skinPulseSuper { 0%{ transform:translate(0,0) rotate(0); } 33%{ transform:translate(-1px,1px); } 66%{ transform:translate(1px,-1px); } 100%{ transform:translate(0,0); } }
+@keyframes skinPulseLegend { 0%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(1px,0) scale(1.06); } 100%{ transform:translate(0,0) scale(1); } }
