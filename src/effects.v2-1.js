@@ -1053,30 +1053,28 @@ export class Effects {
     if (this.levelPulse > 0) {
       const p = this.levelPulse;
       ctx.save();
-      ctx.globalAlpha = Math.min(1, p * 1.15);
+      ctx.globalAlpha = Math.min(1, p * 1.05);
       const cx = w / 2;
-      const cy = h * 0.31;
-      const bw = Math.min(420, w * 0.72);
-      const bh = 70;
-      ctx.fillStyle = `rgba(0, 10, 4, ${0.42 * p})`;
-      ctx.fillRect(cx - bw / 2, cy - bh / 2, bw, bh);
-      ctx.strokeStyle = `rgba(102,246,255,${0.65 * p})`;
+      const cy = h * 0.30;
+      const bw = Math.min(360, w * 0.66);
+      const bh = 52;
+      const x = Math.round(cx - bw / 2);
+      const y = Math.round(cy - bh / 2);
+      ctx.fillStyle = `rgba(0, 12, 4, ${0.70 * p})`;
+      ctx.fillRect(x, y, bw, bh);
+      ctx.strokeStyle = `rgba(0,255,102,${0.86 * p})`;
       ctx.lineWidth = 2;
-      ctx.strokeRect(cx - bw / 2 + 4, cy - bh / 2 + 4, bw - 8, bh - 8);
-      ctx.fillStyle = `rgba(102,246,255,${0.14 * p})`;
-      const bars = 7;
-      for (let i = 0; i < bars; i++) {
-        const yb = cy - bh / 2 + 10 + i * 8;
-        const off = ((1 - p) * 80 + i * 17) % bw;
-        ctx.fillRect(cx - bw / 2 + off - 42, yb, 84, 3);
-      }
-      ctx.fillStyle = `rgba(102,246,255,${0.92 * p})`;
-      ctx.font = `bold ${Math.round(18 + 7 * p)}px 'Courier New', monospace`;
+      ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1);
+      const sweep = Math.max(0, Math.min(1, 1 - p));
+      ctx.fillStyle = `rgba(0,255,102,${0.18 * p})`;
+      ctx.fillRect(x + 2, y + bh - 6, Math.max(6, (bw - 4) * sweep), 3);
+      ctx.fillStyle = `rgba(0,255,102,${0.95 * p})`;
+      ctx.font = `bold ${Math.round(17 + 3 * p)}px 'Courier New', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 8);
-      ctx.font = `bold 10px 'Courier New', monospace`;
-      ctx.fillText('INSTALL SIGNAL RECEIVED', cx, cy + 18);
+      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 6);
+      ctx.font = `bold 9px 'Courier New', monospace`;
+      ctx.fillText('INSTALL READY', cx, cy + 14);
       ctx.restore();
     }
     if (this.slam > 0) {

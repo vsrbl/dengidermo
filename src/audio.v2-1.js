@@ -29,7 +29,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.50, ui_click: 0.045
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, ui_click: 0.045
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -46,7 +46,7 @@ export class AudioBus {
       dash: 6, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, ui_click: 3
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, ui_click: 3
     };
     this._unlock = () => this.unlock();
     if (typeof window !== 'undefined') {
@@ -117,9 +117,9 @@ export class AudioBus {
     return true;
   }
 
-  envGain(vol, dur, attack = 0.004, hold = 0.01) {
+  envGain(vol, dur, attack = 0.004, hold = 0.01, delay = 0) {
     const g = this.ctx.createGain();
-    const t = this.ctx.currentTime;
+    const t = this.ctx.currentTime + Math.max(0, delay || 0);
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol), t + attack);
     g.gain.setValueAtTime(Math.max(0.0001, vol), t + attack + hold);
@@ -130,8 +130,8 @@ export class AudioBus {
 
   tone(freq, dur, type = 'square', vol = 0.12, bend = 1, delay = 0) {
     const o = this.ctx.createOscillator();
-    const g = this.envGain(vol, dur, 0.003, 0.006);
-    const t = this.ctx.currentTime + delay;
+    const g = this.envGain(vol, dur, 0.003, 0.006, delay);
+    const t = this.ctx.currentTime + Math.max(0, delay || 0);
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
     if (bend !== 1) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * bend), t + dur * 0.85);
@@ -151,9 +151,9 @@ export class AudioBus {
     src.buffer = buf;
     const bp = this.ctx.createBiquadFilter();
     bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
-    const g = this.envGain(vol, dur, 0.002, 0.002);
+    const g = this.envGain(vol, dur, 0.002, 0.002, delay);
     src.connect(bp); bp.connect(g);
-    const t = this.ctx.currentTime + delay;
+    const t = this.ctx.currentTime + Math.max(0, delay || 0);
     this.active++;
     src.onended = () => { this.active = Math.max(0, this.active - 1); try { bp.disconnect(); g.disconnect(); } catch {} };
     src.start(t); src.stop(t + dur + 0.01);
@@ -282,12 +282,29 @@ export class AudioBus {
         this.noise(0.16, 0.045, 2600, 5);
         break;
       case 'levelup':
-        // v2.1 hotfix: warm low-mid level up, no painful high sparkle.
-        this.tone(110, 0.18, 'sine', 0.095, 1.28);
-        this.tone(165, 0.22, 'triangle', 0.070, 1.22, 0.045);
-        this.tone(220, 0.26, 'triangle', 0.052, 1.18, 0.115);
-        this.tone(330, 0.16, 'sine', 0.032, 0.92, 0.205);
-        this.noise(0.075, 0.030, 720, 2.3, 0.015);
+        // 2.1 hotfix: cleaner INSTALL chime, higher and more terminal, no bubbling tail.
+        this.tone(392, 0.105, 'square', 0.048, 1.00);
+        this.tone(523.25, 0.115, 'triangle', 0.042, 1.00, 0.055);
+        this.tone(659.25, 0.130, 'triangle', 0.034, 0.995, 0.118);
+        this.tone(784, 0.095, 'sine', 0.020, 1.00, 0.205);
+        break;
+      case 'run_start':
+        this.musicTransition = 1;
+        this.musicResolve = Math.max(this.musicResolve || 0, 0.18);
+        if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.03);
+        this.scoreEventWave?.('start');
+        this.tone(196, 0.22, 'triangle', 0.052, 1.42);
+        this.tone(293.66, 0.22, 'triangle', 0.034, 1.18, 0.075);
+        this.tone(392, 0.18, 'sine', 0.024, 1.00, 0.18);
+        break;
+      case 'run_death':
+        this.musicTransition = 1;
+        this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.45);
+        if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.04);
+        this.scoreEventWave?.('death');
+        this.tone(392, 0.14, 'triangle', 0.035, 0.62);
+        this.tone(261.63, 0.22, 'sine', 0.048, 0.72, 0.055);
+        this.tone(174.61, 0.30, 'triangle', 0.040, 0.86, 0.14);
         break;
       case 'install':
         this.tone(430, 0.055, 'square', 0.05, 1.5);
@@ -812,6 +829,7 @@ export class AudioBus {
       case 'weapon_mod': if (mine) this.play('casino_weapon'); break;
       case 'ability_get': if (mine) this.play('chest_ability'); break;
       case 'portal_open': this.play('portal'); break;
+      case 'pdown': if (mine) this.play('run_death'); break;
       case 'levelup': if (mine) this.play('levelup'); break;
       case 'install': if (mine) this.play('install'); break;
       case 'casino':
@@ -848,7 +866,7 @@ export class AudioBus {
       case 'split': case 'summon': case 'pulse_wave': case 'prism': case 'leech_link': break;
       case 'boss_down': this.play('jackpot'); break;
       case 'skin_unlock': this.play(f.skinRarity === 'legendary' ? 'skin_legendary' : 'chest_rare'); break;
-      case 'run_lost': this.play('phit'); break;
+      case 'run_lost': this.play('run_death'); break;
     }
   }
 }
@@ -1175,6 +1193,20 @@ AudioBus.prototype.ambientNote = function ambientNoteV21(freq, dur, type = 'tria
   o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
   o.start(t);
   o.stop(t + dur + 0.08);
+};
+
+AudioBus.prototype.scoreEventWave = function scoreEventWaveV21(kind = 'start') {
+  // Musical state marker: a soft wave through the ambient bed for run start/restart/death.
+  if (!this.music?.master || !this.ctx) return;
+  const root = kind === 'death' ? 43.65 : 49.00;
+  const down = kind === 'death';
+  const vol = down ? 0.010 : 0.0085;
+  const notes = down ? [19, 12, 7, 0] : [0, 7, 12, 19];
+  notes.forEach((n, i) => {
+    const f = root * Math.pow(2, n / 12);
+    this.ambientNote(f, down ? 2.8 : 2.35, i % 2 ? 'sine' : 'triangle', vol * (1 - i * 0.10), down ? 240 : 330, i * 0.18, i % 2 ? -4 : 3, down ? 0.996 : 1.001);
+  });
+  if (down) this.ambientNoise(3.2, 0.0016, 190, 0.08);
 };
 
 AudioBus.prototype.ambientNoise = function ambientNoiseV21(dur = 4, vol = 0.002, filterFreq = 260, delay = 0) {

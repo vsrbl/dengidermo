@@ -214,17 +214,11 @@ skinToggle?.addEventListener('click', () => {
 });
 
 const FILTER_PRESETS = [
-  { id: 'terminal', name: 'CRT' },
-  { id: 'vhs', name: 'VHS' },
-  { id: 'jpeg', name: 'JPEG' },
-  { id: 'jpegPlus', name: 'JPEG+' },
-  { id: 'lcd', name: 'LCD' },
-  { id: 'dirty', name: 'DIRTY' },
-  { id: 'glitch', name: 'GLITCH' }
+  { id: 'lcd', name: 'LED' }
 ];
 const FILTER_KEY = 'tcr_filter_preset_v1';
 function currentFilterIndex() {
-  const saved = localStorage.getItem(FILTER_KEY) || 'terminal';
+  const saved = 'lcd';
   const idx = FILTER_PRESETS.findIndex(f => f.id === saved);
   return idx >= 0 ? idx : 0;
 }
@@ -244,7 +238,7 @@ function applyVisualFilter(playSound = false) {
   if (playSound) uiClick('ui_click');
 }
 function nextVisualFilter() {
-  filterIndex = (filterIndex + 1) % FILTER_PRESETS.length;
+  filterIndex = 0;
   applyVisualFilter(true);
 }
 $('filter-switch')?.addEventListener('click', nextVisualFilter);
@@ -288,12 +282,12 @@ async function connect() {
 
 // SOLO: no network at all — works even with the server down
 $('btn-solo').addEventListener('click', () => {
-  uiClick('ui_click');
+  uiClick('run_start');
   state.localMode = true;
   net.startSolo(playerName(), saveSkin());
 });
 $('btn-create').addEventListener('click', async () => {
-  uiClick('ui_click');
+  uiClick('run_start');
   $('btn-create').disabled = true;
   state.localMode = true;            // host = sim in this browser, zero latency
   net._name = playerName();
@@ -302,7 +296,7 @@ $('btn-create').addEventListener('click', async () => {
   $('btn-create').disabled = false;
 });
 $('btn-join').addEventListener('click', async () => {
-  uiClick('ui_click');
+  uiClick('run_start');
   const code = $('room-input').value.trim().toUpperCase();
   if (code.length !== 4) { setStatus(NET_STATUS.code4, 'err'); return; }
   $('btn-join').disabled = true;
