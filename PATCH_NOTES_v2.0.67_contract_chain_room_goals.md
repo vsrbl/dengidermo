@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.73 — contract chain / room goals
+# PATCH NOTES v2.0.76 — contract chain / room goals
 
 ## Room contracts
 
