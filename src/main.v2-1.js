@@ -210,7 +210,7 @@ skinToggle?.addEventListener('click', () => {
   if (!ed) return;
   const open = ed.classList.toggle('collapsed') === false;
   skinToggle.classList.toggle('open', open);
-  skinToggle.textContent = open ? (getLang() !== 'en' ? 'СКРЫТЬ СКИНЫ' : 'HIDE SKINS') : (getLang() !== 'en' ? 'СМЕНИТЬ СКИН' : 'CHANGE SKIN');
+  skinToggle.textContent = open ? t('hideSkins') : t('changeSkin');
 });
 function paintRange(el) {
   if (!el) return;
@@ -229,7 +229,7 @@ $('sfx-volume')?.addEventListener('input', e => { audio.setSfxVolume?.(Number(e.
 syncAudioSliders();
 onLangChange(() => {
   updateSkinPreview();
-  if (skinToggle && $('skin-editor')?.classList.contains('collapsed')) skinToggle.textContent = getLang() !== 'en' ? 'СМЕНИТЬ СКИН' : 'CHANGE SKIN';
+  if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');
 });
 
 async function connect() {

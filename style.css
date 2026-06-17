@@ -1631,3 +1631,112 @@ body::after {
   body::before { opacity: .055; }
   body::after { opacity: .035; }
 }
+
+
+/* 2.1 HOTFIX — menu title, visible skin arrows, real full-screen digital overlay, i18n-stable UI */
+#menu .menu-box {
+  width: min(370px, calc(100vw - 28px)) !important;
+  align-items: stretch !important;
+  text-align: center !important;
+  overflow: visible !important;
+}
+#logo {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 auto !important;
+  padding: 0 4px !important;
+  font-size: clamp(22px, 6.2vw, 30px) !important;
+  letter-spacing: .09em !important;
+  line-height: 1.02 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+#logo span { display: block !important; width: 100% !important; text-align: center !important; }
+#menu-sub { text-align: center !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+#lang-row, .lang-row { min-height: 32px !important; }
+#btn-skin-toggle { min-height: 38px !important; }
+#audio-settings label span { color: var(--green) !important; }
+#menu #skin-editor,
+#menu #skin-editor.collapsed {
+  grid-template-columns: 52px minmax(0, 1fr) 52px !important;
+  column-gap: 10px !important;
+}
+#menu #skin-prev, #menu #skin-next { justify-self: stretch !important; }
+#menu .skin-arrow,
+.skin-arrow {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  overflow: visible !important;
+  width: 100% !important;
+  min-width: 46px !important;
+  height: 58px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  text-indent: 0 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 23px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  color: var(--green) !important;
+  border: 1px solid rgba(0,255,102,.54) !important;
+  background: rgba(0,255,102,.035) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#menu .skin-arrow::before,
+.skin-arrow::before,
+#menu .skin-arrow::after,
+.skin-arrow::after { content: none !important; display: none !important; }
+#menu .skin-arrow:hover,
+.skin-arrow:hover { color: #001b09 !important; background: var(--green) !important; border-color: var(--green) !important; }
+#hud-meta { display: flex !important; flex-wrap: wrap !important; gap: 2px 6px !important; align-items: flex-start !important; }
+#hud-mods { flex-basis: 100% !important; max-width: min(760px, 56vw) !important; margin-left: 0 !important; padding-top: 3px !important; }
+#hud-mods .term { max-width: 230px !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+body::before,
+body::after { display: none !important; }
+#game { filter: contrast(1.05) saturate(.82) brightness(.92) !important; image-rendering: pixelated !important; }
+#global-digital-filter {
+  position: fixed !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.055) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 1px, transparent 1px 4px),
+    repeating-conic-gradient(from 45deg, rgba(0,255,102,.09) 0 12.5%, rgba(255,255,255,.028) 0 25%, rgba(0,0,0,.15) 0 37.5%, transparent 0 50%) 0 0/4px 4px,
+    linear-gradient(rgba(0,255,102,.025), rgba(0,0,0,.055));
+}
+#global-digital-filter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 56%, rgba(0,0,0,.18) 100%),
+    repeating-linear-gradient(0deg, transparent 0 7px, rgba(0,0,0,.10) 7px 8px);
+  opacity: .72;
+}
+#global-digital-filter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,0,0,.026), transparent 18%, rgba(0,255,102,.018) 52%, transparent 82%, rgba(0,120,255,.024));
+  opacity: .9;
+}
+@media (max-width: 760px) {
+  #logo { font-size: clamp(19px, 7vw, 26px) !important; letter-spacing: .065em !important; }
+  #hud-mods { max-width: 94vw !important; }
+}

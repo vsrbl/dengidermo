@@ -31,7 +31,8 @@ const RU = {
     highBetBody: 'Ставка 120 GLD. Большой риск и шанс на сильный результат.',
     betHintTitle: 'СТАВКА', betHintBody: 'Клавиши 1, 2 и 3 запускают LOW, MID или HIGH ставку.',
     exitTitle: 'ВЫХОД', exitBody: 'ESC закрывает казино, если барабаны не крутятся.',
-    menuSub: 'co-op roguelike // 4 players coop',
+    menuSub: 'terminal casino // 4 players coop',
+    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и TAB-панели. До 12 символов.',
     solo: 'СОЛО', soloBody: 'Запускает локальный забег без сети. Удобно для тренировки и быстрой игры.',
     create: 'СОЗДАТЬ КОМНАТУ', createBody: 'Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.',
@@ -87,7 +88,8 @@ const EN = {
     highBetBody: 'Stake 120 GLD. High risk and a chance for stronger results.',
     betHintTitle: 'BET', betHintBody: 'Keys 1, 2, and 3 start LOW, MID, or HIGH bet.',
     exitTitle: 'EXIT', exitBody: 'ESC closes casino when reels are not spinning.',
-    menuSub: 'co-op roguelike // 4 players coop',
+    menuSub: 'terminal casino // 4 players coop',
+    musicLabel: 'MUSIC', sfxLabel: 'SFX', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
     namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name in room and TAB panel. Up to 12 characters.',
     solo: 'SOLO', soloBody: 'Starts a local run without network. Good for practice and quick play.',
     create: 'CREATE ROOM', createBody: 'Creates a co-op room for friends. Share the four-symbol code.',
@@ -460,6 +462,14 @@ export function applyStaticI18n() {
   setExplainId('room-input', t('codeTitle'), t('codeBody'));
   setExplainId('btn-join', t('join'), t('joinBody'));
   setExplainId('menu-controls', t('controlsTitle'), t('controlsBody'));
+  const audioLabels = document.querySelectorAll('#audio-settings label span');
+  if (audioLabels[0]) audioLabels[0].textContent = t('musicLabel');
+  if (audioLabels[1]) audioLabels[1].textContent = t('sfxLabel');
+  setExplainId('audio-settings', localText('ЗВУК', 'AUDIO'), localText('Раздельная громкость музыки и игровых звуков. Сохраняется в браузере.', 'Separate music and SFX volume. Saved in this browser.'));
+  const skinToggle = document.getElementById('btn-skin-toggle');
+  const skinEditor = document.getElementById('skin-editor');
+  if (skinToggle) skinToggle.textContent = skinEditor && !skinEditor.classList.contains('collapsed') ? t('hideSkins') : t('changeSkin');
+  setExplainId('btn-skin-toggle', t('changeSkin'), t('skinBody'));
   setExplainId('skin-editor', t('skinTitle'), t('skinBody'));
   setExplainId('skin-prev', t('prevSkinTitle'), t('prevSkinBody'));
   setExplainId('skin-next', t('nextSkinTitle'), t('nextSkinBody'));
