@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.77 — room objectives / instant TAB */
+/* nncckkrr v2.0.79 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -1023,7 +1023,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.77 — WPN chest readability: role + effect + exact change */
+/* v2.0.79 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1082,7 +1082,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.77 — expanded room/debug lab */
+/* v2.0.79 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
