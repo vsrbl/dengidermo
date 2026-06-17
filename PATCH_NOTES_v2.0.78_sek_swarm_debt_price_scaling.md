@@ -1,4 +1,4 @@
-# v2.0.80 — SEK Swarm Targeting, Debt Engine Audit, Price Scaling
+# v2.0.83 — SEK Swarm Targeting, Debt Engine Audit, Price Scaling
 
 ## SEK SWARM RMB
 - `SEK SWARM RMB` no longer launches the whole swarm into one direction.

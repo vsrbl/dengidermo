@@ -1,4 +1,4 @@
-# nncckkrr v2.0.80 — square portal green burst
+# nncckkrr v2.0.83 — square portal green burst
 
 ## Goal
 Portal opening must match the game's hard terminal/casino-square visual language. It should not look like a soft round circle/ring.
