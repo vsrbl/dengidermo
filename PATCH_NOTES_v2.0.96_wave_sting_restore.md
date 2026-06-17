@@ -1,4 +1,4 @@
-# v2.0.97 — wave sting restore
+# v2.0.99 — wave sting restore
 
 Small audio rollback/polish after v2.0.95:
 
@@ -12,7 +12,7 @@ Checks:
 node --check server/index.js
 node --check shared/*.js
 node --check src/*.js
-node -e "import('./shared/sim.v2-0-97.js').then(()=>console.log('sim import ok'))"
-node -e "import('./src/audio.v2-0-97.js').then(()=>console.log('audio import ok'))"
-zip -T nncckkrr_v2.0.97_wave_sting_restore.zip
+node -e "import('./shared/sim.v2-0-99.js').then(()=>console.log('sim import ok'))"
+node -e "import('./src/audio.v2-0-99.js').then(()=>console.log('audio import ok'))"
+zip -T nncckkrr_v2.0.99_wave_sting_restore.zip
 ```
