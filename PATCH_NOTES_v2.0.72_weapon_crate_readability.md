@@ -1,4 +1,4 @@
-# nncckkrr v2.0.94 — Weapon Crate Readability
+# terminal casino roguelike v2.0.94 — Weapon Crate Readability
 
 ## Goal
 Make WPN chest decisions readable at a glance. The player should understand whether a choice is DPS, RANGE, STATUS, CONTROL, SYNERGY, or a new weapon before clicking.

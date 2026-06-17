@@ -1,4 +1,4 @@
-# nncckkrr v2.0.94 — RKT remote detonation / inspect key / EN text sweep
+# terminal casino roguelike v2.0.94 — RKT remote detonation / inspect key / EN text sweep
 
 ## Input
 - Inspect mode moved from right mouse button to `Space`.

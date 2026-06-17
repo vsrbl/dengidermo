@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.65 — room rules / tape log / hunted exit
+# terminal casino roguelike.space v2.0.65 — room rules / tape log / hunted exit
 
 ## Главная идея
 

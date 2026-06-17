@@ -1,4 +1,4 @@
-# nncckkrr v2.0.94 — square portal green burst
+# terminal casino roguelike v2.0.94 — square portal green burst
 
 ## Goal
 Portal opening must match the game's hard terminal/casino-square visual language. It should not look like a soft round circle/ring.

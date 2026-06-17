@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.100 — UI/music mood rework
+# PATCH NOTES v2.1 — UI/music mood rework
 
 ## UI / text
 - Static Storm explanations now say “danger areas / области” instead of squares.

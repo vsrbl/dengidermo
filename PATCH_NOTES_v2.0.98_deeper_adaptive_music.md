@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.100 — deeper adaptive music
+# PATCH NOTES v2.1 — deeper adaptive music
 
 Focus: make the procedural music darker, less bass-forward, and more varied.
 

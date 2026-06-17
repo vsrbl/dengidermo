@@ -1,6 +1,6 @@
 {
-  "name": "nncckkrr",
-  "version": "2.0.100",
+  "name": "terminal-casino-roguelike",
+  "version": "2.1",
   "private": true,
   "type": "module",
   "scripts": {

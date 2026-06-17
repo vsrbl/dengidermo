@@ -1,4 +1,4 @@
-// nncckkrr signaling server v2 — a phonebook, NOT a game server.
+// terminal casino roguelike signaling server v2 — a phonebook, NOT a game server.
 // The simulation runs in the host player's browser. This server only:
 //   1) hands out room codes, 2) relays WebRTC handshakes, 3) relays game
 //   messages as a fallback when a direct WebRTC connection can't be made.
@@ -6,8 +6,8 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.0.100';
-const BUILD_ID = 'v2.0.100-20260617';
+const VERSION = 'v2.1';
+const BUILD_ID = 'v2.1-final-20260617';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -135,5 +135,5 @@ wss.on('connection', (ws, req) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`nncckkrr signaling ${VERSION} (${BUILD_ID}) proto ${PROTOCOL} listening :${PORT}`);
+  console.log(`terminal casino roguelike signaling ${VERSION} (${BUILD_ID}) proto ${PROTOCOL} listening :${PORT}`);
 });

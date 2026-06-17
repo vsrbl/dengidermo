@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.100 — clear melody music
+# PATCH NOTES v2.1 — clear melody music
 
 Audio-only/music patch based on v2.0.98 music branch plus v2.0.97 menu/slider stability.
 

@@ -1,4 +1,4 @@
-# nncckkrr v2.0.94 — Contract Portal-Open Settlement
+# terminal casino roguelike v2.0.94 — Contract Portal-Open Settlement
 
 ## Goal
 Contracts must be resolved when the room objective is actually solved: the moment the portal opens.

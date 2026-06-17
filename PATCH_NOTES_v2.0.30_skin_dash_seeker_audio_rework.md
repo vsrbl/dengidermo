@@ -1,4 +1,4 @@
-# nncckkrr.space v2.0.43_skin_dash_seeker_audio_rework
+# terminal casino roguelike.space v2.0.43_skin_dash_seeker_audio_rework
 
 Focus: unlocked skins were too jittery/laggy on the player body. Skin personality now lives in dash effects and legendary dash audio, while the player silhouette stays stable/readable.
 

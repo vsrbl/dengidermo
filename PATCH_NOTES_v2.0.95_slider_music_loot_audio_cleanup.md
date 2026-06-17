@@ -1,4 +1,4 @@
-# nncckkrr v2.0.100 — slider/music/loot/audio cleanup
+# terminal casino roguelike v2.1 — slider/music/loot/audio cleanup
 
 Base: v2.0.94_ui_audio_combat_polish
 
