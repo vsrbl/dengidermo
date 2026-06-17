@@ -1,4 +1,4 @@
-# v2.0.76 — Debug Room Lab
+# v2.0.77 — Debug Room Lab
 
 ## Dev mode expansion
 - Expanded the F2 developer panel into a room/debug lab for solo/host testing.
