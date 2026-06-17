@@ -56,6 +56,42 @@ function contractRewardText(reward = '', obj = null) {
   return cleanPlayerText(locLabel(s));
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
+const STATIC_SOURCE_RU = {
+  room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', room_strikes: 'удары прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус'
+};
+const STATIC_SOURCE_EN = {
+  room_modifier: 'room mod', static_debt: 'static debt', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'active casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'active reaction', room_strikes: 'previous strikes', debt_engine: 'static core', casino_virus: 'casino virus'
+};
+function staticSourceLabel(id) {
+  const k = String(id || 'static_debt');
+  return localText(STATIC_SOURCE_RU[k] || k.replace(/_/g, ' '), STATIC_SOURCE_EN[k] || k.replace(/_/g, ' '));
+}
+function staticBreakdownParts(bd = {}) {
+  const sources = Array.isArray(bd.sources) ? bd.sources : [];
+  return sources.filter(x => (x?.level | 0) > 0).map(x => `+${Math.max(0, x.level | 0)} ${staticSourceLabel(x.id)}`);
+}
+function staticBreakdownText(bd = {}, banked = 0) {
+  const total = Math.max(0, bd.total | 0);
+  const raw = Math.max(total, bd.rawTotal | 0);
+  const parts = staticBreakdownParts(bd);
+  if (total > 0) {
+    const cap = raw > total ? localText(` · лимит ${total}/${raw}`, ` · capped ${total}/${raw}`) : '';
+    return `${localText('СТАТИК-ШТОРМ LVL', 'STATIC STORM LVL')} ${total}${cap}${parts.length ? ' = ' + parts.join(' + ') : ''}`;
+  }
+  if (banked > 0) return `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${banked}${parts.length ? ' = ' + parts.join(' + ') : ''}`;
+  return '';
+}
+function staticBreakdownExplain(bd = {}, banked = 0) {
+  const parts = staticBreakdownParts(bd);
+  const total = Math.max(0, bd.total | 0);
+  const raw = Math.max(total, bd.rawTotal | 0);
+  const head = total > 0
+    ? localText(`Общий уровень статик-шторма сейчас: ${total}.`, `Current total Static Storm level: ${total}.`)
+    : localText(`Статик сохранён в банк: ${banked}.`, `Static Storm is banked: ${banked}.`);
+  const sum = parts.length ? localText(`Сумма: ${parts.join(' + ')}.`, `Sum: ${parts.join(' + ')}.`) : '';
+  const cap = raw > total ? localText(` Сырые источники дают ${raw}, но активный уровень ограничен лимитом ${total}.`, ` Raw sources add to ${raw}, but active level is capped at ${total}.`) : '';
+  return `${head} ${sum}${cap} ${localText('Все источники сведены в один общий уровень; Casino Virus больше не создаёт отдельный скрытый шторм.', 'All sources are folded into one total level; Casino Virus no longer creates a separate hidden storm.')}`;
+}
 function roomModLabel(m, room = null, forcedStaticLevel = 0) {
   const label = m === 'skin_cache' ? localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN') : localText(MOD_LABELS_RU[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
   if (m === 'static_rain') {
@@ -69,7 +105,7 @@ function roomModHint(m, room = {}) {
   const lvl = Math.max(0, room.staticRainStacks | 0);
   const hints = {
     blackout: localText('Свет ломается. Видишь меньше дальних угроз, поэтому опаснее отходить к краям и стрелять вслепую.', 'Light is broken. Long-range threats are harder to read, so edges and blind firing are more dangerous.'),
-    static_rain: mode === 'paid'
+    static_rain: String(mode).startsWith('paid')
       ? localText(`Статик-шторм LVL ${lvl}: накопленный заряд сейчас расходуется. На полу появляются опасные области; через короткую паузу туда бьёт разряд. После этой комнаты этот уровень исчезнет.`, `Static Storm LVL ${lvl}: a stored charge is being spent now. Danger areas appear on the floor; after a short delay, lightning hits them. This level disappears after the room.`)
       : localText(`Статик-шторм LVL ${Math.max(1, lvl)}: комната периодически помечает опасные области и бьёт по ним разрядом. Чем выше LVL, тем чаще и жёстче удары.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks dangerous areas and strikes them. Higher LVL means faster and harsher strikes.`),
     greed: localText('Золотая лихорадка: больше шансов на золото в бою и больше GLD, когда золото действительно выпало. Казино всё ещё может проиграть.', 'Gold Fever: more gold pressure in combat and more GLD when gold actually drops. Casino can still lose.'),
@@ -553,7 +589,8 @@ export class Hud {
     $('hud-loop').textContent = `LOOP ${room.loop} / DEPTH ${room.depth}`;
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
     const modTone = (m) => m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' || m === 'anchor_gravity' ? 'purple' : m === 'greed' ? 'gold' : '';
-    $('hud-mods').innerHTML = (room.mods || []).map(m => `<span class="term" data-explain-title="${esc(roomModLabel(m, room))}" data-explain="${esc(roomModHint(m, room))}"${modTone(m) ? ` data-explain-tone="${modTone(m)}"` : ''}>${esc(roomModLabel(m, room))}</span>`).join(' · ');
+    const visibleMods = (room.mods || []).filter(m => m !== 'static_rain');
+    $('hud-mods').innerHTML = visibleMods.map(m => `<span class="term" data-explain-title="${esc(roomModLabel(m, room))}" data-explain="${esc(roomModHint(m, room))}"${modTone(m) ? ` data-explain-tone="${modTone(m)}"` : ''}>${esc(roomModLabel(m, room))}</span>`).join(' · ');
     if (room.betStakes) {
       const names = { low: 'LOW', mid: 'MID', high: 'HIGH' };
       document.querySelectorAll('#casino-stakes button').forEach(btn => {
@@ -570,50 +607,31 @@ export class Hud {
     const obj = $('hud-objective');
     const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. После зачистки появится отдельная карточка скина, даже если INSTALL-выбора нет.', 'This room has a hidden skin. After the room is solved, a separate skin card appears even if there is no INSTALL choice.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
     const curRain = Math.max(0, room.staticRainStacks | 0);
-    const nextRain = Math.max(0, room.staticRainNext | 0);
-    const rainBits = [];
     const nx = room.next || null;
-    const appliesNextRoom = nextRain > 0 && nextStaticEligible(nx);
-    if (curRain > 0) {
-      const paid = room.staticRainMode === 'paid';
-      const debtLayer = Math.max(0, room.debtEngineRainStacks || 0);
-      const label = (room.mods || []).includes('static_rain') ? localText(`СЕЙЧАС СТАТИК-ШТОРМ LVL ${curRain}${paid ? ' · ОПЛАЧЕН' : ''}`, `NOW STATIC STORM LVL ${curRain}${paid ? ' · PAID' : ''}`) : localText(`СТАТИК-ЯДРО LVL ${curRain}`, `STATIC CORE STORM LVL ${curRain}`);
-      rainBits.push(`<span class="term" data-explain-title="${esc(localText('СТАТИК-ШТОРМ', 'STATIC STORM'))}" data-explain="${esc(roomModHint('static_rain', room))}">${label}</span>`);
-      if (debtLayer > 0) {
-        const body = localText(`СТАТИК-ЯДРО добавляет шторм только как отдельный слой этой комнаты.`, `Static Core adds storm as a separate layer for this room.`);
-        rainBits.push(`<span class="term" data-explain-tone="cyan" data-explain-title="STATIC CORE" data-explain="${esc(body)}">${esc(localText(`СТАТИК-ЯДРО: +СТАТИК-ШТОРМ LVL ${debtLayer} В ЭТОЙ КОМНАТЕ`, `STATIC CORE: +STATIC STORM LVL ${debtLayer} THIS ROOM`))}</span>`);
-      }
-    }
-    const pendingNextRain = Math.max(0, nx?.staticRainLevel || 0);
-    const debtEngineNextRain = Math.max(0, nx?.debtEngineRainLevel || 0);
-    if (pendingNextRain > 0) {
-      const txt = nextStaticEligible(nx) ? localText(`СЛЕД. КОМНАТА: СТАТИК-ШТОРМ LVL ${pendingNextRain}`, `NEXT ROOM STATIC STORM LVL ${pendingNextRain}`) : localText(`СТАТИКА В БАНКЕ LVL ${pendingNextRain}`, `STATIC BANKED LVL ${pendingNextRain}`);
-      const body = nextStaticEligible(nx)
-        ? localText('Это сохранённый заряд шторма: следующая подходящая комната получит опасные области этого уровня, затем заряд будет потрачен.', 'This is a banked storm charge: the next eligible room gets danger areas at this level, then the charge is spent.')
-        : localText('Статик-шторм сохранён, но ближайшая комната не подходит. Заряд дождётся следующей обычной боевой комнаты.', 'Static Storm is banked, but the next room is not eligible. The charge waits for the next normal combat room.');
-      rainBits.push(`<span class="term" data-explain-title="${esc(localText('СЛЕДУЮЩАЯ СТАТИКА', 'NEXT STATIC STORM'))}" data-explain="${esc(body)}">${txt}</span>`);
-    }
-    if (debtEngineNextRain > 0) {
-      const body = localText(`СТАТИК-ЯДРО действует до конца забега. Следующая боевая комната получит отдельный слой шторма.`, `Static Core lasts until the run ends. The next combat room gets a separate storm layer.`);
-      rainBits.push(`<span class="term" data-explain-tone="cyan" data-explain-title="STATIC CORE NEXT" data-explain="${esc(body)}">${esc(localText(`СТАТИК-ЯДРО: +СТАТИК-ШТОРМ LVL ${debtEngineNextRain} СЛЕД. КОМНАТА`, `STATIC CORE: +STATIC STORM LVL ${debtEngineNextRain} NEXT ROOM`))}</span>`);
-    }
-    const rainHud = rainBits.length ? `<div class="static-rain-status">${rainBits.join(' · ')}</div>` : '';
-    const virusHud = room.casinoVirus ? `<div class="static-rain-status"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с${room.casinoVirus.activeRainStacks ? ' · СТАТИКА LVL ' + room.casinoVirus.activeRainStacks : ''}`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s${room.casinoVirus.activeRainStacks ? ' · STATIC STORM LVL ' + room.casinoVirus.activeRainStacks : ''}`))}</span></div>` : '';
+    const currentStaticBd = room.staticRainBreakdown || { total: curRain, rawTotal: curRain, sources: curRain ? [{ id: 'static_debt', level: curRain }] : [] };
+    const nextStaticBd = nx?.staticRainBreakdown || room.staticRainNextBreakdown || null;
+    const staticLine = curRain > 0
+      ? staticBreakdownText(currentStaticBd)
+      : (nextStaticBd && ((nextStaticBd.total | 0) > 0 || (nextStaticBd.banked | 0) > 0) ? localText('СЛЕД. ', 'NEXT ') + staticBreakdownText(nextStaticBd, nextStaticBd.banked || 0) : '');
+    const staticExplain = curRain > 0
+      ? staticBreakdownExplain(currentStaticBd)
+      : (nextStaticBd ? staticBreakdownExplain(nextStaticBd, nextStaticBd.banked || 0) : '');
+    const rainHud = staticLine ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('ОБЩИЙ СТАТИК-ШТОРМ', 'TOTAL STATIC STORM'))}" data-explain="${esc(staticExplain)}" data-explain-tone="cyan">${esc(staticLine)}</span></div>` : '';
+    const virusHud = room.casinoVirus ? `<div class="static-rain-status virus-only"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s`))}</span></div>` : '';
     const currentThreats = tagJoin(room.threatTags, localText('ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL CLEAR'));
     const currentRewards = tagJoin(room.rewardTags, localText('ОБЫЧНАЯ НАГРАДА', 'NORMAL REWARD'));
     const currentObjective = objectiveChip(room.objective, 'CONTRACT');
     const modChipSmall = (m, r = room, forcedLevel = 0) => `<span class="term" data-explain-title="${esc(roomModLabel(m, r, forcedLevel))}" data-explain="${esc(roomModHint(m, r))}"${modTone(m) ? ` data-explain-tone="${modTone(m)}"` : ''}>${esc(roomModLabel(m, r, forcedLevel))}</span>`;
-    const currentModChips = (room.mods || []).slice(0, 4).map(m => modChipSmall(m, room, m === 'static_rain' && (room?.staticRainLevel || 0) ? room.staticRainLevel : 0)).join(' + ');
+    const currentModChips = (room.mods || []).filter(m => m !== 'static_rain').slice(0, 4).map(m => modChipSmall(m, room, 0)).join(' + ');
     const currentHud = `<div class="room-current"><span class="term" data-explain-title="${esc(localText('ТЕКУЩАЯ КОМНАТА', 'CURRENT ROOM'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(localText('СЕЙЧАС', 'NOW'))}</span>: ${esc(archLabel(room.archetype))}${currentModChips ? ' · ' + currentModChips : ' · ' + esc(localText('ЧИСТО', 'CLEAN'))}</div>` +
       `<div class="room-intel"><span class="term" data-explain-title="${esc(localText('ОПАСНОСТЬ КОМНАТЫ', 'ROOM DANGER'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(dangerLabel(room))}</span> · ${esc(localText('УГРОЗЫ', 'THREAT'))}: ${esc(currentThreats)} · ${esc(localText('НАГРАДА', 'REWARD'))}: ${esc(currentRewards)}</div>` +
       (currentObjective ? `<div class="room-objective">${currentObjective}</div>` : '');
-    const nextModIds = nx ? (nx.mods || []).slice(0, 5) : [];
+    const nextModIds = nx ? (nx.mods || []).filter(m => m !== 'static_rain').slice(0, 5) : [];
     const nextModChips = nx ? nextModIds.map(m => modChipSmall(m, nx, m === 'static_rain' && (nx?.staticRainLevel || 0) ? nx.staticRainLevel : 0)) : [];
-    if ((nx?.staticRainLevel || 0) > 0 && !nextModIds.includes('static_rain')) nextModChips.push(`<span class="term" data-explain-title="${esc(localText(`СТАТИК-ШТОРМ LVL ${nx.staticRainLevel}`, `STATIC STORM LVL ${nx.staticRainLevel}`))}" data-explain="${esc(roomModHint('static_rain', nx))}">${esc(localText(`СТАТИК-ШТОРМ LVL ${nx.staticRainLevel}`, `STATIC STORM LVL ${nx.staticRainLevel}`))}</span>`);
     const nextMods = nextModChips.slice(0, 5).join(' + ');
     const nextRewards = nx?.rewardTags?.length ? ` · ${localText('НАГРАДА', 'REWARD')}: ${tagJoin(nx.rewardTags)}` : '';
     const nextThreats = nx?.threatTags?.length ? ` · ${localText('УГРОЗЫ', 'THREAT')}: ${tagJoin(nx.threatTags)}` : '';
-    const nextStatic = (nx?.staticBanked || 0) > 0 ? ` · ${localText('СТАТИКА В БАНКЕ', 'STATIC BANKED')} LVL ${nx.staticBanked}` : (debtEngineNextRain > 0 ? ` · ${localText('СТАТИК-ЯДРО +СТАТИКА', 'STATIC CORE +STATIC')} LVL ${debtEngineNextRain}` : '');
+    const nextStatic = ''; // Static shown only once in the unified top-right readout.
     const nextObjective = nx?.objective ? ` · ${objectiveChip(nx.objective, 'CONTRACT')}` : '';
     const prophecyHud = nx ? `<div class="room-prophecy"><span class="term" data-explain-title="${esc(localText('СЛЕДУЮЩАЯ КОМНАТА', 'NEXT ROOM'))}" data-explain="${esc(roomIntelExplain(nx, true))}">${esc(localText('ДАЛЬШЕ', 'NEXT'))}</span>: ${esc(archLabel(nx.archetype))}${nextMods ? ' · ' + nextMods : ' · ' + esc(localText('ЧИСТО', 'CLEAN'))} · ${esc(dangerLabel(nx))}${esc(nextThreats)}${esc(nextRewards)}${esc(nextStatic)}${nextObjective}</div>` : '';
     let goalHtml = '';
@@ -753,7 +771,7 @@ export class Hud {
     switch (f.t) {
       case 'room': {
         this.localRerollSpent = 0;
-        const mods = (f.mods || []).map(m => roomModLabel(m, state?.room || null)).join(' + ');
+        const mods = (f.mods || []).filter(m => m !== 'static_rain').map(m => roomModLabel(m, state?.room || null)).join(' + ');
         const skn = f.skinRarity ? ` · ${localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN')} ${rarityText(f.skinRarity)}` : '';
         const arch = f.archetype ? ` · ${archLabel(f.archetype)}` : '';
         const danger = dangerLabel({ danger: f.danger, dangerLabel: f.dangerLabel });
@@ -770,7 +788,7 @@ export class Hud {
         if (f.noHit) marks.push(localText('БЕЗ УРОНА', 'NO HIT'));
         if (f.fast) marks.push(localText('БЫСТРО', 'FAST'));
         if (f.staticPaid) marks.push(localText('СТАТИКА ОПЛАЧЕНА', 'STATIC PAID'));
-        if (f.nextStatic) marks.push(localText(`СЛЕД. СТАТИКА LVL ${f.nextStatic}`, `NEXT STATIC LVL ${f.nextStatic}`));
+        // Static preview is shown only in the unified top-right readout.
         if (f.bonusGld) marks.push(`BONUS GLD +${f.bonusGld}`);
         if (f.bonusExp) marks.push(`BONUS EXP +${f.bonusExp}`);
         if (f.objective) {
@@ -920,7 +938,7 @@ export class Hud {
             const res = el.querySelector('.roll-result');
             if (res) res.textContent = f.label || 'VIRUS EVENT';
             const left = el.querySelector('.roll-left');
-            if (left) left.textContent = `${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}${f.rainStacks ? ' · ' + localText('СТАТИК-ШТОРМ LVL ', 'STATIC STORM LVL ') + f.rainStacks : ''}`;
+            if (left) left.textContent = `${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`;
             this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
             this.playUiSound(bad ? 'casino_static' : 'casino_result');
             const hide = setTimeout(() => { if (this.virusRollSpin.token === token) el.classList.add('hidden'); }, 1700);
@@ -1016,19 +1034,18 @@ export class Hud {
       return;
     }
     panel.classList.remove('hidden');
-    const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
-    const tabStatic = room.staticRainNext > 0
-      ? (nextStaticEligible(room.next) ? `   ${localText('СЛЕД. СТАТИКА LVL', 'NEXT ROOM STATIC STORM LVL')} ${esc(room.staticRainNext)}` : `   ${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${esc(room.staticRainNext)}`)
-      : '';
+    const modLabels = (room.mods || []).filter(m => m !== 'static_rain').map(m => roomModLabel(m, room));
     const next = room.next || null;
     const explainAttr = (title, body, tone = '') => `data-explain-title="${esc(title)}" data-explain="${esc(body)}"${tone ? ` data-explain-tone="${tone}"` : ''}`;
     const tabRoomHint = (r, isNext = false) => `${isNext ? localText('Следующая комната.', 'Next room.') : localText('Текущая комната.', 'Current room.')} ${localText('Главное правило смотри на подчёркнутых модификаторах.', 'Hover underlined modifiers for the actual rules.')}`;
     const termLabel = (label, title, body, tone = '') => `<span class="term" ${explainAttr(title, body, tone)}>${esc(label)}</span>`;
     const modChip = (m, r = room) => `<span class="term" ${explainAttr(roomModLabel(m, r), roomModHint(m, r), m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'echo_walls' || m === 'anchor_gravity' || m === 'casino_virus' ? 'purple' : m === 'greed' ? 'gold' : '')}>${esc(roomModLabel(m, r))}</span>`;
-    const modList = (r) => (r?.mods || []).length ? (r.mods || []).map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
-    const nextStaticLine = room.staticRainNext > 0
-      ? (nextStaticEligible(room.next) ? `${localText('СЛЕД. СТАТИКА LVL', 'NEXT STATIC LVL')} ${room.staticRainNext}` : `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${room.staticRainNext}`)
-      : '—';
+    const modList = (r) => (r?.mods || []).filter(m => m !== 'static_rain').length ? (r.mods || []).filter(m => m !== 'static_rain').map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
+    const tabStaticBd = room.staticRainBreakdown || { total: room.staticRainStacks || 0, sources: [] };
+    const tabNextStaticBd = room.next?.staticRainBreakdown || room.staticRainNextBreakdown || null;
+    const nextStaticLine = (tabStaticBd.total || 0) > 0
+      ? staticBreakdownText(tabStaticBd)
+      : (tabNextStaticBd ? staticBreakdownText(tabNextStaticBd, tabNextStaticBd.banked || 0) : '—');
     const portalState = room.portal?.[2] ? localText('ОТКРЫТ', 'OPEN') : localText('ЗАКРЫТ', 'CLOSED');
     const mem = room.runMemory || {};
     $('tab-run').innerHTML =
@@ -1051,7 +1068,7 @@ export class Hud {
           `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${room.loop} · <span class="term" ${explainAttr(t('depth'), localText('Сколько комнат уже пройдено в текущем забеге.', 'Rooms cleared in this run.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net.roomId || '----')}</p>` +
           `<p><span class="term" ${explainAttr(t('goal'), localText('Зачистка — это числовая цель комнаты. Если рядом показаны живые враги, портал ждёт их добивания.', 'Clear is the numeric room target. If live enemies are shown, the portal waits for them to die.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
-          `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), localText('Текущий и сохранённый уровень статик-шторма.', 'Current and banked Static Storm level.'), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}${room.staticRainStacks ? ` · ${localText('СЕЙЧАС LVL', 'NOW LVL')} ${esc(room.staticRainStacks)}` : ''}</p>` +
+          `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Подряд выполненные контракты. Комнаты без контракта не сбрасывают серию, провал контракта сбрасывает.', 'Consecutive completed contracts. Rooms without a contract do not reset it; a failed contract does.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
           `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
           `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти бонусы станут активны только в следующей комнате и сгорят после неё.', 'These bonuses activate only in the next room and expire after it.'), 'gold')}>${esc(localText('СЛЕД. БОНУС', 'NEXT BONUS'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +

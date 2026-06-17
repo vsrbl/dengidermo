@@ -73,10 +73,49 @@ function loopCostMul(run) {
   return Math.max(1, Math.min(340, base + late * late * 1.72));
 }
 function roundCost(v) { return Math.max(1, Math.round(v / 5) * 5); }
-function addStaticDebt(run, stacks = 1) {
-  if (!run) return;
+function staticSourceAdd(map, source, level) {
+  const id = String(source || 'static_debt');
+  const n = Math.max(0, level | 0);
+  if (!n) return map || {};
+  const out = map && typeof map === 'object' ? map : {};
+  out[id] = Math.max(0, (out[id] || 0) | 0) + n;
+  return out;
+}
+function sourceListFromMap(map = {}, fallbackId = 'static_debt', expectedTotal = 0) {
+  const out = [];
+  let sum = 0;
+  for (const [id, raw] of Object.entries(map || {})) {
+    const level = Math.max(0, raw | 0);
+    if (!level) continue;
+    out.push({ id, level });
+    sum += level;
+  }
+  const expected = Math.max(0, expectedTotal | 0);
+  if (expected > sum) out.push({ id: fallbackId, level: expected - sum });
+  return out;
+}
+function normalizeStaticSources(sources = []) {
+  const out = [];
+  for (const src of sources || []) {
+    const id = String(src?.id || 'static').trim() || 'static';
+    const level = Math.max(0, src?.level | 0);
+    if (!level) continue;
+    const prev = out.find(x => x.id === id);
+    if (prev) prev.level += level;
+    else out.push({ id, level });
+  }
+  const rawTotal = out.reduce((n, x) => n + Math.max(0, x.level | 0), 0);
+  return { total: clampStaticRainLevel(rawTotal), rawTotal, sources: out };
+}
+function addStaticDebt(run, stacks = 1, source = 'static_debt') {
+  if (!run) return 0;
   const cur = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
-  run.staticDebt = clampStaticRainLevel(cur + Math.max(1, stacks | 0));
+  const add = Math.max(1, stacks | 0);
+  const next = clampStaticRainLevel(cur + add);
+  const applied = Math.max(0, next - cur);
+  run.staticDebt = next;
+  if (applied > 0) run.staticDebtSources = staticSourceAdd(run.staticDebtSources, source, applied);
+  return applied;
 }
 function playerDebtEngineStacks(players) {
   let n = 0;
@@ -87,22 +126,61 @@ function playerDebtEngineStacks(players) {
 function debtEngineEligiblePlan(plan) {
   return !!plan && plan.category !== 'boss' && plan.specialRoomId !== 'chill_room';
 }
-function pendingStaticRainLevel(run) {
-  if (!run) return 0;
+function pendingStaticRainSources(run) {
+  if (!run) return [];
   const debt = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
   const carry = Math.max(0, run.staticRainCarry || 0);
-  const fromCurrentRoom = carry > 0 ? 0 : (run.staticRainCanSeedNext ? Math.max(0, run.roomStaticRainFalls || 0) : 0);
-  return clampStaticRainLevel(debt + carry + fromCurrentRoom);
+  const out = [];
+  if (debt > 0) out.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debt));
+  if (carry > 0) out.push(...sourceListFromMap(run.staticRainCarrySources, 'room_strikes', carry));
+  else if (run.staticRainCanSeedNext && (run.roomStaticRainFalls || 0) > 0) out.push({ id: 'room_strikes', level: Math.max(0, run.roomStaticRainFalls || 0) });
+  return out;
+}
+function pendingStaticRainLevel(run) {
+  return normalizeStaticSources(pendingStaticRainSources(run)).total;
+}
+function planStaticNaturalLevel(plan = {}) {
+  const mods = plan?.modifierIds || plan?.mods || [];
+  return mods.includes('static_rain') ? 1 : 0;
+}
+function planStaticEligible(plan = {}) {
+  const cat = plan?.category || plan?.cat || '';
+  const special = plan?.specialRoomId || plan?.special || '';
+  return !!plan && cat !== 'boss' && special !== 'chill_room';
+}
+function staticRainActiveBreakdown(run) {
+  if (!run) return { total: 0, rawTotal: 0, sources: [] };
+  const sources = Array.isArray(run.staticRainSources) ? [...run.staticRainSources] : [];
+  const virus = Math.max(0, run.casinoVirus?.activeRainStacks || 0);
+  if (virus > 0) sources.push({ id: 'casino_virus', level: virus });
+  return normalizeStaticSources(sources);
+}
+function nextStaticRainBreakdown(run, players = null, plan = null) {
+  if (!run) return { total: 0, rawTotal: 0, sources: [], banked: 0, eligible: false };
+  const p = plan || run.plan || {};
+  const eligible = planStaticEligible(p);
+  const sources = [];
+  const natural = eligible ? planStaticNaturalLevel(p) : 0;
+  if (natural > 0) sources.push({ id: 'room_modifier', level: natural });
+  const pendingSources = pendingStaticRainSources(run);
+  const pendingTotal = normalizeStaticSources(pendingSources).total;
+  if (eligible && pendingTotal > 0) sources.push(...pendingSources);
+  const debtEngine = eligible ? playerDebtEngineStacks(players) : 0;
+  if (debtEngine > 0) sources.push({ id: 'debt_engine', level: debtEngine });
+  const bd = normalizeStaticSources(sources);
+  bd.banked = pendingTotal > 0 && !eligible ? pendingTotal : 0;
+  bd.eligible = eligible;
+  return bd;
 }
 function nextStaticRainLevel(run, players = null) {
-  if (!run) return 0;
-  const debtEngine = debtEngineEligiblePlan(run.plan) ? playerDebtEngineStacks(players) : 0;
-  // Debt Engine is a separate permanent layer; this total is used for danger/preview math only.
-  return clampStaticRainLevel(pendingStaticRainLevel(run) + debtEngine);
+  return nextStaticRainBreakdown(run, players, run?.plan || null).total;
 }
 function staticRainCurrentMode(run) {
-  if (!(run?.staticRainStacks > 0)) return '';
+  const bd = staticRainActiveBreakdown(run);
+  if (!(bd.total > 0)) return '';
+  if ((run.casinoVirus?.activeRainStacks || 0) > 0 && !(run.staticRainStacks > 0)) return 'casino_virus';
   if (run.debtEngineRainStacks > 0 && !run.plan?.modifierIds?.includes('static_rain')) return 'debt_engine';
+  if (run.staticRainFromPending && run.staticRainCanSeedNext) return 'paid+seed';
   if (run.staticRainFromPending) return 'paid';
   if (run.staticRainCanSeedNext) return 'seeding';
   return run.plan?.modifierIds?.includes('static_rain') ? 'natural' : 'layer';
@@ -216,7 +294,7 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   else if (arch === 'wide') tags.push('CROSSFIRE');
   else if (arch === 'long_lane') tags.push('LANES');
   else if (arch === 'lounge') tags.push('SHOP');
-  if (mods.includes('static_rain') || staticLevel > 0) tags.push(staticLevel > 0 ? `STATIC LVL ${staticLevel}` : 'STATIC');
+  // Static Storm is shown only in the unified top-right stack readout, not duplicated as a threat tag.
   if (mods.includes('hunter_contract')) tags.push('LOCKED WAVES');
   if (mods.includes('casino_virus')) tags.push('3 VIRUS SPINS');
   if (mods.includes('moving_room')) tags.push('DANGER ZONES');
@@ -234,7 +312,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   const special = roomPlanSpecial(plan);
   if (special === 'chill_room') return 'SAFE ROOM: buy, BET, then leave when ready.';
   if (roomPlanCategory(plan) === 'boss') return 'BOSS FLOOR: hold space, clear adds, watch burst windows.';
-  if (mods.includes('static_rain')) return staticMode === 'paid' ? 'STATIC PAYOFF: survive the level; strikes here do not seed another storm.' : 'STATIC SEED: each real strike raises the next eligible room level.';
+  if (mods.includes('static_rain')) return String(staticMode).startsWith('paid') ? (staticMode === 'paid+seed' ? 'STATIC STACK: banked storm is spent here; natural room strikes still seed the next level.' : 'STATIC PAYOFF: survive the level; strikes here do not seed another storm.') : 'STATIC SEED: each real strike raises the next eligible room level.';
   if (mods.includes('hunter_contract')) return 'HUNTER WAVES: portal stays locked until every wave is dead.';
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
@@ -392,11 +470,22 @@ function consumeContractFavor(run, ids = []) {
   }
   return null;
 }
+function removeOneSourceLevel(map = {}) {
+  const order = ['cursed_chest','casino_bet','active_casino','bad_tape','debt_pulse','active_reaction','static_debt','room_strikes'];
+  for (const k of [...order, ...Object.keys(map || {})]) {
+    if ((map?.[k] || 0) > 0) {
+      map[k] = Math.max(0, (map[k] || 0) - 1);
+      if (!map[k]) delete map[k];
+      return true;
+    }
+  }
+  return false;
+}
 function reduceOneStaticDebt(run) {
   const curDebt = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
-  if (curDebt > 0) { run.staticDebt = clampStaticRainLevel(curDebt - 1); return true; }
+  if (curDebt > 0) { run.staticDebt = clampStaticRainLevel(curDebt - 1); removeOneSourceLevel(run.staticDebtSources || {}); return true; }
   const carry = Math.max(0, run.staticRainCarry || 0);
-  if (carry > 0) { run.staticRainCarry = clampStaticRainLevel(carry - 1); return true; }
+  if (carry > 0) { run.staticRainCarry = clampStaticRainLevel(carry - 1); removeOneSourceLevel(run.staticRainCarrySources || {}); return true; }
   return false;
 }
 function activatePendingContractFavors(run) {
@@ -1378,11 +1467,17 @@ export function createRun(seedBase) {
     phase: 'play',           // play | install | lost
     phaseT: 0,
     staticDebt: 0,
+    staticDebtSources: {},
     staticRainCarry: 0,
+    staticRainCarrySources: {},
     // Skin pity is run-local and player-facing only through more frequent SKN CACHE rooms.
     // It rises after non-boss rooms without a skin and resets on a skin room.
     skinPity: 0,
     staticRainStacks: 0,
+    staticRainSources: [],
+    staticRainNaturalLevel: 0,
+    staticRainDebtLevel: 0,
+    staticRainCarryLevel: 0,
     staticRainCanSeedNext: false,
     staticRainFromPending: false,
     roomStaticRainFalls: 0,
@@ -1459,12 +1554,23 @@ export function startRoom(run, players) {
   activatePendingContractFavors(run);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
+  const naturalStaticLevel = naturalStaticRain && debtEngineEligiblePlan(run.plan) ? 1 : 0;
   const debtStacks = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
   const carryStacks = Math.max(0, run.staticRainCarry || 0);
   const pendingRainStacks = clampStaticRainLevel(debtStacks + carryStacks);
   const debtEngineStacks = debtEngineEligiblePlan(run.plan) ? playerDebtEngineStacks(players) : 0;
-  const incomingRainStacks = clampStaticRainLevel(pendingRainStacks + debtEngineStacks);
+  const incomingSources = [];
+  if (naturalStaticLevel > 0) incomingSources.push({ id: 'room_modifier', level: naturalStaticLevel });
+  if (debtStacks > 0) incomingSources.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debtStacks));
+  if (carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'room_strikes', carryStacks));
+  if (debtEngineStacks > 0) incomingSources.push({ id: 'debt_engine', level: debtEngineStacks });
+  const incomingBreakdown = normalizeStaticSources(incomingSources);
+  const incomingRainStacks = incomingBreakdown.total;
   run.staticRainStacks = 0;
+  run.staticRainSources = [];
+  run.staticRainNaturalLevel = 0;
+  run.staticRainDebtLevel = 0;
+  run.staticRainCarryLevel = 0;
   run.debtEngineRainStacks = 0;
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
@@ -1510,23 +1616,22 @@ export function startRoom(run, players) {
     run.casinoVirus = { spinsLeft: 3, totalSpins: 3, appliedSpins: 0, nextSpin: 6, done: false, lastLabel: 'WAITING', activeRainStacks: 0, rainT: 0, spinSeq: 0, rainKind: '', lastSymbols: [], pendingEvent: null };
   }
   if (incomingRainStacks > 0 && debtEngineEligiblePlan(run.plan)) {
-    if ((pendingRainStacks > 0 || naturalStaticRain) && !run.plan.modifierIds.includes('static_rain')) run.plan.modifierIds.push('static_rain');
+    if (!run.plan.modifierIds.includes('static_rain')) run.plan.modifierIds.push('static_rain');
     run.debtEngineRainStacks = Math.max(0, debtEngineStacks || 0);
-    run.staticRainStacks = Math.max(1, incomingRainStacks);
+    run.staticRainStacks = incomingRainStacks;
+    run.staticRainSources = incomingBreakdown.sources;
+    run.staticRainNaturalLevel = naturalStaticLevel;
+    run.staticRainDebtLevel = debtStacks;
+    run.staticRainCarryLevel = carryStacks;
+    run.staticRainFromPending = pendingRainStacks > 0;
+    // Only a natural room modifier can seed the next storm. Banked debt, Debt Engine, and Casino Virus do not cascade by themselves.
+    run.staticRainCanSeedNext = naturalStaticLevel > 0;
     if (pendingRainStacks > 0) {
-      run.staticRainFromPending = true;
-      // Pending static is spent on this room. Debt Engine's layer is not a room modifier and never cascades.
-      run.staticRainCanSeedNext = false;
       run.staticDebt = 0;
+      run.staticDebtSources = {};
       run.staticRainCarry = 0;
-    } else if (naturalStaticRain) {
-      run.staticRainCanSeedNext = true;
-    } else {
-      run.staticRainCanSeedNext = false;
+      run.staticRainCarrySources = {};
     }
-  } else if (naturalStaticRain && debtEngineEligiblePlan(run.plan)) {
-    run.staticRainStacks = 1;
-    run.staticRainCanSeedNext = true;
   }
   run.skinRoomReward = null;
   if (run.plan.category !== 'boss' && !isGreedRoom(run)) {
@@ -1574,7 +1679,6 @@ export function startRoom(run, players) {
     p.offer = null;
     p.weaponChestOffer = null;
   }
-  if (run.plan.modifierIds.includes('static_rain')) run.staticRainStacks = Math.max(run.staticRainStacks || 0, 1);
   if (run.plan.specialRoomId === 'chill_room') {
     run.director = null;
     openPortal(run);
@@ -1595,8 +1699,14 @@ export function startRoom(run, players) {
 export function resetRun(run, players) {
   run.runDepth = 0;
   run.staticDebt = 0;
+  run.staticDebtSources = {};
   run.staticRainCarry = 0;
+  run.staticRainCarrySources = {};
   run.staticRainStacks = 0;
+  run.staticRainSources = [];
+  run.staticRainNaturalLevel = 0;
+  run.staticRainDebtLevel = 0;
+  run.staticRainCarryLevel = 0;
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
@@ -3478,7 +3588,7 @@ function stepMods(run, players, dt) {
   stepPrismSlowGrid(run, players, dt);
   stepHunterWaves(run, players, dt);
   stepCasinoVirus(run, players, dt);
-  stepCasinoVirusRain(run, players, dt);
+  // Casino Virus static now stacks into the single Static Storm system; no separate rain loop.
   // HUNTER WAVES are handled by stepHunterWaves(); no priority-target escalation.
 
   if (run.plan.modifierIds.includes('anchor_gravity') && run.roomSockets?.length) {
@@ -3570,9 +3680,10 @@ function stepMods(run, players, dt) {
       for (const e of [...run.enemies]) if (dist2(e.x, e.y, b.x, b.y) < (b.r + e.size / 2) ** 2) damageEnemy(run, players, e, b.dmgE, null, 0, 0, 0);
     }
   }
-  if ((run.staticRainStacks || 0) > 0) {
+  const activeStatic = staticRainActiveBreakdown(run);
+  if ((activeStatic.total || 0) > 0) {
     if (run.plan?.specialRoomId === 'chill_room') return;
-    const stacks = Math.max(1, Math.min(STATIC_RAIN_MAX_LEVEL, run.staticRainStacks || 1));
+    const stacks = Math.max(1, Math.min(STATIC_RAIN_MAX_LEVEL, activeStatic.total || 1));
     const pressure = Math.max(0, stacks - 1);
     const harsh = Math.max(0, stacks - 5);
     run.rainT -= dt;
@@ -3935,7 +4046,7 @@ function openChest(run, players, p, o) {
     const u = pool[Math.floor(rng() * pool.length)];
     u.apply(p.stats);
     p.hp = Math.min(p.hp, maxHp(p));
-    addStaticDebt(run);
+    addStaticDebt(run, 1, 'cursed_chest');
     rewards.push(u.label, 'CURSE: STATIC STORM');
   }
   run.fx.push({ t: 'chest_open', id: p.id, obj: o.id, chest: def.label, rewards, x: o.x, y: o.y, cursed: !!def.cursed });
@@ -4118,7 +4229,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
     else { p.stats.dmgMul *= 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
   }
-  if (pl.static) addStaticDebt(run);
+  if (pl.static) addStaticDebt(run, 1, 'casino_bet');
   const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
   const fx = { ok: true, t: 'casino', id: p.id, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
   run.fx.push(fx);
@@ -4133,7 +4244,11 @@ function beginTransition(run, players) {
     const falls = Math.max(0, run.roomStaticRainFalls || 0);
     if (run.staticRainCanSeedNext && falls > 0) {
       // Simple player-readable rule: 1 real strike = next room level 1, 2 strikes = level 2, etc.
-      run.staticRainCarry = Math.max(run.staticRainCarry || 0, clampStaticRainLevel(falls));
+      const carried = clampStaticRainLevel(falls);
+      if (carried > Math.max(0, run.staticRainCarry || 0)) {
+        run.staticRainCarry = carried;
+        run.staticRainCarrySources = { room_strikes: carried };
+      }
     }
   }
   const st = run.roomStats || {};
@@ -4378,7 +4493,7 @@ function applyActiveCasinoRoll(run, players, cr) {
     p.invuln = Math.max(p.invuln || 0, 0.18);
     run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(p.x), y: Math.round(p.y) });
   } else if (cr.outcome === 'DEBT') {
-    addStaticDebt(run);
+    addStaticDebt(run, 1, 'active_casino');
   } else if (cr.outcome === 'DOUBLE') {
     if (!run.pendingActives) run.pendingActives = [];
     run.pendingActives.push({ owner: p.id, at: run.now + 0.22, core: cr.core || ensureActive(p).core, level: lvl, echo: 1, skipCasino: 1 });
@@ -4508,7 +4623,7 @@ function applyActiveUnstableReactions(run, players, p, ctx, opts = {}) {
   }
   if (activeHasAll(p, 'bad_tape', 'casino') && roll()) {
     if (Math.random() < 0.58) dropPickup(run, ctx.x, ctx.y, 'GLD', 11 + Math.round(Math.random() * 26));
-    else addStaticDebt(run);
+    else addStaticDebt(run, 1, 'bad_tape');
     activeNoise(run, 'FALSE REEL', ctx.x, ctx.y, 118, Math.random() < 0.5 ? 'green' : 'purple');
     fired++;
   }
@@ -4683,7 +4798,7 @@ function castActiveCore(run, players, p, opts = {}) {
       ctx.damageDone += activeDamageEnemy(run, players, e, (24 + lvl * 18) * p.stats.dmgMul, p.id);
       ctx.hitCount++;
     }
-    if (debtRoll) { addStaticDebt(run); run.fx.push({ t: 'debt', id: p.id, x: Math.round(p.x), y: Math.round(p.y) }); }
+    if (debtRoll) { addStaticDebt(run, 1, 'debt_pulse'); run.fx.push({ t: 'debt', id: p.id, x: Math.round(p.x), y: Math.round(p.y) }); }
     else if (ctx.hitCount >= 4) dropPickup(run, p.x + (Math.random() - 0.5) * 90, p.y + (Math.random() - 0.5) * 90, 'GLD', 10 + lvl * 8 + Math.round(Math.random() * 18));
     run.fx.push({ t: 'active', id: p.id, label: `STATIC PULSE ${roman(lvl)}${debtRoll ? ' / STATIC' : ''}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r });
   }
@@ -5198,19 +5313,18 @@ export function buildSnapshot(run, players) {
     ];
   });
   const staticMode = staticRainCurrentMode(run);
-  const nextStatic = nextStaticRainLevel(run, players);
+  const currentStaticBreakdown = staticRainActiveBreakdown(run);
+  const nextStaticBreakdownForCurrent = nextStaticRainBreakdown(run, players, run.plan);
+  const nextStatic = nextStaticBreakdownForCurrent.total;
   const debtEngineRoomStacks = debtEngineEligiblePlan(run.plan) ? playerDebtEngineStacks(players) : 0;
-  const currentIntel = roomIntel(run.plan, run.staticRainStacks || 0, staticMode);
+  const currentIntel = roomIntel(run.plan, currentStaticBreakdown.total || 0, staticMode);
   let nextPreview = run.nextRoomPreview ? { ...run.nextRoomPreview, mods: [...(run.nextRoomPreview.mods || [])] } : null;
   if (nextPreview) {
-    const pendingNextStatic = pendingStaticRainLevel(run);
-    const nextEligible = nextPreview.cat !== 'boss' && nextPreview.special !== 'chill_room';
-    const debtEngineNext = nextEligible ? playerDebtEngineStacks(players) : 0;
-    const appliesPendingStatic = pendingNextStatic > 0 && nextEligible;
-    if (appliesPendingStatic && !nextPreview.mods.includes('static_rain')) nextPreview.mods.push('static_rain');
-    const totalPreviewStatic = clampStaticRainLevel((appliesPendingStatic ? pendingNextStatic : 0) + debtEngineNext);
-    const ni = roomIntel(nextPreview, totalPreviewStatic, appliesPendingStatic ? 'paid' : (debtEngineNext > 0 ? 'debt_engine' : ''));
-    nextPreview = { ...nextPreview, ...ni, staticRainLevel: appliesPendingStatic ? pendingNextStatic : 0, debtEngineRainLevel: debtEngineNext, staticBanked: pendingNextStatic > 0 && !appliesPendingStatic ? pendingNextStatic : 0 };
+    const nextBreakdown = nextStaticRainBreakdown(run, players, nextPreview);
+    if (nextBreakdown.total > 0 && !nextPreview.mods.includes('static_rain')) nextPreview.mods.push('static_rain');
+    const debtEngineNext = nextBreakdown.sources.find(s => s.id === 'debt_engine')?.level || 0;
+    const ni = roomIntel(nextPreview, nextBreakdown.total, nextBreakdown.sources.some(s => s.id !== 'room_modifier') ? 'paid' : (debtEngineNext > 0 ? 'debt_engine' : 'natural'));
+    nextPreview = { ...nextPreview, ...ni, staticRainLevel: nextBreakdown.total, staticRainBreakdown: nextBreakdown, debtEngineRainLevel: debtEngineNext, staticBanked: nextBreakdown.banked || 0 };
   }
   const fx = run.fx;
   run.fx = [];
@@ -5225,7 +5339,7 @@ export function buildSnapshot(run, players) {
       phase: run.phase, solvedTime: Math.round(roomSolvedTime(run)), solved: roomSolvedAt(run) > 0 ? 1 : 0,
       skinReward: (run.skinRoomReward && !run.skinRoomReward.claimed) ? (run.skinRoomReward.rarity || 'uncommon') : '',
       director: run.director?.label || '', directorIntent: run.director?.lastIntent || '', directorWave: run.director?.waveIndex || 0,
-      staticRainStacks: run.staticRainStacks || 0, staticRainNext: nextStatic, staticRainMode: staticMode, debtEngineStacks: debtEngineRoomStacks, debtEngineRainStacks: run.debtEngineRainStacks || 0,
+      staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineRoomStacks, debtEngineRainStacks: run.debtEngineRainStacks || 0,
       danger: currentIntel.danger, dangerLabel: currentIntel.dangerLabel, threatTags: currentIntel.threatTags, rewardTags: currentIntel.rewardTags, tip: currentIntel.tip,
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
