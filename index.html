@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nncckkrr</title>
-<link rel="stylesheet" href="style.css?v=2.0.99">
+<link rel="stylesheet" href="style.css?v=2.0.100">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -18,7 +18,7 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">v2.0.99</span>
+      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">v2.0.100</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -112,7 +112,7 @@
 <div id="menu" class="overlay">
   <div class="menu-box">
     <div id="logo">nncckkrr</div>
-    <div id="menu-sub">co-op roguelike // соло или 4P напрямую</div>
+    <div id="menu-sub">co-op roguelike // 4 players coop</div>
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
     <div id="lang-row" class="lang-row" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></div>
 
@@ -123,9 +123,9 @@
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.0.99</div>
+    <div id="menu-version" class="menu-version">VERSION v2.0.100</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется в браузере.">
-      <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="70"></label>
+      <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>
     </div>
     <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — вторичный огонь оружия · Пробел — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши стреляет активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="Пробел включает или выключает подсказки по объектам мира.">SPACE</span> — осмотр · <span class="term" data-explain-title="ВТОРИЧНЫЙ ОГОНЬ" data-explain="ПКМ использует вторичный огонь текущего оружия: SHG LONGSHOT, SEK SWARM или RKT REMOTE DETONATOR.">ПКМ</span> — ALT</div>
@@ -142,7 +142,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2.0.99"></script>
-<script type="module" src="src/main.v2-0-99.js?v=2.0.99"></script>
+<script src="config.js?v=2.0.100"></script>
+<script type="module" src="src/main.v2-0-100.js?v=2.0.100"></script>
 </body>
 </html>
