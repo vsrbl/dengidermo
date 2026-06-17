@@ -1,4 +1,4 @@
-# v2.0.92 — fast clear / casino virus / shields polish
+# v2.0.93 — fast clear / casino virus / shields polish
 
 Base: v2.0.89_static_contract_clarity
 

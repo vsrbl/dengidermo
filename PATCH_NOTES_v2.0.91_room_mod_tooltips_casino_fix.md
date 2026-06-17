@@ -1,4 +1,4 @@
-# v2.0.92 — room mod tooltips / casino virus cleanup / shield readability
+# v2.0.93 — room mod tooltips / casino virus cleanup / shield readability
 
 Base: v2.0.90_fast_clear_casino_virus_shields
 

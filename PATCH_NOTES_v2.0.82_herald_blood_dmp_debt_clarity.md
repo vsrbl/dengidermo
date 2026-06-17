@@ -1,4 +1,4 @@
-# PATCH v2.0.92 — Herald fairness, Blood Tax clarity, DMP movement, Debt Engine clarity
+# PATCH v2.0.93 — Herald fairness, Blood Tax clarity, DMP movement, Debt Engine clarity
 
 ## Herald path fairness
 - Herald floor path no longer snaps instantly to the player's current position every frame.
