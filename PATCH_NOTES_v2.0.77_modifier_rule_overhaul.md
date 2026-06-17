@@ -1,4 +1,4 @@
-# PATCH v2.0.90 — MODIFIER RULE OVERHAUL
+# PATCH v2.0.91 — MODIFIER RULE OVERHAUL
 
 ## Summary
 Full rule rewrite for the room modifier set. This patch removes modifiers that no longer match the game direction, replaces MIRROR ROOM with moving spiked walls, and gives GREED / HUNTER / CASINO / PRISM / BLOOD / ECHO concrete gameplay identities.

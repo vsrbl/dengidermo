@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.90 Casino Virus Reels
+# PATCH NOTES — v2.0.91 Casino Virus Reels
 
 ## Goal
 Make CASINO VIRUS feel like an actual slot event, not just a dry HUD timer, and fix the room rules around virus rain and director pressure.
