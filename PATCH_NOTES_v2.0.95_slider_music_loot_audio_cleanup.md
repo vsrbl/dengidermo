@@ -1,4 +1,4 @@
-# nncckkrr v2.0.95 — slider/music/loot/audio cleanup
+# nncckkrr v2.0.98 — slider/music/loot/audio cleanup
 
 Base: v2.0.94_ui_audio_combat_polish
 
