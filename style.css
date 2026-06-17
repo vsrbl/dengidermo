@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.79 — room objectives / instant TAB */
+/* nncckkrr v2.0.80 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -226,6 +226,23 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll .roll-symbols span { display: inline-block; min-width: 52px; padding: 5px 7px; border: 1px solid currentColor; background: rgba(255,255,255,.035); }
 #active-roll .roll-result { font-size: 13px; letter-spacing: .24em; }
 #active-roll.hidden { display: none; }
+
+/* v2.0.80 — Casino Virus separate non-blocking reels */
+#virus-roll { position: fixed; right: 28px; top: 132px; z-index: 17; pointer-events: none;
+  min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
+  border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
+  box-shadow: 0 0 18px rgba(180,92,255,.18); text-transform: uppercase; letter-spacing: .16em; }
+#virus-roll.hidden { display: none; }
+#virus-roll .roll-title { font-size: 9px; color: var(--dim); margin-bottom: 5px; letter-spacing: .22em; }
+#virus-roll .roll-symbols { display: flex; justify-content: center; gap: 6px; margin-bottom: 5px; }
+#virus-roll .roll-symbols span { display: inline-block; min-width: 46px; padding: 5px 6px; border: 1px solid currentColor; background: rgba(180,92,255,.055); }
+#virus-roll.spinning .roll-symbols span { animation: activeRollFlicker .10s steps(2,end) infinite; }
+#virus-roll.stopping .roll-symbols span.win { background: rgba(0,255,102,.10); color: var(--green); }
+#virus-roll.stopping .roll-symbols span.lose { background: rgba(255,48,72,.14); color: var(--red); }
+#virus-roll .roll-result { font-size: 12px; letter-spacing: .18em; }
+#virus-roll .roll-left { margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: .16em; }
+@media (max-width: 760px) { #virus-roll { right: 12px; top: 168px; max-width: 54vw; min-width: 190px; } #virus-roll .roll-symbols span { min-width: 34px; } }
+
 
 /* banner */
 #banner { position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 5;
@@ -1023,7 +1040,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.79 — WPN chest readability: role + effect + exact change */
+/* v2.0.80 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1082,7 +1099,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.79 — expanded room/debug lab */
+/* v2.0.80 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
