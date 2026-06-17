@@ -79,7 +79,7 @@ export const UPGRADES = [
   { id: 'element_spread', label: 'STATUS SPREAD', tier: 1, branch: 'ALL', desc: 'Смерть врага переносит часть огня, холода или яда на ближайших врагов.', apply: s => { s.elementSpread += 1; } },
   { id: 'bullet_chain', label: 'BULLET LINK +1', tier: 1, branch: 'ALL', desc: 'WPN-эффект: попадание оружием связывает ближайших врагов тонкой линией. Каждый стак добавляет +1 прыжок цепи и увеличивает дальность связи.', apply: s => { s.bulletChain += 1; } },
   { id: 'shg_teeth',  label: 'SHG TEETH +2 PELLETS', tier: 1, branch: 'SHG', desc: 'SHG получает две дополнительные дробины.', apply: s => { s.shgPellets += 2; } },
-  { id: 'shg_longshot', label: 'SHG LONGSHOT RMB', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний мощный одиночный выстрел. Каждый стак увеличивает дальность, урон и reload penalty.', apply: s => { s.shgLongshot += 1; } },
+  { id: 'shg_longshot', label: 'SHG LONGSHOT RMB', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний мощный slug-выстрел. Каждый стак увеличивает дальность, урон и reload penalty.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK SPLIT ON KILL',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
   { id: 'sek_chain',  label: 'SEK CHAIN LOCK',     tier: 1, branch: 'SEK', desc: 'У SEK улучшаются наведение и время жизни.', apply: s => { s.sekChain += 1; } },
   { id: 'sek_swarm', label: 'SEK SWARM RMB', tier: 1, branch: 'SEK', desc: 'ПКМ выпускает рой самонаводящихся SEK-пуль. Пули распределяются по разным врагам. Каждый стак: +5 пуль и немного дольше перезарядка.', apply: s => { s.sekSwarm += 1; } },
@@ -90,9 +90,9 @@ export const UPGRADES = [
   { id: 'rkt_remote', label: 'RKT REMOTE DETONATOR', tier: 1, branch: 'RKT', desc: 'ПКМ взрывает выпущенные ракеты по одной: сначала самую старую, потом следующую.', apply: s => { s.rktRemote += 1; } },
 
   // ability / active branches
-  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится пустотным разрезом и наносит заметный урон врагам вдоль траектории. Прокачка усиливает ширину и урон.', apply: s => { s.voidStep += 1; } },
+  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится void-разрезом и наносит заметный урон врагам вдоль траектории. Прокачка усиливает ширину и урон.', apply: s => { s.voidStep += 1; } },
   { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает врагов рядом с траекторией. Каждый стак увеличивает радиус и длительность стана.', apply: s => { s.dashCut += 1; } },
-  { id: 'dashclone', label: 'DASH CLONE',         tier: 1, branch: 'DASH', desc: 'Рывок выпускает эхо-всплеск в точке старта.', apply: s => { s.dashClone += 1; } },
+  { id: 'dashclone', label: 'DASH CLONE',         tier: 1, branch: 'DASH', desc: 'Рывок выпускает echo-всплеск в точке старта.', apply: s => { s.dashClone += 1; } },
   { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q стягивает врагов внутрь и наносит урон.', apply: s => { s.activeSnap += 1; } },
   { id: 'q_blood',   label: 'Q: BLOOD PULSE',     tier: 1, branch: 'Q', desc: 'Q тратит HP на красный квадратный взрыв.', apply: s => { s.activeBlood += 1; } },
   { id: 'q_over',    label: 'Q: OVERCLOCK',       tier: 1, branch: 'Q', desc: 'Q временно ускоряет стрельбу.', apply: s => { s.activeOver += 1; } },
@@ -122,12 +122,12 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'FIRE BULLETS', desc: 'Пули поджигают врагов. FIRE + POISON создаёт VOLATILE MIX, FIRE по замороженным даёт THERMAL CRACK.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'FREEZE BULLETS', desc: 'Пули охлаждают врагов и могут коротко остановить их.' },
   { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'POISON BULLETS', desc: 'Пули заражают врагов токсином. POISON + FREEZE даёт SLOW ROT, POISON + FIRE — VOLATILE MIX.' },
-  { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'DRONE ELEMENT LINK', desc: 'Дроны начинают переносить эффекты огня, холода и яда оружия. Хорошо работает с DRONE +1.' },
-  { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'ELEMENT AMP +25%', desc: 'Усиливает длительность и силу всех стихийных эффектов пуль.' },
-  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'STATUS SPREAD', desc: 'Статусы с убитых врагов прыгают на ближайшие цели: ГОРЕНИЕ / ХОЛОД / ЯД.' },
-  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'BULLET LINK +1', desc: 'Попадание оружием связывает врагов тонкой линией: часть урона и стихийных статусов переходит дальше. Стакается: +1 прыжок и больше дальность связи.' },
+  { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'DRONE ELEMENT LINK', desc: 'Дроны начинают переносить fire/freeze/poison эффекты оружия. Хорошо работает с DRONE +1.' },
+  { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'ELEMENT AMP +25%', desc: 'Усиливает длительность и силу всех elemental bullet-эффектов.' },
+  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'STATUS SPREAD', desc: 'Статусы с убитых врагов прыгают на ближайших целей: BURN / FREEZE / POISON.' },
+  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'BULLET LINK +1', desc: 'Попадание оружием связывает врагов тонкой линией: часть урона и elemental-статусов переходит дальше. Стакается: +1 прыжок и больше дальность связи.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG TEETH +2 PELLETS', desc: 'Апгрейд SHG: больше дробин в каждом залпе.' },
-  { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG LONGSHOT RMB', desc: 'Апгрейд SHG: ПКМ тратит все заряды на один дальний мощный одиночный выстрел.' },
+  { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG LONGSHOT RMB', desc: 'Апгрейд SHG: ПКМ тратит все заряды на один дальний мощный slug-выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK SPLIT ON KILL', desc: 'Апгрейд SEK: убийства выпускают самонаводящиеся фрагменты.' },
   { id: 'sek_chain', kind: 'weapon_upgrade', upgrade: 'sek_chain', reqWeapon: 'seeker', label: 'SEK CHAIN LOCK', desc: 'Апгрейд SEK: лучше наведение и дольше жизнь снаряда.' },
   { id: 'sek_swarm', kind: 'weapon_upgrade', upgrade: 'sek_swarm', reqWeapon: 'seeker', label: 'SEK SWARM RMB', desc: 'Апгрейд SEK: ПКМ выпускает рой самонаводящихся пуль, распределённых по разным врагам.' },
@@ -150,7 +150,7 @@ export const ACTIVE_CORES = {
   field_snap: {
     id: 'field_snap', label: 'FIELD SNAP', short: 'SNAP', tone: 'cyan', role: 'PULL / CONTROL',
     desc: 'Резко стягивает врагов и подборы к тебе. Урон: средний сразу, затем слабый урон и контроль в коротком поле.',
-    upgrade: ['+большой радиус', '+сила стяжки', '+дольше длительное']
+    upgrade: ['+большой радиус', '+сила стяжки', '+дольше lingering']
   },
   bullet_freeze: {
     id: 'bullet_freeze', label: 'BULLET FREEZE', short: 'FREEZE', tone: 'cyan', role: 'FREEZE / CONTROL',
@@ -203,9 +203,9 @@ export const ACTIVE_MUTATION_SLOTS = 3;
 // Legacy ABL list is kept for dash/mobility side rewards. Q core/mutation offers are generated dynamically in sim.
 export const ABILITY_CHEST_REWARDS = [
   { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Даёт дополнительный заряд рывка. Простая, всегда полезная мобильность.' },
-  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится пустотным разрезом: враги вдоль траектории получают заметный урон. Стаки увеличивают ширину и урон.' },
+  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится void-разрезом: враги вдоль траектории получают заметный урон. Стаки увеличивают ширину и урон.' },
   { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает врагов рядом с траекторией. Прокачка увеличивает радиус и длительность стана.' },
-  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH CLONE', desc: 'Рывок оставляет эхо-всплеск в точке старта.' },
+  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH CLONE', desc: 'Рывок оставляет echo-всплеск в точке старта.' },
   { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. Это награда ABL, не level-up оружейная ветка.' },
   { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Ускоряет восстановление рывка на 20%.' }
 ];
@@ -261,19 +261,19 @@ export const SKIN_RARITIES = {
   legendary:  { id: 'legendary',  label: 'LEGENDARY',  weight: 1,  tone: 'gold' }
 };
 export const SKIN_PRESETS = [
-  { id: 'terminal_mint', name: 'TERMINAL MINT', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'чистый базовый сигнал / зелёный шов рывка' },
-  { id: 'debt_red', name: 'DEBT RED', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой базовый сигнал / красный разрыв рывка' },
-  { id: 'void_cyan', name: 'VOID CYAN', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодная пустота / фазовый шлейф рывка' },
+  { id: 'terminal_mint', name: 'TERMINAL MINT', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'чистый базовый сигнал / зелёный dash-шов' },
+  { id: 'debt_red', name: 'DEBT RED', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой базовый сигнал / красный dash-разрыв' },
+  { id: 'void_cyan', name: 'VOID CYAN', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодная пустота / фазовый dash-шлейф' },
   { id: 'casino_gold', name: 'CASINO GOLD', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'выигрышная рамка / золотой рывок' },
-  { id: 'bruise_purple', name: 'BRUISE PURPLE', rarity: 'uncommon', fill: '#100617', outline: '#b45cff', barrel: '#ff3048', dash: '#b45cff', dashAlt: '#ff3048', dashStyle: 'bruise', note: 'синяк сигнала / фиолетовый надрез рывка' },
-  { id: 'bone_static', name: 'BONE STATIC', rarity: 'rare', fill: '#d8d0bd', outline: '#6f6f6f', barrel: '#66f6ff', dash: '#d8d0bd', dashAlt: '#66f6ff', dashStyle: 'static', note: 'костяной шум / рывок со скан-линиями' },
-  { id: 'black_lime', name: 'BLACK LIME', rarity: 'rare', fill: '#020202', outline: '#a6ff00', barrel: '#a6ff00', dash: '#a6ff00', dashAlt: '#f3f3f3', dashStyle: 'lime', note: 'кислотный крест / резкий лаймовый рывок' },
-  { id: 'bad_tv', name: 'BAD TV', rarity: 'rare', fill: '#ffffff', outline: '#111111', barrel: '#ff3048', dash: '#f3f3f3', dashAlt: '#ff3048', dashStyle: 'tv', note: 'пересвет / ТВ-срыв рывка' },
-  { id: 'red_static', name: 'RED STATIC', rarity: 'superrare', fill: '#060101', outline: '#ff3048', barrel: '#66f6ff', dash: '#ff3048', dashAlt: '#66f6ff', dashStyle: 'red_static', note: 'красные помехи / рывок оставляет битый канал' },
-  { id: 'mirror_coin', name: 'MIRROR COIN', rarity: 'superrare', fill: '#090909', outline: '#ffd34d', barrel: '#ffd34d', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'mirror', note: 'ложная монета / зеркальный дубль рывка' },
+  { id: 'bruise_purple', name: 'BRUISE PURPLE', rarity: 'uncommon', fill: '#100617', outline: '#b45cff', barrel: '#ff3048', dash: '#b45cff', dashAlt: '#ff3048', dashStyle: 'bruise', note: 'синяк сигнала / фиолетовый dash-надрез' },
+  { id: 'bone_static', name: 'BONE STATIC', rarity: 'rare', fill: '#d8d0bd', outline: '#6f6f6f', barrel: '#66f6ff', dash: '#d8d0bd', dashAlt: '#66f6ff', dashStyle: 'static', note: 'костяной шум / scanline dash' },
+  { id: 'black_lime', name: 'BLACK LIME', rarity: 'rare', fill: '#020202', outline: '#a6ff00', barrel: '#a6ff00', dash: '#a6ff00', dashAlt: '#f3f3f3', dashStyle: 'lime', note: 'кислотный крест / резкий lime dash' },
+  { id: 'bad_tv', name: 'BAD TV', rarity: 'rare', fill: '#ffffff', outline: '#111111', barrel: '#ff3048', dash: '#f3f3f3', dashAlt: '#ff3048', dashStyle: 'tv', note: 'пересвет / TV dash-срыв' },
+  { id: 'red_static', name: 'RED STATIC', rarity: 'superrare', fill: '#060101', outline: '#ff3048', barrel: '#66f6ff', dash: '#ff3048', dashAlt: '#66f6ff', dashStyle: 'red_static', note: 'красные помехи / dash оставляет битый канал' },
+  { id: 'mirror_coin', name: 'MIRROR COIN', rarity: 'superrare', fill: '#090909', outline: '#ffd34d', barrel: '#ffd34d', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'mirror', note: 'ложная монета / зеркальный dash-дубль' },
   { id: 'terminal_ghost', name: 'TERMINAL GHOST', rarity: 'superrare', fill: '#e8fff2', outline: '#66f6ff', barrel: '#00ff66', dash: '#66f6ff', dashAlt: '#00ff66', dashStyle: 'ghost', note: 'призрачный терминал / спектральный рывок' },
-  { id: 'jackpot_wound', name: 'JACKPOT WOUND', rarity: 'legendary', fill: '#160005', outline: '#ffd34d', barrel: '#ff3048', dash: '#ffd34d', dashAlt: '#ff3048', dashStyle: 'jackpot', legendarySfx: 'dash_jackpot', note: 'легендарная рана казино / рывок рисует слот-осколки, монетные клетки и новый многослойный jackpot-звук' },
-  { id: 'dead_channel', name: 'DEAD CHANNEL', rarity: 'legendary', fill: '#000000', outline: '#f3f3f3', barrel: '#66f6ff', dash: '#f3f3f3', dashAlt: '#66f6ff', dashStyle: 'dead_channel', legendarySfx: 'dash_dead_channel', note: 'мёртвый канал / рывок рисует кадры мёртвого ТВ, обломки скан-линий и новый многослойный звук потери синхронизации' }
+  { id: 'jackpot_wound', name: 'JACKPOT WOUND', rarity: 'legendary', fill: '#160005', outline: '#ffd34d', barrel: '#ff3048', dash: '#ffd34d', dashAlt: '#ff3048', dashStyle: 'jackpot', legendarySfx: 'dash_jackpot', note: 'легендарная рана казино / dash рисует слот-осколки, монетные клетки и новый layered jackpot SFX' },
+  { id: 'dead_channel', name: 'DEAD CHANNEL', rarity: 'legendary', fill: '#000000', outline: '#f3f3f3', barrel: '#66f6ff', dash: '#f3f3f3', dashAlt: '#66f6ff', dashStyle: 'dead_channel', legendarySfx: 'dash_dead_channel', note: 'мёртвый канал / dash рисует dead-TV кадры, scanline-обломки и новый layered sync-loss SFX' }
 ];
 export const DEFAULT_UNLOCKED_SKINS = SKIN_PRESETS.filter(s => s.rarity === 'basic').map(s => s.id);
 

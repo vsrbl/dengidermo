@@ -1,4 +1,4 @@
-# PATCH v2.0.87 — CONTRACT VISIBILITY + LIVE TIMING
+# PATCH v2.0.88 — CONTRACT VISIBILITY + LIVE TIMING
 
 ## Player-facing contract plate
 

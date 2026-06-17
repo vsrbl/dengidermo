@@ -318,12 +318,12 @@ function contractChainPayout(depth = 0, chain = 0) {
 }
 
 const CONTRACT_FAVOR_DEFS = {
-  free_reroll: { id: 'free_reroll', label: 'FREE REROLL', labelRu: 'БЕСПЛАТНЫЙ РЕРОЛЛ', tier: 'common', uses: 1, desc: 'One WPN/ABL chest reroll in the next room.' },
-  clear_debt: { id: 'clear_debt', label: 'CLEAR 1 DEBT', labelRu: 'СНЯТЬ 1 ДОЛГ', tier: 'common', uses: 1, desc: 'Removes one Static Rain debt stack before the next room starts.' },
+  free_reroll: { id: 'free_reroll', label: 'CHEST REROLL', labelRu: 'РЕРОЛЛ СУНДУКА', tier: 'common', uses: 1, desc: 'One WPN/ABL chest reroll in the next room.' },
+  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC', labelRu: 'СНЯТЬ СТАТИКУ', tier: 'common', uses: 1, desc: 'Removes one Static Rain debt stack before the next room starts.' },
   skin_signal: { id: 'skin_signal', label: 'SKIN SIGNAL', labelRu: 'СИГНАЛ СКИНА', tier: 'rare', uses: 1, desc: 'Raises hidden skin chance in the next room only.' },
-  portal_insurance: { id: 'portal_insurance', label: 'PORTAL INSURANCE', labelRu: 'СТРАХОВКА ПОРТАЛА', tier: 'rare', uses: 1, desc: 'Once next room, lethal damage restores you to 50 HP.' },
-  epic_reroll: { id: 'epic_reroll', label: 'EPIC REROLL', labelRu: 'ЭПИЧЕСКИЙ РЕРОЛЛ', tier: 'epic', uses: 2, desc: 'Two WPN/ABL chest rerolls in the next room.' },
-  double_favor: { id: 'double_favor', label: 'DOUBLE FAVOR', labelRu: 'ДВОЙНАЯ УСЛУГА', tier: 'epic', uses: 1, desc: 'If the next room contract succeeds, it grants two favors.' }
+  portal_insurance: { id: 'portal_insurance', label: 'INSURANCE', labelRu: 'СТРАХОВКА', tier: 'rare', uses: 1, desc: 'Once next room, lethal damage restores you to 50 HP.' },
+  epic_reroll: { id: 'epic_reroll', label: 'TWO REROLLS', labelRu: 'ДВА РЕРОЛЛА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL chest rerolls in the next room.' },
+  double_favor: { id: 'double_favor', label: 'DOUBLE PRIZE', labelRu: 'ДВОЙНОЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'If the next room contract succeeds, it grants two prizes.' }
 };
 function favorDef(id) { return CONTRACT_FAVOR_DEFS[String(id || '')] || null; }
 function favorLabel(f = {}) { return String((favorDef(f.id)?.label) || f.label || f.id || 'FAVOR'); }
@@ -414,7 +414,7 @@ function contractFavorSnapshot(run) {
 function roomObjectivePayoutText(obj = {}, depth = 0, chain = 0) {
   if (!obj?.id) return '';
   if (obj.id === 'lounge_cashout') return 'SHOP';
-  return 'NEXT ROOM FAVOR';
+  return 'NEXT ROOM PRIZE';
 }
 function decorateRoomObjective(obj, depth = 0, chain = 0, state = {}) {
   if (!obj) return null;
@@ -554,7 +554,7 @@ function settleRoomObjectiveAtPortalOpen(run) {
     run.fx.push({
       t: result.done ? 'contract_done' : 'contract_fail',
       label: result.label,
-      body: result.done ? 'DONE' : (result.failReason || 'FAILED')
+      body: result.done ? 'DONE · PRIZE AFTER ROOM CHECK' : (result.failReason || 'FAILED')
     });
   }
   return run.roomObjectiveSettlement;
@@ -2434,7 +2434,7 @@ function fireWeapon(run, players, p, dt) {
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
   if (w.id === 'shotgun') {
     if (p.fireWasDown) return;
-    if ((p.shgCharges ?? 4) <= 0) { run.fx.push({ t: 'denied', id: p.id, reason: 'NO SHG', x: Math.round(p.x), y: Math.round(p.y) }); p.fireWasDown = true; return; }
+    if ((p.shgCharges ?? 4) <= 0) { p.fireWasDown = true; return; }
     p.fireWasDown = true;
     p.shgCharges = Math.max(0, (p.shgCharges ?? 4) - 1);
     p.cd = 0; // shotgun is gated by click edges + 4-charge ammo, not by cooldown
@@ -3974,7 +3974,7 @@ function beginTransition(run, players) {
   for (const tape of tapes) addRunTape(run, tape, tape.includes('NO HIT') || tape.includes('FAST') ? 'green' : tape.includes('STATIC') || tape.includes('WIRE') ? 'cyan' : tape.includes('BLOOD') ? 'red' : 'purple');
   if (objResult?.done) {
     addRunTape(run, `CONTRACT DONE ${objResult.label}`, 'gold');
-    const favorText = earnedFavors.length ? earnedFavors.map(f => favorLabel(f)).join(' + ') : 'NEXT ROOM FAVOR';
+    const favorText = earnedFavors.length ? earnedFavors.map(f => favorLabel(f)).join(' + ') : 'NEXT ROOM PRIZE';
     run.fx.push({ t: 'contract_paid', label: objResult.label, body: favorText, favors: earnedFavors.map(f => ({ id: f.id, label: favorLabel(f), tier: f.tier, uses: f.uses })) });
   } else if (objResult) {
     addRunTape(run, `CONTRACT FAILED ${objResult.label}`, 'red');
@@ -4714,7 +4714,7 @@ function fireShotgunLongshot(run, players, p) {
   }
   const charges = Math.max(0, p.shgCharges ?? WEAPONS.shotgun.charges);
   if (charges <= 0) {
-    run.fx.push({ t: 'denied', id: p.id, reason: 'NO SHG', x: Math.round(p.x), y: Math.round(p.y) });
+    
     return false;
   }
   const w = WEAPONS.shotgun;

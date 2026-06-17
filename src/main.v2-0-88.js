@@ -177,7 +177,10 @@ function handleSkinUnlock(id, source = 'casino') {
     const ru = getLang() !== 'en';
     const prefix = source === 'room' ? (ru ? 'СКИН ИЗ КОМНАТЫ' : 'ROOM SKIN') : (ru ? 'СКИН ОТКРЫТ' : 'SKIN UNLOCKED');
     const suffix = fallback ? (ru ? ' / БЕЗ ДУБЛЯ' : ' / NO DUPLICATE') : '';
-    try { hud.feed(`${prefix}: ${skin.name}${suffix}`, skin.rarity === 'legendary' || skin.rarity === 'superrare' ? 'p' : 'g'); } catch {}
+    try {
+      hud.feed(`${prefix}: ${skin.name}${suffix}`, skin.rarity === 'legendary' || skin.rarity === 'superrare' ? 'p' : 'g');
+      hud.openSkinClaim?.({ id: skin.id, name: skin.name, rarity: skin.rarity, source });
+    } catch {}
   }
 }
 function handleCasinoSkinReward(pl = {}) {

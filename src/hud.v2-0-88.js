@@ -6,9 +6,43 @@ import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, acti
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(ROOM_MODS).map(m => [m.id, m.label]));
 const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR' };
+const ARCH_LABELS_RU = { panic_box: 'ТЕСНАЯ КОРОБКА', compact: 'ТЕСНАЯ КОМНАТА', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'ЭТАЖ БОССА' };
+const MOD_LABELS_RU = {
+  blackout: 'ТЕМНОТА', static_rain: 'СТАТИЧЕСКИЙ ДОЖДЬ', greed: 'ЖАДНЫЙ СИГНАЛ', debt_floor: 'ДОЛГОВОЙ ПОЛ', hunter_contract: 'ОХОТНИЧИЙ КОНТРАКТ',
+  casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНАЯ КОМНАТА', moving_room: 'ДВИЖУЩИЕСЯ СТЕНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ЦЕНА',
+  shell_market: 'РЫНОК SHELL', echo_walls: 'ЭХО-СТЕНЫ', anchor_gravity: 'ГРАВИТАЦИЯ ЯКОРЕЙ', static_wires: 'СТАТИЧЕСКИЕ ПРОВОДА', hunted_exit: 'ОХОТА НА ВЫХОД', skin_cache: 'СКРЫТЫЙ СКИН'
+};
+const TAG_RU = {
+  'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЖАДНОСТЬ', ARMOR: 'БРОНЯ',
+  'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'GLD↑', 'BET↑': 'BET↑',
+  'SHELL GLD': 'SHELL GLD', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'СКИН', 'SKN CACHE': 'СКИН-ТАЙНИК'
+};
+function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase()); }
+function locTag(v) {
+  const s = String(v || '').trim();
+  if (!s) return s;
+  if (s.includes('STATIC LVL')) return localText(s.replace('STATIC LVL', 'СТАТИКА LVL'), s);
+  return localText(TAG_RU[s] || s, s);
+}
+function locProgress(v) {
+  let s = String(v || '—');
+  if (s === '—') return s;
+  if (document.documentElement.lang === 'en') return s;
+  return s.replace(/READY/g, 'ГОТОВО').replace(/CLEAR/g, 'ЗАЧИСТКА').replace(/CLEAN/g, 'ЧИСТО').replace(/WAVES/g, 'ВОЛНЫ').replace(/SPINS LEFT/g, 'БРОСКОВ ОСТАЛОСЬ').replace(/HP PRICES/g, 'ЦЕНЫ HP').replace(/TOUCH/g, 'КАСАНИЕ').replace(/HIT/g, 'ПОПАДАНИЕ').replace(/DMG/g, 'УРОН').replace(/ENEMIES/g, 'ВРАГИ');
+}
+function locFail(v) {
+  const s = String(v || '');
+  const ru = { 'DAMAGE TAKEN':'ПОЛУЧЕН УРОН', 'TIME LOST':'ВРЕМЯ УШЛО', 'WIRE TOUCHED':'КАСАНИЕ ПРОВОДА', 'LANE HIT':'ПОПАДАНИЕ ЛИНИИ', 'TOO MUCH DMG':'СЛИШКОМ МНОГО УРОНА', 'SHELLS LEFT':'SHELL НЕ СЛОМАНЫ', 'CONDITION LOST':'УСЛОВИЕ СОРВАНО' };
+  return localText(ru[s] || s, s);
+}
+function contractRewardText(reward = '') {
+  const s = String(reward || 'NEXT ROOM FAVOR');
+  if (/NEXT ROOM/i.test(s) || /FAVOR/i.test(s)) return localText('бонус следующей комнаты', 'next-room bonus');
+  return locLabel(s);
+}
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 function roomModLabel(m, room = null, forcedStaticLevel = 0) {
-  const label = locRoomModBase(m);
+  const label = m === 'skin_cache' ? localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN') : localText(MOD_LABELS_RU[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
   if (m === 'static_rain') {
     const lvl = forcedStaticLevel || Math.max(0, room?.staticRainStacks | 0);
     return lvl > 0 ? `${label} LVL ${lvl}` : label;
@@ -42,125 +76,31 @@ function roomRuleSummary(room, ids = []) {
 }
 function dangerLabel(room = {}) {
   const lvl = Math.max(0, Math.min(5, room.danger | 0));
-  const raw = room.dangerLabel || ['SAFE', 'LOW', 'MED', 'HIGH', 'SEVERE', 'BOSS'][lvl] || 'MED';
-  return `${uiLabel('danger')} ${lvl} ${locDangerWord(raw)}`;
+  const label = room.dangerLabel || ['SAFE', 'LOW', 'MED', 'HIGH', 'SEVERE', 'BOSS'][lvl] || 'MED';
+  const ru = { SAFE: 'ТИХО', LOW: 'НИЗКО', MED: 'СРЕДНЕ', HIGH: 'ВЫСОКО', SEVERE: 'ОПАСНО', BOSS: 'БОСС' }[label] || label;
+  return localText(`ОПАСНОСТЬ ${lvl} ${ru}`, `DANGER ${lvl} ${label}`);
 }
 function tagJoin(tags = [], fallback = '—') {
-  return Array.isArray(tags) && tags.length ? tags.slice(0, 4).join(' / ') : fallback;
+  return Array.isArray(tags) && tags.length ? tags.slice(0, 4).map(locTag).join(' / ') : fallback;
 }
-function uiLabel(key) {
-  const ru = {
-    now: 'СЕЙЧАС', next: 'ДАЛЬШЕ', currentRoom: 'ТЕКУЩАЯ КОМНАТА', nextRoom: 'СЛЕДУЮЩАЯ КОМНАТА',
-    danger: 'ОПАСНОСТЬ', threat: 'УГРОЗА', reward: 'НАГРАДА', clean: 'ЧИСТО', normal: 'ОБЫЧНО',
-    portal: 'ПОРТАЛ', static: 'СТАТИКА', run: 'ЗАБЕГ', roomCheck: 'ПРОВЕРКА КОМНАТЫ',
-    kills: 'УБИЙСТВА', dmg: 'УРОН', solved: 'РЕШЕНО', bonus: 'БОНУС', contractDone: 'КОНТРАКТ ВЫПОЛНЕН',
-    contractFailed: 'КОНТРАКТ ПРОВАЛЕН', favor: 'УСЛУГА', contractChain: 'СЕРИЯ КОНТРАКТОВ', tape: 'ПЛЁНКА',
-    rooms: 'КОМНАТЫ', best: 'ЛУЧШЕЕ', staticPaid: 'СТАТИКА ОПЛАЧЕНА', skinRooms: 'СКИН-КОМНАТЫ', contracts: 'КОНТРАКТЫ', favors: 'УСЛУГИ'
-  };
-  const en = {
-    now: 'NOW', next: 'NEXT', currentRoom: 'CURRENT ROOM', nextRoom: 'NEXT ROOM',
-    danger: 'DANGER', threat: 'THREAT', reward: 'REWARD', clean: 'CLEAN', normal: 'NORMAL',
-    portal: 'PORTAL', static: 'STATIC', run: 'RUN', roomCheck: 'ROOM CHECK',
-    kills: 'KILLS', dmg: 'DMG', solved: 'SOLVED', bonus: 'BONUS', contractDone: 'CONTRACT DONE',
-    contractFailed: 'CONTRACT FAILED', favor: 'FAVOR', contractChain: 'CONTRACT CHAIN', tape: 'TAPE',
-    rooms: 'ROOMS', best: 'BEST', staticPaid: 'STATIC PAID', skinRooms: 'SKN ROOMS', contracts: 'CONTRACTS', favors: 'FAVORS'
-  };
-  return localText(ru[key] || key, en[key] || key);
-}
-function archLabel(id = '') {
-  const ru = { panic_box: 'ПАНИК-БОКС', compact: 'КОМПАКТ', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННАЯ ЛИНИЯ', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'ЭТАЖ БОССА' };
-  return localText(ru[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase());
-}
-function locRoomModBase(m = '') {
-  const ru = {
-    blackout: 'ТЬМА', static_rain: 'СТАТИЧЕСКИЙ ДОЖДЬ', greed: 'СИГНАЛ ЖАДНОСТИ', hunter_contract: 'ОХОТНИЧЬИ ВОЛНЫ',
-    casino_virus: 'КАЗИНО-ВИРУС', moving_room: 'ДВИЖУЩИЕСЯ СТЕНЫ', prism_grid: 'ПРИЗМЕННАЯ СЕТКА', blood_tax: 'КРОВАВАЯ ЦЕНА',
-    echo_walls: 'ЭХО-ВЫСТРЕЛЫ', anchor_gravity: 'ГРАВИТАЦИЯ ЯКОРЕЙ', skin_cache: 'СКРЫТЫЙ СКИН'
-  };
-  return localText(ru[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
-}
-function locDangerWord(raw = '') {
-  const ru = { SAFE: 'БЕЗОПАСНО', LOW: 'НИЗКАЯ', MED: 'СРЕДНЯЯ', HIGH: 'ВЫСОКАЯ', SEVERE: 'КРАЙНЯЯ', BOSS: 'БОСС' };
-  const key = String(raw || '').toUpperCase();
-  return localText(ru[key] || key, key);
-}
-function locThreatTag(tag = '') {
-  const s = String(tag || '');
-  if (/^STATIC LVL\s+/i.test(s)) return localText(s.replace(/^STATIC/i, 'СТАТИКА'), s);
-  const ru = {
-    'CLOSE RANGE': 'БЛИЖНЯЯ ДИСТАНЦИЯ', 'DASH SPACE': 'МЕСТО ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', LANES: 'ЛИНИИ', SHOP: 'МАГАЗИН',
-    STATIC: 'СТАТИКА', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ', '3 VIRUS SPINS': '3 ВИРУСНЫХ БРОСКА', 'MOVING SPIKES': 'ДВИЖУЩИЕСЯ ШИПЫ',
-    'SLOW GRID': 'СЕТКА ЗАМЕДЛЕНИЯ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ ЯКОРЯ', 'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ',
-    'PRIORITY TARGET': 'ПРИОРИТЕТНАЯ ЦЕЛЬ', 'NO ENEMIES': 'НЕТ ВРАГОВ'
-  };
-  return localText(ru[s] || s, s);
-}
-function locRewardTag(tag = '') {
-  const s = String(tag || '');
-  const ru = { 'GLD ONLY': 'ТОЛЬКО GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНА HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН' };
-  return localText(ru[s] || s, s);
-}
-function locTagJoin(tags = [], fallback = '—', kind = 'threat') {
-  if (!Array.isArray(tags) || !tags.length) return fallback;
-  const fn = kind === 'reward' ? locRewardTag : locThreatTag;
-  return tags.slice(0, 4).map(fn).join(' / ');
-}
-function contractName(obj = {}) {
-  const id = String(obj.id || '');
-  const en = obj.label || id.toUpperCase();
-  const ru = {
-    boss_cut: 'КОНТРАКТ БОССА', lounge_cashout: 'БЕЗОПАСНЫЙ ВЫХОД', hunter_waves: 'ОХОТНИЧЬИ ВОЛНЫ', virus_clear: 'ОЧИСТКА ВИРУСА',
-    wire_ghost: 'ПРИЗРАК ПРОВОДОВ', grid_ghost: 'ПРИЗРАК СЕТКИ', grid_slow_clear: 'ПРОХОД СЕТКИ', blood_paid: 'ОПЛАЧЕНО КРОВЬЮ',
-    static_clean: 'ЧИСТАЯ СТАТИКА', cache_claim: 'ЗАБРАТЬ КЭШ', fast_clear: 'БЫСТРАЯ ЗАЧИСТКА', no_hit: 'БЕЗ УРОНА', clean_signal: 'ЧИСТЫЙ СИГНАЛ'
-  };
-  return localText(ru[id] || en, en);
-}
-function failReasonText(reason = '') {
-  const s = String(reason || '');
-  const ru = {
-    'WIRE TOUCHED': 'ПРОВОД ЗАДЕТ', 'LANE HIT': 'ПОПАДАНИЕ ЛИНИИ', 'DAMAGE TAKEN': 'ПОЛУЧЕН УРОН', 'TOO MUCH DMG': 'СЛИШКОМ МНОГО УРОНА',
-    'TIME LOST': 'ВРЕМЯ УПУЩЕНО', 'WAVES LEFT': 'ОСТАЛИСЬ ВОЛНЫ', 'SPINS LEFT': 'ОСТАЛИСЬ БРОСКИ', 'NO BLOOD PAID': 'НЕТ ОПЛАТЫ КРОВЬЮ',
-    'NOT DONE': 'НЕ ВЫПОЛНЕНО', DONE: 'ВЫПОЛНЕНО', 'NEXT ROOM DEBT CLEARED': 'ДОЛГ СЛЕДУЮЩЕЙ КОМНАТЫ СНЯТ', 'NO DEBT TO CLEAR': 'НЕТ ДОЛГА ДЛЯ СНЯТИЯ', '3 SPINS CLEARED': '3 БРОСКА ПЕРЕЖИТЫ', 'ROOM STATIC RAIN STARTED': 'СТАТИЧЕСКИЙ ДОЖДЬ НАЧАЛСЯ', 'BIG ROOM STATIC RAIN STARTED': 'СИЛЬНЫЙ СТАТИЧЕСКИЙ ДОЖДЬ НАЧАЛСЯ'
-  };
-  return localText(ru[s] || s, s);
-}
-function progressText(progress = '') {
-  const s = String(progress || '—');
-  if (langIsEnglish()) return s;
-  let m;
-  if (s === 'READY') return 'ГОТОВО';
-  if (s === 'WAVES') return 'ВОЛНЫ';
-  if (s === 'CLEAN') return 'ЧИСТО';
-  if (s === 'CLEAR') return 'ЗАЧИСТКА';
-  if (s === 'HP PRICES') return 'ЦЕНЫ HP';
-  if (s === '3 SPINS') return '3 БРОСКА';
-  if ((m = s.match(/^(\d+)\/(\d+) WAVES$/))) return `${m[1]}/${m[2]} ВОЛНЫ`;
-  if ((m = s.match(/^(\d+) SPINS LEFT$/))) return `${m[1]} БРОСКОВ ОСТАЛОСЬ`;
-  if ((m = s.match(/^(\d+) TOUCH$/))) return `${m[1]} КАСАНИЙ`;
-  if ((m = s.match(/^(\d+) HIT$/))) return `${m[1]} ПОПАДАНИЙ`;
-  if ((m = s.match(/^(\d+)\/(\d+) DMG$/))) return `${m[1]}/${m[2]} УРОНА`;
-  if ((m = s.match(/^(\d+) DMG$/))) return `${m[1]} УРОНА`;
-  return s;
-}
-function langIsEnglish() { return localText('ru', 'en') === 'en'; }
 function roomIntelExplain(room = {}, isNext = false) {
   const base = isNext
     ? localText('Что ждёт в следующей комнате: размер, риск, угрозы, наградный сигнал и правила.', 'What waits in the next room: size, risk, threats, reward signal, and rules.')
     : localText('Что происходит в текущей комнате: размер, риск, угрозы, наградный сигнал и правила.', 'What is happening in the current room: size, risk, threats, reward signal, and rules.');
-  const threats = locTagJoin(room.threatTags, localText('обычная зачистка', 'normal clear'), 'threat');
-  const rewards = locTagJoin(room.rewardTags, localText('обычная награда', 'normal reward'), 'reward');
+  const threats = tagJoin(room.threatTags, localText('обычная зачистка', 'normal clear'));
+  const rewards = tagJoin(room.rewardTags, localText('обычная награда', 'normal reward'));
   const rules = roomRuleSummary(room, room.mods || []);
   return `${base}
 ${dangerLabel(room)}
-${uiLabel('threat')}: ${threats}
-${uiLabel('reward')}: ${rewards}
-${t('rules')}: ${rules}`;
+${localText('УГРОЗЫ', 'THREAT')}: ${threats}
+${localText('НАГРАДА', 'REWARD')}: ${rewards}
+${localText('ПРАВИЛА', 'RULES')}: ${rules}`;
 }
 
 function objectiveExplain(obj = {}) {
-  if (!obj?.id) return localText('Контракт комнаты. Выполни условие, чтобы получить услугу для следующей комнаты.', 'Room contract. Complete the condition to earn a favor for the next room.');
+  if (!obj?.id) return localText('Контракт комнаты. Выполни условие, чтобы получить бонус для следующей комнаты.', 'Room contract. Complete the condition to earn a next-room bonus.');
   const map = {
-    boss_cut: localText('Убей босса. Услуга выдаётся после перехода.', 'Kill the boss. Favor is granted after transition.'),
+    boss_cut: localText('Убей босса. Приз выдаётся в ROOM CHECK.', 'Kill the boss. Prize is granted in ROOM CHECK.'),
     lounge_cashout: localText('Безопасная комната: покупай, ставь BET и выходи, когда готов.', 'Safe room: shop, BET, and leave when ready.'),
     hunter_waves: localText('Пройди все волны. Портал откроется только после последней.', 'Clear all waves. The portal opens only after the final wave.'),
     virus_clear: localText('Переживи 3 вирусных броска, затем зачисти врагов.', 'Survive 3 virus spins, then clear remaining enemies.'),
@@ -173,11 +113,11 @@ function objectiveExplain(obj = {}) {
     no_hit: localText('Очисти комнату без полученного урона.', 'Clear the room without taking damage.'),
     clean_signal: localText('Обычная цель: зачистить комнату.', 'Basic objective: clear the room.')
   };
-  const status = obj.statusLabel ? `${localText('Статус', 'Status')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + failReasonText(obj.failReason) : ''}` : `${localText('Статус', 'Status')}: ${localText('активен', 'active')}`;
+  const status = obj.statusLabel ? `${localText('Статус', 'Status')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + obj.failReason : ''}` : `${localText('Статус', 'Status')}: ${localText('активен', 'active')}`;
   return `${map[obj.id] || localText('Контракт комнаты.', 'Room contract.')}
 ${status}
-${localText('Прогресс', 'Progress')}: ${progressText(obj.progress || '—')}
-${localText('Услуга действует только в следующей комнате.', 'Favor applies only to the next room.')}
+${localText('Прогресс', 'Progress')}: ${locProgress(obj.progress || '—')}
+${localText('Приз действует только в следующей комнате.', 'Prize applies only to the next room.')}
 ${localText('Провал сбрасывает серию контрактов.', 'Failure resets the contract chain.')}`;
 }
 function objectiveStatusText(obj = {}) {
@@ -189,23 +129,26 @@ function objectiveStatusText(obj = {}) {
 }
 function objectiveChip(obj = {}, label = 'OBJ') {
   if (!obj?.label) return '';
-  const name = contractName(obj);
-  const shownLabel = label === 'CONTRACT' ? localText('КОНТРАКТ', 'CONTRACT') : label;
-  const prog = obj.progress ? ` · ${progressText(obj.progress)}` : '';
+  const shownLabel = label === 'CONTRACT' ? localText('КОНТРАКТ', 'CONTRACT') : localText('ЗАДАЧА', label);
+  const objLabel = locLabel(obj.label);
+  const prog = obj.progress ? ` · ${locProgress(obj.progress)}` : '';
   const status = objectiveStatusText(obj);
-  const fail = obj.failReason ? ` · ${failReasonText(obj.failReason)}` : '';
+  const fail = obj.failReason ? ` · ${locFail(obj.failReason)}` : '';
   const cls = obj.status === 'failed' ? ' danger' : (obj.status === 'done' || obj.status === 'done_pending' ? ' good' : '');
-  return `<span class="term${cls}" data-explain-title="${esc(shownLabel)}: ${esc(name)}" data-explain="${esc(objectiveExplain(obj))}">${esc(shownLabel)}: ${esc(name)} · ${esc(status)}${esc(fail)}${esc(prog)}</span>`;
+  return `<span class="term${cls}" data-explain-title="${esc(shownLabel)}: ${esc(objLabel)}" data-explain="${esc(objectiveExplain(obj))}">${esc(shownLabel)}: ${esc(objLabel)} · ${esc(status)}${esc(fail)}${esc(prog)}</span>`;
 }
 function contractCardHtml(obj = {}) {
   if (!obj?.label) return '';
   const status = objectiveStatusText(obj);
-  const prog = obj.progress ? progressText(obj.progress) : '—';
-  const fail = obj.failReason ? ` · ${failReasonText(obj.failReason)}` : '';
+  const prog = obj.progress ? locProgress(obj.progress) : '—';
+  const fail = obj.failReason ? ` · ${locFail(obj.failReason)}` : '';
+  const prize = contractRewardText(obj.reward);
   const reward = obj.status === 'failed'
-    ? localText('СЕРИЯ СБРОШЕНА', 'CHAIN RESET')
-    : localText('УСЛУГА ПОСЛЕ ПЕРЕХОДА', 'FAVOR AFTER TRANSITION');
-  const title = `${contractName(obj)} · ${status}${fail}`;
+    ? localText('ПРИЗ: НЕТ · СЕРИЯ СБРОШЕНА', 'PRIZE: NONE · CHAIN RESET')
+    : (obj.status === 'paid'
+      ? localText(`ПРИЗ ПОЛУЧЕН: ${prize}`, `PRIZE RECEIVED: ${prize}`)
+      : localText(`ПРИЗ: ${prize} · ROOM CHECK`, `PRIZE: ${prize} · ROOM CHECK`));
+  const title = `${locLabel(obj.label)} · ${status}${fail}`;
   return `<div class="contract-kicker">${esc(localText('КОНТРАКТ КОМНАТЫ', 'ROOM CONTRACT'))}</div><div class="contract-title">${esc(title)}</div><div class="contract-sub">${esc(prog)}</div><div class="contract-reward">${esc(reward)}</div>`;
 }
 const rarityText = r => String(r || '').replace('superrare', 'SUPER RARE').toUpperCase();
@@ -253,7 +196,7 @@ function weaponReadability(opt = {}) {
     bullet_range: {
       role: 'RANGE', tone: 'range',
       ru: 'Снаряды живут дольше и летят дальше.', en: 'Projectiles live longer and travel farther.',
-      changeRu: '+дальность / время жизни для SHG, SEK, RKT', changeEn: '+range / lifetime for SHG, SEK, RKT'
+      changeRu: '+дальность / lifetime для SHG, SEK, RKT', changeEn: '+range / lifetime for SHG, SEK, RKT'
     },
     bullet_fire: {
       role: 'STATUS', tone: 'status', element: 'fire',
@@ -297,12 +240,12 @@ function weaponReadability(opt = {}) {
     },
     shg_longshot: {
       role: 'RANGE', tone: 'range',
-      ru: 'ПКМ тратит все заряды SHOTGUN на один дальний одиночный выстрел.', en: 'RMB spends all SHOTGUN charges on one long slug shot.',
+      ru: 'ПКМ тратит все заряды SHOTGUN на один дальний slug-выстрел.', en: 'RMB spends all SHOTGUN charges on one long slug shot.',
       changeRu: 'ПКМ дальний выстрел · растёт со стаками', changeEn: 'RMB longshot · scales with stacks'
     },
     sek_split: {
       role: 'DPS', tone: 'dps',
-      ru: 'Убийства SEEKER выпускают самонаводящиеся фрагменты.', en: 'SEEKER kills release homing fragments.',
+      ru: 'SEEKER kills выпускают самонаводящиеся фрагменты.', en: 'SEEKER kills release homing fragments.',
       changeRu: 'фрагменты при убийстве', changeEn: 'fragments on kill'
     },
     sek_chain: {
@@ -392,7 +335,8 @@ export class Hud {
     this.virusRollSpin = { token: 0, timers: [], intervals: [] };
     this.wasAlive = true;
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
-    this.install = { open: false, choices: [], expires: 0, total: 15, locked: false };
+    this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false };
+    this.skinClaim = null;
     this.weapon = { open: false, choices: [], locked: false };
     this.ability = { open: false, choices: [], locked: false };
     this.names = new Map();
@@ -424,9 +368,12 @@ export class Hud {
       // the cursor so it cannot stick to a previous row like GOAL/ЦЕЛЬ.
       if (under) {
         this.domTipActive = true;
-        if (this.tipEl !== under || this.tipData?.source !== 'dom') {
+        const title = under.dataset.explainTitle || localText('ИНФО', 'INFO');
+        const body = under.dataset.explain || '';
+        const tone = under.dataset.explainTone || '';
+        if (this.tipEl !== under || this.tipData?.source !== 'dom' || this.tipData?.title !== title || this.tipData?.body !== body || this.tipData?.tone !== tone) {
           this.tipEl = under;
-          this.showTip(under.dataset.explainTitle || localText('ИНФО', 'INFO'), under.dataset.explain || '', under.dataset.explainTone || '', 'dom');
+          this.showTip(title, body, tone, 'dom');
         }
       } else if (this.tipData?.source === 'dom') {
         this.domTipActive = false;
@@ -586,7 +533,7 @@ export class Hud {
     }
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
     const obj = $('hud-objective');
-    const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. Зачисти комнату и войди в портал, чтобы попробовать открыть его.', 'This room has a hidden skin. Clear the room and enter the portal to try to unlock it.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
+    const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. После зачистки карточка скина появится в окне улучшений.', 'This room has a hidden skin. After the room is solved, its card appears in the upgrade window.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
     const curRain = Math.max(0, room.staticRainStacks | 0);
     const nextRain = Math.max(0, room.staticRainNext | 0);
     const rainBits = [];
@@ -595,44 +542,44 @@ export class Hud {
     if (curRain > 0) {
       const paid = room.staticRainMode === 'paid';
       const debtLayer = Math.max(0, room.debtEngineRainStacks || 0);
-      const label = (room.mods || []).includes('static_rain') ? `${uiLabel('now')} ${localText('СТАТИЧЕСКИЙ ДОЖДЬ', 'STATIC RAIN')} LVL ${curRain}${paid ? ' · ' + localText('ОПЛАЧЕНО', 'PAID') : ''}` : `${localText('ДОЛГОВОЙ ДОЖДЬ', 'DEBT ENGINE RAIN')} LVL ${curRain}`;
-      rainBits.push(`<span class="term" data-explain-title="STATIC RAIN" data-explain="${esc(roomModHint('static_rain', room))}">${label}</span>`);
+      const label = (room.mods || []).includes('static_rain') ? localText(`СЕЙЧАС СТАТИЧЕСКИЙ ДОЖДЬ LVL ${curRain}${paid ? ' · ОПЛАЧЕН' : ''}`, `NOW STATIC RAIN LVL ${curRain}${paid ? ' · PAID' : ''}`) : localText(`ДОЛГОВОЙ ДОЖДЬ LVL ${curRain}`, `DEBT ENGINE RAIN LVL ${curRain}`);
+      rainBits.push(`<span class="term" data-explain-title="${esc(localText('СТАТИЧЕСКИЙ ДОЖДЬ', 'STATIC RAIN'))}" data-explain="${esc(roomModHint('static_rain', room))}">${label}</span>`);
       if (debtLayer > 0) {
         const body = localText(`Долговой двигатель добавляет дождь только как отдельный слой этой комнаты.`, `Debt Engine adds rain as a separate layer for this room.`);
-        rainBits.push(`<span class="term" data-tone="cyan" data-explain-title="DEBT ENGINE" data-explain="${esc(body)}">DEBT ENGINE: +${localText('СТАТИЧЕСКИЙ ДОЖДЬ', 'STATIC RAIN')} LVL ${debtLayer} ${localText('ЭТА КОМНАТА', 'THIS ROOM')}</span>`);
+        rainBits.push(`<span class="term" data-tone="cyan" data-explain-title="DEBT ENGINE" data-explain="${esc(body)}">${esc(localText(`ДОЛГОВОЙ ДВИГАТЕЛЬ: +СТАТИЧЕСКИЙ ДОЖДЬ LVL ${debtLayer} В ЭТОЙ КОМНАТЕ`, `DEBT ENGINE: +STATIC RAIN LVL ${debtLayer} THIS ROOM`))}</span>`);
       }
     }
     const pendingNextRain = Math.max(0, nx?.staticRainLevel || 0);
     const debtEngineNextRain = Math.max(0, nx?.debtEngineRainLevel || 0);
     if (pendingNextRain > 0) {
-      const txt = nextStaticEligible(nx) ? `${localText('СЛЕД. КОМНАТА: СТАТИЧЕСКИЙ ДОЖДЬ LVL', 'NEXT ROOM: STATIC RAIN LVL')} ${pendingNextRain}` : `${localText('СТАТИКА СОХРАНЕНА LVL', 'STATIC BANKED LVL')} ${pendingNextRain}`;
+      const txt = nextStaticEligible(nx) ? localText(`СЛЕД. КОМНАТА: СТАТИЧЕСКИЙ ДОЖДЬ LVL ${pendingNextRain}`, `NEXT ROOM STATIC RAIN LVL ${pendingNextRain}`) : localText(`СТАТИКА В БАНКЕ LVL ${pendingNextRain}`, `STATIC BANKED LVL ${pendingNextRain}`);
       const body = nextStaticEligible(nx)
         ? localText('Следующая комната получит статический дождь этого уровня.', 'The next room gets Static Rain at this level.')
         : localText('Статический дождь сохранён, но ближайшая комната не подходит. Он сработает в следующей обычной комнате.', 'Static Rain is banked. It will start in the next normal room.');
-      rainBits.push(`<span class="term" data-explain-title="NEXT STATIC RAIN" data-explain="${esc(body)}">${txt}</span>`);
+      rainBits.push(`<span class="term" data-explain-title="${esc(localText('СЛЕДУЮЩАЯ СТАТИКА', 'NEXT STATIC RAIN'))}" data-explain="${esc(body)}">${txt}</span>`);
     }
     if (debtEngineNextRain > 0) {
       const body = localText(`Долговой двигатель действует до конца забега. Следующая боевая комната получит отдельный слой дождя.`, `Debt Engine lasts until the run ends. The next combat room gets a separate rain layer.`);
-      rainBits.push(`<span class="term" data-tone="cyan" data-explain-title="DEBT ENGINE NEXT" data-explain="${esc(body)}">DEBT ENGINE: +${localText('СТАТИЧЕСКИЙ ДОЖДЬ', 'STATIC RAIN')} LVL ${debtEngineNextRain} ${localText('СЛЕД. КОМНАТА', 'NEXT ROOM')}</span>`);
+      rainBits.push(`<span class="term" data-tone="cyan" data-explain-title="DEBT ENGINE NEXT" data-explain="${esc(body)}">${esc(localText(`ДОЛГОВОЙ ДВИГАТЕЛЬ: +СТАТИЧЕСКИЙ ДОЖДЬ LVL ${debtEngineNextRain} СЛЕД. КОМНАТА`, `DEBT ENGINE: +STATIC RAIN LVL ${debtEngineNextRain} NEXT ROOM`))}</span>`);
     }
     const rainHud = rainBits.length ? `<div class="static-rain-status">${rainBits.join(' · ')}</div>` : '';
-    const virusHud = room.casinoVirus ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'))}" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText('ВИРУСНЫЕ БАРАБАНЫ', 'VIRUS REELS'))} · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} ${esc(localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT'))} · ${esc(uiLabel('next'))} ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s${room.casinoVirus.activeRainStacks ? ' · ' + localText('СТАТИЧЕСКИЙ ДОЖДЬ LVL ', 'STATIC RAIN LVL ') + room.casinoVirus.activeRainStacks : ''}</span></div>` : '';
+    const virusHud = room.casinoVirus ? `<div class="static-rain-status"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС-БАРАБАНЫ · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с${room.casinoVirus.activeRainStacks ? ' · СТАТИКА LVL ' + room.casinoVirus.activeRainStacks : ''}`, `VIRUS REELS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s${room.casinoVirus.activeRainStacks ? ' · STATIC RAIN LVL ' + room.casinoVirus.activeRainStacks : ''}`))}</span></div>` : '';
     const currentRules = roomRuleSummary(room, room.mods || []);
-    const currentThreats = locTagJoin(room.threatTags, localText('ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL CLEAR'), 'threat');
-    const currentRewards = locTagJoin(room.rewardTags, localText('ОБЫЧНАЯ НАГРАДА', 'NORMAL REWARD'), 'reward');
+    const currentThreats = tagJoin(room.threatTags, localText('ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL CLEAR'));
+    const currentRewards = tagJoin(room.rewardTags, localText('ОБЫЧНАЯ НАГРАДА', 'NORMAL REWARD'));
     const currentObjective = objectiveChip(room.objective, 'CONTRACT');
-    const currentHud = `<div class="room-current"><span class="term" data-explain-title="${esc(uiLabel('currentRoom'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(uiLabel('now'))}</span>: ${esc(archLabel(room.archetype))}${modLabels.length ? ' · ' + esc(modLabels.slice(0, 4).join(' + ')) : ' · ' + uiLabel('clean')}</div>` +
-      `<div class="room-intel"><span class="term" data-explain-title="${esc(uiLabel('danger'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(dangerLabel(room))}</span> · ${esc(uiLabel('threat'))}: ${esc(currentThreats)} · ${esc(uiLabel('reward'))}: ${esc(currentRewards)}</div>` +
+    const currentHud = `<div class="room-current"><span class="term" data-explain-title="${esc(localText('ТЕКУЩАЯ КОМНАТА', 'CURRENT ROOM'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(localText('СЕЙЧАС', 'NOW'))}</span>: ${esc(archLabel(room.archetype))}${modLabels.length ? ' · ' + esc(modLabels.slice(0, 4).join(' + ')) : ' · ' + esc(localText('ЧИСТО', 'CLEAN'))}</div>` +
+      `<div class="room-intel"><span class="term" data-explain-title="${esc(localText('ОПАСНОСТЬ КОМНАТЫ', 'ROOM DANGER'))}" data-explain="${esc(roomIntelExplain(room, false))}">${esc(dangerLabel(room))}</span> · ${esc(localText('УГРОЗЫ', 'THREAT'))}: ${esc(currentThreats)} · ${esc(localText('НАГРАДА', 'REWARD'))}: ${esc(currentRewards)}</div>` +
       (currentObjective ? `<div class="room-objective">${currentObjective}</div>` : '');
     const nextModIds = nx ? (nx.mods || []).slice(0, 5) : [];
     const nextModLabels = nx ? nextModIds.map(m => roomModLabel(m, nx, m === 'static_rain' && (nx?.staticRainLevel || 0) ? nx.staticRainLevel : 0)) : [];
-    if ((nx?.staticRainLevel || 0) > 0 && !nextModIds.includes('static_rain')) nextModLabels.push(`${localText('СТАТИЧЕСКИЙ ДОЖДЬ LVL', 'STATIC RAIN LVL')} ${nx.staticRainLevel}`);
+    if ((nx?.staticRainLevel || 0) > 0 && !nextModIds.includes('static_rain')) nextModLabels.push(localText(`СТАТИЧЕСКИЙ ДОЖДЬ LVL ${nx.staticRainLevel}`, `STATIC RAIN LVL ${nx.staticRainLevel}`));
     const nextMods = nextModLabels.slice(0, 5).join(' + ');
-    const nextRewards = nx?.rewardTags?.length ? ` · ${uiLabel('reward')}: ${locTagJoin(nx.rewardTags, '', 'reward')}` : '';
-    const nextThreats = nx?.threatTags?.length ? ` · ${uiLabel('threat')}: ${locTagJoin(nx.threatTags, '', 'threat')}` : '';
-    const nextStatic = (nx?.staticBanked || 0) > 0 ? ` · ${localText('СТАТИКА СОХРАНЕНА LVL', 'STATIC BANKED LVL')} ${nx.staticBanked}` : (debtEngineNextRain > 0 ? ` · DEBT ENGINE +${localText('СТАТИКА LVL', 'STATIC LVL')} ${debtEngineNextRain}` : '');
+    const nextRewards = nx?.rewardTags?.length ? ` · ${localText('НАГРАДА', 'REWARD')}: ${tagJoin(nx.rewardTags)}` : '';
+    const nextThreats = nx?.threatTags?.length ? ` · ${localText('УГРОЗЫ', 'THREAT')}: ${tagJoin(nx.threatTags)}` : '';
+    const nextStatic = (nx?.staticBanked || 0) > 0 ? ` · ${localText('СТАТИКА В БАНКЕ', 'STATIC BANKED')} LVL ${nx.staticBanked}` : (debtEngineNextRain > 0 ? ` · ${localText('ДОЛГОВОЙ ДВИГАТЕЛЬ +СТАТИКА', 'DEBT ENGINE +STATIC')} LVL ${debtEngineNextRain}` : '');
     const nextObjective = nx?.objective ? ` · ${objectiveChip(nx.objective, 'CONTRACT')}` : '';
-    const prophecyHud = nx ? `<div class="room-prophecy"><span class="term" data-explain-title="${esc(uiLabel('nextRoom'))}" data-explain="${esc(roomIntelExplain(nx, true))}">${esc(uiLabel('next'))}</span>: ${esc(archLabel(nx.archetype))}${nextMods ? ' · ' + esc(nextMods) : ' · ' + uiLabel('clean')} · ${esc(dangerLabel(nx))}${esc(nextThreats)}${esc(nextRewards)}${esc(nextStatic)}${nextObjective}</div>` : '';
+    const prophecyHud = nx ? `<div class="room-prophecy"><span class="term" data-explain-title="${esc(localText('СЛЕДУЮЩАЯ КОМНАТА', 'NEXT ROOM'))}" data-explain="${esc(roomIntelExplain(nx, true))}">${esc(localText('ДАЛЬШЕ', 'NEXT'))}</span>: ${esc(archLabel(nx.archetype))}${nextMods ? ' · ' + esc(nextMods) : ' · ' + esc(localText('ЧИСТО', 'CLEAN'))} · ${esc(dangerLabel(nx))}${esc(nextThreats)}${esc(nextRewards)}${esc(nextStatic)}${nextObjective}</div>` : '';
     let goalHtml = '';
     if (room.phase === 'install') goalHtml = `<span class="done">${t('installPhase')}</span>`;
     else if (room.cat === 'boss') goalHtml = room.portal[2] ? `<span class="done">${t('portalOpen')} — E</span>${skn}` : `${t('killBoss')}${skn}`;
@@ -690,7 +637,7 @@ export class Hud {
 
     // weapon slots
     const slots = $('weapon-slots');
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + ':' + (me[P.SHG] ?? '');
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX];
     if (slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
@@ -698,8 +645,7 @@ export class Hud {
         const s = document.createElement('span');
         s.className = 'wslot' + (i === me[P.WIDX] ? ' active' : '');
         const wd = WEAPONS[w] || WEAPON_BY_LABEL[w];
-        const isShg = (wd?.label || w) === 'SHG';
-        s.textContent = `${i + 1} ${wd?.label || w}${isShg ? ' ' + (me[P.SHG] ?? 4) + '/4' : ''}`;
+        s.textContent = `${i + 1} ${wd?.label || w}`;
         const desc = weaponDesc(wd, me[P.SHG] ?? 4);
         this.setExplain(s, wd?.name || String(w).toUpperCase(), desc, 'cyan');
         slots.appendChild(s);
@@ -742,9 +688,9 @@ export class Hud {
         const mods = (f.mods || []).map(m => roomModLabel(m, state?.room || null)).join(' + ');
         const skn = f.skinRarity ? ` · ${localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN')} ${rarityText(f.skinRarity)}` : '';
         const arch = f.archetype ? ` · ${archLabel(f.archetype)}` : '';
-        const danger = `${uiLabel('danger')} ${Math.max(0, f.danger | 0)} ${locDangerWord(f.dangerLabel || '')}`.trim();
-        const threats = Array.isArray(f.threatTags) && f.threatTags.length ? ` · ${uiLabel('threat')} ${f.threatTags.slice(0, 3).map(locThreatTag).join('/')}` : '';
-        const rewards = Array.isArray(f.rewardTags) && f.rewardTags.length ? ` · ${uiLabel('reward')} ${f.rewardTags.slice(0, 3).map(locRewardTag).join('/')}` : '';
+        const danger = dangerLabel({ danger: f.danger, dangerLabel: f.dangerLabel });
+        const threats = Array.isArray(f.threatTags) && f.threatTags.length ? ` · ${localText('УГРОЗЫ', 'THREAT')} ${tagJoin(f.threatTags.slice(0, 3))}` : '';
+        const rewards = Array.isArray(f.rewardTags) && f.rewardTags.length ? ` · ${localText('НАГРАДА', 'REWARD')} ${tagJoin(f.rewardTags.slice(0, 3))}` : '';
         this.banner(f.cat === 'boss' ? t('bossFloor') : `${f.roomId}`, `${t('loop')} ${f.loop} · ${t('depth')} ${f.depth}${arch}${mods ? ' · ' + mods : ''} · ${danger}${threats}${rewards}${skn}`,
           f.cat === 'boss' || (f.danger | 0) >= 4 ? 'red' : (f.skinRarity ? 'purple' : (mods ? 'purple' : '')));
         if (f.skinRarity) this.feed(`${t('skinHidden')} · ${rarityText(f.skinRarity)}`, 'p');
@@ -755,39 +701,43 @@ export class Hud {
         const marks = [];
         if (f.noHit) marks.push(localText('БЕЗ УРОНА', 'NO HIT'));
         if (f.fast) marks.push(localText('БЫСТРО', 'FAST'));
-        if (f.staticPaid) marks.push(uiLabel('staticPaid'));
-        if (f.nextStatic) marks.push(`${localText('СЛЕД. СТАТИКА LVL', 'NEXT STATIC LVL')} ${f.nextStatic}`);
-        if (f.bonusGld) marks.push(`${uiLabel('bonus')} GLD +${f.bonusGld}`);
-        if (f.bonusExp) marks.push(`${uiLabel('bonus')} EXP +${f.bonusExp}`);
+        if (f.staticPaid) marks.push(localText('СТАТИКА ОПЛАЧЕНА', 'STATIC PAID'));
+        if (f.nextStatic) marks.push(localText(`СЛЕД. СТАТИКА LVL ${f.nextStatic}`, `NEXT STATIC LVL ${f.nextStatic}`));
+        if (f.bonusGld) marks.push(`BONUS GLD +${f.bonusGld}`);
+        if (f.bonusExp) marks.push(`BONUS EXP +${f.bonusExp}`);
         if (f.objective) {
-          if (f.objective.done) { const fs = (f.contractFavorsEarned || []).map(x => this.favorUiLabel(x)).join(' + '); marks.push(`${uiLabel('contractDone')} ${contractName(f.objective)}${fs ? ' · ' + uiLabel('favor') + ' ' + fs : ''}`); }
-          else marks.push(`${uiLabel('contractFailed')} ${contractName(f.objective)}${f.objective.failReason ? ' / ' + failReasonText(f.objective.failReason) : ''}`);
+          if (f.objective.done) {
+            const fs = (f.contractFavorsEarned || []).map(x => this.favorUiLabel(x)).join(' + ');
+            marks.push(`${localText('КОНТРАКТ ОПЛАЧЕН', 'CONTRACT PAID')} ${locLabel(f.objective.label)}${fs ? ' · ' + localText('ПРИЗ', 'PRIZE') + ' ' + fs : ''}`);
+          } else {
+            marks.push(`${localText('КОНТРАКТ ПРОВАЛЕН', 'CONTRACT FAILED')} ${locLabel(f.objective.label)}${f.objective.failReason ? ' / ' + locFail(f.objective.failReason) : ''}`);
+          }
         }
-        if (f.contractChain >= 2) marks.push(`${uiLabel('contractChain')} x${f.contractChain}`);
-        const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · ${uiLabel('tape')}: ${f.tapes.map(x => failReasonText(x)).join(' / ')}` : '';
-        const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${uiLabel('solved')} ${Math.max(0, Math.round(Number(f.solvedTime)))}s` : '';
-        const line = `${uiLabel('kills')} ${f.kills || 0}${solved} · GLD +${f.gld || 0} · EXP +${f.exp || 0} · ${uiLabel('dmg')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
-        this.banner(uiLabel('roomCheck'), line, f.noHit || f.fast ? 'green' : '');
-        this.feed(`${uiLabel('roomCheck')}: ${line}`, f.noHit ? 'g long' : 'long');
+        if (f.contractChain >= 2) marks.push(`${localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN')} x${f.contractChain}`);
+        const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · TAPE: ${f.tapes.map(locLabel).join(' / ')}` : '';
+        const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${localText('РЕШЕНО', 'SOLVED')} ${Math.max(0, Math.round(Number(f.solvedTime)))}s` : '';
+        const line = `${localText('УБИЙСТВА', 'KILLS')} ${f.kills || 0}${solved} · GLD +${f.gld || 0} · EXP +${f.exp || 0} · ${localText('УРОН', 'DMG')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
+        this.banner(localText('ROOM CHECK', 'ROOM CHECK'), line, f.noHit || f.fast ? 'green' : '');
+        this.feed(`${localText('ROOM CHECK', 'ROOM CHECK')}: ${line}`, f.noHit ? 'g' : '');
         break;
       }
       case 'join': this.feed(`${f.name} ${t('playerJoined')}`, 'g'); break;
       case 'leave': this.feed(`${f.name} ${t('playerLeft')}`, 'r'); break;
       case 'levelup':
-        if (f.id === myId) this.feed(`${localText('УРОВЕНЬ', 'LEVEL UP')} → ${f.level} · INSTALL x${f.pending}`, 'g');
+        if (f.id === myId) this.feed(`LEVEL UP → ${f.level} · INSTALL x${f.pending}`, 'g');
         break;
       case 'pdown': this.feed(`${name(f.id)} ${t('down')}`, 'r'); if (f.id === myId) { this.cancelActiveRoll(); this.closeCasino(); this.banner(t('youDown'), t('carry'), 'red'); } break;
       case 'director_room':
         this.feed(`${t('eventSignal')}: ${localText('новая угроза', 'new threat')}`, 'c');
         break;
-      case 'gld_hit': if (f.id === myId) { this.feed(`${localText('УДАР ЖАДНОСТИ', 'GREED HIT')} -${f.cost || 0} GLD · ${localText('БАЛАНС', 'BAL')} ${f.balance ?? 0}`, 'r'); } break;
-      case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${failReasonText(f.label || 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
+      case 'gld_hit': if (f.id === myId) { this.feed(`${localText('ЖАДНОСТЬ УДАР', 'GREED HIT')} -${f.cost || 0} GLD · BAL ${f.balance ?? 0}`, 'r'); } break;
+      case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${locLabel(f.label || 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
       case 'director_wave':
         this.feed(`${f.label || 'WAVE'} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
         break;
       case 'skin_room': this.feed(`${t('skinHidden')} · ${rarityText(f.skinRarity)}`, 'p'); break;
-      case 'skin_room_ready': this.banner(t('skinReady'), `${t('portalNext')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
-      case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${t('portalTake')} ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН', 'SKIN')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
+      case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка появится в INSTALL-окне', 'card appears in the INSTALL window')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
+      case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('скин ждёт в окне улучшений', 'skin waits in the upgrade window')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН В УЛУЧШЕНИЯХ', 'SKIN IN UPGRADE WINDOW')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
       case 'boss_down': this.banner(t('bossDown'), t('loot'), 'green'); break;
       case 'chest_open':
         if (f.id === myId) this.feed(`${locLabel(f.chest)}: ${(f.rewards || []).map(locReward).join(' + ')}`, f.cursed ? 'p' : 'g');
@@ -796,15 +746,15 @@ export class Hud {
       case 'weapon_mod': if (f.id === myId) this.feed(`WPN: ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': if (f.id === myId) this.feed(locLabel(f.label), 'c'); break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
-      case 'active_denied': if (f.id === myId) { const msg = denyText(f); this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } break;
-      case 'contract': this.banner(f.label || t('contract'), t('contractBody'), 'red'); break;
-      case 'contract_done': this.banner(t('contractDone'), `${contractName(f)}${f.body ? ' · ' + failReasonText(f.body) : ''}`, 'green'); break;
-      case 'contract_paid': this.banner(t('contractPaid'), `${contractName(f)}${f.body ? ' · ' + failReasonText(f.body) : ''}`, 'green'); break;
-      case 'favor_earned': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); this.banner(localText('УСЛУГА ПОЛУЧЕНА', 'FAVOR EARNED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('УСЛУГА', 'FAVOR')}: ${fs}`, 'g'); break; }
-      case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('УСЛУГА АКТИВНА', 'FAVOR ACTIVE')}: ${fs}`, 'g'); break; }
-      case 'favor_used': this.banner(localText('УСЛУГА ИСПОЛЬЗОВАНА', 'FAVOR USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + f.body : ''}`, 'gold'); break;
-      case 'contract_fail': this.banner(t('contractFail'), `${contractName(f)}${f.body ? ' · ' + failReasonText(f.body) : ''}`, 'red'); break;
-      case 'denied': if (f.id === myId) this.denyPrompt(denyText(f)); break;
+      case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
+      case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
+      case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
+      case 'contract_paid': this.banner(t('contractPaid'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
+      case 'favor_earned': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); this.banner(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПРИЗ', 'PRIZE')}: ${fs}`, 'g'); break; }
+      case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
+      case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
+      case 'contract_fail': this.banner(t('contractFail'), `${f.label || ''}${f.body ? ' · ' + f.body : ''}`, 'red'); break;
+      case 'denied': if (f.id === myId) { const msg = denyText(f); if (msg) this.denyPrompt(msg); } break;
       case 'bet_ui': if (f.id === myId) this.openCasino(); break;
       case 'casino': this.casinoResult(f, myId); break;
       case 'active_casino_roll': if (f.id === myId) this.activeRoll(f); break;
@@ -824,7 +774,7 @@ export class Hud {
     const feed = $('feed');
     feed.prepend(el);
     while (feed.children.length > 9) feed.lastChild.remove();
-    setTimeout(() => el.remove(), 9000);
+    setTimeout(() => el.remove(), 6000);
   }
 
   banner(text, sub = '', cls = '') {
@@ -863,7 +813,7 @@ export class Hud {
   virusRoll(f) {
     const el = $('virus-roll');
     if (!el) {
-      this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${failReasonText(f.label || 'VIRUS EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'purple');
+      this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'purple');
       return;
     }
     this.clearVirusRollSpin();
@@ -872,7 +822,7 @@ export class Hud {
     const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols.slice(0, 3) : ['VIR', 'ROLL', '?'];
     const bad = String(f.label || '').toUpperCase().includes('BOSS') || String(f.label || '').toUpperCase().includes('BIG') || String(f.label || '').toUpperCase().includes('ELITE');
     el.className = 'spinning';
-    el.innerHTML = `<div class="roll-title">${localText('БАРАБАНЫ КАЗИНО-ВИРУСА', 'CASINO VIRUS REELS')}</div>` +
+    el.innerHTML = `<div class="roll-title">CASINO VIRUS REELS</div>` +
       `<div class="roll-symbols"><span>—</span><span>—</span><span>—</span></div>` +
       `<div class="roll-result">${localText('ВИРУС КРУТИТСЯ...', 'VIRUS ROLLING...')}</div>` +
       `<div class="roll-left">${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}</div>`;
@@ -900,10 +850,10 @@ export class Hud {
             this.virusRollSpin.intervals.forEach(x => clearInterval(x));
             this.virusRollSpin.intervals = [];
             const res = el.querySelector('.roll-result');
-            if (res) res.textContent = failReasonText(f.label || 'VIRUS EVENT');
+            if (res) res.textContent = f.label || 'VIRUS EVENT';
             const left = el.querySelector('.roll-left');
             if (left) left.textContent = `${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}${f.rainStacks ? ' · ' + localText('ДОЖДЬ LVL ', 'RAIN LVL ') + f.rainStacks : ''}`;
-            this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${failReasonText(f.label || 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
+            this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
             this.playUiSound(bad ? 'casino_static' : 'casino_result');
             const hide = setTimeout(() => { if (this.virusRollSpin.token === token) el.classList.add('hidden'); }, 1700);
             this.virusRollSpin.timers.push(hide);
@@ -927,7 +877,7 @@ export class Hud {
       this.clearActiveRollSpin();
       const token = this.activeRollSpin.token;
       el.className = `${tone} spinning`;
-      el.innerHTML = `<div class="roll-title">${localText('БРОСОК КАЗИНО-МУТАЦИИ', 'CASINO MUTATION ROLL')}</div>` +
+      el.innerHTML = `<div class="roll-title">${esc(localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION ROLL'))}</div>` +
         `<div class="roll-symbols"><span>—</span><span>—</span><span>—</span></div>` +
         `<div class="roll-result">${localText('КРУТИТСЯ...', 'ROLLING...')}</div>`;
       el.classList.remove('hidden');
@@ -951,7 +901,7 @@ export class Hud {
     const token = this.activeRollSpin.token;
     const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols.slice(0, 3) : ['Q', '?', '?'];
     if (!el.querySelector('.roll-symbols span')) {
-      el.innerHTML = `<div class="roll-title">${localText('БРОСОК КАЗИНО-МУТАЦИИ', 'CASINO MUTATION ROLL')}</div>` +
+      el.innerHTML = `<div class="roll-title">${esc(localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION ROLL'))}</div>` +
         `<div class="roll-symbols"><span>?</span><span>?</span><span>?</span></div>` +
         `<div class="roll-result">${localText('КРУТИТСЯ...', 'ROLLING...')}</div>`;
     }
@@ -971,7 +921,7 @@ export class Hud {
           this.activeRollSpin.intervals = [];
           const res = el.querySelector('.roll-result');
           if (res) res.textContent = f.label || f.outcome || 'ROLL';
-          this.feed(`${localText('КАЗИНО-МУТАЦИЯ', 'CASINO MUTATION')}: ${failReasonText(f.label || f.outcome || 'ROLL')}`, tone === 'red' ? 'r' : tone === 'purple' ? 'p' : 'g');
+          this.feed(`${localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION')}: ${locLabel(f.label || f.outcome || 'ROLL')}`, tone === 'red' ? 'r' : tone === 'purple' ? 'p' : 'g');
           this.playUiSound(f.outcome === 'HIT' || f.outcome === 'DEBT' ? 'casino_static' : f.outcome === 'TEN' ? 'jackpot' : 'casino_ability');
           this.activeRollTimer = setTimeout(() => el.classList.add('hidden'), 1550);
         }
@@ -1000,57 +950,57 @@ export class Hud {
     panel.classList.remove('hidden');
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
     const tabStatic = room.staticRainNext > 0
-      ? (nextStaticEligible(room.next) ? `   ${localText('СЛЕД. КОМНАТА: СТАТИЧЕСКИЙ ДОЖДЬ LVL', 'NEXT ROOM STATIC RAIN LVL')} ${esc(room.staticRainNext)}` : `   ${localText('СТАТИКА СОХРАНЕНА LVL', 'STATIC BANKED LVL')} ${esc(room.staticRainNext)}`)
+      ? (nextStaticEligible(room.next) ? `   ${localText('СЛЕД. СТАТИКА LVL', 'NEXT ROOM STATIC RAIN LVL')} ${esc(room.staticRainNext)}` : `   ${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${esc(room.staticRainNext)}`)
       : '';
     const next = room.next || null;
     const explainAttr = (title, body, tone = '') => `data-explain-title="${esc(title)}" data-explain="${esc(body)}"${tone ? ` data-explain-tone="${tone}"` : ''}`;
     const modChip = (m, r = room) => `<span class="term" ${explainAttr(roomModLabel(m, r), roomModHint(m, r), m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'echo_walls' || m === 'anchor_gravity' || m === 'casino_virus' ? 'purple' : m === 'greed' ? 'gold' : '')}>${esc(roomModLabel(m, r))}</span>`;
-    const modList = (r) => (r?.mods || []).length ? (r.mods || []).map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(uiLabel('clean'))}</span>`;
+    const modList = (r) => (r?.mods || []).length ? (r.mods || []).map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
     const currentRules = roomRuleSummary(room, room.mods || []);
     const nextRules = next ? roomRuleSummary(next, next.mods || []) : '—';
     const nextStaticLine = room.staticRainNext > 0
-      ? (nextStaticEligible(room.next) ? `${localText('СЛЕД. СТАТИКА LVL', 'NEXT STATIC LVL')} ${room.staticRainNext}` : `${localText('СТАТИКА СОХРАНЕНА LVL', 'STATIC BANKED LVL')} ${room.staticRainNext}`)
+      ? (nextStaticEligible(room.next) ? `${localText('СЛЕД. СТАТИКА LVL', 'NEXT STATIC LVL')} ${room.staticRainNext}` : `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${room.staticRainNext}`)
       : '—';
     const portalState = room.portal?.[2] ? localText('ОТКРЫТ', 'OPEN') : localText('ЗАКРЫТ', 'CLOSED');
     const mem = room.runMemory || {};
     const tapes = Array.isArray(room.tapeLog) ? room.tapeLog.slice(0, 6) : [];
     const tapeRows = tapes.length
-      ? tapes.map(x => `<p class="tape-row"><span class="term" ${explainAttr(uiLabel('tape'), localText('Памятная запись за этот забег: чистая комната, быстрый клир, особый модификатор или редкая награда.', 'Run memory entry: clean room, fast clear, special modifier, or rare reward.'), x.tone || '')}>${esc(x.label || x)}</span> <span class="muted">D${esc(String(x.depth ?? ''))}</span></p>`).join('')
+      ? tapes.map(x => `<p class="tape-row"><span class="term" ${explainAttr('TAPE', localText('Памятная запись за этот забег: чистая комната, быстрый клир, особый модификатор или редкая награда.', 'Run memory entry: clean room, fast clear, special modifier, or rare reward.'), x.tone || '')}>${esc(x.label || x)}</span> <span class="muted">D${esc(String(x.depth ?? ''))}</span></p>`).join('')
       : `<p class="muted">${esc(localText('Пока нет записей.', 'No tapes yet.'))}</p>`;
     $('tab-run').innerHTML =
       `<div class="tab-dossier">` +
-        `<div class="tab-card current"><h3><span class="term" ${explainAttr(uiLabel('currentRoom'), roomIntelExplain(room, false), 'cyan')}>${esc(uiLabel('now'))}</span> ${esc(archLabel(room.archetype))}</h3>` +
+        `<div class="tab-card current"><h3><span class="term" ${explainAttr(localText('ТЕКУЩАЯ КОМНАТА', 'CURRENT ROOM'), roomIntelExplain(room, false), 'cyan')}>${esc(localText('СЕЙЧАС', 'NOW'))}</span> ${esc(archLabel(room.archetype))}</h3>` +
           `<div>${modList(room)}</div>` +
-          `<p><span class="term" ${explainAttr(uiLabel('danger'), roomIntelExplain(room, false), 'red')}>${esc(dangerLabel(room))}</span></p>` +
-          `<p>${esc(uiLabel('threat'))}: ${esc(locTagJoin(room.threatTags, uiLabel('normal'), 'threat'))}</p>` +
-          `<p>${esc(uiLabel('reward'))}: ${esc(locTagJoin(room.rewardTags, uiLabel('normal'), 'reward'))}</p>` +
+          `<p><span class="term" ${explainAttr(localText('ОПАСНОСТЬ', 'DANGER'), roomIntelExplain(room, false), 'red')}>${esc(dangerLabel(room))}</span></p>` +
+          `<p>${esc(localText('УГРОЗЫ', 'THREAT'))}: ${esc(tagJoin(room.threatTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
+          `<p>${esc(localText('НАГРАДА', 'REWARD'))}: ${esc(tagJoin(room.rewardTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
           (room.objective ? `<p>${objectiveChip(room.objective, 'CONTRACT')}</p>` : '') +
           `<p class="rules"><span class="term" ${explainAttr(t('rules'), currentRules, 'purple')}>${esc(t('rules'))}</span>: ${esc(currentRules)}</p></div>` +
-        `<div class="tab-card next"><h3><span class="term" ${explainAttr(uiLabel('nextRoom'), next ? roomIntelExplain(next, true) : '—', 'cyan')}>${esc(uiLabel('next'))}</span> ${next ? esc(archLabel(next.archetype)) : '—'}</h3>` +
+        `<div class="tab-card next"><h3><span class="term" ${explainAttr(localText('СЛЕДУЮЩАЯ КОМНАТА', 'NEXT ROOM'), next ? roomIntelExplain(next, true) : '—', 'cyan')}>${esc(localText('ДАЛЬШЕ', 'NEXT'))}</span> ${next ? esc(archLabel(next.archetype)) : '—'}</h3>` +
           `<div>${next ? modList(next) : '<span class="muted">—</span>'}</div>` +
-          `<p>${next ? esc(dangerLabel(next)) : esc(uiLabel('danger') + ' —')}</p>` +
-          `<p>${esc(uiLabel('threat'))}: ${next ? esc(locTagJoin(next.threatTags, uiLabel('normal'), 'threat')) : '—'}</p>` +
-          `<p>${esc(uiLabel('reward'))}: ${next ? esc(locTagJoin(next.rewardTags, uiLabel('normal'), 'reward')) : '—'}</p>` +
+          `<p>${next ? esc(dangerLabel(next)) : esc(localText('ОПАСНОСТЬ —', 'DANGER —'))}</p>` +
+          `<p>${esc(localText('УГРОЗЫ', 'THREAT'))}: ${next ? esc(tagJoin(next.threatTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
+          `<p>${esc(localText('НАГРАДА', 'REWARD'))}: ${next ? esc(tagJoin(next.rewardTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
           (next?.objective ? `<p>${objectiveChip(next.objective, 'CONTRACT')}</p>` : '') +
-          `<p class="rules"><span class="term" ${explainAttr(localText('ПРАВИЛА СЛЕДУЮЩЕЙ', 'NEXT RULES'), nextRules, 'purple')}>${esc(t('rules'))}</span>: ${esc(nextRules)}</p></div>` +
-        `<div class="tab-card run"><h3>${esc(uiLabel('run'))}</h3>` +
+          `<p class="rules"><span class="term" ${explainAttr(localText('СЛЕД. ПРАВИЛА', 'NEXT RULES'), nextRules, 'purple')}>${esc(t('rules'))}</span>: ${esc(nextRules)}</p></div>` +
+        `<div class="tab-card run"><h3>${esc(localText('ЗАБЕГ', 'RUN'))}</h3>` +
           `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${room.loop} · <span class="term" ${explainAttr(t('depth'), localText('Сколько комнат уже пройдено в текущем забеге.', 'Rooms cleared in this run.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net.roomId || '----')}</p>` +
-          `<p><span class="term" ${explainAttr(t('goal'), localText('Прогресс зачистки. После выполнения цели открывается портал.', 'Clear progress. Portal opens when the objective is done.'))}>${esc(t('clear'))}</span> ${room.kills}/${room.quota} · ${esc(uiLabel('portal'))} ${esc(portalState)}</p>` +
-          `<p><span class="term" ${explainAttr('STATIC RAIN', localText('Статический долг и состояние оплаты в текущей комнате.', 'Static Rain debt and current-room payoff state.'), 'cyan')}>${esc(uiLabel('static'))}</span> ${esc(nextStaticLine)}${room.staticRainStacks ? ` · ${esc(uiLabel('now'))} LVL ${esc(room.staticRainStacks)}` : ''}</p>` +
+          `<p><span class="term" ${explainAttr(t('goal'), localText('Прогресс зачистки. После выполнения цели открывается портал.', 'Clear progress. Portal opens when the objective is done.'))}>${esc(t('clear'))}</span> ${room.kills}/${room.quota} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
+          `<p><span class="term" ${explainAttr(localText('СТАТИЧЕСКИЙ ДОЖДЬ', 'STATIC RAIN'), localText('Статический долг и текущая оплата комнаты.', 'Static Rain debt and current-room payoff state.'), 'cyan')}>${esc(localText('СТАТИКА', 'STATIC'))}</span> ${esc(nextStaticLine)}${room.staticRainStacks ? ` · ${localText('СЕЙЧАС LVL', 'NOW LVL')} ${esc(room.staticRainStacks)}` : ''}</p>` +
           `${room.skinReward ? `<p>${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}: ${esc(rarityText(room.skinReward))}</p>` : ''}` +
           `<p><span class="term" ${explainAttr('SKIN PITY', localText('Чем выше число, тем сильнее шанс комнаты со скрытым скином.', 'Higher value means a hidden-skin room is more likely.'))}>${esc(localText('ШАНС СКИНА', 'SKIN PITY'))}</span> ${esc(room.skinPity || 0)}/8</p>` +
-          `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('УСЛУГИ КОНТРАКТА', 'CONTRACT FAVORS'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)}`).join('\n'), 'gold')}>${esc(localText('УСЛУГИ', 'FAVORS'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
-          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти услуги станут активны только в следующей комнате и сгорят после неё.', 'These favors activate only in the next room and expire after it.'), 'gold')}>${esc(localText('СЛЕД. УСЛУГА', 'NEXT FAVOR'))}</span> ${(room.contractFavors.pending || []).map(f => esc(this.favorUiLabel(f))).join(' · ')}</p>` : ''}</div>` +
+          `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)}`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
+          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти бонусы станут активны только в следующей комнате и сгорят после неё.', 'These bonuses activate only in the next room and expire after it.'), 'gold')}>${esc(localText('СЛЕД. БОНУС', 'NEXT BONUS'))}</span> ${(room.contractFavors.pending || []).map(f => esc(this.favorUiLabel(f))).join(' · ')}</p>` : ''}</div>` +
         `<div class="tab-card memory"><h3><span class="term" ${explainAttr(localText('ПАМЯТЬ ЗАБЕГА', 'RUN MEMORY'), localText('Сводка по текущему забегу: комнаты, серии и награды.', 'Current run summary: clears, streaks, and accumulated rewards.'), 'green')}>${esc(localText('ПАМЯТЬ ЗАБЕГА', 'RUN MEMORY'))}</span></h3>` +
-          `<p>${esc(uiLabel('rooms'))} ${esc(mem.roomsCleared || 0)} · ${esc(uiLabel('kills'))} ${esc(mem.totalKills || 0)}</p>` +
+          `<p>${localText('КОМНАТЫ', 'ROOMS')} ${esc(mem.roomsCleared || 0)} · ${localText('УБИЙСТВА', 'KILLS')} ${esc(mem.totalKills || 0)}</p>` +
           `<p>GLD +${esc(Math.round(mem.totalGld || 0))} · EXP +${esc(Math.round(mem.totalExp || 0))}</p>` +
-          `<p>NO HIT ${esc(mem.noHitStreak || 0)} / ${esc(uiLabel('best'))} ${esc(mem.bestNoHitStreak || 0)}</p>` +
-          `<p>FAST ${esc(mem.fastStreak || 0)} / ${esc(uiLabel('best'))} ${esc(mem.bestFastStreak || 0)}</p>` +
-          `<p>${esc(uiLabel('staticPaid'))} ${esc(mem.staticPaid || 0)} · ${esc(uiLabel('skinRooms'))} ${esc(mem.skinRoomsSeen || 0)}</p>` +
-          `<p><span class="term" ${explainAttr(uiLabel('contractChain'), localText('Подряд выполненные контракты комнат. Провал контракта сбрасывает серию.', 'Consecutive completed room contracts. Failing a contract resets the chain.'), 'gold')}>${esc(uiLabel('contractChain'))}</span> x${esc(mem.contractStreak || 0)} / ${esc(uiLabel('best'))} x${esc(mem.bestContractStreak || 0)}</p>` +
-          `<p>${esc(uiLabel('contracts'))} ${esc(mem.objectivesDone || 0)}/${esc(mem.objectivesSeen || 0)} · ${esc(uiLabel('favors'))} ${esc(mem.favorsEarned || 0)}</p></div>` +
-        `<div class="tab-card tapes"><h3><span class="term" ${explainAttr(localText('ЖУРНАЛ ПЛЁНКИ', 'TAPE LOG'), localText('Последние значимые записи текущего забега. Показаны здесь, а не в боевом HUD.', 'Recent meaningful run records. Shown here instead of the combat HUD.'), 'purple')}>${esc(localText('ЖУРНАЛ ПЛЁНКИ', 'TAPE LOG'))}</span></h3>${tapeRows}</div>` +
+          `<p>${localText('БЕЗ УРОНА', 'NO HIT')} ${esc(mem.noHitStreak || 0)} / ${localText('ЛУЧШЕЕ', 'BEST')} ${esc(mem.bestNoHitStreak || 0)}</p>` +
+          `<p>${localText('БЫСТРО', 'FAST')} ${esc(mem.fastStreak || 0)} / ${localText('ЛУЧШЕЕ', 'BEST')} ${esc(mem.bestFastStreak || 0)}</p>` +
+          `<p>${localText('СТАТИКА ОПЛАЧЕНА', 'STATIC PAID')} ${esc(mem.staticPaid || 0)} · ${localText('СКИН-КОМНАТЫ', 'SKN ROOMS')} ${esc(mem.skinRoomsSeen || 0)}</p>` +
+          `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Подряд выполненные контракты комнат. Провал контракта сбрасывает серию.', 'Consecutive completed room contracts. Failing a contract resets the chain.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)}</p>` +
+          `<p>${localText('КОНТРАКТЫ', 'CONTRACTS')} ${esc(mem.objectivesDone || 0)}/${esc(mem.objectivesSeen || 0)} · ${localText('ПРИЗЫ', 'PRIZES')} ${esc(mem.favorsEarned || 0)}</p></div>` +
+        `<div class="tab-card tapes"><h3><span class="term" ${explainAttr(localText('TAPE LOG', 'TAPE LOG'), localText('Последние значимые записи текущего забега. Показаны здесь, а не в боевом HUD.', 'Recent meaningful run records. Shown here instead of the combat HUD.'), 'purple')}>${esc(localText('TAPE LOG', 'TAPE LOG'))}</span></h3>${tapeRows}</div>` +
       `</div>`;
     const table = $('tab-table');
     let html = '<tr>' +
@@ -1096,6 +1046,7 @@ export class Hud {
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
     });
+    this.appendSkinClaimCard(box);
     $('install-modal').classList.remove('hidden');
   }
   pick(i) {
@@ -1112,13 +1063,37 @@ export class Hud {
     this.pick(Math.floor(Math.random() * this.install.choices.length));
     return true;
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; $('install-modal').classList.add('hidden'); this.hideTip(); }
+  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; $('install-modal').classList.add('hidden'); this.hideTip(); }
+
+  openSkinClaim(skin = {}) {
+    if (!skin?.id && !skin?.name) return;
+    this.skinClaim = { ...skin, claimed: false };
+    const box = $('install-choices');
+    if (!this.install.open) {
+      this.install = { open: true, choices: [], expires: 15, total: 15, locked: false, skinOnly: true };
+      $('install-pending').textContent = localText('SKN', 'SKN');
+      if (box) box.innerHTML = '';
+      $('install-modal')?.classList.remove('hidden');
+    }
+    this.appendSkinClaimCard(box);
+  }
+  appendSkinClaimCard(box) {
+    if (!box || !this.skinClaim || this.skinClaim.claimed) return;
+    box.querySelectorAll('.skin-claim-card').forEach(x => x.remove());
+    const skin = this.skinClaim;
+    const d = document.createElement('div');
+    d.className = `choice skin-claim-card rarity-${String(skin.rarity || '').replace(/[^a-z0-9_-]/gi, '')}`;
+    d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ СКИН', 'CLAIM SKIN'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || 'SKIN')}</span>`;
+    this.setExplain(d, localText('СКИН ГОТОВ', 'SKIN READY'), localText('Скин уже открыт для забега. Нажми, чтобы закрыть карточку и отметить его как забранный.', 'The skin is unlocked for the run. Click to close this card and mark it claimed.'), 'purple');
+    d.addEventListener('click', () => { this.skinClaim.claimed = true; d.classList.add('picked'); d.remove(); if (this.install.skinOnly) this.closeInstall(); });
+    box.prepend(d);
+  }
 
   favorUiLabel(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'БЕСПЛАТНЫЙ РЕРОЛЛ', clear_debt: 'СНЯТЬ 1 ДОЛГ', skin_signal: 'СИГНАЛ СКИНА',
-      portal_insurance: 'СТРАХОВКА ПОРТАЛА', epic_reroll: 'ЭПИЧЕСКИЙ РЕРОЛЛ', double_favor: 'ДВОЙНАЯ УСЛУГА'
+      free_reroll: 'РЕРОЛЛ СУНДУКА', clear_debt: 'СНЯТЬ СТАТИКУ', skin_signal: 'СИГНАЛ СКИНА',
+      portal_insurance: 'СТРАХОВКА', epic_reroll: 'ДВА РЕРОЛЛА', double_favor: 'ДВОЙНОЙ ПРИЗ'
     };
     const en = {
       free_reroll: 'FREE REROLL', clear_debt: 'CLEAR 1 DEBT', skin_signal: 'SKIN SIGNAL',
@@ -1134,7 +1109,7 @@ export class Hud {
       skin_signal: 'Повышает шанс скрытого скина в этой комнате. Действует только здесь.',
       portal_insurance: 'Один раз в этой комнате смертельный удар оставит тебя живым и даст 50 HP.',
       epic_reroll: 'Два реролла WPN/ABL сундуков в этой комнате. Без штрафа.',
-      double_favor: 'Если контракт этой комнаты выполнен, следующая комната получит две услуги. Без штрафа.'
+      double_favor: 'Если контракт этой комнаты выполнен, следующая комната получит два приза. Без штрафа.'
     };
     const en = {
       free_reroll: 'One WPN/ABL chest reroll in this room. Expires when the room ends.',
@@ -1142,9 +1117,9 @@ export class Hud {
       skin_signal: 'Raises hidden skin chance in this room. This room only.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
       epic_reroll: 'Two WPN/ABL chest rerolls in this room. No downside.',
-      double_favor: 'If this room contract succeeds, the next room gets two favors. No downside.'
+      double_favor: 'If this room contract succeeds, the next room gets two prizes. No downside.'
     };
-    return localText(ru[id] || 'Услуга контракта действует только в этой комнате.', en[id] || 'Contract favor for this room only.');
+    return localText(ru[id] || 'Бонус контракта действует только в этой комнате.', en[id] || 'Contract bonus for this room only.');
   }
   activeRerollFavorUses() {
     const active = this.latestRoom?.contractFavors?.active || [];
@@ -1155,9 +1130,15 @@ export class Hud {
     if (!box || uses <= 0) return;
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
-    d.innerHTML = `<span class="key">↻</span>${esc(localText('УСЛУГА КОНТРАКТА: РЕРОЛЛ', 'CONTRACT FAVOR: REROLL'))}<span class="favor-uses">x${uses}</span><span class="choice-sub">${esc(localText('Только эта комната', 'This room only'))}</span>`;
-    this.setExplain(d, localText('РЕРОЛЛ УСЛУГИ', 'FAVOR REROLL'), localText('Тратит один реролл контракта и создаёт новые варианты этого сундука. Бонус сгорает в конце комнаты.', 'Spends one contract reroll and creates new choices for this chest. The favor expires at room end.'), 'gold');
-    d.addEventListener('click', () => { this.playUiSound('contract'); d.classList.add('picked'); this.net.sendRerollOffer(kind); });
+    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('РЕРОЛЛ СУНДУКА · только эта комната', 'CHEST REROLL · this room only'))}</span>`;
+    this.setExplain(d, localText('РЕРОЛЛ СУНДУКА', 'CHEST REROLL'), localText('Тратит один приз контракта и создаёт новые варианты этого сундука. Бонус сгорает в конце комнаты.', 'Spends one contract prize and creates new choices for this chest. The bonus expires at room end.'), 'gold');
+    d.addEventListener('click', () => {
+      this.playUiSound('contract');
+      d.classList.add('picked');
+      this.net.sendRerollOffer(kind);
+      if (uses <= 1) d.remove();
+      else { const u = d.querySelector('.favor-uses'); if (u) u.textContent = `x${uses - 1}`; }
+    });
     box.appendChild(d);
   }
 
@@ -1350,32 +1331,6 @@ export class Hud {
       this.casino.reelTimers.push(timer);
     });
   }
-  casinoOutcomeText(outcome = '') {
-    const key = String(outcome || '').toUpperCase();
-    const ru = { GLD: 'GLD', EXP: 'EXP', HEA: 'HP', WPN: 'WPN', ABL: 'ABL', SKN: 'СКИН', STC: 'СТАТИЧЕСКИЙ ДОЛГ', JCK: 'ДЖЕКПОТ', LOSE: 'ПРОИГРЫШ' };
-    const en = { GLD: 'GLD', EXP: 'EXP', HEA: 'HEAL', WPN: 'WPN', ABL: 'ABL', SKN: 'SKIN', STC: 'STATIC DEBT', JCK: 'JACKPOT', LOSE: 'LOSS' };
-    return localText(ru[key] || key, en[key] || key);
-  }
-  casinoSummary(f = {}, includePlayer = false) {
-    const pl = f.payload || {};
-    const paidUnit = f.bloodTax ? 'HP' : 'GLD';
-    const paid = f.bloodTax ? (f.hpStake || f.stake || 0) : (f.stake || 0);
-    const parts = [];
-    if (includePlayer) parts.push(this.names.get(f.id) || '??');
-    parts.push(`${localText('СТАВКА', 'BET')} ${f.stake || ''}`.trim());
-    parts.push(`-${paid} ${paidUnit}`);
-    parts.push(this.casinoOutcomeText(f.outcome));
-    if (pl.gld) parts.push(`+${pl.gld} GLD`);
-    if (pl.xp) parts.push(`+${pl.xp} EXP`);
-    if (pl.heal) parts.push(`+${pl.heal} HP`);
-    if (pl.dash) parts.push(locLabel('DASH +1'));
-    if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
-    if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
-    if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKIN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
-    if (pl.static) parts.push(t('nextRoomDebt'));
-    if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - (f.stake || 0) >= 0 ? '+' : ''}${pl.gld - (f.stake || 0)} GLD`);
-    return parts.filter(Boolean).join(' · ');
-  }
   casinoDenied(f) {
     if (!this.casino.open) this.openCasino();
     this.playUiSound('denied');
@@ -1384,19 +1339,19 @@ export class Hud {
     this.setCasinoButtons(false);
     document.querySelectorAll('.reel').forEach(r => { r.textContent = localText('ОТК', 'NO'); r.className = 'reel lose'; });
     const el = $('casino-result');
-    const errors = { 'BET FAILED': t('betFailed'), 'not enough GLD': t('gldLack'), 'НЕДОСТАТОЧНО GLD': t('gldLack'), 'НЕДОСТАТОЧНО HP': localText('НЕТ HP', 'NO HP'), 'not enough HP': localText('НЕТ HP', 'NO HP'), 'invalid stake': t('invalidStake'), 'НЕВЕРНАЯ СТАВКА': t('invalidStake'), 'ИГРОК DOWN': localText('ИГРОК ВЫБЫЛ', 'PLAYER DOWN'), 'BET ДОСТУПЕН ТОЛЬКО В БОЮ': localText('BET ТОЛЬКО В БОЮ', 'BET ONLY AVAILABLE DURING PLAY'), 'ПОДОЙДИ К BET TERMINAL': localText('ПОДОЙДИ К BET-ТЕРМИНАЛУ', 'MOVE CLOSER TO BET TERMINAL') };
+    const errors = { 'BET FAILED': t('betFailed'), 'not enough GLD': t('gldLack'), 'НЕДОСТАТОЧНО GLD': t('gldLack'), 'НЕДОСТАТОЧНО HP': localText('НЕТ HP', 'NO HP'), 'not enough HP': localText('НЕТ HP', 'NO HP'), 'invalid stake': t('invalidStake') };
     el.textContent = errors[f.error] || f.error || t('betFailed');
     el.style.color = '#ff3048';
   }
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      this.feed(this.casinoSummary(f, true), f.outcome === 'LOSE' ? 'r long' : (f.outcome === 'STC' ? 'p long' : 'g long'));
+      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin') };
+      this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
     if (f.seq && this.casino.lastResultSeq === f.seq) return; // direct result + later snapshot duplicate
     if (f.seq) this.casino.lastResultSeq = f.seq;
-    this.feed(this.casinoSummary(f, false), f.outcome === 'LOSE' ? 'r long' : (f.outcome === 'STC' ? 'p long' : 'g long'));
     if (!this.casino.open) this.openCasino();
     const resultToken = this.casino.spinToken;
     this.stopReels(f);
@@ -1410,14 +1365,15 @@ export class Hud {
       if (pl.gld) parts.push(`+${pl.gld} GLD`);
       if (pl.xp) parts.push(`+${pl.xp} EXP`);
       if (pl.heal) parts.push(`+${pl.heal} HP`);
-      if (pl.dash) parts.push(locLabel('DASH +1'));
+      if (pl.dash) parts.push('DASH +1');
       if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
       if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
-      if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKIN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+      if (pl.skinLabel) parts.push(`SKN: ${pl.skinLabel}${pl.skinRarity ? ' / ' + String(pl.skinRarity).toUpperCase() : ''}`);
       if (pl.static) parts.push(t('nextRoomDebt'));
       if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
-      if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
+      if (pl.gld && !f.bloodTax) parts.push(`NET ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       el.innerHTML = parts.map(x => `<span>${esc(x)}</span>`).join('');
+      this.feed(`${localText('BET НАГРАДА', 'BET REWARD')}: ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN') ? 'casino_ability' : 'casino_win');
     }, 640);

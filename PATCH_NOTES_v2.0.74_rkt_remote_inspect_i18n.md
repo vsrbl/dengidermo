@@ -1,4 +1,4 @@
-# nncckkrr v2.0.87 — RKT remote detonation / inspect key / EN text sweep
+# nncckkrr v2.0.88 — RKT remote detonation / inspect key / EN text sweep
 
 ## Input
 - Inspect mode moved from right mouse button to `Space`.

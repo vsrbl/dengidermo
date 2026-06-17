@@ -59,29 +59,31 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 
 #hud-contract-card {
   position: absolute;
-  left: 50%;
-  top: 58px;
-  transform: translateX(-50%);
-  min-width: 280px;
-  max-width: min(520px, 46vw);
-  padding: 7px 12px 8px;
-  text-align: center;
+  right: 28px;
+  top: 132px;
+  left: auto;
+  transform: none;
+  width: min(320px, 32vw);
+  min-width: 220px;
+  max-width: 320px;
+  padding: 6px 9px 7px;
+  text-align: left;
   border: 1px solid rgba(0,255,102,.52);
-  background: linear-gradient(90deg, rgba(0,255,102,.10), rgba(5,5,5,.84), rgba(0,255,102,.10));
+  background: linear-gradient(90deg, rgba(0,255,102,.10), rgba(5,5,5,.84), rgba(0,255,102,.06));
   box-shadow: 0 0 0 2px rgba(0,255,102,.06), 0 0 18px rgba(0,255,102,.18);
-  z-index: 4;
+  z-index: 16;
   pointer-events: none;
-  animation: contractCardIn .22s steps(6);
+  animation: contractCardIn .18s steps(5);
 }
-#hud-contract-card .contract-kicker { color: var(--dim); font-size: 9px; letter-spacing: 3px; margin-bottom: 2px; }
-#hud-contract-card .contract-title { color: var(--green); font-size: 14px; letter-spacing: 2px; text-shadow: 0 0 12px rgba(0,255,102,.22); }
-#hud-contract-card .contract-sub { color: var(--fg); font-size: 10px; letter-spacing: 1px; margin-top: 2px; opacity: .95; }
-#hud-contract-card .contract-reward { color: var(--gold); font-size: 9px; letter-spacing: 2px; margin-top: 3px; }
+#hud-contract-card .contract-kicker { color: var(--dim); font-size: 8px; letter-spacing: 2px; margin-bottom: 2px; }
+#hud-contract-card .contract-title { color: var(--green); font-size: 11px; letter-spacing: 1.4px; line-height: 1.22; text-shadow: 0 0 12px rgba(0,255,102,.22); }
+#hud-contract-card .contract-sub { color: var(--fg); font-size: 9px; letter-spacing: .8px; margin-top: 2px; opacity: .95; }
+#hud-contract-card .contract-reward { color: var(--gold); font-size: 8px; letter-spacing: 1.2px; margin-top: 3px; line-height: 1.2; }
 #hud-contract-card.failed { border-color: rgba(255,48,72,.62); background: linear-gradient(90deg, rgba(255,48,72,.11), rgba(5,5,5,.86), rgba(255,48,72,.11)); box-shadow: 0 0 0 2px rgba(255,48,72,.06), 0 0 18px rgba(255,48,72,.20); }
 #hud-contract-card.failed .contract-title { color: var(--red); text-shadow: 0 0 12px rgba(255,48,72,.25); }
 #hud-contract-card.done { border-color: rgba(255,211,77,.62); background: linear-gradient(90deg, rgba(255,211,77,.10), rgba(5,5,5,.86), rgba(255,211,77,.10)); box-shadow: 0 0 0 2px rgba(255,211,77,.06), 0 0 18px rgba(255,211,77,.18); }
 #hud-contract-card.done .contract-title { color: var(--gold); text-shadow: 0 0 12px rgba(255,211,77,.20); }
-@keyframes contractCardIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes contractCardIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
 #hud-bottom { position: absolute; left: 14px; right: 14px; bottom: 12px;
   display: flex; justify-content: space-between; align-items: flex-end; }
@@ -113,8 +115,8 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   position: absolute;
   left: 14px;
   top: 82px;
-  width: min(430px, 42vw);
-  max-height: 34vh;
+  width: min(540px, 46vw);
+  max-height: 48vh;
   overflow: hidden;
   text-align: left;
   font-size: 12px;
@@ -129,12 +131,12 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   padding: 1px 6px;
   background: rgba(5,5,5,.58);
   border-left: 1px solid rgba(243,243,243,.14);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
   animation: feedin .15s steps(4);
 }
-#feed div.long { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
 #feed .g { color: var(--green); } #feed .r { color: var(--red); }
 #feed .p { color: var(--purple); } #feed .c { color: var(--cyan); }
 @keyframes feedin { from { transform: translateX(-20px); opacity: 0; } }
@@ -144,8 +146,8 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   #hud-top { flex-direction: column; align-items: stretch; gap: 8px; }
   #hud-meta { max-width: 100%; }
   #hud-objective { max-width: 100%; text-align: right; align-self: stretch; }
-  #hud-contract-card { top: 136px; max-width: min(520px, 82vw); }
-  #feed { top: 172px; width: min(440px, 52vw); max-height: 24vh; }
+  #hud-contract-card { right: 12px; top: 180px; width: min(330px, 56vw); max-width: min(330px, 56vw); }
+  #feed { top: 172px; width: min(520px, 64vw); max-height: 38vh; }
 }
 
 /* ---------- overlays ---------- */
@@ -256,7 +258,7 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll.hidden { display: none; }
 
 /* v2.0.88 — Casino Virus separate non-blocking reels */
-#virus-roll { position: fixed; right: 28px; top: 132px; z-index: 17; pointer-events: none;
+#virus-roll { position: fixed; right: 28px; top: 224px; z-index: 17; pointer-events: none;
   min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
   border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
   box-shadow: 0 0 18px rgba(180,92,255,.18); text-transform: uppercase; letter-spacing: .16em; }
@@ -269,7 +271,7 @@ button:disabled { opacity: .3; cursor: none; }
 #virus-roll.stopping .roll-symbols span.lose { background: rgba(255,48,72,.14); color: var(--red); }
 #virus-roll .roll-result { font-size: 12px; letter-spacing: .18em; }
 #virus-roll .roll-left { margin-top: 4px; font-size: 10px; color: var(--dim); letter-spacing: .16em; }
-@media (max-width: 760px) { #virus-roll { right: 12px; top: 168px; max-width: 54vw; min-width: 190px; } #virus-roll .roll-symbols span { min-width: 34px; } }
+@media (max-width: 760px) { #virus-roll { right: 12px; top: 282px; max-width: 54vw; min-width: 190px; } #virus-roll .roll-symbols span { min-width: 34px; } }
 
 
 /* banner */
@@ -307,7 +309,8 @@ button:disabled { opacity: .3; cursor: none; }
 #explain-tip {
   position: fixed;
   left: 0; top: 0;
-  max-width: min(360px, calc(100vw - 28px));
+  width: max-content;
+  max-width: min(420px, calc(100vw - 28px));
   min-width: 190px;
   padding: 10px 12px;
   border: 1px solid var(--green);
@@ -322,7 +325,7 @@ button:disabled { opacity: .3; cursor: none; }
   letter-spacing: .8px;
 }
 #explain-tip .et-title { color: var(--green); font-size: 12px; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
-#explain-tip .et-body { color: #cfcfcf; white-space: pre-line; }
+#explain-tip .et-body { color: #cfcfcf; white-space: pre-line; overflow-wrap: anywhere; }
 #explain-tip.red { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,48,72,.08), 0 0 18px rgba(255,48,72,.18); }
 #explain-tip.red .et-title { color: var(--red); }
 #explain-tip.purple { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(180,92,255,.08), 0 0 18px rgba(180,92,255,.18); }
@@ -1162,8 +1165,15 @@ button:disabled { opacity: .3; cursor: none; }
   letter-spacing: 0.06em;
 }
 
-.favor-reroll { border-color: var(--gold) !important; color: var(--gold); background: rgba(255,211,77,.045); box-shadow: inset 0 0 0 1px rgba(255,211,77,.12), 0 0 14px rgba(255,211,77,.08); }
+.favor-reroll { border-color: var(--gold) !important; color: var(--gold); background: rgba(255,211,77,.045); box-shadow: inset 0 0 0 1px rgba(255,211,77,.12), 0 0 14px rgba(255,211,77,.08); padding: 0; }
 .favor-reroll:hover { background: var(--gold) !important; color: var(--bg) !important; }
-.favor-reroll .favor-uses { float:right; border:1px solid rgba(255,211,77,.55); padding:1px 6px; font-size:10px; letter-spacing:.14em; }
-.favor-reroll .choice-sub { display:block; color:var(--dim); margin-top:4px; font-size:10px; letter-spacing:.14em; }
+.favor-reroll-top { display:grid; grid-template-columns: 46px 1fr auto; align-items:center; gap:10px; padding: 11px 14px 6px; }
+.favor-reroll-title { font-size: 13px; letter-spacing: .14em; }
+.favor-reroll .favor-uses { border:1px solid rgba(255,211,77,.55); padding:1px 6px; font-size:10px; letter-spacing:.14em; }
+.favor-reroll .choice-sub { display:block; color:var(--dim); padding:0 14px 11px 70px; font-size:10px; letter-spacing:.14em; }
 .favor-reroll:hover .choice-sub, .favor-reroll:hover .favor-uses { color:var(--bg); border-color:rgba(0,0,0,.45); }
+.skin-claim-card { border-color: var(--purple) !important; color: var(--purple); background: rgba(180,92,255,.05); box-shadow: inset 0 0 0 1px rgba(180,92,255,.12), 0 0 14px rgba(180,92,255,.08); }
+.skin-claim-card:hover { background: var(--purple) !important; color: var(--bg) !important; }
+.skin-claim-top { display:grid; grid-template-columns: 46px 1fr auto; align-items:center; gap:10px; }
+.skin-claim-title { font-size:13px; letter-spacing:.14em; }
+.skin-claim-rarity { font-size:9px; letter-spacing:.14em; }

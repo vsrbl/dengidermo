@@ -1,4 +1,4 @@
-# nncckkrr v2.0.87 — weapon secondary fire + echo proc visuals
+# nncckkrr v2.0.88 — weapon secondary fire + echo proc visuals
 
 ## Fix: RKT cluster radius
 
