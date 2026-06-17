@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.88 — contract status / reward clarity
+# PATCH NOTES v2.0.89 — contract status / reward clarity
 
 ## Player-facing contract clarity
 

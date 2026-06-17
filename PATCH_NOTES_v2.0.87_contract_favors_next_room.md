@@ -1,4 +1,4 @@
-# v2.0.88 — Contract Favors Next-Room
+# v2.0.89 — Contract Favors Next-Room
 
 ## Main goal
 Replace contract GLD/EXP payouts with short-lived contract favors that apply only to the next room.

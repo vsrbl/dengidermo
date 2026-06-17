@@ -1,4 +1,4 @@
-# PATCH NOTES v2.0.88 — clarity balance pass
+# PATCH NOTES v2.0.89 — clarity balance pass
 
 ## Q active descriptions
 

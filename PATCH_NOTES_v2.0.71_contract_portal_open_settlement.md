@@ -1,4 +1,4 @@
-# nncckkrr v2.0.88 — Contract Portal-Open Settlement
+# nncckkrr v2.0.89 — Contract Portal-Open Settlement
 
 ## Goal
 Contracts must be resolved when the room objective is actually solved: the moment the portal opens.
