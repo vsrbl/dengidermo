@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.93 — room objectives / instant TAB */
+/* nncckkrr v2.0.94 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -263,7 +263,7 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll .roll-result { font-size: 13px; letter-spacing: .24em; }
 #active-roll.hidden { display: none; }
 
-/* v2.0.93 — Casino Virus separate non-blocking reels */
+/* v2.0.94 — Casino Virus separate non-blocking reels */
 #virus-roll { position: fixed; right: 28px; top: 224px; z-index: 17; pointer-events: none;
   min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
   border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
@@ -1078,7 +1078,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.93 — WPN chest readability: role + effect + exact change */
+/* v2.0.94 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1137,7 +1137,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.93 — expanded room/debug lab */
+/* v2.0.94 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
@@ -1164,7 +1164,7 @@ button:disabled { opacity: .3; cursor: none; }
   #dev-panel .dev-room-mods { grid-template-columns: 1fr 1fr; }
 }
 
-/* v2.0.93 — Blood Tax HP prices must read as HP, not GLD */
+/* v2.0.94 — Blood Tax HP prices must read as HP, not GLD */
 .hp-cost {
   color: #ff3048;
   text-shadow: 0 0 7px rgba(255, 48, 72, 0.65);
@@ -1185,7 +1185,7 @@ button:disabled { opacity: .3; cursor: none; }
 .skin-claim-title { font-size:13px; letter-spacing:.14em; }
 .skin-claim-rarity { font-size:9px; letter-spacing:.14em; }
 
-/* v2.0.93 — compact menu skin picker and audio sliders */
+/* v2.0.94 — compact menu skin picker and audio sliders */
 #audio-settings {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1202,7 +1202,7 @@ button:disabled { opacity: .3; cursor: none; }
 #menu #skin-editor.collapsed { display: none !important; }
 #menu #skin-editor { margin-top: 8px; }
 
-/* v2.0.93 — clean TAB layout with equal cards and readable wrapping */
+/* v2.0.94 — clean TAB layout with equal cards and readable wrapping */
 #tab-panel .panel { width: min(96vw, 1280px); min-width: min(94vw, 940px); max-height: 88vh; overflow: auto; }
 .tab-dossier { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
 .tab-card { min-height: 164px; display: flex; flex-direction: column; justify-content: flex-start; }
@@ -1212,12 +1212,12 @@ button:disabled { opacity: .3; cursor: none; }
 #tab-table th, #tab-table td { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1050px), (max-height: 760px) { .tab-dossier { grid-template-columns: 1fr; } .tab-card { min-height: 0; } }
 
-/* v2.0.93 — avoid hidden banners behind choice/chest modals */
+/* v2.0.94 — avoid hidden banners behind choice/chest modals */
 body.modal-open #banner,
 body.modal-open #active-roll,
 body.modal-open #virus-roll { display: none !important; }
 
-/* v2.0.93 — safer top-right dossier wrapping */
+/* v2.0.94 — safer top-right dossier wrapping */
 #hud-objective { max-width: min(620px, 48vw); }
 #hud-objective .room-current,
 #hud-objective .room-intel,
@@ -1227,3 +1227,42 @@ body.modal-open #virus-roll { display: none !important; }
 #hud-objective .room-intel { font-size: 9px; }
 #virus-roll { top: 252px; max-width: min(360px, 33vw); }
 #hud-contract-card { top: 146px; }
+
+/* v2.0.94 — top-left prize plate, square sliders, stable skin drawer */
+#hud-top { align-items: flex-start; gap: 14px; }
+#hud-lefttop { flex: 1 1 auto; max-width: min(760px, 50vw); pointer-events: auto; }
+#hud-meta { max-width: 100%; line-height: 1.42; }
+#hud-favor-row { min-height: 24px; margin-top: 5px; }
+#hud-favor { display: inline-flex; align-items: center; gap: 4px; max-width: min(520px, 46vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gold); border: 1px solid rgba(255,211,77,.62); background: rgba(255,211,77,.10); padding: 2px 7px; box-shadow: 0 0 13px rgba(255,211,77,.16), inset 0 0 0 1px rgba(255,211,77,.10); font-size: 11px; letter-spacing: .13em; }
+#hud-favor.pending { color: var(--cyan); border-color: rgba(102,246,255,.55); background: rgba(102,246,255,.08); }
+#hud-favor.used { color: var(--dim); border-color: rgba(120,120,120,.38); background: rgba(120,120,120,.05); box-shadow: none; }
+#hud-favor b { color: var(--fg); margin-right: 3px; }
+#hud-favor em { font-style: normal; color: inherit; opacity: .9; margin-left: 3px; }
+#hud-objective { flex: 0 1 min(570px, 44vw); max-width: min(570px, 44vw); font-size: 12px; }
+#hud-objective .room-current { font-size: 11px; }
+#hud-objective .room-intel { font-size: 8.5px; line-height: 1.3; }
+#hud-objective .room-prophecy { font-size: 9.5px; line-height: 1.3; }
+#hud-contract-card { top: 172px; }
+#virus-roll { top: 282px; }
+@media (max-width: 960px) { #hud-lefttop, #hud-objective { max-width: 100%; } #hud-top { flex-direction: column; } #hud-favor { max-width: 92vw; } }
+
+#audio-settings input[type="range"] {
+  --val: 70%;
+  width: 100%; height: 14px; margin: 0; appearance: none; -webkit-appearance: none;
+  border: 1px solid rgba(243,243,243,.28);
+  background: linear-gradient(90deg, rgba(0,255,102,.72) 0 var(--val), rgba(255,255,255,.055) var(--val) 100%);
+  outline: none; border-radius: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55);
+}
+#audio-settings input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 18px; border-radius: 0; border: 1px solid var(--fg); background: var(--bg); box-shadow: 0 0 0 1px rgba(0,255,102,.35), 0 0 8px rgba(0,255,102,.25); }
+#audio-settings input[type="range"]::-moz-range-thumb { width: 12px; height: 18px; border-radius: 0; border: 1px solid var(--fg); background: var(--bg); box-shadow: 0 0 0 1px rgba(0,255,102,.35), 0 0 8px rgba(0,255,102,.25); }
+#audio-settings input[type="range"]::-moz-range-track { height: 14px; background: transparent; border: 0; }
+#menu { min-height: min(92vh, 760px); }
+#menu #skin-editor.collapsed { display: grid !important; visibility: hidden; opacity: 0; pointer-events: none; max-height: 0; min-height: 0; margin-top: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; border-color: transparent; }
+#menu #skin-editor { transition: opacity .08s steps(2), max-height .08s steps(2); }
+
+#tab-panel .panel { width: min(96vw, 1240px); }
+.tab-dossier { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 10px; align-items: stretch; }
+.tab-card { min-height: 188px; height: 100%; justify-content: flex-start; }
+.tab-card p { line-height: 1.42; }
+.tab-card .term { text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 1050px), (max-height: 760px) { .tab-dossier { grid-template-columns: 1fr; grid-auto-rows: auto; } .tab-card { min-height: 0; } }

@@ -1,4 +1,4 @@
-# v2.0.93 — Debt Engine Layer + Echo Mimic
+# v2.0.94 — Debt Engine Layer + Echo Mimic
 
 ## Debt Engine clarity
 

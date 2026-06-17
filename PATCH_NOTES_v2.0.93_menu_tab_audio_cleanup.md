@@ -1,4 +1,4 @@
-# v2.0.93 — menu skin toggle, TAB cleanup, audio settings
+# v2.0.94 — menu skin toggle, TAB cleanup, audio settings
 
 - Main menu skin selector is collapsed by default behind `CHANGE SKIN / СМЕНИТЬ СКИН`.
 - Added separate music and SFX volume sliders in the main menu, saved to localStorage.
