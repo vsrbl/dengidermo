@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.89 — room objectives / instant TAB */
+/* nncckkrr v2.0.90 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -176,7 +176,7 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 }
 #tab-panel .panel { width: min(98vw, 1420px); min-width: min(96vw, 960px); max-width: 1420px; max-height: none; overflow: visible; animation: none; pointer-events: auto; transform: translateY(-3vh); padding: 18px 22px; }
 #tab-run { color: var(--dim); font-size: 12px; margin-bottom: 12px; white-space: normal; }
-.tab-dossier { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.tab-dossier { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .tab-card { border: 1px solid rgba(243,243,243,.18); background: rgba(255,255,255,.025); padding: 9px 10px; min-height: 132px; overflow: hidden; }
 .tab-card.current { border-color: rgba(102,246,255,.35); }
 .tab-card.next { border-color: rgba(255,211,77,.32); }
@@ -257,7 +257,7 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll .roll-result { font-size: 13px; letter-spacing: .24em; }
 #active-roll.hidden { display: none; }
 
-/* v2.0.89 — Casino Virus separate non-blocking reels */
+/* v2.0.90 — Casino Virus separate non-blocking reels */
 #virus-roll { position: fixed; right: 28px; top: 224px; z-index: 17; pointer-events: none;
   min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
   border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
@@ -1071,7 +1071,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.89 — WPN chest readability: role + effect + exact change */
+/* v2.0.90 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1130,7 +1130,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.89 — expanded room/debug lab */
+/* v2.0.90 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
@@ -1157,7 +1157,7 @@ button:disabled { opacity: .3; cursor: none; }
   #dev-panel .dev-room-mods { grid-template-columns: 1fr 1fr; }
 }
 
-/* v2.0.89 — Blood Tax HP prices must read as HP, not GLD */
+/* v2.0.90 — Blood Tax HP prices must read as HP, not GLD */
 .hp-cost {
   color: #ff3048;
   text-shadow: 0 0 7px rgba(255, 48, 72, 0.65);

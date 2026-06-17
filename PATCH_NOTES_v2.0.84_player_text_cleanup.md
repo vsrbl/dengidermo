@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.89_player_text_cleanup
+# PATCH NOTES — v2.0.90_player_text_cleanup
 
 ## Goal
 Player-facing text cleanup pass for RU/EN.

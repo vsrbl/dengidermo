@@ -1,4 +1,4 @@
-# nncckkrr v2.0.89 — Weapon Crate Readability
+# nncckkrr v2.0.90 — Weapon Crate Readability
 
 ## Goal
 Make WPN chest decisions readable at a glance. The player should understand whether a choice is DPS, RANGE, STATUS, CONTROL, SYNERGY, or a new weapon before clicking.
