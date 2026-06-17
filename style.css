@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.83 — room objectives / instant TAB */
+/* nncckkrr v2.0.87 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -56,6 +56,32 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #hud-objective .room-prophecy { color: var(--dim); font-size: 11px; margin-bottom: 3px; max-width: 680px; }
 #hud-objective .room-prophecy .term { color: var(--gold); border-color: rgba(255,211,77,.45); padding: 1px 5px; background: rgba(255,211,77,.055); }
 #hud-objective .done { color: var(--green); }
+
+#hud-contract-card {
+  position: absolute;
+  left: 50%;
+  top: 58px;
+  transform: translateX(-50%);
+  min-width: 280px;
+  max-width: min(520px, 46vw);
+  padding: 7px 12px 8px;
+  text-align: center;
+  border: 1px solid rgba(0,255,102,.52);
+  background: linear-gradient(90deg, rgba(0,255,102,.10), rgba(5,5,5,.84), rgba(0,255,102,.10));
+  box-shadow: 0 0 0 2px rgba(0,255,102,.06), 0 0 18px rgba(0,255,102,.18);
+  z-index: 4;
+  pointer-events: none;
+  animation: contractCardIn .22s steps(6);
+}
+#hud-contract-card .contract-kicker { color: var(--dim); font-size: 9px; letter-spacing: 3px; margin-bottom: 2px; }
+#hud-contract-card .contract-title { color: var(--green); font-size: 14px; letter-spacing: 2px; text-shadow: 0 0 12px rgba(0,255,102,.22); }
+#hud-contract-card .contract-sub { color: var(--fg); font-size: 10px; letter-spacing: 1px; margin-top: 2px; opacity: .95; }
+#hud-contract-card .contract-reward { color: var(--gold); font-size: 9px; letter-spacing: 2px; margin-top: 3px; }
+#hud-contract-card.failed { border-color: rgba(255,48,72,.62); background: linear-gradient(90deg, rgba(255,48,72,.11), rgba(5,5,5,.86), rgba(255,48,72,.11)); box-shadow: 0 0 0 2px rgba(255,48,72,.06), 0 0 18px rgba(255,48,72,.20); }
+#hud-contract-card.failed .contract-title { color: var(--red); text-shadow: 0 0 12px rgba(255,48,72,.25); }
+#hud-contract-card.done { border-color: rgba(255,211,77,.62); background: linear-gradient(90deg, rgba(255,211,77,.10), rgba(5,5,5,.86), rgba(255,211,77,.10)); box-shadow: 0 0 0 2px rgba(255,211,77,.06), 0 0 18px rgba(255,211,77,.18); }
+#hud-contract-card.done .contract-title { color: var(--gold); text-shadow: 0 0 12px rgba(255,211,77,.20); }
+@keyframes contractCardIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
 #hud-bottom { position: absolute; left: 14px; right: 14px; bottom: 12px;
   display: flex; justify-content: space-between; align-items: flex-end; }
@@ -117,7 +143,8 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   #hud-top { flex-direction: column; align-items: stretch; gap: 8px; }
   #hud-meta { max-width: 100%; }
   #hud-objective { max-width: 100%; text-align: right; align-self: stretch; }
-  #feed { top: 132px; width: min(440px, 52vw); max-height: 28vh; }
+  #hud-contract-card { top: 136px; max-width: min(520px, 82vw); }
+  #feed { top: 172px; width: min(440px, 52vw); max-height: 24vh; }
 }
 
 /* ---------- overlays ---------- */
@@ -227,7 +254,7 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll .roll-result { font-size: 13px; letter-spacing: .24em; }
 #active-roll.hidden { display: none; }
 
-/* v2.0.83 — Casino Virus separate non-blocking reels */
+/* v2.0.87 — Casino Virus separate non-blocking reels */
 #virus-roll { position: fixed; right: 28px; top: 132px; z-index: 17; pointer-events: none;
   min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
   border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
@@ -1040,7 +1067,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.83 — WPN chest readability: role + effect + exact change */
+/* v2.0.87 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1099,7 +1126,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.83 — expanded room/debug lab */
+/* v2.0.87 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
@@ -1126,10 +1153,16 @@ button:disabled { opacity: .3; cursor: none; }
   #dev-panel .dev-room-mods { grid-template-columns: 1fr 1fr; }
 }
 
-/* v2.0.83 — Blood Tax HP prices must read as HP, not GLD */
+/* v2.0.87 — Blood Tax HP prices must read as HP, not GLD */
 .hp-cost {
   color: #ff3048;
   text-shadow: 0 0 7px rgba(255, 48, 72, 0.65);
   font-weight: 800;
   letter-spacing: 0.06em;
 }
+
+.favor-reroll { border-color: var(--gold) !important; color: var(--gold); background: rgba(255,211,77,.045); box-shadow: inset 0 0 0 1px rgba(255,211,77,.12), 0 0 14px rgba(255,211,77,.08); }
+.favor-reroll:hover { background: var(--gold) !important; color: var(--bg) !important; }
+.favor-reroll .favor-uses { float:right; border:1px solid rgba(255,211,77,.55); padding:1px 6px; font-size:10px; letter-spacing:.14em; }
+.favor-reroll .choice-sub { display:block; color:var(--dim); margin-top:4px; font-size:10px; letter-spacing:.14em; }
+.favor-reroll:hover .choice-sub, .favor-reroll:hover .favor-uses { color:var(--bg); border-color:rgba(0,0,0,.45); }

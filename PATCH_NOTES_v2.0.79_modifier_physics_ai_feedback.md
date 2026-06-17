@@ -1,4 +1,4 @@
-# PATCH v2.0.83 — Modifier Physics / AI / Feedback Pass
+# PATCH v2.0.87 — Modifier Physics / AI / Feedback Pass
 
 ## Modifier physics
 - ANCHOR GRAVITY now pulls players, enemies, pickups, and every projectile type toward room sockets.

@@ -1,4 +1,4 @@
-# PATCH NOTES — v2.0.83_denial_text_audit
+# PATCH NOTES — v2.0.87_denial_text_audit
 
 ## Goal
 Fix misleading denial text where non-money failures could show `NO GLD` / `NOT ENOUGH GLD`.
