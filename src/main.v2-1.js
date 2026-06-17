@@ -217,35 +217,16 @@ const FILTER_PRESETS = [
   { id: 'lcd', name: 'LED' }
 ];
 const FILTER_KEY = 'tcr_filter_preset_v1';
-function currentFilterIndex() {
-  const saved = 'lcd';
-  const idx = FILTER_PRESETS.findIndex(f => f.id === saved);
-  return idx >= 0 ? idx : 0;
-}
-let filterIndex = currentFilterIndex();
-function filterLabelName() { return FILTER_PRESETS[filterIndex]?.name || 'CRT'; }
-function applyVisualFilter(playSound = false) {
-  const preset = FILTER_PRESETS[filterIndex] || FILTER_PRESETS[0];
+let filterIndex = 0;
+function applyVisualFilter() {
+  const preset = FILTER_PRESETS[0];
   document.documentElement.dataset.filterPreset = preset.id;
   document.body.dataset.filterPreset = preset.id;
   localStorage.setItem(FILTER_KEY, preset.id);
   const btn = $('filter-switch');
-  if (btn) {
-    btn.dataset.filterName = preset.name;
-    btn.textContent = `${t('filterLabel') || 'FILTER'}: ${preset.name}`;
-    btn.title = `${t('filterBody') || 'F7'}`;
-  }
-  if (playSound) uiClick('ui_click');
+  if (btn) btn.remove();
 }
-function nextVisualFilter() {
-  filterIndex = 0;
-  applyVisualFilter(true);
-}
-$('filter-switch')?.addEventListener('click', nextVisualFilter);
-window.addEventListener('keydown', e => {
-  if (e.code === 'F7') { e.preventDefault(); nextVisualFilter(); }
-});
-applyVisualFilter(false);
+applyVisualFilter();
 
 function paintRange(el) {
   if (!el) return;

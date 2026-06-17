@@ -226,19 +226,20 @@ export class AudioBus {
         this.noise(0.105, 0.018, 900, 2.5, 0.070);          // dead-air tail
         break;
       case 'gld':
-        this.tone(520, 0.035, 'square', 0.035, 1.18);
-        this.tone(650, 0.03, 'square', 0.026, 1.05, 0.018);
+        // Melancholy terminal pickup: quieter, minor down-bend, no cheerful coin sparkle.
+        this.tone(392, 0.045, 'square', 0.022, 0.84);
+        this.tone(293.66, 0.050, 'triangle', 0.016, 0.92, 0.024);
         break;
       case 'exp':
-        this.tone(880, 0.04, 'triangle', 0.035, 1.32);
-        this.tone(1320, 0.035, 'square', 0.024, 0.96, 0.026);
+        this.tone(440, 0.050, 'triangle', 0.022, 0.89);
+        this.tone(349.23, 0.060, 'square', 0.015, 0.93, 0.032);
         break;
       case 'hea':
-        this.tone(420, 0.055, 'sine', 0.052, 1.25);
-        this.tone(840, 0.075, 'triangle', 0.035, 1.05, 0.038);
+        this.tone(329.63, 0.070, 'sine', 0.032, 1.06);
+        this.tone(261.63, 0.090, 'triangle', 0.018, 0.98, 0.045);
         break;
       case 'pickup':
-        this.tone(760, 0.035, 'square', 0.045, 1.25);
+        this.tone(392, 0.040, 'square', 0.024, 0.82);
         break;
       case 'hit':
         this.noise(0.032, 0.04, 1700, 5);
@@ -282,33 +283,40 @@ export class AudioBus {
         this.noise(0.16, 0.045, 2600, 5);
         break;
       case 'levelup':
-        // 2.1 hotfix: cleaner INSTALL chime, higher and more terminal, no bubbling tail.
-        this.tone(392, 0.105, 'square', 0.048, 1.00);
-        this.tone(523.25, 0.115, 'triangle', 0.042, 1.00, 0.055);
-        this.tone(659.25, 0.130, 'triangle', 0.034, 0.995, 0.118);
-        this.tone(784, 0.095, 'sine', 0.020, 1.00, 0.205);
+        // INSTALL-green level chime: quieter, higher than old bubble, but minor/terminal instead of happy.
+        this.tone(440.00, 0.085, 'square', 0.028, 0.96);
+        this.tone(523.25, 0.100, 'triangle', 0.022, 0.985, 0.055);
+        this.tone(659.25, 0.110, 'square', 0.016, 0.94, 0.118);
+        this.noise(0.026, 0.006, 3600, 10, 0.010);
         break;
       case 'run_start':
         this.musicTransition = 1;
         this.musicResolve = Math.max(this.musicResolve || 0, 0.18);
         if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.03);
         this.scoreEventWave?.('start');
-        this.tone(196, 0.22, 'triangle', 0.052, 1.42);
-        this.tone(293.66, 0.22, 'triangle', 0.034, 1.18, 0.075);
-        this.tone(392, 0.18, 'sine', 0.024, 1.00, 0.18);
+        // Digital run-start marker: packet lock + minor upward gate, less smooth/heroic.
+        this.noise(0.018, 0.016, 5200, 15, 0.000);
+        this.tone(130.81, 0.115, 'square', 0.032, 1.002, 0.000);
+        this.tone(155.56, 0.105, 'square', 0.024, 0.985, 0.055);
+        this.tone(196.00, 0.120, 'square', 0.018, 0.970, 0.118);
+        this.noise(0.060, 0.010, 900, 4.0, 0.060);
         break;
       case 'run_death':
         this.musicTransition = 1;
         this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.45);
         if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.04);
         this.scoreEventWave?.('death');
-        this.tone(392, 0.14, 'triangle', 0.035, 0.62);
-        this.tone(261.63, 0.22, 'sine', 0.048, 0.72, 0.055);
-        this.tone(174.61, 0.30, 'triangle', 0.040, 0.86, 0.14);
+        // Digital death marker: descending terminal dropout, not a smooth cinematic whoosh.
+        this.noise(0.020, 0.018, 4200, 12, 0.000);
+        this.tone(261.63, 0.110, 'square', 0.030, 0.72, 0.000);
+        this.tone(207.65, 0.145, 'square', 0.026, 0.68, 0.052);
+        this.tone(146.83, 0.185, 'sawtooth', 0.024, 0.62, 0.122);
+        this.noise(0.145, 0.014, 360, 2.0, 0.095);
         break;
       case 'install':
-        this.tone(430, 0.055, 'square', 0.05, 1.5);
-        this.tone(860, 0.06, 'square', 0.04, 1.15, 0.045);
+        this.tone(349.23, 0.060, 'square', 0.030, 1.05);
+        this.tone(415.30, 0.075, 'triangle', 0.020, 0.94, 0.050);
+        this.noise(0.018, 0.006, 3100, 9, 0.015);
         break;
       case 'bet_open':
         this.tone(190, 0.08, 'square', 0.05, 0.9);
@@ -319,24 +327,24 @@ export class AudioBus {
         this.noise(0.022, 0.018, 1800, 7);
         break;
       case 'casino_reel_stop':
-        this.tone(720, 0.025, 'square', 0.025, 0.5);
-        this.noise(0.012, 0.012, 3200, 10);
+        this.tone(392, 0.028, 'square', 0.018, 0.56);
+        this.noise(0.010, 0.008, 2200, 9);
         break;
       case 'casino_result':
-        this.tone(360, 0.04, 'square', 0.038, 1.25);
-        this.tone(720, 0.035, 'triangle', 0.025, 0.9, 0.032);
+        this.tone(293.66, 0.050, 'square', 0.026, 0.92);
+        this.tone(233.08, 0.060, 'triangle', 0.016, 0.88, 0.038);
         break;
       case 'casino_win':
-        this.tone(480, 0.05, 'square', 0.05, 1.55);
-        this.tone(960, 0.06, 'triangle', 0.038, 1.2, 0.05);
+        this.tone(329.63, 0.060, 'square', 0.030, 1.06);
+        this.tone(392.00, 0.080, 'triangle', 0.020, 0.94, 0.052);
         break;
       case 'casino_weapon':
-        this.tone(140, 0.07, 'square', 0.06, 1.35);
-        this.tone(620, 0.08, 'sawtooth', 0.044, 1.55, 0.04);
+        this.tone(146.83, 0.080, 'square', 0.040, 1.08);
+        this.tone(349.23, 0.090, 'sawtooth', 0.024, 0.92, 0.045);
         break;
       case 'casino_ability':
-        this.tone(330, 0.065, 'square', 0.055, 2.1);
-        this.tone(1000, 0.055, 'square', 0.04, 0.72, 0.04);
+        this.tone(261.63, 0.075, 'square', 0.034, 1.10);
+        this.tone(415.30, 0.070, 'square', 0.020, 0.82, 0.045);
         break;
       case 'casino_static':
         this.tone(150, 0.13, 'sawtooth', 0.075, 0.5);
@@ -355,8 +363,8 @@ export class AudioBus {
         this.noise(0.075, 0.055, 640, 2.5);
         break;
       case 'active_over':
-        this.tone(520, 0.07, 'square', 0.06, 2.35);
-        this.tone(1040, 0.045, 'square', 0.04, 1.2, 0.045);
+        this.tone(392, 0.075, 'square', 0.040, 1.35);
+        this.tone(523.25, 0.055, 'square', 0.024, 0.88, 0.045);
         break;
       case 'active_void_laser':
         // minimal void laser: dry terminal ignition + thin high line + short dirty tail.
@@ -380,8 +388,8 @@ export class AudioBus {
         this.noise(0.075, 0.030, 950, 3.2, 0.006);
         break;
       case 'contract':
-        this.tone(130, 0.14, 'square', 0.07, 1.2);
-        this.tone(390, 0.06, 'square', 0.045, 0.85, 0.08);
+        this.tone(130.81, 0.145, 'square', 0.048, 1.02);
+        this.tone(196.00, 0.090, 'triangle', 0.024, 0.86, 0.080);
         break;
       case 'debt':
         this.tone(105, 0.14, 'sawtooth', 0.07, 0.55);
@@ -391,10 +399,10 @@ export class AudioBus {
         this.tone(820, 0.045, 'square', 0.032, 0.45);
         break;
       case 'skin_legendary':
-        this.tone(210, 0.16, 'square', 0.070, 2.25);
-        this.tone(630, 0.12, 'square', 0.055, 1.45, 0.055);
-        this.tone(1260, 0.10, 'square', 0.042, 0.92, 0.110);
-        this.noise(0.08, 0.040, 4400, 11, 0.020);
+        this.tone(174.61, 0.160, 'square', 0.048, 1.28);
+        this.tone(349.23, 0.120, 'square', 0.032, 0.92, 0.055);
+        this.tone(523.25, 0.095, 'triangle', 0.020, 0.88, 0.115);
+        this.noise(0.060, 0.016, 2600, 9, 0.020);
         break;
       case 'echo_shot':
         this.tone(310, 0.045, 'square', 0.040, 1.55);
@@ -406,9 +414,9 @@ export class AudioBus {
         this.noise(0.012, 0.010, 4200, 10, 0.002);
         break;
       case 'jackpot':
-        this.tone(180, 0.18, 'square', 0.09, 2.0);
-        this.tone(540, 0.12, 'square', 0.06, 1.6, 0.06);
-        this.tone(1080, 0.1, 'square', 0.045, 1.2, 0.11);
+        this.tone(164.81, 0.180, 'square', 0.052, 1.20);
+        this.tone(329.63, 0.135, 'square', 0.034, 0.92, 0.060);
+        this.tone(415.30, 0.110, 'triangle', 0.020, 0.86, 0.120);
         break;
     }
   }
@@ -1196,17 +1204,18 @@ AudioBus.prototype.ambientNote = function ambientNoteV21(freq, dur, type = 'tria
 };
 
 AudioBus.prototype.scoreEventWave = function scoreEventWaveV21(kind = 'start') {
-  // Musical state marker: a soft wave through the ambient bed for run start/restart/death.
+  // Musical state marker: a restrained digital wave through the ambient bed.
+  // It marks run start/restart/death without turning into a glossy heroic sweep.
   if (!this.music?.master || !this.ctx) return;
-  const root = kind === 'death' ? 43.65 : 49.00;
-  const down = kind === 'death';
-  const vol = down ? 0.010 : 0.0085;
-  const notes = down ? [19, 12, 7, 0] : [0, 7, 12, 19];
+  const death = kind === 'death';
+  const root = death ? 43.65 : 49.00;
+  const notes = death ? [15, 10, 3, -2] : [0, 3, 7, 10]; // minor colour, not major fanfare
+  const vol = death ? 0.0070 : 0.0060;
   notes.forEach((n, i) => {
     const f = root * Math.pow(2, n / 12);
-    this.ambientNote(f, down ? 2.8 : 2.35, i % 2 ? 'sine' : 'triangle', vol * (1 - i * 0.10), down ? 240 : 330, i * 0.18, i % 2 ? -4 : 3, down ? 0.996 : 1.001);
+    this.ambientNote(f, death ? 1.85 : 1.55, 'triangle', vol * (1 - i * 0.14), death ? 185 : 260, i * 0.115, i % 2 ? -7 : 5, death ? 0.982 : 0.992);
   });
-  if (down) this.ambientNoise(3.2, 0.0016, 190, 0.08);
+  this.ambientNoise(death ? 1.9 : 1.25, death ? 0.0011 : 0.0008, death ? 155 : 420, 0.04);
 };
 
 AudioBus.prototype.ambientNoise = function ambientNoiseV21(dur = 4, vol = 0.002, filterFreq = 260, delay = 0) {
