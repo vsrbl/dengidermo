@@ -1,4 +1,4 @@
-/* nncckkrr v2.0.94 — room objectives / instant TAB */
+/* nncckkrr v2.0.95 — room objectives / instant TAB */
 :root {
   --bg: #050505;
   --fg: #f3f3f3;
@@ -263,7 +263,7 @@ button:disabled { opacity: .3; cursor: none; }
 #active-roll .roll-result { font-size: 13px; letter-spacing: .24em; }
 #active-roll.hidden { display: none; }
 
-/* v2.0.94 — Casino Virus separate non-blocking reels */
+/* v2.0.95 — Casino Virus separate non-blocking reels */
 #virus-roll { position: fixed; right: 28px; top: 224px; z-index: 17; pointer-events: none;
   min-width: 250px; max-width: min(360px, 40vw); text-align: center; color: var(--purple);
   border: 1px solid currentColor; background: rgba(10,4,18,.78); padding: 8px 10px;
@@ -1078,7 +1078,7 @@ button:disabled { opacity: .3; cursor: none; }
     linear-gradient(-45deg, transparent calc(50% - .75px), rgba(255,255,255,.44) calc(50% - .75px), rgba(255,255,255,.44) calc(50% + .75px), transparent calc(50% + .75px));
 }
 
-/* v2.0.94 — WPN chest readability: role + effect + exact change */
+/* v2.0.95 — WPN chest readability: role + effect + exact change */
 .weapon-choice {
   padding: 9px 12px;
 }
@@ -1137,7 +1137,7 @@ button:disabled { opacity: .3; cursor: none; }
 .weapon-choice.disabled .wpn-choice-read,
 .weapon-choice.disabled .wpn-choice-change { color: #555; }
 
-/* v2.0.94 — expanded room/debug lab */
+/* v2.0.95 — expanded room/debug lab */
 #dev-panel {
   width: min(520px, calc(100vw - 28px));
   max-height: calc(100vh - 82px);
@@ -1164,7 +1164,7 @@ button:disabled { opacity: .3; cursor: none; }
   #dev-panel .dev-room-mods { grid-template-columns: 1fr 1fr; }
 }
 
-/* v2.0.94 — Blood Tax HP prices must read as HP, not GLD */
+/* v2.0.95 — Blood Tax HP prices must read as HP, not GLD */
 .hp-cost {
   color: #ff3048;
   text-shadow: 0 0 7px rgba(255, 48, 72, 0.65);
@@ -1185,7 +1185,7 @@ button:disabled { opacity: .3; cursor: none; }
 .skin-claim-title { font-size:13px; letter-spacing:.14em; }
 .skin-claim-rarity { font-size:9px; letter-spacing:.14em; }
 
-/* v2.0.94 — compact menu skin picker and audio sliders */
+/* v2.0.95 — compact menu skin picker and audio sliders */
 #audio-settings {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1202,7 +1202,7 @@ button:disabled { opacity: .3; cursor: none; }
 #menu #skin-editor.collapsed { display: none !important; }
 #menu #skin-editor { margin-top: 8px; }
 
-/* v2.0.94 — clean TAB layout with equal cards and readable wrapping */
+/* v2.0.95 — clean TAB layout with equal cards and readable wrapping */
 #tab-panel .panel { width: min(96vw, 1280px); min-width: min(94vw, 940px); max-height: 88vh; overflow: auto; }
 .tab-dossier { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
 .tab-card { min-height: 164px; display: flex; flex-direction: column; justify-content: flex-start; }
@@ -1212,12 +1212,12 @@ button:disabled { opacity: .3; cursor: none; }
 #tab-table th, #tab-table td { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1050px), (max-height: 760px) { .tab-dossier { grid-template-columns: 1fr; } .tab-card { min-height: 0; } }
 
-/* v2.0.94 — avoid hidden banners behind choice/chest modals */
+/* v2.0.95 — avoid hidden banners behind choice/chest modals */
 body.modal-open #banner,
 body.modal-open #active-roll,
 body.modal-open #virus-roll { display: none !important; }
 
-/* v2.0.94 — safer top-right dossier wrapping */
+/* v2.0.95 — safer top-right dossier wrapping */
 #hud-objective { max-width: min(620px, 48vw); }
 #hud-objective .room-current,
 #hud-objective .room-intel,
@@ -1228,7 +1228,7 @@ body.modal-open #virus-roll { display: none !important; }
 #virus-roll { top: 252px; max-width: min(360px, 33vw); }
 #hud-contract-card { top: 146px; }
 
-/* v2.0.94 — top-left prize plate, square sliders, stable skin drawer */
+/* v2.0.95 — top-left prize plate, square sliders, stable skin drawer */
 #hud-top { align-items: flex-start; gap: 14px; }
 #hud-lefttop { flex: 1 1 auto; max-width: min(760px, 50vw); pointer-events: auto; }
 #hud-meta { max-width: 100%; line-height: 1.42; }
@@ -1266,3 +1266,85 @@ body.modal-open #virus-roll { display: none !important; }
 .tab-card p { line-height: 1.42; }
 .tab-card .term { text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 1050px), (max-height: 760px) { .tab-dossier { grid-template-columns: 1fr; grid-auto-rows: auto; } .tab-card { min-height: 0; } }
+
+
+/* v2.0.95 — thin square audio sliders + stable skin drawer */
+#audio-settings {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 7px 0 0;
+  padding: 5px 6px;
+  border: 1px solid rgba(243,243,243,.12);
+  background: rgba(255,255,255,.018);
+}
+#audio-settings label {
+  grid-template-columns: 46px 1fr;
+  gap: 6px;
+  font-size: 8px;
+  letter-spacing: .13em;
+}
+#audio-settings input[type="range"] {
+  --val: 70%;
+  height: 7px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(243,243,243,.22);
+  border-radius: 0;
+  background: linear-gradient(90deg, rgba(0,255,102,.62) 0 var(--val), rgba(255,255,255,.045) var(--val) 100%);
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+#audio-settings input[type="range"]::-webkit-slider-runnable-track {
+  height: 7px;
+  background: transparent;
+  border: 0;
+}
+#audio-settings input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 13px;
+  margin-top: -4px;
+  border-radius: 0;
+  border: 1px solid rgba(243,243,243,.82);
+  background: #050505;
+  box-shadow: 0 0 0 1px rgba(0,255,102,.22);
+}
+#audio-settings input[type="range"]::-moz-range-track {
+  height: 7px;
+  background: rgba(255,255,255,.045);
+  border: 0;
+}
+#audio-settings input[type="range"]::-moz-range-progress {
+  height: 7px;
+  background: rgba(0,255,102,.62);
+}
+#audio-settings input[type="range"]::-moz-range-thumb {
+  width: 8px;
+  height: 13px;
+  border-radius: 0;
+  border: 1px solid rgba(243,243,243,.82);
+  background: #050505;
+  box-shadow: 0 0 0 1px rgba(0,255,102,.22);
+}
+#menu .menu-box { width: 336px; }
+#menu #skin-editor,
+#menu #skin-editor.collapsed {
+  display: grid !important;
+  height: 118px;
+  min-height: 118px;
+  max-height: 118px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: none !important;
+}
+#menu #skin-editor.collapsed {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#btn-skin-toggle { margin-top: 7px; }
