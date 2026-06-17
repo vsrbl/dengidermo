@@ -1,4 +1,4 @@
-# v2.0.91 — static/contract clarity pass
+# v2.0.92 — static/contract clarity pass
 
 - Casino Virus static is now local to the current room and no longer creates next-room Static Storm debt.
 - Portals in normal rooms now wait for the clear target and for every live enemy to be dead.
