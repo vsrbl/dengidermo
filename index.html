@@ -7,6 +7,22 @@
 <link rel="stylesheet" href="style.css?v=2.1">
 </head>
 <body>
+<svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
+  <filter id="tcr-jpeg-heavy-filter" x="-2%" y="-2%" width="104%" height="104%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.018 0.11" numOctaves="1" seed="17" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.15" xChannelSelector="R" yChannelSelector="G" result="warp"/>
+    <feComponentTransfer in="warp">
+      <feFuncR type="discrete" tableValues="0 .16 .34 .50 .68 .84 1"/>
+      <feFuncG type="discrete" tableValues="0 .15 .32 .48 .64 .82 1"/>
+      <feFuncB type="discrete" tableValues="0 .13 .28 .44 .60 .78 1"/>
+    </feComponentTransfer>
+  </filter>
+  <filter id="tcr-glitch-filter" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+    <feTurbulence type="turbulence" baseFrequency="0.012 0.28" numOctaves="1" seed="29" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.0" xChannelSelector="R" yChannelSelector="B" result="warp"/>
+    <feColorMatrix in="warp" type="matrix" values="1.12 0 0 0 0  0 .86 0 0 0  0 0 .92 0 0  0 0 0 1 0"/>
+  </filter>
+</svg>
 <canvas id="game"></canvas>
 <div id="custom-cursor" aria-hidden="true"><span class="cc"></span></div>
 <div id="explain-tip" class="hidden" aria-hidden="true"><div class="et-title"></div><div class="et-body"></div></div>

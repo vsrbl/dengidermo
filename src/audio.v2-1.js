@@ -29,7 +29,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, ui_click: 0.045
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.50, ui_click: 0.045
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -46,7 +46,7 @@ export class AudioBus {
       dash: 6, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, ui_click: 3
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, ui_click: 3
     };
     this._unlock = () => this.unlock();
     if (typeof window !== 'undefined') {
@@ -71,7 +71,7 @@ export class AudioBus {
 
   setMusicVolume(value) {
     this.musicVolume = this.writeVolume('nnc_music_volume', value);
-    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(0.90 * this.musicVolume, this.ctx.currentTime, 0.05);
+    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(1.80 * this.musicVolume, this.ctx.currentTime, 0.05);
   }
 
   setSfxVolume(value) {
@@ -90,7 +90,7 @@ export class AudioBus {
       this.sfxGain = this.ctx.createGain();
       this.musicGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
-      this.musicGain.gain.value = 0.90 * this.musicVolume;
+      this.musicGain.gain.value = 1.80 * this.musicVolume;
       this.comp = this.ctx.createDynamicsCompressor();
       this.comp.threshold.value = -18;
       this.comp.knee.value = 14;
@@ -280,6 +280,14 @@ export class AudioBus {
         this.tone(110, 0.22, 'sawtooth', 0.08, 2.4);
         this.tone(330, 0.22, 'square', 0.05, 1.6, 0.05);
         this.noise(0.16, 0.045, 2600, 5);
+        break;
+      case 'levelup':
+        // v2.1 hotfix: warm low-mid level up, no painful high sparkle.
+        this.tone(110, 0.18, 'sine', 0.095, 1.28);
+        this.tone(165, 0.22, 'triangle', 0.070, 1.22, 0.045);
+        this.tone(220, 0.26, 'triangle', 0.052, 1.18, 0.115);
+        this.tone(330, 0.16, 'sine', 0.032, 0.92, 0.205);
+        this.noise(0.075, 0.030, 720, 2.3, 0.015);
         break;
       case 'install':
         this.tone(430, 0.055, 'square', 0.05, 1.5);
@@ -804,6 +812,7 @@ export class AudioBus {
       case 'weapon_mod': if (mine) this.play('casino_weapon'); break;
       case 'ability_get': if (mine) this.play('chest_ability'); break;
       case 'portal_open': this.play('portal'); break;
+      case 'levelup': if (mine) this.play('levelup'); break;
       case 'install': if (mine) this.play('install'); break;
       case 'casino':
         // The casino modal owns spin / reel-stop / final-result timing, so do not play

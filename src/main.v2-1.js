@@ -217,8 +217,10 @@ const FILTER_PRESETS = [
   { id: 'terminal', name: 'CRT' },
   { id: 'vhs', name: 'VHS' },
   { id: 'jpeg', name: 'JPEG' },
+  { id: 'jpegPlus', name: 'JPEG+' },
   { id: 'lcd', name: 'LCD' },
-  { id: 'dirty', name: 'DIRTY' }
+  { id: 'dirty', name: 'DIRTY' },
+  { id: 'glitch', name: 'GLITCH' }
 ];
 const FILTER_KEY = 'tcr_filter_preset_v1';
 function currentFilterIndex() {

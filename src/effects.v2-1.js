@@ -13,6 +13,8 @@ export class Effects {
     this.sweepColor = '#00ff66';
     this.slam = 0;        // jackpot white slam
     this.zoomKick = 0;
+    this.levelPulse = 0;
+    this.levelLabel = '';
   }
 
   add(e) { this.list.push({ ...e, t: 0 }); if (this.list.length > 200) this.list.shift(); }
@@ -32,6 +34,7 @@ export class Effects {
     this.hitFlash = Math.max(0, this.hitFlash - 2.2 * dt);
     this.slam = Math.max(0, this.slam - 2.5 * dt);
     this.zoomKick = Math.max(0, this.zoomKick - 3 * dt);
+    this.levelPulse = Math.max(0, this.levelPulse - 1.35 * dt);
     if (this.sweep > 0) { this.sweep += dt * 1.6; if (this.sweep >= 1) this.sweep = 0; }
   }
 
@@ -93,7 +96,13 @@ export class Effects {
         break;
       }
       case 'levelup':
-        if (mine) { this.sweep = 0.01; this.sweepColor = '#00ff66'; this.kick(5); }
+        if (mine) {
+          this.sweep = 0.01;
+          this.sweepColor = '#66f6ff';
+          this.levelPulse = 1;
+          this.levelLabel = f.level ? `LVL ${f.level}` : 'LEVEL UP';
+          this.kick(7);
+        }
         break;
       case 'pick':
         if (f.type === 'GLD') this.float(f.x, f.y, `+${f.val}`, '#00ff66', 12);
@@ -1039,6 +1048,35 @@ export class Effects {
       g.addColorStop(0.5, this.sweepColor);
       g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(0, y - 60, w, 120);
+      ctx.restore();
+    }
+    if (this.levelPulse > 0) {
+      const p = this.levelPulse;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, p * 1.15);
+      const cx = w / 2;
+      const cy = h * 0.31;
+      const bw = Math.min(420, w * 0.72);
+      const bh = 70;
+      ctx.fillStyle = `rgba(0, 10, 4, ${0.42 * p})`;
+      ctx.fillRect(cx - bw / 2, cy - bh / 2, bw, bh);
+      ctx.strokeStyle = `rgba(102,246,255,${0.65 * p})`;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - bw / 2 + 4, cy - bh / 2 + 4, bw - 8, bh - 8);
+      ctx.fillStyle = `rgba(102,246,255,${0.14 * p})`;
+      const bars = 7;
+      for (let i = 0; i < bars; i++) {
+        const yb = cy - bh / 2 + 10 + i * 8;
+        const off = ((1 - p) * 80 + i * 17) % bw;
+        ctx.fillRect(cx - bw / 2 + off - 42, yb, 84, 3);
+      }
+      ctx.fillStyle = `rgba(102,246,255,${0.92 * p})`;
+      ctx.font = `bold ${Math.round(18 + 7 * p)}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 8);
+      ctx.font = `bold 10px 'Courier New', monospace`;
+      ctx.fillText('INSTALL SIGNAL RECEIVED', cx, cy + 18);
       ctx.restore();
     }
     if (this.slam > 0) {
