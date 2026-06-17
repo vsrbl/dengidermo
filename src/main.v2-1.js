@@ -212,6 +212,45 @@ skinToggle?.addEventListener('click', () => {
   skinToggle.classList.toggle('open', open);
   skinToggle.textContent = open ? t('hideSkins') : t('changeSkin');
 });
+
+const FILTER_PRESETS = [
+  { id: 'terminal', name: 'CRT' },
+  { id: 'vhs', name: 'VHS' },
+  { id: 'jpeg', name: 'JPEG' },
+  { id: 'lcd', name: 'LCD' },
+  { id: 'dirty', name: 'DIRTY' }
+];
+const FILTER_KEY = 'tcr_filter_preset_v1';
+function currentFilterIndex() {
+  const saved = localStorage.getItem(FILTER_KEY) || 'terminal';
+  const idx = FILTER_PRESETS.findIndex(f => f.id === saved);
+  return idx >= 0 ? idx : 0;
+}
+let filterIndex = currentFilterIndex();
+function filterLabelName() { return FILTER_PRESETS[filterIndex]?.name || 'CRT'; }
+function applyVisualFilter(playSound = false) {
+  const preset = FILTER_PRESETS[filterIndex] || FILTER_PRESETS[0];
+  document.documentElement.dataset.filterPreset = preset.id;
+  document.body.dataset.filterPreset = preset.id;
+  localStorage.setItem(FILTER_KEY, preset.id);
+  const btn = $('filter-switch');
+  if (btn) {
+    btn.dataset.filterName = preset.name;
+    btn.textContent = `${t('filterLabel') || 'FILTER'}: ${preset.name}`;
+    btn.title = `${t('filterBody') || 'F7'}`;
+  }
+  if (playSound) uiClick('ui_click');
+}
+function nextVisualFilter() {
+  filterIndex = (filterIndex + 1) % FILTER_PRESETS.length;
+  applyVisualFilter(true);
+}
+$('filter-switch')?.addEventListener('click', nextVisualFilter);
+window.addEventListener('keydown', e => {
+  if (e.code === 'F7') { e.preventDefault(); nextVisualFilter(); }
+});
+applyVisualFilter(false);
+
 function paintRange(el) {
   if (!el) return;
   const min = Number(el.min || 0), max = Number(el.max || 100), val = Number(el.value || 0);
@@ -230,6 +269,7 @@ syncAudioSliders();
 onLangChange(() => {
   updateSkinPreview();
   if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');
+  applyVisualFilter(false);
 });
 
 async function connect() {

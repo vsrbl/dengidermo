@@ -32,7 +32,7 @@ const RU = {
     betHintTitle: 'СТАВКА', betHintBody: 'Клавиши 1, 2 и 3 запускают LOW, MID или HIGH ставку.',
     exitTitle: 'ВЫХОД', exitBody: 'ESC закрывает казино, если барабаны не крутятся.',
     menuSub: 'terminal casino // 4 players coop',
-    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
+    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Переключает цифровой фильтр поверх всей игры. Горячая клавиша F7.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и TAB-панели. До 12 символов.',
     solo: 'СОЛО', soloBody: 'Запускает локальный забег без сети. Удобно для тренировки и быстрой игры.',
     create: 'СОЗДАТЬ КОМНАТУ', createBody: 'Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.',
@@ -89,7 +89,7 @@ const EN = {
     betHintTitle: 'BET', betHintBody: 'Keys 1, 2, and 3 start LOW, MID, or HIGH bet.',
     exitTitle: 'EXIT', exitBody: 'ESC closes casino when reels are not spinning.',
     menuSub: 'terminal casino // 4 players coop',
-    musicLabel: 'MUSIC', sfxLabel: 'SFX', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
+    musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Cycles the full-screen digital filter. Hotkey: F7.', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
     namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name in room and TAB panel. Up to 12 characters.',
     solo: 'SOLO', soloBody: 'Starts a local run without network. Good for practice and quick play.',
     create: 'CREATE ROOM', createBody: 'Creates a co-op room for friends. Share the four-symbol code.',
@@ -465,6 +465,13 @@ export function applyStaticI18n() {
   const audioLabels = document.querySelectorAll('#audio-settings label span');
   if (audioLabels[0]) audioLabels[0].textContent = t('musicLabel');
   if (audioLabels[1]) audioLabels[1].textContent = t('sfxLabel');
+  const filterSwitch = document.getElementById('filter-switch');
+  if (filterSwitch) {
+    const presetName = filterSwitch.dataset.filterName || 'CRT';
+    filterSwitch.textContent = `${t('filterLabel')}: ${presetName}`;
+    filterSwitch.dataset.explainTitle = t('filterLabel');
+    filterSwitch.dataset.explain = t('filterBody');
+  }
   setExplainId('audio-settings', localText('ЗВУК', 'AUDIO'), localText('Раздельная громкость музыки и игровых звуков. Сохраняется в браузере.', 'Separate music and SFX volume. Saved in this browser.'));
   const skinToggle = document.getElementById('btn-skin-toggle');
   const skinEditor = document.getElementById('skin-editor');

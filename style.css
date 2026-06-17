@@ -1740,3 +1740,158 @@ body::after { display: none !important; }
   #logo { font-size: clamp(19px, 7vw, 26px) !important; letter-spacing: .065em !important; }
   #hud-mods { max-width: 94vw !important; }
 }
+
+/* 2.1 FILTER LAB — five selectable full-screen digital filter presets (CSS-only, no per-frame canvas) */
+#filter-switch {
+  position: fixed !important;
+  right: 10px !important;
+  bottom: 10px !important;
+  z-index: 2147483646 !important;
+  min-width: 104px !important;
+  height: 28px !important;
+  padding: 0 9px !important;
+  border: 1px solid rgba(0,255,102,.58) !important;
+  background: rgba(0,8,3,.86) !important;
+  color: var(--green) !important;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  opacity: .74 !important;
+  cursor: pointer !important;
+}
+#filter-switch:hover { opacity: 1 !important; background: rgba(0,255,102,.13) !important; }
+#menu:not(.hidden) ~ #filter-switch { bottom: 14px !important; right: 14px !important; }
+#global-digital-filter,
+#global-digital-filter::before,
+#global-digital-filter::after {
+  content: '';
+  position: fixed !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  display: block !important;
+  transform: translateZ(0);
+  will-change: opacity, background-position;
+}
+#global-digital-filter {
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  background: transparent !important;
+}
+#global-digital-filter::before { z-index: 2147483647 !important; }
+#global-digital-filter::after { z-index: 2147483647 !important; }
+
+/* 1. CRT — green terminal shadow-mask, crisp and casino-terminal */
+html[data-filter-preset="terminal"] #game { filter: contrast(1.05) saturate(.82) brightness(.92) !important; image-rendering: pixelated !important; }
+html[data-filter-preset="terminal"] #global-digital-filter {
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.060) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.17) 0 1px, transparent 1px 4px),
+    repeating-conic-gradient(from 45deg, rgba(0,255,102,.095) 0 12.5%, rgba(255,255,255,.030) 0 25%, rgba(0,0,0,.16) 0 37.5%, transparent 0 50%) 0 0/4px 4px,
+    linear-gradient(rgba(0,255,102,.027), rgba(0,0,0,.055)) !important;
+}
+html[data-filter-preset="terminal"] #global-digital-filter::before {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 56%, rgba(0,0,0,.20) 100%),
+    repeating-linear-gradient(0deg, transparent 0 7px, rgba(0,0,0,.11) 7px 8px) !important;
+  opacity: .78 !important;
+}
+html[data-filter-preset="terminal"] #global-digital-filter::after {
+  background: linear-gradient(90deg, rgba(255,0,0,.026), transparent 18%, rgba(0,255,102,.020) 52%, transparent 82%, rgba(0,120,255,.026)) !important;
+  opacity: .9 !important;
+}
+
+/* 2. VHS — softer tape, horizontal bands and very subtle RGB drift */
+html[data-filter-preset="vhs"] #game { filter: contrast(.96) saturate(.70) brightness(.88) hue-rotate(-4deg) !important; image-rendering: auto !important; }
+html[data-filter-preset="vhs"] #global-digital-filter {
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.030) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(0deg, transparent 0 21px, rgba(0,0,0,.13) 21px 23px, transparent 23px 47px),
+    linear-gradient(90deg, rgba(255,0,70,.055), transparent 20%, rgba(0,220,255,.040) 82%, rgba(0,0,0,.06)) !important;
+  mix-blend-mode: screen !important;
+  opacity: .82 !important;
+}
+html[data-filter-preset="vhs"] #global-digital-filter::before {
+  background:
+    linear-gradient(0deg, transparent 0 42%, rgba(255,255,255,.050) 45%, transparent 48% 100%),
+    radial-gradient(circle at 50% 55%, transparent 0 52%, rgba(0,0,0,.22) 100%) !important;
+  opacity: .62 !important;
+  animation: tcrVhsTear 5.5s steps(9) infinite;
+}
+html[data-filter-preset="vhs"] #global-digital-filter::after {
+  background: repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 2px, transparent 2px 8px) !important;
+  opacity: .32 !important;
+}
+@keyframes tcrVhsTear { 0%,100%{background-position:0 0,0 0} 43%{background-position:0 0,0 0} 46%{background-position:11px 7px,0 0} 49%{background-position:-7px 18px,0 0} 51%{background-position:0 0,0 0} }
+
+/* 3. JPEG — block compression / surveillance still-image degradation */
+html[data-filter-preset="jpeg"] #game { filter: contrast(1.12) saturate(.56) brightness(.89) !important; image-rendering: pixelated !important; }
+html[data-filter-preset="jpeg"] #global-digital-filter {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0 1px, transparent 1px 8px),
+    repeating-conic-gradient(from 0deg, rgba(0,255,102,.060) 0 25%, rgba(255,255,255,.025) 0 50%, rgba(0,0,0,.12) 0 75%, transparent 0 100%) 0 0/8px 8px !important;
+  opacity: .72 !important;
+}
+html[data-filter-preset="jpeg"] #global-digital-filter::before {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 12px, rgba(255,255,255,.025) 12px 13px, transparent 13px 25px),
+    radial-gradient(circle at 50% 50%, transparent 0 63%, rgba(0,0,0,.18) 100%) !important;
+  opacity: .58 !important;
+}
+html[data-filter-preset="jpeg"] #global-digital-filter::after {
+  background: linear-gradient(rgba(0,255,102,.035), rgba(255,255,255,.018), rgba(0,0,0,.075)) !important;
+  opacity: .86 !important;
+}
+
+/* 4. LCD — cold subpixel matrix, clean display-panel look */
+html[data-filter-preset="lcd"] #game { filter: contrast(1.0) saturate(.74) brightness(.95) hue-rotate(5deg) !important; image-rendering: pixelated !important; }
+html[data-filter-preset="lcd"] #global-digital-filter {
+  background:
+    repeating-linear-gradient(90deg, rgba(255,0,0,.060) 0 1px, rgba(0,255,102,.045) 1px 2px, rgba(0,80,255,.055) 2px 3px, transparent 3px 5px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 4px),
+    linear-gradient(rgba(0,255,180,.025), rgba(0,0,0,.045)) !important;
+  mix-blend-mode: screen !important;
+  opacity: .72 !important;
+}
+html[data-filter-preset="lcd"] #global-digital-filter::before {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 68%, rgba(0,0,0,.12) 100%),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.07) 2px 3px) !important;
+  opacity: .68 !important;
+}
+html[data-filter-preset="lcd"] #global-digital-filter::after {
+  background: linear-gradient(90deg, rgba(255,255,255,.018), transparent 40%, rgba(0,255,102,.030), transparent 70%) !important;
+  opacity: .55 !important;
+}
+
+/* 5. DIRTY — liminal security camera / dusty dark glass */
+html[data-filter-preset="dirty"] #game { filter: contrast(.92) saturate(.58) brightness(.78) sepia(.10) !important; image-rendering: auto !important; }
+html[data-filter-preset="dirty"] #global-digital-filter {
+  background:
+    radial-gradient(circle at 25% 18%, rgba(255,255,255,.050) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 73% 38%, rgba(255,255,255,.045) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 44% 72%, rgba(255,255,255,.035) 0 1px, transparent 1px 100%),
+    repeating-linear-gradient(20deg, rgba(255,255,255,.020) 0 1px, transparent 1px 19px),
+    radial-gradient(circle at 50% 50%, transparent 0 48%, rgba(0,0,0,.34) 100%),
+    linear-gradient(rgba(0,30,12,.07), rgba(0,0,0,.15)) !important;
+  opacity: .88 !important;
+}
+html[data-filter-preset="dirty"] #global-digital-filter::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, transparent 0 16px, rgba(0,0,0,.08) 16px 17px) !important;
+  opacity: .54 !important;
+}
+html[data-filter-preset="dirty"] #global-digital-filter::after {
+  background: linear-gradient(90deg, rgba(0,255,102,.018), transparent 25%, rgba(255,255,255,.012), transparent 75%, rgba(255,0,0,.018)) !important;
+  opacity: .75 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-filter-preset="vhs"] #global-digital-filter::before { animation: none !important; }
+}
+@media (max-width: 760px) {
+  #filter-switch { bottom: 7px !important; right: 7px !important; min-width: 92px !important; height: 26px !important; font-size: 9px !important; }
+}
