@@ -1334,8 +1334,8 @@ function resolveEnemyCrowd(run, walls, dt) {
         if (d < 0.001) { dx = ((i * 17 + j * 31) % 100) / 50 - 1; dy = ((i * 29 + j * 13) % 100) / 50 - 1; d = Math.hypot(dx, dy) || 1; }
         const nx = dx / d, ny = dy / d;
         const overlap = (minD - d) * 0.5;
-        const heavyA = a.kind === 'boss' || a.kind === 'tank' || a.kind === 'anchor' || a.kind === 'herald' || a.kind === 'damper';
-        const heavyB = b.kind === 'boss' || b.kind === 'tank' || b.kind === 'anchor' || b.kind === 'herald' || b.kind === 'damper';
+        const heavyA = ENEMIES[a.kind]?.boss || a.kind === 'tank' || a.kind === 'anchor' || a.kind === 'herald' || a.kind === 'damper';
+        const heavyB = ENEMIES[b.kind]?.boss || b.kind === 'tank' || b.kind === 'anchor' || b.kind === 'herald' || b.kind === 'damper';
         const am = heavyA ? 0.35 : 0.65;
         const bm = heavyB ? 0.35 : 0.65;
         const ac = collideWalls(a.x - nx * overlap * am, a.y - ny * overlap * am, a.size / 2, walls, a.x, a.y);
@@ -1415,7 +1415,7 @@ function stepEnemySynergies(run, players, dt) {
     const def = ENEMIES.anchor;
     let count = 0;
     for (const e of run.enemies) {
-      if (e.id === a.id || e.kind === 'boss') continue;
+      if (e.id === a.id || ENEMIES[e.kind]?.boss) continue;
       if (dist2(e.x, e.y, a.x, a.y) < def.fieldR * def.fieldR) { e.anchorT = 0.26; count++; }
     }
     if (count && (a.comboCd || 0) <= 0) { a.comboCd = 0.85; run.fx.push({ t: 'enemy_combo', label: 'ANCHOR FIELD', x: Math.round(a.x), y: Math.round(a.y) }); }
@@ -1425,7 +1425,7 @@ function stepEnemySynergies(run, players, dt) {
     const def = ENEMIES.damper;
     let guarded = 0;
     for (const e of run.enemies) {
-      if (e.id === d.id || e.kind === 'boss' || e.hp <= 0) continue;
+      if (e.id === d.id || ENEMIES[e.kind]?.boss || e.hp <= 0) continue;
       const near = dist2(e.x, e.y, d.x, d.y) < (def.fieldR + 360) ** 2;
       if (!near) continue;
       if (['shooter','prism','pulse','orbiter','echo'].includes(e.kind)) {
@@ -1455,7 +1455,7 @@ function stepEnemySynergies(run, players, dt) {
     const target = nearestAlive(players, h.x, h.y, run);
     let rallied = 0;
     for (const e of run.enemies) {
-      if (e.id === h.id || e.kind === 'boss' || e.kind === 'anchor') continue;
+      if (e.id === h.id || ENEMIES[e.kind]?.boss || e.kind === 'anchor') continue;
       if (dist2(e.x, e.y, h.x, h.y) < 560 * 560) {
         e.rallyT = Math.max(e.rallyT || 0, 2.1);
         if (target) e.rallyTargetId = target.id;
@@ -1469,7 +1469,7 @@ function stepEnemySynergies(run, players, dt) {
   for (const o of orbiters) {
     let guarded = 0;
     for (const e of run.enemies) {
-      if (e.id === o.id || e.kind === 'boss') continue;
+      if (e.id === o.id || ENEMIES[e.kind]?.boss) continue;
       if (!['shooter','prism','pulse','leech'].includes(e.kind)) continue;
       if (dist2(e.x, e.y, o.x, o.y) < 230 * 230) { e.orbShieldT = 0.30; guarded++; }
     }
@@ -1528,7 +1528,7 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
   const nx = dx / d;
   const ny = dy / d;
   const overlap = minD - d;
-  const bossy = e.kind === 'boss' || e.kind === 'tank';
+  const bossy = ENEMIES[e.kind]?.boss || e.kind === 'tank';
   const enemyMove = overlap * (bossy ? 0.42 : 0.78);
   const playerMove = overlap * (bossy ? 0.78 : 0.48) + (opts.playerKick ?? 0);
   const ec = collideWalls(e.x - nx * enemyMove, e.y - ny * enemyMove, e.size / 2, walls, e.x, e.y);
@@ -2006,7 +2006,12 @@ export function startRoom(run, players) {
     run.director = null;
     openPortal(run);
   }
-  if (run.plan.category === 'boss') spawnEnemy(run, players, 'boss', false);
+  if (run.plan.category === 'boss') {
+    const bossKind = chooseBossKind(run);
+    const boss = spawnEnemy(run, players, bossKind, false);
+    run.bossKind = bossKind;
+    run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
+  }
   else if (run.plan.modifierIds.includes('hunter_contract')) {
     run.fx.push({ t: 'contract', label: 'HUNTER WAVES', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
   }
@@ -2877,11 +2882,218 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
   if (kind === 'herald') e.summonCd = def.summonCd * (0.55 + rng() * 0.5);
   if (kind === 'leech') e.healCd = def.healCd * (0.6 + rng() * 0.6);
   if (kind === 'echo') { e.fireCd = echoMimicCooldown('shotgun', def, e) * (0.75 + rng() * 0.5); e.mimicWeapon = 'shotgun'; }
+  if (def.boss) {
+    e.bossKind = kind;
+    e.bossCastCd = (def.fireCd || 2.3) * (0.8 + rng() * 0.55);
+    e.bossMarks = [];
+    e.bossPhase = 0;
+    if (kind === 'boss_q_revisor') {
+      const coreIds = Object.keys(ACTIVE_CORES);
+      e.bossActiveCore = coreIds[Math.floor(rng() * coreIds.length)] || 'field_snap';
+      e.bossActiveLevel = 1 + Math.min(3, Math.floor((run.runDepth || 0) / 4));
+    }
+  }
   if (opts.packRole) e.packRole = opts.packRole;
   if (opts.escortAnchorId) e.escortAnchorId = opts.escortAnchorId;
   run.enemies.push(e);
   run.spawned++;
   return e;
+}
+
+const BOSS_ROTATION = ['boss_croupier', 'boss_anchor_cashier', 'boss_hunter_chorus', 'boss_q_revisor'];
+function chooseBossKind(run) {
+  const idx = Math.max(0, Math.floor((run.runDepth || 0) / 4)) % BOSS_ROTATION.length;
+  return BOSS_ROTATION[idx] || 'boss_croupier';
+}
+function isBossKind(kind) { return !!(ENEMIES[kind] && ENEMIES[kind].boss); }
+function stepBossMarks(run, players, e, dt) {
+  if (!Array.isArray(e.bossMarks)) e.bossMarks = [];
+  for (const m of [...e.bossMarks]) {
+    m.t -= dt;
+    if (m.t > 0) continue;
+    e.bossMarks = e.bossMarks.filter(x => x !== m);
+    if (m.line) {
+      run.fx.push({ t: 'active_line', kind: 'boss_line', x1: Math.round(m.x1), y1: Math.round(m.y1), x2: Math.round(m.x2), y2: Math.round(m.y2), width: m.w || 54, hitWidth: m.w || 54, tone: m.tone || 'red' });
+      for (const p of players.values()) if (p.alive && distToSegment2(p.x, p.y, m.x1, m.y1, m.x2, m.y2) < ((m.w || 54) + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, m.dmg || 24, m.x2, m.y2);
+    } else {
+      run.fx.push({ t: 'rain_hit', x: Math.round(m.x), y: Math.round(m.y), r: m.r || 90, stacks: 1 });
+      for (const p of players.values()) if (p.alive && dist2(p.x, p.y, m.x, m.y) < ((m.r || 90) + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, m.dmg || 20, m.x, m.y);
+      if (m.adds && run.enemies.length < difficulty(run).addCap) {
+        const pool = m.addPool || ['grunt', 'runner'];
+        const count = Math.min(m.adds, Math.max(0, difficulty(run).addCap - run.enemies.length));
+        for (let i = 0; i < count; i++) {
+          const pos = offsetSpawnPos(run, { x: m.x, y: m.y }, i, count);
+          spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)] || 'grunt', false, pos, { noArmor: true });
+        }
+      }
+    }
+  }
+}
+function bossRadial(run, e, count, spd, dmg, size = 8, life = 3.0, spin = 0) {
+  if (run.bullets.length > MAX_BULLETS - count - 2) return;
+  const base = (run.now || 0) * 0.35 + spin;
+  for (let i = 0; i < count; i++) {
+    const a = base + (i / count) * Math.PI * 2;
+    run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, dmg, from: 'e', life, size });
+  }
+  run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+}
+function bossAimBurst(run, e, target, count, spread, spd, dmg, size = 7) {
+  if (!target || run.bullets.length > MAX_BULLETS - count - 2) return;
+  const base = Math.atan2(target.y - e.y, target.x - e.x);
+  for (let i = 0; i < count; i++) {
+    const t = count <= 1 ? 0 : i / (count - 1) - 0.5;
+    const a = base + t * spread;
+    run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, dmg, from: 'e', life: 2.8, size });
+  }
+  e.dirX = Math.cos(base); e.dirY = Math.sin(base);
+}
+function warnBossCircle(run, e, x, y, r, dmg, delay = 0.95, tone = 'red', extra = {}) {
+  if (!Array.isArray(e.bossMarks)) e.bossMarks = [];
+  e.bossMarks.push({ x, y, r, dmg, t: delay, ...extra });
+  run.fx.push({ t: 'rain_warn', x: Math.round(x), y: Math.round(y), r, dur: delay, stacks: 1, tone });
+}
+function warnBossLine(run, e, x1, y1, x2, y2, w, dmg, delay = 0.65, tone = 'purple') {
+  if (!Array.isArray(e.bossMarks)) e.bossMarks = [];
+  e.bossMarks.push({ line: 1, x1, y1, x2, y2, w, dmg, t: delay, tone });
+  run.fx.push({ t: 'active_line', kind: 'boss_warn', x1: Math.round(x1), y1: Math.round(y1), x2: Math.round(x2), y2: Math.round(y2), width: w, hitWidth: w, tone });
+}
+function bossMoveKeep(run, e, target, toT, dT, spd, dt, keep = 460, sideMul = 0.18) {
+  const mv = dT > keep + 80 ? 1 : dT < keep - 100 ? -0.75 : 0;
+  const side = { x: -toT.y * sideMul, y: toT.x * sideMul };
+  steerMove(run, e, { x: toT.x * mv + side.x, y: toT.y * mv + side.y }, spd, dt, { target });
+}
+function bossPullPlayers(run, players, e, r, pull, dt, slowMul = 0.62) {
+  for (const p of players.values()) {
+    if (!p.alive) continue;
+    const d = Math.sqrt(dist2(p.x, p.y, e.x, e.y));
+    if (d < r) {
+      p.slowT = 0.18; p.slowMul = Math.min(p.slowMul || 1, slowMul);
+      const n = norm(e.x - p.x, e.y - p.y);
+      const cc = collideWalls(p.x + n.x * pull * dt, p.y + n.y * pull * dt, PLAYER_SIZE / 2, run.plan.walls || [], p.x, p.y);
+      p.x = cc.x; p.y = cc.y;
+    }
+  }
+}
+function stepCroupierBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 500, 0.22);
+  e.bossCastCd -= dt;
+  if (e.bossCastCd <= 0) {
+    e.bossPhase = (e.bossPhase || 0) + 1;
+    const loop = difficulty(run).loop;
+    const dx = target.x - e.x, dy = target.y - e.y;
+    const n = norm(dx, dy); const per = { x: -n.y, y: n.x };
+    const stakeCount = 2 + (loop >= 2 ? 1 : 0);
+    for (let i = 0; i < stakeCount; i++) {
+      const row = i - (stakeCount - 1) / 2;
+      const x = clamp(target.x + per.x * row * 130 + n.x * (80 + i * 24), 90, run.plan.w - 90);
+      const y = clamp(target.y + per.y * row * 130 + n.y * (80 + i * 24), 90, run.plan.h - 90);
+      const add = (e.bossPhase % 3 === 0 && i === stakeCount - 1) ? { adds: 2 + Math.min(2, loop), addPool: loop < 2 ? ['grunt','runner'] : ['grunt','runner','shooter','bouncer'] } : {};
+      warnBossCircle(run, e, x, y, 72 + Math.min(28, loop * 7), enemyDamageValue(e, 0.78), 0.92, 'red', add);
+    }
+    bossAimBurst(run, e, target, 3 + Math.min(2, loop), 0.52, def.bulletSpd, enemyDamageValue(e, 0.52), 7);
+    e.bossCastCd = Math.max(1.45, def.fireCd - Math.min(0.55, loop * 0.08));
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepAnchorCashierBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 430, 0.10);
+  const r = def.fieldR || 430;
+  bossPullPlayers(run, players, e, r, def.pull || 190, dt, 0.58);
+  for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, e.x, e.y) < (r + b.size) ** 2) {
+    const n = norm(e.x - b.x, e.y - b.y); b.vx += n.x * 70 * dt; b.vy += n.y * 70 * dt;
+  }
+  e.fxT = (e.fxT || 0) - dt;
+  if (e.fxT <= 0) { e.fxT = 0.18; run.fx.push({ t: 'active_field', kind: 'anchor_boss', x: Math.round(e.x), y: Math.round(e.y), r, tone: 'purple' }); }
+  e.bossCastCd -= dt;
+  if (e.bossCastCd <= 0) {
+    const loop = difficulty(run).loop;
+    bossRadial(run, e, 8 + Math.min(6, loop * 2), def.bulletSpd || 215, enemyDamageValue(e, 0.50), 8, 3.0, e.bossPhase || 0);
+    const x = clamp(target.x + (Math.random() - 0.5) * 180, 90, run.plan.w - 90);
+    const y = clamp(target.y + (Math.random() - 0.5) * 180, 90, run.plan.h - 90);
+    warnBossCircle(run, e, x, y, 105 + Math.min(34, loop * 8), enemyDamageValue(e, 0.82), 1.05, 'purple');
+    e.bossPhase = (e.bossPhase || 0) + 0.6;
+    e.bossCastCd = Math.max(1.75, def.fireCd - Math.min(0.55, loop * 0.09));
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepHunterChorusBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 380, 0.34);
+  e.bossCastCd -= dt;
+  if (e.bossCastCd <= 0) {
+    e.bossPhase = ((e.bossPhase || 0) + 1) % 3;
+    const loop = difficulty(run).loop;
+    if (e.bossPhase === 0) {
+      bossAimBurst(run, e, target, 5 + Math.min(3, loop), 0.62, def.bulletSpd || 285, enemyDamageValue(e, 0.50), 6);
+    } else if (e.bossPhase === 1) {
+      const n = norm(target.x - e.x, target.y - e.y);
+      warnBossLine(run, e, e.x, e.y, clamp(e.x + n.x * 760, 60, run.plan.w - 60), clamp(e.y + n.y * 760, 60, run.plan.h - 60), 48, enemyDamageValue(e, 0.92), 0.55, 'red');
+    } else if (run.enemies.length < difficulty(run).addCap) {
+      const pool = loop < 2 ? ['runner','charger'] : ['runner','charger','bouncer','glitch'];
+      const n = 2 + Math.min(3, loop);
+      for (let i = 0; i < n && run.enemies.length < difficulty(run).addCap; i++) {
+        const pos = offsetSpawnPos(run, target, i, n);
+        const add = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)] || 'runner', false, pos, { noArmor: loop < 2, packRole: 'hunter_chorus' });
+        add.rallyT = Math.max(add.rallyT || 0, 1.25);
+        add.rallyTargetId = target.id;
+      }
+      run.fx.push({ t: 'summon', kind: 'hunter_chorus', x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(target.x), y2: Math.round(target.y), count: n });
+    }
+    e.bossCastCd = Math.max(1.25, def.fireCd - Math.min(0.55, loop * 0.10));
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 440, 0.20);
+  e.bossCastCd -= dt;
+  const core = e.bossActiveCore || 'field_snap';
+  if (e.bossCastCd <= 0) {
+    const loop = difficulty(run).loop;
+    const lvl = Math.max(1, e.bossActiveLevel || 1);
+    const dmg = enemyDamageValue(e, 0.70 + Math.min(0.22, lvl * 0.04));
+    if (core === 'blood_ring' || core === 'debt_pulse') {
+      warnBossCircle(run, e, e.x, e.y, core === 'debt_pulse' ? 210 : 170, dmg, 0.72, 'red');
+      bossRadial(run, e, core === 'debt_pulse' ? 12 : 8, def.bulletSpd || 250, enemyDamageValue(e, 0.42), 7, 2.8, e.bossPhase || 0);
+    } else if (core === 'field_snap') {
+      bossPullPlayers(run, players, e, 620, 520, 0.18, 0.55);
+      run.fx.push({ t: 'active', id: e.id, label: 'FIELD SNAP', x: Math.round(e.x), y: Math.round(e.y), r: 260, kind: 'field_snap' });
+      warnBossCircle(run, e, e.x, e.y, 145, dmg, 0.58, 'cyan');
+    } else if (core === 'bullet_freeze') {
+      for (const p of players.values()) if (p.alive && dist2(p.x, p.y, e.x, e.y) < 280 * 280) { p.slowT = 1.1; p.slowMul = 0.45; }
+      run.fx.push({ t: 'active_field', kind: 'freeze_aura', x: Math.round(e.x), y: Math.round(e.y), r: 280, tone: 'cyan' });
+      bossAimBurst(run, e, target, 4 + Math.min(3, loop), 0.44, 210, enemyDamageValue(e, 0.36), 8);
+    } else if (core === 'shell_ripper') {
+      warnBossCircle(run, e, target.x, target.y, 135, dmg, 0.70, 'purple');
+      bossAimBurst(run, e, target, 6, 0.72, def.bulletSpd || 250, enemyDamageValue(e, 0.38), 6);
+    } else if (core === 'void_cut') {
+      const n = norm(target.x - e.x, target.y - e.y);
+      warnBossLine(run, e, e.x, e.y, e.x + n.x * 900, e.y + n.y * 900, 42, dmg, 0.68, 'purple');
+    } else if (core === 'signal_spike') {
+      warnBossCircle(run, e, target.x, target.y, 150, dmg, 0.95, 'cyan');
+      run.fx.push({ t: 'active_field', kind: 'signal_spike', x: Math.round(target.x), y: Math.round(target.y), r: 150, tone: 'cyan' });
+    } else if (core === 'black_box') {
+      e.activeSlowT = Math.max(e.activeSlowT || 0, 0.1);
+      run.fx.push({ t: 'black_box_cast', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: 235, lvl });
+      bossRadial(run, e, 10, def.bulletSpd || 250, enemyDamageValue(e, 0.36), 6, 2.4, (e.bossPhase || 0) + 0.25);
+    }
+    e.bossPhase = (e.bossPhase || 0) + 0.72;
+    e.bossCastCd = Math.max(1.55, def.fireCd + 0.25 - Math.min(0.45, loop * 0.06));
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
+  stepBossMarks(run, players, e, dt);
+  if (e.kind === 'boss_croupier') return stepCroupierBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_anchor_cashier') return stepAnchorCashierBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_hunter_chorus') return stepHunterChorusBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_q_revisor') return stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt);
+  steerMove(run, e, toT, spd, dt, { target });
+  e.fireCd -= dt;
+  if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
+    e.fireCd = def.fireCd * (e.hp < e.maxHp * 0.5 ? 0.65 : 1);
+    bossRadial(run, e, 10, def.bulletSpd || 230, enemyDamageValue(e, 0.6), 9, 3.2, Math.random() * Math.PI * 2);
+  }
+  touchDamage(run, e, players, dt);
 }
 
 function director(run, players, dt) {
@@ -2896,7 +3108,7 @@ function director(run, players, dt) {
 
   if (plan.category === 'boss') {
     // Boss adds now use tiny encounter packs instead of pure random trickle.
-    const boss = run.enemies.find(e => e.kind === 'boss');
+    const boss = run.enemies.find(e => ENEMIES[e.kind]?.boss);
     if (boss && boss.hp < boss.maxHp * 0.55) {
       run.director.pauseT -= dt;
       if (run.director.pauseT <= 0 && run.enemies.length < df.addCap) {
@@ -3331,7 +3543,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
   for (const e of [...run.enemies]) {
     if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) {
       const n = norm(e.x - x, e.y - y);
-      if (opts.stun && e.kind !== 'boss') {
+      if (opts.stun && !ENEMIES[e.kind]?.boss) {
         const dur = Math.min(1.8, 0.42 + (opts.stunStacks || 1) * 0.18);
         e.stunT = Math.max(e.stunT || 0, dur);
         e.activeSlowT = Math.max(e.activeSlowT || 0, dur);
@@ -3848,16 +4060,8 @@ function stepEnemies(run, players, dt) {
         }
       }
       e.dirX = toT.x; e.dirY = toT.y;
-    } else if (e.kind === 'boss') {
-      steerMove(run, e, toT, spd, dt, { target });
-      e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
-        e.fireCd = def.fireCd * (e.hp < e.maxHp * 0.5 ? 0.65 : 1);
-        const n = 10; const base = Math.random() * Math.PI * 2;
-        for (let i = 0; i < n; i++) { const a = base + (i / n) * Math.PI * 2; run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(a) * def.bulletSpd, vy: Math.sin(a) * def.bulletSpd, dmg: enemyDamageValue(e, 0.6), from: 'e', life: 3.2, size: 9 }); }
-        run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
-      }
-      touchDamage(run, e, players, dt);
+    } else if (isBossKind(e.kind)) {
+      stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls);
     } else {
       steerMove(run, e, toT, spd, dt, { target });
       touchDamage(run, e, players, dt);
@@ -5152,7 +5356,7 @@ function activeTargets(run, x, y, r) {
   return run.enemies.filter(e => (e.hp || 0) > 0 && dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2);
 }
 function activeHungerTargets(run, x, y, r) {
-  return activeTargets(run, x, y, r).filter(e => e.kind !== 'boss' || (e.hp || 0) > 0);
+  return activeTargets(run, x, y, r).filter(e => !ENEMIES[e.kind]?.boss || (e.hp || 0) > 0);
 }
 
 function activeFreezeEnemy(run, e, hold = 0.28) {

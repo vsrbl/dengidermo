@@ -411,6 +411,31 @@ export class Renderer {
         this.square(ex, ey, size, { stroke: COL.red, lw: 4, fill: 'rgba(255,48,72,0.06)' });
         this.square(ex, ey, size * 0.65, { stroke: COL.purple, lw: 2 });
         this.label('HRD', ex, ey - size / 2 - 9, COL.red, 9);
+      } else if (kind === 'boss_croupier') {
+        this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
+        this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });
+        this.square(ex, ey, size * 0.34, { stroke: COL.fg, lw: 1.5, rotate: Math.PI / 4 });
+        this.label('CRP', ex, ey - size / 2 - 12, COL.red, 12);
+        const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.red; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+      } else if (kind === 'boss_anchor_cashier') {
+        this.square(ex, ey, size, { stroke: COL.purple, lw: 6, fill: 'rgba(180,92,255,0.08)' });
+        this.square(ex, ey, size * 0.62, { stroke: COL.purple, lw: 2.5, rotate: Math.PI / 4 });
+        ctx.save(); ctx.globalAlpha = 0.18 + Math.sin(now * 5) * 0.05; ctx.strokeStyle = COL.purple; ctx.setLineDash([12, 10]); ctx.strokeRect(ex - 215, ey - 215, 430, 430); ctx.restore();
+        this.label('ANC+', ex, ey - size / 2 - 12, COL.purple, 12);
+        const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.purple; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+      } else if (kind === 'boss_hunter_chorus') {
+        this.square(ex, ey, size, { stroke: COL.red, lw: 4.5, fill: 'rgba(255,48,72,0.05)' });
+        this.square(ex - size * 0.22, ey, size * 0.42, { stroke: COL.fg, lw: 1.6 });
+        this.square(ex + size * 0.22, ey, size * 0.42, { stroke: COL.red, lw: 1.6, rotate: Math.PI / 4 });
+        this.square(ex, ey - size * 0.20, size * 0.34, { stroke: COL.purple, lw: 1.4 });
+        this.label('HNT', ex, ey - size / 2 - 12, COL.red, 12);
+        const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.red; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+      } else if (kind === 'boss_q_revisor') {
+        this.square(ex, ey, size, { stroke: COL.cyan, lw: 5, fill: 'rgba(102,246,255,0.05)' });
+        this.square(ex, ey, size * 0.68, { stroke: COL.purple, lw: 2, rotate: now * 0.55 });
+        this.square(ex, ey, size * 0.36, { stroke: COL.fg, lw: 1.4 });
+        this.label('QREV', ex, ey - size / 2 - 12, COL.cyan, 12);
+        const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.cyan; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
       } else if (kind === 'boss') {
         this.square(ex, ey, size, { stroke, lw: 6, fill: 'rgba(255,255,255,0.05)' });
         this.square(ex, ey, size * 0.55, { stroke: COL.red, lw: 2, rotate: now * 1.2 });
