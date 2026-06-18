@@ -21,11 +21,25 @@ const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
 const INTERACT_DIST = 95;
-const OFFER_TIMEOUT = 15;
+const OFFER_TIMEOUT = 24;
 const STATIC_RAIN_MAX_LEVEL = 7;
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
 const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v | 0));
 
+
+
+function makeInstallOffer(run, p) {
+  if (!run) return null;
+  run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
+  if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
+  return { id: run.installOfferSeq, choices: rollUpgradeChoices(Math.random, p?.stats?.luck || 0), expires: OFFER_TIMEOUT };
+}
+
+function ensureInstallOffer(run, p) {
+  if (!p || !p.connected || (p.economy?.pending || 0) <= 0) return null;
+  if (!p.offer) p.offer = makeInstallOffer(run, p);
+  return p.offer;
+}
 
 // v2.1: active abilities were reading too hard. Keep the fantasy, but cut duration/radius/power by ~1.5x.
 const ACTIVE_BALANCE_SCALE = 2 / 3;
@@ -990,10 +1004,12 @@ function segmentBlockedByWalls(ax, ay, bx, by, walls, pad = 18) {
   }
   return null;
 }
-function buildHeraldFloorPath(run, h, target) {
+function buildHeraldFloorPath(run, h, target, fixedSeed = 0) {
   const walls = run.plan?.walls || [];
   const sx = Math.round(h.x), sy = Math.round(h.y), tx = Math.round(target.x), ty = Math.round(target.y);
-  const seed = (parseInt(String(h.id || '1'), 36) || 1) + Math.floor((run.now || 0) * 0.45);
+  // v2.1: Herald cast marks one fixed floor sigil per cast.
+  // The seed is created at cast start so the drawing stays stable instead of crawling over the floor.
+  const seed = fixedSeed || h.heraldCastSeed || ((parseInt(String(h.id || '1'), 36) || 1) + Math.floor((run.now || 0) * 0.45));
   const rng = mulberry32((seed * 2654435761) >>> 0);
   const directBlock = segmentBlockedByWalls(sx, sy, tx, ty, walls, 20);
   const dx = tx - sx, dy = ty - sy;
@@ -1002,7 +1018,7 @@ function buildHeraldFloorPath(run, h, target) {
   const px = -ny, py = nx;
   const bend = 42 + rng() * 78;
   const points = [[sx, sy]];
-  const count = directBlock ? 3 : 2;
+  const count = directBlock ? (3 + Math.floor(rng() * 2)) : (2 + Math.floor(rng() * 4));
   for (let i = 1; i <= count; i++) {
     const t = i / (count + 1);
     const side = (i % 2 ? 1 : -1) * bend * (0.75 + rng() * 0.55);
@@ -3213,17 +3229,22 @@ function stepEnemies(run, players, dt) {
         e.summonWindT -= dt;
         const maxT = e.summonWindMax || 1.12;
         const pfill = clamp(1 - Math.max(0, e.summonWindT) / maxT, 0, 1);
-        // v2.1: the floor line is a pursuing signal, not a hitscan reticle.
-        // A dash can outrun its endpoint for a moment; the line catches up at capped speed.
-        const aim = heraldUpdateAimPoint(run, e, target, dt, false);
+        const aim = { x: e.heraldAimX, y: e.heraldAimY, id: target.id, alive: target.alive };
+        if (!Number.isFinite(aim.x) || !Number.isFinite(aim.y)) {
+          const a0 = heraldUpdateAimPoint(run, e, target, dt, true);
+          e.heraldCastSeed = ((Math.random() * 0x7fffffff) >>> 0) ^ ((run.tick || 0) * 2654435761);
+          e.heraldFloorPath = buildHeraldFloorPath(run, e, a0, e.heraldCastSeed);
+          aim.x = a0.x; aim.y = a0.y; aim.alive = a0.alive;
+        }
         if (e.fxT <= 0) {
           e.fxT = 0.055;
-          run.fx.push({ t: 'herald_cast', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(aim.x), y2: Math.round(aim.y), points: buildHeraldFloorPath(run, e, aim), p: Math.round(pfill * 100), dur: maxT });
+          const pts = Array.isArray(e.heraldFloorPath) ? e.heraldFloorPath : buildHeraldFloorPath(run, e, aim, e.heraldCastSeed || 0);
+          run.fx.push({ t: 'herald_cast', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(aim.x), y2: Math.round(aim.y), points: pts, seed: e.heraldCastSeed || 0, p: Math.round(pfill * 100), dur: maxT });
         }
         if (e.summonWindT <= 0) {
           finishHeraldSummon(run, players, e, aim);
           e.summonCd = Math.max(2.4, def.summonCd + 0.35 - difficulty(run).loop * 0.18);
-          e.fxT = 0; e.heraldAimX = NaN; e.heraldAimY = NaN;
+          e.fxT = 0; e.heraldAimX = NaN; e.heraldAimY = NaN; e.heraldFloorPath = null; e.heraldCastSeed = 0;
         }
       } else {
         if (e.state === 'cast') e.state = 'move';
@@ -3241,7 +3262,9 @@ function stepEnemies(run, players, dt) {
           e.summonWindT = e.summonWindMax;
           e.fxT = 0;
           const aim = heraldUpdateAimPoint(run, e, target, dt, true);
-          run.fx.push({ t: 'herald_cast', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(aim.x), y2: Math.round(aim.y), points: buildHeraldFloorPath(run, e, aim), p: 0, dur: e.summonWindMax, start: 1 });
+          e.heraldCastSeed = ((Math.random() * 0x7fffffff) >>> 0) ^ ((run.tick || 0) * 2654435761) ^ (parseInt(String(e.id || '1'), 36) || 1);
+          e.heraldFloorPath = buildHeraldFloorPath(run, e, aim, e.heraldCastSeed);
+          run.fx.push({ t: 'herald_cast', id: e.id, target: target.id, x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(aim.x), y2: Math.round(aim.y), points: e.heraldFloorPath, seed: e.heraldCastSeed, p: 0, dur: e.summonWindMax, start: 1 });
         }
       }
       e.dirX = toT.x; e.dirY = toT.y;
@@ -4304,13 +4327,16 @@ function beginTransition(run, players) {
   run.fx.push({ t: 'transition', skinRarity: run.skinRoomReward?.rarity || '' });
   for (const p of players.values()) {
     if (p.economy.pending > 0 && p.connected) {
-      p.offer = { choices: rollUpgradeChoices(Math.random, p.stats.luck), expires: OFFER_TIMEOUT };
+      p.offer = makeInstallOffer(run, p);
     }
   }
 }
 
-export function handlePick(run, players, p, choiceIdx) {
+export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   if (run.phase !== 'install' || !p.offer) return false;
+  const expectedOfferId = Math.max(0, p.offer.id | 0);
+  const incomingOfferId = Math.max(0, offerId | 0);
+  if (incomingOfferId && expectedOfferId && incomingOfferId !== expectedOfferId) return false;
   const idx = choiceIdx | 0;
   if (idx < 0 || idx >= p.offer.choices.length) return false;
   const id = p.offer.choices[idx];
@@ -4321,7 +4347,7 @@ export function handlePick(run, players, p, choiceIdx) {
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   p.economy.pending = Math.max(0, p.economy.pending - 1);
   run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed });
-  p.offer = p.economy.pending > 0 ? { choices: rollUpgradeChoices(Math.random, p.stats.luck), expires: OFFER_TIMEOUT } : null;
+  p.offer = p.economy.pending > 0 ? makeInstallOffer(run, p) : null;
   return true;
 }
 
@@ -4329,12 +4355,16 @@ function stepInstall(run, players, dt) {
   run.phaseT += dt;
   let waiting = false;
   for (const p of players.values()) {
+    ensureInstallOffer(run, p);
     if (!p.offer) continue;
     p.offer.expires -= dt;
-    if (p.offer.expires <= 0) handlePick(run, players, p, 0); // auto-pick first
+    if (p.offer.expires <= 0) handlePick(run, players, p, 0, p.offer.id); // auto-pick first, one queued INSTALL at a time
+    ensureInstallOffer(run, p);
     if (p.offer) waiting = true;
   }
-  if (!waiting || run.phaseT > 60) {
+  // v2.1 hotfix: do not advance just because a global install timer expired.
+  // Multiple players can have multiple queued INSTALL choices; every pending stack must be offered or auto-picked.
+  if (!waiting) {
     run.runDepth++;
     startRoom(run, players);
   }

@@ -82,9 +82,10 @@ export class LocalRoom {
     } else if (m.t === 'pick') {
       const p = this.players.get(playerId);
       if (!p) return;
-      const ok = handlePick(this.run, this.players, p, m.choice);
+      const ok = handlePick(this.run, this.players, p, m.choice, m.offerId || m.id || 0);
       if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
-      else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid INSTALL choice' }, true);
+      else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0 }, true);
+      else if (!ok) this.sendTo(playerId, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
     } else if (m.t === 'weapon_pick') {
       const p = this.players.get(playerId);
       if (!p) return;
@@ -155,11 +156,14 @@ export class LocalRoom {
       const sent = this.offersSent.get(pid);
       if (p.offer && sent !== p.offer) {
         this.offersSent.set(pid, p.offer);
-        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending };
+        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0 };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
-      if (!p.offer && sent) this.offersSent.delete(pid);
+      if (!p.offer && sent) {
+        this.offersSent.delete(pid);
+        this.sendTo(pid, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
+      }
     }
 
     // WPN chest choice offers

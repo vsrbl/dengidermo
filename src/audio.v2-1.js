@@ -226,20 +226,23 @@ export class AudioBus {
         this.noise(0.105, 0.018, 900, 2.5, 0.070);          // dead-air tail
         break;
       case 'gld':
-        // Melancholy terminal pickup: quieter, minor down-bend, no cheerful coin sparkle.
-        this.tone(392, 0.045, 'square', 0.022, 0.84);
-        this.tone(293.66, 0.050, 'triangle', 0.016, 0.92, 0.024);
+        // Neutral terminal pickup: dry confirmation tick, no toy coin melody.
+        this.noise(0.012, 0.0075, 1800, 7, 0.000);
+        this.tone(246.94, 0.034, 'square', 0.014, 0.98, 0.002);
         break;
       case 'exp':
-        this.tone(440, 0.050, 'triangle', 0.022, 0.89);
-        this.tone(349.23, 0.060, 'square', 0.015, 0.93, 0.032);
+        // Neutral data pickup: slightly higher than GLD, still not cheerful.
+        this.noise(0.012, 0.0070, 2100, 7, 0.000);
+        this.tone(277.18, 0.036, 'square', 0.0135, 0.985, 0.002);
         break;
       case 'hea':
-        this.tone(329.63, 0.070, 'sine', 0.032, 1.06);
-        this.tone(261.63, 0.090, 'triangle', 0.018, 0.98, 0.045);
+        // Soft neutral medical pickup: muted, stable, no happy up-chime.
+        this.noise(0.014, 0.0065, 1450, 5.5, 0.000);
+        this.tone(220.00, 0.044, 'triangle', 0.016, 1.01, 0.002);
         break;
       case 'pickup':
-        this.tone(392, 0.040, 'square', 0.024, 0.82);
+        this.noise(0.010, 0.0060, 1700, 6, 0.000);
+        this.tone(233.08, 0.030, 'square', 0.012, 0.99, 0.002);
         break;
       case 'hit':
         this.noise(0.032, 0.04, 1700, 5);
@@ -804,7 +807,12 @@ export class AudioBus {
     }
     if (f?.t === 'portal_open') { this.musicPortal = 1; this.musicTransition = Math.max(this.musicTransition || 0, 0.7); if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.05); }
     if (f?.t === 'room_invoice' || f?.t === 'contract_done' || f?.t === 'boss_down' || f?.t === 'skin_unlock') { this.musicResolve = 1; if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.08); }
-    if (f?.t === 'director_wave' || f?.t === 'enemy_combo' || f?.t === 'casino_virus_spin') { this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.24); }
+    // v2.1 loop2 mob SFX hotfix: enemy_combo is a visual/readability marker for
+    // support auras and pack synergies, not an actual wave-arrival event. It used
+    // to fire the same sting as director waves, which made loop 2 mobs sound like
+    // strange one-off events. Only real director waves / casino spins may push
+    // the music into chaos here.
+    if (f?.t === 'director_wave' || f?.t === 'casino_virus_spin') { this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.24); }
     const mine = f.id === info.myId;
     switch (f.t) {
       case 'shot':
@@ -863,7 +871,10 @@ export class AudioBus {
       case 'contract_fail': this.play('denied'); break;
       case 'debt': this.play('debt'); break;
       case 'shield': this.play('shield'); break;
-      case 'enemy_combo': this.play('director_wave'); break;
+      case 'enemy_combo':
+        // Enemy combo markers are informational/visual only. Do not play
+        // wave/director audio for ordinary mob synergies in loop 1/2+.
+        break;
       case 'director_room': break;
       case 'director_wave': this.play('director_wave'); break;
       case 'damper_field': break;
@@ -1314,13 +1325,13 @@ AudioBus.prototype.ensureMusic = function ensureMusicV21Ambient() {
   master.gain.value = 0.28;
   master.connect(this.musicGain || this.master);
   this.music = { master, layers: {}, phraseT: 0.20, motifIndex: 0, lastRoomTone: '', dangerPhrase: 0 };
-  this.music.layers.drone = this.makeToneLayer(43.65, 'triangle', 190);
+  this.music.layers.drone = this.makeToneLayer(43.65, 'sine', 130); // neutral low bed; no delayed harsh drone swell
   this.music.layers.sub = this.makeToneLayer(21.8, 'sine', 42);
   this.music.layers.pulse = this.makeToneLayer(65.4, 'triangle', 85);
   this.music.layers.hat = this.makeNoiseLayer(520, 1.8);
   this.music.layers.casino = this.makeToneLayer(103.8, 'triangle', 260);
   this.music.layers.choir = this.makeToneLayer(130.8, 'sine', 360);
-  this.music.layers.dirgePad = this.makeToneLayer(87.3, 'sawtooth', 210);
+  this.music.layers.dirgePad = this.makeToneLayer(87.3, 'triangle', 190);
   this.music.layers.scrape = this.makeNoiseLayer(260, 1.2);
   this.music.layers.glass = this.makeToneLayer(174.6, 'triangle', 440); // not actually glassy now; low shimmer bed.
   return true;
@@ -1382,13 +1393,14 @@ AudioBus.prototype.updateMusic = function updateMusicV21Ambient(state, dt = 0.01
     this.music.phraseT = Math.max(mood === 'chaos' ? 6.8 : 8.0, base - intensity * 1.1 - eventPull * 1.6);
   }
   // Background bed: obvious ambient, but not a bassline. No bright/high music layers.
-  this.setMusicLayer('drone', inGame * (menu ? 0.0060 : (chill ? 0.0068 : 0.0075 + intensity * 0.0013)), 5.0);
-  this.setMusicLayer('sub', menu ? 0.00005 : (combat && intensity > 0.82 ? 0.00008 + (intensity - 0.82) * 0.00012 : 0.00004), 5.5);
-  this.setMusicLayer('pulse', combat && intensity > 0.72 ? (0.00010 + intensity * 0.00018) : 0.00005, 4.0);
-  this.setMusicLayer('hat', 0.00008, 2.5);
-  this.setMusicLayer('casino', casino ? (0.00055 + intensity * 0.00028) : 0.00005, 4.0);
-  this.setMusicLayer('choir', inGame * (menu ? 0.0045 : (boss ? 0.0080 + intensity * 0.0025 : 0.0050 + intensity * 0.0014)), 5.0);
-  this.setMusicLayer('dirgePad', inGame * (menu ? 0.0065 : (chill ? 0.0072 : 0.0080 + intensity * 0.0015)), 5.8);
-  this.setMusicLayer('scrape', combat && (mood === 'chaos' || staticLike || damage > 0.48) ? (0.00025 + intensity * 0.00038) : 0.00005, 4.0);
-  this.setMusicLayer('glass', (mood === 'portal' || mood === 'resolve') ? 0.0010 : 0.00005, 6.0);
+  // Drone bed hotfix: quieter and quicker to settle. The old 5s swell felt like a delayed unpleasant drone.
+  this.setMusicLayer('drone', inGame * (menu ? 0.0028 : (chill ? 0.0030 : 0.0034 + intensity * 0.00055)), 0.85);
+  this.setMusicLayer('sub', menu ? 0.000035 : (combat && intensity > 0.82 ? 0.000055 + (intensity - 0.82) * 0.00008 : 0.00003), 1.25);
+  this.setMusicLayer('pulse', combat && intensity > 0.72 ? (0.00007 + intensity * 0.00011) : 0.000035, 1.05);
+  this.setMusicLayer('hat', 0.000055, 0.85);
+  this.setMusicLayer('casino', casino ? (0.00038 + intensity * 0.00018) : 0.00004, 1.20);
+  this.setMusicLayer('choir', inGame * (menu ? 0.0036 : (boss ? 0.0064 + intensity * 0.0018 : 0.0040 + intensity * 0.0010)), 1.40);
+  this.setMusicLayer('dirgePad', inGame * (menu ? 0.0044 : (chill ? 0.0048 : 0.0052 + intensity * 0.0010)), 1.35);
+  this.setMusicLayer('scrape', combat && (mood === 'chaos' || staticLike || damage > 0.48) ? (0.00018 + intensity * 0.00024) : 0.000035, 1.0);
+  this.setMusicLayer('glass', (mood === 'portal' || mood === 'resolve') ? 0.00072 : 0.000035, 1.5);
 };

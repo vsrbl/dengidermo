@@ -60,7 +60,7 @@ const STATIC_SOURCE_RU = {
   room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', room_strikes: 'удары прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room mod', static_debt: 'static debt', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'active casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'active reaction', room_strikes: 'previous strikes', debt_engine: 'static core', casino_virus: 'casino virus'
+  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', room_strikes: 'previous strikes', debt_engine: 'static core', casino_virus: 'casino virus'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
@@ -298,8 +298,8 @@ function weaponReadability(opt = {}) {
     },
     shg_longshot: {
       role: 'RANGE', tone: 'range',
-      ru: 'ПКМ тратит все заряды SHOTGUN на один дальний slug-выстрел.', en: 'RMB spends all SHOTGUN charges on one long slug shot.',
-      changeRu: 'ПКМ дальний выстрел · растёт со стаками', changeEn: 'RMB longshot · scales with stacks'
+      ru: 'ПКМ тратит все заряды SHOTGUN на один дальний тяжёлый выстрел.', en: 'RMB spends all SHOTGUN charges on one heavy long shot.',
+      changeRu: 'ПКМ дальний выстрел · повторные выборы усиливают', changeEn: 'RMB longshot · repeated picks strengthen it'
     },
     sek_split: {
       role: 'DPS', tone: 'dps',
@@ -314,7 +314,7 @@ function weaponReadability(opt = {}) {
     sek_swarm: {
       role: 'DPS', tone: 'dps',
       ru: 'ПКМ выпускает рой SEK-пуль сразу вместо одиночных выстрелов.', en: 'RMB releases a burst swarm of SEK bullets instead of single shots.',
-      changeRu: '+5 пуль роя за стак · дольше перезарядка', changeEn: '+5 swarm bullets per stack · longer reload'
+      changeRu: 'больше пуль роя · дольше перезарядка', changeEn: 'more swarm bullets · longer reload'
     },
     rkt_cluster: {
       role: 'DPS', tone: 'dps',
@@ -1103,8 +1103,8 @@ export class Hud {
   }
 
   // ------------------------------------------------- install modal
-  openInstall(choices, pending) {
-    this.install = { open: true, choices, expires: 15, total: 15, locked: false };
+  openInstall(choices, pending, offerId = 0) {
+    this.install = { open: true, choices, offerId: Math.max(0, offerId | 0), expires: 24, total: 24, locked: false };
     $('install-pending').textContent = `x${pending}`;
     const box = $('install-choices');
     box.innerHTML = '';
@@ -1127,7 +1127,7 @@ export class Hud {
     this.install.locked = true;
     const els = document.querySelectorAll('#install-choices .choice');
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
-    this.net.sendPick(i);
+    this.net.sendPick(i, this.install.offerId || 0);
   }
   pickRandomInstall() {
     if (!this.install.open || this.install.locked || !this.install.choices.length) return false;
@@ -1290,9 +1290,10 @@ export class Hud {
     box.innerHTML = '';
     choices.forEach((opt, i) => {
       const d = document.createElement('div');
-      const group = opt.group || (String(opt.kind || '').includes('mutation') ? 'MUTATION' : String(opt.kind || '').includes('core') ? 'CORE' : 'SIDE');
+      const group = opt.group || (String(opt.kind || '').includes('mutation') ? 'MUTATION' : String(opt.kind || '').includes('core') ? 'Q' : 'SIDE');
+      const groupLabel = group === 'CORE' ? 'Q' : group;
       const rarity = opt.rarity || opt.tone || (String(opt.actionLabel || '').includes('ЗАМЕНИТ') ? 'rare' : group.toLowerCase());
-      const tone = opt.disabled ? 'red' : (opt.tone || (rarity === 'cursed' ? 'red' : rarity === 'rare' ? 'purple' : group === 'CORE' ? 'cyan' : 'green'));
+      const tone = opt.disabled ? 'red' : (opt.tone || (rarity === 'cursed' ? 'red' : rarity === 'rare' ? 'purple' : (group === 'CORE' || group === 'Q') ? 'cyan' : 'green'));
       d.className = 'choice ability-choice ability-card' + (opt.disabled ? ' disabled' : '') + ` tone-${tone} rarity-${rarity}`;
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       const role = opt.role ? `<span class="abl-role">${esc(locRole(opt.role))}</span>` : '';
@@ -1304,9 +1305,9 @@ export class Hud {
             <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
             ${action}
           </div>
-          <div class="abl-tags"><span class="rarity-tag">${esc(String(group).toUpperCase())}</span>${role}${locked}</div>
+          <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${locked}</div>
         </div>`;
-      const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(group).toUpperCase()}`;
+      const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
       const body = `${opt.actionLabel ? locAction(opt.actionLabel) + ': ' : ''}${optionDesc(opt)}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {

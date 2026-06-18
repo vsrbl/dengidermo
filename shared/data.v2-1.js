@@ -63,26 +63,26 @@ export const UPGRADES = [
   { id: 'drone',    label: 'DRONE +1',             tier: 1, desc: 'Добавляет спутника, который стреляет автоматически.', apply: s => { s.drones += 1; } },
   { id: 'orbital',  label: 'ORBITAL +1',           tier: 1, desc: 'Добавляет орбиталь с контактным уроном.', apply: s => { s.orbitals += 1; } },
   { id: 'luck',     label: 'LUCK +1',              tier: 1, desc: 'Лучше броски апгрейдов и казино.', apply: s => { s.luck += 1; } },
-  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль получают шанс создать маленький взрыв. Свыше 100% даёт дополнительные взрывы.', apply: s => { s.procBlast += 0.10; } },
-  { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Больше дополнительных выстрелов. Больше 100% даёт дополнительные пули.', apply: s => { s.echoShot += 0.12; } },
+  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль иногда создают маленький взрыв. Повторные выборы делают взрывы чаще.', apply: s => { s.procBlast += 0.10; } },
+  { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Иногда оружие выпускает дополнительный выстрел. Повторные выборы делают это чаще.', apply: s => { s.echoShot += 0.12; } },
   { id: 'leech',    label: 'LIFESTEAL 2%',         tier: 1, desc: 'Лечение от нанесённого урона.', apply: s => { s.lifesteal += 0.02; } },
   { id: 'goldgun',  label: 'GLD ON KILL +40%',     tier: 1, desc: 'Больше золота за смерти врагов.', apply: s => { s.goldMul *= 1.4; } },
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL/level-up rewards.
-  { id: 'bullet_ricochet', label: 'BULLET RICOCHET +1', tier: 1, branch: 'ALL', desc: 'Все снаряды игрока получают +1 отскок от стен: SHG, SEK, дроны, фрагменты и RKT-ракеты. Каждый стак добавляет ещё один отскок.', apply: s => { s.bulletBounce += 1; } },
-  { id: 'bullet_range',    label: 'BULLET RANGE +22%',  tier: 1, branch: 'ALL', desc: 'Дальность/время жизни растёт для всех снарядов игрока: SHG, SEK, RKT, дронов, фрагментов и мин.', apply: s => { s.bulletRange *= 1.22; } },
+  { id: 'bullet_ricochet', label: 'BULLET RICOCHET +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
+  { id: 'bullet_range',    label: 'BULLET RANGE +22%',  tier: 1, branch: 'ALL', desc: 'Все твои снаряды летят дальше и живут дольше.', apply: s => { s.bulletRange *= 1.22; } },
   { id: 'bullet_fire',     label: 'FIRE BULLETS',       tier: 1, branch: 'ALL', desc: 'Пули поджигают врагов и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
   { id: 'bullet_freeze',   label: 'FREEZE BULLETS',     tier: 1, branch: 'ALL', desc: 'Пули охлаждают врагов и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
   { id: 'bullet_poison',   label: 'POISON BULLETS',     tier: 1, branch: 'ALL', desc: 'Пули отравляют врагов и наносят периодический урон.', apply: s => { s.bulletPoison += 1; } },
   { id: 'drone_element_link', label: 'DRONE ELEMENT LINK', tier: 1, branch: 'ALL', desc: 'Дроны наследуют огонь, холод и яд оружия.', apply: s => { s.droneElementLink += 1; } },
   { id: 'element_amp', label: 'ELEMENT AMP +25%', tier: 1, branch: 'ALL', desc: 'Усиливает огонь, холод и яд.', apply: s => { s.bulletElementAmp += 1; } },
   { id: 'element_spread', label: 'STATUS SPREAD', tier: 1, branch: 'ALL', desc: 'Смерть врага переносит часть огня, холода или яда на ближайших врагов.', apply: s => { s.elementSpread += 1; } },
-  { id: 'bullet_chain', label: 'BULLET LINK +1', tier: 1, branch: 'ALL', desc: 'WPN-эффект: попадание оружием связывает ближайших врагов тонкой линией. Каждый стак добавляет +1 прыжок цепи и увеличивает дальность связи.', apply: s => { s.bulletChain += 1; } },
+  { id: 'bullet_chain', label: 'BULLET LINK +1', tier: 1, branch: 'ALL', desc: 'Попадание оружием связывает ближайших врагов тонкой линией. Повторные выборы продлевают цепь.', apply: s => { s.bulletChain += 1; } },
   { id: 'shg_teeth',  label: 'SHG TEETH +2 PELLETS', tier: 1, branch: 'SHG', desc: 'SHG получает две дополнительные дробины.', apply: s => { s.shgPellets += 2; } },
-  { id: 'shg_longshot', label: 'SHG LONGSHOT RMB', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний мощный slug-выстрел. Каждый стак увеличивает дальность, урон и reload penalty.', apply: s => { s.shgLongshot += 1; } },
+  { id: 'shg_longshot', label: 'SHG LONGSHOT RMB', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK SPLIT ON KILL',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
   { id: 'sek_chain',  label: 'SEK CHAIN LOCK',     tier: 1, branch: 'SEK', desc: 'У SEK улучшаются наведение и время жизни.', apply: s => { s.sekChain += 1; } },
-  { id: 'sek_swarm', label: 'SEK SWARM RMB', tier: 1, branch: 'SEK', desc: 'ПКМ выпускает рой самонаводящихся SEK-пуль. Пули распределяются по разным врагам. Каждый стак: +5 пуль и немного дольше перезарядка.', apply: s => { s.sekSwarm += 1; } },
+  { id: 'sek_swarm', label: 'SEK SWARM RMB', tier: 1, branch: 'SEK', desc: 'ПКМ выпускает рой самонаводящихся SEK-пуль по разным врагам. Повторные выборы добавляют больше пуль, но перезарядка становится чуть дольше.', apply: s => { s.sekSwarm += 1; } },
   { id: 'rkt_cluster',label: 'RKT CLUSTER +2',     tier: 1, branch: 'RKT', desc: 'Ракеты распадаются на мини-взрывы.', apply: s => { s.rktCluster += 1; } },
   { id: 'rkt_mines',  label: 'RKT STATIC MINES',   tier: 1, branch: 'RKT', desc: 'Ракеты оставляют отложенные областьные мины.', apply: s => { s.rktMines += 1; } },
   { id: 'rkt_stun',   label: 'RKT STUN BLASTS',    tier: 1, branch: 'RKT', desc: 'Все RKT-взрывы могут оглушать врагов.', apply: s => { s.rktStun += 1; } },
@@ -90,17 +90,17 @@ export const UPGRADES = [
   { id: 'rkt_remote', label: 'RKT REMOTE DETONATOR', tier: 1, branch: 'RKT', desc: 'ПКМ взрывает выпущенные ракеты по одной: сначала самую старую, потом следующую.', apply: s => { s.rktRemote += 1; } },
 
   // ability / active branches
-  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится void-разрезом и наносит заметный урон врагам вдоль траектории. Прокачка усиливает ширину и урон.', apply: s => { s.voidStep += 1; } },
-  { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает врагов рядом с траекторией. Каждый стак увеличивает радиус и длительность стана.', apply: s => { s.dashCut += 1; } },
+  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится пустотным разрезом и ранит врагов вдоль траектории. Повторные выборы делают разрез шире и сильнее.', apply: s => { s.voidStep += 1; } },
+  { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает врагов рядом с траекторией. Повторные выборы расширяют удар и продлевают оглушение.', apply: s => { s.dashCut += 1; } },
   { id: 'dashclone', label: 'DASH AFTERSHOCK',    tier: 1, branch: 'DASH', desc: 'После рывка в точке старта остаётся короткий ударный след. Он взрывается и ранит ближайших врагов. Это не клон игрока.', apply: s => { s.dashClone += 1; } },
   { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q один раз стягивает врагов к тебе, затем оставляет короткое поле без повторной стяжки.', apply: s => { s.activeSnap += 1; } },
   { id: 'q_blood',   label: 'Q: BLOOD PULSE',     tier: 1, branch: 'Q', desc: 'Q тратит HP на красный сигнальный взрыв.', apply: s => { s.activeBlood += 1; } },
   { id: 'q_over',    label: 'Q: OVERCLOCK',       tier: 1, branch: 'Q', desc: 'Q временно ускоряет стрельбу.', apply: s => { s.activeOver += 1; } },
 
   // high rarity rule-breakers
-  { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов получают небольшой шанс создавать такие же взрывы, как твой бонус Blast Chance.', apply: s => { s.droneProc += 1; } },
+  { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
   { id: 'orbreflect',label: 'ORBITALS REFLECT',    tier: 2, desc: 'Орбитали могут стирать вражеские пули.', apply: s => { s.orbReflect += 1; } },
-  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача. До конца забега каждая боевая комната получает отдельный слой: СТАТИК-ЯДРО — +СТАТИК-ШТОРМ LVL 1 за стак.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC Q',         tier: 2, cursed: true, desc: 'Большой урон и удача, но каждая боевая комната до конца забега получает +1 уровень статик-шторма за каждый такой бонус.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } }
 ];
@@ -127,15 +127,15 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'STATUS SPREAD', desc: 'Статусы с убитых врагов прыгают на ближайших целей: BURN / FREEZE / POISON.' },
   { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'BULLET LINK +1', desc: 'Попадание оружием связывает врагов тонкой линией: часть урона и elemental-статусов переходит дальше. Стакается: +1 прыжок и больше дальность связи.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG TEETH +2 PELLETS', desc: 'Апгрейд SHG: больше дробин в каждом залпе.' },
-  { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG LONGSHOT RMB', desc: 'Апгрейд SHG: ПКМ тратит все заряды на один дальний мощный slug-выстрел.' },
+  { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG LONGSHOT RMB', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK SPLIT ON KILL', desc: 'Апгрейд SEK: убийства выпускают самонаводящиеся фрагменты.' },
-  { id: 'sek_chain', kind: 'weapon_upgrade', upgrade: 'sek_chain', reqWeapon: 'seeker', label: 'SEK CHAIN LOCK', desc: 'Апгрейд SEK: лучше наведение и дольше жизнь снаряда.' },
+  { id: 'sek_chain', kind: 'weapon_upgrade', upgrade: 'sek_chain', reqWeapon: 'seeker', label: 'SEK CHAIN LOCK', desc: 'SEEKER лучше держит цель и летит дольше.' },
   { id: 'sek_swarm', kind: 'weapon_upgrade', upgrade: 'sek_swarm', reqWeapon: 'seeker', label: 'SEK SWARM RMB', desc: 'Апгрейд SEK: ПКМ выпускает рой самонаводящихся пуль, распределённых по разным врагам.' },
-  { id: 'rkt_cluster', kind: 'weapon_upgrade', upgrade: 'rkt_cluster', reqWeapon: 'rocketgun', label: 'RKT CLUSTER +2', desc: 'Апгрейд RKT: ракета добавляет мини-взрывы вокруг детонации.' },
-  { id: 'rkt_mines', kind: 'weapon_upgrade', upgrade: 'rkt_mines', reqWeapon: 'rocketgun', label: 'RKT STATIC MINES', desc: 'Апгрейд RKT: ракеты оставляют отложенные областьные мины.' },
-  { id: 'rkt_stun', kind: 'weapon_upgrade', upgrade: 'rkt_stun', reqWeapon: 'rocketgun', label: 'RKT STUN BLASTS', desc: 'Апгрейд RKT: все ракетные взрывы могут оглушать врагов.' },
-  { id: 'rkt_scatter', kind: 'weapon_upgrade', upgrade: 'rkt_scatter', reqWeapon: 'rocketgun', label: 'RKT SCATTER BLASTS', desc: 'Апгрейд RKT: все ракетные взрывы сильнее разбрасывают врагов.' },
-  { id: 'rkt_remote', kind: 'weapon_upgrade', upgrade: 'rkt_remote', reqWeapon: 'rocketgun', label: 'RKT REMOTE DETONATOR', desc: 'Апгрейд RKT: ПКМ взрывает выпущенные ракеты по одной в порядке выстрела.' },
+  { id: 'rkt_cluster', kind: 'weapon_upgrade', upgrade: 'rkt_cluster', reqWeapon: 'rocketgun', label: 'RKT CLUSTER +2', desc: 'Ракета добавляет мини-взрывы вокруг детонации.' },
+  { id: 'rkt_mines', kind: 'weapon_upgrade', upgrade: 'rkt_mines', reqWeapon: 'rocketgun', label: 'RKT STATIC MINES', desc: 'Ракеты оставляют отложенные областьные мины.' },
+  { id: 'rkt_stun', kind: 'weapon_upgrade', upgrade: 'rkt_stun', reqWeapon: 'rocketgun', label: 'RKT STUN BLASTS', desc: 'Ракетные взрывы могут оглушать врагов.' },
+  { id: 'rkt_scatter', kind: 'weapon_upgrade', upgrade: 'rkt_scatter', reqWeapon: 'rocketgun', label: 'RKT SCATTER BLASTS', desc: 'Ракетные взрывы сильнее разбрасывают врагов.' },
+  { id: 'rkt_remote', kind: 'weapon_upgrade', upgrade: 'rkt_remote', reqWeapon: 'rocketgun', label: 'RKT REMOTE DETONATOR', desc: 'ПКМ взрывает выпущенные ракеты по одной, начиная со старой.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'WEAPON DMG +18%', desc: 'Усиливает общий урон оружия. Доступно всегда.' },
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'WEAPON RATE +14%', desc: 'Ускоряет перезарядку оружия. Доступно всегда.' }
 ];
@@ -144,13 +144,13 @@ export const WEAPON_CHEST_REWARDS = [
 export const ACTIVE_CORES = {
   blood_ring: {
     id: 'blood_ring', label: 'BLOOD RING', short: 'RING', tone: 'red', role: 'FOLLOW DAMAGE',
-    desc: 'Кровавое кольцо следует за тобой. Урон: средний частыми тиками; если враг остаётся внутри долго — становится высоким.',
-    upgrade: ['+большой радиус', '+длительность', '+сильный урон тиков']
+    desc: 'Кровавое кольцо следует за тобой. Урон: средний частыми импульсами; если враг остаётся внутри долго — становится высоким.',
+    upgrade: ['+большой радиус', '+длительность', '+сильнее урон']
   },
   field_snap: {
     id: 'field_snap', label: 'FIELD SNAP', short: 'SNAP', tone: 'cyan', role: 'PULL / CONTROL',
     desc: 'Один раз резко стягивает врагов и подборы к тебе. После рывка остаётся короткое поле: оно уже не тянет, только замедляет, глушит пули и наносит слабый урон.',
-    upgrade: ['+большой радиус', '+сила стяжки', '+дольше lingering']
+    upgrade: ['+большой радиус', '+сила стяжки', '+дольше поле']
   },
   bullet_freeze: {
     id: 'bullet_freeze', label: 'BULLET FREEZE', short: 'FREEZE', tone: 'cyan', role: 'FREEZE / CONTROL',
@@ -160,7 +160,7 @@ export const ACTIVE_CORES = {
   shell_ripper: {
     id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'ARMOR / EXPOSE',
     desc: 'Срывает защиту с врагов рядом. Урон: низкий, если защиты нет. Ослабленные враги получают больше урона от всего.',
-    upgrade: ['+большой радиус', '+shell break', '+сильнее EXPOSED']
+    upgrade: ['+большой радиус', '+сильнее ломает защиту', '+сильнее уязвимость']
   },
   void_cut: {
     id: 'void_cut', label: 'VOID CUT', short: 'CUT', tone: 'purple', role: 'BUILD LASER',
@@ -169,44 +169,44 @@ export const ACTIVE_CORES = {
   },
   signal_spike: {
     id: 'signal_spike', label: 'SIGNAL SPIKE', short: 'SPIKE', tone: 'cyan', role: 'DEPLOY NODE',
-    desc: 'Ставит сигнальный сигнальный шип в точке прицела. Урон: низкий частыми тиками. Зона замедляет и глушит пули.',
+    desc: 'Ставит сигнальный шип в точке прицела. Урон: низкий, но частый. Зона замедляет и глушит пули.',
     upgrade: ['+1 заряд', '+немного длительность', '+немного урон зоны']
   },
   black_box: {
     id: 'black_box', label: 'BLACK BOX', short: 'BOX', tone: 'purple', role: 'STEALTH / SAFE',
-    desc: 'Прячет тебя в чёрном областье. Урон: нет. Враги снаружи теряют тебя как цель, ближайшие враги сбиваются.',
-    upgrade: ['+радиус скрытия', '+длительность', '+дольше target drop']
+    desc: 'Прячет тебя в чёрной области. Урон: нет. Враги снаружи теряют тебя как цель, ближайшие враги сбиваются.',
+    upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
   },
   debt_pulse: {
     id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'RISK BURST',
-    desc: 'Красный статик-взрыв вокруг тебя. Урон: высокий. Ослабляет врагов, но может добавить стак статик-шторма.',
-    upgrade: ['+огромный радиус', '+урон волны', '+сильнее EXPOSED']
+    desc: 'Красный статик-взрыв вокруг тебя. Урон: высокий. Ослабляет врагов, но может добавить уровень статик-шторма.',
+    upgrade: ['+огромный радиус', '+урон волны', '+сильнее уязвимость']
   }
 };
 
 export const ACTIVE_MUTATIONS = {
   static: { id: 'static', label: 'STATIC', tone: 'cyan', role: 'FIELD', desc: 'После Q остаётся область: враги и пули в ней сильно замедляются.' },
   blood: { id: 'blood', label: 'BLOOD', tone: 'red', role: 'DAMAGE', desc: 'Добавляет кровавый урон. Сильнее по плотным группам; иногда стоит HP.' },
-  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', desc: 'Повторяет часть активки через короткую задержку, слабее, но хаотичнее.' },
+  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', desc: 'Повторяет часть Q через короткую паузу: слабее, но шире покрывает бой.' },
   shrapnel: { id: 'shrapnel', label: 'SHRAPNEL', tone: 'cyan', role: 'BULLETS', desc: 'Q выпускает дополнительные пули из точки эффекта. Они используют твои бонусы оружия.' },
-  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После каждого Q крутится маленький слот: может дать награду, повтор Q или опасный штраф.' },
+  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После каждого Q запускается маленькая казино-проверка: награда, повтор Q или опасность.' },
   void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', desc: 'После Q ты получаешь короткое окно неуязвимости и пустотный всплеск.' },
   leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания активкой возвращают HP или GLD.' },
   armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту врагов и лучше раскрывает бронированные цели.' },
-  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Оставляет в точке каста тяжёлый якорный область: врагов тянет к центру, пули теряют скорость, зона держится дольше обычного.' },
-  hunger: { id: 'hunger', label: 'HUNGER STACK', tone: 'red', role: 'SCALING', desc: 'Q запоминает сколько врагов задело. В конце каста наносит дополнительный удар по ближайшим раненым врагам. Сильнее в плотных волнах.' },
-  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Записывает каст на битую плёнку: через задержку запускаются два слабых, но заметных повторных сбоя.' }
+  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Оставляет тяжёлую якорную область: врагов тянет к центру, пули теряют скорость, зона держится дольше.' },
+  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'SCALING', desc: 'Q копит силу от задетых врагов. В конце наносит дополнительный удар по ближайшим раненым целям.' },
+  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Битая плёнка повторяет Q два раза: слабее, но с заметными сбоями.' }
 };
 
 export const ACTIVE_MUTATION_SLOTS = 3;
 
-// Legacy ABL list is kept for dash/mobility side rewards. Q core/mutation offers are generated dynamically in sim.
+// Legacy ABL list is kept for dash/mobility side rewards. Q rewards are generated dynamically in sim.
 export const ABILITY_CHEST_REWARDS = [
   { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Даёт дополнительный заряд рывка. Простая, всегда полезная мобильность.' },
-  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится void-разрезом: враги вдоль траектории получают заметный урон. Стаки увеличивают ширину и урон.' },
+  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится void-разрезом: враги вдоль траектории получают заметный урон. Повторные выборы увеличивают ширину и урон.' },
   { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает врагов рядом с траекторией. Прокачка увеличивает радиус и длительность стана.' },
   { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка в точке старта остаётся короткий ударный след. Он взрывается и ранит ближайших врагов. Это не клон игрока.' },
-  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. Это награда ABL, не level-up оружейная ветка.' },
+  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. Это усиление мобильности из ABL-сундука.' },
   { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Ускоряет восстановление рывка на 20%.' }
 ];
 

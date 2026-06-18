@@ -318,7 +318,7 @@ net.on('s', (m) => {
     hud.handleFx(f, state.myId, state);
   }
 });
-net.on('offer', (m) => hud.openInstall(m.choices, m.pending));
+net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0));
 net.on('offer_close', () => { if (!hud.install.skinOnly) hud.closeInstall(); });
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());

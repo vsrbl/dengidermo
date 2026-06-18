@@ -35,6 +35,7 @@ export class Effects {
     this.slam = Math.max(0, this.slam - 2.5 * dt);
     this.zoomKick = Math.max(0, this.zoomKick - 3 * dt);
     this.levelPulse = Math.max(0, this.levelPulse - 1.35 * dt);
+    this.levelEdge = Math.max(0, this.levelEdge - 1.45 * dt);
     if (this.sweep > 0) { this.sweep += dt * 1.6; if (this.sweep >= 1) this.sweep = 0; }
   }
 
@@ -97,9 +98,8 @@ export class Effects {
       }
       case 'levelup':
         if (mine) {
-          this.sweep = 0.01;
-          this.sweepColor = '#66f6ff';
           this.levelPulse = 1;
+          this.levelEdge = 1;
           this.levelLabel = f.level ? `LVL ${f.level}` : 'LEVEL UP';
           this.kick(7);
         }
@@ -225,7 +225,7 @@ export class Effects {
         this.add({ kind: 'line', x: f.x, y: f.y, x2: f.x2, y2: f.y2, ttl: 0.16, color: '#ff3048', dash: true });
         break;
       case 'herald_cast':
-        this.add({ kind: 'heraldCastLine', x: f.x, y: f.y, x2: f.x2, y2: f.y2, points: Array.isArray(f.points) ? f.points : null, pfill: (f.p || 0) / 100, ttl: 0.24, color: '#ff3048', start: f.start ? 1 : 0 });
+        this.add({ kind: 'heraldCastLine', x: f.x, y: f.y, x2: f.x2, y2: f.y2, points: Array.isArray(f.points) ? f.points : null, seed: f.seed || 0, pfill: (f.p || 0) / 100, ttl: 0.42, color: '#ff3048', start: f.start ? 1 : 0 });
         this.add({ kind: 'heraldCore', x: f.x, y: f.y, ttl: 0.22, color: '#b45cff', start: f.start ? 1 : 0 });
         break;
       case 'summon':
@@ -852,32 +852,37 @@ export class Effects {
         ctx.fillRect(Math.round(e.x - 8), Math.round(e.y - 8), 16, 16);
         ctx.restore();
       } else if (e.kind === 'heraldCastLine') {
-        const fade = Math.max(0, 1 - p);
+        const fade = Math.max(0, Math.min(1, 1 - p * 0.35));
         const fill = Math.max(0, Math.min(1, e.pfill || 0));
         const pts = (Array.isArray(e.points) && e.points.length >= 2) ? e.points.map(q => ({ x: q[0], y: q[1] })) : [{ x: e.x, y: e.y }, { x: e.x2, y: e.y2 }];
         let total = 0;
         for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
         const drawLen = total * fill;
         ctx.save();
-        ctx.globalAlpha = fade * 0.20;
-        ctx.strokeStyle = '#5b111c'; ctx.lineWidth = 3;
-        ctx.setLineDash([11, 8, 2, 8]);
-        ctx.lineDashOffset = -Math.floor((performance.now ? performance.now() : Date.now()) * 0.010);
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'miter';
+        // Fixed floor drawing: no moving dash offset, no crawling reticle.
+        ctx.globalAlpha = fade * 0.28;
+        ctx.strokeStyle = '#26070b'; ctx.lineWidth = 7;
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+        ctx.globalAlpha = fade * 0.48;
+        ctx.strokeStyle = '#6b1020'; ctx.lineWidth = 3;
+        ctx.setLineDash([13, 6, 3, 6]);
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.globalAlpha = fade * 0.82;
-        ctx.strokeStyle = e.color || '#ff3048'; ctx.lineWidth = 3.0;
-        ctx.setLineDash([18, 9, 4, 7]);
-        ctx.lineDashOffset = -Math.floor((performance.now ? performance.now() : Date.now()) * 0.018);
+        ctx.globalAlpha = fade * 0.88;
+        ctx.strokeStyle = e.color || '#ff3048'; ctx.lineWidth = 3.2;
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-        let remain = drawLen, last = pts[0];
+        let remain = drawLen;
         for (let i = 1; i < pts.length; i++) {
           const a = pts[i - 1], b = pts[i];
           const seg = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-          if (remain >= seg) { ctx.lineTo(b.x, b.y); remain -= seg; last = b; }
-          else { const t = Math.max(0, remain / seg); last = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; ctx.lineTo(last.x, last.y); remain = 0; break; }
+          if (remain >= seg) { ctx.lineTo(b.x, b.y); remain -= seg; }
+          else { const t = Math.max(0, remain / seg); ctx.lineTo(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); remain = 0; break; }
         }
         ctx.stroke();
         ctx.setLineDash([]);
@@ -886,16 +891,23 @@ export class Effects {
         for (let i = 1; i < pts.length; i++) {
           const a = pts[i - 1], b = pts[i];
           const seg = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-          for (let d = 28 - (walked % 28); d < seg && walked + d <= drawLen; d += 28) {
+          const offset = 18 + (((e.seed || 0) + i * 11) % 17);
+          for (let d = offset; d < seg && walked + d <= drawLen; d += 38) {
             const t = d / seg, bx = a.x + (b.x - a.x) * t, by = a.y + (b.y - a.y) * t;
+            ctx.globalAlpha = fade * 0.78;
             ctx.fillRect(Math.round(bx - 3), Math.round(by - 3), 6, 6);
+            ctx.globalAlpha = fade * 0.28;
+            ctx.strokeRect(Math.round(bx - 8), Math.round(by - 8), 16, 16);
           }
           walked += seg;
         }
         if (fill > 0.94) {
           const end = pts[pts.length - 1];
-          ctx.globalAlpha = fade * 0.72;
+          ctx.globalAlpha = fade * 0.78;
+          ctx.strokeStyle = e.color || '#ff3048';
           ctx.strokeRect(Math.round(end.x - 18), Math.round(end.y - 18), 36, 36);
+          ctx.globalAlpha = fade * 0.20;
+          ctx.fillRect(Math.round(end.x - 12), Math.round(end.y - 12), 24, 24);
         }
         ctx.restore();
       } else if (e.kind === 'heraldSummonBurst') {
@@ -1050,31 +1062,42 @@ export class Effects {
       ctx.fillStyle = g; ctx.fillRect(0, y - 60, w, 120);
       ctx.restore();
     }
+    if (this.levelEdge > 0) {
+      const p = this.levelEdge;
+      ctx.save();
+      const edge = ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, h * 0.78);
+      edge.addColorStop(0, 'rgba(0,255,102,0)');
+      edge.addColorStop(0.72, `rgba(0,255,102,${0.04 * p})`);
+      edge.addColorStop(1, `rgba(0,255,102,${0.34 * p})`);
+      ctx.fillStyle = edge;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = `rgba(0,255,102,${0.42 * p})`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(8.5, 8.5, w - 17, h - 17);
+      ctx.restore();
+    }
     if (this.levelPulse > 0) {
       const p = this.levelPulse;
       ctx.save();
       ctx.globalAlpha = Math.min(1, p * 1.05);
       const cx = w / 2;
       const cy = h * 0.30;
-      const bw = Math.min(360, w * 0.66);
-      const bh = 52;
+      const bw = Math.min(300, w * 0.58);
+      const bh = 42;
       const x = Math.round(cx - bw / 2);
       const y = Math.round(cy - bh / 2);
-      ctx.fillStyle = `rgba(0, 12, 4, ${0.70 * p})`;
+      ctx.fillStyle = `rgba(0, 12, 4, ${0.66 * p})`;
       ctx.fillRect(x, y, bw, bh);
       ctx.strokeStyle = `rgba(0,255,102,${0.86 * p})`;
       ctx.lineWidth = 2;
       ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1);
-      const sweep = Math.max(0, Math.min(1, 1 - p));
-      ctx.fillStyle = `rgba(0,255,102,${0.18 * p})`;
-      ctx.fillRect(x + 2, y + bh - 6, Math.max(6, (bw - 4) * sweep), 3);
       ctx.fillStyle = `rgba(0,255,102,${0.95 * p})`;
-      ctx.font = `bold ${Math.round(17 + 3 * p)}px 'Courier New', monospace`;
+      ctx.font = `bold ${Math.round(16 + 2 * p)}px 'Courier New', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 6);
+      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 3);
       ctx.font = `bold 9px 'Courier New', monospace`;
-      ctx.fillText('INSTALL READY', cx, cy + 14);
+      ctx.fillText('INSTALL READY', cx, cy + 12);
       ctx.restore();
     }
     if (this.slam > 0) {
