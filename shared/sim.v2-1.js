@@ -1353,7 +1353,7 @@ function tickElementalStatuses(run, players, e, dt) {
     e.burnTickT = (e.burnTickT || 0) - dt;
     if (e.burnTickT <= 0 && e.burnT > 0) {
       e.burnTickT = 0.45;
-      damageEnemy(run, players, e, Math.max(1, (e.burnDps || 3.0) * 0.45), e.burnOwner || null, 0, 0, 0, 'status');
+      damageEnemy(run, players, e, Math.max(1, (e.burnDps || 3.0) * 0.45), e.burnOwner || null, 0, 0, 0, 'fire');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'BURN', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 20), tone: 'red', owner: e.burnOwner || '' });
     }
@@ -1363,7 +1363,7 @@ function tickElementalStatuses(run, players, e, dt) {
     e.poisonTickT = (e.poisonTickT || 0) - dt;
     if (e.poisonTickT <= 0 && e.poisonT > 0) {
       e.poisonTickT = 0.60;
-      damageEnemy(run, players, e, Math.max(1, (e.poisonDps || 2.2) * 0.60), e.poisonOwner || null, 0, 0, 0, 'status');
+      damageEnemy(run, players, e, Math.max(1, (e.poisonDps || 2.2) * 0.60), e.poisonOwner || null, 0, 0, 0, 'poison');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'POISON', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 18), tone: 'green', owner: e.poisonOwner || '' });
     }
@@ -1372,7 +1372,7 @@ function tickElementalStatuses(run, players, e, dt) {
   if ((e.burnT || 0) > 0 && (e.poisonT || 0) > 0 && (e.elemComboCd || 0) <= 0) {
     e.elemComboCd = 0.85;
     const owner = e.burnOwner || e.poisonOwner || null;
-    damageEnemy(run, players, e, Math.max(2, ((e.burnDps || 2) + (e.poisonDps || 2)) * 0.42), owner, 0, 0, 0, 'status');
+    damageEnemy(run, players, e, Math.max(2, ((e.burnDps || 2) + (e.poisonDps || 2)) * 0.42), owner, 0, 0, 0, 'fire');
     if (e.hp > 0) run.fx.push({ t: 'active_mutation', label: 'VOLATILE MIX', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 34), tone: 'red', owner: owner || '' });
   }
 }
@@ -1612,7 +1612,7 @@ function quotaCanOpenPortal(run) {
 
 // ---------------------------------------------------------------- player combo
 function createComboState() {
-  return { score: 0, mult: 1, count: 0, timer: 0, window: 0, lastMethod: '', recent: [], flash: 0, drop: 0, best: 1, tier: 0, lastGain: 0, lastLabel: '' };
+  return { score: 0, mult: 1, count: 0, timer: 0, window: 0, lastMethod: '', recent: [], flash: 0, drop: 0, best: 1, tier: 0, lastGain: 0, lastLabel: '', lastActorId: '', lastPayout: null };
 }
 function ensureCombo(run) {
   if (!run.combo) run.combo = createComboState();
@@ -1642,10 +1642,47 @@ function comboSourceFromBullet(b = {}) {
 }
 function comboSourceLabel(method) {
   return ({
-    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKET', ricochet: 'RICOCHET',
-    ability: 'ABILITY', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE', status: 'STATUS',
+    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'RICOCHET',
+    ability: 'Q', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE',
+    fire: 'BURN', burn: 'BURN', poison: 'POISON', freeze: 'FREEZE', status: 'STATUS',
     blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
   })[method] || String(method || 'HIT').toUpperCase();
+}
+function comboRewardType(run, players, c = {}) {
+  const last = c.lastActorId && players?.get ? players.get(c.lastActorId) : null;
+  const first = last || [...(players?.values?.() || [])].find(p => p && p.connected);
+  const type = String(first?.stats?.comboPrize || 'gld').toLowerCase();
+  return type === 'exp' || type === 'hp' ? type : 'gld';
+}
+function comboRewardLabel(type) {
+  return type === 'exp' ? 'EXP' : type === 'hp' ? 'HP' : 'GLD';
+}
+function awardComboPayout(run, players, c = {}, reason = 'break') {
+  const kills = Math.max(0, c.count | 0);
+  const mult = Math.max(1, Number(c.mult || comboMultiplierFromScore(c.score || 0)) || 1);
+  if (!kills) return null;
+  const type = comboRewardType(run, players, c);
+  const raw = kills * mult;
+  const amount = type === 'hp' ? Math.max(0, Math.round(raw * 0.1)) : Math.max(1, Math.round(raw * loopEconomyMul(run)));
+  if (amount <= 0) return null;
+  for (const p of players.values()) {
+    if (!p.connected) continue;
+    if (type === 'gld') p.economy.money += amount;
+    else if (type === 'exp') addXp(run, p, amount);
+    else if (type === 'hp' && p.alive) p.hp = Math.min(maxHp(p), p.hp + amount);
+  }
+  const payout = { type, amount, kills, mult: Math.round(mult * 10) / 10, reason, label: comboRewardLabel(type) };
+  c.lastPayout = payout;
+  run.fx.push({ t: 'combo_payout', ...payout });
+  if (run.runMemory) {
+    run.runMemory.comboPayouts = (run.runMemory.comboPayouts || 0) + 1;
+    if (type === 'gld') run.runMemory.totalGld = (run.runMemory.totalGld || 0) + amount;
+    if (type === 'exp') run.runMemory.totalExp = (run.runMemory.totalExp || 0) + amount;
+  }
+  return payout;
+}
+function resetComboChain(c) {
+  c.score = 0; c.mult = 1; c.count = 0; c.timer = 0; c.lastMethod = ''; c.recent = []; c.tier = 0; c.lastGain = 0; c.lastLabel = ''; c.window = 0; c.lastActorId = '';
 }
 function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   if (!run || run.phase !== 'play' || !actor || !actor.alive) return;
@@ -1669,6 +1706,7 @@ function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   const isKill = Math.max(0, Number(scale) || 0) >= 0.99;
   if (isKill) c.count = Math.max(0, c.count | 0) + 1;
   c.lastMethod = method;
+  c.lastActorId = actor.id || c.lastActorId || '';
   c.recent = [method, ...recent].slice(0, 5);
   c.timer = Math.max(c.timer || 0, Math.min(5.2, 2.65 + Math.min(1.55, comboMultiplierFromScore(c.score) * 0.18) + Math.min(0.8, score * 0.08)));
   c.window = c.timer;
@@ -1687,8 +1725,9 @@ function damageCombo(run, p, dmg = 0) {
   if (!run || !p || !run.combo) return;
   const c = ensureCombo(run);
   if ((c.score || 0) <= 0) return;
-  const loss = Math.max(14, Math.min(c.score * 0.42, c.score * 0.24 + Math.max(0, Number(dmg) || 0) * 0.85));
-  c.score = Math.max(0, c.score - loss);
+  const rawLoss = Math.max(8, c.score * 0.16 + Math.max(0, Number(dmg) || 0) * 0.55);
+  const loss = Math.min(c.score * 0.45, rawLoss);
+  c.score = Math.max(0.5, c.score - loss);
   c.mult = comboMultiplierFromScore(c.score);
   c.tier = comboTier(c.mult);
   c.timer = c.score > 0 ? Math.max(1.15, Math.min(c.timer || 0, 2.4)) : 0;
@@ -1697,14 +1736,15 @@ function damageCombo(run, p, dmg = 0) {
   if (c.score <= 0) { c.count = 0; c.lastMethod = ''; c.recent = []; c.lastLabel = ''; }
   run.fx.push({ t: 'combo_drop', mult: c.mult, id: p.id, dmg: Math.round(dmg || 0) });
 }
-function stepCombo(run, dt) {
+function stepCombo(run, players, dt) {
   const c = ensureCombo(run);
   c.flash = Math.max(0, (c.flash || 0) - dt);
   c.drop = Math.max(0, (c.drop || 0) - dt);
   if ((c.score || 0) <= 0) { c.score = 0; c.mult = 1; c.timer = 0; c.tier = 0; return; }
   c.timer = Math.max(0, (c.timer || 0) - dt);
   if (c.timer <= 0) {
-    c.score = 0; c.mult = 1; c.count = 0; c.lastMethod = ''; c.recent = []; c.tier = 0; c.lastGain = 0; c.lastLabel = ''; c.window = 0;
+    awardComboPayout(run, players, c, 'timeout');
+    resetComboChain(c);
     run.fx.push({ t: 'combo_break' });
     return;
   }
@@ -1716,7 +1756,7 @@ function comboSnapshot(run) {
   return {
     score: Math.round(c.score || 0), mult: c.mult || 1, count: c.count || 0,
     timer: Math.max(0, Math.round((c.timer || 0) * 10) / 10), window: Math.max(0.1, Math.round((c.window || 3) * 10) / 10),
-    lastMethod: c.lastMethod || '', recent: (c.recent || []).slice(0, 4), flash: c.flash || 0, drop: c.drop || 0, tier: c.tier || 0, best: c.best || 1, lastLabel: c.lastLabel || ''
+    lastMethod: c.lastMethod || '', recent: (c.recent || []).slice(0, 4), flash: c.flash || 0, drop: c.drop || 0, tier: c.tier || 0, best: c.best || 1, lastLabel: c.lastLabel || '', lastPayout: c.lastPayout || null
   };
 }
 
@@ -1836,6 +1876,7 @@ export function startRoom(run, players) {
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
+  if (run.combo && (run.combo.count || 0) > 0 && (run.combo.score || 0) > 0) awardComboPayout(run, players, run.combo, 'room_transition');
   run.combo = createComboState();
   initRoomStats(run);
   run.roomObjective = shouldOfferRoomContract(run.plan, run.runDepth, seed) ? roomObjectiveForPlan(run.plan, run.runDepth) : null;
@@ -3130,7 +3171,7 @@ function applyBulletElements(run, players, e, b, strength = 1) {
       e.elemComboCd = 0.40;
       const crack = Math.max(2, (b.dmg || 6) * (0.16 + fireStacks * 0.05) * strength);
       e.frozenT *= 0.42;
-      damageEnemy(run, players, e, crack, owner, 0, 0, 0, 'status');
+      damageEnemy(run, players, e, crack, owner, 0, 0, 0, 'freeze');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'THERMAL CRACK', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 30), tone: 'red', owner: owner || '' });
     }
@@ -3165,7 +3206,7 @@ function applyBulletElements(run, players, e, b, strength = 1) {
   }
   if (elem.includes('fire') && (elem.includes('poison') || (e.poisonT || 0) > 0) && (e.elemComboCd || 0) <= 0) {
     e.elemComboCd = 0.65;
-    damageEnemy(run, players, e, Math.max(2, (b.dmg || 6) * 0.18 * strength), owner, 0, 0, 0, 'status');
+    damageEnemy(run, players, e, Math.max(2, (b.dmg || 6) * 0.18 * strength), owner, 0, 0, 0, 'fire');
     if (e.hp > 0) run.fx.push({ t: 'active_mutation', label: 'VOLATILE MIX', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 32), tone: 'red', owner: owner || '' });
   }
 }
@@ -5941,7 +5982,7 @@ export function step(run, players, dt, now) {
   stepCompanions(run, players, dt, now);
   stepPickups(run, players, dt);
   stepMods(run, players, dt);
-  stepCombo(run, dt);
+  stepCombo(run, players, dt);
   tryCleanupPortal(run);
   updateRoomObjectiveLiveState(run);
   // all dead?

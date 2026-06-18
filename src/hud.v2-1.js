@@ -143,23 +143,31 @@ function tagJoin(tags = [], fallback = '—') {
 function comboMethodLabel(m) {
   const key = String(m || '').toLowerCase();
   const ru = {
-    shotgun: 'ДРОБОВИК', seeker: 'ИСКАТЕЛЬ', rocketgun: 'РАКЕТА', ricochet: 'ОТСКОК',
-    ability: 'УМЕНИЕ', dash: 'РЫВОК', orbital: 'ОРБИТАЛЬ', drone: 'ДРОН', status: 'СТАТУС',
+    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'ОТСКОК',
+    ability: 'Q', dash: 'РЫВОК', orbital: 'ОРБИТАЛЬ', drone: 'ДРОН',
+    fire: 'ПОДЖОГ', burn: 'ПОДЖОГ', poison: 'ЯД', freeze: 'ЗАМОРОЗКА', status: 'СТАТУС',
     blast: 'ВЗРЫВ', chain: 'ЦЕПЬ', shell: 'БРОНЯ', weapon: 'ОРУЖИЕ'
   };
   const en = {
-    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKET', ricochet: 'RICOCHET',
-    ability: 'ABILITY', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE', status: 'STATUS',
+    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'RICOCHET',
+    ability: 'Q', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE',
+    fire: 'BURN', burn: 'BURN', poison: 'POISON', freeze: 'FREEZE', status: 'STATUS',
     blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
   };
   return localText(ru[key] || String(key || 'УДАР').toUpperCase(), en[key] || String(key || 'HIT').toUpperCase());
+}
+function comboPrizeLabel(type) {
+  const key = String(type || 'gld').toLowerCase();
+  if (key === 'exp') return 'EXP';
+  if (key === 'hp') return 'HP';
+  return 'GLD';
 }
 function comboExplain(c = {}) {
   const methods = (c.recent || []).map(comboMethodLabel).slice(0, 4).join(' · ') || localText('пока нет', 'none yet');
   const kills = Math.max(0, c.count | 0);
   return localText(
-    `Комбо — это цепь убийств. Разные способы дают больший прирост. Без новых убийств комбо сгорает. Урон снимает часть комбо. Убито в цепи: ${kills}. Способы: ${methods}.`,
-    `Combo is a kill chain. Different methods build it faster. Without new kills, combo breaks. Damage removes part of the combo. Kills in chain: ${kills}. Methods: ${methods}.`
+    `Комбо — это цепь убийств. Когда время выходит, приз считается как убийства × множитель. Урон снимает часть комбо. Убито в цепи: ${kills}. Способы: ${methods}.`,
+    `Combo is a kill chain. When time runs out, prize = kills × multiplier. Damage removes part of the combo. Kills in chain: ${kills}. Methods: ${methods}.`
   );
 }
 function renderComboHud(c = {}) {
@@ -876,6 +884,14 @@ export class Hud {
       case 'director_wave':
         this.feed(`${localText('ВОЛНА', 'WAVE')} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
         break;
+      case 'combo_payout': {
+        const prize = comboPrizeLabel(f.type);
+        const kills = Math.max(0, f.kills | 0);
+        const mult = Number(f.mult || 1).toFixed(1);
+        const amount = Math.max(0, f.amount | 0);
+        this.feed(`${localText('КОМБО', 'COMBO')} ${kills} × x${mult} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
+        break;
+      }
       case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка скина появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('скин ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
