@@ -309,8 +309,12 @@ fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '
   .then(r => r.json())
   .then(h => {
     setMenuVersion(h);
+    const serverProto = Number(h?.protocol ?? PROTOCOL);
+    if (serverProto !== PROTOCOL) {
+      setStatus(NET_STATUS.update, 'err');
+      return;
+    }
     setStatus(NET_STATUS.ready, 'ok');
-    if (h.version !== VERSION) setStatus(NET_STATUS.update, 'err');
   })
   .catch(() => { setMenuVersion(); setStatus(NET_STATUS.waking); });
 

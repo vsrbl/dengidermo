@@ -5,14 +5,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
-
-const VERSION = 'v2.1.6';
-const BUILD_ID = 'combo-counter-visuals';
-const PROTOCOL = 2;
-const MAX_PLAYERS = 4;
-const MAX_MESSAGE_BYTES = 64 * 1024;
-const RATE_LIMIT_PER_WINDOW = 300;
-const RATE_WINDOW_MS = 1000;
+import { VERSION, BUILD_ID, PROTOCOL, MAX_PLAYERS, MAX_MESSAGE_BYTES, RATE_LIMIT_PER_WINDOW, RATE_WINDOW_MS } from '../shared/protocol.v2-1.js';
 
 const PORT = Number(process.env.PORT || 10777);
 const ORIGINS = (process.env.CLIENT_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);

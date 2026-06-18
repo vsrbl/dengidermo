@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.10';
-export const BUILD_ID = 'combo-counter-visuals';
+export const VERSION = 'v2.1.11';
+export const BUILD_ID = 'version-warning-hotfix';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;
