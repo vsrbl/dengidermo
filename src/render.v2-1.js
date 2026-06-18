@@ -625,7 +625,7 @@ export class Renderer {
       const skinOutline = /^#[0-9a-fA-F]{6}$/.test(p[P.SKINOUTLINE] || '') ? p[P.SKINOUTLINE] : (isMe ? COL.green : '#555');
       const skinId = String(p[P.SKINID] || 'terminal_mint');
       // companions come from authoritative snapshot so drone visuals match real firing origins.
-      const drones = p[P.DRONES], orbitals = p[P.ORBITALS];
+      const drones = p[P.DRONES], orbitals = 0;
       const comps = (view.companions || []).filter(c => c[1] === p[P.ID]);
       if (comps.length) {
         const liveCompIds = new Set();

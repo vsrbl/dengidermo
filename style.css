@@ -2216,3 +2216,74 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
 @keyframes comboPop { 0% { transform: translateY(-1px) scale(1.035); filter: contrast(1.32) brightness(1.14) saturate(.72); } 100% { transform: translateY(0) scale(1); filter: contrast(1.16) saturate(.66) brightness(.95); } }
 @keyframes comboHit { 0% { transform: translateX(-2px); opacity: .70; } 50% { transform: translateX(2px); opacity: .96; } 100% { transform: translateX(0); opacity: 1; } }
 @media (max-width: 960px) { #hud-combo { top: 80px; width: min(360px, 66vw); } .combo-main b { font-size: 20px; } .combo-main span, .combo-main em, .combo-prize { font-size: 9px; } .combo-used { font-size: 9px; } .combo-readout { min-width: 210px; } }
+
+/* v2.1.25 — final run complete table */
+#run-complete-panel {
+  position: fixed; inset: 0; z-index: 72; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 38%, rgba(0,255,102,.10), rgba(0,0,0,.86) 42%, rgba(0,0,0,.96));
+  pointer-events: auto; color: var(--fg); letter-spacing: .12em;
+}
+#run-complete-panel.hidden { display: none; }
+.run-complete-card {
+  width: min(92vw, 760px); max-height: 88vh; overflow: auto; padding: 26px 30px 22px;
+  border: 1px solid rgba(0,255,102,.58); background: rgba(3,8,5,.92);
+  box-shadow: 0 0 0 2px rgba(0,255,102,.07), 0 0 44px rgba(0,255,102,.18), inset 0 0 28px rgba(0,255,102,.045);
+}
+.run-complete-kicker { color: var(--green); font-size: 11px; margin-bottom: 10px; opacity: .9; }
+.run-complete-card h2 { margin: 0 0 10px; font-size: clamp(26px, 5vw, 48px); color: var(--fg); letter-spacing: .18em; text-shadow: 0 0 24px rgba(0,255,102,.28); }
+.run-complete-sub { color: var(--dim); font-size: 13px; line-height: 1.45; margin-bottom: 18px; }
+.run-complete-card table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.run-complete-card th, .run-complete-card td { border-top: 1px solid rgba(243,243,243,.14); padding: 8px 6px; text-align: left; vertical-align: top; }
+.run-complete-card th { color: var(--green); width: 36%; font-weight: normal; }
+.run-complete-card td { color: var(--fg); overflow-wrap: anywhere; }
+.run-complete-footer { margin-top: 16px; color: var(--gold); font-size: 11px; opacity: .9; }
+
+
+/* v2.1.26 signatures hud + boss signature menu */
+#hud-signatures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin-bottom: 6px;
+  max-width: 250px;
+  pointer-events: auto;
+}
+#hud-signatures.hidden { display: none; }
+#hud-signatures span {
+  display: block;
+  padding: 2px 7px;
+  border-left: 2px solid rgba(255, 211, 77, .75);
+  background: rgba(0,0,0,.34);
+  color: #ffd34d;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-shadow: 0 0 8px rgba(255, 211, 77, .14);
+}
+#install-modal.boss-signature-modal .modal-card {
+  border-color: rgba(255,211,77,.58);
+  box-shadow: 0 0 0 1px rgba(255,211,77,.14), 0 0 38px rgba(255,211,77,.08), inset 0 0 22px rgba(255,211,77,.05);
+  background: linear-gradient(180deg, rgba(15,11,2,.97), rgba(0,0,0,.96));
+}
+#install-modal.boss-signature-modal h2::before {
+  content: 'THREAT SIGNATURE';
+  display: block;
+  color: #ffd34d;
+  font-size: 10px;
+  letter-spacing: .18em;
+  margin-bottom: 5px;
+}
+#install-modal .boss-signature-choice {
+  border-color: rgba(255,211,77,.42);
+  background: rgba(20,14,2,.78);
+}
+#install-modal .boss-signature-choice .choice-sub {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255,255,255,.70);
+  font-size: 11px;
+  line-height: 1.35;
+}
+#install-modal .sig-key { color: #ffd34d; border-color: rgba(255,211,77,.55); }
+#dev-panel { max-height: 88vh; overflow-y: auto; }
+#dev-panel .dev-buttons { grid-template-columns: 1fr 1fr; }

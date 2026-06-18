@@ -6,7 +6,7 @@ import { Effects } from './effects.v2-1.js';
 import { Renderer } from './render.v2-1.js';
 import { Hud } from './hud.v2-1.js';
 import { AudioBus } from './audio.v2-1.js';
-import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE } from '../shared/data.v2-1.js';
+import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, HERO_UPGRADES, WEAPON_CHEST_REWARDS, BOSS_SIGNATURE_UPGRADE_IDS } from '../shared/data.v2-1.js';
 import { setupLanguageButtons, onLangChange, t, skinNote, labelStatus, getLang, locRole, locAction } from './i18n.v2-1.js';
 
 const $ = id => document.getElementById(id);
@@ -336,7 +336,7 @@ net.on('s', (m) => {
     hud.handleFx(f, state.myId, state);
   }
 });
-net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0));
+net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || ''));
 net.on('offer_close', () => { if (!hud.install.skinOnly) hud.closeInstall(); });
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
@@ -371,10 +371,12 @@ function ensureDevPanel() {
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
   devPanel.innerHTML = `
     <div class="dev-title">DEV MODE <span>F2</span></div>
-    <div class="dev-note">SOLO/HOST only · room lab / WPN / portal / Q</div>
+    <div class="dev-note">SOLO/HOST only · full test lab · F2</div>
     <div class="dev-buttons dev-priority">
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
       <button id="dev-wpn-offer">WPN OFFER</button>
+      <button id="dev-sig-offer">BOSS SIG OFFER</button>
+      <button id="dev-win-run">WIN RUN</button>
     </div>
     <div class="dev-section-title">NEXT ROOM LAB</div>
     <div class="dev-row"><label>CAT</label><select id="dev-room-cat">${categoryOpts}</select></div>
@@ -385,6 +387,9 @@ function ensureDevPanel() {
       <button id="dev-apply-next">LOCK NEXT ROOM</button>
       <button id="dev-clear-next">AUTO NEXT</button>
     </div>
+
+    <div class="dev-section-title">BOSS / SIGNATURE</div>
+    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss">BOS</option></select></div>
     <div class="dev-section-title">Q / PLAYER</div>
     <div class="dev-row"><label>CORE</label><select id="dev-core">${coreOpts}</select></div>
     <div class="dev-row"><label>LVL</label><select id="dev-level"><option value="1">I</option><option value="2">II</option><option value="3" selected>III</option><option value="4">IV</option><option value="5">V</option><option value="6">VI</option><option value="7">VII</option><option value="8">VIII</option></select></div>
@@ -399,6 +404,11 @@ function ensureDevPanel() {
       <button id="dev-money">GLD/EXP</button>
       <button id="dev-skins">UNLOCK SKINS</button>
       <button id="dev-god">GOD: OFF</button>
+      <button id="dev-all-installs">ALL INSTALLS</button>
+      <button id="dev-all-wpn-mods">ALL WPN MODS</button>
+      <button id="dev-all-sigs">ALL SIGS</button>
+      <button id="dev-spawn-boss">SPAWN BOSS</button>
+      <button id="dev-final">FINAL DEPTH</button>
     </div>`;
   document.body.appendChild(devPanel);
   const cmd = (action, extra = {}) => net.sendDev({ action, ...extra });
@@ -410,6 +420,8 @@ function ensureDevPanel() {
   });
   devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed('DEV: PORTAL OPEN', 'c'); });
   devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed('DEV: WPN OFFER', 'c'); });
+  devPanel.querySelector('#dev-sig-offer')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind }); hud.feed('DEV: BOSS SIG OFFER', 'c'); });
+  devPanel.querySelector('#dev-win-run')?.addEventListener('click', () => { cmd('win_run'); hud.feed('DEV: WIN RUN', 'c'); });
   devPanel.querySelector('#dev-apply-next')?.addEventListener('click', () => { cmd('set_next_room', readNextRoomLab()); hud.feed('DEV: NEXT ROOM LOCKED', 'c'); });
   devPanel.querySelector('#dev-clear-next')?.addEventListener('click', () => { cmd('clear_next_room'); hud.feed('DEV: NEXT ROOM AUTO', ''); });
   devPanel.querySelector('#dev-apply')?.addEventListener('click', () => {
@@ -426,6 +438,11 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-wpn')?.addEventListener('click', () => cmd('give_all_weapons'));
   devPanel.querySelector('#dev-money')?.addEventListener('click', () => cmd('money_xp'));
   devPanel.querySelector('#dev-god')?.addEventListener('click', (e) => { devGod = !devGod; e.currentTarget.textContent = `GOD: ${devGod ? 'ON' : 'OFF'}`; cmd('god', { enabled: devGod }); });
+  devPanel.querySelector('#dev-all-installs')?.addEventListener('click', () => cmd('give_all_installs'));
+  devPanel.querySelector('#dev-all-wpn-mods')?.addEventListener('click', () => cmd('give_all_weapon_mods'));
+  devPanel.querySelector('#dev-all-sigs')?.addEventListener('click', () => cmd('give_all_signatures'));
+  devPanel.querySelector('#dev-spawn-boss')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss_croupier'; cmd('spawn_boss', { kind }); });
+  devPanel.querySelector('#dev-final')?.addEventListener('click', () => cmd('set_final_room'));
   devPanel.querySelector('#dev-skins')?.addEventListener('click', () => {
     const set = readUnlockedSkins();
     for (const sk of SKIN_PRESETS) set.add(sk.id);

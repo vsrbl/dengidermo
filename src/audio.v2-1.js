@@ -2833,3 +2833,113 @@ AudioBus.prototype.updateMusic = function updateMusicV2124Repair(state, dt = 0.0
   this.setMusicLayer('bossLine', boss ? (0.00018 + intensity * 0.00042) * (stage === 'climax' ? 1.0 : 0.72) : 0.000014, 0.65);
   this.setMusicLayer('needle', combat && (modTheme === 'static' || stage === 'climax') && intensity > 0.68 ? 0.000042 + intensity * 0.00013 : 0.000018, 0.8);
 };
+
+// v2.1.25: final completion theme. This deliberately sits above the room-stage
+// director: after the 10th loop the game should stop sounding like combat and
+// play a long, pleasant, low/mid-register ending phrase.
+const updateMusicBeforeFinaleV2125 = AudioBus.prototype.updateMusic;
+function playFinaleThemePhraseV2125(bus, intensity = 0.25) {
+  if (!bus.music?.master || !bus.ctx) return;
+  const root = 55; // A1-ish: warm low center, no sharp top notes.
+  const semi = n => root * Math.pow(2, n / 12);
+  const cell = [0, 3, 7, 12, 10, 7, 5, 3, 0, -5, 0, 7];
+  const step = 0.82;
+  cell.forEach((n, i) => {
+    const delay = i * step;
+    const vol = 0.0072 * (i === 0 || i === 3 || i === 8 ? 1.0 : 0.68);
+    bus.musicNote(semi(n), step * 1.55, i % 3 === 1 ? 'triangle' : 'sine', vol, 860 + intensity * 160, delay, 1, 0);
+    if (i % 4 === 0) bus.musicNote(semi(n - 12), step * 2.8, 'triangle', 0.0022, 360, delay, 1, 0);
+  });
+  bus.ambientNote(semi(-24), 9.5, 'sine', 0.0026, 120, 0, 0, 1);
+}
+AudioBus.prototype.updateMusic = function updateMusicV2125Finale(state, dt = 0.016) {
+  const room = state?.room || null;
+  if (!room || room.phase !== 'won') return updateMusicBeforeFinaleV2125.call(this, state, dt);
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  const now = this.ctx.currentTime;
+  const L = this.music.layers || {};
+  this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.20);
+  const root = 55;
+  if (L.drone) { L.drone.o.frequency.setTargetAtTime(root, now, 2.4); L.drone.f.frequency.setTargetAtTime(240, now, 2.0); }
+  if (L.sub) L.sub.o.frequency.setTargetAtTime(root * 0.5, now, 2.0);
+  if (L.pulse) { L.pulse.o.frequency.setTargetAtTime(root * 2, now, 2.4); L.pulse.f.frequency.setTargetAtTime(95, now, 2.0); }
+  if (L.casino) L.casino.o.frequency.setTargetAtTime(root * 3, now, 2.6);
+  if (L.choir) { L.choir.o.frequency.setTargetAtTime(root * 4, now, 2.8); L.choir.f.frequency.setTargetAtTime(620, now, 2.4); }
+  if (L.dirgePad) { L.dirgePad.o.frequency.setTargetAtTime(root * 2, now, 2.5); L.dirgePad.f.frequency.setTargetAtTime(340, now, 2.0); }
+  if (L.glass) { L.glass.o.frequency.setTargetAtTime(root * 6, now, 3.0); L.glass.f.frequency.setTargetAtTime(780, now, 2.4); }
+  if (L.highPad) { L.highPad.o.frequency.setTargetAtTime(root * 5, now, 3.0); L.highPad.f.frequency.setTargetAtTime(740, now, 2.4); }
+  if (L.drive) L.drive.o.frequency.setTargetAtTime(root * 2, now, 2.0);
+  if (L.bossLine) L.bossLine.o.frequency.setTargetAtTime(root * 3, now, 2.0);
+  this.setMusicLayer('drone', 0.0030, 1.8);
+  this.setMusicLayer('sub', 0.000050, 1.8);
+  this.setMusicLayer('pulse', 0.000035, 1.6);
+  this.setMusicLayer('hat', 0.000012, 1.4);
+  this.setMusicLayer('casino', 0.000060, 1.6);
+  this.setMusicLayer('choir', 0.0038, 2.0);
+  this.setMusicLayer('dirgePad', 0.0036, 2.0);
+  this.setMusicLayer('scrape', 0.000006, 1.0);
+  this.setMusicLayer('glass', 0.00022, 2.0);
+  this.setMusicLayer('highPad', 0.00016, 2.0);
+  this.setMusicLayer('drive', 0.000018, 1.0);
+  this.setMusicLayer('bossLine', 0.000010, 1.0);
+  this.setMusicLayer('needle', 0.000006, 1.0);
+  this.music.finalPhraseT = Math.max(0, (this.music.finalPhraseT || 0) - dt);
+  if (this.music.finalPhraseT <= 0) {
+    playFinaleThemePhraseV2125(this, 0.22);
+    this.music.finalPhraseT = 10.2;
+  }
+};
+
+
+
+// v2.1.26 GLOBAL SLOW MIX
+// The v2.1.20+ stage director survived, but the whole score is now slower,
+// lower, and less bright. High layers are clamped to low-mid filter ranges and
+// melody density depends on actual room pressure, so small rooms do not sound
+// like climax fights.
+const updateMusicBeforeV2126SlowMix = AudioBus.prototype.updateMusic;
+const playDirgePhraseBeforeV2126SlowMix = AudioBus.prototype.playDirgePhrase;
+const playBossHookBeforeV2126SlowMix = AudioBus.prototype.playBossHook;
+AudioBus.prototype.playBossHook = function playBossHookV2126Soft(context = {}) {
+  const ctx = { ...context, intensity: Math.max(0, Math.min(1, (context.intensity || 0) * 0.62)), chaos: Math.max(0, (context.chaos || 0) * 0.55) };
+  const oldMusicNote = this.musicNote;
+  this.musicNote = (freq, dur, wave, vol, filter, delay, pan, detune) => oldMusicNote.call(this, Math.max(32, freq * 0.5), dur * 1.5, wave === 'sawtooth' ? 'triangle' : wave, vol * 0.46, Math.min(filter || 700, 520), delay * 1.5, pan, detune);
+  try { return playBossHookBeforeV2126SlowMix.call(this, ctx); }
+  finally { this.musicNote = oldMusicNote; }
+};
+AudioBus.prototype.playDirgePhrase = function playDirgePhraseV2126Slow(context = {}) {
+  const roomPressure = Math.max(0, Math.min(1, (context.crowd || 0) * 0.65 + (context.intensity || 0) * 0.35));
+  const ctx = { ...context, intensity: Math.max(0, Math.min(1, (context.intensity || 0) * (0.55 + roomPressure * 0.25))), chaos: Math.max(0, (context.chaos || 0) * 0.55) };
+  const oldMusicNote = this.musicNote;
+  const oldAmbientNote = this.ambientNote;
+  const oldAmbientNoise = this.ambientNoise;
+  this.musicNote = (freq, dur, wave, vol, filter, delay, pan, detune) => oldMusicNote.call(this, Math.max(30, freq * 0.5), dur * 1.5, wave === 'sawtooth' ? 'triangle' : wave, vol * (0.50 + roomPressure * 0.18), Math.min(filter || 620, roomPressure < 0.35 ? 420 : 560), delay * 1.5, pan, detune);
+  this.ambientNote = (freq, dur, wave, vol, filter, delay, pan, detune) => oldAmbientNote.call(this, Math.max(28, freq * 0.5), dur * 1.5, wave === 'sawtooth' ? 'triangle' : wave, vol * 0.62, Math.min(filter || 420, 420), delay * 1.5, pan, detune);
+  this.ambientNoise = (dur, vol, filter, delay) => oldAmbientNoise.call(this, dur * 1.5, vol * 0.45, Math.min(filter || 420, 420), delay * 1.5);
+  try { return playDirgePhraseBeforeV2126SlowMix.call(this, ctx); }
+  finally { this.musicNote = oldMusicNote; this.ambientNote = oldAmbientNote; this.ambientNoise = oldAmbientNoise; }
+};
+AudioBus.prototype.updateMusic = function updateMusicV2126SlowMix(state, dt = 0.016) {
+  const room = state?.room || null;
+  const live = Math.max(0, Number(room?.liveEnemies || state?.latest?.enemies?.length || 0));
+  const boss = !!room && room.cat === 'boss';
+  const pressure = Math.max(0, Math.min(1, live / (boss ? 18 : 28)));
+  const globalMul = 0.54 + pressure * 0.20;
+  const oldSetMusicLayer = this.setMusicLayer;
+  this.setMusicLayer = (name, target, time = 0.7) => {
+    const bright = name === 'glass' || name === 'highPad' || name === 'needle' || name === 'bossLine' || name === 'casino' || name === 'hat';
+    const mul = globalMul * (bright ? 0.52 : 1.0);
+    return oldSetMusicLayer.call(this, name, Math.max(0, target || 0) * mul, Math.max(0.2, time * 1.5));
+  };
+  try { updateMusicBeforeV2126SlowMix.call(this, state, dt * 0.66); }
+  finally { this.setMusicLayer = oldSetMusicLayer; }
+  if (!this.music?.layers || !this.ctx) return;
+  const L = this.music.layers;
+  const now = this.ctx.currentTime;
+  for (const name of ['casino','choir','dirgePad','glass','highPad','drive','bossLine','needle','pulse','hat']) {
+    const layer = L[name];
+    if (layer?.f?.frequency) layer.f.frequency.setTargetAtTime(Math.min(layer.f.frequency.value || 600, name === 'needle' ? 520 : name === 'glass' || name === 'highPad' ? 470 : 560), now, 1.4);
+  }
+};

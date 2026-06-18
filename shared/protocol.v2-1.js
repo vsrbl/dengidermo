@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.24';
-export const BUILD_ID = 'music_combo_orbital_repair';
+export const VERSION = 'v2.1.26';
+export const BUILD_ID = 'orbital_removed_slow_music_boss_signatures_devlab';
 export const PROTOCOL = 4;
 
 export const MAX_PLAYERS = 4;

@@ -143,13 +143,13 @@ function comboMethodLabel(m) {
   const key = String(m || '').toLowerCase();
   const ru = {
     shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'ОТСКОК',
-    ability: 'Q', dash: 'РЫВОК', orbital: 'ОРБИТАЛЬ', drone: 'ДРОН',
+    ability: 'Q', dash: 'РЫВОК', drone: 'ДРОН',
     fire: 'ПОДЖОГ', burn: 'ПОДЖОГ', poison: 'ЯД', freeze: 'ЗАМОРОЗКА', status: 'СТАТУС',
     blast: 'ВЗРЫВ', chain: 'ЦЕПЬ', weapon: 'ОРУЖИЕ'
   };
   const en = {
     shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'RICOCHET',
-    ability: 'Q', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE',
+    ability: 'Q', dash: 'DASH', drone: 'DRONE',
     fire: 'BURN', burn: 'BURN', poison: 'POISON', freeze: 'FREEZE', status: 'STATUS',
     blast: 'BLAST', chain: 'CHAIN', weapon: 'WEAPON'
   };
@@ -439,6 +439,38 @@ function weaponElementLabel(cls) {
   return localText(ru[k] || String(cls || '').toUpperCase(), en[k] || String(cls || '').toUpperCase());
 }
 
+function finalGoalLine(room = {}) {
+  const g = room.runGoal || { loops: 10, loop: 0 };
+  const loop = Math.max(0, Math.min(g.loops || 10, g.loop || 0));
+  return `${localText('ЦЕЛЬ', 'GOAL')} ${loop}/${g.loops || 10} ${localText('ЦИКЛОВ', 'LOOPS')}`;
+}
+function finalSummaryRows(sum = {}) {
+  const players = Array.isArray(sum.players) ? sum.players : [];
+  const weaponText = players.map(p => `${p.name || 'P'}: ${(p.weapons || []).join('/') || '—'}`).join(' · ');
+  const playerText = players.map(p => `${p.name || 'P'} HP ${p.hp || 0}/${p.maxHp || 0} · LVL ${p.level || 0} · GLD ${p.gld || 0} · ${p.skin || 'skin'}`).join(' | ');
+  const qText = players.map(p => `${p.name || 'P'}: ${p.q || '—'}`).join(' | ');
+  const companionText = players.map(p => `${p.name || 'P'}: DASH ${p.dash || 1} · DRN ${p.drones || 0}`).join(' | ');
+  return [
+    [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 10}`],
+    [localText('КОМНАТЫ', 'ROOMS'), String(sum.roomsCleared || 0)],
+    [localText('УБИЙСТВА', 'KILLS'), String(sum.kills || 0)],
+    [localText('БОССЫ', 'BOSSES'), String(sum.bosses || 0)],
+    ['GLD', String(sum.gld || 0)],
+    ['EXP', String(sum.exp || 0)],
+    ['HEA', String(sum.hea || 0)],
+    [localText('УРОН ПОЛУЧЕН', 'DAMAGE TAKEN'), String(sum.damage || 0)],
+    [localText('ЛУЧШЕЕ КОМБО', 'BEST COMBO'), `x${Number(sum.bestCombo || 1).toFixed(1)}`],
+    [localText('БЕЗ УРОНА', 'NO HIT'), String(sum.noHitBest || 0)],
+    [localText('БЫСТРЫЕ КОМНАТЫ', 'FAST ROOMS'), String(sum.fastBest || 0)],
+    [localText('КОНТРАКТЫ', 'CONTRACTS'), `${sum.contractsDone || 0}/${sum.contractsSeen || 0}`],
+    [localText('СИГНАТУРЫ', 'SIGNATURES'), String(sum.signatures || 0)],
+    [localText('ИГРОКИ', 'PLAYERS'), playerText || '—'],
+    ['WPN', weaponText || '—'],
+    ['Q', qText || '—'],
+    [localText('СПУТНИКИ', 'COMPANIONS'), companionText || '—']
+  ];
+}
+
 const activeLabel = p => p?.[P.ACTIVELABEL] || activeNoneLabel();
 const activeDesc = p => activeDescFrom(activeLabel(p), p?.[P.ACTIVEDESC] || activeNoneDesc());
 const activeShort = p => locActiveShort(activeLabel(p));
@@ -467,6 +499,39 @@ export class Hud {
     $('casino-stakes').querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', () => this.placeBet(btn.dataset.stake));
     });
+  }
+
+
+  ensureFinalePanel() {
+    let el = document.getElementById('run-complete-panel');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'run-complete-panel';
+    el.className = 'hidden';
+    el.innerHTML = '<div class="run-complete-card"><div class="run-complete-kicker"></div><h2></h2><div class="run-complete-sub"></div><table></table><div class="run-complete-footer"></div></div>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  showRunComplete(room = {}) {
+    const sum = room.finalSummary || {};
+    const el = this.ensureFinalePanel();
+    el.classList.remove('hidden');
+    const kicker = el.querySelector('.run-complete-kicker');
+    const title = el.querySelector('h2');
+    const sub = el.querySelector('.run-complete-sub');
+    const table = el.querySelector('table');
+    const footer = el.querySelector('.run-complete-footer');
+    if (kicker) kicker.textContent = localText('АНТИВИРУС ЗАВЕРШИЛ ПРОХОЖДЕНИЕ', 'ANTIVIRUS RUN COMPLETE');
+    if (title) title.textContent = localText('СИСТЕМА ОЧИЩЕНА', 'SYSTEM CLEANSED');
+    if (sub) sub.textContent = localText('10 циклов пройдены. Финальный портал закрыл заражённую ветку.', '10 loops cleared. The final portal closed the infected branch.');
+    if (table) table.innerHTML = finalSummaryRows(sum).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+    if (footer) footer.textContent = localText('Музыка завершения будет играть, пока окно открыто.', 'The ending theme keeps playing while this screen is open.');
+  }
+
+  hideRunComplete() {
+    const el = document.getElementById('run-complete-panel');
+    if (el) el.classList.add('hidden');
   }
 
   playUiSound(type) { try { this.audio?.play?.(type); } catch {} }
@@ -636,6 +701,7 @@ export class Hud {
     const room = state.room;
     if (!me || !room) return;
     this.latestRoom = room;
+    if (room.phase === 'won') this.showRunComplete(room); else this.hideRunComplete();
     for (const p of state.latest.players) this.names.set(p[P.ID], p[P.NAME]);
     const aliveNow = !!me[P.ALIVE] && (me[P.HP] > 0);
     if (!aliveNow && this.wasAlive) {
@@ -648,7 +714,7 @@ export class Hud {
 
     // top
     $('hud-room').textContent = `${this.net.roomId || '----'} · ${room.id}`;
-    $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${room.loop} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth}`;
+    $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${room.loop} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth} · ${finalGoalLine(room)}`;
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
     const modTone = (m) => m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' ? 'purple' : m === 'greed' ? 'gold' : '';
     const visibleMods = (room.mods || []).filter(m => m !== 'static_rain');
@@ -715,8 +781,9 @@ export class Hud {
     const killProgress = Math.min(Math.max(0, room.kills || 0), killGoal);
     const fullClearIds = new Set(['fast_clear','virus_clean','hunter_waves','grid_slow_clear','blood_paid','static_clean','cache_claim','clean_signal']);
     const fullClear = fullClearIds.has(String(room.objective?.id || '')) || room.mods?.includes?.('casino_virus') || room.mods?.includes?.('hunter_contract');
-    if (room.phase === 'install') goalHtml = `<span class="done">${t('installPhase')}</span>`;
-    else if (room.cat === 'boss') goalHtml = room.portal[2] ? `<span class="done">${t('portalOpen')} — E</span>${skn}` : `${t('killBoss')}${skn}`;
+    if (room.phase === 'won') goalHtml = `<span class="done">${localText('ПРОХОЖДЕНИЕ ЗАВЕРШЕНО', 'RUN COMPLETE')}</span>`;
+    else if (room.phase === 'install') goalHtml = `<span class="done">${t('installPhase')}</span>`;
+    else if (room.cat === 'boss') goalHtml = room.portal[2] ? `<span class="done">${room.finalBoss ? localText('ФИНАЛЬНЫЙ ПОРТАЛ', 'FINAL PORTAL') : t('portalOpen')} — E</span>${skn}` : `${room.finalBoss ? localText('ФИНАЛЬНЫЙ БОСС', 'FINAL BOSS') : t('killBoss')}${skn}`;
     else if (room.portal[2]) goalHtml = `<span class="done">${t('portalOpen')} — E</span>${skn}`;
     else if (fullClear) goalHtml = `${t('clear')}: ${esc(localText('живых врагов', 'live enemies'))} ${liveEnemies}${skn}`;
     else goalHtml = `${t('clear')} ${killProgress} / ${killGoal}${liveEnemies ? ` · ${esc(localText('живых', 'alive'))} ${liveEnemies}` : ''}${skn}`;
@@ -745,6 +812,15 @@ export class Hud {
     const inst = $('hud-install');
     if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');
+    const sigEl = $('hud-signatures');
+    if (sigEl) {
+      const sigs = Array.isArray(room.signaturesActive) ? room.signaturesActive.slice(0, 10) : [];
+      if (sigs.length) {
+        sigEl.classList.remove('hidden');
+        sigEl.innerHTML = sigs.map(x => `<span>${esc(locLabel(x))}</span>`).join('');
+        this.setExplain(sigEl, localText('СИГНАТУРЫ УГРОЗ', 'THREAT SIGNATURES'), sigs.map(x => locLabel(x)).join('\n'), 'gold');
+      } else { sigEl.classList.add('hidden'); sigEl.innerHTML = ''; }
+    }
     const favorEl = $('hud-favor');
     if (favorEl) {
       const active = room.contractFavors?.active || [];
@@ -936,6 +1012,11 @@ export class Hud {
       case 'active_casino_roll': if (f.id === myId) this.activeRoll(f); break;
       case 'install': if (f.id === myId) this.feed(`${localText('УЛУЧШЕНИЕ', 'INSTALL')}: ${locLabel(f.label)}`, f.cursed ? 'p' : 'g'); break;
       case 'transition': this.cancelActiveRoll(); this.banner(t('installPhase'), t('installPhaseSub'), 'green'); break;
+      case 'run_complete':
+        this.banner(localText('СИСТЕМА ОЧИЩЕНА', 'SYSTEM CLEANSED'), localText('10 ЦИКЛОВ ЗАВЕРШЕНЫ', '10 LOOPS COMPLETE'), 'green');
+        this.feed(localText('ФИНАЛЬНЫЙ ПОРТАЛ ЗАКРЫЛ ЗАРАЖЁННУЮ ВЕТКУ', 'FINAL PORTAL CLOSED THE INFECTED BRANCH'), 'g');
+        this.cancelActiveRoll(); this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
+        break;
       case 'run_lost':
         this.banner(t('runLost'), `${t('loop')} ${f.loop} · ${t('depth')} ${f.depth} — ${t('restart')}`, 'red');
         this.cancelActiveRoll(); this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
@@ -1173,7 +1254,6 @@ export class Hud {
       `<th><span class="term" data-explain-title="SPD" data-explain="${esc(localText('Текущая скорость движения игрока.', 'Current player movement speed.'))}">SPD</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('dash').toUpperCase())}" data-explain="${esc(t('dashReady'))}">DASH</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('drones'))}" data-explain="${esc(localText('Автостреляющие спутники игрока.', 'Auto-firing player drones.'))}">DRN</span></th>` +
-      `<th><span class="term" data-explain-title="${esc(t('orbitals'))}" data-explain="${esc(localText('Орбитальные спутники с контактным уроном.', 'Orbiting satellites with contact damage.'))}">ORB</span></th>` +
       `<th><span class="term" data-explain-title="WPN" data-explain="${esc(localText('Оружие игрока. Активный слот помечен звёздочкой.', 'Player weapons. Active slot is marked with an asterisk.'))}">WPN</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('qAbility'))}" data-explain="${esc(t('activeQTitle'))}">Q</span></th>` +
       `<th><span class="term" data-explain-title="SKIN" data-explain="${esc(localText('Текущий скин игрока.', 'Current player skin.'))}">SKIN</span></th>` +
@@ -1187,23 +1267,25 @@ export class Hud {
       const weaponNames = (p[P.WEAPONS] || []).map((w, i) => `${i === p[P.WIDX] ? '*' : ''}${WEAPONS[w]?.label || w}`).join('/');
       html += `<tr class="${cls}"><td>${esc(p[P.NAME])}</td><td>${p[P.ALIVE] ? p[P.HP] + '/' + p[P.MAXHP] : t('eliminated')}</td>` +
         `<td>${p[P.LVL]}</td><td>${p[P.GLD]}</td><td>${p[P.XP]}/${p[P.NEXTXP]}</td><td>${Math.round(p[P.SPD] || 0)}</td><td>${p[P.DASH]}/${p[P.DASHMAX]}</td>` +
-        `<td>${p[P.DRONES]}</td><td>${p[P.ORBITALS]}</td><td>${esc(weaponNames || '—')}</td><td>${qCell}</td><td>${esc(p[P.SKINID] || '—')}</td><td>${p[P.PEND] > 0 ? 'x' + p[P.PEND] : '—'}</td></tr>`;
+        `<td>${p[P.DRONES]}</td><td>${esc(weaponNames || '—')}</td><td>${qCell}</td><td>${esc(p[P.SKINID] || '—')}</td><td>${p[P.PEND] > 0 ? 'x' + p[P.PEND] : '—'}</td></tr>`;
     }
     table.innerHTML = html;
   }
 
   // ------------------------------------------------- install modal
-  openInstall(choices, pending, offerId = 0) {
-    this.install = { open: true, choices, offerId: Math.max(0, offerId | 0), expires: 24, total: 24, locked: false };
-    $('install-pending').textContent = `x${pending}`;
+  openInstall(choices, pending, offerId = 0, kind = '') {
+    const sig = String(kind || '') === 'boss_signature';
+    this.install = { open: true, choices, offerId: Math.max(0, offerId | 0), expires: sig ? 32 : 24, total: sig ? 32 : 24, locked: false, bossSignature: sig };
+    $('install-modal')?.classList.toggle('boss-signature-modal', sig);
+    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
     const box = $('install-choices');
     box.innerHTML = '';
     choices.forEach((id, i) => {
       const u = UPG[id];
       const d = document.createElement('div');
-      d.className = 'choice' + (u?.cursed ? ' cursed' : '');
-      d.innerHTML = `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      this.setExplain(d, locLabel(u?.label || id), optionDesc(u || { id }), u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : ''));
+      d.className = 'choice' + (u?.cursed ? ' cursed' : '') + (sig ? ' boss-signature-choice' : '');
+      d.innerHTML = sig ? `<span class="key sig-key">SIG</span><b>${esc(locLabel(u?.label || id))}</b><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
+      this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), optionDesc(u || { id }), sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
     });
@@ -1224,7 +1306,7 @@ export class Hud {
     this.pick(Math.floor(Math.random() * this.install.choices.length));
     return true;
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; $('install-modal').classList.add('hidden'); this.hideTip(); }
+  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.bossSignature = false; $('install-modal')?.classList.remove('boss-signature-modal'); $('install-modal').classList.add('hidden'); this.hideTip(); }
 
   openSkinClaim(skin = {}) {
     if (!skin?.id && !skin?.name && !skin?.allOwned) return;
