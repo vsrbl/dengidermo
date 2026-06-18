@@ -32,7 +32,7 @@ const RU = {
     betHintTitle: 'СТАВКА', betHintBody: 'Клавиши 1, 2 и 3 запускают LOW, MID или HIGH ставку.',
     exitTitle: 'ВЫХОД', exitBody: 'ESC закрывает казино, если барабаны не крутятся.',
     menuSub: 'terminal casino // 4 players coop',
-    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Переключает цифровой фильтр поверх всей игры. Горячая клавиша F7.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
+    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Цифровая обработка экрана.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и TAB-панели. До 12 символов.',
     solo: 'СОЛО', soloBody: 'Запускает локальный забег без сети. Удобно для тренировки и быстрой игры.',
     create: 'СОЗДАТЬ КОМНАТУ', createBody: 'Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.',
@@ -45,19 +45,19 @@ const RU = {
     skinPreset: 'готовый облик', selected: 'ВЫБРАН', unlocked: 'ОТКРЫТ', locked: 'ЗАКРЫТ',
     statusConnecting: 'CONNECTING…', statusOnline: 'ONLINE', statusNetReady: 'NETWORK READY', statusNetSleep: 'NETWORK WAKING · SOLO READY', statusNetDown: 'NETWORK UNAVAILABLE · SOLO READY',
     updateRequired: 'UPDATE REQUIRED: REFRESH PAGE', roomCode4: 'ROOM CODE MUST BE 4 SYMBOLS', roomNotFound: 'ROOM NOT FOUND', roomFull: 'ROOM FULL (4/4)', lostConnection: 'CONNECTION LOST — REFRESH PAGE',
-    noActive: 'НЕТ АКТИВКИ', noActiveDesc: 'Q сейчас ничего не запускает. Найди Q Q в ABL-сундуке.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ АКТИВКИ', qCd: 'Q CD', qOver: 'Q OVERCLOCK', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
+    noActive: 'НЕТ АКТИВКИ', noActiveDesc: 'У тебя пока нет Q-способности. Найди ABL-сундук и выбери активку.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ АКТИВКИ', qCd: 'Q CD', qOver: 'Q OVERCLOCK', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
     dashChargeTitle: 'ЗАРЯД РЫВКА', dashReady: 'Готовый заряд рывка. Shift — рывок.', dashEmpty: 'Пустой заряд рывка скоро восстановится.',
     portalTitle: 'ПОРТАЛ', portalOpenBody: 'Открытый переход: нажми E рядом, чтобы перейти дальше.', portalClosedBody: 'Портал закрыт. Выполни цель комнаты.', portalPrompt: 'E — ВОЙТИ В ПОРТАЛ', portalOpen: 'ПОРТАЛ ОТКРЫТ', portalTake: 'E — забрать скин', portalNext: 'E — перейти дальше',
     chestTitle: 'СУНДУК', chestDefault: 'Сундук с наградой.', chestOpened: 'Уже открыт.', chestFree: 'Бесплатно.', chestNeed: 'Нужно {cost} GLD.', price: 'Цена: {cost} GLD.',
-    betPrompt: 'E — BET TERMINAL', betInspect: 'Казино-терминал: E открывает ставки LOW/MID/HIGH. Ставки дорожают с каждым loop.',
+    betPrompt: 'E — BET TERMINAL', betInspect: 'Казино-терминал: E открывает ставки LOW/MID/HIGH. Чем дальше забег, тем дороже риск.',
     gldLack: 'НЕДОСТАТОЧНО GLD', denied: 'ОТКАЗ', noQ: 'НЕТ АКТИВКИ',
     installPhase: 'INSTALL-ФАЗА', installPhaseSub: 'выбор апгрейдов', bossFloor: 'ЭТАЖ БОССА', killBoss: 'УНИЧТОЖИТЬ БОССА', clear: 'ЗАЧИСТКА',
     playerJoined: 'ПОДКЛЮЧИЛСЯ', playerLeft: 'ВЫШЕЛ', you: 'ТЫ', down: 'ВЫБЫЛ', youDown: 'ТЫ ВЫБЫЛ', carry: 'союзники дотащат до портала',
     eventSignal: 'СИГНАЛ', wave: 'ВОЛНА', skinHidden: 'В КОМНАТЕ СПРЯТАН СКИН', skinReady: 'СКИН В ОКНЕ УЛУЧШЕНИЙ', bossDown: 'БОСС УНИЧТОЖЕН', loot: 'забирай лут',
-    contract: 'КОНТРАКТ', contractBody: 'условие комнаты активно', contractDone: 'КОНТРАКТ ВЫПОЛНЕН', contractDoneBody: 'условие выполнено; приз будет выдан в ROOM CHECK', contractPaid: 'ПРИЗ ПОЛУЧЕН', contractPaidBody: 'контракт выдал приз', contractFail: 'КОНТРАКТ ПРОВАЛЕН', contractFailBody: 'награды нет',
+    contract: 'КОНТРАКТ', contractBody: 'условие комнаты активно', contractDone: 'КОНТРАКТ ВЫПОЛНЕН', contractDoneBody: 'условие выполнено; приз появится после комнаты', contractPaid: 'ПРИЗ ПОЛУЧЕН', contractPaidBody: 'контракт выдал приз', contractFail: 'КОНТРАКТ ПРОВАЛЕН', contractFailBody: 'награды нет',
     runLost: 'ЗАБЕГ ПРОВАЛЕН', restart: 'перезапуск…', noResponse: 'НЕТ ОТВЕТА — СТАВКА НЕ ПОДТВЕРЖДЕНА', betFailed: 'СТАВКА НЕ ПРИНЯТА', invalidStake: 'НЕВЕРНАЯ СТАВКА', jackpot: 'ДЖЕКПОТ', lose: 'проигрыш', staticDebt: 'СТАТИК-ШТОРМ', skin: 'СКИН', nextRoomDebt: 'СТАТИК-ШТОРМ → СЛЕД. КОМНАТА',
     loop: 'LOOP', depth: 'DEPTH', room: 'КОМНАТА', code: 'КОД', goal: 'ЗАДАЧА', rules: 'ПРАВИЛА', player: 'ИГРОК', health: 'ЗДОРОВЬЕ', level: 'УРОВЕНЬ', money: 'ДЕНЬГИ', drones: 'ДРОНЫ', orbitals: 'ОРБИТАЛИ', qAbility: 'АКТИВКА Q', eliminated: 'ВЫБЫЛ',
-    available: 'Можно выбрать сейчас.', unavailable: 'Недоступно', requiresOtherWeapon: 'требуется другое оружие', upgradeFallback: 'Стакаемый апгрейд.', weaponRewardFallback: 'Награда оружейного сундука.', abilityRewardFallback: 'Награда сундука способностей.'
+    available: 'Можно выбрать.', unavailable: 'Недоступно', requiresOtherWeapon: 'требуется другое оружие', upgradeFallback: 'Усиление персонажа.', weaponRewardFallback: 'Награда оружейного сундука.', abilityRewardFallback: 'Награда сундука способностей.'
   }
 };
 
@@ -89,7 +89,7 @@ const EN = {
     betHintTitle: 'BET', betHintBody: 'Keys 1, 2, and 3 start LOW, MID, or HIGH bet.',
     exitTitle: 'EXIT', exitBody: 'ESC closes casino when reels are not spinning.',
     menuSub: 'terminal casino // 4 players coop',
-    musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Cycles the full-screen digital filter. Hotkey: F7.', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
+    musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Digital screen treatment.', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
     namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name in room and TAB panel. Up to 12 characters.',
     solo: 'SOLO', soloBody: 'Starts a local run without network. Good for practice and quick play.',
     create: 'CREATE ROOM', createBody: 'Creates a co-op room for friends. Share the four-symbol code.',
@@ -102,108 +102,91 @@ const EN = {
     skinPreset: 'preset skin', selected: 'SELECTED', unlocked: 'UNLOCKED', locked: 'LOCKED',
     statusConnecting: 'CONNECTING…', statusOnline: 'ONLINE', statusNetReady: 'NETWORK READY', statusNetSleep: 'NETWORK WAKING · SOLO READY', statusNetDown: 'NETWORK UNAVAILABLE · SOLO READY',
     updateRequired: 'UPDATE REQUIRED: REFRESH PAGE', roomCode4: 'ROOM CODE MUST BE 4 SYMBOLS', roomNotFound: 'ROOM NOT FOUND', roomFull: 'ROOM FULL (4/4)', lostConnection: 'CONNECTION LOST — REFRESH PAGE',
-    noActive: 'NO ACTIVE', noActiveDesc: 'Q does nothing right now. Find a Q Q in an ABL chest.', qNoneShort: 'Q — NONE', qNoneLong: 'Q — NO ACTIVE', qCd: 'Q CD', qOver: 'Q OVERCLOCK', activeQTitle: 'Q ACTIVE ABILITY', activeQUse: 'Press Q to activate.',
+    noActive: 'NO ACTIVE', noActiveDesc: 'You do not have a Q ability yet. Find an ABL chest and choose one.', qNoneShort: 'Q — NONE', qNoneLong: 'Q — NO ACTIVE', qCd: 'Q CD', qOver: 'Q OVERCLOCK', activeQTitle: 'Q ACTIVE ABILITY', activeQUse: 'Press Q to activate.',
     dashChargeTitle: 'DASH CHARGE', dashReady: 'Ready dash charge. Shift — dash.', dashEmpty: 'Empty dash charge, will recover soon.',
     portalTitle: 'PORTAL', portalOpenBody: 'Open transition: press E nearby to go deeper.', portalClosedBody: 'Portal is closed. Finish the room objective.', portalPrompt: 'E — ENTER PORTAL', portalOpen: 'PORTAL OPEN', portalTake: 'E — take skin', portalNext: 'E — go deeper',
     chestTitle: 'CHEST', chestDefault: 'Reward chest.', chestOpened: 'Already opened.', chestFree: 'Free.', chestNeed: 'Need {cost} GLD.', price: 'Cost: {cost} GLD.',
-    betPrompt: 'E — BET TERMINAL', betInspect: 'Casino terminal: E opens LOW/MID/HIGH bets. Stakes become more expensive every loop.',
+    betPrompt: 'E — BET TERMINAL', betInspect: 'Casino terminal: E opens LOW/MID/HIGH bets. Risk gets more expensive deeper into the run.',
     gldLack: 'NOT ENOUGH GLD', denied: 'DENIED', noQ: 'NO ACTIVE',
     installPhase: 'INSTALL PHASE', installPhaseSub: 'upgrade selection', bossFloor: 'BOSS FLOOR', killBoss: 'DESTROY THE BOSS', clear: 'CLEAR',
     playerJoined: 'JOINED', playerLeft: 'LEFT', you: 'YOU', down: 'DOWN', youDown: 'YOU ARE DOWN', carry: 'allies can reach the portal',
     eventSignal: 'SIGNAL', wave: 'WAVE', skinHidden: 'HIDDEN SKIN IN THIS ROOM', skinReady: 'SKIN READY', bossDown: 'BOSS DESTROYED', loot: 'take the loot',
-    contract: 'CONTRACT', contractBody: 'room condition is active', contractDone: 'CONTRACT DONE', contractDoneBody: 'completed; prize is paid in ROOM CHECK', contractPaid: 'PRIZE RECEIVED', contractPaidBody: 'contract prize granted', contractFail: 'CONTRACT FAILED', contractFailBody: 'no reward',
+    contract: 'CONTRACT', contractBody: 'room condition is active', contractDone: 'CONTRACT DONE', contractDoneBody: 'completed; prize appears after the room', contractPaid: 'PRIZE RECEIVED', contractPaidBody: 'contract prize granted', contractFail: 'CONTRACT FAILED', contractFailBody: 'no reward',
     runLost: 'RUN FAILED', restart: 'restarting…', noResponse: 'NO ANSWER — BET NOT CONFIRMED', betFailed: 'BET NOT ACCEPTED', invalidStake: 'INVALID STAKE', jackpot: 'JACKPOT', lose: 'loss', staticDebt: 'STATIC STORM', skin: 'SKIN', nextRoomDebt: 'STATIC STORM → NEXT ROOM',
     loop: 'LOOP', depth: 'DEPTH', room: 'ROOM', code: 'CODE', goal: 'GOAL', rules: 'RULES', player: 'PLAYER', health: 'HEALTH', level: 'LEVEL', money: 'MONEY', drones: 'DRONES', orbitals: 'ORBITALS', qAbility: 'Q ACTIVE', eliminated: 'DOWN',
-    available: 'Available now.', unavailable: 'Unavailable', requiresOtherWeapon: 'requires another weapon', upgradeFallback: 'Stackable upgrade.', weaponRewardFallback: 'Weapon chest reward.', abilityRewardFallback: 'Ability chest reward.'
+    available: 'Available.', unavailable: 'Unavailable', requiresOtherWeapon: 'requires another weapon', upgradeFallback: 'Character upgrade.', weaponRewardFallback: 'Weapon chest reward.', abilityRewardFallback: 'Ability chest reward.'
   }
 };
 
 const M = { ru: RU, en: EN };
 
 const EN_UPGRADE = {
-  dmg: 'All outgoing damage increases.', fire: 'Weapon reload becomes shorter.', spd: 'Movement speed increases.', maxhp: 'Maximum health increases.', magnet: 'Pickup attraction radius increases.', dash: 'Adds one dash charge.', drone: 'Adds an auto-firing drone.', orbital: 'Adds an orbital with contact damage.', luck: 'Improves upgrade and casino rolls.', proc: 'Bullet hits can sometimes create a small blast.', echo: 'Sometimes fires an extra shot.', leech: 'Heals from damage dealt.', goldgun: 'Enemies drop more GLD.',
-  bullet_ricochet: 'Your projectiles gain an extra wall bounce. Repeated picks add more bounces.', bullet_range: 'Projectile range and lifetime increase for all player weapons.', bullet_fire: 'Bullets burn enemies over time.', bullet_freeze: 'Bullets chill and can briefly stop enemies.', bullet_poison: 'Bullets poison enemies over time.', drone_element_link: 'Drones inherit weapon fire/freeze/poison effects.', element_amp: 'Improves duration and strength of elemental bullet effects.', element_spread: 'Status from killed enemies jumps to nearby targets.', bullet_chain: 'Weapon hits link nearby enemies with a thin line. Repeated picks extend the chain.', shg_teeth: 'SHG fires more pellets per shot.', shg_longshot: 'RMB spends all loaded SHG charges on one heavy long shot. Repeated picks make it stronger, but reload takes longer.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK gets stronger lock-on and longer projectile lifetime.', sek_swarm: 'RMB releases a homing bullet swarm. Repeated picks add more bullets, but reload takes a little longer.', rkt_cluster: 'RKT creates mini-blasts around final detonation. Cluster radius stays normal; only flight-side mine blasts are doubled.', rkt_mines: 'RKT leaves delayed square mines during flight with doubled blast radius.', rkt_stun: 'All RKT explosions can briefly stun enemies.', rkt_scatter: 'All RKT explosions knock enemies outward harder.', rkt_remote: 'RMB detonates launched rockets one by one, oldest first.', wpn_dmg: 'Increases overall weapon damage.', wpn_fire: 'Increases weapon fire rate.',
-  abl_dash: 'Adds one dash charge.', abl_voidstep: 'Dash path becomes a void rift. Enemies along the dash take heavy damage. Repeated picks make the rift wider and stronger.', voidstep: 'Dash path becomes a void rift. Enemies along the dash take heavy damage. Repeated picks make the rift wider and stronger.', dashcut: 'Dash stuns enemies near its path. Repeated picks widen the stun and make it last longer.', dashclone: 'After your dash, the start point leaves a short aftershock that damages nearby enemies.', abl_dashcut: 'Dash stuns enemies near its path. Repeated picks widen the stun and make it last longer.', abl_dashclone: 'After your dash, the start point leaves a short aftershock that damages nearby enemies.', abl_speed: 'Increases movement speed.', abl_dashflow: 'Dash charges recover faster.',
+  dmg: 'All outgoing damage increases.', fire: 'Weapons fire more often.', spd: 'Movement speed increases.', maxhp: 'Maximum health increases.', magnet: 'Pickups are pulled from farther away.', dash: 'Adds one dash charge.', drone: 'Adds an auto-firing drone.', orbital: 'Adds an orbital that damages on contact.', luck: 'Better upgrade and casino outcomes.', proc: 'Bullet hits can create a small blast.', echo: 'Sometimes fires an extra shot.', leech: 'Damage can return health.', goldgun: 'Enemies drop more GLD.',
+  bullet_ricochet: 'Projectiles bounce off walls one more time.', bullet_range: 'Projectiles travel farther and last longer.', bullet_fire: 'Bullets burn enemies.', bullet_freeze: 'Bullets chill enemies and can briefly stop them.', bullet_poison: 'Bullets poison enemies.', drone_element_link: 'Drones carry your weapon elements.', element_amp: 'Fire, cold, and poison become stronger.', element_spread: 'Enemy deaths can spread status to nearby targets.', bullet_chain: 'Weapon hits can link damage to another nearby enemy.', shg_teeth: 'SHG fires more pellets.', shg_longshot: 'RMB spends loaded SHG charges on one heavy long shot.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK locks on harder and flies longer.', sek_swarm: 'RMB releases a homing bullet swarm.', rkt_cluster: 'RKT explosions create extra mini-blasts.', rkt_mines: 'RKT leaves delayed mines during flight.', rkt_stun: 'RKT explosions can stun enemies.', rkt_scatter: 'RKT explosions throw enemies farther.', rkt_remote: 'RMB detonates launched rockets one by one.', wpn_dmg: 'All weapon damage increases.', wpn_fire: 'All weapons fire more often.',
+  abl_dash: 'Adds one dash charge.', abl_voidstep: 'Dash leaves a damaging void rift along its path.', voidstep: 'Dash leaves a damaging void rift along its path.', dashcut: 'Dash stuns enemies near its path.', dashclone: 'Dash leaves a short damaging aftershock at its start point.', abl_dashcut: 'Dash stuns enemies near its path.', abl_dashclone: 'Dash leaves a short damaging aftershock at its start point.', abl_speed: 'Movement speed increases.', abl_dashflow: 'Dash charges recover faster.',
   q_snap: 'Q pulls enemies inward and deals damage.', q_blood: 'Q spends HP for a red square blast.', q_over: 'Q briefly speeds up your weapon fire.',
-  droneproc: 'Drone bullets can sometimes create small blasts.', orbreflect: 'Orbitals can erase enemy bullets.', debtengine: 'Big damage and luck, but each combat room gains +1 Static Storm level for each copy of this bonus.', overload: 'Much more damage, but maximum HP goes down.', gamble: 'More luck, but movement speed goes down.'
+  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck. Combat rooms gain extra Static Storm pressure.', overload: 'Much more damage, but lower maximum HP.', gamble: 'More luck, but lower movement speed.'
 };
 const RU_UPGRADE_CLEAN = {
-  dmg: 'Весь исходящий урон растёт.', fire: 'Перезарядка оружия становится короче.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Радиус притяжения подборов растёт.', dash: 'Добавляет один заряд рывка.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь с контактным уроном.', luck: 'Улучшает броски апгрейдов и казино.', proc: 'Попадания пуль иногда создают маленький взрыв.', echo: 'Шанс выпустить дополнительные выстрелы.', leech: 'Лечение от нанесённого урона.', goldgun: 'Враги дают больше GLD при смерти.', dashcut: 'Рывок оглушает врагов рядом с траекторией. Повторные выборы расширяют удар и продлевают оглушение.', dashclone: 'После рывка в точке старта остаётся короткий ударный след, который ранит ближайших врагов. ', q_snap: 'Q стягивает врагов и наносит урон.', q_blood: 'Q тратит HP на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет стрельбу.', droneproc: 'Пули дронов иногда создают маленькие взрывы.', orbreflect: 'Орбитали могут стирать вражеские пули.', debtengine: 'Большой урон и удача. До конца забега каждая боевая комната получает дополнительный уровень статик-шторма за каждый такой бонус.', overload: 'Сильно повышает урон, но снижает максимум HP.', gamble: 'Даёт больше удачи, но снижает скорость движения.',
-  voidstep: 'Весь путь рывка становится пустотным разрезом и ранит врагов. Повторные выборы увеличивают ширину и урон.',
-  abl_voidstep: 'Весь путь рывка становится пустотным разрезом и ранит врагов. Повторные выборы увеличивают ширину и урон.',
-  bullet_chain: 'Попадание оружием связывает ближайших врагов тонкой линией. Каждый повторный выбор добавляет +1 прыжок и больше дальность связи.',
-  drone_element_link: 'Дроны переносят огонь, холод и яд оружия.',
-  element_spread: 'Статусы с убитых врагов прыгают на ближайшие цели: огонь, холод или яд.',
-  bullet_ricochet: 'Все снаряды получают +1 отскок от стен.',
-  bullet_range: 'Дальность и время жизни всех снарядов растут.',
-  bullet_fire: 'Пули поджигают врагов и наносят периодический урон.',
-  bullet_freeze: 'Пули охлаждают врагов и могут коротко остановить их.',
-  bullet_poison: 'Пули отравляют врагов и наносят периодический урон.',
-  element_amp: 'Усиливает огонь, холод и яд.',
-  shg_teeth: 'SHOTGUN получает больше дробин в каждом залпе.',
-  shg_longshot: 'ПКМ тратит все заряды SHOTGUN на один дальний тяжёлый выстрел. Первый выбор: x2 дальность и x1.2 урон; дальше растёт со повторными выборами.',
-  sek_split: 'Убийства SEEKER выпускают самонаводящиеся фрагменты.',
-  sek_chain: 'SEEKER лучше держит цель и живёт дольше.',
-  sek_swarm: 'ПКМ выпускает рой самонаводящихся SEEKER-пуль. Каждый повторный выбор даёт +5 пуль и немного дольше перезарядку.',
-  rkt_cluster: 'ROCKETGUN добавляет мини-взрывы вокруг финальной детонации. Радиус мини-взрывов обычный.',
-  rkt_mines: 'ROCKETGUN оставляет отложенные мины по площади во время полёта с увеличенным радиусом.',
-  rkt_stun: 'Все взрывы ROCKETGUN могут коротко оглушать врагов.',
-  rkt_scatter: 'Все взрывы ROCKETGUN сильнее разбрасывают врагов.',
-  rkt_remote: 'ПКМ взрывает выпущенные ракеты по одной: сначала самую старую.',
-  wpn_dmg: 'Повышает прямой урон всего оружия.',
-  wpn_fire: 'Ускоряет стрельбу всего оружия. Это не огненный эффект.'
+  dmg: 'Весь исходящий урон растёт.', fire: 'Оружие стреляет чаще.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются с большего расстояния.', dash: 'Добавляет один заряд рывка.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших врагов.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают врагов и пули дальше.', luck: 'Лучше исходы апгрейдов и казино.', proc: 'Попадания пуль могут создавать маленький взрыв.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Часть нанесённого урона возвращает здоровье.', goldgun: 'Враги дают больше GLD при смерти.',
+  voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', abl_voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', dashcut: 'Рывок оглушает врагов рядом с траекторией.', dashclone: 'После рывка в точке старта остаётся короткий ударный след.', abl_dashcut: 'Рывок оглушает врагов рядом с траекторией.', abl_dashclone: 'После рывка в точке старта остаётся короткий ударный след.',
+  q_snap: 'Q стягивает врагов и наносит урон.', q_blood: 'Q тратит HP на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет стрельбу.',
+  bullet_chain: 'Попадание оружием может связать урон с ближайшим врагом.', drone_element_link: 'Дроны переносят огонь, холод и яд оружия.', element_spread: 'Статусы с убитых врагов переходят на ближайшие цели.', bullet_ricochet: 'Снаряды получают дополнительный отскок от стен.', bullet_range: 'Снаряды летят дальше и живут дольше.', bullet_fire: 'Пули поджигают врагов.', bullet_freeze: 'Пули охлаждают врагов и могут коротко остановить их.', bullet_poison: 'Пули отравляют врагов.', element_amp: 'Огонь, холод и яд становятся сильнее.',
+  shg_teeth: 'SHOTGUN получает больше дробин.', shg_longshot: 'ПКМ тратит заряды SHOTGUN на один дальний тяжёлый выстрел.', sek_split: 'Убийства SEEKER выпускают самонаводящиеся фрагменты.', sek_chain: 'SEEKER лучше держит цель и летит дольше.', sek_swarm: 'ПКМ выпускает рой самонаводящихся SEEKER-пуль.', rkt_cluster: 'ROCKETGUN добавляет мини-взрывы вокруг детонации.', rkt_mines: 'ROCKETGUN оставляет отложенные мины во время полёта.', rkt_stun: 'Взрывы ROCKETGUN могут оглушать врагов.', rkt_scatter: 'Взрывы ROCKETGUN сильнее разбрасывают врагов.', rkt_remote: 'ПКМ взрывает выпущенные ракеты по одной.',
+  wpn_dmg: 'Повышает прямой урон всего оружия.', wpn_fire: 'Всё оружие стреляет чаще.', abl_dash: 'Добавляет один заряд рывка.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
+  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к врагам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача. Боевые комнаты получают больше статик-давления.', overload: 'Сильно повышает урон, но снижает максимум HP.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
 };
 const EN_CORE = {
-  blood_ring: 'Follows you as a red square ring. Damage: medium repeated pulses; high total if enemies stay inside.',
-  field_snap: 'One-time pull of enemies and pickups toward you. The short field after it no longer pulls; it slows, damps bullets, and deals low damage.',
-  bullet_freeze: 'Cold aura follows you. Damage: none. Freezes enemies and almost stops enemy bullets.',
-  shell_ripper: 'Breaks enemy protection. Damage: low if there is no protection. Exposed enemies take more damage from everything.',
-  void_cut: 'Fires a thin void beam toward your aim. Damage: high on the line. Upgrades add chained beam segments.',
-  signal_spike: 'Places a square signal spike at your aim point. Damage: low repeated pulses. Slows enemies and jams bullets.',
-  black_box: 'Hides you inside a black square. Damage: none. Enemies outside lose you as a target.',
-  debt_pulse: 'A red static blast around you. Damage: high. Exposes enemies, but can add one Static Storm level.'
+  blood_ring: 'Follows you as a red square ring. Enemies inside keep taking blood damage.',
+  field_snap: 'Pulls enemies and pickups inward, then leaves a short slowing field that weakens bullets.',
+  bullet_freeze: 'Cold aura follows you. Enemies freeze, and enemy bullets almost stop.',
+  shell_ripper: 'Breaks enemy protection and exposes targets to extra damage.',
+  void_cut: 'Fires a thin void beam toward your aim. The beam cuts through enemies in a line.',
+  signal_spike: 'Places a square signal spike at your aim point. The area slows enemies and jams bullets.',
+  black_box: 'Hides you inside a black square. Enemies outside lose your signal.',
+  debt_pulse: 'A red static blast around you. It exposes enemies and may call a Static Storm.'
 };
 const EN_MUT = {
-  static: 'Q leaves an area that strongly slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost HP.', echo: 'Q repeats once after a short pause with reduced power.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return HP or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q gathers power from enemies hit, then strikes nearby wounded enemies.', bad_tape: 'Q creates two weaker glitch repeats.'
+  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost HP.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return HP or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q gathers power from enemies hit, then strikes nearby wounded enemies.', bad_tape: 'Q leaves two unstable glitch echoes.'
 };
 
 const RU_CORE = {
   blood_ring: 'Красное кольцо следует за тобой. Урон: средний частыми импульсами; высокий, если враг долго стоит внутри.',
-  field_snap: 'Один раз стягивает врагов и подборы к тебе. После этого поле уже не тянет: только замедляет, глушит пули и слегка бьёт.',
-  bullet_freeze: 'Холодная аура следует за тобой. Урон: нет. Враги замирают, вражеские пули почти останавливаются.',
-  shell_ripper: 'Ломает защиту врагов. Урон: низкий, если защиты нет. Ослабленные враги получают больше урона от всего.',
-  void_cut: 'Пускает тонкий луч по прицелу. Урон: высокий по линии. Улучшения добавляют связанные сегменты.',
-  signal_spike: 'Ставит сигнальный шип в точке прицела. Урон: низкий, но частый. Зона замедляет и глушит пули.',
-  black_box: 'Прячет тебя в чёрной области. Урон: нет. Враги снаружи теряют тебя как цель.',
-  debt_pulse: 'Красный статик-взрыв вокруг тебя. Урон: высокий. Ослабляет врагов, но может добавить уровень статик-шторма.'
+  field_snap: 'Стягивает врагов и подборы к тебе, затем оставляет короткое поле, которое замедляет и глушит пули.',
+  bullet_freeze: 'Холодная аура следует за тобой. Враги замирают, вражеские пули почти останавливаются.',
+  shell_ripper: 'Ломает защиту врагов и делает их уязвимее.',
+  void_cut: 'Пускает тонкий луч по прицелу. Луч режет врагов по линии.',
+  signal_spike: 'Ставит сигнальный шип в точке прицела. Зона замедляет врагов и глушит пули.',
+  black_box: 'Прячет тебя в чёрной области. Враги снаружи теряют твой сигнал.',
+  debt_pulse: 'Красный статик-взрыв вокруг тебя. Ослабляет врагов и может вызвать статик-шторм.'
 };
 const RU_MUT = {
-  static: 'Q оставляет область, которая сильно замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q повторяется один раз после короткой паузы, но слабее.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q копит силу от задетых врагов и в конце бьёт ближайшие раненые цели.', bad_tape: 'Q создаёт два слабых глючных повтора.'
+  static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q копит силу от задетых врагов и в конце бьёт ближайшие раненые цели.', bad_tape: 'Q создаёт два слабых глючных повтора.'
 };
 const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'GLITCH REPEAT':'GLITCH REPEAT' };
 const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'SIDE UPGRADE':'SIDE UPGRADE' };
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
 
 const EN_CHEST = {
-  BSC: 'Free basic chest: GLD/EXP and rare HEA. Safe reward.', WPN: 'Weapon chest: choose a weapon, weapon mod, or weapon stat boost.', ABL: 'Ability chest: Q Q, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward with danger later.'
+  BSC: 'Free basic chest: GLD, EXP, and sometimes HEA.', WPN: 'Weapon chest: choose a weapon, weapon mod, or weapon stat boost.', ABL: 'Ability chest: Q active, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
 };
 const RU_CHEST = {
-  BSC: 'Бесплатный базовый сундук: GLD/EXP и редкое лечение.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук способностей: активка Q, улучшение Q, мутация или мобильность.', RAR: 'Редкий сундук: сильный апгрейд.', CRS: 'Проклятый сундук: сильная награда с будущей опасностью.'
+  BSC: 'Бесплатный базовый сундук: GLD, EXP и иногда HEA.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук способностей: активка Q, улучшение Q, мутация или мобильность.', RAR: 'Редкий сундук: сильный апгрейд.', CRS: 'Проклятый сундук: сильная награда, но забег становится опаснее.'
 };
 const EN_PICKUP = { GLD: 'Money for chests and BET. Shared by the team.', EXP: 'Experience toward the next level. INSTALL choices appear between rooms.', HEA: 'Healing pickup. Restores health to the collector.' };
 const RU_PICKUP = { GLD: 'Деньги для сундуков и BET. Обычный GLD делится с командой.', EXP: 'Опыт для уровней. Апгрейды появляются между комнатами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
 const EN_ENEMY = {
-  grunt:'Basic chaser with contact damage.', runner:'Fast weak enemy that breaks your position.', tank:'Slow armored wall that soaks damage.', shooter:'Ranged enemy that shoots red projectiles.', charger:'Winds up, then charges in a straight line.', bomber:'Arms a fuse and explodes. Leave the radius.', bouncer:'Pinball enemy that bounces and shoves.', glitch:'Blink attacker that strikes from odd angles.', echo:'Weapon-mimic enemy: copies the targeted player weapon with slower reload and keeps shooter distance.', orbiter:'Mobile guard with front shield.', anchor:'Control anchor that pulls and slows.', splitter:'Splits into smaller fast enemies on death.', prism:'Fires split prism lanes.', pulse:'Fires forward square-wave pressure.', leech:'Heals wounded enemies. Priority target.', herald:'Summons swarms behind pressure lines.', warden:'Coordinates shell armor links.', damper:'Slow mobile field that stops bullets and shelters nearby enemies.', boss:'Boss floor enemy with bursts and adds.'
+  grunt:'Basic chaser with contact damage.', runner:'Fast weak enemy that breaks your position.', tank:'Slow armored wall that soaks damage.', shooter:'Ranged enemy that shoots red projectiles.', charger:'Winds up, then charges in a straight line.', bomber:'Arms a fuse and explodes. Leave the radius.', bouncer:'Pinball enemy that bounces and shoves.', glitch:'Blink attacker that strikes from odd angles.', echo:'Mimic enemy: fires familiar shots from a distance.', orbiter:'Mobile guard with front shield.', anchor:'Control anchor that pulls and slows.', splitter:'Splits into smaller fast enemies on death.', prism:'Fires split prism lanes.', pulse:'Fires forward square-wave pressure.', leech:'Heals wounded enemies. Priority target.', herald:'Summons swarms behind pressure lines.', warden:'Coordinates shell armor links.', damper:'Slow mobile field that stops bullets and shelters nearby enemies.', boss:'Boss floor enemy with bursts and adds.'
 };
 const RU_ENEMY = {
-  grunt:'Базовый преследователь с контактным уроном.', runner:'Быстрый слабый враг, ломает позицию.', tank:'Медленный бронированный враг-стена.', shooter:'Дальний враг, стреляет красными снарядами.', charger:'Готовится, затем делает рывок по линии.', bomber:'Включает fuse и взрывается. Уходи из радиуса.', bouncer:'Отскакивающий враг: толкает и ломает позицию.', glitch:'Мигающий враг: телепортируется и бьёт.', echo:'Враг-копия: стреляет оружием выбранного игрока, но медленнее и с дистанции.', orbiter:'Подвижный защитник с фронтальным щитом.', anchor:'Ядро контроля: тянет и замедляет.', splitter:'После смерти делится на мелких врагов.', prism:'Стреляет призменными линиями.', pulse:'Давит областьной волной.', leech:'Лечит раненых врагов. Приоритетная цель.', herald:'Призывает рой за линией давления.', warden:'Связывает броню врагов.', damper:'Медленное подвижное поле, тормозит пули и прикрывает ближайших врагов.', boss:'Босс: залпы и подкрепление.'
+  grunt:'Базовый преследователь с контактным уроном.', runner:'Быстрый слабый враг, ломает позицию.', tank:'Медленный бронированный враг-стена.', shooter:'Дальний враг, стреляет красными снарядами.', charger:'Готовится, затем делает рывок по линии.', bomber:'Готовится к взрыву. Уходи из радиуса.', bouncer:'Отскакивающий враг: толкает и ломает позицию.', glitch:'Мигающий враг: телепортируется и бьёт.', echo:'Враг-копия: стреляет оружием выбранного игрока, но медленнее и с дистанции.', orbiter:'Подвижный защитник с фронтальным щитом.', anchor:'Ядро контроля: тянет и замедляет.', splitter:'После смерти делится на мелких врагов.', prism:'Стреляет призменными линиями.', pulse:'Давит областьной волной.', leech:'Лечит раненых врагов. Приоритетная цель.', herald:'Призывает рой за линией давления.', warden:'Связывает броню врагов.', damper:'Медленное подвижное поле, тормозит пули и прикрывает ближайших врагов.', boss:'Босс: залпы и подкрепление.'
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range shotgun. Fires in bursts and recovers automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy rocket launcher. Explodes on hit, wall, or travel limit.'
+  SHG: 'Close-range shotgun. Fires in bursts and recovers automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy rocket launcher. Explodes on impact or wall hit.'
 };
 const RU_WEAPON = {
-  SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании, стене или лимите пути.'
+  SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании или столкновении со стеной.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'clean green signal', debt_red:'red static signal', void_cyan:'cold void signal', casino_gold:'gold casino frame', bruise_purple:'purple bruised signal', bone_static:'bone static signal', black_lime:'black lime signal', bad_tv:'bad TV glare', red_static:'red broken channel', mirror_coin:'mirror coin signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary casino wound', dead_channel:'dead TV channel'
@@ -287,6 +270,24 @@ export function cleanPlayerText(text) {
       .replace(/Рывок оставляет echo-всплеск[^.]*\./gi, 'Dash leaves an echo burst at the start point.');
     if (/[А-Яа-яЁё]/.test(s)) s = 'This changes how your build works. Check the choice title for the main effect.';
   }
+
+  // Final player-facing cleanup pass: remove patch-note/dev phrasing from any fallback text.
+  s = s
+    .replace(/как было\s*\/\s*как стало/gi, '')
+    .replace(/как было/gi, '')
+    .replace(/как стало/gi, '')
+    .replace(/до патча|после патча|патч\s*ноут|patch notes?/gi, '')
+    .replace(/no longer/gi, '')
+    .replace(/now\s+/gi, '')
+    .replace(/instead of/gi, 'rather than')
+    .replace(/before this room starts/gi, 'before entering the room')
+    .replace(/banked Static Storm/gi, 'stored Static Storm')
+    .replace(/ROOM CHECK/gi, 'the room reward')
+    .replace(/duplicate was not granted/gi, 'collection is already complete')
+    .replace(/numeric room target/gi, 'clear goal')
+    .replace(/спавн|квота|фоллбек|fallback|debug|dev|техническ[а-я]*|внутренн[а-я]*/gi, '')
+    .replace(/ROOM CHECK/gi, 'проверка комнаты')
+    .replace(/duplicate was not granted/gi, 'коллекция уже полная');
   return s.replace(/\s{2,}/g, ' ').trim();
 }
 export function localText(ru, en) { return langIsEn() ? en : ru; }
@@ -317,7 +318,7 @@ export function denyText(f = {}) {
     'missing': t('qNoneLong'),
     'charges': localText('НЕТ ЗАРЯДОВ Q', 'NO Q CHARGES'),
     'NO SPIKE CHARGES': localText('НЕТ ЗАРЯДОВ SPIKE', 'NO SPIKE CHARGES'),
-    'cooldown': localText('ПЕРЕЗАРЯДКА', 'COOLDOWN')
+    'cooldown': localText('ЖДИ', 'WAIT')
   };
   return map[reason] || String(f?.label || reason || t('denied'));
 }
@@ -364,7 +365,7 @@ function coreLabelById(id) {
 }
 const RU_LABEL = {
   'DMG +15%': 'УРОН +15%', 'FIRE RATE +12%': 'СКОРОСТРЕЛЬНОСТЬ +12%', 'SPD +8%': 'СКОРОСТЬ +8%', 'HP +20': 'ЗДОРОВЬЕ +20', 'MAGNET +40%': 'МАГНИТ +40%',
-  'DASH +1': 'РЫВОК +1', 'DRONE +1': 'ДРОН +1', 'ORBITAL +1': 'ОРБИТАЛЬ +1', 'LUCK +1': 'УДАЧА +1', 'BLAST PROC 10%': 'ШАНС ВЗРЫВА 10%', 'BLAST CHANCE 10%': 'ШАНС ВЗРЫВА 10%', 'ECHO SHOT 12%': 'ЭХО-ВЫСТРЕЛ 12%', 'LIFESTEAL 2%': 'ВАМПИРИЗМ 2%', 'GLD ON KILL +40%': 'GLD ЗА УБИЙСТВО +40%',
+  'DASH +1': 'РЫВОК +1', 'DRONE +1': 'ДРОН +1', 'ORBITAL +1': 'ОРБИТАЛЬ +1', 'ORBITAL SEEK +20%': 'ОРБИТАЛИ: НАВЕДЕНИЕ +20%', 'ORBITAL RANGE +35%': 'ОРБИТАЛИ: РАДИУС +35%', 'LUCK +1': 'УДАЧА +1', 'BLAST PROC 10%': 'ШАНС ВЗРЫВА 10%', 'BLAST CHANCE 10%': 'ШАНС ВЗРЫВА 10%', 'ECHO SHOT 12%': 'ЭХО-ВЫСТРЕЛ 12%', 'LIFESTEAL 2%': 'ВАМПИРИЗМ 2%', 'GLD ON KILL +40%': 'GLD ЗА УБИЙСТВО +40%',
   'DASH: VOID RIFT': 'РЫВОК: РАЗРЕЗ ПУСТОТЫ', 'DASH STUN': 'РЫВОК: СТАН', 'DASH CLONE': 'РЫВОК: УДАРНЫЙ СЛЕД', 'DASH ECHO BURST': 'РЫВОК: УДАРНЫЙ СЛЕД', 'DASH AFTERSHOCK': 'РЫВОК: УДАРНЫЙ СЛЕД',
   'DRONES COPY PROC': 'ДРОНЫ: ШАНС ВЗРЫВА', 'DRONE BLAST CHANCE': 'ДРОНЫ: ШАНС ВЗРЫВА', 'ORBITALS REFLECT': 'ОРБИТАЛИ ОТРАЖАЮТ', 'STATIC CORE': 'СТАТИК-ЯДРО', 'DMG +50% / HP -15': 'УРОН +50% / HP -15', 'LUCK +3 / SPD -10%': 'УДАЧА +3 / СКР -10%',
   'WEAPON DMG +18%': 'УРОН ОРУЖИЯ +18%', 'WEAPON FIRE +14%': 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%', 'WEAPON RATE +14%': 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%',
@@ -384,7 +385,7 @@ export function locLabel(label) {
   if (!langIsEn()) return RU_LABEL[s] || s;
   const m = {
     'ВЫБОР WPN': 'WPN PICK', 'ВЫБОР ABL': 'ABL PICK', 'УЖЕ ЕСТЬ': 'ALREADY OWNED', 'НЕТ ВАРИАНТА': 'NO OPTION',
-    'НЕТ АКТИВКИ': 'NO ACTIVE', 'НЕТ Q': 'NO Q', 'ВЗЯЛ': 'TOOK', 'ЗАМЕНИТЬ': 'REPLACE', 'НУЖЕН': 'NEED', 'УРОН +15%': 'DMG +15%', 'СКОРОСТРЕЛЬНОСТЬ +12%': 'FIRE RATE +12%', 'СКОРОСТЬ +8%': 'SPD +8%', 'ЗДОРОВЬЕ +20': 'HP +20', 'МАГНИТ +40%': 'MAGNET +40%', 'РЫВОК +1': 'DASH +1', 'ДРОН +1': 'DRONE +1', 'ОРБИТАЛЬ +1': 'ORBITAL +1', 'УДАЧА +1': 'LUCK +1', 'ВЗРЫВЫ 10%': 'BLAST CHANCE 10%', 'ШАНС ВЗРЫВА 10%': 'BLAST CHANCE 10%', 'ЭХО-ВЫСТРЕЛ 12%': 'ECHO SHOT 12%', 'ВАМПИРИЗМ 2%': 'LIFESTEAL 2%', 'СТАТИК-ЯДРО': 'STATIC CORE', 'STATIC Q': 'СТАТИК-ЯДРО', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%'
+    'НЕТ АКТИВКИ': 'NO ACTIVE', 'НЕТ Q': 'NO Q', 'ВЗЯЛ': 'TOOK', 'ЗАМЕНИТЬ': 'REPLACE', 'НУЖЕН': 'NEED', 'УРОН +15%': 'DMG +15%', 'СКОРОСТРЕЛЬНОСТЬ +12%': 'FIRE RATE +12%', 'СКОРОСТЬ +8%': 'SPD +8%', 'ЗДОРОВЬЕ +20': 'HP +20', 'МАГНИТ +40%': 'MAGNET +40%', 'РЫВОК +1': 'DASH +1', 'ДРОН +1': 'DRONE +1', 'ОРБИТАЛЬ +1': 'ORBITAL +1', 'ОРБИТАЛИ: НАВЕДЕНИЕ +20%': 'ORBITAL SEEK +20%', 'ОРБИТАЛИ: РАДИУС +35%': 'ORBITAL RANGE +35%', 'УДАЧА +1': 'LUCK +1', 'ВЗРЫВЫ 10%': 'BLAST CHANCE 10%', 'ШАНС ВЗРЫВА 10%': 'BLAST CHANCE 10%', 'ЭХО-ВЫСТРЕЛ 12%': 'ECHO SHOT 12%', 'ВАМПИРИЗМ 2%': 'LIFESTEAL 2%', 'СТАТИК-ЯДРО': 'STATIC CORE', 'STATIC Q': 'СТАТИК-ЯДРО', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%'
   };
   if (m[s]) return m[s];
   return s.replace('ВЫБОР WPN', 'WPN PICK').replace('ВЫБОР ABL', 'ABL PICK').replace('ЗАМЕНИТЬ:', 'REPLACE:').replace('НУЖЕН ', 'NEED ');

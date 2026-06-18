@@ -11,7 +11,7 @@ export const WEAPONS = {
   },
   rocketgun: {
     id: 'rocketgun', label: 'RKT', name: 'ROCKETGUN',
-    cooldown: 1.45, pellets: 1, spread: 0.015, dmg: 46, speed: 335, life: 2.25, size: 9, aoe: 94, knock: 210, detonateDist: 560
+    cooldown: 1.45, pellets: 1, spread: 0.015, dmg: 92, speed: 335, life: 2.25, size: 9, aoe: 94, knock: 210, detonateDist: 560
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];
@@ -19,26 +19,26 @@ export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];
 // ---- enemies ------------------------------------------------------------
 // kinds communicate mechanics: silhouette + behavior contract
 export const ENEMIES = {
-  grunt:    { label: 'GRT', hp: 26,   spd: 115, size: 24, dmg: 10, touch: true,  xp: 6,  gld: 4,  score: 1, role: 'swarm body', combo: 'battery for linked armor / filler around supports' },
-  runner:   { label: 'RUN', hp: 16,   spd: 215, size: 18, dmg: 8,  touch: true,  xp: 7,  gld: 4,  score: 1, role: 'fast pressure', combo: 'fills summon packs / protects ranged nests by forcing movement' },
-  tank:     { label: 'TNK', hp: 120,  spd: 55,  size: 42, dmg: 18, touch: true,  xp: 18, gld: 12, score: 3, armor: 0.35, role: 'front wall', combo: 'best with leech/warden while ranged enemies work behind it' },
-  shooter:  { label: 'SHT', hp: 30,   spd: 80,  size: 24, dmg: 9,  ranged: true, fireCd: 1.4, bulletSpd: 260, keep: 320, xp: 10, gld: 7, score: 2, role: 'ranged guard', combo: 'orbits DMP/HRD nests and punishes players who rush supports' },
-  charger:  { label: 'CHG', hp: 44,   spd: 75,  size: 28, dmg: 22, charges: true, windup: 0.75, chargeSpd: 520, chargeTime: 0.55, chargeCd: 2.4, xp: 12, gld: 8, score: 2, role: 'line breaker', combo: 'pushes player through prism/pulse lanes or away from support targets' },
-  bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'turns anchor/leech walls into forced reposition moments' },
-  bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'throws player into crossfire or away from priority supports' },
-  glitch:   { label: 'GLT', hp: 34,   spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2, role: 'backline disruptor', combo: 'pairs with echo/mirror rooms to break safe kiting patterns' },
+  grunt:    { label: 'GRT', hp: 26,   spd: 115, size: 24, dmg: 10, touch: true,  xp: 6,  gld: 4,  score: 1, role: 'swarm body', combo: 'swarm pressure' },
+  runner:   { label: 'RUN', hp: 16,   spd: 215, size: 18, dmg: 8,  touch: true,  xp: 7,  gld: 4,  score: 1, role: 'fast pressure', combo: 'fast pressure' },
+  tank:     { label: 'TNK', hp: 120,  spd: 55,  size: 42, dmg: 18, touch: true,  xp: 18, gld: 12, score: 3, armor: 0.35, role: 'front wall', combo: 'front pressure' },
+  shooter:  { label: 'SHT', hp: 30,   spd: 80,  size: 24, dmg: 9,  ranged: true, fireCd: 1.4, bulletSpd: 260, keep: 320, xp: 10, gld: 7, score: 2, role: 'ranged guard', combo: 'ranged pressure' },
+  charger:  { label: 'CHG', hp: 44,   spd: 75,  size: 28, dmg: 22, charges: true, windup: 0.75, chargeSpd: 520, chargeTime: 0.55, chargeCd: 2.4, xp: 12, gld: 8, score: 2, role: 'line breaker', combo: 'line pressure' },
+  bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'space pressure' },
+  bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'movement pressure' },
+  glitch:   { label: 'GLT', hp: 34,   spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2, role: 'backline disruptor', combo: 'ambush pressure' },
 
   // anomaly pack
-  echo:     { label: 'ECH', hp: 48,   spd: 145, size: 26, dmg: 12, echo: true, mirrorFireCd: 1.15, xp: 18, gld: 12, score: 3, role: 'weapon mimic', combo: 'copies the targeted player weapon with slower reload while keeping shooter distance' },
-  orbiter:  { label: 'ORB', hp: 70,   spd: 120, size: 28, dmg: 14, orbiter: true, orbitR: 150, fireCd: 1.9, bulletSpd: 240, shield: 0.65, xp: 20, gld: 14, score: 3, role: 'mobile guard', combo: 'protects shooter/prism/pulse lines and creates moving crossfire' },
-  anchor:   { label: 'ANC', hp: 150,  spd: 34,  size: 46, dmg: 8,  anchor: true, fieldR: 250, pull: 80, xp: 26, gld: 18, score: 4, armor: 0.20, role: 'control core', combo: 'pulls player into prism/pulse lanes or bomber pressure' },
-  splitter: { label: 'SPL', hp: 90,   spd: 92,  size: 38, dmg: 13, splitter: true, splits: 2, xp: 20, gld: 12, score: 3, role: 'swarm seed', combo: 'turns herald/rally rooms into delayed flood pressure' },
-  prism:    { label: 'PRS', hp: 56,   spd: 60,  size: 30, dmg: 12, prism: true, fireCd: 2.2, beamSpd: 310, xp: 18, gld: 13, score: 3, role: 'crossfire lane', combo: 'best around anchor/damper/herald nests where the player must reposition' },
-  pulse:    { label: 'PLS', hp: 62,   spd: 78,  size: 32, dmg: 16, pulse: true, fireCd: 2.3, waveSpd: 360, xp: 18, gld: 13, score: 3, role: 'wave pressure', combo: 'guards DMP/HRD cores and cuts off escape lanes' },
-  leech:    { label: 'LCH', hp: 52,   spd: 105, size: 26, dmg: 9,  leech: true, healCd: 1.0, heal: 16, linkR: 360, xp: 22, gld: 14, score: 3, role: 'sustain support', combo: 'keeps tank/charger/warden walls alive while player solves the pack' },
-  warden:   { label: 'WRD', hp: 96,   spd: 68,  size: 36, dmg: 11, armorWarden: true, linkR: 380, xp: 28, gld: 18, score: 4, armor: 0.38, shellMul: 0.55, role: 'armor coordinator', combo: 'turns tanks/chargers into shell puzzles with small batteries nearby' },
-  damper:   { label: 'DMP', hp: 118,  spd: 38,  size: 44, dmg: 0,  damper: true, fieldR: 280, bulletDamp: 0.018, stopSpd: 42, xp: 30, gld: 18, score: 4, role: 'mobile bullet-safe nest', combo: 'walks toward players as a protection core for HRD and nearby guards' },
-  herald:   { label: 'HRD', hp: 180,  spd: 52,  size: 48, dmg: 12, herald: true, summonCd: 4.2, tetherDmg: 3, xp: 36, gld: 28, score: 5, armor: 0.18, role: 'summon director', combo: 'strongest inside DMP nest with SHT/PRS/PLS rotating nearby' },
+  echo:     { label: 'ECH', hp: 48,   spd: 145, size: 26, dmg: 12, echo: true, mirrorFireCd: 1.15, xp: 18, gld: 12, score: 3, role: 'weapon mimic', combo: 'mirror pressure' },
+  orbiter:  { label: 'ORB', hp: 70,   spd: 120, size: 28, dmg: 14, orbiter: true, orbitR: 150, fireCd: 1.9, bulletSpd: 240, shield: 0.65, xp: 20, gld: 14, score: 3, role: 'mobile guard', combo: 'guard pressure' },
+  anchor:   { label: 'ANC', hp: 150,  spd: 34,  size: 46, dmg: 8,  anchor: true, fieldR: 250, pull: 80, xp: 26, gld: 18, score: 4, armor: 0.20, role: 'control core', combo: 'pull pressure' },
+  splitter: { label: 'SPL', hp: 90,   spd: 92,  size: 38, dmg: 13, splitter: true, splits: 2, xp: 20, gld: 12, score: 3, role: 'swarm seed', combo: 'flood pressure' },
+  prism:    { label: 'PRS', hp: 56,   spd: 60,  size: 30, dmg: 12, prism: true, fireCd: 2.2, beamSpd: 310, xp: 18, gld: 13, score: 3, role: 'crossfire lane', combo: 'lane pressure' },
+  pulse:    { label: 'PLS', hp: 62,   spd: 78,  size: 32, dmg: 16, pulse: true, fireCd: 2.3, waveSpd: 360, xp: 18, gld: 13, score: 3, role: 'wave pressure', combo: 'wave pressure' },
+  leech:    { label: 'LCH', hp: 52,   spd: 105, size: 26, dmg: 9,  leech: true, healCd: 1.0, heal: 16, linkR: 360, xp: 22, gld: 14, score: 3, role: 'sustain support', combo: 'healing pressure' },
+  warden:   { label: 'WRD', hp: 96,   spd: 68,  size: 36, dmg: 11, armorWarden: true, linkR: 380, xp: 28, gld: 18, score: 4, armor: 0.38, shellMul: 0.55, role: 'armor coordinator', combo: 'armor pressure' },
+  damper:   { label: 'DMP', hp: 118,  spd: 38,  size: 44, dmg: 0,  damper: true, fieldR: 280, bulletDamp: 0.018, stopSpd: 42, xp: 30, gld: 18, score: 4, role: 'mobile bullet-safe nest', combo: 'safe-zone pressure' },
+  herald:   { label: 'HRD', hp: 180,  spd: 52,  size: 48, dmg: 12, herald: true, summonCd: 4.2, tetherDmg: 3, xp: 36, gld: 28, score: 5, armor: 0.18, role: 'summon director', combo: 'summon pressure' },
 
   boss:     { label: 'BOS', hp: 1300, spd: 60,  size: 72, dmg: 26, boss: true, armor: 0.25, fireCd: 2.6, bulletSpd: 230, xp: 140, gld: 120, score: 20 }
 };
@@ -61,9 +61,11 @@ export const UPGRADES = [
   { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Радиус притяжения подборов растёт.', apply: s => { s.magnetMul *= 1.4; } },
   { id: 'dash',     label: 'DASH +1',              tier: 1, desc: 'Больше зарядов рывка.', apply: s => { s.dashAdd += 1; } },
   { id: 'drone',    label: 'DRONE +1',             tier: 1, desc: 'Добавляет спутника, который стреляет автоматически.', apply: s => { s.drones += 1; } },
-  { id: 'orbital',  label: 'ORBITAL +1',           tier: 1, desc: 'Добавляет орбиталь с контактным уроном.', apply: s => { s.orbitals += 1; } },
+  { id: 'orbital',  label: 'ORBITAL +1',           tier: 1, desc: 'Добавляет орбиталь, которая бьёт ближайших врагов рядом с собой.', apply: s => { s.orbitals += 1; } },
+  { id: 'orb_speed', label: 'ORBITAL SEEK +20%',    tier: 1, desc: 'Орбитали быстрее тянутся к ближайшей угрозе.', apply: s => { s.orbSpeed += 1; } },
+  { id: 'orb_range', label: 'ORBITAL RANGE +35%',   tier: 1, desc: 'Орбитали замечают врагов и пули немного дальше.', apply: s => { s.orbRange += 1; } },
   { id: 'luck',     label: 'LUCK +1',              tier: 1, desc: 'Лучше броски апгрейдов и казино.', apply: s => { s.luck += 1; } },
-  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль иногда создают маленький взрыв. Повторные выборы делают взрывы чаще.', apply: s => { s.procBlast += 0.10; } },
+  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль могут создавать маленький взрыв.', apply: s => { s.procBlast += 0.10; } },
   { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Иногда оружие выпускает дополнительный выстрел. Повторные выборы делают это чаще.', apply: s => { s.echoShot += 0.12; } },
   { id: 'leech',    label: 'LIFESTEAL 2%',         tier: 1, desc: 'Лечение от нанесённого урона.', apply: s => { s.lifesteal += 0.02; } },
   { id: 'goldgun',  label: 'GLD ON KILL +40%',     tier: 1, desc: 'Больше золота за смерти врагов.', apply: s => { s.goldMul *= 1.4; } },
@@ -82,7 +84,7 @@ export const UPGRADES = [
   { id: 'shg_longshot', label: 'SHG LONGSHOT RMB', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK SPLIT ON KILL',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
   { id: 'sek_chain',  label: 'SEK CHAIN LOCK',     tier: 1, branch: 'SEK', desc: 'У SEK улучшаются наведение и время жизни.', apply: s => { s.sekChain += 1; } },
-  { id: 'sek_swarm', label: 'SEK SWARM RMB', tier: 1, branch: 'SEK', desc: 'ПКМ выпускает рой самонаводящихся SEK-пуль по разным врагам. Повторные выборы добавляют больше пуль, но перезарядка становится чуть дольше.', apply: s => { s.sekSwarm += 1; } },
+  { id: 'sek_swarm', label: 'SEK SWARM RMB', tier: 1, branch: 'SEK', desc: 'ПКМ выпускает рой самонаводящихся SEK-пуль по разным врагам.', apply: s => { s.sekSwarm += 1; } },
   { id: 'rkt_cluster',label: 'RKT CLUSTER +2',     tier: 1, branch: 'RKT', desc: 'Ракеты распадаются на мини-взрывы.', apply: s => { s.rktCluster += 1; } },
   { id: 'rkt_mines',  label: 'RKT STATIC MINES',   tier: 1, branch: 'RKT', desc: 'Ракеты оставляют отложенные областьные мины.', apply: s => { s.rktMines += 1; } },
   { id: 'rkt_stun',   label: 'RKT STUN BLASTS',    tier: 1, branch: 'RKT', desc: 'Все RKT-взрывы могут оглушать врагов.', apply: s => { s.rktStun += 1; } },
@@ -90,17 +92,17 @@ export const UPGRADES = [
   { id: 'rkt_remote', label: 'RKT REMOTE DETONATOR', tier: 1, branch: 'RKT', desc: 'ПКМ взрывает выпущенные ракеты по одной: сначала самую старую, потом следующую.', apply: s => { s.rktRemote += 1; } },
 
   // ability / active branches
-  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится пустотным разрезом и ранит врагов вдоль траектории. Повторные выборы делают разрез шире и сильнее.', apply: s => { s.voidStep += 1; } },
-  { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает врагов рядом с траекторией. Повторные выборы расширяют удар и продлевают оглушение.', apply: s => { s.dashCut += 1; } },
-  { id: 'dashclone', label: 'DASH AFTERSHOCK',    tier: 1, branch: 'DASH', desc: 'После рывка в точке старта остаётся короткий ударный след. Он взрывается и ранит ближайших врагов. Это не клон игрока.', apply: s => { s.dashClone += 1; } },
-  { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q один раз стягивает врагов к тебе, затем оставляет короткое поле без повторной стяжки.', apply: s => { s.activeSnap += 1; } },
+  { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Весь путь рывка становится пустотным разрезом и ранит врагов вдоль траектории.', apply: s => { s.voidStep += 1; } },
+  { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает врагов рядом с траекторией.', apply: s => { s.dashCut += 1; } },
+  { id: 'dashclone', label: 'DASH AFTERSHOCK',    tier: 1, branch: 'DASH', desc: 'После рывка в точке старта остаётся короткий ударный след, который ранит ближайших врагов.', apply: s => { s.dashClone += 1; } },
+  { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q стягивает врагов к тебе и оставляет короткое замедляющее поле.', apply: s => { s.activeSnap += 1; } },
   { id: 'q_blood',   label: 'Q: BLOOD PULSE',     tier: 1, branch: 'Q', desc: 'Q тратит HP на красный сигнальный взрыв.', apply: s => { s.activeBlood += 1; } },
   { id: 'q_over',    label: 'Q: OVERCLOCK',       tier: 1, branch: 'Q', desc: 'Q временно ускоряет стрельбу.', apply: s => { s.activeOver += 1; } },
 
   // high rarity rule-breakers
   { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
   { id: 'orbreflect',label: 'ORBITALS REFLECT',    tier: 2, desc: 'Орбитали могут стирать вражеские пули.', apply: s => { s.orbReflect += 1; } },
-  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но каждая боевая комната до конца забега получает +1 уровень статик-шторма за каждый такой бонус.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но боевые комнаты становятся опаснее от статик-шторма.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } }
 ];
@@ -116,16 +118,16 @@ export const WEAPON_UPGRADE_IDS = UPGRADES.filter(u => WEAPON_BRANCHES.includes(
 
 export const WEAPON_CHEST_REWARDS = [
   { id: 'weapon_seeker', kind: 'weapon', weapon: 'seeker', label: 'SEK WEAPON', desc: 'Открывает SEEKER: медленный самонаводящийся цифровой снаряд с ограниченной дальностью.' },
-  { id: 'weapon_rocketgun', kind: 'weapon', weapon: 'rocketgun', label: 'RKT WEAPON', desc: 'Открывает ROCKETGUN: тяжёлая ракета с большим областьным взрывом. Дистанционная детонация — отдельный WPN-апгрейд.' },
-  { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'BULLET RICOCHET +1', desc: 'Общий апгрейд оружия: все снаряды игрока получают дополнительный отскок от стен, включая ракеты RKT.' },
-  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'BULLET RANGE +22%', desc: 'Общий апгрейд оружия: дальность/жизнь растёт у всех снарядов игрока, включая ракеты.' },
-  { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'FIRE BULLETS', desc: 'Пули поджигают врагов. FIRE + POISON создаёт VOLATILE MIX, FIRE по замороженным даёт THERMAL CRACK.' },
+  { id: 'weapon_rocketgun', kind: 'weapon', weapon: 'rocketgun', label: 'RKT WEAPON', desc: 'Открывает ROCKETGUN: тяжёлая ракета с большим областьным взрывом.' },
+  { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'BULLET RICOCHET +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
+  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'BULLET RANGE +22%', desc: 'Все снаряды летят дальше и держатся дольше.' },
+  { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'FIRE BULLETS', desc: 'Пули поджигают врагов.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'FREEZE BULLETS', desc: 'Пули охлаждают врагов и могут коротко остановить их.' },
-  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'POISON BULLETS', desc: 'Пули заражают врагов токсином. POISON + FREEZE даёт SLOW ROT, POISON + FIRE — VOLATILE MIX.' },
+  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'POISON BULLETS', desc: 'Пули заражают врагов токсином.' },
   { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'DRONE ELEMENT LINK', desc: 'Дроны начинают переносить fire/freeze/poison эффекты оружия. Хорошо работает с DRONE +1.' },
   { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'ELEMENT AMP +25%', desc: 'Усиливает длительность и силу всех elemental bullet-эффектов.' },
-  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'STATUS SPREAD', desc: 'Статусы с убитых врагов прыгают на ближайших целей: BURN / FREEZE / POISON.' },
-  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'BULLET LINK +1', desc: 'Попадание оружием связывает врагов тонкой линией: часть урона и elemental-статусов переходит дальше. Стакается: +1 прыжок и больше дальность связи.' },
+  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'STATUS SPREAD', desc: 'Статусы с убитых врагов переходят на ближайшие цели.' },
+  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'BULLET LINK +1', desc: 'Попадание оружием связывает ближайших врагов тонкой линией и передаёт часть урона дальше.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG TEETH +2 PELLETS', desc: 'Апгрейд SHG: больше дробин в каждом залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG LONGSHOT RMB', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK SPLIT ON KILL', desc: 'Апгрейд SEK: убийства выпускают самонаводящиеся фрагменты.' },
@@ -136,8 +138,8 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'rkt_stun', kind: 'weapon_upgrade', upgrade: 'rkt_stun', reqWeapon: 'rocketgun', label: 'RKT STUN BLASTS', desc: 'Ракетные взрывы могут оглушать врагов.' },
   { id: 'rkt_scatter', kind: 'weapon_upgrade', upgrade: 'rkt_scatter', reqWeapon: 'rocketgun', label: 'RKT SCATTER BLASTS', desc: 'Ракетные взрывы сильнее разбрасывают врагов.' },
   { id: 'rkt_remote', kind: 'weapon_upgrade', upgrade: 'rkt_remote', reqWeapon: 'rocketgun', label: 'RKT REMOTE DETONATOR', desc: 'ПКМ взрывает выпущенные ракеты по одной, начиная со старой.' },
-  { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'WEAPON DMG +18%', desc: 'Усиливает общий урон оружия. Доступно всегда.' },
-  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'WEAPON RATE +14%', desc: 'Ускоряет перезарядку оружия. Доступно всегда.' }
+  { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'WEAPON DMG +18%', desc: 'Усиливает общий урон оружия.' },
+  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'WEAPON RATE +14%', desc: 'Оружие стреляет чаще.' }
 ];
 
 
@@ -205,7 +207,7 @@ export const ABILITY_CHEST_REWARDS = [
   { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Даёт дополнительный заряд рывка. Простая, всегда полезная мобильность.' },
   { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится void-разрезом: враги вдоль траектории получают заметный урон. Повторные выборы увеличивают ширину и урон.' },
   { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает врагов рядом с траекторией. Прокачка увеличивает радиус и длительность стана.' },
-  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка в точке старта остаётся короткий ударный след. Он взрывается и ранит ближайших врагов. Это не клон игрока.' },
+  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка в точке старта остаётся короткий ударный след, который ранит ближайших врагов.' },
   { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. Это усиление мобильности из ABL-сундука.' },
   { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Ускоряет восстановление рывка на 20%.' }
 ];
@@ -236,7 +238,7 @@ export function defaultStats() {
     bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
-    droneProc: 0, orbReflect: 0, debtEngine: 0,
+    droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     tempFire: 0
   };
 }

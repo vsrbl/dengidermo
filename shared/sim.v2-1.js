@@ -89,10 +89,11 @@ function mobLootMul(run) {
   // Moderate scaling: every loop is worth more, but mob drops do not explode.
   return Math.max(1, Math.min(9, 1 + loop * 0.22 + late * 0.10));
 }
-function loopCostMul(run) {
-  // v2.1: all prices scale about 1.5x faster than v2.1.
-  // Rewards still grow slower, so late-loop shops and BET remain meaningful sinks.
-  const depth = Math.max(0, run?.runDepth || 0);
+function loopCostMul(run, speedDiv = 1) {
+  // Price scaling can be tuned per system without touching loot scaling.
+  // Higher speedDiv = slower price growth across depth/loop.
+  const div = Math.max(0.25, Number(speedDiv) || 1);
+  const depth = Math.max(0, Number(run?.runDepth || 0) / div);
   const loop = Math.max(0, Math.floor(depth / 4));
   const within = depth % 4;
   const base = Math.pow(3.52, loop) * (1 + within * 0.27);
@@ -159,8 +160,7 @@ function pendingStaticRainSources(run) {
   const carry = Math.max(0, run.staticRainCarry || 0);
   const out = [];
   if (debt > 0) out.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debt));
-  if (carry > 0) out.push(...sourceListFromMap(run.staticRainCarrySources, 'room_strikes', carry));
-  else if (run.staticRainCanSeedNext && (run.roomStaticRainFalls || 0) > 0) out.push({ id: 'room_strikes', level: Math.max(0, run.roomStaticRainFalls || 0) });
+  if (carry > 0) out.push(...sourceListFromMap(run.staticRainCarrySources, 'previous_room_hits', carry));
   return out;
 }
 function pendingStaticRainLevel(run) {
@@ -275,13 +275,13 @@ function effectiveChestCost(run, o) {
   const def = CHESTS[o?.chest];
   if (!def || !def.cost) return 0;
   if (run?.plan?.specialRoomId === 'chill_room') return roundCost(def.cost * 0.72);
-  let mul = loopCostMul(run) * Math.max(1, Number(o?.costMul || 1));
+  let mul = loopCostMul(run, 1.25) * Math.max(1, Number(o?.costMul || 1));
   return roundCost(def.cost * mul);
 }
 function casinoStakeCost(run, stakeKey) {
   const base = BET_STAKES[stakeKey];
   if (!base) return 0;
-  return roundCost(base * loopCostMul(run));
+  return roundCost(base * loopCostMul(run, 1.75));
 }
 function casinoStakeTable(run) {
   const table = { low: casinoStakeCost(run, 'low'), mid: casinoStakeCost(run, 'mid'), high: casinoStakeCost(run, 'high') };
@@ -364,9 +364,9 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'SLOW GRID: grid plates slow everyone standing on them by 3x.';
   if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: sockets pull players, mobs, pickups, and every projectile.';
-  if (mods.includes('blood_tax')) return 'BLOOD TAX: all prices are paid with HP, not GLD.';
+  if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
-  if (mods.includes('greed')) return 'GOLD FEVER: enemies and chests pay extra GLD. BET is still a risk, not guaranteed profit.';
+  if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
   if (arch === 'panic_box') return 'PANIC BOX: use dash as a reset, not only as speed.';
   if (arch === 'long_lane') return 'LONG LANE: watch chargers and prism angles before committing.';
   if (arch === 'wide') return 'WIDE FIELD: pick a side and collapse ranged nests.';
@@ -394,7 +394,7 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'HUNTER WAVES', reward: 'FAVOR', goal: 'Survive every locked hunter wave.' };
   if (mods.includes('casino_virus')) return { id: 'virus_clean', label: 'VIRUS CLEANUP', reward: 'FAVOR', goal: 'Survive 3 virus spins, then kill every enemy.' };
   if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'GRID CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy inside the slow-grid room.' };
-  if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Pay HP prices if needed, then kill every enemy.' };
+  if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Spend HP if you dare, then clear the room.' };
   if (mods.includes('static_rain')) return { id: 'static_clean', label: 'STATIC CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy while taking low damage.' };
   if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', reward: 'FAVOR', goal: 'Kill every enemy and claim the cache.' };
   if (arch === 'panic_box' || arch === 'compact') return { id: 'fast_clear', label: 'FAST CLEANUP', reward: 'FAVOR', goal: `Kill every enemy before ${fastClearTimeLimit({ plan })}s.` };
@@ -517,7 +517,7 @@ function consumeContractFavor(run, ids = []) {
   return null;
 }
 function removeOneSourceLevel(map = {}) {
-  const order = ['cursed_chest','casino_bet','active_casino','bad_tape','debt_pulse','active_reaction','static_debt','room_strikes'];
+  const order = ['cursed_chest','casino_bet','active_casino','bad_tape','debt_pulse','active_reaction','static_debt','previous_room_hits','room_strikes'];
   for (const k of [...order, ...Object.keys(map || {})]) {
     if ((map?.[k] || 0) > 0) {
       map[k] = Math.max(0, (map[k] || 0) - 1);
@@ -570,6 +570,8 @@ function contractFavorPool(chain = 1, run = null) {
   if (!hasClearableUpcomingStatic(run)) pool = pool.filter(id => id !== 'clear_debt');
   // Double prize only makes sense when the next location actually has a contract target.
   if (!nextRoomHasContractTarget(run)) pool = pool.filter(id => id !== 'double_favor');
+  // When DOUBLE NEXT PRIZE is active, it doubles the next room payout instead of rolling itself again.
+  if (hasActiveContractFavor(run, 'double_favor')) pool = pool.filter(id => id !== 'double_favor');
   return pool.length ? pool : ['free_reroll'];
 }
 function rollContractFavor(run, chain = 1, slot = 0) {
@@ -598,10 +600,19 @@ function favorSnapshotItem(f = {}, active = false) {
   return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', nextRoomOnly: 1 };
 }
 function grantContractFavors(run, chain = 1, count = 1) {
-  const planned = Array.isArray(run?.roomObjective?.prizePreview) && run.roomObjective.prizePreview.length
+  const want = Math.max(1, Math.min(2, count | 0));
+  let planned = Array.isArray(run?.roomObjective?.prizePreview) && run.roomObjective.prizePreview.length
     ? run.roomObjective.prizePreview.map(f => makeContractFavor(f.id, chain))
-    : buildContractFavors(run, chain, count);
-  const favors = planned.slice(0, Math.max(1, Math.min(2, count | 0)));
+    : buildContractFavors(run, chain, want);
+  // DOUBLE NEXT PRIZE must pay extra prizes, not clone itself into the payout.
+  if (want > 1) planned = planned.filter(f => f.id !== 'double_favor');
+  const used = new Set(planned.map(f => f.id));
+  while (planned.length < want) {
+    const extra = buildContractFavors(run, chain, want).find(f => !used.has(f.id) && f.id !== 'double_favor') || makeContractFavor('free_reroll', chain);
+    used.add(extra.id);
+    planned.push(extra);
+  }
+  const favors = planned.slice(0, want);
   run.contractFavorsPending = favors;
   run.fx.push({ t: 'favor_earned', favors: favors.map(f => favorSnapshotItem(f, false)) });
   return favors;
@@ -1490,7 +1501,7 @@ function chanceStacks(v) {
 }
 function openPortal(run) {
   if (run.portal.open) return;
-  if (run.pendingStrikes?.length) run.pendingStrikes = run.pendingStrikes.filter(s => !s.virus);
+  if (run.pendingStrikes?.length) run.pendingStrikes = [];
   if (run.casinoVirus) { run.casinoVirus.activeRainStacks = 0; run.casinoVirus.rainT = 0; }
   run.portal.open = true;
   markRoomSolved(run, 'portal_open');
@@ -1505,9 +1516,9 @@ function quotaCanOpenPortal(run) {
   if (roomHasLiveEnemies(run)) return false;
   if (hasMod(run, 'hunter_contract')) return !!run.hunterWave?.done;
   if (hasMod(run, 'casino_virus')) return !!run.casinoVirus?.done;
-  // v2.1: room modifiers/contracts may fail or finish early, but they must not keep the portal closed
-  // once the room is actually clean. Quota is a spawn budget, not a hard lock.
-  return (run?.spawned || 0) > 0 || roomQuotaReached(run);
+  // The room quota shown in the UI is not the whole encounter.
+  // The portal waits until the room director has finished releasing its packs.
+  return directorExhausted(run) && (run?.spawned || 0) > 0;
 }
 
 // ---------------------------------------------------------------- state
@@ -1613,7 +1624,7 @@ export function startRoom(run, players) {
   const incomingSources = [];
   if (naturalStaticLevel > 0) incomingSources.push({ id: 'room_modifier', level: naturalStaticLevel });
   if (debtStacks > 0) incomingSources.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debtStacks));
-  if (carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'room_strikes', carryStacks));
+  if (carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'previous_room_hits', carryStacks));
   if (debtEngineStacks > 0) incomingSources.push({ id: 'debt_engine', level: debtEngineStacks });
   const incomingBreakdown = normalizeStaticSources(incomingSources);
   const incomingRainStacks = incomingBreakdown.total;
@@ -1641,6 +1652,7 @@ export function startRoom(run, players) {
   run.prismLaneT = 1.8 + Math.random() * 1.4;
   run.pendingPrismLanes = [];
   run.pendingBloodTax = [];
+  run.pendingStrikes = [];
   if ((run.plan.modifierIds || []).includes('anchor_gravity')) {
     const srng = mulberry32((seed ^ 0xA44C07) >>> 0);
     const count = 2 + (loopIndex >= 3 && srng() < 0.55 ? 1 : 0);
@@ -1761,7 +1773,7 @@ export function resetRun(run, players) {
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
-  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
+  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalDamageTaken: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0 };
   run.tapeLog = [];
   for (const p of players.values()) {
@@ -2232,6 +2244,29 @@ function nextWaveDelay(run, pack) {
   return Math.max(1.0, base * pressure / (greed ? 1.12 : 1) + crowdPause);
 }
 
+function directorTotalBudget(run) {
+  const plan = run?.plan || {};
+  const df = difficulty(run);
+  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 14);
+  let total = Math.round(((plan.quota || 0) + 5 + df.loop * 5 + lateBudget) * DIFFICULTY_MULT);
+  const casinoVirusActive = (plan.modifierIds || []).includes('casino_virus') && (run?.casinoVirus?.spinsLeft || 0) > 0;
+  if (casinoVirusActive) total += Math.round((7 + df.loop * 3 + df.late * 5) * DIFFICULTY_MULT);
+  const minWaves = (plan.roomArchetype === 'wide' || plan.roomArchetype === 'long_lane') ? 3 : 2;
+  const minPackBudget = Math.max(7, minWaves * (3 + Math.min(3, df.loop)));
+  return Math.max(minPackBudget, total);
+}
+function directorCanStillSpawn(run) {
+  if (!run || run.phase !== 'play' || run.portal?.open) return false;
+  const plan = run.plan || {};
+  if (plan.category === 'boss') return false;
+  if ((plan.modifierIds || []).includes('hunter_contract')) return false;
+  if ((plan.modifierIds || []).includes('casino_virus') && (run.casinoVirus?.spinsLeft || 0) <= 0) return false;
+  return Math.max(0, run.spawned || 0) < directorTotalBudget(run);
+}
+function directorExhausted(run) {
+  return !directorCanStillSpawn(run);
+}
+
 
 function heraldUpdateAimPoint(run, h, target, dt, reset = false) {
   if (!target) return { x: h.x, y: h.y, id: '', alive: false };
@@ -2373,23 +2408,19 @@ function director(run, players, dt) {
   }
 
   if (run.portal.open) return; // calm after objective
-  if (!plan.modifierIds.includes('casino_virus') && !plan.modifierIds.includes('hunter_contract') && roomQuotaReached(run)) return;
   if (plan.modifierIds.includes('hunter_contract')) return; // Hunter Waves own all spawns.
   if (plan.modifierIds.includes('casino_virus') && (run.casinoVirus?.spinsLeft || 0) <= 0) return; // After 3 spins, stop director so cleanup can open portal.
 
   const greed = plan.modifierIds.includes('greed');
   const casinoVirusActive = plan.modifierIds.includes('casino_virus') && (run.casinoVirus?.spinsLeft || 0) > 0;
-  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 14);
-  let totalBudget = Math.round((plan.quota + 5 + df.loop * 5 + lateBudget) * DIFFICULTY_MULT);
-  if (casinoVirusActive) {
-    // v2.1: normal director remains alive during the 3 virus spins, but is capped.
-    // This prevents empty waiting rooms without turning the modifier into endless meat.
-    totalBudget += Math.round((7 + df.loop * 3 + df.late * 5) * DIFFICULTY_MULT);
-  }
+  const totalBudget = directorTotalBudget(run);
   if (run.spawned >= totalBudget) {
     const lowVirusPressure = casinoVirusActive && run.enemies.length <= Math.max(1, Math.floor(df.maxActive * 0.18));
     if (!lowVirusPressure) return;
   }
+  // If the player clears the current pack quickly, do not open the portal yet.
+  // Pull the next director pack forward until the actual encounter budget is spent.
+  if (run.enemies.length <= 0 && run.spawned < totalBudget) run.director.pauseT = Math.min(run.director.pauseT || 0, 0.35);
 
   // Anti-spam: when the room is already full, stop creating waves and let the player read the encounter.
   const fullness = run.enemies.length / Math.max(1, df.maxActive);
@@ -3348,10 +3379,33 @@ function touchDamage(run, e, players, dt) {
 
 // ---------------------------------------------------------------- companions
 // drones/orbitals: positions derived deterministically from player pos + time
-export function orbitalPos(p, i, total, now) {
+export function orbitalPos(p, i, total, now, run = null) {
   const ang = (now * 1.8 + (i / total) * Math.PI * 2);
   const r = 58 + 14 * Math.floor(i / 8);
-  return { x: p.x + Math.cos(ang) * r, y: p.y + Math.sin(ang) * r };
+  const base = { x: p.x + Math.cos(ang) * r, y: p.y + Math.sin(ang) * r };
+  if (!run || !(p?.stats?.orbitals > 0)) return base;
+  const rangeBonus = Math.max(0, p.stats.orbRange || 0);
+  const speedBonus = Math.max(0, p.stats.orbSpeed || 0);
+  const enemyRange = 104 + rangeBonus * 38;
+  const bulletRange = (p.stats.orbReflect || 0) > 0 ? 74 + rangeBonus * 28 + (p.stats.orbReflect || 0) * 16 : 0;
+  let target = null, bd = Infinity, bulletTarget = false;
+  if (bulletRange > 0) {
+    for (const b of run.bullets || []) {
+      if (b.from !== 'e' || (b.delay || 0) > 0 || b.life <= 0) continue;
+      const d = dist2(b.x, b.y, base.x, base.y);
+      if (d < bd && d <= bulletRange * bulletRange) { bd = d; target = b; bulletTarget = true; }
+    }
+  }
+  if (!target) {
+    for (const e of run.enemies || []) {
+      if (!e || e.hp <= 0) continue;
+      const d = dist2(e.x, e.y, base.x, base.y);
+      if (d < bd && d <= enemyRange * enemyRange) { bd = d; target = e; bulletTarget = false; }
+    }
+  }
+  if (!target) return base;
+  const pull = Math.min(bulletTarget ? 0.82 : 0.70, (bulletTarget ? 0.55 : 0.42) + speedBonus * 0.08);
+  return { x: base.x + (target.x - base.x) * pull, y: base.y + (target.y - base.y) * pull };
 }
 function stepCompanions(run, players, dt, now) {
   for (const p of players.values()) {
@@ -3380,10 +3434,10 @@ function stepCompanions(run, players, dt, now) {
     if (p.stats.orbitals > 0) {
       for (const [k, v] of p.orbHits) { if (v <= now) p.orbHits.delete(k); }
       for (let i = 0; i < p.stats.orbitals; i++) {
-        const op = orbitalPos(p, i, p.stats.orbitals, now);
+        const op = orbitalPos(p, i, p.stats.orbitals, now, run);
         if (p.stats.orbReflect > 0) {
           for (const b of [...run.bullets]) {
-            if (b.from === 'e' && dist2(b.x, b.y, op.x, op.y) < (20 + p.stats.orbReflect * 4) ** 2) {
+            if (b.from === 'e' && dist2(b.x, b.y, op.x, op.y) < (24 + p.stats.orbReflect * 8 + Math.max(0, p.stats.orbRange || 0) * 5) ** 2) {
               run.bullets = run.bullets.filter(x => x !== b);
               run.fx.push({ t: 'bullet_cut', id: p.id, x: Math.round(op.x), y: Math.round(op.y), count: 1 });
             }
@@ -3392,8 +3446,8 @@ function stepCompanions(run, players, dt, now) {
         for (const e of run.enemies) {
           if (p.orbHits.has(e.id)) continue;
           if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 12) ** 2) {
-            damageEnemy(run, players, e, 11 * p.stats.dmgMul, p.id, 0, 0, 0);
-            p.orbHits.set(e.id, now + 0.5);
+            damageEnemy(run, players, e, (18 + Math.max(0, p.stats.orbSpeed || 0) * 3) * p.stats.dmgMul, p.id, 0, 0, 0);
+            p.orbHits.set(e.id, now + 0.34);
           }
         }
       }
@@ -3747,20 +3801,20 @@ function stepMods(run, players, dt) {
     const harsh = Math.max(0, stacks - 5);
     run.rainT -= dt;
     if (run.rainT <= 0) {
-      run.rainT = Math.max(1.15, 3.45 - pressure * 0.16 - harsh * 0.28) + Math.random() * Math.max(0.95, 2.10 - pressure * 0.08);
+      run.rainT = Math.max(1.25, 3.45 - Math.sqrt(pressure) * 0.34 - Math.sqrt(harsh) * 0.22) + Math.random() * Math.max(0.85, 2.10 - Math.sqrt(pressure) * 0.18);
       const alive = [...players.values()].filter(p => p.alive);
-      const strikeCount = 1 + (stacks >= 4 ? 1 : 0) + (stacks >= 6 ? 1 : 0);
+      const strikeCount = 1 + (stacks >= 5 ? 1 : 0) + (stacks >= 14 ? 1 : 0);
       for (let si = 0; si < strikeCount; si++) {
         const nearPlayer = Math.random() < Math.min(0.78, 0.38 + pressure * 0.04 + harsh * 0.06) && alive.length;
         const target = nearPlayer ? alive[Math.floor(Math.random() * alive.length)] : null;
-        const spread = Math.max(150, 300 - pressure * 12 - harsh * 20);
+        const spread = Math.max(150, 300 - Math.sqrt(pressure) * 34 - Math.sqrt(harsh) * 24);
         const x = target ? target.x + (Math.random() - 0.5) * spread
           : WALL_T + Math.random() * (run.plan.w - WALL_T * 2);
         const y = target ? target.y + (Math.random() - 0.5) * spread
           : WALL_T + Math.random() * (run.plan.h - WALL_T * 2);
-        const r = 66 + pressure * 5 + harsh * 10;
-        const dmgP = 14 + pressure * 3 + harsh * 8;
-        const dmgE = 46 + pressure * 9 + harsh * 18;
+        const r = Math.min(132, 58 + Math.sqrt(pressure) * 12 + Math.sqrt(harsh) * 8);
+        const dmgP = Math.min(58, 14 + Math.sqrt(pressure) * 7 + Math.sqrt(harsh) * 8);
+        const dmgE = Math.min(170, 46 + Math.sqrt(pressure) * 20 + Math.sqrt(harsh) * 18);
         run.fx.push({ t: 'rain_warn', x: Math.round(x), y: Math.round(y), r, dur: 1.25, stacks });
         if (!run.pendingStrikes) run.pendingStrikes = [];
         run.pendingStrikes.push({ x, y, r, dmgP, dmgE, at: run.now + 1.25, stacks });
@@ -3771,11 +3825,15 @@ function stepMods(run, players, dt) {
     for (const s of [...run.pendingStrikes]) {
       if (run.now >= s.at) {
         run.pendingStrikes = run.pendingStrikes.filter(x => x !== s);
-        if (!s.virus) run.roomStaticRainFalls = (run.roomStaticRainFalls || 0) + 1;
         run.fx.push({ t: 'rain_hit', x: Math.round(s.x), y: Math.round(s.y), r: s.r, stacks: s.stacks || run.staticRainStacks || 1 });
+        let playerHits = 0;
         for (const p of players.values()) {
-          if (p.alive && dist2(p.x, p.y, s.x, s.y) < (s.r + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, s.dmgP || 25, s.x, s.y);
+          if (p.alive && dist2(p.x, p.y, s.x, s.y) < (s.r + PLAYER_SIZE / 2) ** 2) {
+            playerHits++;
+            damagePlayer(run, p, s.dmgP || 25, s.x, s.y);
+          }
         }
+        if (!s.virus && run.staticRainCanSeedNext && playerHits > 0) run.roomStaticRainFalls = (run.roomStaticRainFalls || 0) + playerHits;
         for (const e of [...run.enemies]) {
           if (dist2(e.x, e.y, s.x, s.y) < (s.r + e.size / 2) ** 2) damageEnemy(run, players, e, s.dmgE || 60, null, 0, 0, 0);
         }
@@ -4300,11 +4358,13 @@ function beginTransition(run, players) {
   if (run.plan?.modifierIds?.includes('static_rain')) {
     const falls = Math.max(0, run.roomStaticRainFalls || 0);
     if (run.staticRainCanSeedNext && falls > 0) {
-      // Simple player-readable rule: 1 real strike = next room level 1, 2 strikes = level 2, etc.
-      const carried = clampStaticRainLevel(falls);
+      // Only real player hits can seed the next room. Do not let warning circles or enemy-only strikes self-stack the storm.
+      // Carry is based on real hits, not raw strike count. Multiple hits make the next storm worse,
+      // but they no longer turn into dozens of full Static Storm levels.
+      const carried = clampStaticRainLevel(Math.ceil(Math.sqrt(Math.max(0, falls))));
       if (carried > Math.max(0, run.staticRainCarry || 0)) {
         run.staticRainCarry = carried;
-        run.staticRainCarrySources = { room_strikes: carried };
+        run.staticRainCarrySources = { previous_room_hits: carried };
       }
     }
   }
@@ -5357,7 +5417,7 @@ export function buildSnapshot(run, players) {
     const drones = Math.max(0, p.stats.drones | 0);
     const orbitals = Math.max(0, p.stats.orbitals | 0);
     for (let i = 0; i < orbitals; i++) {
-      const op = orbitalPos(p, i, Math.max(1, orbitals), run.now);
+      const op = orbitalPos(p, i, Math.max(1, orbitals), run.now, run);
       cs.push([`orb:${p.id}:${i}`, p.id, 'orbital', i, Math.round(op.x), Math.round(op.y)]);
     }
     for (let i = 0; i < drones; i++) {
@@ -5397,7 +5457,7 @@ export function buildSnapshot(run, players) {
     room: {
       id: run.plan.roomId, cat: run.plan.category, special: run.plan.specialRoomId || '',
       loop: run.plan.loopIndex, depth: run.runDepth, inLoop: run.plan.roomInLoop,
-      mods: run.plan.modifierIds, quota: run.plan.quota, kills: run.kills, liveEnemies: liveEnemyCount(run), spawned: run.spawned, archetype: run.plan.roomArchetype || 'standard',
+      mods: run.plan.modifierIds, quota: Math.max(run.plan.quota || 0, directorTotalBudget(run)), baseQuota: run.plan.quota || 0, kills: run.kills, liveEnemies: liveEnemyCount(run), spawned: run.spawned, archetype: run.plan.roomArchetype || 'standard',
       w: run.plan.w, h: run.plan.h,
       portal: [Math.round(run.portal.x), Math.round(run.portal.y), run.portal.open ? 1 : 0],
       phase: run.phase, solvedTime: Math.round(roomSolvedTime(run)), solved: roomSolvedAt(run) > 0 ? 1 : 0,

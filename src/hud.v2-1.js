@@ -57,10 +57,10 @@ function contractRewardText(reward = '', obj = null) {
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 const STATIC_SOURCE_RU = {
-  room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', room_strikes: 'удары прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус'
+  room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', previous_room_hits: 'попадания прошлой комнаты', room_strikes: 'попадания прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', room_strikes: 'previous strikes', debt_engine: 'static core', casino_virus: 'casino virus'
+  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', debt_engine: 'static core', casino_virus: 'casino virus'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
@@ -83,10 +83,10 @@ function staticBreakdownExplain(bd = {}, banked = 0) {
   const parts = staticBreakdownParts(bd);
   const total = Math.max(0, bd.total | 0);
     const head = total > 0
-    ? localText(`Общий уровень статик-шторма сейчас: ${total}.`, `Current total Static Storm level: ${total}.`)
-    : localText(`Статик сохранён в банк: ${banked}.`, `Static Storm is banked: ${banked}.`);
+    ? localText(`Общий уровень статик-шторма: ${total}.`, `Static Storm level: ${total}.`)
+    : localText(`Статик ждёт следующую комнату: ${banked}.`, `Static waiting for the next room: ${banked}.`);
   const sum = parts.length ? localText(`Сумма: ${parts.join(' ')}.`, `Sum: ${parts.join(' ')}.`) : '';
-  return `${head} ${sum} ${localText('Все источники сведены в один общий уровень; Casino Virus больше не создаёт отдельный скрытый шторм.', 'All sources are folded into one total level; Casino Virus no longer creates a separate hidden storm.')}`;
+  return `${head} ${sum} ${localText('Каждая часть усиливает один общий шторм.', 'Each source strengthens one shared storm.')}`;
 }
 function roomModLabel(m, room = null, forcedStaticLevel = 0) {
   const label = m === 'skin_cache' ? localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN') : localText(MOD_LABELS_RU[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
@@ -102,16 +102,16 @@ function roomModHint(m, room = {}) {
   const hints = {
     blackout: localText('Свет ломается. Видишь меньше дальних угроз, поэтому опаснее отходить к краям и стрелять вслепую.', 'Light is broken. Long-range threats are harder to read, so edges and blind firing are more dangerous.'),
     static_rain: String(mode).startsWith('paid')
-      ? localText(`Статик-шторм LVL ${lvl}: накопленный заряд сейчас расходуется. На полу появляются опасные области; через короткую паузу туда бьёт разряд. После этой комнаты этот уровень исчезнет.`, `Static Storm LVL ${lvl}: a stored charge is being spent now. Danger areas appear on the floor; after a short delay, lightning hits them. This level disappears after the room.`)
+      ? localText(`Статик-шторм LVL ${lvl}: на полу появляются опасные области, затем по ним бьёт разряд. Этот шторм активен только в текущей комнате.`, `Static Storm LVL ${lvl}: danger areas appear on the floor, then lightning strikes them. This storm is active only in the current room.`)
       : localText(`Статик-шторм LVL ${Math.max(1, lvl)}: комната периодически помечает опасные области и бьёт по ним разрядом. Чем выше LVL, тем чаще и жёстче удары.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks dangerous areas and strikes them. Higher LVL means faster and harsher strikes.`),
-    greed: localText('Золотая лихорадка: враги и сундуки дают больше GLD. BET остаётся риском, а не гарантированной прибылью.', 'Gold Fever: enemies and chests pay extra GLD. BET is still a risk, not guaranteed profit.'),
-    debt_floor: localText('Статик-пол: комната любит долговые эффекты. Некоторые сделки дешевле сейчас, но могут добавить опасность дальше.', 'Static Floor: the room favors debt effects. Some deals are cheaper now but can add danger later.'),
+    greed: localText('Золотая лихорадка: всё крутится вокруг GLD. Враги и сундуки дают больше золота, а ошибки забирают золото вместо HP.', 'Gold Fever: everything revolves around GLD. Enemies and chests pay more gold, while mistakes take gold instead of HP.'),
+    debt_floor: localText('Статик-пол: сделки выглядят выгоднее, но могут сделать следующие комнаты опаснее.', 'Static Floor: deals look better, but later rooms may become more dangerous.'),
     hunter_contract: localText('Волны охотников: выход закрыт, пока не переживёшь волны быстрых врагов.', 'Hunter Waves: the exit is locked until the fast enemy waves are cleared.'),
     casino_virus: localText('Вирус Казино: комната крутит 3 слота. Результат срабатывает после прокрутки: может прийти награда, штраф или пачка врагов. Портал откроется после всех слотов и полной зачистки.', 'Casino Virus: the room spins 3 slots. The result triggers after the reel animation: reward, penalty, or enemy pack. Portal opens after all slots and full cleanup.'),
-    mirror_room: localText('Зеркальный зал: больше эхо-угроз и повторных выстрелов. Следи за копиями пуль.', 'Mirror Room: more echo threats and repeated shots. Watch the copied bullets.'),
+    mirror_room: localText('Зеркальный зал: больше эхо-угроз. Следи за копиями пуль.', 'Mirror Room: more echo threats. Watch the copied bullets.'),
     moving_room: localText('Движущиеся зоны: красные полые области едут по комнате. Это не стены, но внутри они замедляют и периодически бьют всех.', 'Shifting Zones: red hollow areas move through the room. They are not walls, but they slow and pulse-damage everything inside.'),
     prism_grid: localText('Призм-сетка: линии/клетки заранее показывают, где скоро ударит опасный луч. Уходи до вспышки.', 'Prism Grid: lines/plates warn where a dangerous beam will strike. Move before the flash.'),
-    blood_tax: localText('Кровавая оплата: часть наград и покупок просит HP. Нельзя купить ценой смерти.', 'Blood Payment: some rewards and buys ask for HP. You cannot buy with lethal HP cost.'),
+    blood_tax: localText('Кровавая оплата: ставки и покупки платятся HP. Можно зайти в смертельный долг, но страховка от смерти может спасти.', 'Blood Payment: bets and buys cost HP. You can pay into lethal danger, but Death Insurance can save you.'),
     shell_market: localText('Shell-биржа: у врагов чаще есть щиты. Сначала сбиваешь щит, потом HP; щит может восстановиться, если врага не трогать.', 'Shell Market: enemies more often have shields. Break shield before HP; it can regenerate if the enemy is left alone.'),
     echo_walls: localText('Эхо-выстрелы: часть пуль получает копию. Твои копии читаются одним цветом, вражеские — красным.', 'Echo Shots: some bullets get a copy. Your copies have one color; enemy copies are red.'),
     anchor_gravity: localText('Якоря гравитации: областьные точки тянут игроков, врагов, подборы и пули. Планируй путь через тягу.', 'Gravity Anchors: square nodes pull players, enemies, pickups, and bullets. Plan movement around the pull.'),
@@ -142,37 +142,36 @@ function roomIntelExplain(room = {}, isNext = false) {
   const headline = isNext ? localText('Короткий прогноз следующей комнаты.', 'Short preview of the next room.') : localText('Короткая сводка текущей комнаты.', 'Short summary of the current room.');
   return `${headline}
 ${dangerLabel(room)}
-${localText('Моды', 'Mods')}: ${mods}
+${localText('Правила', 'Rules')}: ${mods}
 ${localText('Угроза', 'Threat')}: ${threats}
 ${localText('Награда', 'Reward')}: ${rewards}
-${localText('Подробно', 'Details')}: ${localText('наведи именно на подчёркнутое название мода сверху.', 'hover the underlined modifier name above.')}`;
+${localText('Подсказка', 'Hint')}: ${localText('наведи на подчёркнутое правило, чтобы увидеть детали.', 'hover an underlined rule to see details.')}`;
 }
 
 
 function objectiveExplain(obj = {}) {
   if (!obj?.id) return localText('Контракт комнаты. Выполни условие, чтобы получить бонус для следующей комнаты.', 'Room contract. Complete the condition to earn a next-room bonus.');
   const map = {
-    boss_cut: localText('Убей босса. Приз выдаётся в ROOM CHECK.', 'Kill the boss. Prize is granted in ROOM CHECK.'),
+    boss_cut: localText('Убей босса и забери приз после комнаты.', 'Kill the boss and claim the prize after the room.'),
     lounge_cashout: localText('Безопасная комната: покупай, ставь BET и выходи, когда готов.', 'Safe room: shop, BET, and leave when ready.'),
     hunter_waves: localText('Пройди все волны. Портал откроется только после последней.', 'Clear all waves. The portal opens only after the final wave.'),
-    virus_clean: localText('Переживи 3 вирусных броска, затем убей всех врагов. Вирусная статика не переносится дальше.', 'Survive 3 virus spins, then kill every enemy. Virus static does not carry forward.'),
+    virus_clean: localText('Переживи 3 вирусных броска, затем убей всех врагов.', 'Survive 3 virus spins, then kill every enemy.'),
     wire_ghost: localText('Пройди комнату без касания опасных линий.', 'Clear the room without touching hazard lines.'),
     grid_slow_clear: localText('Зачисти комнату с сеткой замедления.', 'Clear the slow-grid room.'),
-    blood_paid: localText('Покупки в этой комнате стоят HP вместо GLD. Очисти комнату.', 'Purchases in this room cost HP instead of GLD. Clear the room.'),
+    blood_paid: localText('В этой комнате покупки требуют HP. Очисти комнату.', 'Purchases in this room cost HP. Clear the room.'),
     static_clean: localText('Пройди комнату со статик-штормом и получи мало урона. Шторм — это серия опасных областей на арене: они появляются, предупреждают и затем бьют разрядом.', 'Clear the Static Storm room while taking little damage. The storm is a series of danger areas: they appear, warn you, then strike.'),
     cache_claim: localText('Очисти комнату и забери скрытый скин через портал.', 'Clear the room and claim the hidden skin through the portal.'),
-    fast_clear: localText('Убей вообще всех врагов до лимита времени. Лимит меняется по размеру комнаты, цели зачистки и модификаторам.', 'Kill every enemy before the time limit. The limit changes by room size, clear quota, and modifiers.'),
+    fast_clear: localText('Убей всех врагов, пока таймер не сгорел.', 'Kill every enemy before the timer runs out.'),
     no_hit: localText('Убей всех врагов без полученного урона.', 'Kill every enemy without taking damage.'),
-    clean_signal: localText('Обычная цель: убить всех врагов комнаты.', 'Basic objective: kill every enemy in the room.')
+    clean_signal: localText('Убей всех врагов комнаты.', 'Kill every enemy in the room.')
   };
-  const status = obj.statusLabel ? `${localText('Статус', 'Status')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + obj.failReason : ''}` : `${localText('Статус', 'Status')}: ${localText('активен', 'active')}`;
+  const status = obj.statusLabel ? `${localText('Состояние', 'State')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + locFail(obj.failReason) : ''}` : `${localText('Состояние', 'State')}: ${localText('идёт', 'active')}`;
   const prize = contractRewardText(obj.reward, obj);
   return `${map[obj.id] || localText('Контракт комнаты.', 'Room contract.')}
 ${status}
-${localText('Прогресс', 'Progress')}: ${locProgress(obj.progress || '—')}
-${localText('Будущий приз', 'Future prize')}: ${prize}
-${localText('Приз выдаётся в ROOM CHECK и активируется в следующей комнате.', 'Prize is granted in ROOM CHECK and activates in the next room.')}
-${localText('Провал сбрасывает серию контрактов.', 'Failure resets the contract chain.')}`;
+${localText('Ход', 'Progress')}: ${locProgress(obj.progress || '—')}
+${localText('Приз', 'Prize')}: ${prize}
+${localText('Приз появится после завершения комнаты и поможет в следующей.', 'The prize appears after the room and helps in the next one.')}`;
 }
 function objectiveStatusText(obj = {}) {
   const status = String(obj.status || '').toLowerCase();
@@ -198,10 +197,10 @@ function contractCardHtml(obj = {}) {
   const fail = obj.failReason ? ` · ${locFail(obj.failReason)}` : '';
   const prize = contractRewardText(obj.reward, obj);
   const reward = obj.status === 'failed'
-    ? localText('ПРИЗ: НЕТ · СЕРИЯ СБРОШЕНА', 'PRIZE: NONE · CHAIN RESET')
+    ? localText('ПРИЗ: НЕТ', 'PRIZE: NONE')
     : (obj.status === 'paid'
       ? localText(`ПРИЗ ПОЛУЧЕН: ${prize}`, `PRIZE RECEIVED: ${prize}`)
-      : localText(`ПРИЗ: ${prize} · ROOM CHECK`, `PRIZE: ${prize} · ROOM CHECK`));
+      : localText(`ПРИЗ: ${prize}`, `PRIZE: ${prize}`));
   const title = `${locLabel(obj.label)} · ${status}${fail}`;
   return `<div class="contract-kicker">${esc(localText('КОНТРАКТ КОМНАТЫ', 'ROOM CONTRACT'))}</div><div class="contract-title">${esc(title)}</div><div class="contract-sub">${esc(prog)}</div><div class="contract-reward">${esc(reward)}</div>`;
 }
@@ -211,19 +210,19 @@ const WEAPON_BY_LABEL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.la
 const CHEST_BY_LABEL = Object.fromEntries(Object.entries(CHESTS).map(([id, c]) => [c.label, { id, ...c }]));
 const CHEST_DESC = {
   BSC: 'Бесплатный базовый сундук: GLD/EXP и редкий HEA. Хорошая безопасная награда.',
-  WPN: 'Оружейный сундук: открывает выбор из 3 вариантов — оружие, оружейные апгрейды или усиление урона/скорострельности. Апгрейды недоступного оружия серые.',
+  WPN: 'Оружейный сундук: оружие, оружейные усиления или общий прирост силы.',
   ABL: 'Сундук способностей: активка Q, улучшение Q, мутация или мобильность.',
-  RAR: 'Редкий сундук: сильный апгрейд для билда.',
-  CRS: 'Проклятый сундук: сильная награда с будущей опасностью.'
+  RAR: 'Редкий сундук: сильное усиление забега.',
+  CRS: 'Проклятый сундук: сильная награда, но забег становится опаснее.'
 };
 const PICKUP_DESC = {
   GLD: 'Деньги для сундуков и BET. Подбор делится между живыми игроками.',
-  EXP: 'Опыт для уровней. Апгрейд появится после перехода через портал.',
+  EXP: 'Опыт для уровней. Новый INSTALL появится между комнатами.',
   HEA: 'Лечение. Восстанавливает HP.'
 };
 const ENEMY_DESC = {
   grunt: 'Базовый преследователь: давит количеством и контактным уроном.', runner: 'Быстрый слабый враг: закрывает дистанцию и ломает позицию.', tank: 'Медленный бронированный враг: блокирует пространство и впитывает урон.', shooter: 'Дальний враг: держит дистанцию и стреляет красными снарядами.', charger: 'Готовится, затем рывок. Следи за красной линией.', bomber: 'Подходит, запускает взрыв и детонирует. Уходи из радиуса.', bouncer: 'Отскакивает от стен и толкает игрока.', glitch: 'Мигающий враг: телепортируется рядом и бьёт.',
-  echo: 'ECH: копирует оружие игрока и стреляет с дистанции.', orbiter: 'ORB: кружит рядом и держит фронтальный щит.', anchor: 'ANC: поле тянет и замедляет.', splitter: 'SPL: после смерти делится на маленькие быстрые части.', prism: 'PRS: стреляет призменными линиями.', pulse: 'PLS: атакует областьной волной.', leech: 'LCH: лечит раненых врагов, приоритетная цель.', herald: 'HRD: ведёт линию давления и призывает рой.', boss: 'BOS: босс с залпами и подкреплением.'
+  echo: 'ECH: стреляет знакомыми снарядами с дистанции.', orbiter: 'ORB: кружит рядом и держит фронтальный щит.', anchor: 'ANC: поле тянет и замедляет.', splitter: 'SPL: после смерти делится на маленькие быстрые части.', prism: 'PRS: стреляет призменными линиями.', pulse: 'PLS: атакует областьной волной.', leech: 'LCH: лечит раненых врагов, приоритетная цель.', herald: 'HRD: ведёт линию давления и призывает рой.', boss: 'BOS: босс с залпами и подкреплением.'
 };
 const esc = escHtml;
 
@@ -250,7 +249,7 @@ function weaponReadability(opt = {}) {
     bullet_range: {
       role: 'RANGE', tone: 'range',
       ru: 'Снаряды живут дольше и летят дальше.', en: 'Projectiles live longer and travel farther.',
-      changeRu: '+дальность / lifetime для SHG, SEK, RKT', changeEn: '+range / lifetime for SHG, SEK, RKT'
+      changeRu: 'дальше летит · дольше держится', changeEn: 'travels farther · lasts longer'
     },
     bullet_fire: {
       role: 'STATUS', tone: 'status', element: 'fire',
@@ -295,7 +294,7 @@ function weaponReadability(opt = {}) {
     shg_longshot: {
       role: 'RANGE', tone: 'range',
       ru: 'ПКМ тратит все заряды SHOTGUN на один дальний тяжёлый выстрел.', en: 'RMB spends all SHOTGUN charges on one heavy long shot.',
-      changeRu: 'ПКМ дальний выстрел · повторные выборы усиливают', changeEn: 'RMB longshot · repeated picks strengthen it'
+      changeRu: 'ПКМ дальний тяжёлый выстрел', changeEn: 'RMB heavy long shot'
     },
     sek_split: {
       role: 'DPS', tone: 'dps',
@@ -305,22 +304,22 @@ function weaponReadability(opt = {}) {
     sek_chain: {
       role: 'CONTROL', tone: 'control',
       ru: 'SEEKER лучше держит цель и живёт дольше.', en: 'SEEKER locks on harder and lives longer.',
-      changeRu: '+захват цели / жизнь снаряда', changeEn: '+lock-on / projectile life'
+      changeRu: 'лучше держит цель', changeEn: 'stronger lock-on'
     },
     sek_swarm: {
       role: 'DPS', tone: 'dps',
-      ru: 'ПКМ выпускает рой SEK-пуль сразу вместо одиночных выстрелов.', en: 'RMB releases a burst swarm of SEK bullets instead of single shots.',
-      changeRu: 'больше пуль роя · дольше перезарядка', changeEn: 'more swarm bullets · longer reload'
+      ru: 'ПКМ выпускает рой SEK-пуль.', en: 'RMB releases a burst swarm of SEK bullets.',
+      changeRu: 'рой самонаводящихся пуль', changeEn: 'homing bullet swarm'
     },
     rkt_cluster: {
       role: 'DPS', tone: 'dps',
       ru: 'ROCKETGUN добавляет мини-взрывы вокруг детонации.', en: 'ROCKETGUN adds mini-blasts around detonation.',
-      changeRu: '+2 мини-взрыва · обычный финальный радиус', changeEn: '+2 mini-blasts · normal final radius'
+      changeRu: 'дополнительные мини-взрывы', changeEn: 'extra mini-blasts'
     },
     rkt_mines: {
       role: 'CONTROL', tone: 'control',
       ru: 'ROCKETGUN оставляет отложенные областьные мины.', en: 'ROCKETGUN leaves delayed square mines.',
-      changeRu: 'мины в полёте · двойной радиус', changeEn: 'flight mines · double radius'
+      changeRu: 'мины во время полёта', changeEn: 'mines during flight'
     },
     rkt_stun: {
       role: 'CONTROL', tone: 'control',
@@ -352,8 +351,8 @@ function weaponReadability(opt = {}) {
     role: opt.kind === 'weapon' ? 'NEW' : opt.kind === 'stat' ? 'DPS' : 'UTILITY', tone: opt.kind === 'weapon' ? 'new' : 'utility',
     ru: cleanPlayerText(opt.desc || opt.preview || 'Оружейный апгрейд.'),
     en: cleanPlayerText(opt.desc || opt.preview || 'Weapon upgrade.'),
-    changeRu: req ? `требует ${req}` : 'изменяет оружейный билд',
-    changeEn: req ? `requires ${req}` : 'changes your weapon build'
+    changeRu: req ? `нужно ${req}` : 'усиление оружия',
+    changeEn: req ? `needs ${req}` : 'weapon upgrade'
   };
   if (req) {
     out.changeRu = `${out.changeRu} · нужно ${req}`;
@@ -365,10 +364,10 @@ function weaponReadability(opt = {}) {
 function weaponRoleHint(role = '') {
   const r = String(role || '').toUpperCase();
   const ru = {
-    NEW: 'NEW = новый слот оружия.', DPS: 'DPS = больше урона или темпа стрельбы.', RANGE: 'RANGE = снаряды дальше живут, летят или отскакивают.', STATUS: 'STATUS = огонь, холод, яд и их распространение.', CONTROL: 'CONTROL = замедление, захват, зоны или цепи.', SYNERGY: 'SYNERGY = усиливает уже собранный билд.', ECONOMY: 'ECONOMY = больше ресурсов.'
+    NEW: 'Новое оружие для твоего слота.', DPS: 'Больше урона или темпа стрельбы.', RANGE: 'Снаряды работают на большей дистанции.', STATUS: 'Огонь, холод, яд и их перенос.', CONTROL: 'Замедление, захват, зоны или цепи.', SYNERGY: 'Лучше работает с уже собранным оружием.', ECONOMY: 'Больше ресурсов.'
   };
   const en = {
-    NEW: 'NEW = new weapon slot.', DPS: 'DPS = more damage or firing tempo.', RANGE: 'RANGE = projectiles travel, live, or bounce farther.', STATUS: 'STATUS = burn/freeze/poison and their spread.', CONTROL: 'CONTROL = slow, lock, area denial, or chains.', SYNERGY: 'SYNERGY = improves existing build pieces.', ECONOMY: 'ECONOMY = more resources.'
+    NEW: 'New weapon for your slot.', DPS: 'More damage or firing tempo.', RANGE: 'Projectiles work at longer range.', STATUS: 'Burn, chill, poison, and spread.', CONTROL: 'Slow, lock, zones, or chains.', SYNERGY: 'Works better with what you already have.', ECONOMY: 'More resources.'
   };
   return localText(ru[r] || 'Категория оружейного выбора.', en[r] || 'Weapon choice category.');
 }
@@ -744,7 +743,7 @@ export class Hud {
       } else if (near.kind === 'bet') {
         prompt.textContent = t('betPrompt');
         const bloodBet = (room.mods || []).includes('blood_tax');
-        this.setExplain(prompt, t('betTitle'), bloodBet ? localText('В BLOOD TAX ставки платятся HP, не GLD. Кнопки ставок подсвечены красным HP.', 'In BLOOD TAX, bets cost HP instead of GLD. Stake buttons show red HP prices.') : t('betInspect'), 'red');
+        this.setExplain(prompt, t('betTitle'), bloodBet ? localText('В BLOOD TAX ставки платятся HP. Красная цена означает риск для жизни.', 'In BLOOD TAX, bets cost HP. Red prices mean real danger.') : t('betInspect'), 'red');
       } else {
         const blood = (room.mods || []).includes('blood_tax');
         if (near.cost > 0 && blood) prompt.innerHTML = `E / <span class="hp-cost">${near.cost} HP</span> — ${esc(near.label)}`;
@@ -799,8 +798,8 @@ export class Hud {
         const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · TAPE: ${f.tapes.map(locLabel).join(' / ')}` : '';
         const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${localText('РЕШЕНО', 'SOLVED')} ${Math.max(0, Math.round(Number(f.solvedTime)))}s` : '';
         const line = `${localText('УБИЙСТВА', 'KILLS')} ${f.kills || 0}${solved} · GLD +${f.gld || 0} · EXP +${f.exp || 0} · ${localText('УРОН', 'DMG')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
-        this.banner(localText('ROOM CHECK', 'ROOM CHECK'), line, f.noHit || f.fast ? 'green' : '');
-        this.feed(`${localText('ROOM CHECK', 'ROOM CHECK')}: ${line}`, f.noHit ? 'g' : '');
+        this.banner(localText('ИТОГ КОМНАТЫ', 'ROOM RESULT'), line, f.noHit || f.fast ? 'green' : '');
+        this.feed(`${localText('ИТОГ КОМНАТЫ', 'ROOM RESULT')}: ${line}`, f.noHit ? 'g' : '');
         break;
       }
       case 'join': this.feed(`${f.name} ${t('playerJoined')}`, 'g'); break;
@@ -1050,24 +1049,24 @@ export class Hud {
           `<div>${modList(room)}</div>` +
           `<p><span class="term" ${explainAttr(localText('ОПАСНОСТЬ', 'DANGER'), localText('Общий риск комнаты: враги, модификаторы и темп волн.', 'Overall room risk: enemies, modifiers, and wave pressure.'), 'red')}>${esc(dangerLabel(room))}</span></p>` +
           `<p>${termLabel(localText('УГРОЗЫ', 'THREAT'), localText('УГРОЗЫ', 'THREAT'), localText('Короткие теги того, что опаснее всего в этой комнате.', 'Short tags for the main dangers in this room.'), 'red')}: ${esc(tagJoin(room.threatTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
-          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Короткие теги того, за что комната может быть выгодной.', 'Short tags for why the room may be profitable.'), 'gold')}: ${esc(tagJoin(room.rewardTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
+          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Что здесь можно получить.', 'What this room can pay out.'), 'gold')}: ${esc(tagJoin(room.rewardTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
           (room.objective ? `<p>${objectiveChip(room.objective, 'CONTRACT')}</p>` : '') +
           `</div>` +
         `<div class="tab-card next"><h3><span class="term" ${explainAttr(localText('СЛЕДУЮЩАЯ КОМНАТА', 'NEXT ROOM'), next ? tabRoomHint(next, true) : '—', 'cyan')}>${esc(localText('ДАЛЬШЕ', 'NEXT'))}</span> ${next ? esc(archLabel(next.archetype)) : '—'}</h3>` +
           `<div>${next ? modList(next) : '<span class="muted">—</span>'}</div>` +
           `<p>${next ? termLabel(dangerLabel(next), localText('ОПАСНОСТЬ', 'DANGER'), localText('Примерный риск следующей комнаты.', 'Estimated risk of the next room.'), 'red') : esc(localText('ОПАСНОСТЬ —', 'DANGER —'))}</p>` +
           `<p>${termLabel(localText('УГРОЗЫ', 'THREAT'), localText('УГРОЗЫ', 'THREAT'), localText('Короткие теги опасностей следующей комнаты.', 'Short danger tags for the next room.'), 'red')}: ${next ? esc(tagJoin(next.threatTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
-          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Короткие теги выгоды следующей комнаты.', 'Short reward tags for the next room.'), 'gold')}: ${next ? esc(tagJoin(next.rewardTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
+          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Что может дать следующая комната.', 'What the next room can pay out.'), 'gold')}: ${next ? esc(tagJoin(next.rewardTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
           (next?.objective ? `<p>${objectiveChip(next.objective, 'CONTRACT')}</p>` : '') +
           `</div>` +
         `<div class="tab-card run"><h3>${esc(localText('ЗАБЕГ', 'RUN'))}</h3>` +
           `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${room.loop} · <span class="term" ${explainAttr(t('depth'), localText('Сколько комнат уже пройдено в текущем забеге.', 'Rooms cleared in this run.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net.roomId || '----')}</p>` +
-          `<p><span class="term" ${explainAttr(t('goal'), localText('Зачистка — это числовая цель комнаты. Если рядом показаны живые враги, портал ждёт их добивания.', 'Clear is the numeric room target. If live enemies are shown, the portal waits for them to die.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
+          `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда комната полностью затихнет и враги добиты.', 'The portal opens when the room has fully gone quiet and enemies are down.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
-          `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Подряд выполненные контракты. Комнаты без контракта не сбрасывают серию, провал контракта сбрасывает.', 'Consecutive completed contracts. Rooms without a contract do not reset it; a failed contract does.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
+          `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the run more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
           `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
-          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти бонусы станут активны только в следующей комнате и сгорят после неё.', 'These bonuses activate only in the next room and expire after it.'), 'gold')}>${esc(localText('СЛЕД. БОНУС', 'NEXT BONUS'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
+          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти бонусы ждут следующую комнату.', 'These bonuses are waiting for the next room.'), 'gold')}>${esc(localText('СЛЕД. БОНУС', 'NEXT BONUS'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
       `</div>`;
     const table = $('tab-table');
     let html = '<tr>' +
@@ -1151,8 +1150,8 @@ export class Hud {
     const d = document.createElement('div');
     d.className = `choice skin-claim-card rarity-${String(skin.rarity || (skin.allOwned ? 'complete' : '')).replace(/[^a-z0-9_-]/gi, '')}`;
     if (skin.allOwned) {
-      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ВСЕ СКИНЫ ОТКРЫТЫ', 'ALL SKINS UNLOCKED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Новых скинов больше нет. Дубликат не выдан.', 'No new skins remain. Duplicate was not granted.'))}</span>`;
-      this.setExplain(d, localText('КОЛЛЕКЦИЯ ЗАКРЫТА', 'COLLECTION COMPLETE'), localText('У тебя уже есть все доступные скины, поэтому игра не выдаёт дубликат.', 'You already own every available skin, so the game does not grant a duplicate.'), 'gold');
+      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ВСЕ СКИНЫ ОТКРЫТЫ', 'ALL SKINS UNLOCKED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Коллекция уже полная.', 'Collection already complete.'))}</span>`;
+      this.setExplain(d, localText('КОЛЛЕКЦИЯ ЗАВЕРШЕНА', 'COLLECTION COMPLETE'), localText('Все доступные облики уже открыты.', 'Every available look is already unlocked.'), 'gold');
     } else {
       d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ СКИН', 'CLAIM SKIN'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || 'SKIN')}</span>`;
       this.setExplain(d, localText('СКИН ГОТОВ', 'SKIN READY'), localText('Скин уже открыт для забега. Нажми, чтобы закрыть карточку и отметить его как забранный.', 'The skin is unlocked for the run. Click to close this card and mark it claimed.'), 'purple');
@@ -1176,18 +1175,18 @@ export class Hud {
   favorUiBody(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'Один реролл вариантов WPN/ABL в этой комнате. Сгорает при выходе из комнаты.',
-      clear_debt: 'Снимает один сохранённый уровень статик-шторма перед входом в эту комнату. Может выпасть только если такой шторм реально есть.',
+      free_reroll: 'Один раз обновляет варианты WPN/ABL в этой комнате.',
+      clear_debt: 'Ослабляет следующий статик-шторм перед входом в комнату.',
       portal_insurance: 'Один раз в этой комнате смертельный удар оставит тебя живым и даст 50 HP.',
-      epic_reroll: 'Два реролла вариантов WPN/ABL в этой комнате. Без штрафа.',
-      double_favor: 'Если контракт этой комнаты выполнен, ROOM CHECK выдаст два приза вместо одного.'
+      epic_reroll: 'Два раза обновляет варианты WPN/ABL в этой комнате.',
+      double_favor: 'Если контракт выполнен, после комнаты будет два приза.'
     };
     const en = {
-      free_reroll: 'One WPN/ABL choice reroll in this room. Expires when the room ends.',
-      clear_debt: 'Clears one banked Static Storm level before this room starts. Can appear only when such a storm really exists.',
+      free_reroll: 'Refreshes WPN/ABL choices once in this room.',
+      clear_debt: 'Weakens the next Static Storm before you enter the room.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
-      epic_reroll: 'Two WPN/ABL choice rerolls in this room. No downside.',
-      double_favor: 'If this room contract succeeds, ROOM CHECK grants two prizes instead of one. No downside.'
+      epic_reroll: 'Refreshes WPN/ABL choices twice in this room.',
+      double_favor: 'If the contract succeeds, the room grants two prizes.'
     };
     return localText(ru[id] || 'Бонус контракта действует только в этой комнате.', en[id] || 'Contract bonus for this room only.');
   }
@@ -1211,7 +1210,7 @@ export class Hud {
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
     d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('РЕРОЛЛ ВЫБОРА · только эта комната', 'CHOICE REROLL · this room only'))}</span>`;
-    this.setExplain(d, localText('РЕРОЛЛ ВЫБОРА', 'CHOICE REROLL'), localText('Тратит один приз контракта и создаёт новые варианты этого WPN/ABL выбора. Бонус сгорает в конце комнаты.', 'Spends one contract prize and creates new choices for this WPN/ABL choice. The bonus expires at room end.'), 'gold');
+    this.setExplain(d, localText('РЕРОЛЛ ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого WPN/ABL выбора.', 'Refreshes the choices for this WPN/ABL pick.'), 'gold');
     d.addEventListener('click', () => {
       if (d.dataset.locked === '1' || uses <= 0) return;
       this.playUiSound('contract');
