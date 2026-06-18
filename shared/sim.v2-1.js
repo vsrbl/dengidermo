@@ -1511,14 +1511,54 @@ function openPortal(run) {
     run.fx.push({ t: 'skin_room_ready', skinRarity: run.skinRoomReward.rarity, x: run.portal.x, y: run.portal.y });
   }
 }
+function roomDirectorMinWaves(run) {
+  const arch = roomPlanArchetype(run?.plan || {});
+  if (arch === 'wide' || arch === 'long_lane') return 2;
+  if (arch === 'panic_box' || arch === 'compact') return 2;
+  return 2;
+}
+function roomDirectorMinAge(run) {
+  const arch = roomPlanArchetype(run?.plan || {});
+  const q = Math.max(0, run?.plan?.quota || 0);
+  const loop = Math.floor(Math.max(0, run?.runDepth || 0) / 4);
+  let t = 11.5 + Math.min(8, q * 0.34) + Math.min(4, loop * 0.7);
+  if (arch === 'wide' || arch === 'long_lane') t += 3.0;
+  if (arch === 'panic_box' || arch === 'compact') t -= 1.2;
+  return Math.max(10, Math.min(24, t));
+}
+function roomDirectorTarget(run) {
+  const plan = run?.plan || {};
+  const q = Math.max(1, plan.quota || 1);
+  const df = difficulty(run || {});
+  const arch = roomPlanArchetype(plan);
+  let extra = 2;
+  if (arch === 'wide' || arch === 'long_lane') extra = 4;
+  else if (arch === 'standard') extra = 3;
+  else if (arch === 'panic_box' || arch === 'compact') extra = 2;
+  extra += Math.min(4, Math.max(0, df.loop) + Math.floor(Math.max(0, df.late) * 0.6));
+  if ((plan.modifierIds || []).some(m => ['static_rain','prism_grid','moving_room','blood_tax','skin_cache'].includes(m))) extra += 1;
+  if ((plan.modifierIds || []).includes('casino_virus') && (run?.casinoVirus?.spinsLeft || 0) > 0) extra += 3 + Math.min(3, df.loop);
+  return Math.max(q + 1, Math.round(q + extra));
+}
+function roomPacingReady(run) {
+  if (!run || (run.spawned || 0) <= 0) return false;
+  const target = roomDirectorTarget(run);
+  const age = Math.max(0, (run.now || 0) - (run.roomStats?.startedAt || run.now || 0));
+  const waves = Math.max(0, run.director?.waveIndex || 0);
+  const minWaves = roomDirectorMinWaves(run);
+  const minAge = roomDirectorMinAge(run);
+  const enoughKills = (run.kills || 0) >= Math.max(1, run.plan?.quota || 1);
+  const enoughSpawn = (run.spawned || 0) >= target;
+  // Room pacing is a gate, not a command to spend the whole director budget.
+  // A clean room can open after a short staged fight, but not after the first tiny pack.
+  return enoughSpawn || (enoughKills && waves >= minWaves && age >= minAge);
+}
 function quotaCanOpenPortal(run) {
   if (run.plan?.category === 'boss') return false;
   if (roomHasLiveEnemies(run)) return false;
   if (hasMod(run, 'hunter_contract')) return !!run.hunterWave?.done;
   if (hasMod(run, 'casino_virus')) return !!run.casinoVirus?.done;
-  // The room quota shown in the UI is not the whole encounter.
-  // The portal waits until the room director has finished releasing its packs.
-  return directorExhausted(run) && (run?.spawned || 0) > 0;
+  return roomPacingReady(run);
 }
 
 // ---------------------------------------------------------------- state
@@ -2245,15 +2285,9 @@ function nextWaveDelay(run, pack) {
 }
 
 function directorTotalBudget(run) {
-  const plan = run?.plan || {};
-  const df = difficulty(run);
-  const lateBudget = Math.floor(Math.pow(df.late, 1.45) * 14);
-  let total = Math.round(((plan.quota || 0) + 5 + df.loop * 5 + lateBudget) * DIFFICULTY_MULT);
-  const casinoVirusActive = (plan.modifierIds || []).includes('casino_virus') && (run?.casinoVirus?.spinsLeft || 0) > 0;
-  if (casinoVirusActive) total += Math.round((7 + df.loop * 3 + df.late * 5) * DIFFICULTY_MULT);
-  const minWaves = (plan.roomArchetype === 'wide' || plan.roomArchetype === 'long_lane') ? 3 : 2;
-  const minPackBudget = Math.max(7, minWaves * (3 + Math.min(3, df.loop)));
-  return Math.max(minPackBudget, total);
+  // Small encounter target, not a mandatory full-room meat budget.
+  // This keeps the old room feel while preventing one-pack instant clears.
+  return roomDirectorTarget(run);
 }
 function directorCanStillSpawn(run) {
   if (!run || run.phase !== 'play' || run.portal?.open) return false;
@@ -2418,9 +2452,9 @@ function director(run, players, dt) {
     const lowVirusPressure = casinoVirusActive && run.enemies.length <= Math.max(1, Math.floor(df.maxActive * 0.18));
     if (!lowVirusPressure) return;
   }
-  // If the player clears the current pack quickly, do not open the portal yet.
-  // Pull the next director pack forward until the actual encounter budget is spent.
-  if (run.enemies.length <= 0 && run.spawned < totalBudget) run.director.pauseT = Math.min(run.director.pauseT || 0, 0.35);
+  // If the first pack dies instantly, stage one more small beat, but do not turn
+  // the room into a budget-drain arena.
+  if (run.enemies.length <= 0 && !roomPacingReady(run) && run.spawned < totalBudget) run.director.pauseT = Math.min(run.director.pauseT || 0, 2.15);
 
   // Anti-spam: when the room is already full, stop creating waves and let the player read the encounter.
   const fullness = run.enemies.length / Math.max(1, df.maxActive);
