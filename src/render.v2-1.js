@@ -12,6 +12,7 @@ export class Renderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.cam = { x: 0, y: 0 };
+    this.companionTrail = new Map();
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -589,14 +590,38 @@ export class Renderer {
       const drones = p[P.DRONES], orbitals = p[P.ORBITALS];
       const comps = (view.companions || []).filter(c => c[1] === p[P.ID]);
       if (comps.length) {
+        const liveCompIds = new Set();
         for (const c of comps) {
+          const id = c[0];
           const type = c[2], cx = c[4], cy = c[5];
+          liveCompIds.add(id);
           if (type === 'orbital') {
-            const a = Math.atan2(cy - py, cx - px);
-            this.square(cx, cy, 10, { stroke: COL.cyan, lw: 2, rotate: a });
+            const prev = this.companionTrail.get(id);
+            const a = prev ? Math.atan2(cy - prev.y, cx - prev.x) : Math.atan2(cy - py, cx - px);
+            ctx.save();
+            if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 90) {
+              ctx.globalAlpha = 0.24;
+              ctx.strokeStyle = COL.cyan;
+              ctx.lineWidth = 1;
+              ctx.setLineDash([6, 7]);
+              ctx.beginPath();
+              ctx.moveTo(prev.x, prev.y);
+              ctx.lineTo(cx, cy);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              this.square(prev.x, prev.y, 7, { stroke: COL.cyan, lw: 1, alpha: 0.16, rotate: a });
+            }
+            ctx.restore();
+            this.square(cx, cy, 13, { stroke: COL.cyan, lw: 1, alpha: 0.24, rotate: a + Math.PI / 4 });
+            this.square(cx, cy, 9, { stroke: COL.cyan, lw: 2, rotate: a });
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: COL.cyan });
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
           }
+        }
+        for (const [id, v] of [...this.companionTrail.entries()]) {
+          if (!liveCompIds.has(id) && now - (v.t || 0) > 0.8) this.companionTrail.delete(id);
         }
       } else {
         for (let i = 0; i < orbitals; i++) {

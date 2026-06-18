@@ -1353,7 +1353,7 @@ function tickElementalStatuses(run, players, e, dt) {
     e.burnTickT = (e.burnTickT || 0) - dt;
     if (e.burnTickT <= 0 && e.burnT > 0) {
       e.burnTickT = 0.45;
-      damageEnemy(run, players, e, Math.max(1, (e.burnDps || 3.0) * 0.45), e.burnOwner || null, 0, 0, 0);
+      damageEnemy(run, players, e, Math.max(1, (e.burnDps || 3.0) * 0.45), e.burnOwner || null, 0, 0, 0, 'status');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'BURN', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 20), tone: 'red', owner: e.burnOwner || '' });
     }
@@ -1363,7 +1363,7 @@ function tickElementalStatuses(run, players, e, dt) {
     e.poisonTickT = (e.poisonTickT || 0) - dt;
     if (e.poisonTickT <= 0 && e.poisonT > 0) {
       e.poisonTickT = 0.60;
-      damageEnemy(run, players, e, Math.max(1, (e.poisonDps || 2.2) * 0.60), e.poisonOwner || null, 0, 0, 0);
+      damageEnemy(run, players, e, Math.max(1, (e.poisonDps || 2.2) * 0.60), e.poisonOwner || null, 0, 0, 0, 'status');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'POISON', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 18), tone: 'green', owner: e.poisonOwner || '' });
     }
@@ -1372,7 +1372,7 @@ function tickElementalStatuses(run, players, e, dt) {
   if ((e.burnT || 0) > 0 && (e.poisonT || 0) > 0 && (e.elemComboCd || 0) <= 0) {
     e.elemComboCd = 0.85;
     const owner = e.burnOwner || e.poisonOwner || null;
-    damageEnemy(run, players, e, Math.max(2, ((e.burnDps || 2) + (e.poisonDps || 2)) * 0.42), owner, 0, 0, 0);
+    damageEnemy(run, players, e, Math.max(2, ((e.burnDps || 2) + (e.poisonDps || 2)) * 0.42), owner, 0, 0, 0, 'status');
     if (e.hp > 0) run.fx.push({ t: 'active_mutation', label: 'VOLATILE MIX', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 34), tone: 'red', owner: owner || '' });
   }
 }
@@ -1609,6 +1609,114 @@ function quotaCanOpenPortal(run) {
   return roomPacingReady(run);
 }
 
+
+// ---------------------------------------------------------------- player combo
+function createComboState() {
+  return { score: 0, mult: 1, count: 0, timer: 0, window: 0, lastMethod: '', recent: [], flash: 0, drop: 0, best: 1, tier: 0, lastGain: 0, lastLabel: '' };
+}
+function ensureCombo(run) {
+  if (!run.combo) run.combo = createComboState();
+  return run.combo;
+}
+function comboMultiplierFromScore(score) {
+  const s = Math.max(0, Number(score) || 0);
+  if (s <= 0.01) return 1;
+  return Math.round((1 + Math.min(8.9, Math.pow(s / 42, 0.78) * 0.85)) * 10) / 10;
+}
+function comboTier(mult) {
+  if (mult >= 7) return 4;
+  if (mult >= 5) return 3;
+  if (mult >= 3) return 2;
+  if (mult >= 1.6) return 1;
+  return 0;
+}
+function comboSourceFromBullet(b = {}) {
+  const k = String(b.kind || '');
+  if (b.ricocheted) return 'ricochet';
+  if (b.mine) return 'rocketgun';
+  if (k === 'shotgun' || k === 'seeker' || k === 'rocketgun') return k;
+  if (k === 'drone') return 'drone';
+  if (k === 'active_shrapnel' || k === 'active_noise') return 'ability';
+  if (k === 'mine') return 'rocketgun';
+  return k || 'weapon';
+}
+function comboSourceLabel(method) {
+  return ({
+    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKET', ricochet: 'RICOCHET',
+    ability: 'ABILITY', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE', status: 'STATUS',
+    blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
+  })[method] || String(method || 'HIT').toUpperCase();
+}
+function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
+  if (!run || run.phase !== 'play' || !actor || !actor.alive) return;
+  method = String(method || 'hit').toLowerCase();
+  if (!method || method === 'dev' || method === 'hit') method = 'weapon';
+  const c = ensureCombo(run);
+  const def = enemy?.kind ? ENEMIES[enemy.kind] : null;
+  const score = Math.max(1, def?.score || 1);
+  let gain = (7 + score * 4.5) * Math.max(0.1, Number(scale) || 1);
+  if (enemy?.elite) gain *= 1.65;
+  if (def?.boss) gain *= 4.5;
+  const recent = Array.isArray(c.recent) ? c.recent : [];
+  if (method !== c.lastMethod) gain *= 1.45;
+  else gain *= 0.72;
+  if (!recent.includes(method)) gain *= 1.22;
+  const repeated = recent.filter(x => x === method).length;
+  if (repeated >= 2) gain *= 0.66;
+  c.score = Math.max(0, c.score || 0) + gain;
+  c.count = Math.max(0, c.count | 0) + 1;
+  c.lastMethod = method;
+  c.recent = [method, ...recent].slice(0, 5);
+  c.timer = Math.max(c.timer || 0, Math.min(5.2, 2.65 + Math.min(1.55, comboMultiplierFromScore(c.score) * 0.18) + Math.min(0.8, score * 0.08)));
+  c.window = c.timer;
+  c.flash = 0.34;
+  c.drop = 0;
+  c.lastGain = Math.round(gain);
+  c.lastLabel = comboSourceLabel(method);
+  const oldTier = c.tier || 0;
+  c.mult = comboMultiplierFromScore(c.score);
+  c.best = Math.max(c.best || 1, c.mult || 1);
+  c.tier = comboTier(c.mult);
+  if (run.runMemory) run.runMemory.bestCombo = Math.max(run.runMemory.bestCombo || 1, c.best || 1);
+  if (c.tier > oldTier || c.count === 1) run.fx.push({ t: 'combo_tick', mult: c.mult, tier: c.tier, method, label: c.lastLabel, x: Math.round(actor.x || 0), y: Math.round(actor.y || 0), id: actor.id });
+}
+function damageCombo(run, p, dmg = 0) {
+  if (!run || !p || !run.combo) return;
+  const c = ensureCombo(run);
+  if ((c.score || 0) <= 0) return;
+  const loss = Math.max(14, Math.min(c.score * 0.42, c.score * 0.24 + Math.max(0, Number(dmg) || 0) * 0.85));
+  c.score = Math.max(0, c.score - loss);
+  c.mult = comboMultiplierFromScore(c.score);
+  c.tier = comboTier(c.mult);
+  c.timer = c.score > 0 ? Math.max(1.15, Math.min(c.timer || 0, 2.4)) : 0;
+  c.drop = 0.45;
+  c.flash = 0.10;
+  if (c.score <= 0) { c.count = 0; c.lastMethod = ''; c.recent = []; c.lastLabel = ''; }
+  run.fx.push({ t: 'combo_drop', mult: c.mult, id: p.id, dmg: Math.round(dmg || 0) });
+}
+function stepCombo(run, dt) {
+  const c = ensureCombo(run);
+  c.flash = Math.max(0, (c.flash || 0) - dt);
+  c.drop = Math.max(0, (c.drop || 0) - dt);
+  if ((c.score || 0) <= 0) { c.score = 0; c.mult = 1; c.timer = 0; c.tier = 0; return; }
+  c.timer = Math.max(0, (c.timer || 0) - dt);
+  if (c.timer <= 0) {
+    c.score = 0; c.mult = 1; c.count = 0; c.lastMethod = ''; c.recent = []; c.tier = 0; c.lastGain = 0; c.lastLabel = ''; c.window = 0;
+    run.fx.push({ t: 'combo_break' });
+    return;
+  }
+  c.mult = comboMultiplierFromScore(c.score);
+  c.tier = comboTier(c.mult);
+}
+function comboSnapshot(run) {
+  const c = ensureCombo(run);
+  return {
+    score: Math.round(c.score || 0), mult: c.mult || 1, count: c.count || 0,
+    timer: Math.max(0, Math.round((c.timer || 0) * 10) / 10), window: Math.max(0.1, Math.round((c.window || 3) * 10) / 10),
+    lastMethod: c.lastMethod || '', recent: (c.recent || []).slice(0, 4), flash: c.flash || 0, drop: c.drop || 0, tier: c.tier || 0, best: c.best || 1, lastLabel: c.lastLabel || ''
+  };
+}
+
 // ---------------------------------------------------------------- state
 export function createRun(seedBase) {
   return {
@@ -1631,8 +1739,8 @@ export function createRun(seedBase) {
     staticRainCanSeedNext: false,
     staticRainFromPending: false,
     roomStaticRainFalls: 0,
-    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], nextRoomPreview: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0,
-    runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalDamageTaken: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0 },
+    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], nextRoomPreview: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(),
+    runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalDamageTaken: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 },
     tapeLog: [],
     plan: null,
     enemies: [], bullets: [], pickups: [], activeFields: [], pendingCasinoRolls: [],
@@ -1725,6 +1833,7 @@ export function startRoom(run, players) {
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
+  run.combo = createComboState();
   initRoomStats(run);
   run.roomObjective = shouldOfferRoomContract(run.plan, run.runDepth, seed) ? roomObjectiveForPlan(run.plan, run.runDepth) : null;
   attachContractPrizePreview(run);
@@ -1845,7 +1954,7 @@ export function startRoom(run, players) {
   }
   if (run.plan.category === 'boss') spawnEnemy(run, players, 'boss', false);
   else if (run.plan.modifierIds.includes('hunter_contract')) {
-    run.fx.push({ t: 'contract', label: 'HUNTER WAVES', body: `${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
+    run.fx.push({ t: 'contract', label: 'HUNTER WAVES', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
   }
   if (run.plan.specialRoomId === 'reward_pocket') {
     for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18));
@@ -1870,8 +1979,9 @@ export function resetRun(run, players) {
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
+  run.combo = createComboState();
   run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
-  run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalDamageTaken: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0 };
+  run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalDamageTaken: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
   run.tapeLog = [];
   for (const p of players.values()) {
     p.weapons = ['shotgun']; p.weaponIdx = 0; p.cd = 0;
@@ -1913,8 +2023,41 @@ function spawnPool(run) {
   if (run.runDepth === 1) return ['grunt','grunt','runner','shooter'];
   if (run.runDepth === 2) return ['grunt','runner','runner','shooter','charger'];
   if (loop === 1) return ['grunt','runner','shooter','charger','bomber','bouncer','splitter'];
-  if (loop === 2) return ['grunt','runner','shooter','charger','bomber','bouncer','tank','glitch','anchor','leech','pulse','damper'];
+  if (loop === 2) return ['grunt','runner','shooter','charger','bomber','bouncer','tank','glitch','anchor','leech','pulse','damper','warden'];
   return SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
+}
+
+// v2.1.9: Event/modifier spawn gates. Room modifiers that create extra enemies must
+// respect run difficulty instead of pulling late-loop bodies on loop 0. This is stricter
+// than the normal director pool because forced events can stack with room rules.
+const MODIFIER_ENEMY_MIN_LOOP = {
+  grunt: 0, runner: 0, shooter: 0, charger: 0,
+  bomber: 1, bouncer: 1, splitter: 1,
+  tank: 2, glitch: 2, anchor: 2, leech: 2, pulse: 2, damper: 2, warden: 2,
+  echo: 3, orbiter: 3, prism: 3, herald: 3, boss: 99
+};
+function modifierLoop(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
+function enemyAllowedForModifier(run, kind) {
+  if (!ENEMIES[kind]) return false;
+  const loop = modifierLoop(run);
+  const minLoop = MODIFIER_ENEMY_MIN_LOOP[kind] ?? 0;
+  if (loop < minLoop) return false;
+  return spawnPool(run).includes(kind);
+}
+function filterModifierEnemyPool(run, requested, fallback = ['grunt','runner']) {
+  const seen = new Set();
+  const out = [];
+  for (const k of requested || []) {
+    if (seen.has(k)) continue;
+    if (enemyAllowedForModifier(run, k)) { out.push(k); seen.add(k); }
+  }
+  if (out.length) return out;
+  for (const k of fallback) if (enemyAllowedForModifier(run, k) && !seen.has(k)) { out.push(k); seen.add(k); }
+  return out.length ? out : ['grunt'];
+}
+function modifierEnemyKind(run, requested, fallback = ['grunt','runner']) {
+  const pool = filterModifierEnemyPool(run, requested, fallback);
+  return pool[Math.floor(Math.random() * pool.length)] || 'grunt';
 }
 
 
@@ -2622,14 +2765,14 @@ function finishHeraldSummon(run, players, h, target) {
   const df = difficulty(run);
   if (run.enemies.length >= df.maxActive) return;
   const sp = heraldSummonPoint(run, h, target);
-  const pool = ['grunt','runner','runner','glitch','bouncer','pulse'];
+  const pool = filterModifierEnemyPool(run, ['grunt','runner','runner','glitch','bouncer','pulse'], ['grunt','runner']);
   const n = Math.min(6, 2 + Math.min(3, df.loop));
   const per = { x: -sp.dy, y: sp.dx };
   for (let i = 0; i < n && run.enemies.length < df.maxActive; i++) {
     const row = i - (n - 1) / 2;
     const ahead = 18 + Math.floor(i / 3) * 24;
     const pos = collideWalls(sp.x + per.x * row * 34 + sp.dx * ahead, sp.y + per.y * row * 34 + sp.dy * ahead, 24, run.plan.walls || [], sp.x, sp.y);
-    const e = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)], false, pos, { noArmor: true });
+    const e = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)] || 'grunt', false, pos, { noArmor: true });
     e.rallyT = Math.max(e.rallyT || 0, 1.6);
     e.rallyTargetId = target.id;
   }
@@ -2760,12 +2903,14 @@ function damagePlayer(run, p, dmg, srcX, srcY) {
   if (run.roomStats) run.roomStats.damageTaken += dmg;
   if (isGreedRoom(run)) {
     playerMoneyCost(run, p, dmg, srcX ?? p.x, srcY ?? p.y, 'GREED HIT');
+    damageCombo(run, p, dmg);
     p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
     return;
   }
   p.hp -= dmg;
   p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
   run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y) });
+  damageCombo(run, p, dmg);
   if (p.hp <= 0) {
     const favor = consumeContractFavor(run, ['portal_insurance']);
     if (favor) {
@@ -2780,7 +2925,7 @@ function damagePlayer(run, p, dmg, srcX, srcY) {
   }
 }
 
-function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
+function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
   const def = ENEMIES[e.kind];
   // Armor is a real shell class: it absorbs hits before HP.
   // Plain shell loses shell HP from shots. Linked shell loses nothing while its unarmored battery mob is alive nearby.
@@ -2800,6 +2945,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
       e.armorLockT = 0;
       e.armorLinkId = '';
       run.fx.push({ t: 'armor_break', id: e.id, shellType: e.shellType || 'plain', x: Math.round(e.x), y: Math.round(e.y) });
+      if (owner && players?.get) registerComboEvent(run, players.get(owner), 'shell', e, 0.42);
       rewardShellMarket(run, e.x, e.y);
     }
     return;
@@ -2825,7 +2971,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky) {
   if (p && p.stats.lifesteal > 0 && p.alive) {
     p.hp = Math.min(maxHp(p), p.hp + dmg * p.stats.lifesteal);
   }
-  if (e.hp <= 0) killEnemy(run, players, e, p);
+  if (e.hp <= 0) killEnemy(run, players, e, p, source);
 }
 
 
@@ -2850,12 +2996,13 @@ function spreadElementStatusesOnKill(run, players, dead, killer) {
   if (count) run.fx.push({ t: 'active_mutation', label: 'STATUS SPREAD', x: Math.round(dead.x), y: Math.round(dead.y), r: Math.round(r), tone: hasPoison ? 'green' : hasFreeze ? 'cyan' : 'red', owner: killer.id });
 }
 
-function killEnemy(run, players, e, killer) {
+function killEnemy(run, players, e, killer, source = 'hit') {
   const def = ENEMIES[e.kind];
   run.enemies = run.enemies.filter(x => x.id !== e.id);
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
   run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
+  registerComboEvent(run, killer, source, e, 1);
   spreadElementStatusesOnKill(run, players, e, killer);
   if (e.kind === 'splitter' && (e.splitStage || 0) < 2) {
     const children = 2 + Math.floor(Math.random() * 2);
@@ -2980,7 +3127,7 @@ function applyBulletElements(run, players, e, b, strength = 1) {
       e.elemComboCd = 0.40;
       const crack = Math.max(2, (b.dmg || 6) * (0.16 + fireStacks * 0.05) * strength);
       e.frozenT *= 0.42;
-      damageEnemy(run, players, e, crack, owner, 0, 0, 0);
+      damageEnemy(run, players, e, crack, owner, 0, 0, 0, 'status');
       if (e.hp <= 0) return;
       run.fx.push({ t: 'active_mutation', label: 'THERMAL CRACK', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 30), tone: 'red', owner: owner || '' });
     }
@@ -3015,7 +3162,7 @@ function applyBulletElements(run, players, e, b, strength = 1) {
   }
   if (elem.includes('fire') && (elem.includes('poison') || (e.poisonT || 0) > 0) && (e.elemComboCd || 0) <= 0) {
     e.elemComboCd = 0.65;
-    damageEnemy(run, players, e, Math.max(2, (b.dmg || 6) * 0.18 * strength), owner, 0, 0, 0);
+    damageEnemy(run, players, e, Math.max(2, (b.dmg || 6) * 0.18 * strength), owner, 0, 0, 0, 'status');
     if (e.hp > 0) run.fx.push({ t: 'active_mutation', label: 'VOLATILE MIX', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 32), tone: 'red', owner: owner || '' });
   }
 }
@@ -3048,7 +3195,7 @@ function applyWeaponChain(run, players, startEnemy, b) {
       x2: Math.round(best.x), y2: Math.round(best.y), range: Math.round(linkRange), jump: i + 1
     });
     run.fx.push({ t: 'weapon_chain_lock', x: Math.round(best.x), y: Math.round(best.y), r: Math.round((best.size || 18) + 14), tone: 'cyan' });
-    damageEnemy(run, players, best, dmg, b.owner, (b.knock || 0) * 0.18, n.x, n.y);
+    damageEnemy(run, players, best, dmg, b.owner, (b.knock || 0) * 0.18, n.x, n.y, 'chain');
     if (best.hp > 0 && b.elem) applyBulletElements(run, players, best, b, Math.max(0.25, 0.62 * Math.pow(0.96, i)));
     jumps++;
     from = { x: best.x, y: best.y, id: best.id, size: best.size || 18 };
@@ -3139,7 +3286,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
       }
       if (elem) applyBulletElements(run, players, e, { owner, dmg, elem, elemPower }, 0.58);
       const knock = opts.scatter ? Math.max(220, opts.knock || 260) : 0;
-      damageEnemy(run, players, e, activeScale(dmg), owner, knock, n.x, n.y);
+      damageEnemy(run, players, e, activeScale(dmg), owner, knock, n.x, n.y, opts.comboMethod || (style === 'rocket' ? 'rocketgun' : 'blast'));
     }
   }
   if (hurtPlayers) {
@@ -3158,7 +3305,7 @@ function rocketControlOpts(b) {
   };
 }
 function rocketExplode(run, players, b, x = b.x, y = b.y, r = b.aoe || 70, dmg = b.dmg) {
-  explode(run, players, x, y, r, dmg, b.owner, false, 'rocket', b.elem || '', b.elemPower || 0, rocketControlOpts(b));
+  explode(run, players, x, y, r, dmg, b.owner, false, 'rocket', b.elem || '', b.elemPower || 0, { ...rocketControlOpts(b), comboMethod: comboSourceFromBullet(b) });
 }
 
 function rocketAftermath(run, players, b) {
@@ -3326,7 +3473,7 @@ function stepBullets(run, players, dt) {
           b.x = ox;
           b.vy *= -0.82;
         }
-        b.bounces--; b.life *= 0.90;
+        b.bounces--; b.ricocheted = (b.ricocheted || 0) + 1; b.life *= 0.90;
         run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, rocket: b.kind === 'rocketgun' ? 1 : 0, left: b.bounces, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
         continue;
       }
@@ -3342,7 +3489,7 @@ function stepBullets(run, players, dt) {
             const n = norm(b.vx, b.vy);
             run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
             applyBulletElements(run, players, e, b, 1);
-            damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y);
+            damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y, comboSourceFromBullet(b));
             applyWeaponChain(run, players, e, b);
             if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48, { rangeMul: b.rangeMul || 1, bounces: b.bounces || 0, elem: b.elem || '', elemPower: b.elemPower || 0 });
             const blasts = chanceStacks(b.proc || 0);
@@ -3693,15 +3840,23 @@ function touchDamage(run, e, players, dt) {
 // ---------------------------------------------------------------- companions
 // drones/orbitals: positions derived deterministically from player pos + time
 export function orbitalPos(p, i, total, now, run = null) {
-  const ang = (now * 1.8 + (i / total) * Math.PI * 2);
-  const r = 58 + 14 * Math.floor(i / 8);
-  const base = { x: p.x + Math.cos(ang) * r, y: p.y + Math.sin(ang) * r };
+  const count = Math.max(1, total || 1);
+  const phase = (i / count) * Math.PI * 2;
+  const spin = now * (1.72 + Math.min(0.42, Math.max(0, p?.stats?.orbSpeed || 0) * 0.035));
+  const ang = spin + phase;
+  const ring = Math.floor(i / 8);
+  const r = 64 + 16 * ring + Math.sin(now * 2.15 + phase * 1.7) * 4.5;
+  const radial = { x: Math.cos(ang), y: Math.sin(ang) };
+  const tangent = { x: -radial.y, y: radial.x };
+  const base = { x: p.x + radial.x * r, y: p.y + radial.y * r };
   if (!run || !(p?.stats?.orbitals > 0)) return base;
+
   const rangeBonus = Math.max(0, p.stats.orbRange || 0);
   const speedBonus = Math.max(0, p.stats.orbSpeed || 0);
-  const enemyRange = 104 + rangeBonus * 38;
-  const bulletRange = (p.stats.orbReflect || 0) > 0 ? 74 + rangeBonus * 28 + (p.stats.orbReflect || 0) * 16 : 0;
+  const enemyRange = 108 + rangeBonus * 34;
+  const bulletRange = (p.stats.orbReflect || 0) > 0 ? 78 + rangeBonus * 25 + (p.stats.orbReflect || 0) * 14 : 0;
   let target = null, bd = Infinity, bulletTarget = false;
+
   if (bulletRange > 0) {
     for (const b of run.bullets || []) {
       if (b.from !== 'e' || (b.delay || 0) > 0 || b.life <= 0) continue;
@@ -3709,6 +3864,7 @@ export function orbitalPos(p, i, total, now, run = null) {
       if (d < bd && d <= bulletRange * bulletRange) { bd = d; target = b; bulletTarget = true; }
     }
   }
+
   if (!target) {
     for (const e of run.enemies || []) {
       if (!e || e.hp <= 0) continue;
@@ -3716,9 +3872,36 @@ export function orbitalPos(p, i, total, now, run = null) {
       if (d < bd && d <= enemyRange * enemyRange) { bd = d; target = e; bulletTarget = false; }
     }
   }
+
   if (!target) return base;
-  const pull = Math.min(bulletTarget ? 0.82 : 0.70, (bulletTarget ? 0.55 : 0.42) + speedBonus * 0.08);
-  return { x: base.x + (target.x - base.x) * pull, y: base.y + (target.y - base.y) * pull };
+
+  const d = Math.max(1, Math.sqrt(bd));
+  const range = bulletTarget ? bulletRange : enemyRange;
+  const influence = Math.max(0, Math.min(1, 1 - d / Math.max(1, range)));
+  const away = norm(base.x - target.x, base.y - target.y);
+  const skimDir = ((i + Math.floor(now * 0.7)) % 2 === 0) ? 1 : -1;
+
+  if (bulletTarget) {
+    // Enemy bullets are still intercepted, but the orbital does not hard-snap into them.
+    const cut = Math.pow(influence, 1.65);
+    return {
+      x: base.x + (target.x - base.x) * (0.18 + cut * 0.18) + tangent.x * skimDir * cut * 7,
+      y: base.y + (target.y - base.y) * (0.18 + cut * 0.18) + tangent.y * skimDir * cut * 7
+    };
+  }
+
+  // v2.1.8: orbitals skim targets instead of magneting into the enemy body.
+  // They keep the player's orbit, get a soft repulsion when too close, and slide along
+  // the tangent so contact reads like a fly-by / bounce rather than a stuck saw.
+  const body = Math.max(18, (target.size || 24) * 0.5 + 18);
+  const tooClose = Math.max(0, (body - d) / body);
+  const repulse = (10 + speedBonus * 1.8) * influence + tooClose * (24 + speedBonus * 3.0);
+  const slide = (8 + speedBonus * 2.4) * Math.pow(influence, 0.75) + tooClose * 13;
+  const orbitLift = Math.sin(now * 5.0 + phase) * 2.2 * influence;
+  return {
+    x: base.x + away.x * repulse + tangent.x * skimDir * slide + radial.x * orbitLift,
+    y: base.y + away.y * repulse + tangent.y * skimDir * slide + radial.y * orbitLift
+  };
 }
 function stepCompanions(run, players, dt, now) {
   for (const p of players.values()) {
@@ -3759,7 +3942,7 @@ function stepCompanions(run, players, dt, now) {
         for (const e of run.enemies) {
           if (p.orbHits.has(e.id)) continue;
           if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 12) ** 2) {
-            damageEnemy(run, players, e, (18 + Math.max(0, p.stats.orbSpeed || 0) * 3) * p.stats.dmgMul, p.id, 0, 0, 0);
+            damageEnemy(run, players, e, (18 + Math.max(0, p.stats.orbSpeed || 0) * 3) * p.stats.dmgMul, p.id, 0, 0, 0, 'orbital');
             p.orbHits.set(e.id, now + 0.34);
           }
         }
@@ -3798,15 +3981,21 @@ function spawnHunterWave(run, players) {
   hw.index += 1;
   const wave = hw.index;
   const df = difficulty(run);
-  const pool = wave <= 1 ? ['grunt','runner','runner'] : wave === 2 ? ['runner','shooter','charger','bouncer'] : ['runner','shooter','charger','bouncer','glitch','tank','herald'];
+  const requested = wave <= 1
+    ? ['grunt','runner','runner']
+    : wave === 2
+      ? ['runner','shooter','charger','bouncer']
+      : ['runner','shooter','charger','bouncer','glitch','tank','pulse','leech','herald'];
+  const pool = filterModifierEnemyPool(run, requested, ['grunt','runner','shooter','charger']);
   const count = Math.min(16, 4 + wave * 2 + Math.floor((run.runDepth || 0) / 3));
   const hunterForm = wave <= 1 ? 'stream' : (wave === 2 ? 'pinch' : (wave % 2 ? 'fan' : 'ring'));
   const layout = createCrowdLayout(run, players, { id: 'hunter_wave', intent: 'swarm', crowdForm: hunterForm }, count, { mode: 'hunter', allowSecondary: df.loop >= 3, forceSecondary: df.loop >= 6 && wave >= 3 });
   const center = layout.center || spawnClusterPoint(run, players);
   for (let i = 0; i < count && run.enemies.length < df.maxActive; i++) {
-    const kind = pool[Math.floor(Math.random() * pool.length)];
-    const pos = crowdSpawnPos(run, players, layout, i, count, { kind, opts: { noArmor: wave <= 1 } });
-    const e = spawnEnemy(run, players, kind, wave >= 2 && Math.random() < Math.min(0.85, 0.12 * wave + df.loop * 0.04), pos, { noArmor: wave <= 1 });
+    const kind = pool[Math.floor(Math.random() * pool.length)] || 'grunt';
+    const pos = crowdSpawnPos(run, players, layout, i, count, { kind, opts: { noArmor: wave <= 1 || df.loop <= 0 } });
+    const canElite = df.loop > 0 && wave >= 2 && Math.random() < Math.min(0.85, 0.12 * wave + df.loop * 0.04);
+    const e = spawnEnemy(run, players, kind, canElite, pos, { noArmor: wave <= 1 || df.loop <= 0 });
     e.hunterWave = wave;
     e.rallyT = Math.max(e.rallyT || 0, 1.1);
   }
@@ -3843,13 +4032,32 @@ function casinoVirusSymbols(label = '') {
 function buildCasinoVirusEvent(run, players) {
   const roll = Math.random();
   const center = spawnClusterPoint(run, players);
-  if (roll < 0.26) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: 5 + Math.floor(Math.random() * 5) + Math.floor((run.runDepth || 0) / 4), pool: ['runner','glitch','bouncer','shooter','charger'] };
-  if (roll < 0.48) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: 2 };
-  if (roll < 0.66) return { kind: 'big_static', label: 'BIG STATIC STORM', center, stacks: 5 };
-  if (roll < 0.80) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 3 + Math.floor(Math.random() * 3), pool: ['tank','charger','leech','warden','damper','prism'] };
-  if (roll < 0.92) return { kind: 'mini_boss', label: 'VIRUS MINI BOSS', center };
-  return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 };
+  const df = difficulty(run);
+  const loop = df.loop;
+  const mobPool = filterModifierEnemyPool(run, ['runner','glitch','bouncer','shooter','charger'], ['grunt','runner','shooter']);
+  const elitePool = filterModifierEnemyPool(run, ['tank','charger','leech','warden','damper','prism'], ['runner','shooter','charger','bomber']);
+  const mobN = Math.min(10, 4 + Math.floor(Math.random() * 4) + Math.floor((run.runDepth || 0) / 5));
+
+  if (loop <= 0) {
+    if (roll < 0.46) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
+    if (roll < 0.72) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: 1 };
+    if (roll < 0.90) return { kind: 'elite_pack', label: 'VIRUS GUARD PACK', center, n: 2 + Math.floor(Math.random() * 2), pool: elitePool };
+    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 5 };
+  }
+  if (loop === 1) {
+    if (roll < 0.34) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
+    if (roll < 0.58) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: 2 };
+    if (roll < 0.82) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 2 + Math.floor(Math.random() * 3), pool: elitePool };
+    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 };
+  }
+  if (roll < 0.26) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN + Math.min(3, loop), pool: mobPool };
+  if (roll < 0.48) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: Math.min(3, 2 + Math.floor(loop / 4)) };
+  if (roll < 0.66) return { kind: 'big_static', label: 'BIG STATIC STORM', center, stacks: Math.min(STATIC_RAIN_MAX_LEVEL, 4 + Math.floor(loop / 2)) };
+  if (roll < 0.84) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 3 + Math.floor(Math.random() * 3) + Math.min(2, df.late), pool: elitePool };
+  if (roll < 0.94 && loop >= 3) return { kind: 'mini_boss', label: 'VIRUS MINI BOSS', center };
+  return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 + Math.min(4, loop) };
 }
+
 function safeRunNow(run) {
   const n = Number(run?.now);
   return Number.isFinite(n) ? n : 0;
@@ -3874,18 +4082,20 @@ function applyCasinoVirusEvent(run, players, ev) {
   if (!ev) return 0;
   const cv = run.casinoVirus || {};
   const center = ev.center || spawnClusterPoint(run, players);
+  const df = difficulty(run);
   let spawned = 0;
   if (ev.kind === 'mob_pack' || ev.kind === 'elite_pack') {
-    const df = difficulty(run);
     const n = Math.max(1, ev.n | 0);
-    const pool = Array.isArray(ev.pool) && ev.pool.length ? ev.pool : ['runner','glitch','bouncer','shooter','charger'];
+    const pool = filterModifierEnemyPool(run, Array.isArray(ev.pool) && ev.pool.length ? ev.pool : ['runner','glitch','bouncer','shooter','charger'], ['grunt','runner','shooter']);
     const form = ev.kind === 'mob_pack' ? 'cloud' : (ev.kind === 'elite_pack' ? 'fan' : 'ring');
     const layout = createCrowdLayout(run, players, { id: 'casino_virus_event', intent: 'chaos', crowdForm: form }, n, { mode: 'casino', allowSecondary: df.loop >= 3 });
     center.x = layout.center.x; center.y = layout.center.y;
     for (let i = 0; i < n && run.enemies.length < MAX_ENEMIES; i++) {
-      const kind = pool[Math.floor(Math.random() * pool.length)];
-      const pos = crowdSpawnPos(run, players, layout, i, n, { kind, opts: { noArmor: ev.kind === 'mob_pack' && i < 2 } });
-      const e = spawnEnemy(run, players, kind, ev.kind === 'elite_pack' || i > 3, pos, { noArmor: ev.kind === 'mob_pack' && i < 2 });
+      const kind = pool[Math.floor(Math.random() * pool.length)] || 'grunt';
+      const noArmor = (ev.kind === 'mob_pack' && i < 2) || df.loop <= 0;
+      const canElite = df.loop > 0 && (ev.kind === 'elite_pack' || i > 3);
+      const pos = crowdSpawnPos(run, players, layout, i, n, { kind, opts: { noArmor } });
+      const e = spawnEnemy(run, players, kind, canElite, pos, { noArmor });
       if (e) { e.virusSpawn = true; spawned++; }
     }
     run.fx.push({ t: 'director_wave', label: ev.label, intent: 'chaos', x: Math.round(center.x), y: Math.round(center.y), count: spawned });
@@ -3895,6 +4105,7 @@ function applyCasinoVirusEvent(run, players, ev) {
     cv.rainKind = cv.activeRainStacks >= 5 ? 'big' : 'static';
     run.fx.push({ t: 'contract_done', label: 'CASINO VIRUS', body: ev.kind === 'big_static' ? 'BIG ROOM STATIC STORM STARTED' : 'ROOM STATIC STORM STARTED' });
   } else if (ev.kind === 'mini_boss') {
+    if (df.loop < 3 || !enemyAllowedForModifier(run, 'herald')) return 0;
     const e = spawnEnemy(run, players, 'herald', true, center, { noArmor: true });
     if (e) {
       e.maxHp = Math.round(e.maxHp * 1.65); e.hp = e.maxHp; e.dmg = Math.round(e.dmg * 1.25); e.virusBoss = true; e.virusSpawn = true; spawned = 1;
@@ -4609,7 +4820,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     let guard = 0;
     while (run.enemies.length && guard++ < 500) {
       const batch = [...run.enemies];
-      for (const e of batch) if (run.enemies.includes(e)) killEnemy(run, players, e, p);
+      for (const e of batch) if (run.enemies.includes(e)) killEnemy(run, players, e, p, 'dev');
     }
     run.bullets = run.bullets.filter(b => b.from === 'p');
     run.fx.push({ t: 'active_mutation', label: 'DEV KILL ALL', x: Math.round(p.x), y: Math.round(p.y), r: 180, tone: 'purple' });
@@ -4745,6 +4956,7 @@ function beginTransition(run, players) {
   run.fx.push({ t: 'room_invoice', roomId: run.plan?.roomId || '', solvedTime: Math.round(time), kills: st.kills ?? run.kills, gld: Math.round(st.gld || 0), exp: Math.round(st.exp || 0), hea: Math.round(st.hea || 0), dmg: Math.round(st.damageTaken || 0), noHit, fast, staticPaid: run.staticRainFromPending ? 1 : 0, nextStatic: nextStaticRainLevel(run, players), archetype: run.plan?.roomArchetype || 'standard', shellBreaks: st.shellBreaks || 0, prismHits: st.prismHits || 0, bloodTaxes: st.bloodTaxes || 0, wireTouches: st.wireTouches || 0, huntedWaves: st.huntedWaves || 0, bonusGld, bonusExp, objectiveBonusGld, objectiveBonusExp, contractChain, contractBonusGld, contractBonusExp, contractFavorsEarned: earnedFavors.map(f => favorSnapshotItem(f, false)), objective: objResult ? { id: objResult.id, label: objResult.label, done: objResult.done, status: objResult.done ? 'paid' : 'failed', statusLabel: objResult.done ? 'PAID' : 'FAILED', failReason: objResult.failReason || '', progress: objResult.progress, prizePreview: objResult.prizePreview || [], bonusGld: objectiveBonusGld, bonusExp: objectiveBonusExp } : null, tapes: tapes.slice(0, 4) });
   run.contractFavorsActive = [];
   run.contractFavorsUsedThisRoom = [];
+  run.combo = createComboState();
   run.phase = 'install';
   run.phaseT = 0;
   run.enemies = []; run.bullets = [];
@@ -4904,7 +5116,7 @@ function activeFreezeEnemy(run, e, hold = 0.28) {
 }
 function activeDamageEnemy(run, players, e, dmg, owner, kind = 'active') {
   const before = e.hp;
-  damageEnemy(run, players, e, activeScale(dmg), owner, 0, 0, 0);
+  damageEnemy(run, players, e, activeScale(dmg), owner, 0, 0, 0, kind === 'dash' ? 'dash' : 'ability');
   return Math.max(0, before - Math.max(0, e.hp || 0));
 }
 function activeCrackShell(run, e, dmg, forceBreakLink = false) {
@@ -5658,7 +5870,7 @@ function stepPlayers(run, players, dt) {
         let hit = 0;
         for (const e of run.enemies) {
           if (distToSegment2(e.x, e.y, ox, oy, c.x, c.y) < (riftW + e.size / 2) ** 2) {
-            activeDamageEnemy(run, players, e, riftDmg, p.id);
+            activeDamageEnemy(run, players, e, riftDmg, p.id, 'dash');
             e.activeSlowT = Math.max(e.activeSlowT || 0, 0.16 + stacks * 0.03);
             e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.70);
             hit++;
@@ -5726,6 +5938,7 @@ export function step(run, players, dt, now) {
   stepCompanions(run, players, dt, now);
   stepPickups(run, players, dt);
   stepMods(run, players, dt);
+  stepCombo(run, dt);
   tryCleanupPortal(run);
   updateRoomObjectiveLiveState(run);
   // all dead?
@@ -5845,7 +6058,7 @@ export function buildSnapshot(run, players) {
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run),
-      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run)
+      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run)
     },
     players: ps, enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
   };

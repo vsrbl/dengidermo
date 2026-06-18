@@ -139,6 +139,43 @@ function dangerLabel(room = {}) {
 function tagJoin(tags = [], fallback = '—') {
   return Array.isArray(tags) && tags.length ? tags.slice(0, 4).map(locTag).join(' / ') : fallback;
 }
+
+function comboMethodLabel(m) {
+  const key = String(m || '').toLowerCase();
+  const ru = {
+    shotgun: 'ДРОБОВИК', seeker: 'ИСКАТЕЛЬ', rocketgun: 'РАКЕТА', ricochet: 'ОТСКОК',
+    ability: 'УМЕНИЕ', dash: 'РЫВОК', orbital: 'ОРБИТАЛЬ', drone: 'ДРОН', status: 'СТАТУС',
+    blast: 'ВЗРЫВ', chain: 'ЦЕПЬ', shell: 'БРОНЯ', weapon: 'ОРУЖИЕ'
+  };
+  const en = {
+    shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKET', ricochet: 'RICOCHET',
+    ability: 'ABILITY', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE', status: 'STATUS',
+    blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
+  };
+  return localText(ru[key] || String(key || 'УДАР').toUpperCase(), en[key] || String(key || 'HIT').toUpperCase());
+}
+function comboExplain(c = {}) {
+  const methods = (c.recent || []).map(comboMethodLabel).join(' · ') || localText('пока нет', 'none yet');
+  return localText(
+    `Комбо растёт от убийств и важных боевых действий. Разные способы дают больше роста. Если долго не добивать врагов, комбо сгорает. Полученный урон снимает часть комбо, но не всё. Последние способы: ${methods}.`,
+    `Combo grows from kills and important combat actions. Different methods build it faster. If you stop killing for too long, combo breaks. Taking damage removes part of the combo, not all of it. Recent methods: ${methods}.`
+  );
+}
+function renderComboHud(c = {}) {
+  const mult = Number(c.mult || 1);
+  const count = Math.max(0, c.count | 0);
+  if (mult <= 1.01 || count <= 0 || (c.timer || 0) <= 0) return '';
+  const recent = (c.recent || []).slice(0, 3).map(comboMethodLabel).join(' · ');
+  const pct = Math.max(0, Math.min(100, ((c.timer || 0) / Math.max(0.1, c.window || 3)) * 100));
+  const tier = Math.max(0, c.tier | 0);
+  const timer = Math.max(0, Number(c.timer || 0)).toFixed(1);
+  return `<div class="combo-frame tier-${tier}${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
+    `<div class="combo-head"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b></div>` +
+    `<div class="combo-methods">${esc(recent || localText('НАБИВАЙ', 'BUILD'))}</div>` +
+    `<div class="combo-timer"><i style="width:${pct.toFixed(0)}%"></i></div>` +
+    `<div class="combo-sub"><span>${count}</span><em>${timer}s</em></div>` +
+  `</div>`;
+}
 function roomIntelExplain(room = {}, isNext = false) {
   const mods = (room.mods || []).map(m => roomModLabel(m, room)).join(' / ') || localText('без модификаторов', 'no modifiers');
   const threats = tagJoin(room.threatTags, localText('обычная зачистка', 'normal clear'));
@@ -617,6 +654,19 @@ export class Hud {
       : (nextStaticBd ? staticBreakdownExplain(nextStaticBd, nextStaticBd.banked || 0) : '');
     const rainHud = staticLine ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('ОБЩИЙ СТАТИК-ШТОРМ', 'TOTAL STATIC STORM'))}" data-explain="${esc(staticExplain)}" data-explain-tone="cyan">${esc(staticLine)}</span></div>` : '';
     const virusHud = room.casinoVirus ? `<div class="static-rain-status virus-only"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s`))}</span></div>` : '';
+    const hunterHud = room.hunterWave ? (() => {
+      const total = Math.max(0, room.hunterWave.total || 0);
+      const done = !!room.hunterWave.done;
+      const current = done ? total : Math.min(total, Math.max(0, room.hunterWave.index || 0));
+      const left = Math.max(0, total - current);
+      const waiting = Math.max(0, Math.ceil(room.hunterWave.waiting || 0));
+      const line = done
+        ? localText('ВОЛНЫ ОХОТНИКОВ · ЗАЧИЩЕНО', 'HUNTER WAVES · CLEARED')
+        : current <= 0
+          ? localText(`ВОЛНЫ ОХОТНИКОВ · 0/${total} · СТАРТ ${waiting}с`, `HUNTER WAVES · 0/${total} · START ${waiting}s`)
+          : localText(`ВОЛНЫ ОХОТНИКОВ · ВОЛНА ${current}/${total} · ОСТАЛОСЬ ${left}`, `HUNTER WAVES · WAVE ${current}/${total} · ${left} LEFT`);
+      return `<div class="static-rain-status hunter-only"><span class="term" data-explain-title="${esc(localText('ВОЛНЫ ОХОТНИКОВ', 'HUNTER WAVES'))}" data-explain="${esc(roomModHint('hunter_contract', room))}" data-explain-tone="red">${esc(line)}</span></div>`;
+    })() : '';
     const currentThreats = tagJoin(room.threatTags, localText('ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL CLEAR'));
     const currentRewards = tagJoin(room.rewardTags, localText('ОБЫЧНАЯ НАГРАДА', 'NORMAL REWARD'));
     const currentObjective = objectiveChip(room.objective, 'CONTRACT');
@@ -644,7 +694,7 @@ export class Hud {
     else if (room.portal[2]) goalHtml = `<span class="done">${t('portalOpen')} — E</span>${skn}`;
     else if (fullClear) goalHtml = `${t('clear')}: ${esc(localText('живых врагов', 'live enemies'))} ${liveEnemies}${skn}`;
     else goalHtml = `${t('clear')} ${killProgress} / ${killGoal}${liveEnemies ? ` · ${esc(localText('живых', 'alive'))} ${liveEnemies}` : ''}${skn}`;
-    obj.innerHTML = `${rainHud}${virusHud}${currentHud}${prophecyHud}<div>${goalHtml}</div>`;
+    obj.innerHTML = `${rainHud}${virusHud}${hunterHud}${currentHud}${prophecyHud}<div>${goalHtml}</div>`;
     const contractCard = $('hud-contract-card');
     if (contractCard) {
       if (room.objective && room.phase !== 'install') {
@@ -718,6 +768,13 @@ export class Hud {
     const lvlEl = $('hud-lvl');
     lvlEl.textContent = `LVL ${me[P.LVL]} · ${qTxt}`;
     this.setExplain(lvlEl, t('activeQTitle'), `${activeLabel(me)}. ${activeDesc(me)}${qName !== activeNoneLabel() && qName !== 'НЕТ АКТИВКИ' && qName !== 'NO ACTIVE' ? ' ' + t('activeQUse') : ''}`, qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE' ? '' : 'cyan');
+
+    const comboEl = $('hud-combo');
+    if (comboEl) {
+      const comboHtml = renderComboHud(room.combo || {});
+      if (comboHtml) { comboEl.classList.remove('hidden'); comboEl.innerHTML = comboHtml; }
+      else { comboEl.classList.add('hidden'); comboEl.innerHTML = ''; }
+    }
 
     // weapon slots
     const slots = $('weapon-slots');
