@@ -1096,7 +1096,7 @@ export class Effects {
       ctx.textBaseline = 'middle';
       ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 3);
       ctx.font = `bold 9px 'Courier New', monospace`;
-      ctx.fillText('INSTALL READY', cx, cy + 12);
+      ctx.fillText(localText('УЛУЧШЕНИЕ ГОТОВО', 'INSTALL READY'), cx, cy + 12);
       ctx.restore();
     }
     if (this.slam > 0) {

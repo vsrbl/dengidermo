@@ -1751,12 +1751,22 @@ function stepCombo(run, players, dt) {
   c.mult = comboMultiplierFromScore(c.score);
   c.tier = comboTier(c.mult);
 }
-function comboSnapshot(run) {
+function comboPreviewPayout(run, players, c = {}) {
+  const kills = Math.max(0, c.count | 0);
+  const mult = Math.max(1, Number(c.mult || comboMultiplierFromScore(c.score || 0)) || 1);
+  const type = comboRewardType(run, players, c);
+  const raw = kills * mult;
+  const amount = type === 'hp' ? Math.max(0, Math.round(raw * 0.1)) : Math.max(0, Math.round(raw * loopEconomyMul(run)));
+  return { type, amount, label: comboRewardLabel(type) };
+}
+function comboSnapshot(run, players) {
   const c = ensureCombo(run);
+  const prize = comboPreviewPayout(run, players, c);
   return {
     score: Math.round(c.score || 0), mult: c.mult || 1, count: c.count || 0,
     timer: Math.max(0, Math.round((c.timer || 0) * 10) / 10), window: Math.max(0.1, Math.round((c.window || 3) * 10) / 10),
-    lastMethod: c.lastMethod || '', recent: (c.recent || []).slice(0, 4), flash: c.flash || 0, drop: c.drop || 0, tier: c.tier || 0, best: c.best || 1, lastLabel: c.lastLabel || '', lastPayout: c.lastPayout || null
+    lastMethod: c.lastMethod || '', recent: (c.recent || []).slice(0, 4), flash: c.flash || 0, drop: c.drop || 0, tier: c.tier || 0, best: c.best || 1, lastLabel: c.lastLabel || '', lastPayout: c.lastPayout || null,
+    prizeType: prize.type, prizeLabel: prize.label, prizeAmount: prize.amount
   };
 }
 
@@ -6102,7 +6112,7 @@ export function buildSnapshot(run, players) {
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run),
-      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run)
+      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players)
     },
     players: ps, enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
   };

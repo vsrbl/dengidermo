@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminal Casino Roguelike</title>
-<link rel="stylesheet" href="style.css?v=2.1.16">
+<link rel="stylesheet" href="style.css?v=2.1.17">
 </head>
 <body>
 <svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
@@ -34,11 +34,11 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">2.1.16</span>
+      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">2.1.17</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
-      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и враги.">LOOP 0 / DEPTH 0</span>
+      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и враги.">ЦИКЛ 0 / ГЛУБИНА 0</span>
       <span id="hud-mods" data-explain-title="МОДИФИКАТОРЫ КОМНАТЫ" data-explain="Наведи на подчёркнутое название модификатора, чтобы увидеть подробное правило именно этой комнаты."></span>
       <span id="hud-ping"></span>
       <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Пробел включает режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, врагов, подборов и BET-терминала.">ОСМОТР</span>
@@ -52,11 +52,11 @@
   <div id="hud-bottom">
     <div id="hud-left">
       <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="ЗДОРОВЬЕ" data-explain="Здоровье игрока. При падении до 0 ты выбываешь до следующей комнаты или перезапуска.">100 / 100</span></div>
-      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт копит уровни. Повышение уровня не прерывает бой, а добавляет INSTALL-выбор между комнатами.">0 / 40</span></div>
+      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт повышает уровень. Новый уровень не прерывает бой, а добавляет выбор улучшения между комнатами.">0 / 40</span></div>
       <div id="hud-stats-line">
         <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и BET-терминала. Подбор GLD делится между живыми игроками.">GLD 0</span>
         <span id="hud-lvl" data-explain-title="УРОВЕНЬ / Q" data-explain="Текущий уровень и статус активной способности Q: готова, перезаряжается или работает усиление.">LVL 0</span>
-        <span id="hud-install" class="hidden" data-explain-title="INSTALL" data-explain="Очередь апгрейдов. Выбор появится после портала и перехода, не во время боя.">INSTALL x0</span>
+        <span id="hud-install" class="hidden" data-explain-title="УЛУЧШЕНИЕ" data-explain="Очередь улучшений. Выбор появится после портала и перехода, не во время боя.">УЛУЧШЕНИЕ x0</span>
       </div>
     </div>
     <div id="hud-right">
@@ -80,17 +80,17 @@
 <!-- install / upgrade picker -->
 <div id="install-modal" class="overlay hidden">
   <div class="panel green-edge">
-    <div class="panel-title green" data-explain-title="INSTALL" data-explain="Выбери один из трёх апгрейдов. Если накоплено несколько INSTALL, варианты будут идти по очереди.">INSTALL <span id="install-pending"></span></div>
+    <div class="panel-title green" data-explain-title="УЛУЧШЕНИЕ" data-explain="Выбери одно из трёх улучшений. Если накоплено несколько выборов, варианты будут идти по очереди.">УЛУЧШЕНИЕ <span id="install-pending"></span></div>
     <div id="install-choices"></div>
     <div id="install-timer"><div id="install-timer-bar"></div></div>
-    <div class="hint"><span class="term" data-explain-title="БЫСТРЫЙ ВЫБОР" data-explain="Клавиши 1, 2 и 3 выбирают соответствующий INSTALL-вариант.">1 / 2 / 3</span> — выбрать</div>
+    <div class="hint"><span class="term" data-explain-title="БЫСТРЫЙ ВЫБОР" data-explain="Клавиши 1, 2 и 3 выбирают соответствующий вариант.">1 / 2 / 3</span> — выбрать</div>
   </div>
 </div>
 
 <!-- weapon chest picker -->
 <div id="weapon-modal" class="overlay hidden">
   <div class="panel cyan-edge">
-    <div class="panel-title cyan" data-explain-title="WPN-СУНДУК" data-explain="Выбери одну награду из оружейного сундука: новое оружие, апгрейд оружия или усиление урона/скорострельности. Апгрейд пушки, которой у тебя нет, будет неактивен.">WPN CHEST <span class="subtle">SELECT 1/3</span></div>
+    <div class="panel-title cyan" data-explain-title="WPN-СУНДУК" data-explain="Выбери одну награду из оружейного сундука: новое оружие, усиление оружия или усиление урона/скорострельности. Усиление оружия, которой у тебя нет, будет неактивен.">WPN CHEST <span class="subtle">SELECT 1/3</span></div>
     <div id="weapon-choices"></div>
     <div class="hint"><span class="term" data-explain-title="ВЫБОР WPN" data-explain="Клавиши 1, 2 и 3 выбирают доступный вариант. Серые варианты требуют оружие, которого у тебя ещё нет.">1 / 2 / 3</span> — выбрать доступный вариант</div>
   </div>
@@ -99,7 +99,7 @@
 <!-- ability chest picker -->
 <div id="ability-modal" class="overlay hidden">
   <div class="panel cyan-edge">
-    <div class="panel-title cyan" data-explain-title="ABL-СУНДУК" data-explain="Выбери одну награду из сундука способностей: рывок, ветку DASH, Q-активку или мобильность. Это не оружейные апгрейды.">ABL CHEST <span class="subtle">SELECT 1/3</span></div>
+    <div class="panel-title cyan" data-explain-title="ABL-СУНДУК" data-explain="Выбери одну награду из сундука способностей: рывок, ветку рывка, Q-активку или мобильность. Это не оружейные усиления.">ABL CHEST <span class="subtle">SELECT 1/3</span></div>
     <div id="ability-choices"></div>
     <div class="hint"><span class="term" data-explain-title="ВЫБОР ABL" data-explain="Клавиши 1, 2 и 3 выбирают один доступный вариант из сундука способностей.">1 / 2 / 3</span> — выбрать вариант</div>
   </div>
@@ -129,18 +129,18 @@
 <div id="menu" class="overlay">
   <div class="menu-box">
     <div id="logo"><span>Terminal Casino</span><span>Roguelike</span></div>
-    <div id="menu-sub">terminal casino // 4 players coop</div>
+    <div id="menu-sub">terminal casino // до 4 игроков</div>
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
     <div id="lang-row" class="lang-row" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></div>
 
     <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает одиночный забег.">СОЛО (БЕЗ СЕТИ)</button>
-    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
+    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
     <div id="join-row">
       <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД КОМНАТЫ" data-explain="Четырёхсимвольный код комнаты друга.">
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.16</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.18</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>
@@ -160,7 +160,7 @@
 </div>
 
 <div id="global-digital-filter" aria-hidden="true"></div>
-<script src="config.js?v=2.1.11"></script>
-<script type="module" src="src/main.v2-1.js?v=2.1.11"></script>
+<script src="config.js?v=2.1.17"></script>
+<script type="module" src="src/main.v2-1.js?v=2.1.17"></script>
 </body>
 </html>

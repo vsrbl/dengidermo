@@ -2147,6 +2147,17 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
 }
 .combo-readout:before { right: 100%; margin-right: 8px; }
 .combo-readout:after { left: 100%; margin-left: 8px; }
+.combo-prize {
+  margin-bottom: 3px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: .14em;
+  color: rgba(255,255,245,.90);
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 rgba(0,0,0,.82), 1px 0 rgba(255,216,102,.18), -1px 0 rgba(102,246,255,.12);
+}
 .combo-main {
   display: flex;
   justify-content: center;
@@ -2204,4 +2215,4 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
 .combo-hit { animation: comboHit .16s steps(2); }
 @keyframes comboPop { 0% { transform: translateY(-1px) scale(1.035); filter: contrast(1.32) brightness(1.14) saturate(.72); } 100% { transform: translateY(0) scale(1); filter: contrast(1.16) saturate(.66) brightness(.95); } }
 @keyframes comboHit { 0% { transform: translateX(-2px); opacity: .70; } 50% { transform: translateX(2px); opacity: .96; } 100% { transform: translateX(0); opacity: 1; } }
-@media (max-width: 960px) { #hud-combo { top: 80px; width: min(360px, 66vw); } .combo-main b { font-size: 20px; } .combo-main span, .combo-main em { font-size: 9px; } .combo-used { font-size: 9px; } .combo-readout { min-width: 210px; } }
+@media (max-width: 960px) { #hud-combo { top: 80px; width: min(360px, 66vw); } .combo-main b { font-size: 20px; } .combo-main span, .combo-main em, .combo-prize { font-size: 9px; } .combo-used { font-size: 9px; } .combo-readout { min-width: 210px; } }
