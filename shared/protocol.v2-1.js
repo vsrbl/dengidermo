@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.29';
-export const BUILD_ID = 'composed_soft_music_pass';
+export const VERSION = 'v2.1.30';
+export const BUILD_ID = 'music_rebuild_calm_rooms';
 export const PROTOCOL = 4;
 
 export const MAX_PLAYERS = 4;
