@@ -36,7 +36,6 @@ function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loo
   if (category === 'boss') return 'boss';
   if (specialRoomId === 'chill_room') return 'lounge';
   if (modifierIds.includes('prism_grid')) return rng() < 0.62 ? 'long_lane' : 'wide';
-  if (modifierIds.includes('anchor_gravity')) return rng() < 0.55 ? 'compact' : 'standard';
   if (modifierIds.includes('hunter_contract')) return 'wide';
   if (modifierIds.includes('moving_room')) return rng() < 0.55 ? 'wide' : 'standard';
   if (modifierIds.includes('blood_tax') || modifierIds.includes('casino_virus')) return rng() < 0.55 ? 'compact' : 'panic_box';
@@ -327,7 +326,7 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
   if (!forcedMods && loopIndex >= 1 && category !== 'boss' && specialRoomId !== 'chill_room') {
     const modChance = Math.min(0.82, 0.20 + loopIndex * 0.085 + (specialRoomId ? 0.18 : 0));
     if (rng() < modChance) {
-      const keys = Object.keys(ROOM_MODS).filter(k => k !== 'skin_cache');
+      const keys = Object.keys(ROOM_MODS).filter(k => k !== 'skin_cache' && k !== 'anchor_gravity');
       modifierIds.push(keys[Math.floor(rng() * keys.length)]);
       if (loopIndex >= 2 && rng() < 0.20 + loopIndex * 0.035) {
         const extra = keys[Math.floor(rng() * keys.length)];
@@ -344,7 +343,7 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
     category = 'chill';
   }
   if (!forcedMods && specialRoomId === 'signal_contract') {
-    const contractMods = ['greed', 'static_rain', 'hunter_contract', 'casino_virus', 'moving_room', 'prism_grid', 'blood_tax', 'echo_walls', 'anchor_gravity'];
+    const contractMods = ['greed', 'static_rain', 'hunter_contract', 'casino_virus', 'moving_room', 'prism_grid', 'blood_tax', 'echo_walls'];
     const picked = contractMods[Math.floor(rng() * contractMods.length)];
     if (!modifierIds.includes(picked)) modifierIds.push(picked);
   } else if (!forcedMods && specialRoomId === 'debt_node') {

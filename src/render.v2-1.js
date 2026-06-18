@@ -1,5 +1,6 @@
 // terminal casino roguelike renderer: squares, labels above, silhouettes that telegraph mechanics
 import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-1.js';
+import { ENEMIES } from '../shared/data.v2-1.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
@@ -320,6 +321,7 @@ export class Renderer {
     for (const e of view.enemies) {
       const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
+      const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
       if (kind === 'bouncer') {
         this.square(ex, ey, size, { stroke, lw: 2.5, rotate: Math.PI / 4, fill: 'rgba(255,255,255,0.06)' });
@@ -330,18 +332,21 @@ export class Renderer {
         ctx.strokeStyle = stroke; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(ex, ey);
         ctx.lineTo(ex + (dirX / 100) * size, ey + (dirY / 100) * size); ctx.stroke();
-      } else if (kind === 'charger') {
+      } else if (kind === 'charger' || kind === 'boss_q_revisor' || kind === 'boss_hunter_duelist') {
         const winding = st === 'windup';
         if (winding) {
           ctx.save(); ctx.globalAlpha = 0.5 + Math.sin(now * 20) * 0.4;
-          ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+          ctx.strokeStyle = COL.red; ctx.lineWidth = kind === 'charger' ? 2 : 2.8; ctx.setLineDash([8, 6]);
           ctx.beginPath(); ctx.moveTo(ex, ey);
-          ctx.lineTo(ex + (dirX / 100) * 320, ey + (dirY / 100) * 320); ctx.stroke();
+          const len = kind === 'charger' ? 320 : 460;
+          ctx.lineTo(ex + (dirX / 100) * len, ey + (dirY / 100) * len); ctx.stroke();
           ctx.restore();
         }
         this.square(ex, ey, size * (winding ? 0.85 : 1), {
-          stroke: winding ? COL.red : stroke, lw: 3, fill: 'rgba(255,255,255,0.05)'
+          stroke: winding ? COL.red : stroke, lw: kind === 'charger' ? 3 : 4, fill: 'rgba(255,255,255,0.05)'
         });
+        if (kind === 'boss_q_revisor') this.label('RUSH', ex, ey - size / 2 - 12, winding ? COL.red : COL.cyan, 12);
+        else if (kind === 'boss_hunter_duelist') this.label('HNT-I', ex, ey - size / 2 - 10, COL.red, 10);
       } else if (kind === 'bomber') {
         const fusing = st === 'fuse';
         const blink = fusing ? (Math.sin(now * 24) > 0) : false;
@@ -430,11 +435,19 @@ export class Renderer {
         this.square(ex, ey - size * 0.20, size * 0.34, { stroke: COL.purple, lw: 1.4 });
         this.label('HNT', ex, ey - size / 2 - 12, COL.red, 12);
         const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.red; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+      } else if (kind === 'boss_hunter_marksman') {
+        this.square(ex, ey, size, { stroke: COL.red, lw: 3.5, fill: 'rgba(255,48,72,0.045)' });
+        ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + (dirX / 100) * size * 0.72, ey + (dirY / 100) * size * 0.72); ctx.stroke();
+        this.label('HNT-II', ex, ey - size / 2 - 10, COL.red, 10);
+      } else if (kind === 'boss_hunter_trapper') {
+        this.square(ex, ey, size, { stroke: COL.purple, lw: 3.5, fill: 'rgba(180,92,255,0.045)' });
+        this.square(ex, ey, size * 0.58, { stroke: COL.red, lw: 1.5, rotate: Math.PI / 4 });
+        this.label('HNT-III', ex, ey - size / 2 - 10, COL.purple, 10);
       } else if (kind === 'boss_q_revisor') {
         this.square(ex, ey, size, { stroke: COL.cyan, lw: 5, fill: 'rgba(102,246,255,0.05)' });
         this.square(ex, ey, size * 0.68, { stroke: COL.purple, lw: 2, rotate: now * 0.55 });
         this.square(ex, ey, size * 0.36, { stroke: COL.fg, lw: 1.4 });
-        this.label('QREV', ex, ey - size / 2 - 12, COL.cyan, 12);
+        this.label('RUSH', ex, ey - size / 2 - 12, COL.cyan, 12);
         const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.cyan; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
       } else if (kind === 'boss') {
         this.square(ex, ey, size, { stroke, lw: 6, fill: 'rgba(255,255,255,0.05)' });
@@ -573,13 +586,13 @@ export class Renderer {
         if (shellLock) this.label('ARMOR LOCK', ex, ey + size / 2 + 20, COL.red, 8);
         else if (shellType === 'linked') this.label('LINK SHELL', ex, ey + size / 2 + 20, COL.purple, 8);
       }
-      // hp tick under damaged enemies (not boss)
-      if (kind !== 'boss' && hp01 < 100) {
+      // hp tick under damaged regular enemies only. Bosses already have their own readable top bar.
+      if (!isBossKind && hp01 < 100) {
         ctx.fillStyle = '#222'; ctx.fillRect(ex - size / 2, ey + size / 2 + 5, size, 3);
         ctx.fillStyle = elite ? COL.red : COL.fg;
         ctx.fillRect(ex - size / 2, ey + size / 2 + 5, size * hp01 / 100, 3);
       }
-      if (elite && kind !== 'boss') this.label('ELITE', ex, ey - size / 2 - 8, COL.red, 8);
+      if (elite && !isBossKind) this.label('ELITE', ex, ey - size / 2 - 8, COL.red, 8);
     }
 
     // player-to-cursor tether: thin, always green, visible even while input is blocked by modals

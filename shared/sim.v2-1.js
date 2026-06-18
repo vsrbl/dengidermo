@@ -28,11 +28,68 @@ const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v 
 
 
 
+const COMBO_PRIZE_UPGRADE_IDS = new Set(['combo_gld', 'combo_exp', 'combo_hp']);
+function comboPrizeUpgradeIdForPlayer(p) {
+  const type = String(p?.stats?.comboPrize || 'gld').toLowerCase();
+  return COMBO_PRIZE_UPGRADE_IDS.has(`combo_${type}`) ? `combo_${type}` : 'combo_gld';
+}
+function rollCleanInstallChoices(run, p, count = 3) {
+  const playerKey = String(p?.id || 'player');
+  if (!run.installComboPrizeOfferSeen || typeof run.installComboPrizeOfferSeen !== 'object') run.installComboPrizeOfferSeen = {};
+  const canOfferComboPrize = !run.installComboPrizeOfferSeen[playerKey];
+  const forbiddenComboPrize = comboPrizeUpgradeIdForPlayer(p);
+  const used = new Set();
+  const choices = [];
+  let comboPrizeOffered = false;
+  const luck = p?.stats?.luck || 0;
+  function accept(id) {
+    if (!id || used.has(id)) return false;
+    const isComboPrize = COMBO_PRIZE_UPGRADE_IDS.has(id);
+    if (isComboPrize) {
+      if (!canOfferComboPrize || comboPrizeOffered || id === forbiddenComboPrize) return false;
+      comboPrizeOffered = true;
+    }
+    used.add(id);
+    choices.push(id);
+    return true;
+  }
+  // Roll extra candidates first, then filter. This preserves the normal feel but prevents
+  // repeated combo-prize offers and never offers the prize type already installed.
+  for (const id of rollUpgradeChoices(Math.random, luck, count + 7)) {
+    if (choices.length >= count) break;
+    accept(id);
+  }
+  let guard = 0;
+  while (choices.length < count && guard++ < 120) {
+    const tierRoll = Math.random() * 100 + luck * 4;
+    const pool = HERO_UPGRADES.filter(u => {
+      if (used.has(u.id)) return false;
+      if (COMBO_PRIZE_UPGRADE_IDS.has(u.id)) {
+        if (!canOfferComboPrize || comboPrizeOffered || u.id === forbiddenComboPrize) return false;
+      }
+      if (tierRoll > 90) return u.tier === 2;
+      if (tierRoll > 47) return u.tier === 1;
+      return u.tier === 0;
+    });
+    const fallback = HERO_UPGRADES.filter(u => {
+      if (used.has(u.id)) return false;
+      if (COMBO_PRIZE_UPGRADE_IDS.has(u.id)) {
+        if (!canOfferComboPrize || comboPrizeOffered || u.id === forbiddenComboPrize) return false;
+      }
+      return true;
+    });
+    const list = pool.length ? pool : fallback;
+    if (!list.length) break;
+    accept(list[Math.floor(Math.random() * list.length)]?.id);
+  }
+  if (comboPrizeOffered) run.installComboPrizeOfferSeen[playerKey] = 1;
+  return choices.slice(0, count);
+}
 function makeInstallOffer(run, p) {
   if (!run) return null;
   run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
-  return { id: run.installOfferSeq, choices: rollUpgradeChoices(Math.random, p?.stats?.luck || 0), expires: OFFER_TIMEOUT };
+  return { id: run.installOfferSeq, choices: rollCleanInstallChoices(run, p, 3), expires: OFFER_TIMEOUT };
 }
 
 function ensureInstallOffer(run, p) {
@@ -213,7 +270,7 @@ function staticRainCurrentMode(run) {
   return run.plan?.modifierIds?.includes('static_rain') ? 'natural' : 'layer';
 }
 
-const REMOVED_ROOM_MODS = new Set(['debt_floor', 'shell_market', 'hunted_exit', 'mirror_room', 'static_wires']);
+const REMOVED_ROOM_MODS = new Set(['debt_floor', 'shell_market', 'hunted_exit', 'mirror_room', 'static_wires', 'anchor_gravity']);
 function normalizeRoomModifiers(mods = []) {
   const out = [];
   for (const raw of mods || []) {
@@ -319,7 +376,7 @@ function roomDangerScore(plan = {}, staticLevel = 0) {
   for (const m of mods) {
     if (m === 'static_rain') score += 0.35 + Math.max(0, staticLevel || 1) * 0.32;
     else if (m === 'hunter_contract' || m === 'casino_virus') score += 1.05;
-    else if (m === 'prism_grid' || m === 'anchor_gravity' || m === 'moving_room') score += 0.8;
+    else if (m === 'prism_grid' || m === 'moving_room') score += 0.8;
     else if (m === 'blood_tax') score += 0.65;
     else if (m === 'echo_walls') score += 0.7;
     else if (m === 'blackout') score += 0.55;
@@ -345,7 +402,6 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   if (mods.includes('casino_virus')) tags.push('3 VIRUS SPINS');
   if (mods.includes('moving_room')) tags.push('DANGER ZONES');
   if (mods.includes('prism_grid')) tags.push('PRISM SLOW');
-  if (mods.includes('anchor_gravity')) tags.push('GRAVITY SOCKETS');
   if (mods.includes('blood_tax')) tags.push('HP SHOP');
   if (mods.includes('echo_walls')) tags.push('50% ECHO SHOTS');
   if (special === 'signal_contract') tags.push('PRIORITY TARGET');
@@ -363,7 +419,6 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
-  if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: square sockets pull movement and projectiles harder; the center is the strong zone.';
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
@@ -1904,7 +1959,7 @@ export function startRoom(run, players) {
   run.pendingPrismLanes = [];
   run.pendingBloodTax = [];
   run.pendingStrikes = [];
-  if ((run.plan.modifierIds || []).includes('anchor_gravity')) {
+  if (hasMod(run, 'anchor_gravity')) {
     const srng = mulberry32((seed ^ 0xA44C07) >>> 0);
     const rr = playableRectForArchetype(run.plan.roomArchetype || 'standard');
     const count = 1 + (loopIndex >= 4 && srng() < 0.45 ? 1 : 0);
@@ -2282,7 +2337,7 @@ const ENCOUNTER_PACKS = [
     ]
   },
   {
-    id: 'anchor_gravity_cage', label: 'ANCHOR GRAVITY CAGE', intent: 'control', minLoop: 2, weight: 2.2, requireMod: 'anchor_gravity', minGap: 7.4, maxGap: 10.8, supportCap: 5,
+    id: 'anchor_gravity_cage_removed', label: 'ANCHOR GRAVITY CAGE', intent: 'control', minLoop: 99, weight: 0, requireMod: 'anchor_gravity', minGap: 7.4, maxGap: 10.8, supportCap: 5,
     note: 'Gravity sockets bend routes while ANC/PRS/PLS punish bad positioning.',
     roles: [
       { pick: ['anchor'], count: [1, 1], opts: { forcePlain: true, packRole: 'gravity_core' } },
@@ -2341,7 +2396,6 @@ function pickDirectorMode(run) {
   if (mods.includes('prism_grid')) return { id: 'prism_grid', label: 'PRISM GRID', intents: { ranged: 2.1, control: 1.6 } };
   if (mods.includes('blood_tax')) return { id: 'blood_tax', label: 'BLOOD TAX', intents: { chaos: 1.8, swarm: 1.5, support: 1.1 } };
   if (mods.includes('echo_walls')) return { id: 'echo_walls', label: 'ECHO SHOTS', intents: { mirror: 2.2, ranged: 1.2 } };
-  if (mods.includes('anchor_gravity')) return { id: 'anchor_gravity', label: 'ANCHOR GRAVITY', intents: { control: 2.2, ranged: 1.1 } };
   if (mods.includes('moving_room')) return { id: 'moving_room', label: 'SHIFTING ZONES', intents: { control: 2.0, swarm: 1.1, chaos: 1.1 } };
   if (special === 'reward_pocket') return { id: 'greed_pocket', label: 'GREED POCKET', intents: { swarm: 1.3, armor: 1.2, chaos: 1.1 } };
   if (special === 'signal_contract') return { id: 'contract', label: 'SIGNAL CONTRACT', intents: { control: 1.3, support: 1.3, armor: 1.3, chaos: 1.3 } };
@@ -2385,7 +2439,6 @@ function modPackFitMul(run, pack) {
   const mods = run.plan?.modifierIds || [];
   let m = 1;
   if (mods.includes('prism_grid') && ['ranged','control'].includes(pack.intent)) m *= 1.22;
-  if (mods.includes('anchor_gravity') && ['control','ranged'].includes(pack.intent)) m *= 1.18;
   if (mods.includes('blood_tax') && ['swarm','chaos'].includes(pack.intent)) m *= 1.18;
   if (mods.includes('echo_walls') && ['mirror','ranged'].includes(pack.intent)) m *= 1.22;
   if (mods.includes('moving_room') && ['control','swarm','chaos'].includes(pack.intent)) m *= 1.18;
@@ -2495,7 +2548,6 @@ function chooseCrowdForm(run, pack, opts = {}) {
   if (mods.includes('prism_grid')) { addFormWeight(weights, 'lane', 18); addFormWeight(weights, 'wall', 12); addFormWeight(weights, 'pinch', 7); }
   if (mods.includes('blood_tax')) { addFormWeight(weights, 'cloud', 13); addFormWeight(weights, 'fan', 8); addFormWeight(weights, 'stream', 8); }
   if (mods.includes('echo_walls')) { addFormWeight(weights, 'fan', 10); addFormWeight(weights, 'pinch', 8); addFormWeight(weights, 'lane', 6); }
-  if (mods.includes('anchor_gravity')) { addFormWeight(weights, 'ring', 12); addFormWeight(weights, 'nest', 9); addFormWeight(weights, 'stream', 7); }
   if (mods.includes('skin_cache')) { addFormWeight(weights, 'nest', 16); addFormWeight(weights, 'wall', 7); addFormWeight(weights, 'ring', 7); }
 
   if (pack?.crowdForm) addFormWeight(weights, pack.crowdForm, 999);
@@ -2633,7 +2685,7 @@ function crowdSpawnPos(run, players, layout, idx, total, plannedItem) {
   }
 
   // Anchor gravity should bend the crowd shapes toward sockets without pulling everything into a single heap.
-  if (run.plan?.modifierIds?.includes('anchor_gravity') && run.roomSockets?.length) {
+  if (hasMod(run, 'anchor_gravity') && run.roomSockets?.length) {
     const so = run.roomSockets[Math.floor(Math.random() * run.roomSockets.length)];
     const bend = form === 'ring' || form === 'stream' || form === 'pinch' ? 0.22 : 0.14;
     raw.x = raw.x * (1 - bend) + (so.x || raw.x) * bend;
@@ -2888,9 +2940,9 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
     e.bossMarks = [];
     e.bossPhase = 0;
     if (kind === 'boss_q_revisor') {
-      const coreIds = Object.keys(ACTIVE_CORES);
-      e.bossActiveCore = coreIds[Math.floor(rng() * coreIds.length)] || 'field_snap';
-      e.bossActiveLevel = 1 + Math.min(3, Math.floor((run.runDepth || 0) / 4));
+      e.state = 'move';
+      e.bossDashCd = 0.65 + rng() * 0.55;
+      e.bossVolleyCd = 0.95 + rng() * 0.45;
     }
   }
   if (opts.packRole) e.packRole = opts.packRole;
@@ -2975,6 +3027,28 @@ function bossPullPlayers(run, players, e, r, pull, dt, slowMul = 0.62) {
     }
   }
 }
+function chorusLiveBossFragments(run) {
+  return (run?.enemies || []).filter(x => x && x.hp > 0 && ENEMIES[x.kind]?.bossFragment);
+}
+function spawnHunterChorusFragments(run, players, dead) {
+  const kinds = ['boss_hunter_duelist', 'boss_hunter_marksman', 'boss_hunter_trapper'];
+  const base = Math.random() * Math.PI * 2;
+  for (let i = 0; i < kinds.length && run.enemies.length < MAX_ENEMIES; i++) {
+    const a = base + (i / kinds.length) * Math.PI * 2;
+    const pos = {
+      x: clamp(dead.x + Math.cos(a) * 115, 90, run.plan.w - 90),
+      y: clamp(dead.y + Math.sin(a) * 115, 90, run.plan.h - 90)
+    };
+    const frag = spawnEnemy(run, players, kinds[i], false, pos, { noArmor: true, packRole: 'hunter_chorus_fragment' });
+    frag.bossFragmentParent = dead.id;
+    frag.bossCastCd = 0.75 + i * 0.18;
+    frag.state = 'move';
+    frag.dirX = Math.cos(a);
+    frag.dirY = Math.sin(a);
+  }
+  run.fx.push({ t: 'split', x: Math.round(dead.x), y: Math.round(dead.y), boss: 1, kind: 'hunter_chorus' });
+  run.fx.push({ t: 'summon', kind: 'hunter_chorus_split', x: Math.round(dead.x), y: Math.round(dead.y), count: kinds.length });
+}
 function stepCroupierBoss(run, players, e, def, target, toT, dT, spd, dt) {
   bossMoveKeep(run, e, target, toT, dT, spd, dt, 500, 0.22);
   e.bossCastCd -= dt;
@@ -3018,66 +3092,110 @@ function stepAnchorCashierBoss(run, players, e, def, target, toT, dT, spd, dt) {
   touchDamage(run, e, players, dt);
 }
 function stepHunterChorusBoss(run, players, e, def, target, toT, dT, spd, dt) {
-  bossMoveKeep(run, e, target, toT, dT, spd, dt, 380, 0.34);
+  // The chorus is the shell phase: fewer adds, no unclear red beam lines.
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 400, 0.34);
   e.bossCastCd -= dt;
   if (e.bossCastCd <= 0) {
     e.bossPhase = ((e.bossPhase || 0) + 1) % 3;
     const loop = difficulty(run).loop;
     if (e.bossPhase === 0) {
-      bossAimBurst(run, e, target, 5 + Math.min(3, loop), 0.62, def.bulletSpd || 285, enemyDamageValue(e, 0.50), 6);
+      bossAimBurst(run, e, target, 4 + Math.min(2, loop), 0.52, def.bulletSpd || 270, enemyDamageValue(e, 0.44), 6);
     } else if (e.bossPhase === 1) {
-      const n = norm(target.x - e.x, target.y - e.y);
-      warnBossLine(run, e, e.x, e.y, clamp(e.x + n.x * 760, 60, run.plan.w - 60), clamp(e.y + n.y * 760, 60, run.plan.h - 60), 48, enemyDamageValue(e, 0.92), 0.55, 'red');
-    } else if (run.enemies.length < difficulty(run).addCap) {
-      const pool = loop < 2 ? ['runner','charger'] : ['runner','charger','bouncer','glitch'];
-      const n = 2 + Math.min(3, loop);
+      bossRadial(run, e, 7 + Math.min(5, loop), Math.max(185, (def.bulletSpd || 270) * 0.76), enemyDamageValue(e, 0.34), 6, 2.45, e.bossPhase || 0);
+    } else if (run.enemies.length < difficulty(run).addCap && liveEnemyCount(run) < 7 + Math.min(4, loop)) {
+      const pool = loop < 2 ? ['runner'] : ['runner','charger'];
+      const n = loop >= 3 ? 2 : 1;
       for (let i = 0; i < n && run.enemies.length < difficulty(run).addCap; i++) {
         const pos = offsetSpawnPos(run, target, i, n);
-        const add = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)] || 'runner', false, pos, { noArmor: loop < 2, packRole: 'hunter_chorus' });
-        add.rallyT = Math.max(add.rallyT || 0, 1.25);
+        const add = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)] || 'runner', false, pos, { noArmor: true, packRole: 'hunter_chorus' });
+        add.rallyT = Math.max(add.rallyT || 0, 0.85);
         add.rallyTargetId = target.id;
       }
       run.fx.push({ t: 'summon', kind: 'hunter_chorus', x: Math.round(e.x), y: Math.round(e.y), x2: Math.round(target.x), y2: Math.round(target.y), count: n });
     }
-    e.bossCastCd = Math.max(1.25, def.fireCd - Math.min(0.55, loop * 0.10));
+    e.bossCastCd = Math.max(1.75, def.fireCd - Math.min(0.35, loop * 0.06));
   }
   touchDamage(run, e, players, dt);
 }
-function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt) {
-  bossMoveKeep(run, e, target, toT, dT, spd, dt, 440, 0.20);
+function stepHunterDuelistBoss(run, players, e, def, target, toT, dT, spd, dt, walls) {
+  if (!e.state) e.state = 'move';
   e.bossCastCd -= dt;
-  const core = e.bossActiveCore || 'field_snap';
-  if (e.bossCastCd <= 0) {
-    const loop = difficulty(run).loop;
-    const lvl = Math.max(1, e.bossActiveLevel || 1);
-    const dmg = enemyDamageValue(e, 0.70 + Math.min(0.22, lvl * 0.04));
-    if (core === 'blood_ring' || core === 'debt_pulse') {
-      warnBossCircle(run, e, e.x, e.y, core === 'debt_pulse' ? 210 : 170, dmg, 0.72, 'red');
-      bossRadial(run, e, core === 'debt_pulse' ? 12 : 8, def.bulletSpd || 250, enemyDamageValue(e, 0.42), 7, 2.8, e.bossPhase || 0);
-    } else if (core === 'field_snap') {
-      bossPullPlayers(run, players, e, 620, 520, 0.18, 0.55);
-      run.fx.push({ t: 'active', id: e.id, label: 'FIELD SNAP', x: Math.round(e.x), y: Math.round(e.y), r: 260, kind: 'field_snap' });
-      warnBossCircle(run, e, e.x, e.y, 145, dmg, 0.58, 'cyan');
-    } else if (core === 'bullet_freeze') {
-      for (const p of players.values()) if (p.alive && dist2(p.x, p.y, e.x, e.y) < 280 * 280) { p.slowT = 1.1; p.slowMul = 0.45; }
-      run.fx.push({ t: 'active_field', kind: 'freeze_aura', x: Math.round(e.x), y: Math.round(e.y), r: 280, tone: 'cyan' });
-      bossAimBurst(run, e, target, 4 + Math.min(3, loop), 0.44, 210, enemyDamageValue(e, 0.36), 8);
-    } else if (core === 'shell_ripper') {
-      warnBossCircle(run, e, target.x, target.y, 135, dmg, 0.70, 'purple');
-      bossAimBurst(run, e, target, 6, 0.72, def.bulletSpd || 250, enemyDamageValue(e, 0.38), 6);
-    } else if (core === 'void_cut') {
-      const n = norm(target.x - e.x, target.y - e.y);
-      warnBossLine(run, e, e.x, e.y, e.x + n.x * 900, e.y + n.y * 900, 42, dmg, 0.68, 'purple');
-    } else if (core === 'signal_spike') {
-      warnBossCircle(run, e, target.x, target.y, 150, dmg, 0.95, 'cyan');
-      run.fx.push({ t: 'active_field', kind: 'signal_spike', x: Math.round(target.x), y: Math.round(target.y), r: 150, tone: 'cyan' });
-    } else if (core === 'black_box') {
-      e.activeSlowT = Math.max(e.activeSlowT || 0, 0.1);
-      run.fx.push({ t: 'black_box_cast', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: 235, lvl });
-      bossRadial(run, e, 10, def.bulletSpd || 250, enemyDamageValue(e, 0.36), 6, 2.4, (e.bossPhase || 0) + 0.25);
+  if (e.state === 'move') {
+    if (dT < 430 && e.bossCastCd <= 0) { e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
+    else steerMove(run, e, toT, spd, dt, { target });
+  } else if (e.state === 'windup') {
+    e.dirX = toT.x; e.dirY = toT.y;
+    if (e.st >= 0.52) { e.state = 'charge'; e.st = 0; bossRadial(run, e, 6, 190, enemyDamageValue(e, 0.22), 5, 1.35, e.bossPhase || 0); }
+  } else if (e.state === 'charge') {
+    const c = collideWalls(e.x + (e.dirX || 1) * 560 * dt, e.y + (e.dirY || 0) * 560 * dt, e.size / 2, walls || [], e.x, e.y);
+    const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
+    for (const p of players.values()) if (p.alive) {
+      const sep = resolveEnemyPlayerOverlap(run, e, p, walls || [], { pad: 12, playerKick: 22, fx: true });
+      if (sep) { damagePlayer(run, p, enemyDamageValue(e, 0.92), e.x, e.y); e.state = 'cool'; e.st = 0; }
     }
-    e.bossPhase = (e.bossPhase || 0) + 0.72;
-    e.bossCastCd = Math.max(1.55, def.fireCd + 0.25 - Math.min(0.45, loop * 0.06));
+    if (e.st >= 0.44 || blocked) { e.state = 'cool'; e.st = 0; }
+  } else if (e.state === 'cool') {
+    if (e.st >= 0.95) { e.state = 'move'; e.st = 0; e.bossCastCd = 0.95; }
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepHunterMarksmanBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 520, 0.20);
+  e.bossCastCd -= dt;
+  if (e.bossCastCd <= 0) {
+    bossAimBurst(run, e, target, 4, 0.38, def.bulletSpd || 300, enemyDamageValue(e, 0.36), 5);
+    e.bossCastCd = 1.25;
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepHunterTrapperBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  bossMoveKeep(run, e, target, toT, dT, spd, dt, 450, 0.28);
+  e.bossCastCd -= dt;
+  if (e.bossCastCd <= 0) {
+    const side = { x: -toT.y, y: toT.x };
+    for (let i = -1; i <= 1; i += 2) {
+      const x = clamp(target.x + side.x * i * 82 + (Math.random() - 0.5) * 55, 80, run.plan.w - 80);
+      const y = clamp(target.y + side.y * i * 82 + (Math.random() - 0.5) * 55, 80, run.plan.h - 80);
+      warnBossCircle(run, e, x, y, 62, enemyDamageValue(e, 0.52), 0.78, 'red');
+    }
+    bossRadial(run, e, 5, def.bulletSpd || 235, enemyDamageValue(e, 0.24), 5, 1.9, e.bossPhase || 0);
+    e.bossPhase = (e.bossPhase || 0) + 0.4;
+    e.bossCastCd = 1.85;
+  }
+  touchDamage(run, e, players, dt);
+}
+function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls) {
+  // Reworked from ability mimic into a readable dash boss: charger-like windup, faster dash, radial shots.
+  if (!e.state) e.state = 'move';
+  e.bossVolleyCd = Math.max(0, (e.bossVolleyCd || 0.9) - dt);
+  if (e.bossVolleyCd <= 0 && e.state !== 'charge') {
+    bossRadial(run, e, 8 + Math.min(4, difficulty(run).loop), def.bulletSpd || 245, enemyDamageValue(e, 0.30), 6, 2.15, e.bossPhase || 0);
+    e.bossPhase = (e.bossPhase || 0) + 0.36;
+    e.bossVolleyCd = e.state === 'windup' ? 1.20 : 1.55;
+  }
+  e.bossDashCd = Math.max(0, (e.bossDashCd || 0) - dt);
+  if (e.state === 'move') {
+    if (dT < 620 && e.bossDashCd <= 0) {
+      e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y;
+    } else {
+      bossMoveKeep(run, e, target, toT, dT, spd, dt, 470, 0.12);
+    }
+  } else if (e.state === 'windup') {
+    e.dirX = toT.x; e.dirY = toT.y;
+    if ((e.fxT || 0) <= 0) { e.fxT = 0.12; run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y), windup: 1 }); }
+    else e.fxT -= dt;
+    if (e.st >= (def.windup || 0.48)) { e.state = 'charge'; e.st = 0; }
+  } else if (e.state === 'charge') {
+    const c = collideWalls(e.x + (e.dirX || 1) * (def.chargeSpd || 720) * dt, e.y + (e.dirY || 0) * (def.chargeSpd || 720) * dt, e.size / 2, walls || [], e.x, e.y);
+    const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
+    for (const p of players.values()) if (p.alive) {
+      const sep = resolveEnemyPlayerOverlap(run, e, p, walls || [], { pad: 14, playerKick: 28, fx: true });
+      if (sep) { damagePlayer(run, p, enemyDamageValue(e, 1.05), e.x, e.y); e.state = 'cool'; e.st = 0; }
+    }
+    if (e.st >= (def.chargeTime || 0.52) || blocked) { e.state = 'cool'; e.st = 0; bossRadial(run, e, 10, def.bulletSpd || 245, enemyDamageValue(e, 0.26), 6, 1.75, e.bossPhase || 0); }
+  } else if (e.state === 'cool') {
+    bossMoveKeep(run, e, target, toT, dT, spd * 0.72, dt, 500, 0.18);
+    if (e.st >= (def.chargeCd || 1.05)) { e.state = 'move'; e.st = 0; e.bossDashCd = 0.75; }
   }
   touchDamage(run, e, players, dt);
 }
@@ -3086,7 +3204,10 @@ function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
   if (e.kind === 'boss_croupier') return stepCroupierBoss(run, players, e, def, target, toT, dT, spd, dt);
   if (e.kind === 'boss_anchor_cashier') return stepAnchorCashierBoss(run, players, e, def, target, toT, dT, spd, dt);
   if (e.kind === 'boss_hunter_chorus') return stepHunterChorusBoss(run, players, e, def, target, toT, dT, spd, dt);
-  if (e.kind === 'boss_q_revisor') return stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_hunter_duelist') return stepHunterDuelistBoss(run, players, e, def, target, toT, dT, spd, dt, walls);
+  if (e.kind === 'boss_hunter_marksman') return stepHunterMarksmanBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_hunter_trapper') return stepHunterTrapperBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss_q_revisor') return stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls);
   steerMove(run, e, toT, spd, dt, { target });
   e.fireCd -= dt;
   if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
@@ -3282,6 +3403,10 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     }
     run.fx.push({ t: 'split', x: Math.round(e.x), y: Math.round(e.y) });
   }
+  if (e.kind === 'boss_hunter_chorus') {
+    spawnHunterChorusFragments(run, players, e);
+    return;
+  }
   if (e.hunter || e.id === run.hunterTarget) {
     run.hunterTarget = null;
     run.fx.push({ t: 'contract_done', x: Math.round(e.x), y: Math.round(e.y) });
@@ -3307,10 +3432,14 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   dropPickup(run, e.x + 14, e.y - 8, 'EXP', Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45))));
   if ((e.elite && Math.random() < 0.35) || def.boss) dropPickup(run, e.x - 14, e.y + 8, 'HEA', 25);
   if (def.boss) {
-    run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y) });
-    // boss reward burst
-    for (let i = 0; i < 6; i++) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', 20 + Math.round(Math.random() * 20));
-    openPortal(run);
+    run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y), fragment: def.bossFragment ? 1 : 0 });
+    const otherBossAlive = run.enemies.some(x => x && x.hp > 0 && ENEMIES[x.kind]?.boss);
+    if (!def.bossFragment || !otherBossAlive) {
+      // boss reward burst
+      const burst = def.bossFragment ? 4 : 6;
+      for (let i = 0; i < burst; i++) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', 20 + Math.round(Math.random() * 20));
+      openPortal(run);
+    }
   }
   // proc blast on kill? (proc handled at bullet hit)
   if (quotaCanOpenPortal(run)) openPortal(run);
@@ -4494,7 +4623,7 @@ function stepMods(run, players, dt) {
   // Casino Virus static now stacks into the single Static Storm system; no separate rain loop.
   // HUNTER WAVES are handled by stepHunterWaves(); no priority-target escalation.
 
-  if (run.plan.modifierIds.includes('anchor_gravity') && run.roomSockets?.length) {
+  if (hasMod(run, 'anchor_gravity') && run.roomSockets?.length) {
     for (const s of run.roomSockets) {
       if ((Math.floor((run.now || 0) * 2) % 5) === 0 && Math.random() < 0.012) run.fx.push({ t: 'active_field', kind: 'anchor_gravity', x: s.x, y: s.y, r: s.r, tone: 'purple' });
       for (const p of players.values()) {
@@ -5223,6 +5352,9 @@ function beginTransition(run, players) {
     run.fx.push({ t: 'skin_unlock', skinId: run.skinRoomReward.id, skinRarity: run.skinRoomReward.rarity, source: 'room' });
   }
   run.fx.push({ t: 'transition', skinRarity: run.skinRoomReward?.rarity || '' });
+  // Combo-prize type choices are side-grades, not a whole upgrade row.
+  // In one upgrade-selection phase a player may see at most one such option.
+  run.installComboPrizeOfferSeen = {};
   for (const p of players.values()) {
     if (p.economy.pending > 0 && p.connected) {
       p.offer = makeInstallOffer(run, p);
@@ -6287,6 +6419,9 @@ export function buildSnapshot(run, players) {
   const nextStatic = nextStaticBreakdownForCurrent.total;
   const debtEngineRoomStacks = debtEngineEligiblePlan(run.plan) ? playerDebtEngineStacks(players) : 0;
   const currentIntel = roomIntel(run.plan, currentStaticBreakdown.total || 0, staticMode);
+  const bossEnemy = run.enemies.find(e => ENEMIES[e.kind]?.boss);
+  const bossHpPct = bossEnemy ? Math.max(0, Math.min(100, Math.round((bossEnemy.hp / Math.max(1, bossEnemy.maxHp || bossEnemy.hp || 1)) * 100))) : 0;
+  const roomAge = Math.max(0, Math.round((run.now || 0) - (run.roomStats?.startedAt || run.now || 0)));
   let nextPreview = run.nextRoomPreview ? { ...run.nextRoomPreview, mods: [...(run.nextRoomPreview.mods || [])] } : null;
   if (nextPreview) {
     const nextBreakdown = nextStaticRainBreakdown(run, players, nextPreview);
@@ -6308,7 +6443,7 @@ export function buildSnapshot(run, players) {
       mods: run.plan.modifierIds, quota: Math.max(run.plan.quota || 0, directorTotalBudget(run)), baseQuota: run.plan.quota || 0, kills: run.kills, liveEnemies: liveEnemyCount(run), spawned: run.spawned, archetype: run.plan.roomArchetype || 'standard',
       w: run.plan.w, h: run.plan.h,
       portal: [Math.round(run.portal.x), Math.round(run.portal.y), run.portal.open ? 1 : 0],
-      phase: run.phase, solvedTime: Math.round(roomSolvedTime(run)), solved: roomSolvedAt(run) > 0 ? 1 : 0,
+      phase: run.phase, solvedTime: Math.round(roomSolvedTime(run)), solved: roomSolvedAt(run) > 0 ? 1 : 0, age: roomAge, bossKind: run.bossKind || '', bossHpPct,
       skinReward: (run.skinRoomReward && !run.skinRoomReward.claimed) ? (run.skinRoomReward.rarity || 'uncommon') : '',
       director: run.director?.label || '', directorIntent: run.director?.lastIntent || '', directorWave: run.director?.waveIndex || 0,
       staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineRoomStacks, debtEngineRainStacks: run.debtEngineRainStacks || 0,

@@ -848,7 +848,7 @@ export class AudioBus {
     const boss = !menu && room?.cat === 'boss';
     const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
     const casino = chill || mods.includes('casino_virus') || mods.includes('greed');
-    const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+    const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
     const choir = boss || /HERALD|DAMPER|WARDEN|ANCHOR|PRISM|HUNTER|SHIFTING/.test(String(room?.director || '')) || mods.includes('echo_walls') || mods.includes('moving_room') || mods.includes('hunter_contract');
     this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.36);
     this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.42);
@@ -1203,7 +1203,7 @@ AudioBus.prototype.updateMusic = function updateMusicV21(state, dt = 0.016) {
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.36);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.42);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.34);
@@ -1494,7 +1494,7 @@ AudioBus.prototype.updateMusic = function updateMusicV21Ambient(state, dt = 0.01
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.28);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.30);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.28);
@@ -1747,7 +1747,7 @@ AudioBus.prototype.updateMusic = function updateMusicV215TonalLock(state, dt = 0
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.28);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.26);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.26);
@@ -1990,7 +1990,7 @@ AudioBus.prototype.updateMusic = function updateMusicV218Score(state, dt = 0.016
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.28);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.34);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.30);
@@ -2162,7 +2162,7 @@ AudioBus.prototype.updateMusic = function updateMusicV2112Pace(state, dt = 0.016
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.28);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.30);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.28);
@@ -2336,7 +2336,7 @@ AudioBus.prototype.updateMusic = function updateMusicV2114LowRegister(state, dt 
   const boss = !menu && room?.cat === 'boss';
   const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
   const casino = !menu && (mods.includes('casino_virus') || mods.includes('greed'));
-  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('anchor_gravity');
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
   this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.28);
   this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.30);
   this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.28);
@@ -2394,4 +2394,210 @@ AudioBus.prototype.updateMusic = function updateMusicV2114LowRegister(state, dt 
   this.setMusicLayer('drive', combat && intensity > (boss ? 0.38 : 0.56) ? (0.000080 + intensity * 0.00046 + (boss ? 0.00039 : 0)) * calmMul : 0.000022, 0.9);
   this.setMusicLayer('bossLine', boss ? 0.00028 + intensity * 0.00044 : 0.000014, 0.9);
   this.setMusicLayer('needle', combat && (staticLike || casino || mood === 'chaos' || mood === 'boss_chaos' || intensity > 0.82) && earlyHold < 0.35 ? 0.000045 + intensity * 0.00024 : 0.000018, 1.0);
+};
+
+
+// v2.1.20: room-stage score director.
+// The score now changes by room stage (start / fight / climax / clear), room modifier,
+// and boss identity. Boss hook notes are intentionally lower and quieter so they keep
+// their character without stabbing above the combat mix.
+function musicStageV2120(room, latest = null, bossHpPct = 100) {
+  if (!room) return 'menu';
+  if (room.cat === 'chill' || room.special === 'chill_room') return 'rest';
+  if (room.portal?.[2] || room.solved) return 'clear';
+  const age = Math.max(0, Number(room.age || 0));
+  const kills = Math.max(0, Number(room.kills || 0));
+  const live = Math.max(0, Number(room.liveEnemies || latest?.enemies?.length || 0));
+  const spawned = Math.max(0, Number(room.spawned || 0));
+  const quota = Math.max(1, Number(room.quota || room.baseQuota || 1));
+  if (room.cat === 'boss' && bossHpPct > 0 && bossHpPct <= 42) return 'climax';
+  if (age < 7 && kills < 3 && spawned < Math.max(7, quota * 0.22)) return 'start';
+  if (live >= 24 || spawned >= quota * 0.78 || kills >= quota * 0.70) return 'climax';
+  return 'fight';
+}
+function musicModThemeV2120(mods = []) {
+  if (mods.includes('casino_virus') || mods.includes('greed')) return 'casino';
+  if (mods.includes('static_rain')) return 'static';
+  if (mods.includes('prism_grid')) return 'prism';
+  if (mods.includes('hunter_contract')) return 'hunter';
+  if (mods.includes('blood_tax')) return 'blood';
+  if (mods.includes('echo_walls')) return 'echo';
+  if (mods.includes('moving_room')) return 'shift';
+  return 'plain';
+}
+function bossThemeV2120(kind = '') {
+  if (kind === 'boss_croupier') return 'croupier';
+  if (kind === 'boss_anchor_cashier') return 'anchor_boss';
+  if (kind === 'boss_hunter_chorus') return 'hunter_boss';
+  if (kind === 'boss_q_revisor') return 'q_revisor';
+  return kind ? 'boss' : '';
+}
+function musicThemeShiftV2120(modTheme = '', bossTheme = '') {
+  const byBoss = { croupier: -5, anchor_boss: -12, hunter_boss: -7, q_revisor: -9, boss: -8 };
+  const byMod = { anchor: -12, casino: -5, static: -9, prism: -7, hunter: -6, blood: -10, echo: -8, shift: -4, plain: 0 };
+  return Math.pow(2, ((byBoss[bossTheme] ?? byMod[modTheme] ?? 0) / 12));
+}
+
+AudioBus.prototype.playBossHook = function playBossHookV2120Low(context = {}) {
+  if (!this.music?.master || !this.ctx) return;
+  const root = this.musicRootFor(context) * musicThemeShiftV2120(context.modTheme, context.bossTheme);
+  const semitone = n => root * Math.pow(2, n / 12);
+  const pressure = Math.max(0.35, Math.min(1, (context.intensity || 0) * 0.55 + (context.crowd || 0) * 0.18 + (context.chaos || 0) * 0.16));
+  const bossTheme = context.bossTheme || 'boss';
+  const hooks = {
+    croupier: [-12, -7, -5, -10],
+    anchor_boss: [-24, -19, -17, -22],
+    hunter_boss: [-12, -15, -10, -17],
+    q_revisor: [-19, -12, -16, -9],
+    boss: [-17, -12, -10, -14]
+  };
+  const hook = hooks[bossTheme] || hooks.boss;
+  const step = context.stage === 'climax' ? 0.56 : 0.72;
+  const leadVol = (0.0024 + pressure * 0.0016) * (context.stage === 'climax' ? 1.08 : 0.82);
+  hook.forEach((m, i) => {
+    const delay = i * step;
+    this.musicNote(semitone(m), step * 1.8, i % 2 ? 'triangle' : 'sine', leadVol * (i === 0 ? 1.05 : 0.70), 300 + pressure * 90, delay, 1, 0);
+  });
+  if (context.stage === 'climax') {
+    for (let i = 0; i < 4; i++) this.musicNote(semitone(-24 + (i % 2) * 5), 0.18, 'sawtooth', 0.0011 + pressure * 0.0007, 260 + pressure * 80, i * 0.32, 1, 0);
+  }
+  this.musicDust(0.075, 0.00065 + pressure * 0.00055, 620, 0.025);
+};
+
+AudioBus.prototype.playDirgePhrase = function playDirgePhraseV2120Stage(context = {}) {
+  if (!this.music?.master || !this.ctx) return;
+  const mood = context.mood || this.musicMoodFor(context);
+  const baseRoot = this.musicRootFor(context);
+  const root = baseRoot * musicThemeShiftV2120(context.modTheme, context.bossTheme);
+  const semitone = n => root * Math.pow(2, n / 12);
+  const seed = this.music.motifIndex++;
+  const stage = context.stage || 'fight';
+  const boss = !!context.boss;
+  const intensity = Math.max(0, Math.min(1, context.intensity || 0));
+  const crowd = Math.max(0, Math.min(1, context.crowd || 0));
+  const chaos = Math.max(0, Math.min(1, context.chaos || 0));
+  const pressure = Math.max(intensity * 0.42, crowd * 0.25, chaos * 0.28, boss ? 0.42 : 0);
+  const stageMul = stage === 'start' ? 0.46 : stage === 'clear' ? 0.34 : stage === 'climax' ? 0.92 : 0.68;
+  const step = stage === 'start' ? 1.12 : stage === 'clear' ? 1.22 : stage === 'climax' ? 0.64 : 0.84;
+  const cells = {
+    start: [-24, -19, -17],
+    fight: [-24, -17, -14, -19],
+    climax: [-24, -19, -12, -17, -14],
+    clear: [-19, -15, -12]
+  };
+  const modCells = {
+    anchor: [-36, -31, -29, -34],
+    casino: [-24, -17, -14, -22],
+    static: [-31, -24, -22, -29],
+    prism: [-28, -21, -19, -26],
+    hunter: [-24, -27, -19, -31],
+    blood: [-31, -24, -29, -19],
+    echo: [-24, -17, -24, -12],
+    shift: [-24, -16, -21, -14]
+  };
+  const motif = (modCells[context.modTheme] || cells[stage] || cells.fight).slice();
+  if (boss) this.playBossHook({ ...context, mood, intensity: Math.max(intensity, stage === 'climax' ? 0.64 : 0.46), crowd, chaos, stage });
+  this.ambientNote(semitone(context.modTheme === 'anchor' || context.bossTheme === 'anchor_boss' ? -36 : -24), boss ? 4.4 : 6.6, 'triangle', (0.00075 + pressure * 0.00032) * stageMul, 120 + pressure * 40, 0, 0, 1);
+  const maxNotes = stage === 'start' ? 2 : stage === 'clear' ? 2 : stage === 'climax' ? 4 : 3;
+  motif.slice(0, maxNotes).forEach((m, i) => {
+    const delay = i * step;
+    const vol = (0.0030 + pressure * 0.0011) * stageMul * (i === 0 ? 1 : 0.62);
+    this.musicNote(semitone(m), step * (stage === 'climax' ? 1.12 : 1.55), i % 2 ? 'triangle' : 'sine', vol, 260 + pressure * 100, delay, 1, 0);
+    if (stage === 'climax' && i === 2) this.musicNote(semitone(m - 12), step * 1.25, 'sawtooth', vol * 0.36, 220 + pressure * 80, delay + step * 0.35, 1, 0);
+  });
+  if (stage === 'clear' && seed % 2 === 0) {
+    this.musicNote(semitone(-12), 3.2, 'sine', 0.00070, 340, step * 0.7, 1, 0);
+  }
+  if ((context.modTheme === 'static' || context.modTheme === 'prism') && stage !== 'clear') this.ambientNoise(1.9, 0.00020 + pressure * 0.00020, 360, 0.18);
+  if ((context.modTheme === 'casino' || context.bossTheme === 'croupier') && stage !== 'start') {
+    this.musicNote(semitone(-17), 0.16, 'square', 0.00070 + pressure * 0.00040, 300, step * 0.25, 1, 0);
+    this.musicNote(semitone(-24), 0.16, 'square', 0.00055 + pressure * 0.00030, 260, step * 1.10, 1, 0);
+  }
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2120StageDirector(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  const room = state?.room || null;
+  const menu = !!state?.menu || !room;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const portalOpen = !!room?.portal?.[2];
+  const boss = !menu && room?.cat === 'boss';
+  const bossHpPct = Math.max(0, Number(room?.bossHpPct || 0));
+  const stage = menu ? 'menu' : musicStageV2120(room, latest, bossHpPct || 100);
+  const modTheme = musicModThemeV2120(mods);
+  const bossTheme = bossThemeV2120(room?.bossKind || '');
+  const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
+  const combat = !menu && room?.phase === 'play' && !portalOpen && !chill;
+  const enemies = Math.max(0, Number(room?.liveEnemies || latest?.enemies?.length || 0));
+  const bullets = latest?.bullets?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const loop = Math.max(0, Math.floor(depth / 4));
+  const loopHeat = Math.max(0, Math.min(1, loop / 6));
+  const lowHp = me ? Math.max(0, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)) * 1.35) : 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const crowd = Math.max(0, Math.min(1, enemies / 36));
+  const bulletPressure = Math.max(0, Math.min(1, bullets / 100));
+  const damage = Math.max(0, Math.min(1, this.damageEnergy || 0));
+  this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.26);
+  this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.26);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.26);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.30);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.38);
+  const stageBoost = stage === 'start' ? -0.18 : stage === 'clear' ? -0.22 : stage === 'climax' ? 0.24 : 0;
+  const themeBoost = modTheme === 'static' || modTheme === 'anchor' || modTheme === 'hunter' ? 0.04 : 0;
+  let intensity = menu ? 0.045 : Math.max(0, Math.min(1, crowd * 0.24 + bulletPressure * 0.05 + lowHp * 0.10 + danger * 0.13 + damage * 0.14 + loopHeat * 0.13 + (boss ? 0.18 : 0) + themeBoost + stageBoost));
+  if (stage === 'clear' || chill) intensity *= 0.42;
+  if (stage === 'start') intensity *= 0.58;
+  if (boss) intensity = Math.max(intensity, stage === 'climax' ? 0.50 : 0.36);
+  const staticLike = modTheme === 'static' || modTheme === 'prism' || modTheme === 'anchor';
+  const casino = modTheme === 'casino';
+  const mood = stage === 'clear' ? 'resolve' : stage === 'start' ? (chill ? 'rest' : 'combat') : this.musicMoodFor({ menu, boss, chill, casino, staticLike, combat, intensity, crowd, damage, chaos: this.musicChaos, portalOpen, portal: this.musicPortal, resolve: this.musicResolve });
+  const root = this.musicRootFor({ menu, boss, chill, casino, staticLike, mood }) * musicThemeShiftV2120(modTheme, bossTheme);
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+  const area = menu ? 'menu' : `${room?.cat || 'room'}:${room?.special || ''}:${mods.join(',')}:${stage}:${room?.bossKind || ''}`;
+  if (area !== this.musicLastArea) {
+    this.musicTransition = Math.max(this.musicTransition || 0, boss ? 0.74 : 0.58);
+    this.music.phraseT = Math.min(this.music.phraseT || 0.9, stage === 'start' ? 0.42 : boss ? 0.28 : stage === 'clear' ? 0.18 : 0.55);
+    this.musicLastArea = area;
+  }
+  if (L.pulse) { L.pulse.o.frequency.setTargetAtTime(root * (stage === 'climax' ? 2 : 1.35), now, 2.1); L.pulse.f.frequency.setTargetAtTime(85 + intensity * 100, now, 1.9); }
+  if (L.casino) L.casino.o.frequency.setTargetAtTime(root * (modTheme === 'casino' || bossTheme === 'croupier' ? 3 : 1.5), now, 2.4);
+  if (L.dirgePad) { L.dirgePad.o.frequency.setTargetAtTime(root * (boss ? 1.5 : 1.2), now, 2.6); L.dirgePad.f.frequency.setTargetAtTime(145 + intensity * 68, now, 2.4); }
+  if (L.choir) L.choir.f.frequency.setTargetAtTime((boss ? 260 : 180) + intensity * 84, now, 2.2);
+  if (L.glass) L.glass.o.frequency.setTargetAtTime(root * (stage === 'clear' ? 2 : 1.4), now, 2.8);
+  if (L.highPad) { L.highPad.o.frequency.setTargetAtTime(root * (stage === 'clear' ? 2 : 1.45), now, 3.4); L.highPad.f.frequency.setTargetAtTime(300 + intensity * 80, now, 2.8); }
+  if (L.drive) { L.drive.o.frequency.setTargetAtTime(root * (stage === 'climax' ? 2.2 : 1.75), now, 1.4); L.drive.f.frequency.setTargetAtTime(230 + intensity * 135, now, 1.3); }
+  if (L.bossLine) { L.bossLine.o.frequency.setTargetAtTime(root * (boss ? 2 : 1.4), now, 1.4); L.bossLine.f.frequency.setTargetAtTime(310 + intensity * 95, now, 1.4); }
+  if (L.needle) L.needle.f.frequency.setTargetAtTime(modTheme === 'static' ? 520 : modTheme === 'casino' ? 600 : 420 + intensity * 120, now, 1.4);
+
+  const inGame = inGameMusicAmount(room, menu);
+  this.music.phraseT = Math.max(0, (this.music.phraseT || 0) - dt);
+  if ((room || menu) && this.music.phraseT <= 0) {
+    this.playDirgePhrase({ boss, chill, casino, staticLike, combat, intensity: menu ? 0.035 : intensity, menu, damage, crowd, chaos: this.musicChaos, portalOpen, portal: this.musicPortal, resolve: this.musicResolve, transition: this.musicTransition, mood, stage, modTheme, bossTheme });
+    const eventPull = Math.max(this.musicPortal || 0, this.musicResolve || 0, this.musicTransition || 0);
+    const base = menu ? 6.8 : stage === 'start' ? 7.4 : stage === 'clear' ? 5.8 : stage === 'climax' ? (boss ? 3.05 : 3.7) : boss ? 4.2 : 5.2;
+    this.music.phraseT = Math.max(stage === 'climax' ? (boss ? 2.45 : 3.0) : stage === 'clear' ? 4.0 : 3.6, base - intensity * 0.42 - eventPull * 0.32 - loopHeat * 0.26 - crowd * 0.12);
+  }
+  const stageVol = stage === 'start' ? 0.62 : stage === 'clear' ? 0.52 : stage === 'climax' ? 0.95 : 0.74;
+  const modVol = modTheme === 'anchor' ? 1.12 : modTheme === 'static' ? 0.88 : modTheme === 'casino' ? 0.92 : 1;
+  const bossVol = boss ? (stage === 'climax' ? 0.86 : 0.68) : 1;
+  const mul = inGame * stageVol * modVol * bossVol;
+  this.setMusicLayer('drone', mul * (menu ? 0.0017 : chill ? 0.0016 : 0.0018 + intensity * 0.00024), 1.6);
+  this.setMusicLayer('sub', menu ? 0.000020 : (combat && intensity > 0.68 ? (0.000030 + intensity * 0.000070 + (modTheme === 'anchor' ? 0.000040 : 0)) * mul : 0.000014), 1.5);
+  this.setMusicLayer('pulse', combat && intensity > (stage === 'start' ? 0.78 : 0.50) ? (0.000040 + intensity * 0.00015 + (stage === 'climax' ? 0.000055 : 0)) * mul : 0.000018, 1.1);
+  this.setMusicLayer('hat', combat && stage === 'climax' && intensity > 0.66 ? 0.000040 + intensity * 0.000060 : 0.000018, 1.0);
+  this.setMusicLayer('casino', (modTheme === 'casino' || bossTheme === 'croupier') ? (0.00012 + intensity * 0.00010) * mul : 0.000016, 1.4);
+  this.setMusicLayer('choir', mul * (menu ? 0.0015 : boss ? 0.0022 + intensity * 0.0014 : 0.00145 + intensity * 0.00055), 1.5);
+  this.setMusicLayer('dirgePad', mul * (menu ? 0.0019 : chill ? 0.0016 : 0.00185 + intensity * 0.00058), 1.6);
+  this.setMusicLayer('scrape', combat && (modTheme === 'static' || modTheme === 'prism' || stage === 'climax') ? (0.000035 + intensity * 0.000075) * mul : 0.000016, 1.1);
+  this.setMusicLayer('glass', stage === 'clear' || menu || chill ? 0.00011 + (1 - intensity) * 0.000035 : 0.000012, 1.8);
+  this.setMusicLayer('highPad', stage === 'clear' || menu || chill ? 0.00011 + (1 - intensity) * 0.000055 : 0.000010, 2.1);
+  this.setMusicLayer('drive', combat && stage !== 'start' && intensity > (boss ? 0.42 : 0.54) ? (0.000050 + intensity * 0.00025 + (stage === 'climax' ? 0.000070 : 0)) * mul : 0.000016, 1.0);
+  this.setMusicLayer('bossLine', boss ? (0.000060 + intensity * 0.00016) * (stage === 'climax' ? 1.05 : 0.65) : 0.000010, 1.1);
+  this.setMusicLayer('needle', combat && (modTheme === 'static' || stage === 'climax') && intensity > 0.70 ? 0.000020 + intensity * 0.000070 : 0.000012, 1.1);
 };

@@ -45,8 +45,11 @@ export const ENEMIES = {
   // boss rotation v2.1.19
   boss_croupier: { label: 'CRP', hp: 1420, spd: 52, size: 78, dmg: 24, boss: true, armor: 0.24, fireCd: 2.35, bulletSpd: 245, xp: 150, gld: 132, score: 22, bossRole: 'casino rules' },
   boss_anchor_cashier: { label: 'ANC+', hp: 1520, spd: 42, size: 82, dmg: 25, boss: true, armor: 0.30, fireCd: 2.60, bulletSpd: 215, fieldR: 430, pull: 190, xp: 154, gld: 136, score: 23, bossRole: 'gravity control' },
-  boss_hunter_chorus: { label: 'HNT', hp: 1360, spd: 74, size: 74, dmg: 24, boss: true, armor: 0.20, fireCd: 1.95, bulletSpd: 285, xp: 152, gld: 128, score: 22, bossRole: 'hunter trio' },
-  boss_q_revisor: { label: 'QREV', hp: 1460, spd: 58, size: 76, dmg: 25, boss: true, armor: 0.23, fireCd: 2.25, bulletSpd: 250, xp: 156, gld: 136, score: 23, bossRole: 'active ability mimic' }
+  boss_hunter_chorus: { label: 'HNT', hp: 1360, spd: 74, size: 74, dmg: 24, boss: true, armor: 0.20, fireCd: 2.15, bulletSpd: 270, xp: 152, gld: 128, score: 22, bossRole: 'hunter shell' },
+  boss_hunter_duelist: { label: 'HNT-I', hp: 520, spd: 92, size: 54, dmg: 20, boss: true, bossFragment: true, armor: 0.12, fireCd: 1.65, bulletSpd: 245, xp: 58, gld: 50, score: 9, bossRole: 'hunter fragment' },
+  boss_hunter_marksman: { label: 'HNT-II', hp: 460, spd: 64, size: 50, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 1.45, bulletSpd: 300, xp: 54, gld: 48, score: 9, bossRole: 'hunter fragment' },
+  boss_hunter_trapper: { label: 'HNT-III', hp: 480, spd: 72, size: 52, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 2.05, bulletSpd: 235, xp: 56, gld: 48, score: 9, bossRole: 'hunter fragment' },
+  boss_q_revisor: { label: 'RUSH', hp: 1460, spd: 68, size: 76, dmg: 25, boss: true, armor: 0.23, fireCd: 1.90, bulletSpd: 245, windup: 0.48, chargeSpd: 720, chargeTime: 0.52, chargeCd: 1.05, xp: 156, gld: 136, score: 23, bossRole: 'dash pressure' }
 };
 
 // which kinds can spawn at which loop
@@ -384,7 +387,6 @@ export const ROOM_MODS = {
   prism_grid:      { id: 'prism_grid',      label: 'PRISM GRID' },
   blood_tax:       { id: 'blood_tax',       label: 'BLOOD PAYMENT' },
   echo_walls:      { id: 'echo_walls',      label: 'ECHO SHOTS' },
-  anchor_gravity:  { id: 'anchor_gravity',  label: 'ANCHOR GRAVITY' },
   skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' }
 };
 
