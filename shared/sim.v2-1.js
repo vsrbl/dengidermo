@@ -363,7 +363,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
-  if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: sockets pull players, mobs, pickups, and every projectile.';
+  if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: square sockets softly bend movement and projectiles; the center is the strong zone.';
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
@@ -1743,14 +1743,23 @@ export function startRoom(run, players) {
   run.pendingStrikes = [];
   if ((run.plan.modifierIds || []).includes('anchor_gravity')) {
     const srng = mulberry32((seed ^ 0xA44C07) >>> 0);
-    const count = 2 + (loopIndex >= 3 && srng() < 0.55 ? 1 : 0);
+    const rr = playableRectForArchetype(run.plan.roomArchetype || 'standard');
+    const count = 1 + (loopIndex >= 4 && srng() < 0.45 ? 1 : 0);
+    const keepAway = [
+      { x: run.plan.w / 2, y: run.plan.h / 2, r: 230 },
+      { x: run.plan.w / 2 + 260, y: run.plan.h / 2, r: 190 },
+      { x: run.plan.w / 2 - 260, y: run.plan.h / 2, r: 190 }
+    ];
     for (let si = 0; si < count; si++) {
-      const a = srng() * Math.PI * 2;
-      const d = 260 + srng() * 430;
-      const rr = playableRectForArchetype(run.plan.roomArchetype || 'standard');
-      const sx = clamp(run.plan.w / 2 + Math.cos(a) * d, rr.x + 170, rr.right - 170);
-      const sy = clamp(run.plan.h / 2 + Math.sin(a) * d, rr.y + 150, rr.bottom - 150);
-      run.roomSockets.push({ x: Math.round(sx), y: Math.round(sy), r: 310 + Math.round(srng() * 90) });
+      let sx = run.plan.w / 2, sy = run.plan.h / 2;
+      for (let tries = 0; tries < 10; tries++) {
+        const a = srng() * Math.PI * 2;
+        const d = 310 + srng() * 390;
+        sx = clamp(run.plan.w / 2 + Math.cos(a) * d, rr.x + 210, rr.right - 210);
+        sy = clamp(run.plan.h / 2 + Math.sin(a) * d, rr.y + 180, rr.bottom - 180);
+        if (!keepAway.some(k => dist2(sx, sy, k.x, k.y) < k.r * k.r)) break;
+      }
+      run.roomSockets.push({ x: Math.round(sx), y: Math.round(sy), r: 230 + Math.round(srng() * 55), inner: 52 });
     }
   }
   if ((run.plan.modifierIds || []).includes('prism_grid')) {
@@ -2115,6 +2124,8 @@ function createDirectorState(run) {
     waveIndex: 0,
     lastPack: '',
     lastIntent: '',
+    lastCrowdForm: '',
+    lastCrowdCombo: '',
     pauseT: run.plan.category === 'boss' ? 1.4 : 1.2,
     used: {}
   };
@@ -2213,6 +2224,221 @@ function roleCount(role, run) {
 function spawnClusterPoint(run, players) {
   return enemySpawnPoint(mulberry32((Math.random() * 1e9) >>> 0), run.plan.walls, [...players.values()].filter(pl => pl.alive));
 }
+
+
+// ---------------------------------------------------------------- crowd forms v2.1.3
+// Enemy packs still use the old encounter roles, but their spawn geometry now has a readable shape.
+// These names are internal director grammar only; no form labels are sent to normal combat UI.
+const CROWD_FORM_WEIGHTS_BY_ARCHETYPE = {
+  panic_box: { ring: 30, fan: 26, cloud: 24, pinch: 16, stream: 10, wall: 3, lane: 2, nest: 1 },
+  compact: { ring: 26, pinch: 24, nest: 18, fan: 17, cloud: 15, stream: 9, wall: 6, lane: 3 },
+  standard: { wall: 20, fan: 19, pinch: 19, stream: 18, cloud: 14, ring: 10, nest: 9, lane: 7 },
+  wide: { lane: 28, wall: 24, nest: 22, stream: 16, fan: 10, pinch: 9, ring: 5, cloud: 5 },
+  long_lane: { wall: 34, lane: 30, stream: 20, pinch: 16, fan: 8, nest: 7, ring: 3, cloud: 3 },
+  lounge: { cloud: 12, fan: 8, ring: 5, wall: 4, stream: 4, pinch: 3, lane: 2, nest: 2 },
+  boss: { ring: 22, stream: 20, fan: 18, lane: 16, wall: 10, pinch: 8, cloud: 5, nest: 4 }
+};
+const CROWD_FORM_COMBOS = {
+  wall: ['lane','stream','pinch'],
+  fan: ['stream','ring','pinch'],
+  ring: ['nest','lane','cloud'],
+  nest: ['ring','stream','wall'],
+  lane: ['wall','ring','pinch'],
+  stream: ['fan','wall','nest'],
+  pinch: ['wall','stream','lane'],
+  cloud: ['fan','ring','stream']
+};
+function playerCentroid(players) {
+  const alive = [...players.values()].filter(p => p?.alive);
+  if (!alive.length) return { x: 1100, y: 750 };
+  let x = 0, y = 0;
+  for (const p of alive) { x += p.x || 1100; y += p.y || 750; }
+  return { x: x / alive.length, y: y / alive.length };
+}
+function weightedPickKey(weights) {
+  let total = 0;
+  for (const k of Object.keys(weights || {})) total += Math.max(0, weights[k] || 0);
+  if (total <= 0) return 'cloud';
+  let r = Math.random() * total;
+  for (const k of Object.keys(weights)) {
+    r -= Math.max(0, weights[k] || 0);
+    if (r <= 0) return k;
+  }
+  return Object.keys(weights)[0] || 'cloud';
+}
+function addFormWeight(weights, key, value) {
+  weights[key] = Math.max(0, (weights[key] || 0) + value);
+}
+function chooseCrowdForm(run, pack, opts = {}) {
+  const df = difficulty(run);
+  const arch = run.plan?.roomArchetype || 'standard';
+  const mods = run.plan?.modifierIds || [];
+  const weights = { ...(CROWD_FORM_WEIGHTS_BY_ARCHETYPE[arch] || CROWD_FORM_WEIGHTS_BY_ARCHETYPE.standard) };
+  const intent = pack?.intent || '';
+
+  if (intent === 'swarm') { addFormWeight(weights, 'stream', 12); addFormWeight(weights, 'cloud', 10); addFormWeight(weights, 'fan', 8); addFormWeight(weights, 'ring', 5); }
+  if (intent === 'chaos') { addFormWeight(weights, 'cloud', 14); addFormWeight(weights, 'fan', 10); addFormWeight(weights, 'pinch', 6); }
+  if (intent === 'ranged') { addFormWeight(weights, 'lane', 13); addFormWeight(weights, 'wall', 11); addFormWeight(weights, 'pinch', 4); }
+  if (intent === 'control') { addFormWeight(weights, 'nest', 12); addFormWeight(weights, 'lane', 9); addFormWeight(weights, 'ring', 7); }
+  if (intent === 'armor' || intent === 'support') { addFormWeight(weights, 'wall', 11); addFormWeight(weights, 'nest', 8); addFormWeight(weights, 'pinch', 5); }
+  if (intent === 'director') { addFormWeight(weights, 'nest', 15); addFormWeight(weights, 'stream', 7); addFormWeight(weights, 'wall', 5); }
+  if (intent === 'mirror') { addFormWeight(weights, 'ring', 10); addFormWeight(weights, 'fan', 7); addFormWeight(weights, 'pinch', 6); }
+
+  if (mods.includes('blackout')) { addFormWeight(weights, 'ring', 12); addFormWeight(weights, 'pinch', 9); addFormWeight(weights, 'cloud', 7); }
+  if (mods.includes('static_rain')) { addFormWeight(weights, 'stream', 12); addFormWeight(weights, 'pinch', 8); addFormWeight(weights, 'wall', 6); }
+  if (mods.includes('greed')) { addFormWeight(weights, 'cloud', 11); addFormWeight(weights, 'fan', 9); addFormWeight(weights, 'stream', 6); }
+  if (mods.includes('hunter_contract')) { addFormWeight(weights, 'stream', 18); addFormWeight(weights, 'fan', 10); addFormWeight(weights, 'pinch', 8); }
+  if (mods.includes('casino_virus')) { addFormWeight(weights, 'cloud', 16); addFormWeight(weights, 'fan', 10); addFormWeight(weights, 'ring', 7); }
+  if (mods.includes('moving_room')) { addFormWeight(weights, 'wall', 12); addFormWeight(weights, 'pinch', 10); addFormWeight(weights, 'lane', 8); }
+  if (mods.includes('prism_grid')) { addFormWeight(weights, 'lane', 18); addFormWeight(weights, 'wall', 12); addFormWeight(weights, 'pinch', 7); }
+  if (mods.includes('blood_tax')) { addFormWeight(weights, 'cloud', 13); addFormWeight(weights, 'fan', 8); addFormWeight(weights, 'stream', 8); }
+  if (mods.includes('echo_walls')) { addFormWeight(weights, 'fan', 10); addFormWeight(weights, 'pinch', 8); addFormWeight(weights, 'lane', 6); }
+  if (mods.includes('anchor_gravity')) { addFormWeight(weights, 'ring', 12); addFormWeight(weights, 'nest', 9); addFormWeight(weights, 'stream', 7); }
+  if (mods.includes('skin_cache')) { addFormWeight(weights, 'nest', 16); addFormWeight(weights, 'wall', 7); addFormWeight(weights, 'ring', 7); }
+
+  if (pack?.crowdForm) addFormWeight(weights, pack.crowdForm, 999);
+  if (run.director?.lastCrowdForm && weights[run.director.lastCrowdForm]) weights[run.director.lastCrowdForm] *= 0.38;
+
+  let primary = weightedPickKey(weights);
+  let secondary = '';
+  const secondaryChance = opts.forceSecondary ? 1 : (df.loop < 2 ? 0 : Math.min(0.70, 0.16 + (df.loop - 2) * 0.11 + df.late * 0.08));
+  if (!pack?.crowdForm && (opts.allowSecondary ?? true) && Math.random() < secondaryChance) {
+    const comboWeights = {};
+    for (const f of CROWD_FORM_COMBOS[primary] || []) comboWeights[f] = (weights[f] || 1) + 10;
+    secondary = weightedPickKey(comboWeights);
+    if (secondary === primary) secondary = '';
+  }
+  return { primary, secondary };
+}
+function preferredCrowdSide(run, focus, form) {
+  const arch = run.plan?.roomArchetype || 'standard';
+  const dirs = arch === 'long_lane'
+    ? [{ x: -1, y: 0 }, { x: 1, y: 0 }]
+    : [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }];
+  const rr = playableRectForArchetype(arch);
+  const cx = (rr.x + rr.right) / 2, cy = (rr.y + rr.bottom) / 2;
+  let weights = dirs.map(d => 1);
+  // Prefer the side opposite the player's current drift from room center, so waves enter from visible edges.
+  for (let i = 0; i < dirs.length; i++) {
+    const d = dirs[i];
+    const dot = (focus.x - cx) * d.x + (focus.y - cy) * d.y;
+    if (dot < 0) weights[i] += 0.7;
+    if (form === 'pinch' || form === 'ring') weights[i] += 0.25;
+  }
+  let total = weights.reduce((a, b) => a + b, 0), r = Math.random() * total;
+  for (let i = 0; i < dirs.length; i++) { r -= weights[i]; if (r <= 0) return dirs[i]; }
+  return dirs[0];
+}
+function safeCrowdSpawnPos(run, raw, fallback) {
+  const rr = playableRectForArchetype(run.plan?.roomArchetype || 'standard');
+  const margin = 72;
+  const fx = fallback?.x ?? (rr.x + rr.right) / 2;
+  const fy = fallback?.y ?? (rr.y + rr.bottom) / 2;
+  const clampPos = (x, y) => ({ x: clamp(x, rr.x + margin, rr.right - margin), y: clamp(y, rr.y + margin, rr.bottom - margin) });
+  let p = clampPos(raw.x, raw.y);
+  let c = collideWalls(p.x, p.y, 34, run.plan.walls || [], fx, fy);
+  c = clampPos(c.x, c.y);
+  if (wallPenalty(c.x, c.y, 34, run.plan.walls || []) <= 0) return c;
+  const tries = [54, 96, 145, 210, 285];
+  for (const rad of tries) {
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + Math.random() * 0.18;
+      p = clampPos(raw.x + Math.cos(a) * rad, raw.y + Math.sin(a) * rad);
+      c = collideWalls(p.x, p.y, 34, run.plan.walls || [], fx, fy);
+      c = clampPos(c.x, c.y);
+      if (wallPenalty(c.x, c.y, 34, run.plan.walls || []) <= 0) return c;
+    }
+  }
+  return enemySpawnPoint(mulberry32((Math.random() * 1e9) >>> 0), run.plan.walls, []);
+}
+function createCrowdLayout(run, players, pack, count, opts = {}) {
+  const picked = chooseCrowdForm(run, pack, opts);
+  const focus = playerCentroid(players);
+  const rr = playableRectForArchetype(run.plan?.roomArchetype || 'standard');
+  const w = rr.right - rr.x, h = rr.bottom - rr.y;
+  const primary = picked.primary || 'cloud';
+  const secondary = picked.secondary || '';
+  const side = preferredCrowdSide(run, focus, primary);
+  const side2 = { x: -side.x, y: -side.y };
+  const perp = { x: -side.y, y: side.x };
+  const baseDist = clamp(Math.min(w, h) * 0.38 + 170 + Math.random() * 90, 330, 680);
+  const nestDir = rotateVec(side, (Math.random() - 0.5) * 0.9);
+  const nestRaw = { x: focus.x + nestDir.x * clamp(baseDist * 0.88, 280, 560), y: focus.y + nestDir.y * clamp(baseDist * 0.88, 280, 560) };
+  const nestCenter = safeCrowdSpawnPos(run, nestRaw, focus);
+  return {
+    primary, secondary, focus, side, side2, perp, baseDist, nestCenter,
+    center: safeCrowdSpawnPos(run, { x: focus.x + side.x * baseDist, y: focus.y + side.y * baseDist }, focus),
+    seed: Math.random() * Math.PI * 2,
+    count: Math.max(1, count || 1)
+  };
+}
+function selectCrowdFormForIndex(layout, idx, plannedItem) {
+  const role = plannedItem?.opts?.packRole || '';
+  if (role.includes('core') || role.includes('sustain') || role.includes('summon')) return layout.primary === 'nest' || layout.secondary === 'nest' ? 'nest' : layout.primary;
+  if (!layout.secondary) return layout.primary;
+  // Combined forms: most bodies express the primary shape, every third / backline body expresses the secondary layer.
+  if (role.includes('backline') || role.includes('guard') || role.includes('lane')) return layout.secondary;
+  return (idx % 3 === 2) ? layout.secondary : layout.primary;
+}
+function crowdSpawnPos(run, players, layout, idx, total, plannedItem) {
+  const form = selectCrowdFormForIndex(layout, idx, plannedItem);
+  const focus = layout.focus || playerCentroid(players);
+  const side = form === layout.secondary ? layout.side2 : layout.side;
+  const perp = { x: -side.y, y: side.x };
+  const n = Math.max(1, total || 1);
+  const k = idx - (n - 1) / 2;
+  const row = Math.floor(idx / 5);
+  const jitter = () => (Math.random() - 0.5);
+  let raw;
+
+  if (form === 'wall') {
+    const spacing = 64;
+    raw = { x: focus.x + side.x * (layout.baseDist + row * 42) + perp.x * k * spacing, y: focus.y + side.y * (layout.baseDist + row * 42) + perp.y * k * spacing };
+  } else if (form === 'fan') {
+    const spread = clamp(0.22 + n * 0.035, 0.35, 0.82);
+    const t = n <= 1 ? 0 : (idx / (n - 1)) - 0.5;
+    const dir = rotateVec(side, t * spread * 2);
+    raw = { x: focus.x + dir.x * (layout.baseDist + row * 56), y: focus.y + dir.y * (layout.baseDist + row * 56) };
+  } else if (form === 'ring') {
+    const a = layout.seed + (idx / n) * Math.PI * 2 + row * 0.18;
+    const r = clamp(layout.baseDist * 0.86 + (idx % 2) * 46, 300, 610);
+    raw = { x: focus.x + Math.cos(a) * r, y: focus.y + Math.sin(a) * r };
+  } else if (form === 'nest') {
+    const role = plannedItem?.opts?.packRole || '';
+    if (role.includes('core') || role.includes('sustain') || role.includes('summon')) raw = { ...layout.nestCenter };
+    else {
+      const a = layout.seed + idx * 2.399;
+      const r = role.includes('guard') || role.includes('lane') ? 160 + (idx % 3) * 38 : 225 + (idx % 4) * 34;
+      raw = { x: layout.nestCenter.x + Math.cos(a) * r, y: layout.nestCenter.y + Math.sin(a) * r };
+    }
+  } else if (form === 'lane') {
+    const spacing = 82;
+    const lane = (idx % 2 === 0 ? -1 : 1) * 70;
+    raw = { x: focus.x + side.x * (layout.baseDist + row * 72) + perp.x * (k * spacing + lane), y: focus.y + side.y * (layout.baseDist + row * 72) + perp.y * (k * spacing + lane) };
+  } else if (form === 'stream') {
+    const lane = (idx % 3) - 1;
+    const depth = Math.floor(idx / 3);
+    raw = { x: focus.x + side.x * (layout.baseDist + depth * 92) + perp.x * lane * 58, y: focus.y + side.y * (layout.baseDist + depth * 92) + perp.y * lane * 58 };
+  } else if (form === 'pinch') {
+    const s = idx % 2 === 0 ? side : { x: -side.x, y: -side.y };
+    const p = { x: -s.y, y: s.x };
+    const lane = Math.floor(idx / 2) - Math.floor(n / 4);
+    raw = { x: focus.x + s.x * (layout.baseDist + Math.floor(idx / 4) * 42) + p.x * lane * 78, y: focus.y + s.y * (layout.baseDist + Math.floor(idx / 4) * 42) + p.y * lane * 78 };
+  } else { // cloud
+    const a = layout.seed + idx * 2.11 + jitter() * 0.65;
+    const r = clamp(layout.baseDist * (0.55 + Math.random() * 0.55), 230, 620);
+    raw = { x: focus.x + Math.cos(a) * r, y: focus.y + Math.sin(a) * r };
+  }
+
+  // Anchor gravity should bend the crowd shapes toward sockets without pulling everything into a single heap.
+  if (run.plan?.modifierIds?.includes('anchor_gravity') && run.roomSockets?.length) {
+    const so = run.roomSockets[Math.floor(Math.random() * run.roomSockets.length)];
+    const bend = form === 'ring' || form === 'stream' || form === 'pinch' ? 0.22 : 0.14;
+    raw.x = raw.x * (1 - bend) + (so.x || raw.x) * bend;
+    raw.y = raw.y * (1 - bend) + (so.y || raw.y) * bend;
+  }
+  return safeCrowdSpawnPos(run, raw, focus);
+}
 function offsetSpawnPos(run, center, idx, total) {
   const a = (idx / Math.max(1, total)) * Math.PI * 2 + Math.random() * 0.55;
   const r = 55 + Math.random() * 170 + Math.floor(idx / 4) * 35;
@@ -2294,7 +2520,6 @@ function escortOrbitMove(run, e, dt, spd, target) {
 
 function spawnEncounterPack(run, players, pack, budgetLeft) {
   const pool = spawnPool(run);
-  const center = spawnClusterPoint(run, players);
   let planned = [];
   for (const role of pack.roles) {
     const n = roleCount(role, run);
@@ -2304,9 +2529,11 @@ function spawnEncounterPack(run, players, pack, budgetLeft) {
   const roomLeft = Math.max(0, df.maxActive - run.enemies.length);
   const count = Math.max(0, Math.min(planned.length, roomLeft, budgetLeft));
   if (!count) return 0;
+  const layout = createCrowdLayout(run, players, pack, count);
+  const center = layout.center || spawnClusterPoint(run, players);
   const spawnedEnemies = [];
   for (let i = 0; i < count; i++) {
-    const pos = offsetSpawnPos(run, center, i, count);
+    const pos = crowdSpawnPos(run, players, layout, i, count, planned[i]);
     const e = spawnEnemy(run, players, planned[i].kind, true, pos, planned[i].opts);
     spawnedEnemies.push(e);
   }
@@ -2316,6 +2543,8 @@ function spawnEncounterPack(run, players, pack, budgetLeft) {
     run.director.waveIndex++;
     run.director.lastPack = pack.id;
     run.director.lastIntent = pack.intent;
+    run.director.lastCrowdForm = layout.primary || '';
+    run.director.lastCrowdCombo = layout.secondary ? `${layout.primary}+${layout.secondary}` : (layout.primary || '');
     run.director.used[pack.id] = (run.director.used[pack.id] || 0) + 1;
   }
   return count;
@@ -3571,10 +3800,12 @@ function spawnHunterWave(run, players) {
   const df = difficulty(run);
   const pool = wave <= 1 ? ['grunt','runner','runner'] : wave === 2 ? ['runner','shooter','charger','bouncer'] : ['runner','shooter','charger','bouncer','glitch','tank','herald'];
   const count = Math.min(16, 4 + wave * 2 + Math.floor((run.runDepth || 0) / 3));
-  const center = spawnClusterPoint(run, players);
-  for (let i = 0; i < count && run.enemies.length < MAX_ENEMIES; i++) {
+  const hunterForm = wave <= 1 ? 'stream' : (wave === 2 ? 'pinch' : (wave % 2 ? 'fan' : 'ring'));
+  const layout = createCrowdLayout(run, players, { id: 'hunter_wave', intent: 'swarm', crowdForm: hunterForm }, count, { mode: 'hunter', allowSecondary: df.loop >= 3, forceSecondary: df.loop >= 6 && wave >= 3 });
+  const center = layout.center || spawnClusterPoint(run, players);
+  for (let i = 0; i < count && run.enemies.length < df.maxActive; i++) {
     const kind = pool[Math.floor(Math.random() * pool.length)];
-    const pos = offsetSpawnPos(run, center, i, count);
+    const pos = crowdSpawnPos(run, players, layout, i, count, { kind, opts: { noArmor: wave <= 1 } });
     const e = spawnEnemy(run, players, kind, wave >= 2 && Math.random() < Math.min(0.85, 0.12 * wave + df.loop * 0.04), pos, { noArmor: wave <= 1 });
     e.hunterWave = wave;
     e.rallyT = Math.max(e.rallyT || 0, 1.1);
@@ -3645,10 +3876,16 @@ function applyCasinoVirusEvent(run, players, ev) {
   const center = ev.center || spawnClusterPoint(run, players);
   let spawned = 0;
   if (ev.kind === 'mob_pack' || ev.kind === 'elite_pack') {
+    const df = difficulty(run);
     const n = Math.max(1, ev.n | 0);
     const pool = Array.isArray(ev.pool) && ev.pool.length ? ev.pool : ['runner','glitch','bouncer','shooter','charger'];
+    const form = ev.kind === 'mob_pack' ? 'cloud' : (ev.kind === 'elite_pack' ? 'fan' : 'ring');
+    const layout = createCrowdLayout(run, players, { id: 'casino_virus_event', intent: 'chaos', crowdForm: form }, n, { mode: 'casino', allowSecondary: df.loop >= 3 });
+    center.x = layout.center.x; center.y = layout.center.y;
     for (let i = 0; i < n && run.enemies.length < MAX_ENEMIES; i++) {
-      const e = spawnEnemy(run, players, pool[Math.floor(Math.random() * pool.length)], ev.kind === 'elite_pack' || i > 3, offsetSpawnPos(run, center, i, n), { noArmor: ev.kind === 'mob_pack' && i < 2 });
+      const kind = pool[Math.floor(Math.random() * pool.length)];
+      const pos = crowdSpawnPos(run, players, layout, i, n, { kind, opts: { noArmor: ev.kind === 'mob_pack' && i < 2 } });
+      const e = spawnEnemy(run, players, kind, ev.kind === 'elite_pack' || i > 3, pos, { noArmor: ev.kind === 'mob_pack' && i < 2 });
       if (e) { e.virusSpawn = true; spawned++; }
     }
     run.fx.push({ t: 'director_wave', label: ev.label, intent: 'chaos', x: Math.round(center.x), y: Math.round(center.y), count: spawned });
@@ -3798,46 +4035,59 @@ function stepMods(run, players, dt) {
         const dist = Math.sqrt(d);
         const n = norm(s.x - p.x, s.y - p.y);
         const core = Math.max(0, 1 - dist / s.r);
-        const force = 180 + 760 * Math.pow(core, 0.65);
-        const c = collideWalls(p.x + n.x * force * dt, p.y + n.y * force * dt, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
+        const inner = Math.max(46, s.inner || s.r * 0.22);
+        const tangent = { x: -n.y, y: n.x };
+        const innerMul = dist < inner ? 1 : 0.42;
+        const dashMul = (p.dashT || p.invuln || 0) > 0.04 ? 0.28 : 1;
+        const pull = (22 + 118 * Math.pow(core, 1.85)) * innerMul * dashMul;
+        const swirl = (18 + 42 * core) * (dist < inner ? 0.35 : 1) * dashMul;
+        const nx = p.x + (n.x * pull + tangent.x * swirl) * dt;
+        const ny = p.y + (n.y * pull + tangent.y * swirl) * dt;
+        const c = collideWalls(nx, ny, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
         p.x = c.x; p.y = c.y;
-        p.slowT = Math.max(p.slowT || 0, 0.18);
-        p.slowMul = Math.min(p.slowMul || 1, dist < s.r * 0.45 ? 0.38 : 0.58);
+        p.slowT = Math.max(p.slowT || 0, 0.12);
+        p.slowMul = Math.min(p.slowMul || 1, dist < inner ? 0.78 : 0.90);
       }
       for (const e of run.enemies) {
         if (!e || e.hp <= 0 || ENEMIES[e.kind]?.boss) continue;
         const d = dist2(e.x, e.y, s.x, s.y);
         if (d > s.r * s.r || d < 12) continue;
+        const dist = Math.sqrt(d);
         const n = norm(s.x - e.x, s.y - e.y);
-        const force = (e.kind === 'damper' ? 10 : 28) * (1 - Math.sqrt(d) / s.r);
+        const core = Math.max(0, 1 - dist / s.r);
+        const force = (e.kind === 'damper' ? 6 : 18 + 44 * core) * core;
         e.x += n.x * force * dt; e.y += n.y * force * dt;
       }
       for (const b of run.bullets) {
         const d = dist2(b.x, b.y, s.x, s.y);
-        const maxR = s.r + 190;
+        const maxR = s.r + 80;
         if (d > maxR ** 2 || d < 1) continue;
         const dist = Math.sqrt(d);
         const n = norm(s.x - b.x, s.y - b.y);
         const sp = Math.max(80, Math.hypot(b.vx || 0, b.vy || 0));
         const core = Math.max(0, 1 - dist / maxR);
-        const pull = 560 + 1850 * Math.pow(core, 1.1);
-        b.vx += n.x * pull * dt;
-        b.vy += n.y * pull * dt;
-        if (dist < Math.max(38, s.r * 0.18)) {
+        const mass = b.from === 'p' ? 0.34 : 0.58;
+        const pull = (120 + 520 * Math.pow(core, 1.35)) * mass;
+        const tangent = { x: -n.y, y: n.x };
+        b.vx += (n.x * pull + tangent.x * 42 * core * mass) * dt;
+        b.vy += (n.y * pull + tangent.y * 42 * core * mass) * dt;
+        if (dist < 24 && b.from !== 'p') {
           b.life = -1;
           run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: 'anchor_gravity' });
         } else {
           const ns = Math.hypot(b.vx || 0, b.vy || 0) || sp;
-          const maxSp = Math.max(sp * 1.18, 720);
+          const maxSp = Math.max(sp * 1.08, 620);
           if (ns > maxSp) { b.vx = b.vx / ns * maxSp; b.vy = b.vy / ns * maxSp; }
-          b.anchorWarpT = 0.18;
+          b.anchorWarpT = 0.12;
         }
       }
       for (const pk of run.pickups) {
         const d = dist2(pk.x, pk.y, s.x, s.y);
-        if (d > (s.r * 0.82) ** 2 || d < 16) continue;
+        if (d > (s.r * 0.65) ** 2 || d < 16) continue;
+        const dist = Math.sqrt(d);
         const n = norm(s.x - pk.x, s.y - pk.y);
-        pk.x += n.x * 18 * dt; pk.y += n.y * 18 * dt;
+        const core = Math.max(0, 1 - dist / (s.r * 0.65));
+        pk.x += n.x * (6 + 18 * core) * dt; pk.y += n.y * (6 + 18 * core) * dt;
       }
     }
   }
@@ -4677,6 +4927,17 @@ function activeShrapnel(run, p, x, y, power = 1) {
   run.fx.push({ t: 'active_mutation', label: 'SHRAPNEL', x: Math.round(x), y: Math.round(y), r: 85, tone: 'cyan' });
 }
 
+function activeCasinoMutationPayoutMul(run) {
+  // CASINO mutation is a risky Q-side payout, so its GLD/EXP scales with the same late-run economy used by chests.
+  const costMul = loopCostMul(run, 1.25);
+  const econMul = loopEconomyMul(run);
+  return Math.max(1, Math.min(340, Math.max(costMul, econMul)));
+}
+function activeCasinoMutationPayout(run, base, variance = 0) {
+  const raw = Number(base || 0) + Math.random() * Math.max(0, Number(variance || 0));
+  return Math.max(1, Math.round(raw * activeCasinoMutationPayoutMul(run)));
+}
+
 function buildActiveCasinoRoll(run, p, ctx) {
   const lvl = Math.max(1, ensureActive(p).level || 1);
   const luck = Math.max(0, p.stats.luck || 0);
@@ -4712,9 +4973,9 @@ function applyActiveCasinoRoll(run, players, cr) {
     if (!run.pendingActives) run.pendingActives = [];
     for (let i = 0; i < 10; i++) run.pendingActives.push({ owner: p.id, at: run.now + 0.14 + i * 0.14, core: cr.core || ensureActive(p).core, level: 1, echo: 1, skipCasino: 1 });
   } else if (cr.outcome === 'GLD') {
-    dropPickup(run, cr.x, cr.y, 'GLD', 10 + lvl * 5 + Math.round(Math.random() * 28));
+    dropPickup(run, cr.x, cr.y, 'GLD', activeCasinoMutationPayout(run, 10 + lvl * 5, 28));
   } else if (cr.outcome === 'EXP') {
-    dropPickup(run, cr.x, cr.y, 'EXP', 10 + lvl * 6 + Math.round(Math.random() * 18));
+    dropPickup(run, cr.x, cr.y, 'EXP', activeCasinoMutationPayout(run, 10 + lvl * 6, 18));
   } else if (cr.outcome === 'HEAL') {
     p.hp = Math.min(maxHp(p), p.hp + 10 + lvl * 5 + (cr.hitCount || 0));
   }
@@ -5563,7 +5824,10 @@ export function buildSnapshot(run, players) {
     const ni = roomIntel(nextPreview, nextBreakdown.total, nextBreakdown.sources.some(s => s.id !== 'room_modifier') ? 'paid' : (debtEngineNext > 0 ? 'debt_engine' : 'natural'));
     nextPreview = { ...nextPreview, ...ni, staticRainLevel: nextBreakdown.total, staticRainBreakdown: nextBreakdown, debtEngineRainLevel: debtEngineNext, staticBanked: nextBreakdown.banked || 0 };
   }
-  const fx = run.fx;
+  // Player-facing cleanup: internal enemy synergy markers (DMP NEST, ROTARY GUARD, etc.)
+  // are noisy debug/readability overlays. Keep the gameplay synergies, but never send
+  // these combo-label FX to the client.
+  const fx = run.fx.filter(f => f?.t !== 'enemy_combo');
   run.fx = [];
   return {
     t: 's', tick: run.tick, now: run.now,

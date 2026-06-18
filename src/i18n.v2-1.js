@@ -163,7 +163,8 @@ const RU_CORE = {
 const RU_MUT = {
   static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q создаёт зону голода. Чем больше врагов внутри, тем сильнее финальный цифровой укус.', bad_tape: 'Q создаёт два слабых глючных повтора.'
 };
-const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'GLITCH REPEAT':'GLITCH REPEAT' };
+const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'CHARGE BITE':'CHARGE BITE', 'GLITCH REPEAT':'GLITCH REPEAT' };
+const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'РИСКОВЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ГЛИТЧ-ПОВТОР' };
 const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'SIDE UPGRADE':'SIDE UPGRADE' };
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
 
@@ -245,6 +246,8 @@ export function cleanPlayerText(text) {
       'Скорость движения растёт.': 'Movement speed increases.',
       'Максимальное здоровье растёт.': 'Maximum health increases.',
       'Радиус притяжения pickups растёт.': 'Pickup attraction radius increases.',
+      'Дроны переносят огонь, холод и яд оружия. Хорошо работает с DRONE +1.': 'Drones carry weapon fire, freeze, and poison. Works well with DRONE +1.',
+      'Усиливает длительность и силу огня, холода и яда на пулях.': 'Improves the duration and strength of fire, freeze, and poison bullets.',
       'Больше зарядов рывка.': 'Adds more dash charges.',
       'Оружейный апгрейд.': 'Weapon upgrade.',
       'Награда оружейного сундука.': 'Weapon chest reward.',
@@ -276,19 +279,29 @@ export function cleanPlayerText(text) {
     .replace(/как было\s*\/\s*как стало/gi, '')
     .replace(/как было/gi, '')
     .replace(/как стало/gi, '')
-    .replace(/до патча|после патча|патч\s*ноут|patch notes?/gi, '')
+    .replace(/до патча|после патча|патч\s*ноут|patch notes?|hotfix|регресс(?:ия)?|fixed|bugfix/gi, '')
     .replace(/no longer/gi, '')
     .replace(/now\s+/gi, '')
     .replace(/instead of/gi, 'rather than')
-    .replace(/before this room starts/gi, 'before entering the room')
-    .replace(/banked Static Storm/gi, 'stored Static Storm')
-    .replace(/ROOM CHECK/gi, 'the room reward')
-    .replace(/duplicate was not granted/gi, 'collection is already complete')
-    .replace(/numeric room target/gi, 'clear goal')
-    .replace(/спавн|квота|фоллбек|fallback|debug|dev|техническ[а-я]*|внутренн[а-я]*/gi, '')
-    .replace(/ROOM CHECK/gi, 'проверка комнаты')
-    .replace(/duplicate was not granted/gi, 'коллекция уже полная');
-  return s.replace(/\s{2,}/g, ' ').trim();
+    .replace(/браузерн[а-я]*|депло[яй][а-я]*|cache|render|github|protocol|snapshot|client|server|sim/gi, '')
+    .replace(/спавн|квота|фоллбек|fallback|debug|dev|техническ[а-я]*|внутренн[а-я]*/gi, '');
+  if (langIsEn()) {
+    s = s
+      .replace(/before this room starts/gi, 'before entering the room')
+      .replace(/banked Static Storm/gi, 'stored Static Storm')
+      .replace(/ROOM CHECK/gi, 'room reward')
+      .replace(/duplicate was not granted/gi, 'collection is already complete')
+      .replace(/numeric room target/gi, 'clear goal');
+  } else {
+    s = s
+      .replace(/before this room starts/gi, 'перед входом в комнату')
+      .replace(/banked Static Storm/gi, 'статик в банке')
+      .replace(/ROOM CHECK/gi, 'проверка комнаты')
+      .replace(/duplicate was not granted/gi, 'коллекция уже полная')
+      .replace(/numeric room target/gi, 'цель зачистки')
+      .replace(/NET/gi, 'ИТОГ');
+  }
+  return s.replace(/\s{2,}/g, ' ').replace(/\s+([.,:;])/g, '$1').trim();
 }
 export function localText(ru, en) { return langIsEn() ? en : ru; }
 
@@ -330,7 +343,7 @@ export function activeNoneLabel() { return t('noActive'); }
 export function activeNoneDesc() { return t('noActiveDesc'); }
 export function activeShort(label) { return label === t('noActive') || label === 'НЕТ АКТИВКИ' || label === 'NO ACTIVE' ? t('qNoneShort') : String(label || '').replace(/^Q:\s*/, 'Q '); }
 export function locAction(a) { return langIsEn() ? (EN_ACTION[a] || a) : (RU_ACTION[a] || a); }
-export function locRole(r) { return langIsEn() ? (EN_ROLE[r] || r) : r; }
+export function locRole(r) { return langIsEn() ? (EN_ROLE[r] || r) : (RU_ROLE[r] || r); }
 export function chestDesc(label) { return (langIsEn() ? EN_CHEST : RU_CHEST)[label] || t('chestDefault'); }
 export function pickupDesc(type) { return (langIsEn() ? EN_PICKUP : RU_PICKUP)[type] || localText('Подбираемая награда.', 'Pickup reward.'); }
 export function enemyDesc(kind) { return (langIsEn() ? EN_ENEMY : RU_ENEMY)[kind] || localText('Враг.', 'Enemy.'); }
@@ -391,7 +404,7 @@ export function locLabel(label) {
   return s.replace('ВЫБОР WPN', 'WPN PICK').replace('ВЫБОР ABL', 'ABL PICK').replace('ЗАМЕНИТЬ:', 'REPLACE:').replace('НУЖЕН ', 'NEED ');
 }
 export function locReward(r) { return locLabel(r); }
-export function groupLabel(g) { return langIsEn() ? String(g || '').toUpperCase() : String(g || '').toUpperCase(); }
+export function groupLabel(g) { const v = String(g || '').toUpperCase(); if (langIsEn()) return v === 'CORE' ? 'Q' : v; const ru = { CORE: 'Q', MUTATION: 'МУТАЦИЯ', SIDE: 'ДОП.', UPGRADE: 'УСИЛЕНИЕ' }; return ru[v] || v; }
 export function disabledReason(reason) {
   const r = String(reason || '');
   if (!langIsEn()) return cleanPlayerText(r || t('requiresOtherWeapon'));

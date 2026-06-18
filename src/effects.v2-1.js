@@ -1,7 +1,20 @@
 // terminal casino roguelike effects: dopamine layer — bursts, floats, shake, sweeps, vignette
-import { t, denyText } from './i18n.v2-1.js';
+import { t, denyText, localText, locLabel } from './i18n.v2-1.js';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 function safeCol(v, fallback) { const x = String(v || '').trim(); return HEX.test(x) ? x : fallback; }
+function fxLabel(v) {
+  const s = String(v || '');
+  const map = {
+    'CASINO ROLL': localText('КАЗИНО-БРОСОК', 'CASINO ROLL'),
+    'ROLLING...': localText('КРУТИТСЯ...', 'ROLLING...'),
+    'CASINO GLD': localText('КАЗИНО GLD', 'CASINO GLD'),
+    'CASINO EXP': localText('КАЗИНО EXP', 'CASINO EXP'),
+    'CASINO HEAL': localText('КАЗИНО HP', 'CASINO HEAL'),
+    'CASINO HIT': localText('КАЗИНО УДАР', 'CASINO HIT'),
+    'STATIC STORM': localText('СТАТИК-ШТОРМ', 'STATIC STORM')
+  };
+  return map[s] || locLabel(s);
+}
 
 export class Effects {
   constructor() {
@@ -262,7 +275,7 @@ export class Effects {
         const isFreeze = f.kind === 'freeze_aura' || String(f.label || '').includes('FREEZE');
         const col = isBox ? '#b45cff' : f.label && f.label.includes('BLOOD') ? '#ff3048' : (f.label && f.label.includes('RIPPER') ? '#b45cff' : '#66f6ff');
         this.add({ kind: isBox ? 'blackBoxAura' : 'squareField', activeKind: isBox ? 'black_box' : (isFreeze ? 'freeze_aura' : String(f.label || '').toLowerCase().replace(/ .*/, '')), x: f.x, y: f.y, r: f.r || 160, ttl: isBox ? 0.38 : 0.26, color: col, cast: isBox ? 1 : 0 });
-        this.float(f.x, f.y - 50, f.label || 'Q', col, 12);
+        this.float(f.x, f.y - 50, fxLabel(f.label || 'Q'), col, 12);
         break;
       }
       case 'black_box_cast':
@@ -294,7 +307,7 @@ export class Effects {
       case 'element_hit': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : '#66f6ff';
         this.add({ kind: 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 48, ttl: 0.18, color: col, tick: 1 });
-        if (f.label) this.float(f.x, f.y - 34, f.label, col, 8);
+        if (f.label) this.float(f.x, f.y - 34, fxLabel(f.label), col, 8);
         break;
       }
       case 'active_field': {
@@ -312,8 +325,7 @@ export class Effects {
         break;
       }
       case 'enemy_combo':
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 135, ttl: 0.42, color: f.label && f.label.includes('ANCHOR') ? '#b45cff' : (f.label && f.label.includes('ORB') ? '#66f6ff' : '#ff3048') });
-        this.float(f.x, f.y - 44, f.label || 'SIGNAL', f.label && f.label.includes('ORB') ? '#66f6ff' : '#ff3048', 11);
+        // Hidden: synergy labels around mobs were too noisy for normal play.
         break;
       case 'director_room':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 190, ttl: 0.55, color: '#66f6ff' });

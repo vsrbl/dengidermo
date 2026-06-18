@@ -6,8 +6,8 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.1';
-const BUILD_ID = 'v2.1-final-20260617';
+const VERSION = 'v2.1.3';
+const BUILD_ID = 'enemy-combo-label-cleanup';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;

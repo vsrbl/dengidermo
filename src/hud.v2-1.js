@@ -114,8 +114,8 @@ function roomModHint(m, room = {}) {
     blood_tax: localText('Кровавая оплата: ставки и покупки платятся HP. Можно зайти в смертельный долг, но страховка от смерти может спасти.', 'Blood Payment: bets and buys cost HP. You can pay into lethal danger, but Death Insurance can save you.'),
     shell_market: localText('Shell-биржа: у врагов чаще есть щиты. Сначала сбиваешь щит, потом HP; щит может восстановиться, если врага не трогать.', 'Shell Market: enemies more often have shields. Break shield before HP; it can regenerate if the enemy is left alone.'),
     echo_walls: localText('Эхо-выстрелы: часть пуль получает копию. Твои копии читаются одним цветом, вражеские — красным.', 'Echo Shots: some bullets get a copy. Your copies have one color; enemy copies are red.'),
-    anchor_gravity: localText('Якоря гравитации: областьные точки тянут игроков, врагов, подборы и пули. Планируй путь через тягу.', 'Gravity Anchors: square nodes pull players, enemies, pickups, and bullets. Plan movement around the pull.'),
-    static_wires: localText('Статик-провода: тонкие линии замедляют и портят траектории. Не режь их без нужды.', 'Static Wires: thin lines slow and distort movement. Do not cross them casually.'),
+    anchor_gravity: localText('Якоря гравитации: квадратные узлы мягко искривляют движение и траектории. Самая сильная тяга только рядом с центром.', 'Gravity Anchors: square nodes gently bend movement and trajectories. Pull is strongest only near the center.'),
+    static_wires: localText('Статик-провода: тонкие линии замедляют и искажают траектории.', 'Static Wires: thin lines slow and distort movement and projectiles.'),
     hunted_exit: localText('Охота у выхода: портал может открыться рано, но задержка в комнате вызывает охотников.', 'Hunted Exit: portal can open early, but staying too long calls hunters.'),
     skin_cache: localText('Скин-тайник: в комнате спрятан новый облик. После зачистки появится плашка получения.', 'Skin Cache: a new look is hidden here. After clearing, a claim card appears.')
   };
@@ -298,7 +298,7 @@ function weaponReadability(opt = {}) {
     },
     sek_split: {
       role: 'DPS', tone: 'dps',
-      ru: 'SEEKER kills выпускают самонаводящиеся фрагменты.', en: 'SEEKER kills release homing fragments.',
+      ru: 'Убийства SEEKER выпускают самонаводящиеся фрагменты.', en: 'SEEKER kills release homing fragments.',
       changeRu: 'фрагменты при убийстве', changeEn: 'fragments on kill'
     },
     sek_chain: {
@@ -784,8 +784,8 @@ export class Hud {
         if (f.fast) marks.push(localText('БЫСТРО', 'FAST'));
         if (f.staticPaid) marks.push(localText('СТАТИКА ОПЛАЧЕНА', 'STATIC PAID'));
         // Static preview is shown only in the unified top-right readout.
-        if (f.bonusGld) marks.push(`BONUS GLD +${f.bonusGld}`);
-        if (f.bonusExp) marks.push(`BONUS EXP +${f.bonusExp}`);
+        if (f.bonusGld) marks.push(`${localText('БОНУС GLD', 'BONUS GLD')} +${f.bonusGld}`);
+        if (f.bonusExp) marks.push(`${localText('БОНУС EXP', 'BONUS EXP')} +${f.bonusExp}`);
         if (f.objective) {
           if (f.objective.done) {
             const fs = (f.contractFavorsEarned || []).map(x => this.favorUiLabel(x)).join(' + ');
@@ -795,7 +795,7 @@ export class Hud {
           }
         }
         if (f.contractChain >= 2) marks.push(`${localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN')} x${f.contractChain}`);
-        const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · TAPE: ${f.tapes.map(locLabel).join(' / ')}` : '';
+        const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · ${localText('ПЛЁНКА', 'TAPE')}: ${f.tapes.map(locLabel).join(' / ')}` : '';
         const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${localText('РЕШЕНО', 'SOLVED')} ${Math.max(0, Math.round(Number(f.solvedTime)))}s` : '';
         const line = `${localText('УБИЙСТВА', 'KILLS')} ${f.kills || 0}${solved} · GLD +${f.gld || 0} · EXP +${f.exp || 0} · ${localText('УРОН', 'DMG')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
         this.banner(localText('ИТОГ КОМНАТЫ', 'ROOM RESULT'), line, f.noHit || f.fast ? 'green' : '');
@@ -805,7 +805,7 @@ export class Hud {
       case 'join': this.feed(`${f.name} ${t('playerJoined')}`, 'g'); break;
       case 'leave': this.feed(`${f.name} ${t('playerLeft')}`, 'r'); break;
       case 'levelup':
-        if (f.id === myId) { this.feed(`LEVEL UP → ${f.level} · INSTALL x${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
+        if (f.id === myId) { this.feed(`${localText('УРОВЕНЬ', 'LEVEL UP')} → ${f.level} · INSTALL x${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
         break;
       case 'pdown': this.feed(`${name(f.id)} ${t('down')}`, 'r'); if (f.id === myId) { this.cancelActiveRoll(); this.closeCasino(); this.banner(t('youDown'), t('carry'), 'red'); } break;
       case 'director_room':
@@ -903,7 +903,7 @@ export class Hud {
     const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols.slice(0, 3) : ['VIR', 'ROLL', '?'];
     const bad = String(f.label || '').toUpperCase().includes('BOSS') || String(f.label || '').toUpperCase().includes('BIG') || String(f.label || '').toUpperCase().includes('ELITE');
     el.className = 'spinning';
-    el.innerHTML = `<div class="roll-title">CASINO VIRUS</div>` +
+    el.innerHTML = `<div class="roll-title">${esc(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'))}</div>` +
       `<div class="roll-symbols"><span>—</span><span>—</span><span>—</span></div>` +
       `<div class="roll-result">${localText('ВИРУС КРУТИТСЯ...', 'VIRUS ROLLING...')}</div>` +
       `<div class="roll-left">${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}</div>`;
@@ -1001,7 +1001,7 @@ export class Hud {
           this.activeRollSpin.intervals.forEach(x => clearInterval(x));
           this.activeRollSpin.intervals = [];
           const res = el.querySelector('.roll-result');
-          if (res) res.textContent = f.label || f.outcome || 'ROLL';
+          if (res) res.textContent = locLabel(f.label || f.outcome || 'ROLL');
           this.feed(`${localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION')}: ${locLabel(f.label || f.outcome || 'ROLL')}`, tone === 'red' ? 'r' : tone === 'purple' ? 'p' : 'g');
           this.playUiSound(f.outcome === 'HIT' || f.outcome === 'DEBT' ? 'casino_static' : f.outcome === 'TEN' ? 'jackpot' : 'casino_ability');
           this.activeRollTimer = setTimeout(() => el.classList.add('hidden'), 1550);
@@ -1286,7 +1286,7 @@ export class Hud {
     choices.forEach((opt, i) => {
       const d = document.createElement('div');
       const group = opt.group || (String(opt.kind || '').includes('mutation') ? 'MUTATION' : String(opt.kind || '').includes('core') ? 'Q' : 'SIDE');
-      const groupLabel = group === 'CORE' ? 'Q' : group;
+      const groupLabel = group === 'CORE' ? 'Q' : group === 'MUTATION' ? localText('МУТАЦИЯ', 'MUTATION') : group === 'SIDE' ? localText('ДОП.', 'SIDE') : group;
       const rarity = opt.rarity || opt.tone || (String(opt.actionLabel || '').includes('ЗАМЕНИТ') ? 'rare' : group.toLowerCase());
       const tone = opt.disabled ? 'red' : (opt.tone || (rarity === 'cursed' ? 'red' : rarity === 'rare' ? 'purple' : (group === 'CORE' || group === 'Q') ? 'cyan' : 'green'));
       d.className = 'choice ability-choice ability-card' + (opt.disabled ? ' disabled' : '') + ` tone-${tone} rarity-${rarity}`;
@@ -1452,13 +1452,13 @@ export class Hud {
       if (pl.gld) parts.push(`+${pl.gld} GLD`);
       if (pl.xp) parts.push(`+${pl.xp} EXP`);
       if (pl.heal) parts.push(`+${pl.heal} HP`);
-      if (pl.dash) parts.push('DASH +1');
+      if (pl.dash) parts.push(locLabel('DASH +1'));
       if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
       if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
-      if (pl.skinLabel) parts.push(`SKN: ${pl.skinLabel}${pl.skinRarity ? ' / ' + String(pl.skinRarity).toUpperCase() : ''}`);
+      if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
       if (pl.static) parts.push(t('nextRoomDebt'));
       if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
-      if (pl.gld && !f.bloodTax) parts.push(`NET ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
+      if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       el.innerHTML = parts.map(x => `<span>${esc(x)}</span>`).join('');
       this.feed(`${localText('BET НАГРАДА', 'BET REWARD')}: ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
