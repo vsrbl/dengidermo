@@ -1,7 +1,7 @@
 // terminal casino roguelike server simulation — single source of truth, no client authority
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
-  WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, ACTIVE_CORES, ACTIVE_MUTATIONS, ACTIVE_MUTATION_SLOTS,
+  WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS, ACTIVE_MUTATION_SLOTS,
   rollUpgradeChoices, defaultStats, spinCasino, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
 } from './data.v2-1.js';
 import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-1.js';
@@ -92,8 +92,55 @@ function makeInstallOffer(run, p) {
   return { id: run.installOfferSeq, choices: rollCleanInstallChoices(run, p, 3), expires: OFFER_TIMEOUT };
 }
 
+
+const BOSS_SIGNATURE_POOLS = {
+  boss_croupier: ['sig_payout_swap', 'sig_false_zero', 'sig_quarantine_buffer', 'sig_emergency_cleanse'],
+  boss_hunter_chorus: ['sig_deaf_command', 'sig_hunt_route', 'sig_insurance_process', 'sig_incomplete_delete'],
+  boss_hunter_duelist: ['sig_deaf_command', 'sig_hunt_route', 'sig_insurance_process'],
+  boss_hunter_marksman: ['sig_deaf_command', 'sig_hunt_route', 'sig_false_zero'],
+  boss_hunter_trapper: ['sig_deaf_command', 'sig_incomplete_delete', 'sig_quarantine_buffer'],
+  boss_q_revisor: ['sig_red_overdrive', 'sig_aim_glitch', 'sig_quarantine_buffer', 'sig_insurance_process'],
+  boss_anchor_cashier: ['sig_emergency_cleanse', 'sig_incomplete_delete', 'sig_false_zero', 'sig_quarantine_buffer'],
+  boss: ['sig_quarantine_buffer', 'sig_emergency_cleanse', 'sig_false_zero', 'sig_insurance_process']
+};
+function bossSignatureChoicesForKind(kind = '', rng = Math.random) {
+  const pool = (BOSS_SIGNATURE_POOLS[kind] || BOSS_SIGNATURE_POOLS.boss || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id));
+  const fallback = BOSS_SIGNATURE_UPGRADE_IDS.filter(id => !pool.includes(id));
+  const merged = [...pool, ...fallback];
+  const out = [];
+  const used = new Set();
+  let guard = 0;
+  while (out.length < 3 && guard++ < 80 && used.size < merged.length) {
+    const id = merged[Math.floor(rng() * merged.length)];
+    if (!id || used.has(id)) continue;
+    used.add(id); out.push(id);
+  }
+  return out;
+}
+function makeBossSignatureOffer(run, p) {
+  if (!run || !p?.bossSignaturePending) return null;
+  run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
+  if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
+  const choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id)).slice(0, 3);
+  return { id: run.installOfferSeq, kind: 'boss_signature', choices: choices.length ? choices : bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss'), expires: OFFER_TIMEOUT + 8 };
+}
+function queueBossSignatureReward(run, players, bossKind = 'boss') {
+  const choices = bossSignatureChoicesForKind(bossKind, Math.random);
+  run.lastBossKind = bossKind || run.lastBossKind || 'boss';
+  for (const p of players.values()) {
+    if (!p.connected) continue;
+    p.bossSignaturePending = true;
+    p.bossSignatureKind = bossKind || 'boss';
+    p.bossSignatureChoices = choices.slice(0, 3);
+  }
+  run.fx.push({ t: 'boss_signature', label: 'THREAT SIGNATURE', kind: bossKind, choices });
+}
+
 function ensureInstallOffer(run, p) {
-  if (!p || !p.connected || (p.economy?.pending || 0) <= 0) return null;
+  if (!p || !p.connected) return null;
+  if (!p.offer && p.bossSignaturePending) p.offer = makeBossSignatureOffer(run, p);
+  if (p.offer) return p.offer;
+  if ((p.economy?.pending || 0) <= 0) return null;
   if (!p.offer) p.offer = makeInstallOffer(run, p);
   return p.offer;
 }
@@ -1700,7 +1747,7 @@ function comboSourceLabel(method) {
     shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'RICOCHET',
     ability: 'Q', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE',
     fire: 'BURN', burn: 'BURN', poison: 'POISON', freeze: 'FREEZE', status: 'STATUS',
-    blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
+    blast: 'BLAST', chain: 'CHAIN', weapon: 'WEAPON'
   })[method] || String(method || 'HIT').toUpperCase();
 }
 function comboRewardType(run, players, c = {}) {
@@ -1742,6 +1789,7 @@ function resetComboChain(c) {
 function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   if (!run || run.phase !== 'play' || !actor || !actor.alive) return;
   method = String(method || 'hit').toLowerCase();
+  if (method === 'shell' || method === 'armor') return; // armor breaks are support feedback, not a kill method
   if (!method || method === 'dev' || method === 'hit') method = 'weapon';
   const c = ensureCombo(run);
   const def = enemy?.kind ? ENEMIES[enemy.kind] : null;
@@ -1899,7 +1947,7 @@ export function createPlayer(id, name, idx, skin = null) {
     economy: { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 },
     lastSeq: 0,
     droneCd: 0, orbHits: new Map(),
-    offer: null,
+    offer: null, bossSignaturePending: false, bossSignatureChoices: null, bossSignatureKind: '',
     weaponChestOffer: null,
     abilityChestOffer: null,
     touch: new Map(),
@@ -1908,7 +1956,10 @@ export function createPlayer(id, name, idx, skin = null) {
   };
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
-export function speed(p) { return PLAYER_SPEED * p.stats.spdMul * (p.slowT > 0 ? (p.slowMul || 0.6) : 1); }
+export function speed(p) {
+  const route = Math.min(0.18, ((p.huntRouteT || 0) / Math.max(1, 4.0)) * 0.14 * Math.max(0, p.stats?.sigHuntRoute || 0));
+  return PLAYER_SPEED * p.stats.spdMul * (1 + route) * (p.slowT > 0 ? (p.slowMul || 0.6) : 1);
+}
 export function dashMax(p) { return 1 + p.stats.dashAdd; }
 
 export function startRoom(run, players) {
@@ -2054,8 +2105,18 @@ export function startRoom(run, players) {
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
+    p.quarantineT = (p.stats.sigQuarantineBuffer || 0) > 0 ? 10 : 0;
+    p.quarantineHp = (p.stats.sigQuarantineBuffer || 0) > 0 ? 34 + Math.min(36, (p.stats.sigQuarantineBuffer - 1) * 10) : 0;
+    p.emergencyCleanseUsed = false; p.emergencyCleanseT = 0; p.emergencyCleansePulse = 0;
+    p.insuranceProcessUsed = false;
+    p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
     p.offer = null;
     p.weaponChestOffer = null;
+  }
+  if (run.director && [...players.values()].some(p => p.connected && (p.stats?.sigDeafCommand || 0) > 0)) {
+    const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.sigDeafCommand || 0) : 0), 0);
+    run.director.pauseT = Math.max(run.director.pauseT || 0, 2.0 + Math.min(2.4, stacks * 0.55));
+    run.fx.push({ t: 'active_mutation', label: 'DEAF COMMAND', x: run.plan.w / 2, y: run.plan.h / 2, r: 120, tone: 'cyan' });
   }
   if (run.plan.specialRoomId === 'chill_room') {
     run.director = null;
@@ -2103,7 +2164,7 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [] };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.weaponChestOffer = null; p.abilityChestOffer = null;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null;
   }
   startRoom(run, players);
 }
@@ -3284,9 +3345,95 @@ function director(run, players, dt) {
 }
 
 // ---------------------------------------------------------------- damage
-function damagePlayer(run, p, dmg, srcX, srcY) {
+
+function playerSigStack(p, key) { return Math.max(0, Number(p?.stats?.[key] || 0) || 0); }
+function teamSigStack(players, key) {
+  let n = 0;
+  for (const p of players.values()) if (p.connected) n = Math.max(n, playerSigStack(p, key));
+  return n;
+}
+function maybeDoubleResourceBySignature(run, players, type, val, actor = null) {
+  const stack = actor ? playerSigStack(actor, 'sigPayoutMirror') : teamSigStack(players, 'sigPayoutMirror');
+  if (!stack || !(type === 'GLD' || type === 'HEA' || type === 'hp' || type === 'gld')) return val;
+  const chance = Math.min(0.18, 0.06 + stack * 0.025);
+  if (Math.random() >= chance) return val;
+  const label = (type === 'HEA' || type === 'hp') ? 'HP x2' : 'GLD x2';
+  run.fx.push({ t: 'active_mutation', label: `PAYOUT ${label}`, x: Math.round(actor?.x || run.portal?.x || run.plan?.w / 2 || 0), y: Math.round(actor?.y || run.portal?.y || run.plan?.h / 2 || 0), r: 92, tone: type === 'GLD' || type === 'gld' ? 'gold' : 'green' });
+  return Math.max(0, Math.round(val * 2));
+}
+function scatterEnemiesFromPlayer(run, p, radius = 360) {
+  let count = 0;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0) continue;
+    const d2 = dist2(e.x, e.y, p.x, p.y);
+    if (d2 > (radius + (e.size || 20)) ** 2) continue;
+    const n = norm(e.x - p.x, e.y - p.y);
+    const force = ENEMIES[e.kind]?.boss ? 110 : 260;
+    e.x += n.x * force; e.y += n.y * force;
+    e.activeSlowT = Math.max(e.activeSlowT || 0, ENEMIES[e.kind]?.boss ? 0.25 : 0.8);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.55);
+    count++;
+  }
+  run.fx.push({ t: 'active_mutation', label: 'INSURANCE PROCESS', x: Math.round(p.x), y: Math.round(p.y), r: radius, tone: 'red', count });
+}
+function stepSignatureModules(run, players, dt) {
+  for (const p of players.values()) {
+    if (!p.connected || !p.alive) continue;
+    p.quarantineT = Math.max(0, (p.quarantineT || 0) - dt);
+    if ((p.quarantineT || 0) <= 0) p.quarantineHp = 0;
+    p.aimGlitchT = Math.max(0, (p.aimGlitchT || 0) - dt);
+    if (playerSigStack(p, 'sigHuntRoute') > 0) {
+      const moving = Math.hypot(p.moveX || 0, p.moveY || 0) > 0.12 && run.phase === 'play';
+      p.huntRouteT = clamp((p.huntRouteT || 0) + (moving ? dt : -dt * 2.2), 0, 4.0 + playerSigStack(p, 'sigHuntRoute') * 0.8);
+    } else p.huntRouteT = 0;
+    if (playerSigStack(p, 'sigEmergencyCleanse') > 0 && !p.emergencyCleanseUsed && p.hp > 0 && p.hp <= maxHp(p) * 0.30) {
+      p.emergencyCleanseUsed = true; p.emergencyCleanseT = 20; p.emergencyCleansePulse = 0;
+      run.fx.push({ t: 'active_mutation', label: 'EMERGENCY CLEANSE', x: Math.round(p.x), y: Math.round(p.y), r: 300, tone: 'cyan' });
+    }
+    p.emergencyCleanseT = Math.max(0, (p.emergencyCleanseT || 0) - dt);
+    if ((p.emergencyCleanseT || 0) > 0) {
+      p.emergencyCleansePulse = Math.max(0, (p.emergencyCleansePulse || 0) - dt);
+      if (p.emergencyCleansePulse <= 0) {
+        p.emergencyCleansePulse = 0.32;
+        const r = 270 + Math.min(90, playerSigStack(p, 'sigEmergencyCleanse') * 20);
+        let erased = 0;
+        for (const b of run.bullets) {
+          if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) <= (r + (b.size || 4)) ** 2) { b.life = -1; erased++; }
+        }
+        if (erased) run.fx.push({ t: 'active_mutation', label: `CLEANSE ${erased}`, x: Math.round(p.x), y: Math.round(p.y), r, tone: 'cyan' });
+      }
+    }
+    if ((p.aimGlitchT || 0) > 0) {
+      const r = 220 + Math.min(80, playerSigStack(p, 'sigAimGlitch') * 20);
+      for (const b of run.bullets) {
+        if (b.from !== 'e' || dist2(b.x, b.y, p.x, p.y) > (r + (b.size || 4)) ** 2) continue;
+        const n = norm(b.x - p.x, b.y - p.y);
+        const sp = Math.hypot(b.vx || 0, b.vy || 0) || 1;
+        b.vx = b.vx * 0.92 + n.x * sp * 0.08;
+        b.vy = b.vy * 0.92 + n.y * sp * 0.08;
+      }
+    }
+  }
+}
+
+function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
   if (!p.alive || p.invuln > 0 || p.devGod) return;
   dmg = Math.max(0, Math.round(Number(dmg) || 0));
+  if (opts.enemyBullet && playerSigStack(p, 'sigFalseZero') > 0) {
+    const chance = Math.min(0.24, 0.10 + playerSigStack(p, 'sigFalseZero') * 0.035);
+    if (Math.random() < chance) {
+      p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN * 0.55);
+      run.fx.push({ t: 'active_mutation', label: 'FALSE ZERO', x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y), r: 62, tone: 'cyan', playerId: p.id });
+      return;
+    }
+  }
+  if ((p.quarantineT || 0) > 0 && (p.quarantineHp || 0) > 0) {
+    const absorbed = Math.min(dmg, Math.round(p.quarantineHp || 0));
+    p.quarantineHp = Math.max(0, (p.quarantineHp || 0) - absorbed);
+    dmg = Math.max(0, dmg - absorbed);
+    run.fx.push({ t: 'active_mutation', label: 'QUARANTINE BUFFER', x: Math.round(p.x), y: Math.round(p.y), r: 86, tone: 'cyan', absorbed });
+    if (dmg <= 0) { p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN * 0.75); return; }
+  }
   if (run.roomStats) run.roomStats.damageTaken += dmg;
   if (isGreedRoom(run)) {
     playerMoneyCost(run, p, dmg, srcX ?? p.x, srcY ?? p.y, 'GREED HIT');
@@ -3298,6 +3445,10 @@ function damagePlayer(run, p, dmg, srcX, srcY) {
   p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
   run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y) });
   damageCombo(run, p, dmg);
+  if (playerSigStack(p, 'sigInsuranceProcess') > 0 && !p.insuranceProcessUsed && p.hp > 0 && p.hp <= maxHp(p) * 0.10) {
+    p.insuranceProcessUsed = true;
+    scatterEnemiesFromPlayer(run, p, 340 + Math.min(120, playerSigStack(p, 'sigInsuranceProcess') * 30));
+  }
   if (p.hp <= 0) {
     const favor = consumeContractFavor(run, ['portal_insurance']);
     if (favor) {
@@ -3332,7 +3483,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
       e.armorLockT = 0;
       e.armorLinkId = '';
       run.fx.push({ t: 'armor_break', id: e.id, shellType: e.shellType || 'plain', x: Math.round(e.x), y: Math.round(e.y) });
-      if (owner && players?.get) registerComboEvent(run, players.get(owner), 'shell', e, 0.42);
+      // Armor break is not a kill cause. Do not add БРОНЯ / SHELL to combo reasons.
       rewardShellMarket(run, e.x, e.y);
     }
     return;
@@ -3431,6 +3582,10 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   dropPickup(run, e.x, e.y, 'GLD', Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run))));
   dropPickup(run, e.x + 14, e.y - 8, 'EXP', Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45))));
   if ((e.elite && Math.random() < 0.35) || def.boss) dropPickup(run, e.x - 14, e.y + 8, 'HEA', 25);
+  if (!def.boss && killer && playerSigStack(killer, 'sigIncompleteDelete') > 0 && (e.elite || (def.score || 0) >= 3) && Math.random() < Math.min(0.28, 0.10 + playerSigStack(killer, 'sigIncompleteDelete') * 0.035)) {
+    dropPickup(run, e.x + 8, e.y + 12, 'HEA', 6 + Math.round(Math.random() * 8));
+    run.fx.push({ t: 'active_mutation', label: 'INCOMPLETE DELETE', x: Math.round(e.x), y: Math.round(e.y), r: 70, tone: 'green' });
+  }
   if (def.boss) {
     run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y), fragment: def.bossFragment ? 1 : 0 });
     const otherBossAlive = run.enemies.some(x => x && x.hp > 0 && ENEMIES[x.kind]?.boss);
@@ -3438,6 +3593,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
       // boss reward burst
       const burst = def.bossFragment ? 4 : 6;
       for (let i = 0; i < burst; i++) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', 20 + Math.round(Math.random() * 20));
+      queueBossSignatureReward(run, players, run.bossKind || e.kind || 'boss');
       openPortal(run);
     }
   }
@@ -3464,6 +3620,7 @@ function grantPickupEconomy(run, players, collector, type, val) {
   // Non-casino GLD/EXP pickups are TEAM credit: one player collects, every connected player receives it.
   // Spending stays individual because each player still has their own wallet/XP offer state.
   if (type === 'GLD' || type === 'EXP') {
+    if (type === 'GLD') val = maybeDoubleResourceBySignature(run, players, type, val, collector);
     recordPickupStat(run, type, val);
     for (const p of players.values()) {
       if (!p.connected) continue;
@@ -3473,7 +3630,7 @@ function grantPickupEconomy(run, players, collector, type, val) {
     return;
   }
   // HEA remains local to the player who actually touched the pickup, so one heal orb does not heal the whole squad.
-  if (type === 'HEA' && collector) { recordPickupStat(run, type, val); collector.hp = Math.min(maxHp(collector), collector.hp + val); }
+  if (type === 'HEA' && collector) { val = maybeDoubleResourceBySignature(run, players, type, val, collector); recordPickupStat(run, type, val); collector.hp = Math.min(maxHp(collector), collector.hp + val); }
 }
 
 function addXp(run, p, val) {
@@ -3884,7 +4041,14 @@ function stepBullets(run, players, dt) {
             const n = norm(b.vx, b.vy);
             run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
             applyBulletElements(run, players, e, b, 1);
-            damageEnemy(run, players, e, b.dmg, b.owner, b.knock, n.x, n.y, comboSourceFromBullet(b));
+            let hitDmg = b.dmg;
+            const redOwner = b.owner ? players.get(b.owner) : null;
+            if (redOwner && (redOwner.redOverdriveShots || 0) > 0 && playerSigStack(redOwner, 'sigRedOverdrive') > 0) {
+              hitDmg *= 1.20 + Math.min(0.18, playerSigStack(redOwner, 'sigRedOverdrive') * 0.04);
+              redOwner.redOverdriveShots = Math.max(0, (redOwner.redOverdriveShots || 0) - 1);
+              run.fx.push({ t: 'active_mutation', label: 'RED OVERDRIVE', x: Math.round(b.x), y: Math.round(b.y), r: 84, tone: 'red', owner: redOwner.id });
+            }
+            damageEnemy(run, players, e, hitDmg, b.owner, b.knock, n.x, n.y, comboSourceFromBullet(b));
             applyWeaponChain(run, players, e, b);
             if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48, { rangeMul: b.rangeMul || 1, bounces: b.bounces || 0, elem: b.elem || '', elemPower: b.elemPower || 0 });
             const blasts = chanceStacks(b.proc || 0);
@@ -3897,7 +4061,7 @@ function stepBullets(run, players, dt) {
       for (const p of players.values()) {
         if (p.alive && dist2(p.x, p.y, b.x, b.y) < ((PLAYER_SIZE + b.size) / 2 + 2) ** 2) {
           if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, null, true, b.kind === 'rocketgun' ? 'danger' : 'blast');
-          else damagePlayer(run, p, b.dmg, b.x, b.y);
+          else damagePlayer(run, p, b.dmg, b.x, b.y, { enemyBullet: true });
           b.life = -1; break;
         }
       }
@@ -4240,23 +4404,23 @@ export function orbitalPos(p, i, total, now, run = null) {
 
   const rangeBonus = Math.max(0, p.stats.orbRange || 0);
   const speedBonus = Math.max(0, p.stats.orbSpeed || 0);
-  const enemyRange = 108 + rangeBonus * 34;
-  const bulletRange = (p.stats.orbReflect || 0) > 0 ? 78 + rangeBonus * 25 + (p.stats.orbReflect || 0) * 14 : 0;
+  const enemyRange = 176 + rangeBonus * 48;
+  const bulletRange = (p.stats.orbReflect || 0) > 0 ? 74 + rangeBonus * 20 + (p.stats.orbReflect || 0) * 12 : 0;
   let target = null, bd = Infinity, bulletTarget = false;
 
-  if (bulletRange > 0) {
+  // v2.1.24: orbitals are "endless SEEKER shots" first, bullet reflectors second.
+  // They always prefer a living enemy over a bullet so reflection never makes them ignore damage duty.
+  for (const e of run.enemies || []) {
+    if (!e || e.hp <= 0) continue;
+    const d = dist2(e.x, e.y, base.x, base.y);
+    if (d < bd && d <= enemyRange * enemyRange) { bd = d; target = e; bulletTarget = false; }
+  }
+
+  if (!target && bulletRange > 0) {
     for (const b of run.bullets || []) {
       if (b.from !== 'e' || (b.delay || 0) > 0 || b.life <= 0) continue;
       const d = dist2(b.x, b.y, base.x, base.y);
       if (d < bd && d <= bulletRange * bulletRange) { bd = d; target = b; bulletTarget = true; }
-    }
-  }
-
-  if (!target) {
-    for (const e of run.enemies || []) {
-      if (!e || e.hp <= 0) continue;
-      const d = dist2(e.x, e.y, base.x, base.y);
-      if (d < bd && d <= enemyRange * enemyRange) { bd = d; target = e; bulletTarget = false; }
     }
   }
 
@@ -4265,29 +4429,25 @@ export function orbitalPos(p, i, total, now, run = null) {
   const d = Math.max(1, Math.sqrt(bd));
   const range = bulletTarget ? bulletRange : enemyRange;
   const influence = Math.max(0, Math.min(1, 1 - d / Math.max(1, range)));
-  const away = norm(base.x - target.x, base.y - target.y);
-  const skimDir = ((i + Math.floor(now * 0.7)) % 2 === 0) ? 1 : -1;
+  const skimDir = ((i + Math.floor(now * 0.85)) % 2 === 0) ? 1 : -1;
 
   if (bulletTarget) {
-    // Enemy bullets are still intercepted, but the orbital does not hard-snap into them.
-    const cut = Math.pow(influence, 1.65);
+    // Reflect only when no enemy needs the orbital. It cuts toward the bullet briefly, then returns.
+    const cut = Math.pow(influence, 1.35);
     return {
-      x: base.x + (target.x - base.x) * (0.18 + cut * 0.18) + tangent.x * skimDir * cut * 7,
-      y: base.y + (target.y - base.y) * (0.18 + cut * 0.18) + tangent.y * skimDir * cut * 7
+      x: base.x + (target.x - base.x) * (0.22 + cut * 0.30) + tangent.x * skimDir * cut * 5,
+      y: base.y + (target.y - base.y) * (0.22 + cut * 0.30) + tangent.y * skimDir * cut * 5
     };
   }
 
-  // v2.1.8: orbitals skim targets instead of magneting into the enemy body.
-  // They keep the player's orbit, get a soft repulsion when too close, and slide along
-  // the tangent so contact reads like a fly-by / bounce rather than a stuck saw.
-  const body = Math.max(18, (target.size || 24) * 0.5 + 18);
-  const tooClose = Math.max(0, (body - d) / body);
-  const repulse = (10 + speedBonus * 1.8) * influence + tooClose * (24 + speedBonus * 3.0);
-  const slide = (8 + speedBonus * 2.4) * Math.pow(influence, 0.75) + tooClose * 13;
-  const orbitLift = Math.sin(now * 5.0 + phase) * 2.2 * influence;
+  // Enemy seeking: like a SEEKER projectile that never expires. It dives through a target,
+  // then the base orbit pulls it back around for another pass.
+  const seek = 0.34 + Math.pow(influence, 0.70) * (0.54 + speedBonus * 0.018);
+  const wobble = Math.sin(now * (6.0 + speedBonus * 0.18) + phase) * (4.5 + speedBonus * 0.7) * influence;
+  const pass = Math.cos(now * (4.1 + speedBonus * 0.12) + phase) * 3.5 * influence;
   return {
-    x: base.x + away.x * repulse + tangent.x * skimDir * slide + radial.x * orbitLift,
-    y: base.y + away.y * repulse + tangent.y * skimDir * slide + radial.y * orbitLift
+    x: base.x + (target.x - base.x) * Math.min(0.92, seek) + tangent.x * wobble + radial.x * pass,
+    y: base.y + (target.y - base.y) * Math.min(0.92, seek) + tangent.y * wobble + radial.y * pass
   };
 }
 function stepCompanions(run, players, dt, now) {
@@ -4328,9 +4488,9 @@ function stepCompanions(run, players, dt, now) {
         }
         for (const e of run.enemies) {
           if (p.orbHits.has(e.id)) continue;
-          if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 12) ** 2) {
+          if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 16 + Math.max(0, p.stats.orbRange || 0) * 2) ** 2) {
             damageEnemy(run, players, e, (18 + Math.max(0, p.stats.orbSpeed || 0) * 3) * p.stats.dmgMul, p.id, 0, 0, 0, 'orbital');
-            p.orbHits.set(e.id, now + 0.34);
+            p.orbHits.set(e.id, now + 0.28);
           }
         }
       }
@@ -5356,9 +5516,9 @@ function beginTransition(run, players) {
   // In one upgrade-selection phase a player may see at most one such option.
   run.installComboPrizeOfferSeen = {};
   for (const p of players.values()) {
-    if (p.economy.pending > 0 && p.connected) {
-      p.offer = makeInstallOffer(run, p);
-    }
+    if (!p.connected) continue;
+    if (p.bossSignaturePending) p.offer = makeBossSignatureOffer(run, p);
+    else if (p.economy.pending > 0) p.offer = makeInstallOffer(run, p);
   }
 }
 
@@ -5372,12 +5532,19 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const id = p.offer.choices[idx];
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
+  const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
   u.apply(p.stats);
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
-  p.economy.pending = Math.max(0, p.economy.pending - 1);
-  run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed });
-  p.offer = p.economy.pending > 0 ? makeInstallOffer(run, p) : null;
+  if (wasBossSignature) {
+    p.bossSignaturePending = false;
+    p.bossSignatureChoices = null;
+    p.bossSignatureKind = '';
+  } else {
+    p.economy.pending = Math.max(0, p.economy.pending - 1);
+  }
+  run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed, bossSignature: wasBossSignature ? 1 : 0 });
+  p.offer = p.bossSignaturePending ? makeBossSignatureOffer(run, p) : (p.economy.pending > 0 ? makeInstallOffer(run, p) : null);
   return true;
 }
 
@@ -6287,6 +6454,8 @@ function stepPlayers(run, players, dt) {
       }
       p.x = c.x; p.y = c.y;
       p.dashCharges--;
+      if (playerSigStack(p, 'sigRedOverdrive') > 0) p.redOverdriveShots = Math.max(p.redOverdriveShots || 0, 1);
+      if (playerSigStack(p, 'sigAimGlitch') > 0) p.aimGlitchT = Math.max(p.aimGlitchT || 0, 1.15 + playerSigStack(p, 'sigAimGlitch') * 0.15);
       p.invuln = Math.max(p.invuln, DASH_INVULN);
     }
     p.wantDash = false;
@@ -6315,11 +6484,11 @@ export function step(run, players, dt, now) {
     return;
   }
   if (run.phase === 'install') {
-    stepPlayers(run, players, dt);
     stepPickups(run, players, dt);
     stepInstall(run, players, dt);
     return;
   }
+  stepSignatureModules(run, players, dt);
   stepPlayers(run, players, dt);
   stepActiveFields(run, players, dt);
   director(run, players, dt);

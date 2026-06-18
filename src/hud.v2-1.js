@@ -145,13 +145,13 @@ function comboMethodLabel(m) {
     shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'ОТСКОК',
     ability: 'Q', dash: 'РЫВОК', orbital: 'ОРБИТАЛЬ', drone: 'ДРОН',
     fire: 'ПОДЖОГ', burn: 'ПОДЖОГ', poison: 'ЯД', freeze: 'ЗАМОРОЗКА', status: 'СТАТУС',
-    blast: 'ВЗРЫВ', chain: 'ЦЕПЬ', shell: 'БРОНЯ', weapon: 'ОРУЖИЕ'
+    blast: 'ВЗРЫВ', chain: 'ЦЕПЬ', weapon: 'ОРУЖИЕ'
   };
   const en = {
     shotgun: 'SHOTGUN', seeker: 'SEEKER', rocketgun: 'ROCKETGUN', ricochet: 'RICOCHET',
     ability: 'Q', dash: 'DASH', orbital: 'ORBITAL', drone: 'DRONE',
     fire: 'BURN', burn: 'BURN', poison: 'POISON', freeze: 'FREEZE', status: 'STATUS',
-    blast: 'BLAST', chain: 'CHAIN', shell: 'SHELL', weapon: 'WEAPON'
+    blast: 'BLAST', chain: 'CHAIN', weapon: 'WEAPON'
   };
   return localText(ru[key] || String(key || 'УДАР').toUpperCase(), en[key] || String(key || 'HIT').toUpperCase());
 }
@@ -167,7 +167,7 @@ function comboPrizeReadout(c = {}) {
   return amount > 0 ? localText(`ПРИЗ +${amount} ${label}`, `PRIZE +${amount} ${label}`) : localText(`ПРИЗ ${label}`, `PRIZE ${label}`);
 }
 function comboExplain(c = {}) {
-  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 4).join(' · ') || localText('пока нет', 'none yet');
+  const methods = (c.recent || []).filter(m => !['shell','armor'].includes(String(m).toLowerCase())).map(comboMethodLabel).filter(Boolean).slice(0, 4).join(' · ') || localText('пока нет', 'none yet');
   const kills = Math.max(0, c.count | 0);
   const prize = comboPrizeReadout(c);
   return localText(
@@ -180,7 +180,7 @@ function renderComboHud(c = {}) {
   const count = Math.max(0, c.count | 0);
   if (mult <= 1.01 || count <= 0 || (c.timer || 0) <= 0) return '';
   const pct = Math.max(0, Math.min(100, ((c.timer || 0) / Math.max(0.1, c.window || 3)) * 100));
-  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 3);
+  const methods = (c.recent || []).filter(m => !['shell','armor'].includes(String(m).toLowerCase())).map(comboMethodLabel).filter(Boolean).slice(0, 3);
   const methodLine = methods.length ? methods.join(' · ') : comboMethodLabel(c.lastMethod || 'weapon');
   const prizeLine = comboPrizeReadout(c);
   return `<div class="combo-readout${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +

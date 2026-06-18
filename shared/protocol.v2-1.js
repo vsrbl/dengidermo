@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.22';
-export const BUILD_ID = 'boss_rework_hunter_split_dash_revisor';
+export const VERSION = 'v2.1.24';
+export const BUILD_ID = 'music_combo_orbital_repair';
 export const PROTOCOL = 4;
 
 export const MAX_PLAYERS = 4;

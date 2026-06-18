@@ -82,6 +82,20 @@ export const UPGRADES = [
   { id: 'combo_exp', label: 'COMBO PAYS EXP', tier: 0, desc: 'Комбо при завершении выдаёт EXP: убийства × множитель.', apply: s => { s.comboPrize = 'exp'; } },
   { id: 'combo_hp',  label: 'COMBO PAYS HP',  tier: 0, desc: 'Комбо при завершении лечит: убийства × множитель × 0.1, округление до целого.', apply: s => { s.comboPrize = 'hp'; } },
 
+
+  // boss signature modules: antivirus rules taken from defeated threats.
+  // These are not normal INSTALL rolls; they appear only after boss rooms.
+  { id: 'sig_quarantine_buffer', label: 'QUARANTINE BUFFER', tier: 1, bossSig: true, desc: 'В начале каждой комнаты включается временный щит на 10 секунд.', apply: s => { s.sigQuarantineBuffer += 1; } },
+  { id: 'sig_emergency_cleanse', label: 'EMERGENCY CLEANSE', tier: 1, bossSig: true, desc: 'При низком HP запускается 20-секундная очистка ближайших вражеских пуль.', apply: s => { s.sigEmergencyCleanse += 1; } },
+  { id: 'sig_payout_swap', label: 'PAYOUT MIRROR', tier: 1, bossSig: true, desc: 'Маленький шанс удвоить полученный GLD или HEA.', apply: s => { s.sigPayoutMirror += 1; } },
+  { id: 'sig_false_zero', label: 'FALSE ZERO', tier: 1, bossSig: true, desc: 'Вражеские пули иногда записываются как ноль и не наносят урон.', apply: s => { s.sigFalseZero += 1; } },
+  { id: 'sig_deaf_command', label: 'DEAF COMMAND', tier: 1, bossSig: true, desc: 'В начале комнаты часть врагов получает приказ с задержкой.', apply: s => { s.sigDeafCommand += 1; } },
+  { id: 'sig_hunt_route', label: 'HUNT ROUTE', tier: 1, bossSig: true, desc: 'Пока ты двигаешься, скорость слегка растёт. Стоишь — след стирается.', apply: s => { s.sigHuntRoute += 1; } },
+  { id: 'sig_red_overdrive', label: 'RED OVERDRIVE', tier: 1, bossSig: true, desc: 'После рывка следующий выстрел немного сильнее.', apply: s => { s.sigRedOverdrive += 1; } },
+  { id: 'sig_aim_glitch', label: 'AIM GLITCH', tier: 1, bossSig: true, desc: 'После рывка ближайшие вражеские пули слегка сбиваются с курса.', apply: s => { s.sigAimGlitch += 1; } },
+  { id: 'sig_incomplete_delete', label: 'INCOMPLETE DELETE', tier: 1, bossSig: true, desc: 'Сильный враг иногда оставляет обломок с HEA.', apply: s => { s.sigIncompleteDelete += 1; } },
+  { id: 'sig_insurance_process', label: 'INSURANCE PROCESS', tier: 1, bossSig: true, desc: 'Когда HP падает до 10%, враги разбрасываются в стороны. Один раз за комнату.', apply: s => { s.sigInsuranceProcess += 1; } },
+
   // weapon branches. These are WPN-chest rewards only, not INSTALL/level-up rewards.
   { id: 'bullet_ricochet', label: 'BULLET RICOCHET +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
   { id: 'bullet_range',    label: 'BULLET RANGE +22%',  tier: 1, branch: 'ALL', desc: 'Все твои снаряды летят дальше и живут дольше.', apply: s => { s.bulletRange *= 1.22; } },
@@ -125,7 +139,8 @@ export const CURSED_UPGRADE_IDS = UPGRADES.filter(u => u.cursed).map(u => u.id);
 // INSTALL / level-up upgrades are HERO ONLY.
 // Weapon-specific branches live in WPN chest choices, not level-up offers.
 export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT'];
-export const HERO_UPGRADES = UPGRADES.filter(u => !WEAPON_BRANCHES.includes(u.branch) && u.branch !== 'Q');
+export const HERO_UPGRADES = UPGRADES.filter(u => !u.bossSig && !WEAPON_BRANCHES.includes(u.branch) && u.branch !== 'Q');
+export const BOSS_SIGNATURE_UPGRADE_IDS = UPGRADES.filter(u => u.bossSig).map(u => u.id);
 export const WEAPON_UPGRADE_IDS = UPGRADES.filter(u => WEAPON_BRANCHES.includes(u.branch)).map(u => u.id);
 
 export const WEAPON_CHEST_REWARDS = [
@@ -251,7 +266,8 @@ export function defaultStats() {
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
-    comboPrize: 'gld', tempFire: 0
+    comboPrize: 'gld', tempFire: 0,
+    sigQuarantineBuffer: 0, sigEmergencyCleanse: 0, sigPayoutMirror: 0, sigFalseZero: 0, sigDeafCommand: 0, sigHuntRoute: 0, sigRedOverdrive: 0, sigAimGlitch: 0, sigIncompleteDelete: 0, sigInsuranceProcess: 0
   };
 }
 
