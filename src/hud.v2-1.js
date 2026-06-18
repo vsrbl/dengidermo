@@ -169,9 +169,8 @@ function renderComboHud(c = {}) {
   const tier = Math.max(0, c.tier | 0);
   return `<div class="combo-frame tier-${tier}${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
     `<div class="combo-filter" aria-hidden="true"></div>` +
-    `<div class="combo-head"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b></div>` +
+    `<div class="combo-head"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b><em>${count}</em></div>` +
     `<div class="combo-timer"><i style="width:${pct.toFixed(0)}%"></i></div>` +
-    `<div class="combo-sub"><span>${count}</span></div>` +
   `</div>`;
 }
 function roomIntelExplain(room = {}, isNext = false) {
