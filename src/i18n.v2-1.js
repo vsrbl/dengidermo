@@ -147,7 +147,7 @@ const EN_CORE = {
   debt_pulse: 'A red static blast around you. It exposes enemies and may call a Static Storm.'
 };
 const EN_MUT = {
-  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost HP.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return HP or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q gathers power from enemies hit, then strikes nearby wounded enemies.', bad_tape: 'Q leaves two unstable glitch echoes.'
+  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost HP.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return HP or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q creates a hunger zone. More enemies inside it feed a stronger final digital bite.', bad_tape: 'Q leaves two unstable glitch echoes.'
 };
 
 const RU_CORE = {
@@ -161,7 +161,7 @@ const RU_CORE = {
   debt_pulse: 'Красный статик-взрыв вокруг тебя. Ослабляет врагов и может вызвать статик-шторм.'
 };
 const RU_MUT = {
-  static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q копит силу от задетых врагов и в конце бьёт ближайшие раненые цели.', bad_tape: 'Q создаёт два слабых глючных повтора.'
+  static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q создаёт зону голода. Чем больше врагов внутри, тем сильнее финальный цифровой укус.', bad_tape: 'Q создаёт два слабых глючных повтора.'
 };
 const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'GLITCH REPEAT':'GLITCH REPEAT' };
 const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'SIDE UPGRADE':'SIDE UPGRADE' };
@@ -235,7 +235,7 @@ export function cleanPlayerText(text) {
       .replace(/SIDE UPGRADE/gi, 'дополнительное усиление')
       .replace(/contract favor/gi, 'приз контракта')
       .replace(/favor/gi, 'приз')
-      .replace(/reroll/gi, 'реролл').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER STACK/gi, 'накопленный голод')
+      .replace(/reroll/gi, 'реролл').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER CHARGE/gi, 'накопление голода').replace(/DIGITAL BITE/gi, 'цифровой укус')
       .replace(/next room/gi, 'следующая комната');
   }
   if (langIsEn() && /[А-Яа-яЁё]/.test(s)) {

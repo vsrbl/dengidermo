@@ -51,7 +51,8 @@ function setStatus(text, cls = '') { status.textContent = text; status.className
 function setMenuVersion(server = null) {
   if (!menuVersion) return;
   const online = server ? 'ONLINE' : 'CHECKING';
-  menuVersion.textContent = `VERSION ${VERSION} · ${online}`;
+  const build = String(BUILD_ID || '').replace(/^v?/, '');
+  menuVersion.textContent = `VERSION ${VERSION} · ${build} · ${online}`;
 }
 setMenuVersion();
 
@@ -240,8 +241,22 @@ function syncAudioSliders() {
   if (mv) { mv.value = Math.round(vals.music * 100); paintRange(mv); }
   if (sv) { sv.value = Math.round(vals.sfx * 100); paintRange(sv); }
 }
-$('music-volume')?.addEventListener('input', e => { audio.setMusicVolume?.(Number(e.currentTarget.value) / 100); paintRange(e.currentTarget); });
-$('sfx-volume')?.addEventListener('input', e => { audio.setSfxVolume?.(Number(e.currentTarget.value) / 100); paintRange(e.currentTarget); });
+function bindVolumeSlider(id, kind) {
+  const el = $(id);
+  if (!el) return;
+  const apply = e => {
+    const v = Number(e.currentTarget.value) / 100;
+    if (kind === 'music') audio.setMusicVolume?.(v);
+    else audio.setSfxVolume?.(v);
+    paintRange(e.currentTarget);
+    audio.previewVolume?.(kind);
+  };
+  el.addEventListener('input', apply);
+  el.addEventListener('pointerdown', apply);
+  el.addEventListener('change', apply);
+}
+bindVolumeSlider('music-volume', 'music');
+bindVolumeSlider('sfx-volume', 'sfx');
 syncAudioSliders();
 onLangChange(() => {
   updateSkinPreview();

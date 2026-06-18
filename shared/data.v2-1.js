@@ -196,7 +196,7 @@ export const ACTIVE_MUTATIONS = {
   leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания активкой возвращают HP или GLD.' },
   armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту врагов и лучше раскрывает бронированные цели.' },
   anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Оставляет тяжёлую якорную область: врагов тянет к центру, пули теряют скорость, зона держится дольше.' },
-  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'SCALING', desc: 'Q копит силу от задетых врагов. В конце наносит дополнительный удар по ближайшим раненым целям.' },
+  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'CHARGE BITE', desc: 'Q создаёт зону голода: чем больше врагов попадает внутрь, тем сильнее финальный цифровой укус.' },
   bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Битая плёнка повторяет Q два раза: слабее, но с заметными сбоями.' }
 };
 
@@ -372,7 +372,7 @@ export const ROOM_MODS = {
   hunter_contract: { id: 'hunter_contract', label: 'HUNTER WAVES' },
   casino_virus:    { id: 'casino_virus',    label: 'CASINO VIRUS' },
   moving_room:     { id: 'moving_room',     label: 'SHIFTING ZONES' },
-  prism_grid:      { id: 'prism_grid',      label: 'PRISM SLOW GRID' },
+  prism_grid:      { id: 'prism_grid',      label: 'PRISM GRID' },
   blood_tax:       { id: 'blood_tax',       label: 'BLOOD PAYMENT' },
   echo_walls:      { id: 'echo_walls',      label: 'ECHO SHOTS' },
   anchor_gravity:  { id: 'anchor_gravity',  label: 'ANCHOR GRAVITY' },

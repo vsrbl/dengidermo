@@ -344,7 +344,7 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   if (mods.includes('hunter_contract')) tags.push('LOCKED WAVES');
   if (mods.includes('casino_virus')) tags.push('3 VIRUS SPINS');
   if (mods.includes('moving_room')) tags.push('DANGER ZONES');
-  if (mods.includes('prism_grid')) tags.push('SLOW GRID');
+  if (mods.includes('prism_grid')) tags.push('PRISM SLOW');
   if (mods.includes('anchor_gravity')) tags.push('GRAVITY SOCKETS');
   if (mods.includes('blood_tax')) tags.push('HP SHOP');
   if (mods.includes('echo_walls')) tags.push('50% ECHO SHOTS');
@@ -362,7 +362,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('hunter_contract')) return 'HUNTER WAVES: portal stays locked until every wave is dead.';
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
-  if (mods.includes('prism_grid')) return 'SLOW GRID: grid plates slow everyone standing on them by 3x.';
+  if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
   if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: sockets pull players, mobs, pickups, and every projectile.';
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
@@ -393,7 +393,7 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (special === 'chill_room') return { id: 'lounge_cashout', label: 'SAFE CASHOUT', reward: 'SHOP', goal: 'Leave when ready.' };
   if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'HUNTER WAVES', reward: 'FAVOR', goal: 'Survive every locked hunter wave.' };
   if (mods.includes('casino_virus')) return { id: 'virus_clean', label: 'VIRUS CLEANUP', reward: 'FAVOR', goal: 'Survive 3 virus spins, then kill every enemy.' };
-  if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'GRID CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy inside the slow-grid room.' };
+  if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'PRISM CLEANUP', reward: 'FAVOR', goal: 'Clear the room while the prism cells slow the fight.' };
   if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Spend HP if you dare, then clear the room.' };
   if (mods.includes('static_rain')) return { id: 'static_clean', label: 'STATIC CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy while taking low damage.' };
   if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', reward: 'FAVOR', goal: 'Kill every enemy and claim the cache.' };
@@ -412,15 +412,63 @@ function shouldOfferRoomContract(plan = {}, depth = 0, seed = 1) {
   if (roomPlanCategory(plan) === 'boss') chance += 0.08;
   return rng() < Math.min(0.86, chance);
 }
+function enemyInsideWall(run, e) {
+  if (!run?.plan?.walls || !e) return false;
+  const half = Math.max(4, (e.size || 24) * 0.28);
+  return run.plan.walls.some(w => aabbHit(e.x, e.y, half, w));
+}
+function enemyInsideWorld(run, e, margin = 180) {
+  if (!run?.plan || !e) return false;
+  return Number.isFinite(e.x) && Number.isFinite(e.y)
+    && e.x >= -margin && e.y >= -margin
+    && e.x <= (run.plan.w || 0) + margin && e.y <= (run.plan.h || 0) + margin;
+}
+function isCombatEnemy(run, e) {
+  if (!e || e.hp <= 0) return false;
+  if (!ENEMIES[e.kind]) return false;
+  if (!enemyInsideWorld(run, e)) return false;
+  // If an enemy center is buried in a solid wall, it is not a visible combatant.
+  // It will be rescued by sanitizeEnemiesForRoom before it can block cleanup forever.
+  if (enemyInsideWall(run, e)) return false;
+  return true;
+}
+function combatEnemies(run) {
+  return (run?.enemies || []).filter(e => isCombatEnemy(run, e));
+}
 function roomHasLiveEnemies(run) {
-  return !!run?.enemies?.some(e => e && e.hp > 0);
+  return combatEnemies(run).length > 0;
 }
 function roomQuotaReached(run) {
   const q = Math.max(0, run?.plan?.quota || 0);
   return (run?.kills || 0) >= q || (run?.spawned || 0) >= q;
 }
 function liveEnemyCount(run) {
-  return (run?.enemies || []).filter(e => e && e.hp > 0).length;
+  return combatEnemies(run).length;
+}
+function rescueEnemyToFloor(run, players, e) {
+  if (!run || !e) return false;
+  const alive = players ? [...players.values()].filter(p => p.alive) : [];
+  const p = enemySpawnPoint(mulberry32(((run.tick || 1) * 2654435761 ^ (e.id || '').length * 2246822519) >>> 0), run.plan.walls, alive);
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || enemyInsideWall(run, { ...e, x: p.x, y: p.y })) return false;
+  const ox = e.x, oy = e.y;
+  e.x = p.x; e.y = p.y; e.vx = 0; e.vy = 0; e._stuckT = 0;
+  run.fx.push({ t: 'blink', id: e.id, fx: Math.round(ox), fy: Math.round(oy), tx: Math.round(p.x), ty: Math.round(p.y) });
+  return true;
+}
+function sanitizeEnemiesForRoom(run, players = null, dt = 0) {
+  if (!run?.enemies) return;
+  const before = run.enemies.length;
+  run.enemies = run.enemies.filter(e => e && e.hp > 0 && ENEMIES[e.kind] && enemyInsideWorld(run, e, 420));
+  if (before !== run.enemies.length && run.roomStats) run.roomStats.cleanedGhostEnemies = (run.roomStats.cleanedGhostEnemies || 0) + before - run.enemies.length;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0) continue;
+    if (enemyInsideWall(run, e)) {
+      e._stuckT = (e._stuckT || 0) + Math.max(0.05, dt || 0.05);
+      if (e._stuckT > 0.75 && players) rescueEnemyToFloor(run, players, e);
+    } else {
+      e._stuckT = 0;
+    }
+  }
 }
 function fastClearTimeLimit(run) {
   const q = Math.max(0, run?.plan?.quota || 0);
@@ -3117,6 +3165,7 @@ function nearestAlive(players, x, y, run = null) {
 
 function stepEnemies(run, players, dt) {
   if (run.phase !== 'play') return;
+  sanitizeEnemiesForRoom(run, players, dt);
   const walls = run.plan.walls;
   stepEnemySynergies(run, players, dt);
   for (const e of [...run.enemies]) {
@@ -3388,6 +3437,7 @@ function stepEnemies(run, players, dt) {
   resolveEnemyCrowd(run, walls, dt);
   // Safety pass: even ranged/non-touch enemies must never remain inside a player.
   resolveEnemyPlayerBodies(run, players, walls);
+  sanitizeEnemiesForRoom(run, players, dt);
 }
 
 function touchDamage(run, e, players, dt) {
@@ -4583,7 +4633,10 @@ function activeExposeEnemy(run, e, lvl, owner) {
   run.fx.push({ t: 'active_mutation', label: 'EXPOSED', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 46 + lvl * 10), tone: 'purple', owner });
 }
 function activeTargets(run, x, y, r) {
-  return run.enemies.filter(e => dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2);
+  return run.enemies.filter(e => (e.hp || 0) > 0 && dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2);
+}
+function activeHungerTargets(run, x, y, r) {
+  return activeTargets(run, x, y, r).filter(e => e.kind !== 'boss' || (e.hp || 0) > 0);
 }
 
 function activeFreezeEnemy(run, e, hold = 0.28) {
@@ -4821,14 +4874,13 @@ function applyActiveMutations(run, players, p, ctx, opts = {}) {
       activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round(activeScale((ctx.r || 130) * 0.58 + 88)), ttl: activeDurationForLevel(lvl, 2.9, 4.4), tickEvery: 0.30, pull: activeRadiusForLevel(lvl, 120, 240), dmg: (2 + lvl * 2) * p.stats.dmgMul, slow: 0.32, damp: 0.20 });
       run.fx.push({ t: 'active_mutation', label: 'ANCHOR', x: Math.round(ctx.x), y: Math.round(ctx.y), r: Math.round(activeScale((ctx.r || 130) * 0.62 + 95)), tone: 'purple' });
     } else if (id === 'hunger') {
-      const targets = activeTargets(run, ctx.x, ctx.y, (ctx.r || 130) + 60);
-      const bite = Math.min(46, 7 + targets.length * 3.4 + lvl * 4);
-      if (targets.length) {
-        explode(run, players, ctx.x, ctx.y, activeScale(62 + lvl * 13 + Math.min(52, targets.length * 4)), activeScale(bite) * p.stats.dmgMul, p.id, false, 'blood');
-        ctx.damageDone += bite;
-        ctx.hitCount += Math.min(8, targets.length);
-      }
-      run.fx.push({ t: 'active_mutation', label: `HUNGER STACK ${targets.length}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: 90 + lvl * 18, tone: 'red' });
+      const r = Math.round(activeScale((ctx.r || 130) + 42 + lvl * 8));
+      const ttl = activeDurationForLevel(lvl, 2.15, 3.05);
+      activeField(run, {
+        kind: 'hunger_charge', owner: p.id, x: ctx.x, y: ctx.y, r, ttl,
+        tickEvery: 0.22, fxT: 0.01, charge: 0, chargeHits: 0, lvl, dmgMul: p.stats.dmgMul || 1
+      });
+      run.fx.push({ t: 'active_mutation', label: 'HUNGER CHARGE', x: Math.round(ctx.x), y: Math.round(ctx.y), r, tone: 'red' });
     } else if (id === 'bad_tape' && !opts.echo) {
       if (!run.pendingActives) run.pendingActives = [];
       run.pendingActives.push({ owner: p.id, at: run.now + 0.46, core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
@@ -4993,13 +5045,39 @@ function stepActiveFields(run, players, dt) {
       f.r = Math.round((f.startR ?? f.baseR ?? f.r) + (f.growTo - (f.startR ?? f.baseR ?? f.r)) * ease);
     }
     f.ttl -= dt; f.tickT -= dt; f.fxT -= dt;
-    const fieldTone = f.kind === 'blood_ring' ? 'red'
+    const fieldTone = (f.kind === 'blood_ring' || f.kind === 'hunger_charge') ? 'red'
       : (f.kind === 'red_static' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'black_box' || f.kind === 'anchor_field') ? 'purple'
       : 'cyan';
     if (f.fxT <= 0) {
       f.fxT = (f.kind === 'void_line' || f.kind === 'void_laser') ? 0.10 : 0.18;
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) run.fx.push({ t: 'active_line', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || f.width || f.r || 42, hitWidth: f.width || f.r || 42, tone: fieldTone });
       else run.fx.push({ t: 'active_field', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: fieldTone });
+    }
+    if (f.kind === 'hunger_charge') {
+      const targets = activeHungerTargets(run, f.x, f.y, f.r || 120);
+      if (targets.length) {
+        const lvl = Math.max(1, f.lvl || 1);
+        const gain = targets.length * (2.2 + lvl * 0.62);
+        f.charge = Math.min(140, (f.charge || 0) + gain * dt * 4.5);
+        f.chargeHits = Math.min(99, (f.chargeHits || 0) + targets.length * dt * 1.6);
+        for (const e of targets) {
+          e.activeSlowT = Math.max(e.activeSlowT || 0, 0.10);
+          e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(0.82));
+        }
+      }
+      if (f.tickT <= 0) {
+        f.tickT = f.tickEvery || 0.22;
+        run.fx.push({ t: 'active_tick', kind: 'hunger_charge', x: Math.round(f.x), y: Math.round(f.y), r: Math.round((f.r || 120) + Math.min(36, (f.charge || 0) * 0.22)), tone: 'red' });
+      }
+      if (f.ttl <= 0 && !f.released) {
+        f.released = 1;
+        const lvl = Math.max(1, f.lvl || 1);
+        const charge = Math.max(0, f.charge || 0);
+        const biteDmg = 9 + lvl * 4.5 + charge * 0.72;
+        const biteR = Math.round(activeScale(76 + lvl * 12 + Math.min(62, charge * 0.30)));
+        if (charge > 0.1) explode(run, players, f.x, f.y, biteR, biteDmg * (f.dmgMul || 1), f.owner, false, 'blood');
+        run.fx.push({ t: 'active_mutation', label: charge > 0.1 ? `DIGITAL BITE ${Math.round(biteDmg)}` : 'DIGITAL BITE', x: Math.round(f.x), y: Math.round(f.y), r: biteR, tone: 'red', squareBlast: 1 });
+      }
     }
     if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
@@ -5405,6 +5483,7 @@ function activeSummary(p) {
 
 // ---------------------------------------------------------------- snapshot
 export function buildSnapshot(run, players) {
+  sanitizeEnemiesForRoom(run, players, 0.05);
   const ps = [];
   for (const p of players.values()) {
     if (!p.connected) continue;
@@ -5422,7 +5501,7 @@ export function buildSnapshot(run, players) {
       p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint'
     ]);
   }
-  const es = run.enemies.map(e => [
+  const es = combatEnemies(run).map(e => [
     e.id, KIND_IDX[e.kind], Math.round(e.x), Math.round(e.y),
     Math.round((e.hp / e.maxHp) * 100), e.size, e.state, e.elite ? 1 : 0,
     Math.round((e.dirX || 0) * 100), Math.round((e.dirY || 0) * 100),

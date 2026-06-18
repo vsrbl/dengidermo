@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
 export const VERSION = 'v2.1';
-export const BUILD_ID = 'v2.1-final-20260617';
+export const BUILD_ID = 'hunger-audio-volume';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;

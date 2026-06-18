@@ -2,6 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
+const MUSIC_OUTPUT_GAIN = 7.20; // louder music ceiling; slider is still 0..100
 
 function inGameMusicAmount(room, menu = false) { return menu ? 0.82 : (room ? 1 : 0); }
 
@@ -71,12 +72,18 @@ export class AudioBus {
 
   setMusicVolume(value) {
     this.musicVolume = this.writeVolume('nnc_music_volume', value);
-    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(3.60 * this.musicVolume, this.ctx.currentTime, 0.05);
+    if (this.musicGain && this.ctx) {
+      this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicGain.gain.setValueAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, this.ctx.currentTime);
+    }
   }
 
   setSfxVolume(value) {
     this.sfxVolume = this.writeVolume('nnc_sfx_volume', value);
-    if (this.sfxGain && this.ctx) this.sfxGain.gain.setTargetAtTime(this.sfxVolume, this.ctx.currentTime, 0.05);
+    if (this.sfxGain && this.ctx) {
+      this.sfxGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.sfxGain.gain.setValueAtTime(this.sfxVolume, this.ctx.currentTime);
+    }
   }
 
   unlock() {
@@ -90,7 +97,7 @@ export class AudioBus {
       this.sfxGain = this.ctx.createGain();
       this.musicGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
-      this.musicGain.gain.value = 3.60 * this.musicVolume;
+      this.musicGain.gain.value = MUSIC_OUTPUT_GAIN * this.musicVolume;
       this.comp = this.ctx.createDynamicsCompressor();
       this.comp.threshold.value = -18;
       this.comp.knee.value = 14;
@@ -103,6 +110,32 @@ export class AudioBus {
       this.comp.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+  }
+
+  previewVolume(kind = 'sfx') {
+    this.unlock();
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    const now = this.ctx.currentTime;
+    if (now - (this.last.get('volume_preview') || -99) < 0.10) return;
+    this.last.set('volume_preview', now);
+    if (kind === 'music') {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      const f = this.ctx.createBiquadFilter();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(220, now);
+      o.frequency.exponentialRampToValueAtTime(165, now + 0.085);
+      f.type = 'lowpass'; f.frequency.value = 820; f.Q.value = 0.7;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.020, now + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+      o.connect(f); f.connect(g); g.connect(this.musicGain || this.master);
+      o.start(now); o.stop(now + 0.15);
+      return;
+    }
+    // Route through current SFX gain so the preview represents the selected SFX volume.
+    this.tone(520, 0.025, 'square', 0.020, 0.70);
+    this.noise(0.012, 0.010, 4200, 10, 0.002);
   }
 
   can(type) {
