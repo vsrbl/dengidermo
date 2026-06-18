@@ -118,7 +118,7 @@ function roomModHint(m, room = {}) {
     blood_tax: localText('Кровавая оплата: ставки и покупки платятся HP. Можно зайти в смертельный долг, но страховка от смерти может спасти.', 'Blood Payment: bets and buys cost HP. You can pay into lethal danger, but Death Insurance can save you.'),
     shell_market: localText('Shell-биржа: у врагов чаще есть щиты. Сначала сбиваешь щит, потом HP; щит может восстановиться, если врага не трогать.', 'Shell Market: enemies more often have shields. Break shield before HP; it can regenerate if the enemy is left alone.'),
     echo_walls: localText('Эхо-выстрелы: часть пуль получает копию. Твои копии читаются одним цветом, вражеские — красным.', 'Echo Shots: some bullets get a copy. Your copies have one color; enemy copies are red.'),
-    anchor_gravity: localText('Якоря гравитации: квадратные узлы мягко искривляют движение и траектории. Самая сильная тяга только рядом с центром.', 'Gravity Anchors: square nodes gently bend movement and trajectories. Pull is strongest only near the center.'),
+    anchor_gravity: localText('Якоря гравитации: квадратные узлы сильно тянут движение и траектории. Самая сильная тяга рядом с центром.', 'Gravity Anchors: square nodes strongly pull movement and trajectories. Pull is strongest near the center.'),
     static_wires: localText('Статик-провода: тонкие линии замедляют и искажают траектории.', 'Static Wires: thin lines slow and distort movement and projectiles.'),
     hunted_exit: localText('Охота у выхода: портал может открыться рано, но задержка в комнате вызывает охотников.', 'Hunted Exit: portal can open early, but staying too long calls hunters.'),
     skin_cache: localText('Скин-тайник: в комнате спрятан новый облик. После зачистки появится плашка получения.', 'Skin Cache: a new look is hidden here. After clearing, a claim card appears.')
@@ -155,10 +155,11 @@ function comboMethodLabel(m) {
   return localText(ru[key] || String(key || 'УДАР').toUpperCase(), en[key] || String(key || 'HIT').toUpperCase());
 }
 function comboExplain(c = {}) {
-  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 3).join(' · ') || localText('пока нет', 'none yet');
+  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 4).join(' · ') || localText('пока нет', 'none yet');
+  const kills = Math.max(0, c.count | 0);
   return localText(
-    `Комбо растёт от убийств. Разные способы дают больший прирост. Если долго не добивать врагов, комбо сгорает. Урон снимает часть комбо. Последние способы: ${methods}.`,
-    `Combo grows from kills. Different methods build it faster. If you stop killing for too long, combo breaks. Damage removes part of the combo. Recent methods: ${methods}.`
+    `Комбо — это цепь убийств. Разные способы дают больший прирост. Без новых убийств комбо сгорает. Урон снимает часть комбо. Убито в цепи: ${kills}. Способы: ${methods}.`,
+    `Combo is a kill chain. Different methods build it faster. Without new kills, combo breaks. Damage removes part of the combo. Kills in chain: ${kills}. Methods: ${methods}.`
   );
 }
 function renderComboHud(c = {}) {
@@ -166,10 +167,11 @@ function renderComboHud(c = {}) {
   const count = Math.max(0, c.count | 0);
   if (mult <= 1.01 || count <= 0 || (c.timer || 0) <= 0) return '';
   const pct = Math.max(0, Math.min(100, ((c.timer || 0) / Math.max(0.1, c.window || 3)) * 100));
-  const tier = Math.max(0, c.tier | 0);
-  return `<div class="combo-frame tier-${tier}${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
-    `<div class="combo-filter" aria-hidden="true"></div>` +
-    `<div class="combo-head"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b><em>${count}</em></div>` +
+  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 3);
+  const methodLine = methods.length ? methods.join(' · ') : comboMethodLabel(c.lastMethod || 'weapon');
+  return `<div class="combo-readout${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
+    `<div class="combo-main"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b><em>${esc(localText('УБИТО', 'KILLS'))} ${count}</em></div>` +
+    `<div class="combo-used">${esc(methodLine)}</div>` +
     `<div class="combo-timer"><i style="width:${pct.toFixed(0)}%"></i></div>` +
   `</div>`;
 }

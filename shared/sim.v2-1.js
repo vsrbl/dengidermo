@@ -363,7 +363,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
-  if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: square sockets softly bend movement and projectiles; the center is the strong zone.';
+  if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: square sockets pull movement and projectiles harder; the center is the strong zone.';
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
@@ -1664,7 +1664,10 @@ function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   const repeated = recent.filter(x => x === method).length;
   if (repeated >= 2) gain *= 0.66;
   c.score = Math.max(0, c.score || 0) + gain;
-  c.count = Math.max(0, c.count | 0) + 1;
+  // The visible combo number is a kill count. Support actions such as shell breaks can
+  // feed the multiplier and method list, but they should not inflate "kills".
+  const isKill = Math.max(0, Number(scale) || 0) >= 0.99;
+  if (isKill) c.count = Math.max(0, c.count | 0) + 1;
   c.lastMethod = method;
   c.recent = [method, ...recent].slice(0, 5);
   c.timer = Math.max(c.timer || 0, Math.min(5.2, 2.65 + Math.min(1.55, comboMultiplierFromScore(c.score) * 0.18) + Math.min(0.8, score * 0.08)));
@@ -1678,7 +1681,7 @@ function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   c.best = Math.max(c.best || 1, c.mult || 1);
   c.tier = comboTier(c.mult);
   if (run.runMemory) run.runMemory.bestCombo = Math.max(run.runMemory.bestCombo || 1, c.best || 1);
-  if (c.tier > oldTier || c.count === 1) run.fx.push({ t: 'combo_tick', mult: c.mult, tier: c.tier, method, label: c.lastLabel, x: Math.round(actor.x || 0), y: Math.round(actor.y || 0), id: actor.id });
+  if (c.tier > oldTier || (isKill && c.count === 1)) run.fx.push({ t: 'combo_tick', mult: c.mult, tier: c.tier, method, label: c.lastLabel, x: Math.round(actor.x || 0), y: Math.round(actor.y || 0), id: actor.id });
 }
 function damageCombo(run, p, dmg = 0) {
   if (!run || !p || !run.combo) return;
@@ -4250,7 +4253,7 @@ function stepMods(run, players, dt) {
         const tangent = { x: -n.y, y: n.x };
         const innerMul = dist < inner ? 1 : 0.42;
         const dashMul = (p.dashT || p.invuln || 0) > 0.04 ? 0.28 : 1;
-        const pull = (22 + 118 * Math.pow(core, 1.85)) * innerMul * dashMul;
+        const pull = (44 + 236 * Math.pow(core, 1.85)) * innerMul * dashMul;
         const swirl = (18 + 42 * core) * (dist < inner ? 0.35 : 1) * dashMul;
         const nx = p.x + (n.x * pull + tangent.x * swirl) * dt;
         const ny = p.y + (n.y * pull + tangent.y * swirl) * dt;
@@ -4266,7 +4269,7 @@ function stepMods(run, players, dt) {
         const dist = Math.sqrt(d);
         const n = norm(s.x - e.x, s.y - e.y);
         const core = Math.max(0, 1 - dist / s.r);
-        const force = (e.kind === 'damper' ? 6 : 18 + 44 * core) * core;
+        const force = (e.kind === 'damper' ? 12 : 36 + 88 * core) * core;
         e.x += n.x * force * dt; e.y += n.y * force * dt;
       }
       for (const b of run.bullets) {
@@ -4278,7 +4281,7 @@ function stepMods(run, players, dt) {
         const sp = Math.max(80, Math.hypot(b.vx || 0, b.vy || 0));
         const core = Math.max(0, 1 - dist / maxR);
         const mass = b.from === 'p' ? 0.34 : 0.58;
-        const pull = (120 + 520 * Math.pow(core, 1.35)) * mass;
+        const pull = (240 + 1040 * Math.pow(core, 1.35)) * mass;
         const tangent = { x: -n.y, y: n.x };
         b.vx += (n.x * pull + tangent.x * 42 * core * mass) * dt;
         b.vy += (n.y * pull + tangent.y * 42 * core * mass) * dt;
@@ -4298,7 +4301,7 @@ function stepMods(run, players, dt) {
         const dist = Math.sqrt(d);
         const n = norm(s.x - pk.x, s.y - pk.y);
         const core = Math.max(0, 1 - dist / (s.r * 0.65));
-        pk.x += n.x * (6 + 18 * core) * dt; pk.y += n.y * (6 + 18 * core) * dt;
+        pk.x += n.x * (12 + 36 * core) * dt; pk.y += n.y * (12 + 36 * core) * dt;
       }
     }
   }
