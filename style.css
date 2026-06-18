@@ -2107,55 +2107,72 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
 #global-digital-filter { opacity: .72 !important; }
 
 
-/* v2.1.10 combo counter: compact center-bottom terminal/casino readout. */
+/* v2.1.12 combo counter: quieter side readout with its own terminal filter. */
 #hud-combo {
   position: absolute;
-  left: 50%;
-  bottom: 76px;
-  transform: translateX(-50%);
-  width: min(310px, 34vw);
+  left: 18px;
+  top: 52%;
+  bottom: auto;
+  transform: translateY(-50%);
+  width: 168px;
   pointer-events: auto;
-  z-index: 10;
+  z-index: 8;
 }
 #hud-combo.hidden { display: none; }
 .combo-frame {
   position: relative;
   color: var(--fg);
-  border: 1px solid rgba(255,255,255,.50);
-  background: linear-gradient(90deg, rgba(5,5,5,.18), rgba(5,5,5,.78), rgba(5,5,5,.18));
-  box-shadow: 0 0 0 1px rgba(255,255,255,.05), 0 0 16px rgba(255,255,255,.08);
-  padding: 6px 9px 6px;
-  min-height: 42px;
-  opacity: .92;
+  border: 1px solid rgba(255,255,255,.34);
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 4px),
+    linear-gradient(90deg, rgba(0,0,0,.64), rgba(5,5,5,.84), rgba(0,0,0,.58));
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 0 12px rgba(0,0,0,.52), inset 0 0 20px rgba(255,255,255,.025);
+  padding: 7px 9px 6px;
+  min-height: 39px;
+  opacity: .88;
   overflow: hidden;
+  image-rendering: pixelated;
+  filter: contrast(1.18) saturate(.82);
 }
 .combo-frame:before,
 .combo-frame:after {
   content: "";
   position: absolute;
-  width: 13px; height: 13px;
+  width: 10px; height: 10px;
   border: 1px solid currentColor;
-  opacity: .65;
+  opacity: .48;
+  pointer-events: none;
 }
 .combo-frame:before { left: 4px; top: 4px; border-right: 0; border-bottom: 0; }
 .combo-frame:after { right: 4px; bottom: 4px; border-left: 0; border-top: 0; }
-.combo-head { display: flex; align-items: baseline; justify-content: space-between; letter-spacing: .16em; line-height: 1; }
-.combo-head span { font-size: 10px; color: var(--dim); }
-.combo-head b { font-size: 26px; color: var(--fg); font-weight: 900; text-shadow: 0 0 12px rgba(255,255,255,.25); letter-spacing: .05em; }
-.combo-methods { margin-top: 3px; min-height: 12px; color: var(--cyan); font-size: 9px; letter-spacing: .13em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.combo-timer { margin-top: 5px; height: 3px; border: 1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.04); }
-.combo-timer i { display: block; height: 100%; background: var(--fg); box-shadow: 0 0 10px rgba(255,255,255,.18); transition: width .10s steps(10); }
-.combo-sub { margin-top: 3px; display: flex; justify-content: space-between; color: var(--dim); font-size: 8px; letter-spacing: .14em; }
-.combo-sub em { font-style: normal; }
-.combo-frame.tier-1 { border-color: rgba(102,246,255,.55); box-shadow: 0 0 14px rgba(102,246,255,.10); }
-.combo-frame.tier-1 .combo-head b, .combo-frame.tier-1 .combo-timer i { color: var(--cyan); background: var(--cyan); text-shadow: 0 0 13px rgba(102,246,255,.28); }
-.combo-frame.tier-2 { border-color: rgba(255,211,77,.62); box-shadow: 0 0 17px rgba(255,211,77,.13); }
-.combo-frame.tier-2 .combo-head b, .combo-frame.tier-2 .combo-timer i { color: var(--gold); background: var(--gold); text-shadow: 0 0 14px rgba(255,211,77,.30); }
-.combo-frame.tier-3, .combo-frame.tier-4 { border-color: rgba(255,48,72,.70); color: var(--gold); box-shadow: 0 0 21px rgba(255,48,72,.16), inset 0 0 18px rgba(255,211,77,.04); }
-.combo-frame.tier-3 .combo-head b, .combo-frame.tier-4 .combo-head b { color: var(--gold); text-shadow: 0 0 16px rgba(255,211,77,.34), 1px 0 rgba(255,48,72,.45); }
-.combo-frame.tier-3 .combo-timer i, .combo-frame.tier-4 .combo-timer i { background: var(--gold); box-shadow: 0 0 12px rgba(255,211,77,.30); }
-.combo-pop { animation: comboPop .18s steps(3); }
-.combo-hit { animation: comboHit .24s steps(2); }
-@keyframes comboPop { 0% { transform: scale(.985); filter: brightness(1.7); } 100% { transform: scale(1); filter: brightness(1); } }
+.combo-filter {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .52;
+  background:
+    linear-gradient(90deg, transparent 0 18%, rgba(102,246,255,.035) 20%, transparent 24% 74%, rgba(255,255,255,.025) 78%, transparent 82%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 9px);
+  mix-blend-mode: screen;
+}
+.combo-head { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; letter-spacing: .18em; line-height: .95; }
+.combo-head span { font-size: 9px; color: var(--dim); text-shadow: 1px 0 rgba(255,48,72,.16), -1px 0 rgba(102,246,255,.14); }
+.combo-head b { font-size: 24px; color: var(--fg); font-weight: 900; text-shadow: 0 0 9px rgba(255,255,255,.20), 1px 0 rgba(102,246,255,.20), -1px 0 rgba(255,48,72,.16); letter-spacing: .04em; }
+.combo-methods { display: none; }
+.combo-timer { position: relative; margin-top: 5px; height: 4px; border: 1px solid rgba(255,255,255,.20); background: rgba(255,255,255,.035); overflow: hidden; }
+.combo-timer i { display: block; height: 100%; background: var(--fg); box-shadow: 0 0 8px rgba(255,255,255,.16); transition: width .14s steps(8); }
+.combo-sub { position: absolute; right: 8px; top: 9px; color: var(--dim); font-size: 9px; letter-spacing: .11em; }
+.combo-sub span:before { content: "#"; opacity: .62; margin-right: 1px; }
+.combo-sub em { display: none; }
+.combo-frame.tier-1 { border-color: rgba(102,246,255,.42); box-shadow: 0 0 13px rgba(102,246,255,.075), inset 0 0 18px rgba(102,246,255,.025); }
+.combo-frame.tier-1 .combo-head b, .combo-frame.tier-1 .combo-timer i { color: var(--cyan); background: var(--cyan); text-shadow: 0 0 11px rgba(102,246,255,.23), 1px 0 rgba(255,255,255,.18); }
+.combo-frame.tier-2 { border-color: rgba(255,211,77,.46); box-shadow: 0 0 15px rgba(255,211,77,.095), inset 0 0 18px rgba(255,211,77,.025); }
+.combo-frame.tier-2 .combo-head b, .combo-frame.tier-2 .combo-timer i { color: var(--gold); background: var(--gold); text-shadow: 0 0 12px rgba(255,211,77,.25), 1px 0 rgba(255,48,72,.18); }
+.combo-frame.tier-3, .combo-frame.tier-4 { border-color: rgba(255,211,77,.58); color: var(--gold); box-shadow: 0 0 16px rgba(255,211,77,.13), inset 0 0 16px rgba(255,48,72,.035); }
+.combo-frame.tier-3 .combo-head b, .combo-frame.tier-4 .combo-head b { color: var(--gold); text-shadow: 0 0 13px rgba(255,211,77,.28), 1px 0 rgba(255,48,72,.30), -1px 0 rgba(102,246,255,.18); }
+.combo-frame.tier-3 .combo-timer i, .combo-frame.tier-4 .combo-timer i { background: var(--gold); box-shadow: 0 0 10px rgba(255,211,77,.22); }
+.combo-pop { animation: comboPop .16s steps(3); }
+.combo-hit { animation: comboHit .20s steps(2); }
+@keyframes comboPop { 0% { transform: translateX(1px); filter: contrast(1.35) brightness(1.28) saturate(.9); } 100% { transform: translateX(0); filter: contrast(1.18) saturate(.82); } }
 @keyframes comboHit { 0% { transform: translateX(-2px); border-color: var(--red); } 50% { transform: translateX(2px); } 100% { transform: translateX(0); } }
-@media (max-width: 960px) { #hud-combo { width: min(300px, 72vw); bottom: 104px; } .combo-head b { font-size: 21px; } }
+@media (max-width: 960px) { #hud-combo { left: 12px; top: auto; bottom: 118px; transform: none; width: 150px; } .combo-head b { font-size: 20px; } .combo-frame { opacity: .84; } }

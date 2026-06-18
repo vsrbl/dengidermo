@@ -155,25 +155,23 @@ function comboMethodLabel(m) {
   return localText(ru[key] || String(key || 'УДАР').toUpperCase(), en[key] || String(key || 'HIT').toUpperCase());
 }
 function comboExplain(c = {}) {
-  const methods = (c.recent || []).map(comboMethodLabel).join(' · ') || localText('пока нет', 'none yet');
+  const methods = (c.recent || []).map(comboMethodLabel).slice(0, 3).join(' · ') || localText('пока нет', 'none yet');
   return localText(
-    `Комбо растёт от убийств и важных боевых действий. Разные способы дают больше роста. Если долго не добивать врагов, комбо сгорает. Полученный урон снимает часть комбо, но не всё. Последние способы: ${methods}.`,
-    `Combo grows from kills and important combat actions. Different methods build it faster. If you stop killing for too long, combo breaks. Taking damage removes part of the combo, not all of it. Recent methods: ${methods}.`
+    `Комбо растёт от убийств. Разные способы дают больший прирост. Если долго не добивать врагов, комбо сгорает. Урон снимает часть комбо. Последние способы: ${methods}.`,
+    `Combo grows from kills. Different methods build it faster. If you stop killing for too long, combo breaks. Damage removes part of the combo. Recent methods: ${methods}.`
   );
 }
 function renderComboHud(c = {}) {
   const mult = Number(c.mult || 1);
   const count = Math.max(0, c.count | 0);
   if (mult <= 1.01 || count <= 0 || (c.timer || 0) <= 0) return '';
-  const recent = (c.recent || []).slice(0, 3).map(comboMethodLabel).join(' · ');
   const pct = Math.max(0, Math.min(100, ((c.timer || 0) / Math.max(0.1, c.window || 3)) * 100));
   const tier = Math.max(0, c.tier | 0);
-  const timer = Math.max(0, Number(c.timer || 0)).toFixed(1);
   return `<div class="combo-frame tier-${tier}${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
+    `<div class="combo-filter" aria-hidden="true"></div>` +
     `<div class="combo-head"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b></div>` +
-    `<div class="combo-methods">${esc(recent || localText('НАБИВАЙ', 'BUILD'))}</div>` +
     `<div class="combo-timer"><i style="width:${pct.toFixed(0)}%"></i></div>` +
-    `<div class="combo-sub"><span>${count}</span><em>${timer}s</em></div>` +
+    `<div class="combo-sub"><span>${count}</span></div>` +
   `</div>`;
 }
 function roomIntelExplain(room = {}, isNext = false) {
