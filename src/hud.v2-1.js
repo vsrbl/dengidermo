@@ -68,29 +68,25 @@ function staticSourceLabel(id) {
 }
 function staticBreakdownParts(bd = {}) {
   const sources = Array.isArray(bd.sources) ? bd.sources : [];
-  return sources.filter(x => (x?.level | 0) > 0).map(x => `+${Math.max(0, x.level | 0)} ${staticSourceLabel(x.id)}`);
+  return sources.filter(x => (x?.level | 0) > 0).map((x, i) => `${i === 0 ? '' : '+'}${Math.max(0, x.level | 0)} ${staticSourceLabel(x.id)}`);
 }
 function staticBreakdownText(bd = {}, banked = 0) {
   const total = Math.max(0, bd.total | 0);
-  const raw = Math.max(total, bd.rawTotal | 0);
-  const parts = staticBreakdownParts(bd);
+    const parts = staticBreakdownParts(bd);
   if (total > 0) {
-    const cap = raw > total ? localText(` · лимит ${total}/${raw}`, ` · capped ${total}/${raw}`) : '';
-    return `${localText('СТАТИК-ШТОРМ LVL', 'STATIC STORM LVL')} ${total}${cap}${parts.length ? ' = ' + parts.join(' + ') : ''}`;
+    return `${localText('СТАТИК-ШТОРМ LVL', 'STATIC STORM LVL')} ${total}${parts.length ? ' = ' + parts.join(' ') : ''}`;
   }
-  if (banked > 0) return `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${banked}${parts.length ? ' = ' + parts.join(' + ') : ''}`;
+  if (banked > 0) return `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${banked}${parts.length ? ' = ' + parts.join(' ') : ''}`;
   return '';
 }
 function staticBreakdownExplain(bd = {}, banked = 0) {
   const parts = staticBreakdownParts(bd);
   const total = Math.max(0, bd.total | 0);
-  const raw = Math.max(total, bd.rawTotal | 0);
-  const head = total > 0
+    const head = total > 0
     ? localText(`Общий уровень статик-шторма сейчас: ${total}.`, `Current total Static Storm level: ${total}.`)
     : localText(`Статик сохранён в банк: ${banked}.`, `Static Storm is banked: ${banked}.`);
-  const sum = parts.length ? localText(`Сумма: ${parts.join(' + ')}.`, `Sum: ${parts.join(' + ')}.`) : '';
-  const cap = raw > total ? localText(` Сырые источники дают ${raw}, но активный уровень ограничен лимитом ${total}.`, ` Raw sources add to ${raw}, but active level is capped at ${total}.`) : '';
-  return `${head} ${sum}${cap} ${localText('Все источники сведены в один общий уровень; Casino Virus больше не создаёт отдельный скрытый шторм.', 'All sources are folded into one total level; Casino Virus no longer creates a separate hidden storm.')}`;
+  const sum = parts.length ? localText(`Сумма: ${parts.join(' ')}.`, `Sum: ${parts.join(' ')}.`) : '';
+  return `${head} ${sum} ${localText('Все источники сведены в один общий уровень; Casino Virus больше не создаёт отдельный скрытый шторм.', 'All sources are folded into one total level; Casino Virus no longer creates a separate hidden storm.')}`;
 }
 function roomModLabel(m, room = null, forcedStaticLevel = 0) {
   const label = m === 'skin_cache' ? localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN') : localText(MOD_LABELS_RU[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
@@ -108,7 +104,7 @@ function roomModHint(m, room = {}) {
     static_rain: String(mode).startsWith('paid')
       ? localText(`Статик-шторм LVL ${lvl}: накопленный заряд сейчас расходуется. На полу появляются опасные области; через короткую паузу туда бьёт разряд. После этой комнаты этот уровень исчезнет.`, `Static Storm LVL ${lvl}: a stored charge is being spent now. Danger areas appear on the floor; after a short delay, lightning hits them. This level disappears after the room.`)
       : localText(`Статик-шторм LVL ${Math.max(1, lvl)}: комната периодически помечает опасные области и бьёт по ним разрядом. Чем выше LVL, тем чаще и жёстче удары.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks dangerous areas and strikes them. Higher LVL means faster and harsher strikes.`),
-    greed: localText('Золотая лихорадка: больше шансов на золото в бою и больше GLD, когда золото действительно выпало. Казино всё ещё может проиграть.', 'Gold Fever: more gold pressure in combat and more GLD when gold actually drops. Casino can still lose.'),
+    greed: localText('Золотая лихорадка: враги и сундуки дают больше GLD. BET остаётся риском, а не гарантированной прибылью.', 'Gold Fever: enemies and chests pay extra GLD. BET is still a risk, not guaranteed profit.'),
     debt_floor: localText('Статик-пол: комната любит долговые эффекты. Некоторые сделки дешевле сейчас, но могут добавить опасность дальше.', 'Static Floor: the room favors debt effects. Some deals are cheaper now but can add danger later.'),
     hunter_contract: localText('Волны охотников: выход закрыт, пока не переживёшь волны быстрых врагов.', 'Hunter Waves: the exit is locked until the fast enemy waves are cleared.'),
     casino_virus: localText('Вирус Казино: комната крутит 3 слота. Результат срабатывает после прокрутки: может прийти награда, штраф или пачка врагов. Портал откроется после всех слотов и полной зачистки.', 'Casino Virus: the room spins 3 slots. The result triggers after the reel animation: reward, penalty, or enemy pack. Portal opens after all slots and full cleanup.'),
@@ -810,7 +806,7 @@ export class Hud {
       case 'join': this.feed(`${f.name} ${t('playerJoined')}`, 'g'); break;
       case 'leave': this.feed(`${f.name} ${t('playerLeft')}`, 'r'); break;
       case 'levelup':
-        if (f.id === myId) this.feed(`LEVEL UP → ${f.level} · INSTALL x${f.pending}`, 'g');
+        if (f.id === myId) { this.feed(`LEVEL UP → ${f.level} · INSTALL x${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
         break;
       case 'pdown': this.feed(`${name(f.id)} ${t('down')}`, 'r'); if (f.id === myId) { this.cancelActiveRoll(); this.closeCasino(); this.banner(t('youDown'), t('carry'), 'red'); } break;
       case 'director_room':
@@ -821,7 +817,7 @@ export class Hud {
       case 'director_wave':
         this.feed(`${f.label || 'WAVE'} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
         break;
-      case 'skin_room': this.feed(`${t('skinHidden')} · ${rarityText(f.skinRarity)}`, 'p'); break;
+      case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка скина появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('скин ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
       case 'boss_down': this.banner(t('bossDown'), t('loot'), 'green'); break;

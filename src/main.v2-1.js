@@ -232,7 +232,7 @@ function paintRange(el) {
   if (!el) return;
   const min = Number(el.min || 0), max = Number(el.max || 100), val = Number(el.value || 0);
   const pct = ((val - min) / Math.max(1, max - min)) * 100;
-  el.style.setProperty('--val', `${Math.max(0, Math.min(100, pct))}%`);
+  el.style.setProperty('--val', `${Math.max(0, Math.min(99.2, pct))}%`);
 }
 function syncAudioSliders() {
   const mv = $('music-volume'), sv = $('sfx-volume');

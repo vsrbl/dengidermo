@@ -2040,3 +2040,68 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
   background: linear-gradient(90deg, rgba(255,255,255,.018), transparent 40%, rgba(0,255,102,.030), transparent 70%) !important;
   opacity: .55 !important;
 }
+
+
+/* 2.1 BIG BALANCE/UI FIX — final overrides */
+#menu .menu-box {
+  width: 370px !important;
+  min-height: 724px !important;
+  gap: 9px !important;
+}
+#menu button, #menu input { min-height: 34px; }
+#lang-row { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+#menu-sub, #menu-status, #menu-version, #btn-skin-toggle { min-height: 18px !important; line-height: 18px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+#audio-settings { grid-template-columns: 1fr 1fr !important; min-height: 44px !important; }
+#audio-settings label { grid-template-columns: 54px 1fr !important; min-height: 28px !important; }
+#audio-settings input[type="range"] { background: transparent !important; }
+#audio-settings input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px !important;
+  border: 1px solid rgba(0,255,102,.38) !important;
+  background: rgba(0,255,102,.075) !important;
+}
+#audio-settings input[type="range"]::-webkit-slider-thumb {
+  width: 10px !important; height: 16px !important; margin-top: -5px !important;
+  border: 1px solid var(--green) !important; background: #061008 !important;
+}
+#audio-settings input[type="range"]::-moz-range-track { height: 8px !important; background: rgba(0,255,102,.075) !important; border: 1px solid rgba(0,255,102,.38) !important; }
+#audio-settings input[type="range"]::-moz-range-progress { background: transparent !important; }
+#audio-settings input[type="range"]::-moz-range-thumb { width: 10px !important; height: 16px !important; border: 1px solid var(--green) !important; background: #061008 !important; }
+
+#menu #skin-editor { height: 126px !important; min-height: 126px !important; max-height: 126px !important; }
+#menu #skin-editor.locked {
+  border-color: rgba(0,255,102,.24) !important;
+  background: repeating-linear-gradient(135deg, rgba(0,255,102,.035) 0 3px, rgba(0,0,0,.0) 3px 9px), rgba(0,12,5,.72) !important;
+}
+#menu #skin-editor.locked #skin-preview {
+  border-color: rgba(0,255,102,.30) !important;
+  background: rgba(0,0,0,.58) !important;
+}
+#menu #skin-editor.locked #skin-preview::before {
+  content: '?' !important;
+  position: absolute !important; inset: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  color: rgba(0,255,102,.86) !important; font-size: 24px !important; letter-spacing: 0 !important;
+  background: radial-gradient(circle at 50% 50%, rgba(0,255,102,.08), rgba(0,0,0,.70) 64%) !important;
+  z-index: 4 !important;
+}
+#menu #skin-editor.locked .skin-core { opacity: .16 !important; filter: grayscale(1) brightness(.42) !important; }
+#menu #skin-editor.locked #skin-name { color: rgba(0,255,102,.78) !important; }
+#menu #skin-editor.locked #skin-note { color: rgba(0,255,102,.44) !important; }
+#menu #skin-editor.locked #skin-note::before { content: 'LOCKED // '; color: rgba(0,255,102,.66); }
+
+#hud-left.level-pulse .bar-wrap,
+#hud-left.level-pulse #hud-lvl,
+#hud-left.level-pulse #xp-text,
+#hud-left.level-pulse #hp-text {
+  animation: levelHudBlink .78s steps(5) 1;
+}
+@keyframes levelHudBlink {
+  0%,100% { border-color: inherit; color: inherit; box-shadow: none; }
+  22%,56% { border-color: var(--green); color: var(--green); box-shadow: 0 0 14px rgba(0,255,102,.26), inset 0 0 0 1px rgba(0,255,102,.16); }
+}
+#feed { top: 112px !important; width: min(560px, 48vw) !important; max-height: 43vh !important; }
+#hud-favor-row { min-height: 30px !important; margin-top: 8px !important; margin-bottom: 7px !important; }
+#hud-mods { padding-top: 5px !important; padding-bottom: 5px !important; }
+#hud-lefttop { max-width: min(790px, 54vw) !important; }
+#hud-objective { max-width: min(610px, 42vw) !important; }
+#global-digital-filter { opacity: .72 !important; }

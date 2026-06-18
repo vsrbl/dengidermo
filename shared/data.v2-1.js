@@ -100,7 +100,7 @@ export const UPGRADES = [
   // high rarity rule-breakers
   { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
   { id: 'orbreflect',label: 'ORBITALS REFLECT',    tier: 2, desc: 'Орбитали могут стирать вражеские пули.', apply: s => { s.orbReflect += 1; } },
-  { id: 'debtengine',label: 'STATIC Q',         tier: 2, cursed: true, desc: 'Большой урон и удача, но каждая боевая комната до конца забега получает +1 уровень статик-шторма за каждый такой бонус.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но каждая боевая комната до конца забега получает +1 уровень статик-шторма за каждый такой бонус.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } }
 ];
@@ -245,8 +245,8 @@ export function defaultStats() {
 export const CHESTS = {
   basic_chest:   { label: 'BSC', cost: 0 },
   weapon_chest:  { label: 'WPN', cost: 60 },
-  ability_chest: { label: 'ABL', cost: 50 },
-  rare_chest:    { label: 'RAR', cost: 90 },
+  ability_chest: { label: 'ABL', cost: 55 },
+  rare_chest:    { label: 'RAR', cost: 40 },
   cursed_chest:  { label: 'CRS', cost: 0, cursed: true }
 };
 
@@ -332,7 +332,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = []) {
   const odds = [
     ['JCK', 0.006 + l * 0.18],
     ['WPN', 0.020 + l * 0.36],
-    ['ABL', 0.025 + l * 0.36],
+    ['ABL', stakeKey === 'low' ? 0 : (0.025 + l * 0.36)],
     ['SKN', skinOdds],
     ['HEA', 0.052 + l * 0.36],
     ['EXP', 0.073 + l * 0.36],

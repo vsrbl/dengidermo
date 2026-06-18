@@ -99,7 +99,7 @@ export class Effects {
       case 'levelup':
         if (mine) {
           this.levelPulse = 1;
-          this.levelEdge = 1;
+          this.levelEdge = 0;
           this.levelLabel = f.level ? `LVL ${f.level}` : 'LEVEL UP';
           this.kick(7);
         }
@@ -1062,26 +1062,13 @@ export class Effects {
       ctx.fillStyle = g; ctx.fillRect(0, y - 60, w, 120);
       ctx.restore();
     }
-    if (this.levelEdge > 0) {
-      const p = this.levelEdge;
-      ctx.save();
-      const edge = ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, h * 0.78);
-      edge.addColorStop(0, 'rgba(0,255,102,0)');
-      edge.addColorStop(0.72, `rgba(0,255,102,${0.04 * p})`);
-      edge.addColorStop(1, `rgba(0,255,102,${0.34 * p})`);
-      ctx.fillStyle = edge;
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = `rgba(0,255,102,${0.42 * p})`;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(8.5, 8.5, w - 17, h - 17);
-      ctx.restore();
-    }
+    // level-up no longer flashes the whole screen; HUD HP/LVL blinks instead.
     if (this.levelPulse > 0) {
       const p = this.levelPulse;
       ctx.save();
       ctx.globalAlpha = Math.min(1, p * 1.05);
       const cx = w / 2;
-      const cy = h * 0.30;
+      const cy = h * 0.42;
       const bw = Math.min(300, w * 0.58);
       const bh = 42;
       const x = Math.round(cx - bw / 2);

@@ -22,7 +22,7 @@ const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
 const INTERACT_DIST = 95;
 const OFFER_TIMEOUT = 24;
-const STATIC_RAIN_MAX_LEVEL = 7;
+const STATIC_RAIN_MAX_LEVEL = 99; // no player-facing cap; HUD shows the true stacked level
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
 const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v | 0));
 
@@ -75,6 +75,19 @@ function loopEconomyMul(run) {
   const loop = Math.max(0, Math.floor((run?.runDepth || 0) / 4));
   const late = Math.max(0, loop - 2);
   return Math.max(1, Math.min(80, Math.pow(1.42, loop) + late * 0.55));
+}
+
+function loopBscLootMul(run) {
+  const loop = Math.max(0, Math.floor((run?.runDepth || 0) / 4));
+  const late = Math.max(0, loop - 2);
+  // BSC loot must keep up with late-loop prices faster than normal mob drops.
+  return Math.max(1, Math.min(520, Math.pow(1.42, loop * 4) + late * 2.4));
+}
+function mobLootMul(run) {
+  const loop = Math.max(0, Math.floor((run?.runDepth || 0) / 4));
+  const late = Math.max(0, loop - 1);
+  // Moderate scaling: every loop is worth more, but mob drops do not explode.
+  return Math.max(1, Math.min(9, 1 + loop * 0.22 + late * 0.10));
 }
 function loopCostMul(run) {
   // v2.1: all prices scale about 1.5x faster than v2.1.
@@ -229,12 +242,31 @@ function playerMoneyCost(run, p, amount, srcX = p?.x, srcY = p?.y, label = 'GLD 
   return amount;
 }
 function bloodTaxHpCost(cost) {
-  // Blood Tax converts economy prices into playable HP prices. High bets must be
-  // usable with a 120-160 HP pool, so the HP price is compressed and capped.
+  // Blood Payment has its own HP economy: late-loop GLD prices must not all collapse to 100 HP.
+  // Sqrt compression keeps LOW/MID/HIGH distinct and allows deliberate lethal bets.
   const raw = Math.max(1, Number(cost) || 0);
-  return Math.max(4, Math.min(100, roundCost(8 + raw * 0.44)));
+  return Math.max(4, Math.min(92, roundCost(6 + Math.sqrt(raw) * 2.85)));
 }
-function canPayBloodCost(p, hpCost) { return !!p?.alive && p.hp > hpCost; }
+function canPayBloodCost(p, hpCost) { return !!p?.alive && p.hp > 0 && hpCost > 0; }
+function payBloodCost(run, p, hpCost, srcX = p?.x, srcY = p?.y, radius = 48) {
+  hpCost = Math.max(1, Math.round(Number(hpCost) || 0));
+  if (!p?.alive) return false;
+  p.hp -= hpCost;
+  if (run?.roomStats) { run.roomStats.damageTaken += hpCost; run.roomStats.bloodTaxes = (run.roomStats.bloodTaxes || 0) + 1; }
+  run?.fx?.push({ t: 'blood_tax_hit', id: p.id, x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y), r: radius, cost: hpCost });
+  if (p.hp <= 0) {
+    const favor = consumeContractFavor(run, ['portal_insurance']);
+    if (favor) {
+      p.hp = Math.min(maxHp(p), 50);
+      p.alive = true;
+      p.invuln = Math.max(p.invuln || 0, 1.0);
+      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', playerId: p.id });
+    } else {
+      p.hp = 0; p.alive = false; run.fx.push({ t: 'pdown', id: p.id });
+    }
+  }
+  return true;
+}
 function forceBigRoomForHunter(run) {
   if (!hasMod(run, 'hunter_contract')) return;
   run.plan.roomArchetype = 'wide';
@@ -242,8 +274,8 @@ function forceBigRoomForHunter(run) {
 function effectiveChestCost(run, o) {
   const def = CHESTS[o?.chest];
   if (!def || !def.cost) return 0;
+  if (run?.plan?.specialRoomId === 'chill_room') return roundCost(def.cost * 0.72);
   let mul = loopCostMul(run) * Math.max(1, Number(o?.costMul || 1));
-  if (run?.plan?.specialRoomId === 'chill_room') mul *= 1.15;
   return roundCost(def.cost * mul);
 }
 function casinoStakeCost(run, stakeKey) {
@@ -334,7 +366,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('anchor_gravity')) return 'ANCHOR GRAVITY: sockets pull players, mobs, pickups, and every projectile.';
   if (mods.includes('blood_tax')) return 'BLOOD TAX: all prices are paid with HP, not GLD.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
-  if (mods.includes('greed')) return 'GOLD FEVER: more GLD pressure and gold drops; BET is still risky, not guaranteed gold.';
+  if (mods.includes('greed')) return 'GOLD FEVER: enemies and chests pay extra GLD. BET is still a risk, not guaranteed profit.';
   if (arch === 'panic_box') return 'PANIC BOX: use dash as a reset, not only as speed.';
   if (arch === 'long_lane') return 'LONG LANE: watch chargers and prism angles before committing.';
   if (arch === 'wide') return 'WIDE FIELD: pick a side and collapse ranged nests.';
@@ -1470,9 +1502,12 @@ function openPortal(run) {
 }
 function quotaCanOpenPortal(run) {
   if (run.plan?.category === 'boss') return false;
-  if (hasMod(run, 'hunter_contract')) return !!run.hunterWave?.done && !roomHasLiveEnemies(run);
-  if (hasMod(run, 'casino_virus')) return !!run.casinoVirus?.done && !roomHasLiveEnemies(run);
-  return roomQuotaReached(run) && !roomHasLiveEnemies(run);
+  if (roomHasLiveEnemies(run)) return false;
+  if (hasMod(run, 'hunter_contract')) return !!run.hunterWave?.done;
+  if (hasMod(run, 'casino_virus')) return !!run.casinoVirus?.done;
+  // v2.1: room modifiers/contracts may fail or finish early, but they must not keep the portal closed
+  // once the room is actually clean. Quota is a spawn budget, not a hard lock.
+  return (run?.spawned || 0) > 0 || roomQuotaReached(run);
 }
 
 // ---------------------------------------------------------------- state
@@ -2513,8 +2548,8 @@ function killEnemy(run, players, e, killer) {
   const greed = run.plan.modifierIds.includes('greed');
   const mult = (e.elite ? 2.5 : 1) * (def.boss ? 1 : 1);
   const goldMul = (killer ? killer.stats.goldMul : 1) * (greed ? 1.6 : 1);
-  dropPickup(run, e.x, e.y, 'GLD', Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6)));
-  dropPickup(run, e.x + 14, e.y - 8, 'EXP', Math.max(1, Math.round(def.xp * mult)));
+  dropPickup(run, e.x, e.y, 'GLD', Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run))));
+  dropPickup(run, e.x + 14, e.y - 8, 'EXP', Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45))));
   if ((e.elite && Math.random() < 0.35) || def.boss) dropPickup(run, e.x - 14, e.y + 8, 'HEA', 25);
   if (def.boss) {
     run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y) });
@@ -3097,7 +3132,7 @@ function stepEnemies(run, players, dt) {
           explode(run, players, e.x, e.y, def.blast, e.dmg, null, true, 'danger');
           run.enemies = run.enemies.filter(x => x.id !== e.id); run.kills++;
           run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
-          dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6)); dropPickup(run, e.x + 10, e.y, 'EXP', def.xp);
+          dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6 * mobLootMul(run))); dropPickup(run, e.x + 10, e.y, 'EXP', Math.max(1, Math.round(def.xp * (1 + (mobLootMul(run) - 1) * 0.45))));
           if (quotaCanOpenPortal(run)) openPortal(run);
         }
       }
@@ -3252,8 +3287,9 @@ function stepEnemies(run, players, dt) {
         const nest = e.preferredNestId ? run.enemies.find(n => n.id === e.preferredNestId && n.hp > 0) : null;
         if (nest) {
           const nd = Math.hypot(nest.x - e.x, nest.y - e.y);
-          const desired = { x: nest.x + Math.cos((run.now || 0) * 0.42 + (parseInt(e.id, 36) || 1)) * 185, y: nest.y + Math.sin((run.now || 0) * 0.42 + (parseInt(e.id, 36) || 1)) * 135 };
-          if (nd > 315 || nd < 115) { steerMove(run, e, norm(desired.x - e.x, desired.y - e.y), spd * 0.92, dt, { target: desired }); movedByNest = true; }
+          const dmpR = Math.max(170, (ENEMIES.damper?.fieldR || 280) - 64);
+          const desired = { x: nest.x + Math.cos((run.now || 0) * 0.30 + (parseInt(e.id, 36) || 1)) * dmpR * 0.46, y: nest.y + Math.sin((run.now || 0) * 0.30 + (parseInt(e.id, 36) || 1)) * dmpR * 0.34 };
+          if (nd > dmpR || nd < 92) { steerMove(run, e, norm(desired.x - e.x, desired.y - e.y), spd * 0.72, dt, { target: desired }); movedByNest = true; }
         }
         const mv = dT > keep ? 1 : dT < keep - 120 ? -0.7 : 0;
         if (!movedByNest && mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
@@ -4013,9 +4049,8 @@ function openChest(run, players, p, o) {
         run.fx.push({ t: 'denied', id: p.id, obj: o.id, x: o.x, y: o.y, cost: hpCost, have: Math.round(p.hp), chest: def.label, hpCost: 1, reason: 'NO HP' });
         return;
       }
-      p.hp -= hpCost;
-      if (run.roomStats) { run.roomStats.damageTaken += hpCost; run.roomStats.bloodTaxes = (run.roomStats.bloodTaxes || 0) + 1; }
-      run.fx.push({ t: 'blood_tax_hit', x: Math.round(o.x), y: Math.round(o.y), r: 48, cost: hpCost });
+      payBloodCost(run, p, hpCost, o.x, o.y, 48);
+      if (!p.alive) return;
     } else {
       if (p.economy.money < cost) {
         run.fx.push({ t: 'denied', id: p.id, obj: o.id, x: o.x, y: o.y, cost, have: p.economy.money, chest: def.label });
@@ -4039,7 +4074,7 @@ function openChest(run, players, p, o) {
     const n = 3 + Math.floor(rng() * 3);
     // BSC was free/cheap early loot, but late-loop chest prices now scale hard.
     // Keep BSC relevant by scaling its GLD/EXP payout with the same economy curve.
-    const lootMul = Math.max(1, Math.min(80, loopEconomyMul(run)));
+    const lootMul = loopBscLootMul(run);
     for (let i = 0; i < n; i++) {
       const a = rng() * Math.PI * 2;
       const kind = rng() < 0.6 ? 'GLD' : 'EXP';
@@ -4220,9 +4255,8 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       run.fx.push({ t: 'denied', id: p.id, obj: near.id, hpCost: 1, cost: hpCost, have: Math.round(p.hp), reason: 'NO HP' });
       return fail('НЕДОСТАТОЧНО HP');
     }
-    p.hp -= hpCost;
-    if (run.roomStats) { run.roomStats.damageTaken += hpCost; run.roomStats.bloodTaxes = (run.roomStats.bloodTaxes || 0) + 1; }
-    run.fx.push({ t: 'blood_tax_hit', x: Math.round(near.x), y: Math.round(near.y), r: 54, cost: hpCost });
+    payBloodCost(run, p, hpCost, near.x, near.y, 54);
+    if (!p.alive) return fail('HP PAID');
   } else {
     if (p.economy.money < stake) {
       run.fx.push({ t: 'denied', id: p.id, obj: near.id });
@@ -5187,7 +5221,7 @@ function stepPlayers(run, players, dt) {
       if (p.stats.voidStep > 0) {
         const stacks = Math.max(1, p.stats.voidStep | 0);
         const riftW = 102 + Math.min(86, stacks * 14);
-        const riftDmg = (28 + stacks * 18) * p.stats.dmgMul;
+        const riftDmg = (14 + stacks * 9) * p.stats.dmgMul;
         let hit = 0;
         for (const e of run.enemies) {
           if (distToSegment2(e.x, e.y, ox, oy, c.x, c.y) < (riftW + e.size / 2) ** 2) {

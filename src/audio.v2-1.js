@@ -29,7 +29,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, ui_click: 0.045
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -46,7 +46,7 @@ export class AudioBus {
       dash: 6, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, ui_click: 3
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3
     };
     this._unlock = () => this.unlock();
     if (typeof window !== 'undefined') {
@@ -71,7 +71,7 @@ export class AudioBus {
 
   setMusicVolume(value) {
     this.musicVolume = this.writeVolume('nnc_music_volume', value);
-    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(1.80 * this.musicVolume, this.ctx.currentTime, 0.05);
+    if (this.musicGain && this.ctx) this.musicGain.gain.setTargetAtTime(3.60 * this.musicVolume, this.ctx.currentTime, 0.05);
   }
 
   setSfxVolume(value) {
@@ -90,7 +90,7 @@ export class AudioBus {
       this.sfxGain = this.ctx.createGain();
       this.musicGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
-      this.musicGain.gain.value = 1.80 * this.musicVolume;
+      this.musicGain.gain.value = 3.60 * this.musicVolume;
       this.comp = this.ctx.createDynamicsCompressor();
       this.comp.threshold.value = -18;
       this.comp.knee.value = 14;
@@ -279,6 +279,11 @@ export class AudioBus {
         this.tone(155, 0.12, 'sawtooth', 0.07, 0.55);
         this.tone(460, 0.08, 'square', 0.038, 0.72, 0.045);
         this.noise(0.08, 0.045, 900, 2.2);
+        break;
+      case 'static_storm':
+        this.noise(0.060, 0.018, 820, 5.2, 0.000);
+        this.tone(92.50, 0.145, 'square', 0.030, 0.72, 0.012);
+        this.tone(185.00, 0.095, 'triangle', 0.018, 0.86, 0.060);
         break;
       case 'portal':
         this.tone(110, 0.22, 'sawtooth', 0.08, 2.4);
@@ -855,6 +860,7 @@ export class AudioBus {
       case 'casino_tick': this.play(f.good ? 'casino_win' : 'casino_static'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
+      case 'rain_hit': this.play('static_storm'); this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.18); break;
       case 'gld_hit': if (mine) this.play('debt'); break;
       case 'room_invoice': this.play(f.noHit || f.fast ? 'casino_win' : 'install'); break;
       case 'active_line':
@@ -1058,6 +1064,9 @@ AudioBus.prototype.updateMusic = function updateMusicV21(state, dt = 0.016) {
   const latest = state?.latest || null;
   const me = typeof state?.me === 'function' ? state.me() : null;
   const enemies = latest?.enemies?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const loop = Math.max(0, Math.floor(depth / 4));
+  const loopHeat = Math.max(0, Math.min(1, loop / 5));
   const bullets = latest?.bullets?.length || 0;
   const lowHp = me ? Math.max(0, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)) * 1.35) : 0;
   const mods = room?.mods || [];
@@ -1346,6 +1355,9 @@ AudioBus.prototype.updateMusic = function updateMusicV21Ambient(state, dt = 0.01
   const latest = state?.latest || null;
   const me = typeof state?.me === 'function' ? state.me() : null;
   const enemies = latest?.enemies?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const loop = Math.max(0, Math.floor(depth / 4));
+  const loopHeat = Math.max(0, Math.min(1, loop / 5));
   const bullets = latest?.bullets?.length || 0;
   const lowHp = me ? Math.max(0, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)) * 1.35) : 0;
   const mods = room?.mods || [];
@@ -1363,7 +1375,8 @@ AudioBus.prototype.updateMusic = function updateMusicV21Ambient(state, dt = 0.01
   const crowd = Math.max(0, Math.min(1, enemies / 32));
   const bulletPressure = Math.max(0, Math.min(1, bullets / 90));
   const damage = Math.max(0, Math.min(1, this.damageEnergy || 0));
-  const intensity = menu ? 0.04 : Math.max(0, Math.min(1, crowd * 0.26 + bulletPressure * 0.06 + lowHp * 0.14 + danger * 0.20 + damage * 0.20 + (boss ? 0.18 : 0) + (staticLike ? 0.07 : 0)));
+  const intensity = menu ? 0.04 : Math.max(0, Math.min(1, crowd * 0.34 + bulletPressure * 0.08 + lowHp * 0.14 + danger * 0.18 + damage * 0.20 + loopHeat * 0.26 + (boss ? 0.20 : 0) + (staticLike ? 0.09 : 0)));
+  const musicDangerLift = 1 + loopHeat * 0.65 + crowd * 0.35;
   const portalOpen = !!room?.portal?.[2];
   const area = menu ? 'menu' : `${room?.cat || 'room'}:${room?.special || ''}:${mods.join(',')}:${portalOpen ? 'portal' : 'closed'}`;
   if (area !== this.musicLastArea) {
@@ -1390,17 +1403,17 @@ AudioBus.prototype.updateMusic = function updateMusicV21Ambient(state, dt = 0.01
     this.playDirgePhrase({ boss, chill, casino, staticLike, combat, intensity: menu ? 0.035 : intensity, menu, damage, crowd, chaos: this.musicChaos, portalOpen, portal: this.musicPortal, resolve: this.musicResolve, transition: this.musicTransition, mood });
     const eventPull = Math.max(this.musicPortal || 0, this.musicResolve || 0, this.musicTransition || 0);
     const base = mood === 'menu' ? 12.5 : mood === 'rest' ? 14.0 : mood === 'portal' ? 8.2 : mood === 'resolve' ? 9.4 : mood.includes('boss') ? 9.2 : mood === 'chaos' ? 7.8 : 10.8;
-    this.music.phraseT = Math.max(mood === 'chaos' ? 6.8 : 8.0, base - intensity * 1.1 - eventPull * 1.6);
+    this.music.phraseT = Math.max(mood === 'chaos' ? 4.8 : (chill || portalOpen ? 8.0 : 6.4), base - intensity * 1.8 - eventPull * 1.6 - loopHeat * 2.1 - crowd * 1.2);
   }
   // Background bed: obvious ambient, but not a bassline. No bright/high music layers.
   // Drone bed hotfix: quieter and quicker to settle. The old 5s swell felt like a delayed unpleasant drone.
   this.setMusicLayer('drone', inGame * (menu ? 0.0028 : (chill ? 0.0030 : 0.0034 + intensity * 0.00055)), 0.85);
   this.setMusicLayer('sub', menu ? 0.000035 : (combat && intensity > 0.82 ? 0.000055 + (intensity - 0.82) * 0.00008 : 0.00003), 1.25);
-  this.setMusicLayer('pulse', combat && intensity > 0.72 ? (0.00007 + intensity * 0.00011) : 0.000035, 1.05);
+  this.setMusicLayer('pulse', combat && intensity > 0.62 ? (0.00007 + intensity * 0.00018 + loopHeat * 0.00018) : 0.000035, 0.9);
   this.setMusicLayer('hat', 0.000055, 0.85);
   this.setMusicLayer('casino', casino ? (0.00038 + intensity * 0.00018) : 0.00004, 1.20);
-  this.setMusicLayer('choir', inGame * (menu ? 0.0036 : (boss ? 0.0064 + intensity * 0.0018 : 0.0040 + intensity * 0.0010)), 1.40);
-  this.setMusicLayer('dirgePad', inGame * (menu ? 0.0044 : (chill ? 0.0048 : 0.0052 + intensity * 0.0010)), 1.35);
-  this.setMusicLayer('scrape', combat && (mood === 'chaos' || staticLike || damage > 0.48) ? (0.00018 + intensity * 0.00024) : 0.000035, 1.0);
+  this.setMusicLayer('choir', inGame * (menu ? 0.0036 : (boss ? 0.0064 + intensity * 0.0026 : 0.0040 + intensity * 0.0016) * musicDangerLift), 1.18);
+  this.setMusicLayer('dirgePad', inGame * (menu ? 0.0044 : (chill ? 0.0042 : (0.0052 + intensity * 0.0018) * musicDangerLift)), 1.15);
+  this.setMusicLayer('scrape', combat && (mood === 'chaos' || staticLike || damage > 0.48 || loopHeat > 0.45) ? (0.00018 + intensity * 0.00034 + loopHeat * 0.00016) : 0.000035, 0.9);
   this.setMusicLayer('glass', (mood === 'portal' || mood === 'resolve') ? 0.00072 : 0.000035, 1.5);
 };
