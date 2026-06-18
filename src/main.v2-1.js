@@ -51,8 +51,7 @@ function setStatus(text, cls = '') { status.textContent = text; status.className
 function setMenuVersion(server = null) {
   if (!menuVersion) return;
   const online = server ? 'ONLINE' : 'CHECKING';
-  const build = String(BUILD_ID || '').replace(/^v?/, '');
-  menuVersion.textContent = `VERSION ${VERSION} · ${build} · ${online}`;
+  menuVersion.textContent = `VERSION ${VERSION} · ${online}`;
 }
 setMenuVersion();
 

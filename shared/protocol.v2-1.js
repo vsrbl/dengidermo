@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.3';
-export const BUILD_ID = 'crowd-forms-director';
+export const VERSION = 'v2.1.6';
+export const BUILD_ID = 'expanded-score-music';
 export const PROTOCOL = 2;
 
 export const MAX_PLAYERS = 4;

@@ -15,7 +15,11 @@ const MOD_LABELS_RU = {
 const TAG_RU = {
   'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЖАДНОСТЬ', ARMOR: 'БРОНЯ',
   'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'GLD↑', 'BET↑': 'BET↑',
-  'SHELL GLD': 'SHELL GLD', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'СКИН', 'SKN CACHE': 'СКИН-ТАЙНИК'
+  'SHELL GLD': 'GLD ЗА ЩИТЫ', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'СКИН', 'SKN CACHE': 'СКИН-ТАЙНИК',
+  'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'МАГАЗИН', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
+  '3 VIRUS SPINS': '3 БРОСКА ВИРУСА', 'DANGER ZONES': 'ОПАСНЫЕ ЗОНЫ', 'PRISM SLOW': 'ПРИЗМ-ЗАМЕДЛЕНИЕ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ УЗЛЫ',
+  'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ ВРАГОВ',
+  'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН'
 };
 function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase()); }
 function locTag(v) {
@@ -107,9 +111,9 @@ function roomModHint(m, room = {}) {
     greed: localText('Золотая лихорадка: всё крутится вокруг GLD. Враги и сундуки дают больше золота, а ошибки забирают золото вместо HP.', 'Gold Fever: everything revolves around GLD. Enemies and chests pay more gold, while mistakes take gold instead of HP.'),
     debt_floor: localText('Статик-пол: сделки выглядят выгоднее, но могут сделать следующие комнаты опаснее.', 'Static Floor: deals look better, but later rooms may become more dangerous.'),
     hunter_contract: localText('Волны охотников: выход закрыт, пока не переживёшь волны быстрых врагов.', 'Hunter Waves: the exit is locked until the fast enemy waves are cleared.'),
-    casino_virus: localText('Вирус Казино: комната крутит 3 слота. Результат срабатывает после прокрутки: может прийти награда, штраф или пачка врагов. Портал откроется после всех слотов и полной зачистки.', 'Casino Virus: the room spins 3 slots. The result triggers after the reel animation: reward, penalty, or enemy pack. Portal opens after all slots and full cleanup.'),
+    casino_virus: localText('Вирус Казино: комната крутит 3 барабана. Результат срабатывает после броска: может прийти награда, штраф или пачка врагов. Портал откроется после всех слотов и полной зачистки.', 'Casino Virus: the room spins 3 reels. The result triggers after the spin: reward, penalty, or enemy pack. Portal opens after all slots and full cleanup.'),
     mirror_room: localText('Зеркальный зал: больше эхо-угроз. Следи за копиями пуль.', 'Mirror Room: more echo threats. Watch the copied bullets.'),
-    moving_room: localText('Движущиеся зоны: красные полые области едут по комнате. Это не стены, но внутри они замедляют и периодически бьют всех.', 'Shifting Zones: red hollow areas move through the room. They are not walls, but they slow and pulse-damage everything inside.'),
+    moving_room: localText('Движущиеся зоны: красные полые области едут по комнате. Это не стены, но внутри они замедляют и периодически бьют всех.', 'Shifting Zones: red hollow areas move through the room. They are not walls, but they slow and damage everything inside.'),
     prism_grid: localText('Призм-сетка: светлые клетки на полу замедляют движение и пули внутри них. Не стой в сетке, если рядом враги.', 'Prism Grid: pale floor cells slow movement and bullets inside them. Do not fight inside the grid unless you have space.'),
     blood_tax: localText('Кровавая оплата: ставки и покупки платятся HP. Можно зайти в смертельный долг, но страховка от смерти может спасти.', 'Blood Payment: bets and buys cost HP. You can pay into lethal danger, but Death Insurance can save you.'),
     shell_market: localText('Shell-биржа: у врагов чаще есть щиты. Сначала сбиваешь щит, потом HP; щит может восстановиться, если врага не трогать.', 'Shell Market: enemies more often have shields. Break shield before HP; it can regenerate if the enemy is left alone.'),
@@ -204,7 +208,7 @@ function contractCardHtml(obj = {}) {
   const title = `${locLabel(obj.label)} · ${status}${fail}`;
   return `<div class="contract-kicker">${esc(localText('КОНТРАКТ КОМНАТЫ', 'ROOM CONTRACT'))}</div><div class="contract-title">${esc(title)}</div><div class="contract-sub">${esc(prog)}</div><div class="contract-reward">${esc(reward)}</div>`;
 }
-const rarityText = r => String(r || '').replace('superrare', 'SUPER RARE').toUpperCase();
+const rarityText = r => { const k = String(r || 'skin').toLowerCase(); const en = { basic:'BASIC', uncommon:'UNCOMMON', rare:'RARE', superrare:'SUPER RARE', legendary:'LEGENDARY', skin:'SKIN' }; const ru = { basic:'ОБЫЧНЫЙ', uncommon:'НЕОБЫЧНЫЙ', rare:'РЕДКИЙ', superrare:'СВЕРХРЕДКИЙ', legendary:'ЛЕГЕНДАРНЫЙ', skin:'СКИН' }; return localText(ru[k] || String(r || '').toUpperCase(), en[k] || String(r || '').replace('superrare', 'SUPER RARE').toUpperCase()); };
 const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
 const WEAPON_BY_LABEL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
 const CHEST_BY_LABEL = Object.fromEntries(Object.entries(CHESTS).map(([id, c]) => [c.label, { id, ...c }]));
@@ -814,7 +818,7 @@ export class Hud {
       case 'gld_hit': if (f.id === myId) { this.feed(`${localText('ЖАДНОСТЬ УДАР', 'GREED HIT')} -${f.cost || 0} GLD · BAL ${f.balance ?? 0}`, 'r'); } break;
       case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${locLabel(f.label || 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
       case 'director_wave':
-        this.feed(`${f.label || 'WAVE'} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
+        this.feed(`${localText('ВОЛНА', 'WAVE')} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
         break;
       case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка скина появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
@@ -834,7 +838,7 @@ export class Hud {
       case 'favor_earned': { const fs = (f.favors || []).map(x => `${this.favorUiLabel(x)}${x.uses > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
-      case 'contract_fail': this.banner(t('contractFail'), `${f.label || ''}${f.body ? ' · ' + f.body : ''}`, 'red'); break;
+      case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
       case 'denied': if (f.id === myId) { const msg = denyText(f); if (msg) this.denyPrompt(msg); } break;
       case 'bet_ui': if (f.id === myId) this.openCasino(); break;
       case 'casino': this.casinoResult(f, myId); break;

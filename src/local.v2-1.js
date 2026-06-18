@@ -104,7 +104,7 @@ export class LocalRoom {
       const ok = handleRerollOffer(this.run, this.players, p, m.kind || '');
       if (!ok) this.sendTo(playerId, { t: 'error', error: 'no contract reroll available' }, true);
     } else if (m.t === 'dev') {
-      if (playerId !== this.hostId) { this.sendTo(playerId, { t: 'error', error: 'dev mode доступен только host/solo' }, true); return; }
+      if (playerId !== this.hostId) { this.sendTo(playerId, { t: 'error', error: 'dev mode host/solo only' }, true); return; }
       const p = this.players.get(playerId);
       if (!p) return;
       const ok = handleDevCommand(this.run, this.players, p, m.cmd || {});

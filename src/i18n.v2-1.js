@@ -7,7 +7,7 @@ const listeners = new Set();
 const RU = {
   ui: {
     langTitle: 'ЯЗЫК', langBody: 'Меняет язык интерфейса, подсказок, меню и игровых сообщений.',
-    versionTitle: 'ВЕРСИЯ', versionBody: 'Текущая версия игры. Для совместной игры у всех должна быть одна версия.',
+    versionTitle: 'ВЕРСИЯ', versionBody: 'Текущая версия игры.',
     roomTitle: 'КОМНАТА', roomBody: 'Код комнаты и текущая локация забега.',
     loopTitle: 'ЦИКЛ / ГЛУБИНА', loopBody: 'Глубина — пройденные комнаты. Цикл делает комнаты опаснее.',
     modsTitle: 'ПРАВИЛА КОМНАТЫ', modsBody: 'Активные модификаторы этой комнаты. Наведи курсор на подчёркнутое название модификатора, чтобы увидеть подробное правило.',
@@ -34,7 +34,7 @@ const RU = {
     menuSub: 'terminal casino // 4 players coop',
     musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Цифровая обработка экрана.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и TAB-панели. До 12 символов.',
-    solo: 'СОЛО', soloBody: 'Запускает локальный забег без сети. Удобно для тренировки и быстрой игры.',
+    solo: 'СОЛО', soloBody: 'Запускает одиночный забег.',
     create: 'СОЗДАТЬ КОМНАТУ', createBody: 'Создаёт co-op комнату для друзей. Поделись четырёхсимвольным кодом.',
     codePlaceholder: 'КОД', codeTitle: 'КОД КОМНАТЫ', codeBody: 'Четырёхсимвольный код комнаты друга.',
     join: 'ВОЙТИ', joinBody: 'Подключиться к комнате по коду.',
@@ -64,7 +64,7 @@ const RU = {
 const EN = {
   ui: {
     langTitle: 'LANGUAGE', langBody: 'Changes UI, tooltips, menus, and in-game messages.',
-    versionTitle: 'VERSION', versionBody: 'Current game version. Co-op players should use the same version.',
+    versionTitle: 'VERSION', versionBody: 'Current game version.',
     roomTitle: 'ROOM', roomBody: 'Room code and current run location.',
     loopTitle: 'LOOP / DEPTH', loopBody: 'Depth is cleared rooms. Loop makes rooms more dangerous.',
     modsTitle: 'ROOM RULES', modsBody: 'Active modifiers in this room. Hover an underlined modifier name to see the exact rule.',
@@ -89,9 +89,9 @@ const EN = {
     betHintTitle: 'BET', betHintBody: 'Keys 1, 2, and 3 start LOW, MID, or HIGH bet.',
     exitTitle: 'EXIT', exitBody: 'ESC closes casino when reels are not spinning.',
     menuSub: 'terminal casino // 4 players coop',
-    musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Digital screen treatment.', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
-    namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name in room and TAB panel. Up to 12 characters.',
-    solo: 'SOLO', soloBody: 'Starts a local run without network. Good for practice and quick play.',
+    musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Screen look.', changeSkin: 'CHANGE SKIN', hideSkins: 'HIDE SKINS',
+    namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name shown in the room. Up to 12 characters.',
+    solo: 'SOLO', soloBody: 'Starts a solo run.',
     create: 'CREATE ROOM', createBody: 'Creates a co-op room for friends. Share the four-symbol code.',
     codePlaceholder: 'CODE', codeTitle: 'ROOM CODE', codeBody: 'Four-symbol room code from a friend.',
     join: 'JOIN', joinBody: 'Join a room by code.',
@@ -231,7 +231,7 @@ export function cleanPlayerText(text) {
       .replace(/stack/gi, 'уровень')
       .replace(/pickups/gi, 'подборы')
       .replace(/unlock/gi, 'открытия')
-      .replace(/ghost-square/gi, 'призрачный область')
+      .replace(/призрачная область/gi, 'призрачный область')
       .replace(/side-upgrades/gi, 'дополнительные апгрейды')
       .replace(/SIDE UPGRADE/gi, 'дополнительное усиление')
       .replace(/contract favor/gi, 'приз контракта')
@@ -245,7 +245,7 @@ export function cleanPlayerText(text) {
       'Перезарядка оружия становится короче.': 'Weapon reload becomes shorter.',
       'Скорость движения растёт.': 'Movement speed increases.',
       'Максимальное здоровье растёт.': 'Maximum health increases.',
-      'Радиус притяжения pickups растёт.': 'Pickup attraction radius increases.',
+      'Радиус притяжения подборов растёт.': 'Pickup attraction radius increases.',
       'Дроны переносят огонь, холод и яд оружия. Хорошо работает с DRONE +1.': 'Drones carry weapon fire, freeze, and poison. Works well with DRONE +1.',
       'Усиливает длительность и силу огня, холода и яда на пулях.': 'Improves the duration and strength of fire, freeze, and poison bullets.',
       'Больше зарядов рывка.': 'Adds more dash charges.',
@@ -271,7 +271,7 @@ export function cleanPlayerText(text) {
       .replace(/Даёт дополнительный заряд рывка[^.]*\./gi, 'Adds one dash charge.')
       .replace(/Рывок оглушает врагов[^.]*\./gi, 'Dash stuns enemies near its path.')
       .replace(/Рывок оставляет echo-всплеск[^.]*\./gi, 'Dash leaves an echo burst at the start point.');
-    if (/[А-Яа-яЁё]/.test(s)) s = 'This changes how your build works. Check the choice title for the main effect.';
+    if (/[А-Яа-яЁё]/.test(s)) s = 'This changes how your build works.';
   }
 
   // Final player-facing cleanup pass: remove patch-note/dev phrasing from any fallback text.
@@ -301,7 +301,9 @@ export function cleanPlayerText(text) {
       .replace(/numeric room target/gi, 'цель зачистки')
       .replace(/NET/gi, 'ИТОГ');
   }
-  return s.replace(/\s{2,}/g, ' ').replace(/\s+([.,:;])/g, '$1').trim();
+  s = s.replace(/\s{2,}/g, ' ').replace(/\s+([.,:;])/g, '$1').trim();
+  if (langIsEn() && /[А-Яа-яЁё]/.test(s)) return 'This explains the current game effect.';
+  return s;
 }
 export function localText(ru, en) { return langIsEn() ? en : ru; }
 
@@ -391,17 +393,32 @@ const RU_LABEL = {
   'BOSS CUT': 'БОСС-КОНТРАКТ', 'SAFE CASHOUT': 'БЕЗОПАСНЫЙ ВЫХОД', 'HUNTER WAVES': 'ОХОТНИЧЬИ ВОЛНЫ', 'VIRUS CLEAN': 'ОЧИСТКА ВИРУСА',
   'WIRE GHOST': 'ПРОЙТИ БЕЗ ПРОВОДОВ', 'GRID WALKER': 'ПРОЙТИ СЕТКУ', 'BLOOD PAID': 'КРОВАВАЯ ОПЛАТА', 'STATIC CLEAN': 'ЧИСТАЯ СТАТИКА',
   'CACHE CLAIM': 'ЗАБРАТЬ СКИН', 'FAST CLEAN': 'БЫСТРАЯ ЗАЧИСТКА', 'NO HIT TAPE': 'БЕЗ УРОНА', 'CLEAN SIGNAL': 'ЧИСТЫЙ СИГНАЛ',
-  'NEXT ROOM FAVOR': 'ПРИЗ СЛЕДУЮЩЕЙ КОМНАТЫ', 'NEXT ROOM PRIZE': 'ПРИЗ СЛЕДУЮЩЕЙ КОМНАТЫ', 'NEXT ROOM BONUS': 'БОНУС СЛЕДУЮЩЕЙ КОМНАТЫ'
+  'NEXT ROOM FAVOR': 'ПРИЗ СЛЕДУЮЩЕЙ КОМНАТЫ', 'NEXT ROOM PRIZE': 'ПРИЗ СЛЕДУЮЩЕЙ КОМНАТЫ', 'NEXT ROOM BONUS': 'БОНУС СЛЕДУЮЩЕЙ КОМНАТЫ',
+
+  'SHG LONGSHOT RMB': 'SHG: ДАЛЬНИЙ ВЫСТРЕЛ', 'SEK SWARM RMB': 'SEK: РОЙ', 'RKT STUN BLASTS': 'RKT: ОГЛУШЕНИЕ', 'RKT SCATTER BLASTS': 'RKT: ОТБРОС', 'RKT REMOTE DETONATOR': 'RKT: РУЧНОЙ ВЗРЫВ',
+  'VIRUS CLEANUP': 'ОЧИСТКА ВИРУСА', 'PRISM CLEANUP': 'ЗАЧИСТКА ПРИЗМЫ', 'BLOOD CLEANUP': 'КРОВАВАЯ ЗАЧИСТКА', 'STATIC CLEANUP': 'ЧИСТАЯ СТАТИКА', 'FAST CLEANUP': 'БЫСТРАЯ ЗАЧИСТКА', 'NO-HIT CLEANUP': 'БЕЗ УРОНА', 'FULL CLEANUP': 'ПОЛНАЯ ЗАЧИСТКА',
+  'GRID SLOW CLEAR': 'ЗАЧИСТКА СЕТКИ', 'BLOOD TAX': 'КРОВАВАЯ ОПЛАТА', 'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'STATIC NODE': 'СТАТИК-УЗЕЛ', 'SHIFTING ZONES': 'ДВИЖУЩИЕСЯ ЗОНЫ', 'PRISM GRID': 'ПРИЗМ-СЕТКА', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС', 'ANCHOR GRAVITY': 'ЯКОРЯ ГРАВИТАЦИИ', 'ECHO SHOTS': 'ЭХО-ВЫСТРЕЛЫ', 'BLACKOUT': 'ТЕМНОТА', 'SKN CACHE': 'СКИН-ТАЙНИК',
+  'BASIC': 'ОБЫЧНЫЙ', 'UNCOMMON': 'НЕОБЫЧНЫЙ', 'RARE': 'РЕДКИЙ', 'SUPER RARE': 'СВЕРХРЕДКИЙ', 'LEGENDARY': 'ЛЕГЕНДАРНЫЙ',
+  'Q: BLOOD PULSE': 'Q: КРОВАВЫЙ ИМПУЛЬС', 'Q: FIELD SNAP': 'Q: СТЯЖКА ПОЛЯ', 'Q: OVERCLOCK': 'Q: РАЗГОН',
+  'BLOOD RING': 'КРОВАВОЕ КОЛЬЦО', 'FIELD SNAP': 'СТЯЖКА ПОЛЯ', 'BULLET FREEZE': 'ЗАМОРОЗКА ПУЛЬ', 'SHELL RIPPER': 'РАЗРЫВ ЩИТА', 'VOID CUT': 'РАЗРЕЗ ПУСТОТЫ', 'SIGNAL SPIKE': 'СИГНАЛЬНЫЙ ШИП', 'BLACK BOX': 'ЧЁРНЫЙ ЯЩИК', 'STATIC PULSE': 'СТАТИК-ИМПУЛЬС',
+  'STATIC': 'СТАТИК', 'BLOOD': 'КРОВЬ', 'ECHO': 'ЭХО', 'SHRAPNEL': 'ОСКОЛКИ', 'CASINO': 'КАЗИНО', 'VOID': 'ПУСТОТА', 'LEECH': 'ВАМПИРИЗМ', 'ARMOR CRACK': 'РАЗЛОМ БРОНИ', 'ANCHOR': 'ЯКОРЬ', 'HUNGER': 'ГОЛОД', 'BAD TAPE': 'ПЛОХАЯ ПЛЁНКА'
 };
+const EN_LABEL = Object.fromEntries(Object.entries(RU_LABEL).map(([en, ru]) => [ru, en]));
+Object.assign(EN_LABEL, {
+  'СТАТИК-ЯДРО': 'STATIC CORE', 'СТАТИК-УЗЕЛ': 'STATIC NODE', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%',
+  'РЫВОК: РУЧНОЙ ВЗРЫВ': 'RKT REMOTE DETONATOR', 'СТАТИК Q': 'STATIC CORE', 'STATIC Q': 'STATIC CORE'
+});
 export function locLabel(label) {
   const s = String(label || '');
   if (!langIsEn()) return RU_LABEL[s] || s;
-  const m = {
+  const exact = EN_LABEL[s] || EN_LABEL[s.toUpperCase?.() || s] || {
     'ВЫБОР WPN': 'WPN PICK', 'ВЫБОР ABL': 'ABL PICK', 'УЖЕ ЕСТЬ': 'ALREADY OWNED', 'НЕТ ВАРИАНТА': 'NO OPTION',
-    'НЕТ АКТИВКИ': 'NO ACTIVE', 'НЕТ Q': 'NO Q', 'ВЗЯЛ': 'TOOK', 'ЗАМЕНИТЬ': 'REPLACE', 'НУЖЕН': 'NEED', 'УРОН +15%': 'DMG +15%', 'СКОРОСТРЕЛЬНОСТЬ +12%': 'FIRE RATE +12%', 'СКОРОСТЬ +8%': 'SPD +8%', 'ЗДОРОВЬЕ +20': 'HP +20', 'МАГНИТ +40%': 'MAGNET +40%', 'РЫВОК +1': 'DASH +1', 'ДРОН +1': 'DRONE +1', 'ОРБИТАЛЬ +1': 'ORBITAL +1', 'ОРБИТАЛИ: НАВЕДЕНИЕ +20%': 'ORBITAL SEEK +20%', 'ОРБИТАЛИ: РАДИУС +35%': 'ORBITAL RANGE +35%', 'УДАЧА +1': 'LUCK +1', 'ВЗРЫВЫ 10%': 'BLAST CHANCE 10%', 'ШАНС ВЗРЫВА 10%': 'BLAST CHANCE 10%', 'ЭХО-ВЫСТРЕЛ 12%': 'ECHO SHOT 12%', 'ВАМПИРИЗМ 2%': 'LIFESTEAL 2%', 'СТАТИК-ЯДРО': 'STATIC CORE', 'STATIC Q': 'СТАТИК-ЯДРО', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%'
-  };
-  if (m[s]) return m[s];
-  return s.replace('ВЫБОР WPN', 'WPN PICK').replace('ВЫБОР ABL', 'ABL PICK').replace('ЗАМЕНИТЬ:', 'REPLACE:').replace('НУЖЕН ', 'NEED ');
+    'НЕТ АКТИВКИ': 'NO ACTIVE', 'НЕТ Q': 'NO Q', 'ВЗЯЛ': 'TOOK', 'ЗАМЕНИТЬ': 'REPLACE', 'НУЖЕН': 'NEED',
+    'STATIC Q': 'STATIC CORE'
+  }[s];
+  let out = exact || s.replace('ВЫБОР WPN', 'WPN PICK').replace('ВЫБОР ABL', 'ABL PICK').replace('ЗАМЕНИТЬ:', 'REPLACE:').replace('НУЖЕН ', 'NEED ');
+  if (/[А-Яа-яЁё]/.test(out)) out = 'CHOICE';
+  return out;
 }
 export function locReward(r) { return locLabel(r); }
 export function groupLabel(g) { const v = String(g || '').toUpperCase(); if (langIsEn()) return v === 'CORE' ? 'Q' : v; const ru = { CORE: 'Q', MUTATION: 'МУТАЦИЯ', SIDE: 'ДОП.', UPGRADE: 'УСИЛЕНИЕ' }; return ru[v] || v; }
@@ -410,7 +427,8 @@ export function disabledReason(reason) {
   if (!langIsEn()) return cleanPlayerText(r || t('requiresOtherWeapon'));
   if (/оруж|weapon/i.test(r)) return t('requiresOtherWeapon');
   if (/услов/i.test(r)) return 'requirement not met';
-  return r || t('requiresOtherWeapon');
+  const out = r || t('requiresOtherWeapon');
+  return /[А-Яа-яЁё]/.test(out) ? t('requiresOtherWeapon') : out;
 }
 export function objectStateText(opened, cost, currency = 'GLD') {
   if (opened) return t('chestOpened');
@@ -486,7 +504,7 @@ export function applyStaticI18n() {
     filterSwitch.dataset.explainTitle = t('filterLabel');
     filterSwitch.dataset.explain = t('filterBody');
   }
-  setExplainId('audio-settings', localText('ЗВУК', 'AUDIO'), localText('Раздельная громкость музыки и игровых звуков. Сохраняется в браузере.', 'Separate music and SFX volume. Saved in this browser.'));
+  setExplainId('audio-settings', localText('ЗВУК', 'AUDIO'), localText('Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.', 'Separate music and SFX volume. Saved on this device.'));
   const skinToggle = document.getElementById('btn-skin-toggle');
   const skinEditor = document.getElementById('skin-editor');
   if (skinToggle) skinToggle.textContent = skinEditor && !skinEditor.classList.contains('collapsed') ? t('hideSkins') : t('changeSkin');

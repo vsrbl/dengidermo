@@ -6,8 +6,8 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
-const VERSION = 'v2.1.3';
-const BUILD_ID = 'enemy-combo-label-cleanup';
+const VERSION = 'v2.1.6';
+const BUILD_ID = 'expanded-score-music';
 const PROTOCOL = 2;
 const MAX_PLAYERS = 4;
 const MAX_MESSAGE_BYTES = 64 * 1024;
