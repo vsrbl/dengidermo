@@ -1329,7 +1329,7 @@ export class Hud {
       const u = UPG[id];
       const d = document.createElement('div');
       d.className = 'choice' + (u?.cursed ? ' cursed' : '') + (sig ? ' boss-signature-choice' : '');
-      d.innerHTML = sig ? `<span class="key sig-key">SIG</span><b>${esc(locLabel(u?.label || id))}</b><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
+      d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b></div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), optionDesc(u || { id }), sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
