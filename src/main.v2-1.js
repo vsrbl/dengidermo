@@ -337,7 +337,7 @@ net.on('s', (m) => {
   }
 });
 net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || ''));
-net.on('offer_close', () => { if (!hud.install.skinOnly) hud.closeInstall(); });
+net.on('offer_close', () => { if (!hud.install.skinOnly && !(hud.install.picked && state.room?.phase === 'install')) hud.closeInstall(); });
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
 net.on('ability_offer', (m) => hud.openAbilityChest(m.choices));
@@ -476,14 +476,14 @@ function frame(now) {
 
   if (input.takeEsc()) {
     if (hud.casino.open && !hud.casino.spinning) hud.closeCasino();
-    else if (hud.install.open) hud.pickRandomInstall();
+    else if (hud.install.open && !hud.install.waitingOnly) hud.pickRandomInstall();
     else if (hud.weapon.open) hud.pickRandomWeapon();
     else if (hud.ability.open) hud.pickRandomAbility();
     else if (input.tabOpen) input.tabOpen = false;
   }
   const num = input.takeNum();
   if (num >= 0) {
-    if (hud.install.open) hud.pick(num);
+    if (hud.install.open && !hud.install.waitingOnly) hud.pick(num);
     else if (hud.weapon.open) hud.pickWeapon(num);
     else if (hud.ability.open) hud.pickAbility(num);
     else if (hud.casino.open && !hud.casino.spinning) hud.placeBet(['low', 'mid', 'high'][num]);

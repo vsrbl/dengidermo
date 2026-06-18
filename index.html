@@ -34,7 +34,7 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">v2.1.26</span>
+      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">v2.1.28</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -83,6 +83,7 @@
   <div class="panel green-edge">
     <div class="panel-title green" data-explain-title="УЛУЧШЕНИЕ" data-explain="Выбери одно из трёх улучшений. Если накоплено несколько выборов, варианты будут идти по очереди.">УЛУЧШЕНИЕ <span id="install-pending"></span></div>
     <div id="install-choices"></div>
+    <div id="install-wait" class="install-wait hidden"></div>
     <div id="install-timer"><div id="install-timer-bar"></div></div>
     <div class="hint"><span class="term" data-explain-title="БЫСТРЫЙ ВЫБОР" data-explain="Клавиши 1, 2 и 3 выбирают соответствующий вариант.">1 / 2 / 3</span> — выбрать</div>
   </div>
@@ -141,7 +142,7 @@
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.26</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.28</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>

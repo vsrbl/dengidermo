@@ -218,6 +218,27 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #install-timer { height: 3px; background: #222; margin-top: 14px; }
 #install-timer-bar { height: 100%; width: 100%; background: var(--green); }
 
+
+.install-wait {
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(0,0,0,.46);
+  color: rgba(255,255,255,.78);
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.install-wait b { color: var(--green); font-weight: 600; }
+.install-wait .wait-names { display: block; color: rgba(255,211,77,.85); margin-top: 4px; }
+.install-wait.done { border-color: rgba(0,255,102,.45); color: rgba(0,255,102,.90); }
+.install-wait.boss { border-color: rgba(255,211,77,.45); }
+#install-modal.waiting-only #install-choices { display: none; }
+#install-modal.waiting-only .hint { opacity: .36; }
+#install-modal.waiting-only #install-timer-bar { background: rgba(255,211,77,.9); }
+#install-modal.waiting-only.boss-signature-modal #install-timer-bar { background: rgba(255,211,77,.9); }
+
 /* weapon chest picker */
 #weapon-modal { z-index: 35; }
 #ability-modal { z-index: 35; }

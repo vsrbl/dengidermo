@@ -151,6 +151,39 @@ function ensureInstallOffer(run, p) {
   return p.offer;
 }
 
+function installWaitSnapshot(run, players) {
+  if (!run || run.phase !== 'install') return null;
+  const list = [];
+  let total = 0, waiting = 0, ready = 0;
+  let nextExpires = 0;
+  for (const p of players.values()) {
+    if (!p.connected) continue;
+    total++;
+    const hasOffer = !!p.offer;
+    const pendingInstall = Math.max(0, p.economy?.pending || 0);
+    const pendingSignature = !!p.bossSignaturePending;
+    const needsPick = hasOffer || pendingInstall > 0 || pendingSignature;
+    if (needsPick) {
+      waiting++;
+      if (p.offer && Number.isFinite(Number(p.offer.expires))) {
+        const ex = Math.max(0, Number(p.offer.expires));
+        nextExpires = nextExpires > 0 ? Math.min(nextExpires, ex) : ex;
+      }
+    } else ready++;
+    list.push({
+      id: p.id,
+      name: p.name || p.id,
+      waiting: needsPick ? 1 : 0,
+      picked: needsPick ? 0 : 1,
+      pending: pendingInstall,
+      signature: pendingSignature ? 1 : 0,
+      offerId: p.offer?.id || 0,
+      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : '')
+    });
+  }
+  return { total, waiting, ready, players: list, nextExpires: Math.ceil(nextExpires || 0) };
+}
+
 // v2.1: active abilities were reading too hard. Keep the fantasy, but cut duration/radius/power by ~1.5x.
 const ACTIVE_BALANCE_SCALE = 2 / 3;
 const activeScale = v => v * ACTIVE_BALANCE_SCALE;
@@ -1084,7 +1117,7 @@ function finalRunSummary(run, players) {
   const mem = run?.runMemory || {};
   const connected = [...players.values()].filter(p => p.connected);
   return {
-    version: 'v2.1.26',
+    version: 'v2.1.28',
     result: 'complete',
     loopsTarget: FINAL_TARGET_LOOPS,
     loopsCleared: FINAL_TARGET_LOOPS,
@@ -6776,7 +6809,7 @@ export function buildSnapshot(run, players) {
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run),
-      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players)
+      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players)
     },
     players: ps, enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
   };
