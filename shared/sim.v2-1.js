@@ -1117,7 +1117,7 @@ function finalRunSummary(run, players) {
   const mem = run?.runMemory || {};
   const connected = [...players.values()].filter(p => p.connected);
   return {
-    version: 'v2.1.31',
+    version: 'v2.1.32',
     result: 'complete',
     loopsTarget: FINAL_TARGET_LOOPS,
     loopsCleared: FINAL_TARGET_LOOPS,
@@ -5741,6 +5741,13 @@ function stepInstall(run, players, dt) {
   run.phaseT += dt;
   let waiting = false;
   for (const p of players.values()) {
+    if (!p.connected) {
+      // A dropped player must not hold the whole multiplayer INSTALL phase hostage.
+      p.offer = null;
+      p.bossSignaturePending = false;
+      p.bossSignatureChoices = null;
+      continue;
+    }
     ensureInstallOffer(run, p);
     if (!p.offer) continue;
     p.offer.expires -= dt;

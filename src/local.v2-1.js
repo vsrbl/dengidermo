@@ -21,6 +21,7 @@ export class LocalRoom {
     this.tickN = 0;
     this.guestFx = [];            // fx accumulated between guest snapshots
     this.offersSent = new Map();
+    this.offerSentAt = new Map();
     this.weaponOffersSent = new Map();
     this.abilityOffersSent = new Map();
     this.lastTickAt = performance.now();
@@ -65,6 +66,7 @@ export class LocalRoom {
     this.players.delete(guestId);
     this.channels.delete(guestId);
     this.offersSent.delete(guestId);
+    this.offerSentAt.delete(guestId);
     this.weaponOffersSent.delete(guestId);
     this.abilityOffersSent.delete(guestId);
     this.run.fx.push({ t: 'leave', id: guestId, name: p.name });
@@ -83,7 +85,14 @@ export class LocalRoom {
       const p = this.players.get(playerId);
       if (!p) return;
       const ok = handlePick(this.run, this.players, p, m.choice, m.offerId || m.id || 0);
-      if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
+      if (ok && p.offer) {
+        // Send the next queued choice immediately. In multiplayer this prevents the INSTALL phase
+        // from looking stuck when one player has several pending choices and others are still choosing.
+        this.offersSent.set(playerId, p.offer);
+        this.offerSentAt.set(playerId, performance.now());
+        this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' }, true);
+      }
+      else if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
       else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
     } else if (m.t === 'weapon_pick') {
@@ -154,14 +163,18 @@ export class LocalRoom {
     // upgrade offers
     for (const [pid, p] of this.players) {
       const sent = this.offersSent.get(pid);
-      if (p.offer && sent !== p.offer) {
+      const lastSentAt = this.offerSentAt.get(pid) || 0;
+      const resendDue = p.offer && sent === p.offer && (now - lastSentAt) > 850;
+      if (p.offer && (sent !== p.offer || resendDue)) {
         this.offersSent.set(pid, p.offer);
+        this.offerSentAt.set(pid, now);
         const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
       if (!p.offer && sent) {
         this.offersSent.delete(pid);
+        this.offerSentAt.delete(pid);
         this.sendTo(pid, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
       }
     }

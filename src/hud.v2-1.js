@@ -818,6 +818,9 @@ export class Hud {
     const otherWaiting = waitPlayers.some(p => p && p.waiting && String(p.id) !== String(me[P.ID]));
     const shouldShowWait = room.phase === 'install' && wait && !myWait?.waiting && otherWaiting && !this.install.skinOnly && (!this.install.open || this.install.waitingOnly || this.install.picked);
     if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
+    else if (room.phase === 'install' && wait && myWait?.waiting && this.install.waitingOnly) this.showInstallOfferSync(wait, me[P.ID]);
+    else if (room.phase === 'install' && wait && myWait?.waiting && !this.install.open) this.showInstallOfferSync(wait, me[P.ID]);
+    else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
     const sigEl = $('hud-signatures');
     if (sigEl) {
       const sigs = Array.isArray(room.signaturesActive) ? room.signaturesActive.slice(0, 10) : [];
@@ -1316,11 +1319,32 @@ export class Hud {
     modal.classList.remove('hidden');
   }
 
+  showInstallOfferSync(wait = null, myId = '') {
+    const modal = $('install-modal');
+    const box = $('install-choices');
+    const waitEl = $('install-wait');
+    if (!modal || !box || !waitEl) return;
+    const players = Array.isArray(wait?.players) ? wait.players : [];
+    const mine = players.find(p => String(p.id) === String(myId));
+    const sig = String(mine?.kind || '') === 'boss_signature' || !!mine?.signature;
+    this.install = { open: true, choices: [], offerId: Math.max(0, mine?.offerId || 0), expires: Math.max(1, wait?.nextExpires || 6), total: Math.max(1, wait?.nextExpires || 6), locked: true, waitingOnly: true, picked: false, bossSignature: sig };
+    modal.classList.toggle('boss-signature-modal', sig);
+    modal.classList.add('waiting-only');
+    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('СИНХРОНИЗАЦИЯ', 'SYNC');
+    box.innerHTML = '';
+    const label = sig ? localText('ПОЛУЧАЕМ ВАРИАНТЫ СИГНАТУРЫ', 'RECEIVING SIGNATURE OPTIONS') : localText('ПОЛУЧАЕМ ВАРИАНТЫ УЛУЧШЕНИЯ', 'RECEIVING INSTALL OPTIONS');
+    const body = localText('Сеть догоняет фазу выбора. Окно восстановится автоматически.', 'Network is catching up to the choice phase. This window will recover automatically.');
+    waitEl.className = 'install-wait' + (sig ? ' boss' : '');
+    waitEl.innerHTML = `<b>${esc(label)}</b><br>${esc(body)}`;
+    modal.classList.remove('hidden');
+  }
+
   openInstall(choices, pending, offerId = 0, kind = '') {
     const sig = String(kind || '') === 'boss_signature';
     this.install = { open: true, choices, offerId: Math.max(0, offerId | 0), expires: sig ? 32 : 24, total: sig ? 32 : 24, locked: false, waitingOnly: false, picked: false, bossSignature: sig };
-    $('install-modal')?.classList.remove('waiting-only');
-    $('install-modal')?.classList.toggle('boss-signature-modal', sig);
+    const modal = $('install-modal');
+    modal?.classList.remove('waiting-only');
+    modal?.classList.toggle('boss-signature-modal', sig);
     const waitEl = $('install-wait'); if (waitEl) { waitEl.className = 'install-wait hidden'; waitEl.innerHTML = ''; }
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
     const box = $('install-choices');
@@ -1335,7 +1359,7 @@ export class Hud {
       box.appendChild(d);
     });
     this.appendSkinClaimCard(box);
-    $('install-modal').classList.remove('hidden');
+    modal?.classList.remove('hidden');
   }
   pick(i) {
     // guard against double-picks: lock until the next offer (or close) arrives
