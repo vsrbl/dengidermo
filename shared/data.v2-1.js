@@ -287,19 +287,19 @@ export const SKIN_RARITIES = {
   legendary:  { id: 'legendary',  label: 'LEGENDARY',  weight: 1,  tone: 'gold' }
 };
 export const SKIN_PRESETS = [
-  { id: 'terminal_mint', name: 'TERMINAL MINT', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'чистый базовый сигнал / зелёный след рывка' },
-  { id: 'debt_red', name: 'RED STATIC', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'красный статик-сигнал / красный разрыв рывка' },
-  { id: 'void_cyan', name: 'VOID CYAN', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодная пустота / фазовый след рывка' },
-  { id: 'casino_gold', name: 'CASINO GOLD', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'выигрышная рамка / золотой рывок' },
-  { id: 'bruise_purple', name: 'BRUISE PURPLE', rarity: 'uncommon', fill: '#100617', outline: '#b45cff', barrel: '#ff3048', dash: '#b45cff', dashAlt: '#ff3048', dashStyle: 'bruise', note: 'синяк сигнала / фиолетовый надрез рывка' },
-  { id: 'bone_static', name: 'BONE STATIC', rarity: 'rare', fill: '#d8d0bd', outline: '#6f6f6f', barrel: '#66f6ff', dash: '#d8d0bd', dashAlt: '#66f6ff', dashStyle: 'static', note: 'костяной шум / строчный рывок' },
-  { id: 'black_lime', name: 'BLACK LIME', rarity: 'rare', fill: '#020202', outline: '#a6ff00', barrel: '#a6ff00', dash: '#a6ff00', dashAlt: '#f3f3f3', dashStyle: 'lime', note: 'кислотный крест / резкий лаймовый рывок' },
-  { id: 'bad_tv', name: 'BAD TV', rarity: 'rare', fill: '#ffffff', outline: '#111111', barrel: '#ff3048', dash: '#f3f3f3', dashAlt: '#ff3048', dashStyle: 'tv', note: 'пересвет / ТВ-срыв рывка' },
-  { id: 'red_static', name: 'RED STATIC', rarity: 'superrare', fill: '#060101', outline: '#ff3048', barrel: '#66f6ff', dash: '#ff3048', dashAlt: '#66f6ff', dashStyle: 'red_static', note: 'красные помехи / dash оставляет битый канал' },
-  { id: 'mirror_coin', name: 'MIRROR COIN', rarity: 'superrare', fill: '#090909', outline: '#ffd34d', barrel: '#ffd34d', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'mirror', note: 'ложная монета / зеркальный дубль рывка' },
-  { id: 'terminal_ghost', name: 'TERMINAL GHOST', rarity: 'superrare', fill: '#e8fff2', outline: '#66f6ff', barrel: '#00ff66', dash: '#66f6ff', dashAlt: '#00ff66', dashStyle: 'ghost', note: 'призрачный терминал / спектральный рывок' },
-  { id: 'jackpot_wound', name: 'JACKPOT WOUND', rarity: 'legendary', fill: '#160005', outline: '#ffd34d', barrel: '#ff3048', dash: '#ffd34d', dashAlt: '#ff3048', dashStyle: 'jackpot', legendarySfx: 'dash_jackpot', note: 'легендарная рана казино / рывок оставляет слот-осколки и монетные клетки' },
-  { id: 'dead_channel', name: 'DEAD CHANNEL', rarity: 'legendary', fill: '#000000', outline: '#f3f3f3', barrel: '#66f6ff', dash: '#f3f3f3', dashAlt: '#66f6ff', dashStyle: 'dead_channel', legendarySfx: 'dash_dead_channel', note: 'мёртвый канал / рывок оставляет битые ТВ-кадры и строчные помехи' }
+  { id: 'terminal_mint', name: 'HOUSE SIGNAL', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'базовый сигнал дома / чистый терминальный след' },
+  { id: 'debt_red', name: 'DEBT FRACTURE', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой разрыв / красный надлом сигнала' },
+  { id: 'void_cyan', name: 'VOID CHANNEL', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодный канал пустоты / фазовый хвост' },
+  { id: 'casino_gold', name: 'CASHIER GLEAM', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'свет кассы / золотой жетонный след' },
+  { id: 'bruise_purple', name: 'BRUISED CIRCUIT', rarity: 'uncommon', fill: '#100617', outline: '#b45cff', barrel: '#ff3048', dash: '#b45cff', dashAlt: '#ff3048', dashStyle: 'bruise', note: 'сбитая проводка / фиолетовый надрез' },
+  { id: 'bone_static', name: 'BONE NOISE', rarity: 'rare', fill: '#d8d0bd', outline: '#6f6f6f', barrel: '#66f6ff', dash: '#d8d0bd', dashAlt: '#66f6ff', dashStyle: 'static', note: 'мертвенная кость эфира / строчный шум' },
+  { id: 'black_lime', name: 'LIME BREACH', rarity: 'rare', fill: '#020202', outline: '#a6ff00', barrel: '#a6ff00', dash: '#a6ff00', dashAlt: '#f3f3f3', dashStyle: 'lime', note: 'кислотный пролом / резкие лаймовые искры' },
+  { id: 'bad_tv', name: 'BAD BROADCAST', rarity: 'rare', fill: '#ffffff', outline: '#111111', barrel: '#ff3048', dash: '#f3f3f3', dashAlt: '#ff3048', dashStyle: 'tv', note: 'битый эфир / перегоревший экранный след' },
+  { id: 'red_static', name: 'RED STORM', rarity: 'superrare', fill: '#060101', outline: '#ff3048', barrel: '#66f6ff', dash: '#ff3048', dashAlt: '#66f6ff', dashStyle: 'red_static', note: 'красный статик-шторм / битый канал в рывке' },
+  { id: 'mirror_coin', name: 'FALSE JACKPOT', rarity: 'superrare', fill: '#090909', outline: '#ffd34d', barrel: '#ffd34d', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'mirror', note: 'ложный выигрыш / зеркальный жетонный дубль' },
+  { id: 'terminal_ghost', name: 'TERMINAL GHOST', rarity: 'superrare', fill: '#e8fff2', outline: '#66f6ff', barrel: '#00ff66', dash: '#66f6ff', dashAlt: '#00ff66', dashStyle: 'ghost', note: 'призрак терминала / эфирный след с фантомом' },
+  { id: 'jackpot_wound', name: 'JACKPOT WOUND', rarity: 'legendary', fill: '#160005', outline: '#ffd34d', barrel: '#ff3048', dash: '#ffd34d', dashAlt: '#ff3048', dashStyle: 'jackpot', legendarySfx: 'dash_jackpot', note: 'рана джекпота / лоскуты слота и монетные осколки' },
+  { id: 'dead_channel', name: 'DEAD CHANNEL', rarity: 'legendary', fill: '#000000', outline: '#f3f3f3', barrel: '#66f6ff', dash: '#f3f3f3', dashAlt: '#66f6ff', dashStyle: 'dead_channel', legendarySfx: 'dash_dead_channel', note: 'мёртвый канал / порванный эфир и ТВ-обрывки' }
 ];
 export const DEFAULT_UNLOCKED_SKINS = SKIN_PRESETS.filter(s => s.rarity === 'basic').map(s => s.id);
 

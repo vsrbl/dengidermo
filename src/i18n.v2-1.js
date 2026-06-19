@@ -10,46 +10,46 @@ const RU = {
     versionTitle: 'ВЕРСИЯ', versionBody: 'Текущая версия игры.',
     roomTitle: 'КОМНАТА', roomBody: 'Код комнаты и текущая локация забега.',
     loopTitle: 'ЦИКЛ / ГЛУБИНА', loopBody: 'Глубина — пройденные комнаты. Цикл делает комнаты опаснее.',
-    modsTitle: 'ПРАВИЛА КОМНАТЫ', modsBody: 'Активные модификаторы этой комнаты. Наведи курсор на подчёркнутое название модификатора, чтобы увидеть подробное правило.',
-    inspectTitle: 'ОСМОТР', inspectBody: 'Пробел включает подсказки у объектов мира: сундуков, портала, врагов, подборов и BET-терминала.',
+    modsTitle: 'ПРАВИЛА КОМНАТЫ', modsBody: 'Активные правила этой комнаты. Подчёркнутые названия можно осмотреть.',
+    inspectTitle: 'ОСМОТР', inspectBody: 'Пробел показывает подсказки у сундуков, портала, врагов, подборов и терминала ставок.',
     objectiveTitle: 'ЗАДАЧА', objectiveBody: 'Текущая задача комнаты: зачистка, босс, контракт или переход через портал.',
     hpTitle: 'ЗДОРОВЬЕ', hpBody: 'Если здоровье падает до 0, игрок выбывает до следующей комнаты или перезапуска.',
     xpTitle: 'ОПЫТ', xpBody: 'Опыт повышает уровень. Новый уровень добавляет выбор улучшения между комнатами.',
-    gldTitle: 'GLD', gldBody: 'Деньги для сундуков и BET-терминала. Обычный подбор GLD общий для команды, траты индивидуальные.',
-    lvlTitle: 'УРОВЕНЬ / Q', lvlBody: 'Текущий уровень и статус активной способности Q.',
+    gldTitle: 'GLD', gldBody: 'Деньги для сундуков и терминала ставок. Обычный GLD общий для команды, траты индивидуальные.',
+    lvlTitle: 'УРОВЕНЬ / Q', lvlBody: 'Текущий уровень и состояние активной способности Q.',
     installTitle: 'УЛУЧШЕНИЕ', installBody: 'Очередь улучшений. Выбор появляется между комнатами.',
-    interactTitle: 'ВЗАИМОДЕЙСТВИЕ', interactBody: 'Подойди и нажми E. Здесь показываются сундуки, BET-терминал и портал.',
+    interactTitle: 'ВЗАИМОДЕЙСТВИЕ', interactBody: 'Подойди и нажми E. Здесь показываются сундуки, терминал ставок и портал.',
     runStatusTitle: 'ПАНЕЛЬ ЗАБЕГА', runStatusBody: 'Состояние забега: цикл, глубина, правила комнаты, союзники и ресурсы.',
-    installPickBody: 'Выбери одно из трёх улучшений. Если накоплено несколько выборов, они идут по очереди.',
-    quickPickTitle: 'БЫСТРЫЙ ВЫБОР', quickPickBody: 'Клавиши 1, 2 и 3 выбирают соответствующий вариант.',
+    installPickBody: 'Выбери одно улучшение. Несколько выборов идут по очереди.',
+    quickPickTitle: 'БЫСТРЫЙ ВЫБОР', quickPickBody: 'Клавиши 1, 2 и 3 выбирают вариант.',
     choose: 'выбрать', chooseAvailable: 'выбрать доступный вариант', chooseOption: 'выбрать вариант',
-    wpnChestTitle: 'WPN-СУНДУК', wpnChestBody: 'Выбери одну награду: новое оружие, оружейный мод или усиление оружия. Серый вариант требует другое оружие.',
-    ablChestTitle: 'ABL-СУНДУК', ablChestBody: 'Выбери одну награду: Q-активку, мутацию Q, усиление Q или мобильность.',
-    betTitle: 'BET-ТЕРМИНАЛ', betBody: 'Риск за GLD: ставка списывается, барабаны крутятся, результат даёт награду или опасность.',
+    wpnChestTitle: 'ОРУЖЕЙНЫЙ СУНДУК', wpnChestBody: 'Выбери одну награду: новое оружие, свойство оружия или усиление оружия.',
+    ablChestTitle: 'СУНДУК СПОСОБНОСТЕЙ', ablChestBody: 'Выбери одну награду: активку Q, мутацию Q, усиление Q или подвижность.',
+    betTitle: 'ТЕРМИНАЛ СТАВОК', betBody: 'Риск за GLD: ставка списывается, барабаны крутятся, результат даёт награду или опасность.',
     lowBetBody: 'Ставка 20 GLD. Низкий риск для начала забега.',
     midBetBody: 'Ставка 50 GLD. Средний риск и ощутимая награда.',
     highBetBody: 'Ставка 120 GLD. Большой риск и шанс на сильный результат.',
-    betHintTitle: 'СТАВКА', betHintBody: 'Клавиши 1, 2 и 3 запускают LOW, MID или HIGH ставку.',
+    betHintTitle: 'СТАВКА', betHintBody: 'Клавиши 1, 2 и 3 запускают малую, среднюю или высокую ставку.',
     exitTitle: 'ВЫХОД', exitBody: 'ESC закрывает казино, если барабаны не крутятся.',
-    menuSub: 'terminal casino // до 4 игроков',
-    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Цифровая обработка экрана.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
+    menuSub: 'терминал-казино // до 4 игроков',
+    musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Обработка изображения.', changeSkin: 'СМЕНИТЬ СКИН', hideSkins: 'СКРЫТЬ СКИНЫ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и панели. До 12 символов.',
     solo: 'СОЛО', soloBody: 'Запускает одиночный забег.',
     create: 'СОЗДАТЬ КОМНАТУ', createBody: 'Создаёт комнату для друзей. Поделись четырёхсимвольным кодом.',
     codePlaceholder: 'КОД', codeTitle: 'КОД КОМНАТЫ', codeBody: 'Четырёхсимвольный код комнаты друга.',
     join: 'ВОЙТИ', joinBody: 'Подключиться к комнате по коду.',
-    controlsTitle: 'УПРАВЛЕНИЕ', controlsBody: 'WASD/стрелки — движение · ЛКМ — огонь · ПКМ — вторичный огонь оружия · Пробел — осмотр · Shift — рывок · E — взаимодействие · Q — активка · TAB — панель',
-    movement: 'движение', fire: 'огонь', dash: 'рывок', interact: 'взаимодействие', qActive: 'активка', panel: 'панель', inspect: 'осмотр',
+    controlsTitle: 'УПРАВЛЕНИЕ', controlsBody: 'WASD/стрелки — движение · ЛКМ — огонь · ПКМ — второй огонь оружия · Пробел — осмотр · Shift — рывок · E — взаимодействие · Q — активка · Tab — панель',
+    movement: 'движение', fire: 'огонь', dash: 'рывок', interact: 'действие', qActive: 'активка', panel: 'панель', inspect: 'осмотр',
     skinTitle: 'СКИН', skinBody: 'Готовые облики. Закрытые видны, но выбрать их нельзя до открытия.',
     prevSkinTitle: 'ПРЕДЫДУЩИЙ СКИН', prevSkinBody: 'Листать назад.', nextSkinTitle: 'СЛЕДУЮЩИЙ СКИН', nextSkinBody: 'Листать вперёд.',
     skinPreset: 'готовый облик', selected: 'ВЫБРАН', unlocked: 'ОТКРЫТ', locked: 'ЗАКРЫТ',
-    statusConnecting: 'CONNECTING…', statusOnline: 'ONLINE', statusNetReady: 'NETWORK READY', statusNetSleep: 'NETWORK WAKING · SOLO READY', statusNetDown: 'NETWORK UNAVAILABLE · SOLO READY',
-    updateRequired: 'UPDATE REQUIRED: REFRESH PAGE', roomCode4: 'ROOM CODE MUST BE 4 SYMBOLS', roomNotFound: 'ROOM NOT FOUND', roomFull: 'ROOM FULL (4/4)', lostConnection: 'CONNECTION LOST — REFRESH PAGE',
-    noActive: 'НЕТ АКТИВКИ', noActiveDesc: 'У тебя пока нет Q-способности. Найди ABL-сундук и выбери активку.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ АКТИВКИ', qCd: 'Q ЗАРЯД', qOver: 'Q РАЗГОН', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
+    statusConnecting: 'ПОДКЛЮЧЕНИЕ…', statusOnline: 'В СЕТИ', statusNetReady: 'СЕТЬ ГОТОВА', statusNetSleep: 'СЕТЬ ПРОСЫПАЕТСЯ · СОЛО ГОТОВО', statusNetDown: 'СЕТЬ НЕДОСТУПНА · СОЛО ГОТОВО',
+    updateRequired: 'НУЖНО ОБНОВИТЬ СТРАНИЦУ', roomCode4: 'КОД КОМНАТЫ: 4 СИМВОЛА', roomNotFound: 'КОМНАТА НЕ НАЙДЕНА', roomFull: 'КОМНАТА ЗАПОЛНЕНА (4/4)', lostConnection: 'СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ',
+    noActive: 'НЕТ АКТИВКИ', noActiveDesc: 'У тебя пока нет Q-способности. Найди сундук способностей и выбери активку.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ АКТИВКИ', qCd: 'Q ЗАРЯД', qOver: 'Q РАЗГОН', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
     dashChargeTitle: 'ЗАРЯД РЫВКА', dashReady: 'Готовый заряд рывка. Shift — рывок.', dashEmpty: 'Пустой заряд рывка скоро восстановится.',
     portalTitle: 'ПОРТАЛ', portalOpenBody: 'Открытый переход: нажми E рядом, чтобы перейти дальше.', portalClosedBody: 'Портал закрыт. Выполни цель комнаты.', portalPrompt: 'E — ВОЙТИ В ПОРТАЛ', portalOpen: 'ПОРТАЛ ОТКРЫТ', portalTake: 'E — забрать скин', portalNext: 'E — перейти дальше',
     chestTitle: 'СУНДУК', chestDefault: 'Сундук с наградой.', chestOpened: 'Уже открыт.', chestFree: 'Бесплатно.', chestNeed: 'Нужно {cost} GLD.', price: 'Цена: {cost} GLD.',
-    betPrompt: 'E — BET TERMINAL', betInspect: 'Казино-терминал: E открывает низкую, среднюю или высокую ставку. Чем дальше забег, тем дороже риск.',
+    betPrompt: 'E — ТЕРМИНАЛ СТАВОК', betInspect: 'Терминал ставок: E открывает малую, среднюю или высокую ставку. Чем дальше забег, тем дороже риск.',
     gldLack: 'НЕДОСТАТОЧНО GLD', denied: 'ОТКАЗ', noQ: 'НЕТ АКТИВКИ',
     installPhase: 'ФАЗА УЛУЧШЕНИЙ', installPhaseSub: 'выбор улучшений', bossFloor: 'ЭТАЖ БОССА', killBoss: 'УНИЧТОЖИТЬ БОССА', clear: 'ЗАЧИСТКА',
     playerJoined: 'ПОДКЛЮЧИЛСЯ', playerLeft: 'ВЫШЕЛ', you: 'ТЫ', down: 'ВЫБЫЛ', youDown: 'ТЫ ВЫБЫЛ', carry: 'союзники дотащат до портала',
@@ -137,7 +137,7 @@ const RU_UPGRADE_CLEAN = {
   shg_teeth: 'SHOTGUN получает больше дробин.', shg_longshot: 'ПКМ тратит заряды SHOTGUN на один дальний тяжёлый выстрел.', sek_split: 'Убийства SEEKER выпускают самонаводящиеся фрагменты.', sek_chain: 'SEEKER лучше держит цель и летит дольше.', sek_swarm: 'ПКМ выпускает рой самонаводящихся SEEKER-пуль.', rkt_cluster: 'ROCKETGUN добавляет мини-взрывы вокруг детонации.', rkt_mines: 'ROCKETGUN оставляет отложенные мины во время полёта.', rkt_stun: 'Взрывы ROCKETGUN могут оглушать врагов.', rkt_scatter: 'Взрывы ROCKETGUN сильнее разбрасывают врагов.', rkt_remote: 'ПКМ взрывает выпущенные ракеты по одной.',
   wpn_dmg: 'Повышает прямой урон всего оружия.', wpn_fire: 'Всё оружие стреляет чаще.', abl_dash: 'Добавляет один заряд рывка.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт GLD.', combo_exp: 'Комбо при завершении выдаёт EXP.', combo_hp: 'Комбо при завершении лечит.',
-  sig_quarantine_buffer: 'В начале каждой комнаты включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком HP 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить GLD или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть врагов получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные враги иногда оставляют небольшой HEA-обломок.', sig_insurance_process: 'При 10% HP враги разбрасываются в стороны. Один раз за комнату.',
+  sig_quarantine_buffer: 'В начале каждой комнаты включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком HP 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить GLD или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть врагов получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные враги иногда оставляют небольшой лечебный обломок.', sig_insurance_process: 'При 10% HP враги разбрасываются в стороны. Один раз за комнату.',
   droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к врагам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача. Боевые комнаты получают больше статик-давления.', overload: 'Сильно повышает урон, но снижает максимум HP.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
 };
 const EN_CORE = {
@@ -165,10 +165,10 @@ const RU_CORE = {
   debt_pulse: 'Красный статик-взрыв вокруг тебя. Ослабляет врагов и может вызвать статик-шторм.'
 };
 const RU_MUT = {
-  static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую казино-проверку: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q создаёт зону голода. Чем больше врагов внутри, тем сильнее финальный цифровой укус.', bad_tape: 'Q создаёт два слабых глючных повтора.'
+  static: 'Q оставляет статик-поле, которое замедляет врагов и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить HP.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую проверку казино: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть HP или GLD.', armor_crack: 'Q сильнее ломает защиту врагов.', anchor: 'Q оставляет тяжёлую область, которая тянет врагов и тормозит пули.', hunger: 'Q создаёт зону голода. Чем больше врагов внутри, тем сильнее финальный цифровой укус.', bad_tape: 'Q создаёт два слабых искажённых повтора.'
 };
 const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'CHARGE BITE':'CHARGE BITE', 'GLITCH REPEAT':'GLITCH REPEAT' };
-const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'РИСКОВЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ГЛИТЧ-ПОВТОР' };
+const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'ОПАСНЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ИСКАЖЁННЫЙ ПОВТОР' };
 const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'SIDE UPGRADE':'SIDE UPGRADE' };
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
 
@@ -179,7 +179,7 @@ const RU_CHEST = {
   BSC: 'Бесплатный базовый сундук: GLD, EXP и иногда HEA.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук способностей: активка Q, улучшение Q, мутация или мобильность.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но забег становится опаснее.'
 };
 const EN_PICKUP = { GLD: 'Money for chests and BET. Shared by the team.', EXP: 'Experience toward the next level. INSTALL choices appear between rooms.', HEA: 'Healing pickup. Restores health to the collector.' };
-const RU_PICKUP = { GLD: 'Деньги для сундуков и BET. Обычный GLD делится с командой.', EXP: 'Опыт для уровней. Апгрейды появляются между комнатами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
+const RU_PICKUP = { GLD: 'Деньги для сундуков и ставок. Обычный GLD делится с командой.', EXP: 'Опыт для уровней. Улучшения появляются между комнатами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
 const EN_ENEMY = {
   grunt:'Basic chaser with contact damage.', runner:'Fast weak enemy that breaks your position.', tank:'Slow armored wall that soaks damage.', shooter:'Ranged enemy that shoots red projectiles.', charger:'Winds up, then charges in a straight line.', bomber:'Arms a fuse and explodes. Leave the radius.', bouncer:'Pinball enemy that bounces and shoves.', glitch:'Blink attacker that strikes from odd angles.', echo:'Mimic enemy: fires familiar shots from a distance.', orbiter:'Mobile guard with front shield.', anchor:'Control anchor that pulls and slows.', splitter:'Splits into smaller fast enemies on death.', prism:'Fires split prism lanes.', pulse:'Fires forward square-wave pressure.', leech:'Heals wounded enemies. Priority target.', herald:'Summons swarms behind pressure lines.', warden:'Coordinates shell armor links.', damper:'Slow mobile field that stops bullets and shelters nearby enemies.', boss:'Boss floor enemy with bursts and adds.', boss_croupier:'Casino boss: marks stakes on the floor and changes pressure.', boss_anchor_cashier:'Anchor boss: strong pull field and gravity bursts.', boss_hunter_chorus:'Hunter boss: shots, traps, and hunter reinforcements.', boss_q_revisor:'Q Revisor: uses one adapted Q active ability.'
 };
@@ -194,7 +194,7 @@ const RU_WEAPON = {
   SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании или столкновении со стеной.'
 };
 const EN_SKIN_NOTE = {
-  terminal_mint:'clean green signal', debt_red:'red static signal', void_cyan:'cold void signal', casino_gold:'gold casino frame', bruise_purple:'purple bruised signal', bone_static:'bone static signal', black_lime:'black lime signal', bad_tv:'bad TV glare', red_static:'red broken channel', mirror_coin:'mirror coin signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary casino wound', dead_channel:'dead TV channel'
+  terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
 };
 
 export function getLang() {
@@ -240,7 +240,7 @@ export function cleanPlayerText(text) {
       .replace(/SIDE UPGRADE/gi, 'дополнительное усиление')
       .replace(/contract favor/gi, 'приз контракта')
       .replace(/favor/gi, 'приз')
-      .replace(/reroll/gi, 'реролл').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER CHARGE/gi, 'накопление голода').replace(/DIGITAL BITE/gi, 'цифровой укус')
+      .replace(/reroll/gi, 'переброс').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER CHARGE/gi, 'накопление голода').replace(/DIGITAL BITE/gi, 'цифровой укус')
       .replace(/next room/gi, 'следующая комната');
   }
   if (langIsEn() && /[А-Яа-яЁё]/.test(s)) {
@@ -262,7 +262,7 @@ export function cleanPlayerText(text) {
     };
     if (exact[s]) s = exact[s];
     s = s
-      .replace(/Апгрейд RKT: /g, 'RKT upgrade: ')
+      .replace(/Улучшение RKT: /g, 'RKT upgrade: ')
       .replace(/ракеты?/gi, 'rockets')
       .replace(/взрывы?/gi, 'explosions')
       .replace(/оглушать врагов/gi, 'stun enemies')
@@ -330,7 +330,7 @@ export function denyText(f = {}) {
     'NO SHG CHARGE': '',
     'NO RKT': localText('НЕТ ВЫПУЩЕННЫХ RKT', 'NO RKT ROCKETS'),
     'NO RKT REMOTE': localText('НУЖЕН RKT REMOTE', 'NEED RKT REMOTE'),
-    'NO FAVOR REROLL': localText('РЕРОЛЛОВ БОЛЬШЕ НЕТ', 'NO REROLLS LEFT'),
+    'NO FAVOR REROLL': localText('ПЕРЕБРОСОВ БОЛЬШЕ НЕТ', 'NO REROLLS LEFT'),
     'NO SEK SWARM': localText('НУЖЕН SEK SWARM', 'NEED SEK SWARM'),
     'NO SHG LONGSHOT': localText('НУЖЕН SHG LONGSHOT', 'NEED SHG LONGSHOT'),
     'NO ACTIVE': t('qNoneLong'),
@@ -417,7 +417,7 @@ export function locLabel(label) {
   const s = String(label || '');
   if (!langIsEn()) return RU_LABEL[s] || s;
   const exact = EN_LABEL[s] || EN_LABEL[s.toUpperCase?.() || s] || {
-    'ВЫБОР WPN': 'WPN PICK', 'ВЫБОР ABL': 'ABL PICK', 'УЖЕ ЕСТЬ': 'ALREADY OWNED', 'НЕТ ВАРИАНТА': 'NO OPTION',
+    'ВЫБОР WPN': 'WPN PICK', 'ВЫБОР ABL': 'ABL PICK', 'ВЫБОР ОРУЖИЯ': 'WPN PICK', 'ВЫБОР Q': 'ABL PICK', 'УЖЕ ЕСТЬ': 'ALREADY OWNED', 'НЕТ ВАРИАНТА': 'NO OPTION',
     'НЕТ АКТИВКИ': 'NO ACTIVE', 'НЕТ Q': 'NO Q', 'ВЗЯЛ': 'TOOK', 'ЗАМЕНИТЬ': 'REPLACE', 'НУЖЕН': 'NEED',
     'STATIC Q': 'STATIC CORE'
   }[s];
@@ -464,7 +464,7 @@ export function applyStaticI18n() {
   setText('btn-join', t('join'));
   setPlaceholder('name-input', t('namePlaceholder'));
   setPlaceholder('room-input', t('codePlaceholder'));
-  setHTML('menu-controls', `<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">LMB</span> — ${t('fire')} · <span class="term">RMB</span> — ALT · <span class="term">SPACE</span> — ${t('inspect')} · <span class="term">SHIFT</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">TAB</span> — ${t('panel')}`);
+  setHTML('menu-controls', localText(`<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">ЛКМ</span> — ${t('fire')} · <span class="term">ПКМ</span> — второй огонь · <span class="term">Пробел</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`, `<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">LMB</span> — ${t('fire')} · <span class="term">RMB</span> — secondary fire · <span class="term">Space</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`));
   setExplainId('hud-version', t('versionTitle'), t('versionBody'));
   setExplainId('hud-room', t('roomTitle'), t('roomBody'));
   setExplainId('hud-loop', t('loopTitle'), t('loopBody'));
@@ -483,10 +483,10 @@ export function applyStaticI18n() {
   setExplainSel('#install-modal .hint .term', t('quickPickTitle'), t('quickPickBody'));
   const installHint = document.querySelector('#install-modal .hint'); if (installHint) installHint.lastChild && (installHint.lastChild.textContent = ` — ${t('choose')}`);
   setExplainSel('#weapon-modal .panel-title', t('wpnChestTitle'), t('wpnChestBody'));
-  setExplainSel('#weapon-modal .hint .term', localText('ВЫБОР WPN', 'WPN PICK'), t('quickPickBody'));
+  setExplainSel('#weapon-modal .hint .term', localText('ВЫБОР ОРУЖИЯ', 'WPN PICK'), t('quickPickBody'));
   const wh = document.querySelector('#weapon-modal .hint'); if (wh) wh.lastChild && (wh.lastChild.textContent = ` — ${t('chooseAvailable')}`);
   setExplainSel('#ability-modal .panel-title', t('ablChestTitle'), t('ablChestBody'));
-  setExplainSel('#ability-modal .hint .term', localText('ВЫБОР ABL', 'ABL PICK'), t('quickPickBody'));
+  setExplainSel('#ability-modal .hint .term', localText('ВЫБОР Q', 'ABL PICK'), t('quickPickBody'));
   const ah = document.querySelector('#ability-modal .hint'); if (ah) ah.lastChild && (ah.lastChild.textContent = ` — ${t('chooseOption')}`);
   setExplainSel('#casino-modal .panel-title', t('betTitle'), t('betBody'), 'red');
   const stakeBodies = { low: t('lowBetBody'), mid: t('midBetBody'), high: t('highBetBody') };

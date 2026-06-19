@@ -6,17 +6,17 @@ import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, acti
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(ROOM_MODS).map(m => [m.id, m.label]));
 const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR' };
-const ARCH_LABELS_RU = { panic_box: 'ТЕСНАЯ КОРОБКА', compact: 'ТЕСНАЯ КОМНАТА', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'ЭТАЖ БОССА' };
+const ARCH_LABELS_RU = { panic_box: 'ТЕСНАЯ КОРОБКА', compact: 'ТЕСНАЯ КОМНАТА', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КОМНАТА ОТДЫХА', boss: 'ЭТАЖ БОССА' };
 const MOD_LABELS_RU = {
   blackout: 'ТЕМНОТА', static_rain: 'СТАТИК-ШТОРМ', greed: 'ЗОЛОТАЯ ЛИХОРАДКА', debt_floor: 'СТАТИК-ПОЛ', hunter_contract: 'ВОЛНЫ ОХОТНИКОВ',
   casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНЫЙ ЗАЛ', moving_room: 'ДВИЖУЩИЕСЯ ЗОНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ОПЛАТА',
   shell_market: 'БИРЖА ЩИТОВ', echo_walls: 'ЭХО-ВЫСТРЕЛЫ', static_wires: 'СТАТИК-ПРОВОДА', hunted_exit: 'ОХОТА У ВЫХОДА', skin_cache: 'СКИН-ТАЙНИК'
 };
 const TAG_RU = {
-  'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЖАДНОСТЬ', ARMOR: 'БРОНЯ',
+  'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЗОЛОТО', ARMOR: 'БРОНЯ',
   'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'GLD↑', 'BET↑': 'BET↑',
   'SHELL GLD': 'GLD ЗА ЩИТЫ', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'СКИН', 'SKN CACHE': 'СКИН-ТАЙНИК',
-  'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'МАГАЗИН', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
+  'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'ПОКУПКИ', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
   '3 VIRUS SPINS': '3 БРОСКА ВИРУСА', 'DANGER ZONES': 'ОПАСНЫЕ ЗОНЫ', 'PRISM SLOW': 'ПРИЗМ-ЗАМЕДЛЕНИЕ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ УЗЛЫ',
   'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ ВРАГОВ',
   'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН'
@@ -25,7 +25,7 @@ function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'ST
 function locTag(v) {
   const s = String(v || '').trim();
   if (!s) return s;
-  if (s.includes('STATIC LVL')) return localText(s.replace('STATIC LVL', 'СТАТИК LVL'), s);
+  if (s.includes('STATIC LVL')) return localText(s.replace('STATIC LVL', 'СТАТИК УР.'), s);
   return localText(TAG_RU[s] || s, s);
 }
 function locProgress(v) {
@@ -42,8 +42,8 @@ function locFail(v) {
 function contractFavorPreviewLabel(f = {}) {
   const id = String(f.id || '');
   const ru = {
-    free_reroll: 'РЕРОЛЛ ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
-    portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА РЕРОЛЛА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
+    free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
+    portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
   };
   const en = {
     free_reroll: 'CHEST REROLL', clear_debt: 'CLEAR STATIC STORM',
@@ -78,9 +78,9 @@ function staticBreakdownText(bd = {}, banked = 0) {
   const total = Math.max(0, bd.total | 0);
     const parts = staticBreakdownParts(bd);
   if (total > 0) {
-    return `${localText('СТАТИК-ШТОРМ LVL', 'STATIC STORM LVL')} ${total}${parts.length ? ' = ' + parts.join(' ') : ''}`;
+    return `${localText('СТАТИК-ШТОРМ УР.', 'STATIC STORM LVL')} ${total}${parts.length ? ' = ' + parts.join(' ') : ''}`;
   }
-  if (banked > 0) return `${localText('СТАТИКА В БАНКЕ LVL', 'STATIC BANKED LVL')} ${banked}${parts.length ? ' = ' + parts.join(' ') : ''}`;
+  if (banked > 0) return `${localText('СТАТИКА В ЗАПАСЕ УР.', 'STATIC BANKED LVL')} ${banked}${parts.length ? ' = ' + parts.join(' ') : ''}`;
   return '';
 }
 function staticBreakdownExplain(bd = {}, banked = 0) {
@@ -96,7 +96,7 @@ function roomModLabel(m, room = null, forcedStaticLevel = 0) {
   const label = m === 'skin_cache' ? localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN') : localText(MOD_LABELS_RU[m] || (MOD_LABELS[m] || String(m || '').toUpperCase()), MOD_LABELS[m] || String(m || '').toUpperCase());
   if (m === 'static_rain') {
     const lvl = forcedStaticLevel || Math.max(0, room?.staticRainStacks | 0);
-    return lvl > 0 ? `${label} LVL ${lvl}` : label;
+    return lvl > 0 ? localText(`${label} УР. ${lvl}`, `${label} LVL ${lvl}`) : label;
   }
   return label;
 }
@@ -104,25 +104,25 @@ function roomModHint(m, room = {}) {
   const mode = room.staticRainMode || '';
   const lvl = Math.max(0, room.staticRainStacks | 0);
   const hints = {
-    blackout: localText('Свет ломается. Видишь меньше дальних угроз, поэтому опаснее отходить к краям и стрелять вслепую.', 'Light is broken. Long-range threats are harder to read, so edges and blind firing are more dangerous.'),
+    blackout: localText('Свет ломается. Дальние угрозы хуже видны.', 'Light is broken. Long-range threats are harder to read.'),
     static_rain: String(mode).startsWith('paid')
-      ? localText(`Статик-шторм LVL ${lvl}: на полу появляются опасные области, затем по ним бьёт разряд. Этот шторм активен только в текущей комнате.`, `Static Storm LVL ${lvl}: danger areas appear on the floor, then lightning strikes them. This storm is active only in the current room.`)
-      : localText(`Статик-шторм LVL ${Math.max(1, lvl)}: комната периодически помечает опасные области и бьёт по ним разрядом. Чем выше LVL, тем чаще и жёстче удары.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks dangerous areas and strikes them. Higher LVL means faster and harsher strikes.`),
-    greed: localText('Золотая лихорадка: всё крутится вокруг GLD. Враги и сундуки дают больше золота, а ошибки забирают золото вместо HP.', 'Gold Fever: everything revolves around GLD. Enemies and chests pay more gold, while mistakes take gold instead of HP.'),
-    debt_floor: localText('Статик-пол: сделки выглядят выгоднее, но могут сделать следующие комнаты опаснее.', 'Static Floor: deals look better, but later rooms may become more dangerous.'),
-    hunter_contract: localText('Волны охотников: выход закрыт, пока не переживёшь волны быстрых врагов.', 'Hunter Waves: the exit is locked until the fast enemy waves are cleared.'),
-    casino_virus: localText('Вирус Казино: комната крутит 3 барабана. Результат срабатывает после броска: может прийти награда, штраф или пачка врагов. Портал откроется после всех слотов и полной зачистки.', 'Casino Virus: the room spins 3 reels. The result triggers after the spin: reward, penalty, or enemy pack. Portal opens after all slots and full cleanup.'),
-    mirror_room: localText('Зеркальный зал: больше эхо-угроз. Следи за копиями пуль.', 'Mirror Room: more echo threats. Watch the copied bullets.'),
-    moving_room: localText('Движущиеся зоны: красные полые области едут по комнате. Это не стены, но внутри они замедляют и периодически бьют всех.', 'Shifting Zones: red hollow areas move through the room. They are not walls, but they slow and damage everything inside.'),
-    prism_grid: localText('Призм-сетка: светлые клетки на полу замедляют движение и пули внутри них. Не стой в сетке, если рядом враги.', 'Prism Grid: pale floor cells slow movement and bullets inside them. Do not fight inside the grid unless you have space.'),
-    blood_tax: localText('Кровавая оплата: ставки и покупки платятся HP. Можно зайти в смертельный долг, но страховка от смерти может спасти.', 'Blood Payment: bets and buys cost HP. You can pay into lethal danger, but Death Insurance can save you.'),
-    shell_market: localText('Shell-биржа: у врагов чаще есть щиты. Сначала сбиваешь щит, потом HP; щит может восстановиться, если врага не трогать.', 'Shell Market: enemies more often have shields. Break shield before HP; it can regenerate if the enemy is left alone.'),
-    echo_walls: localText('Эхо-выстрелы: часть пуль получает копию. Твои копии читаются одним цветом, вражеские — красным.', 'Echo Shots: some bullets get a copy. Your copies have one color; enemy copies are red.'),
-    static_wires: localText('Статик-провода: тонкие линии замедляют и искажают траектории.', 'Static Wires: thin lines slow and distort movement and projectiles.'),
-    hunted_exit: localText('Охота у выхода: портал может открыться рано, но задержка в комнате вызывает охотников.', 'Hunted Exit: portal can open early, but staying too long calls hunters.'),
-    skin_cache: localText('Скин-тайник: в комнате спрятан новый облик. После зачистки появится плашка получения.', 'Skin Cache: a new look is hidden here. After clearing, a claim card appears.')
+      ? localText(`Статик-шторм ур. ${lvl}: опасные области появляются и затем бьют разрядом.`, `Static Storm LVL ${lvl}: danger areas appear, then lightning strikes them.`)
+      : localText(`Статик-шторм ур. ${Math.max(1, lvl)}: комната помечает опасные области и бьёт разрядом.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks danger areas and strikes them.`),
+    greed: localText('Золотая лихорадка: больше GLD, но ошибки опаснее.', 'Gold Fever: more GLD, but mistakes are harsher.'),
+    debt_floor: localText('Статик-пол: выгодные сделки усиливают следующий шторм.', 'Static Floor: good deals strengthen the next storm.'),
+    hunter_contract: localText('Волны охотников: портал закрыт до конца волн.', 'Hunter Waves: portal is locked until the waves end.'),
+    casino_virus: localText('Казино-вирус: три броска дают награды, штрафы или врагов.', 'Casino Virus: three spins give rewards, penalties, or enemy packs.'),
+    mirror_room: localText('Зеркальный зал: больше эхо-пуль.', 'Mirror Room: more echo shots.'),
+    moving_room: localText('Движущиеся зоны: красные области замедляют и бьют.', 'Shifting Zones: red areas slow and damage inside.'),
+    prism_grid: localText('Призм-сетка: светлые клетки замедляют движение и пули.', 'Prism Grid: pale cells slow movement and bullets.'),
+    blood_tax: localText('Кровавая оплата: ставки и покупки стоят HP.', 'Blood Payment: bets and buys cost HP.'),
+    shell_market: localText('Биржа щитов: у врагов чаще есть защита.', 'Shell Market: enemies more often have shields.'),
+    echo_walls: localText('Эхо-выстрелы: часть пуль получает копию.', 'Echo Shots: some bullets get a copy.'),
+    static_wires: localText('Статик-провода: линии замедляют движение.', 'Static Wires: thin lines slow movement.'),
+    hunted_exit: localText('Охота у выхода: задержка вызывает охотников.', 'Hunted Exit: staying too long calls hunters.'),
+    skin_cache: localText('Скин-тайник: после зачистки появится карточка облика.', 'Skin Cache: a look card appears after clearing.')
   };
-  return hints[m] || localText('Особое правило меняет бой. Наведи на другие подчёркнутые слова, чтобы понять угрозы и награды.', 'A special rule changes combat. Hover other underlined words to understand threats and rewards.');
+  return hints[m] || localText('Особое правило меняет бой.', 'A special rule changes combat.');
 }
 function roomRuleSummary(room, ids = []) {
   const mods = (ids || []).filter(Boolean);
@@ -200,7 +200,7 @@ ${dangerLabel(room)}
 ${localText('Правила', 'Rules')}: ${mods}
 ${localText('Угроза', 'Threat')}: ${threats}
 ${localText('Награда', 'Reward')}: ${rewards}
-${localText('Подсказка', 'Hint')}: ${localText('наведи на подчёркнутое правило, чтобы увидеть детали.', 'hover an underlined rule to see details.')}`;
+${localText('Подсказка', 'Hint')}: ${localText('подчёркнутые правила можно осмотреть.', 'underlined rules can be inspected.')}`;
 }
 
 
@@ -208,13 +208,13 @@ function objectiveExplain(obj = {}) {
   if (!obj?.id) return localText('Контракт комнаты. Выполни условие, чтобы получить бонус для следующей комнаты.', 'Room contract. Complete the condition to earn a next-room bonus.');
   const map = {
     boss_cut: localText('Убей босса и забери приз после комнаты.', 'Kill the boss and claim the prize after the room.'),
-    lounge_cashout: localText('Безопасная комната: покупай, ставь BET и выходи, когда готов.', 'Safe room: shop, BET, and leave when ready.'),
+    lounge_cashout: localText('Безопасная комната: покупай, ставь и выходи, когда готов.', 'Safe room: shop, bet, and leave when ready.'),
     hunter_waves: localText('Пройди все волны. Портал откроется только после последней.', 'Clear all waves. The portal opens only after the final wave.'),
     virus_clean: localText('Переживи 3 вирусных броска, затем убей всех врагов.', 'Survive 3 virus spins, then kill every enemy.'),
     wire_ghost: localText('Пройди комнату без касания опасных линий.', 'Clear the room without touching hazard lines.'),
     grid_slow_clear: localText('Зачисти комнату с сеткой замедления.', 'Clear the slow-grid room.'),
     blood_paid: localText('В этой комнате покупки требуют HP. Очисти комнату.', 'Purchases in this room cost HP. Clear the room.'),
-    static_clean: localText('Пройди комнату со статик-штормом и получи мало урона. Шторм — это серия опасных областей на арене: они появляются, предупреждают и затем бьют разрядом.', 'Clear the Static Storm room while taking little damage. The storm is a series of danger areas: they appear, warn you, then strike.'),
+    static_clean: localText('Пройди комнату со статик-штормом и получи мало урона.', 'Clear the Static Storm room while taking little damage.'),
     cache_claim: localText('Очисти комнату и забери скрытый скин через портал.', 'Clear the room and claim the hidden skin through the portal.'),
     fast_clear: localText('Убей всех врагов, пока таймер не сгорел.', 'Kill every enemy before the timer runs out.'),
     no_hit: localText('Убей всех врагов без полученного урона.', 'Kill every enemy without taking damage.'),
@@ -226,7 +226,7 @@ function objectiveExplain(obj = {}) {
 ${status}
 ${localText('Ход', 'Progress')}: ${locProgress(obj.progress || '—')}
 ${localText('Приз', 'Prize')}: ${prize}
-${localText('Приз появится после завершения комнаты и поможет в следующей.', 'The prize appears after the room and helps in the next one.')}`;
+${localText('Приз появится после комнаты.', 'The prize appears after the room.')}`;
 }
 function objectiveStatusText(obj = {}) {
   const status = String(obj.status || '').toLowerCase();
@@ -447,9 +447,9 @@ function finalGoalLine(room = {}) {
 function finalSummaryRows(sum = {}) {
   const players = Array.isArray(sum.players) ? sum.players : [];
   const weaponText = players.map(p => `${p.name || 'P'}: ${(p.weapons || []).join('/') || '—'}`).join(' · ');
-  const playerText = players.map(p => `${p.name || 'P'} HP ${p.hp || 0}/${p.maxHp || 0} · LVL ${p.level || 0} · GLD ${p.gld || 0} · ${p.skin || 'skin'}`).join(' | ');
+  const playerText = players.map(p => `${p.name || 'P'} ${localText('HP', 'HP')} ${p.hp || 0}/${p.maxHp || 0} · ${localText('УРОВЕНЬ', 'LVL')} ${p.level || 0} · GLD ${p.gld || 0} · ${p.skin || localText('облик', 'skin')}`).join(' | ');
   const qText = players.map(p => `${p.name || 'P'}: ${p.q || '—'}`).join(' | ');
-  const companionText = players.map(p => `${p.name || 'P'}: DASH ${p.dash || 1} · DRN ${p.drones || 0}`).join(' | ');
+  const companionText = players.map(p => `${p.name || 'P'}: ${localText('РЫВОК', 'DASH')} ${p.dash || 1} · ${localText('ДРОНЫ', 'DRN')} ${p.drones || 0}`).join(' | ');
   return [
     [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 10}`],
     [localText('КОМНАТЫ', 'ROOMS'), String(sum.roomsCleared || 0)],
@@ -487,7 +487,7 @@ export class Hud {
     this.virusRollSpin = { token: 0, timers: [], intervals: [] };
     this.wasAlive = true;
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
-    this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, picked: false, bossSignature: false };
+    this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: false };
     this.installSyncKey = '';
     this.installSyncSeenAt = 0;
     this.skinClaim = null;
@@ -829,10 +829,9 @@ export class Hud {
       this.installSyncKey = '';
       this.installSyncSeenAt = 0;
     }
-    const syncDelayPassed = syncKey && (performance.now() - (this.installSyncSeenAt || 0)) > 1200;
+    const shouldShowDataLoading = room.phase === 'install' && wait && myWait?.waiting && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
     if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
-    else if (room.phase === 'install' && wait && myWait?.waiting && this.install.waitingOnly) this.showInstallOfferSync(wait, me[P.ID]);
-    else if (room.phase === 'install' && wait && myWait?.waiting && !this.install.open && syncDelayPassed) this.showInstallOfferSync(wait, me[P.ID]);
+    else if (shouldShowDataLoading) this.showInstallDataLoading(wait, me[P.ID]);
     else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
     const sigEl = $('hud-signatures');
     if (sigEl) {
@@ -895,7 +894,7 @@ export class Hud {
 
     const comboEl = $('hud-combo');
     if (comboEl) {
-      const comboHtml = renderComboHud(room.combo || {});
+      const comboHtml = renderComboHud((room.playerCombos && room.playerCombos[me[P.ID]]) || room.combo || {});
       if (comboHtml) { comboEl.classList.remove('hidden'); comboEl.innerHTML = comboHtml; }
       else { comboEl.classList.add('hidden'); comboEl.innerHTML = ''; }
     }
@@ -942,10 +941,15 @@ export class Hud {
     if (this.install.open) {
       if (this.install.waitingOnly && room.installWait) {
         const w = $('install-wait');
-        if (w) w.innerHTML = this.installWaitHtml(room.installWait, me[P.ID]);
-        const serverLeft = Number(room.installWait.nextExpires || 0);
-        if (serverLeft > 0) this.install.expires = this.install.expires > 0 ? Math.min(this.install.expires, serverLeft) : serverLeft;
-        else this.install.expires = Math.max(0, this.install.expires - dt);
+        if (this.install.dataLoading) {
+          if (w) w.innerHTML = this.installDataLoadingHtml(room.installWait, me[P.ID]);
+          this.install.expires = this.install.total;
+        } else {
+          if (w) w.innerHTML = this.installWaitHtml(room.installWait, me[P.ID]);
+          const serverLeft = Number(room.installWait.nextExpires || 0);
+          if (serverLeft > 0) this.install.expires = this.install.expires > 0 ? Math.min(this.install.expires, serverLeft) : serverLeft;
+          else this.install.expires = Math.max(0, this.install.expires - dt);
+        }
       } else {
         this.install.expires = Math.max(0, this.install.expires - dt);
       }
@@ -1001,6 +1005,14 @@ export class Hud {
       }
       case 'join': this.feed(`${f.name} ${t('playerJoined')}`, 'g'); break;
       case 'leave': this.feed(`${f.name} ${t('playerLeft')}`, 'r'); break;
+      case 'pick': {
+        if (f.personal) {
+          const who = name(f.id);
+          const label = f.type === 'EXP' ? 'EXP' : f.type === 'HEA' ? 'HP' : 'GLD';
+          this.feed(`${who}: ${locLabel(f.label || localText('ЛИЧНАЯ НАГРАДА', 'PERSONAL REWARD'))} +${f.val || 0} ${label}`, f.type === 'HEA' ? 'g' : 'c');
+        }
+        break;
+      }
       case 'levelup':
         if (f.id === myId) { this.feed(`${localText('УРОВЕНЬ', 'LEVEL UP')} → ${f.level} · ${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
         break;
@@ -1018,19 +1030,23 @@ export class Hud {
         const kills = Math.max(0, f.kills | 0);
         const mult = Number(f.mult || 1).toFixed(1);
         const amount = Math.max(0, f.amount | 0);
-        this.feed(`${localText('КОМБО', 'COMBO')} ${kills} × x${mult} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
+        this.feed(`${name(f.id)}: ${localText('КОМБО', 'COMBO')} ${kills} × x${mult} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
         break;
       }
       case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка скина появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('скин ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
       case 'boss_down': this.banner(t('bossDown'), t('loot'), 'green'); break;
-      case 'chest_open':
-        if (f.id === myId) this.feed(`${locLabel(f.chest)}: ${(f.rewards || []).map(locReward).join(' + ')}`, f.cursed ? 'p' : 'g');
+      case 'chest_open': {
+        const rewards = (f.rewards || []).map(locReward).join(' + ');
+        const paid = f.costPaid ? `-${f.costPaid} ${f.costUnit || 'GLD'} · ` : '';
+        const prefix = (f.personal || f.costPaid) ? `${name(f.id)}: ` : '';
+        this.feed(`${prefix}${locLabel(f.chest)}: ${paid}${rewards}`, f.cursed ? 'p' : 'g');
         break;
+      }
       case 'weapon_get': this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${f.w}`, 'c'); break;
-      case 'weapon_mod': if (f.id === myId) this.feed(`WPN: ${locLabel(f.label)}`, 'c'); break;
-      case 'ability_get': if (f.id === myId) this.feed(locLabel(f.label), 'c'); break;
+      case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
+      case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
       case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
@@ -1242,7 +1258,7 @@ export class Hud {
     const modLabels = (room.mods || []).filter(m => m !== 'static_rain').map(m => roomModLabel(m, room));
     const next = room.next || null;
     const explainAttr = (title, body, tone = '') => `data-explain-title="${esc(title)}" data-explain="${esc(body)}"${tone ? ` data-explain-tone="${tone}"` : ''}`;
-    const tabRoomHint = (r, isNext = false) => `${isNext ? localText('Следующая комната.', 'Next room.') : localText('Текущая комната.', 'Current room.')} ${localText('Главное правило смотри на подчёркнутых модификаторах.', 'Hover underlined modifiers for the actual rules.')}`;
+    const tabRoomHint = (r, isNext = false) => `${isNext ? localText('Следующая комната.', 'Next room.') : localText('Текущая комната.', 'Current room.')} ${localText('Подчёркнутые правила можно осмотреть.', 'Underlined rules can be inspected.')}`;
     const termLabel = (label, title, body, tone = '') => `<span class="term" ${explainAttr(title, body, tone)}>${esc(label)}</span>`;
     const modChip = (m, r = room) => `<span class="term" ${explainAttr(roomModLabel(m, r), roomModHint(m, r), m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'echo_walls' || m === 'casino_virus' ? 'purple' : m === 'greed' ? 'gold' : '')}>${esc(roomModLabel(m, r))}</span>`;
     const modList = (r) => (r?.mods || []).filter(m => m !== 'static_rain').length ? (r.mods || []).filter(m => m !== 'static_rain').map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
@@ -1307,6 +1323,21 @@ export class Hud {
   }
 
   // ------------------------------------------------- install modal
+  installDataLoadingHtml(wait = null, myId = '') {
+    const players = Array.isArray(wait?.players) ? wait.players : [];
+    const mine = players.find(p => String(p.id) === String(myId));
+    const sig = String(mine?.kind || '') === 'boss_signature' || !!mine?.signature;
+    const dots = '.'.repeat(1 + (Math.floor(performance.now() / 420) % 3));
+    const title = sig
+      ? localText('ПОЛУЧЕНИЕ СИГНАТУРЫ', 'RECEIVING SIGNATURE')
+      : localText('ПОЛУЧЕНИЕ ДАННЫХ', 'RECEIVING DATA');
+    const line = sig
+      ? localText('Считываем пакет угрозы от узла ведущего.', 'Reading threat packet from host node.')
+      : localText('Синхронизация улучшений с ведущим узлом.', 'Syncing install data from host node.');
+    const sub = localText('Не нажимай вслепую — варианты появятся сами.', 'Do not mash keys — options will appear automatically.');
+    return `<b>${esc(title)}${esc(dots)}</b><br>${esc(line)}<span class="wait-names">${esc(sub)}</span>`;
+  }
+
   installWaitHtml(wait = null, myId = '') {
     const players = Array.isArray(wait?.players) ? wait.players : [];
     const waiting = players.filter(p => p && p.waiting);
@@ -1328,9 +1359,10 @@ export class Hud {
     const sig = Array.isArray(wait?.players) && wait.players.some(p => p && p.waiting && String(p.kind || '') === 'boss_signature');
     const left = Math.max(1, Number(wait?.nextExpires || 6));
     const prev = this.install.open && this.install.waitingOnly ? this.install : null;
-    this.install = { open: true, choices: [], offerId: 0, expires: prev ? Math.min(Math.max(0, prev.expires || left), left) : left, total: prev ? Math.max(1, prev.total || left) : left, locked: true, waitingOnly: true, picked: true, bossSignature: sig };
+    this.install = { open: true, choices: [], offerId: 0, expires: prev ? Math.min(Math.max(0, prev.expires || left), left) : left, total: prev ? Math.max(1, prev.total || left) : left, locked: true, waitingOnly: true, dataLoading: false, picked: true, bossSignature: sig };
     modal.classList.toggle('boss-signature-modal', sig);
     modal.classList.add('waiting-only');
+    modal.classList.remove('data-loading', 'sig-opening', 'sig-closing', 'sig-open');
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('ОЖИДАНИЕ', 'WAIT');
     box.innerHTML = '';
     waitEl.className = 'install-wait done' + (sig ? ' boss' : '');
@@ -1338,7 +1370,7 @@ export class Hud {
     modal.classList.remove('hidden');
   }
 
-  showInstallOfferSync(wait = null, myId = '') {
+  showInstallDataLoading(wait = null, myId = '') {
     const modal = $('install-modal');
     const box = $('install-choices');
     const waitEl = $('install-wait');
@@ -1346,17 +1378,16 @@ export class Hud {
     const players = Array.isArray(wait?.players) ? wait.players : [];
     const mine = players.find(p => String(p.id) === String(myId));
     const sig = String(mine?.kind || '') === 'boss_signature' || !!mine?.signature;
-    const left = Math.max(1, Number(wait?.nextExpires || 6));
-    const prev = this.install.open && this.install.waitingOnly ? this.install : null;
-    this.install = { open: true, choices: [], offerId: Math.max(0, mine?.offerId || 0), expires: prev ? Math.min(Math.max(0, prev.expires || left), left) : left, total: prev ? Math.max(1, prev.total || left) : left, locked: true, waitingOnly: true, picked: false, bossSignature: sig };
+    const prev = this.install.open && this.install.waitingOnly && this.install.dataLoading ? this.install : null;
+    this.install = { open: true, choices: [], offerId: Math.max(0, mine?.offerId || 0), expires: 1, total: 1, locked: true, waitingOnly: true, dataLoading: true, picked: false, bossSignature: sig };
+    if (prev) { this.install.expires = prev.expires || 1; this.install.total = prev.total || 1; }
     modal.classList.toggle('boss-signature-modal', sig);
-    modal.classList.add('waiting-only');
-    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('СИНХРОНИЗАЦИЯ', 'SYNC');
+    modal.classList.add('waiting-only', 'data-loading');
+    modal.classList.remove('sig-opening', 'sig-closing', 'sig-open');
+    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('СИГНАЛ', 'SIGNAL');
     box.innerHTML = '';
-    const label = sig ? localText('ПОЛУЧАЕМ ВАРИАНТЫ СИГНАТУРЫ', 'RECEIVING SIGNATURE OPTIONS') : localText('ПОЛУЧАЕМ ВАРИАНТЫ УЛУЧШЕНИЯ', 'RECEIVING INSTALL OPTIONS');
-    const body = localText('Сеть догоняет фазу выбора. Окно восстановится автоматически.', 'Network is catching up to the choice phase. This window will recover automatically.');
-    waitEl.className = 'install-wait' + (sig ? ' boss' : '');
-    waitEl.innerHTML = `<b>${esc(label)}</b><br>${esc(body)}`;
+    waitEl.className = 'install-wait data' + (sig ? ' boss' : '');
+    waitEl.innerHTML = this.installDataLoadingHtml(wait, myId);
     modal.classList.remove('hidden');
   }
 
@@ -1375,12 +1406,20 @@ export class Hud {
       const p = $('install-pending'); if (p) p.textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
       return;
     }
-    this.install = { open: true, choices: normalizedChoices, offerId: nextOfferId, expires: nextExpires, total: nextTotal, locked: false, waitingOnly: false, picked: false, bossSignature: sig };
+    this.install = { open: true, choices: normalizedChoices, offerId: nextOfferId, expires: nextExpires, total: nextTotal, locked: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: sig };
     this.installSyncKey = '';
     this.installSyncSeenAt = 0;
     const modal = $('install-modal');
-    modal?.classList.remove('waiting-only');
+    modal?.classList.remove('waiting-only', 'data-loading', 'sig-closing');
     modal?.classList.toggle('boss-signature-modal', sig);
+    if (modal && sig && !sameOffer) {
+      modal.classList.remove('sig-opening', 'sig-open');
+      void modal.offsetWidth;
+      modal.classList.add('sig-opening');
+      setTimeout(() => { if (this.install.open && this.install.bossSignature) { modal.classList.remove('sig-opening'); modal.classList.add('sig-open'); } }, 520);
+    } else if (modal && !sig) {
+      modal.classList.remove('sig-opening', 'sig-open');
+    }
     const waitEl = $('install-wait'); if (waitEl) { waitEl.className = 'install-wait hidden'; waitEl.innerHTML = ''; }
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
     const box = $('install-choices');
@@ -1417,14 +1456,31 @@ export class Hud {
     this.pick(Math.floor(Math.random() * this.install.choices.length));
     return true;
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.waitingOnly = false; this.install.picked = false; this.install.bossSignature = false; this.installSyncKey = ''; this.installSyncSeenAt = 0; $('install-modal')?.classList.remove('boss-signature-modal', 'waiting-only'); const w = $('install-wait'); if (w) { w.className = 'install-wait hidden'; w.innerHTML = ''; } $('install-modal').classList.add('hidden'); this.hideTip(); }
+  closeInstall() {
+    const wasBossSignature = !!this.install.bossSignature;
+    const modal = $('install-modal');
+    this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.waitingOnly = false; this.install.dataLoading = false; this.install.picked = false; this.install.bossSignature = false; this.installSyncKey = ''; this.installSyncSeenAt = 0;
+    const w = $('install-wait'); if (w) { w.className = 'install-wait hidden'; w.innerHTML = ''; }
+    if (modal && wasBossSignature && !modal.classList.contains('hidden')) {
+      modal.classList.remove('waiting-only', 'data-loading', 'sig-opening', 'sig-open');
+      modal.classList.add('sig-closing');
+      setTimeout(() => {
+        if (!this.install.open) modal.classList.add('hidden');
+        modal.classList.remove('boss-signature-modal', 'waiting-only', 'data-loading', 'sig-opening', 'sig-open', 'sig-closing');
+      }, 360);
+    } else if (modal) {
+      modal.classList.remove('boss-signature-modal', 'waiting-only', 'data-loading', 'sig-opening', 'sig-open', 'sig-closing');
+      modal.classList.add('hidden');
+    }
+    this.hideTip();
+  }
 
   openSkinClaim(skin = {}) {
     if (!skin?.id && !skin?.name && !skin?.allOwned) return;
     this.skinClaim = { ...skin, claimed: false };
     const box = $('install-choices');
     if (!this.install.open) {
-      this.install = { open: true, choices: [], expires: 15, total: 15, locked: false, skinOnly: true };
+      this.install = { open: true, choices: [], expires: 15, total: 15, locked: false, skinOnly: true, waitingOnly: false, dataLoading: false };
       $('install-pending').textContent = localText('SKN', 'SKN');
       if (box) box.innerHTML = '';
       $('install-modal')?.classList.remove('hidden');
@@ -1442,7 +1498,7 @@ export class Hud {
       this.setExplain(d, localText('КОЛЛЕКЦИЯ ЗАВЕРШЕНА', 'COLLECTION COMPLETE'), localText('Все доступные облики уже открыты.', 'Every available look is already unlocked.'), 'gold');
     } else {
       d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ СКИН', 'CLAIM SKIN'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || 'SKIN')}</span>`;
-      this.setExplain(d, localText('СКИН ГОТОВ', 'SKIN READY'), localText('Скин уже открыт для забега. Нажми, чтобы закрыть карточку и отметить его как забранный.', 'The skin is unlocked for the run. Click to close this card and mark it claimed.'), 'purple');
+      this.setExplain(d, localText('СКИН ГОТОВ', 'SKIN READY'), localText('Нажми, чтобы закрыть карточку.', 'Click to close this card.'), 'purple');
     }
     d.addEventListener('click', () => { this.playUiSound(skin.allOwned ? 'ui_click' : 'install'); this.skinClaim.claimed = true; d.classList.add('picked'); d.remove(); if (this.install.skinOnly) this.closeInstall(); });
     box.prepend(d);
@@ -1451,8 +1507,8 @@ export class Hud {
   favorUiLabel(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'РЕРОЛЛ ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
-      portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА РЕРОЛЛА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
+      free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
+      portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
     };
     const en = {
       free_reroll: 'CHEST REROLL', clear_debt: 'CLEAR STATIC STORM',
@@ -1463,10 +1519,10 @@ export class Hud {
   favorUiBody(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'Один раз обновляет варианты WPN/ABL в этой комнате.',
+      free_reroll: 'Один раз обновляет варианты сундука в этой комнате.',
       clear_debt: 'Ослабляет следующий статик-шторм перед входом в комнату.',
       portal_insurance: 'Один раз в этой комнате смертельный удар оставит тебя живым и даст 50 HP.',
-      epic_reroll: 'Два раза обновляет варианты WPN/ABL в этой комнате.',
+      epic_reroll: 'Два раза обновляет варианты сундука в этой комнате.',
       double_favor: 'Если контракт выполнен, после комнаты будет два приза.'
     };
     const en = {
@@ -1497,8 +1553,8 @@ export class Hud {
     if (!box || uses <= 0) return;
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
-    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('РЕРОЛЛ ВЫБОРА · только эта комната', 'CHOICE REROLL · this room only'))}</span>`;
-    this.setExplain(d, localText('РЕРОЛЛ ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого WPN/ABL выбора.', 'Refreshes the choices for this WPN/ABL pick.'), 'gold');
+    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · только эта комната', 'CHOICE REROLL · this room only'))}</span>`;
+    this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого WPN/ABL выбора.', 'Refreshes the choices for this WPN/ABL pick.'), 'gold');
     d.addEventListener('click', () => {
       if (d.dataset.locked === '1' || uses <= 0) return;
       this.playUiSound('contract');
@@ -1749,7 +1805,7 @@ export class Hud {
       if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
       if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       el.innerHTML = parts.map(x => `<span>${esc(x)}</span>`).join('');
-      this.feed(`${localText('BET НАГРАДА', 'BET REWARD')}: ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      this.feed(`${name(f.id)}: ${localText('BET НАГРАДА', 'BET REWARD')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN') ? 'casino_ability' : 'casino_win');
     }, 640);

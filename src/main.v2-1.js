@@ -7,7 +7,7 @@ import { Renderer } from './render.v2-1.js';
 import { Hud } from './hud.v2-1.js';
 import { AudioBus } from './audio.v2-1.js';
 import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, HERO_UPGRADES, WEAPON_CHEST_REWARDS, BOSS_SIGNATURE_UPGRADE_IDS } from '../shared/data.v2-1.js';
-import { setupLanguageButtons, onLangChange, t, skinNote, labelStatus, getLang, locRole, locAction } from './i18n.v2-1.js';
+import { setupLanguageButtons, onLangChange, t, skinNote, labelStatus, getLang, locRole, locAction, localText } from './i18n.v2-1.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -36,22 +36,24 @@ document.querySelectorAll('[data-lang-btn]').forEach(btn => btn.addEventListener
 const status = $('menu-status');
 const menuVersion = $('menu-version');
 const NET_STATUS = {
-  connecting: 'CONNECTING…',
-  online: 'ONLINE',
-  ready: 'NETWORK READY',
-  waking: 'NETWORK WAKING · SOLO READY',
-  down: 'NETWORK UNAVAILABLE · SOLO READY',
-  update: 'UPDATE REQUIRED',
-  code4: 'ROOM CODE MUST BE 4 SYMBOLS',
-  roomNotFound: 'ROOM NOT FOUND',
-  roomFull: 'ROOM FULL (4/4)',
-  lost: 'CONNECTION LOST — REFRESH PAGE'
+  connecting: ['ПОДКЛЮЧЕНИЕ…', 'CONNECTING…'],
+  online: ['В СЕТИ', 'ONLINE'],
+  ready: ['СЕТЬ ГОТОВА', 'NETWORK READY'],
+  waking: ['СЕТЬ ПРОСЫПАЕТСЯ · СОЛО ГОТОВО', 'NETWORK WAKING · SOLO READY'],
+  down: ['СЕТЬ НЕДОСТУПНА · СОЛО ГОТОВО', 'NETWORK UNAVAILABLE · SOLO READY'],
+  update: ['НУЖНО ОБНОВИТЬ СТРАНИЦУ', 'UPDATE REQUIRED'],
+  code4: ['КОД КОМНАТЫ: 4 СИМВОЛА', 'ROOM CODE MUST BE 4 SYMBOLS'],
+  roomNotFound: ['КОМНАТА НЕ НАЙДЕНА', 'ROOM NOT FOUND'],
+  roomFull: ['КОМНАТА ЗАПОЛНЕНА (4/4)', 'ROOM FULL (4/4)'],
+  lost: ['СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ', 'CONNECTION LOST — REFRESH PAGE'],
+  error: ['СЕТЕВАЯ ОШИБКА', 'NETWORK ERROR']
 };
-function setStatus(text, cls = '') { status.textContent = text; status.className = cls; }
+function netStatus(key) { const v = NET_STATUS[key] || NET_STATUS.error; return getLang() === 'en' ? v[1] : v[0]; }
+function setStatus(text, cls = '') { status.textContent = Array.isArray(text) ? (getLang() === 'en' ? text[1] : text[0]) : text; status.className = cls; }
 function setMenuVersion(server = null) {
   if (!menuVersion) return;
-  const online = server ? 'ONLINE' : 'CHECKING';
-  menuVersion.textContent = `VERSION ${VERSION} · ${online}`;
+  const online = server ? localText('В СЕТИ', 'ONLINE') : localText('ПРОВЕРКА', 'CHECKING');
+  menuVersion.textContent = `${localText('ВЕРСИЯ', 'VERSION')} ${VERSION} · ${online}`;
 }
 setMenuVersion();
 
@@ -60,6 +62,30 @@ const skinSaveKey = 'nnc_skin_preset';
 const skinUnlockKey = 'nnc_skins_unlocked_v1';
 let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
+
+function hexTriplet(hex, fallback = '0,255,102') {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return fallback;
+  const v = m[1];
+  return `${parseInt(v.slice(0, 2), 16)},${parseInt(v.slice(2, 4), 16)},${parseInt(v.slice(4, 6), 16)}`;
+}
+function applySkinTheme(id = selectedSkinId) {
+  const direct = SKIN_BY_ID[id] && isSkinUnlocked(id) ? SKIN_BY_ID[id] : null;
+  const fallbackId = typeof firstUnlockedSkinId === 'function' ? firstUnlockedSkinId() : (DEFAULT_UNLOCKED_SKINS[0] || 'terminal_mint');
+  const skin = direct || SKIN_BY_ID[selectedSkinId] || SKIN_BY_ID[fallbackId] || SKIN_PRESETS[0];
+  if (!skin) return;
+  for (const el of [document.documentElement, document.body]) {
+    if (!el) continue;
+    el.dataset.skinId = skin.id || 'terminal_mint';
+    el.dataset.skinRarity = skin.rarity || 'basic';
+    el.style.setProperty('--skin-fill', skin.fill || '#f3f3f3');
+    el.style.setProperty('--skin-outline', skin.outline || '#00ff66');
+    el.style.setProperty('--skin-barrel', skin.barrel || '#00ff66');
+    el.style.setProperty('--skin-fill-rgb', hexTriplet(skin.fill || '#f3f3f3', '243,243,243'));
+    el.style.setProperty('--skin-outline-rgb', hexTriplet(skin.outline || '#00ff66', '0,255,102'));
+    el.style.setProperty('--skin-barrel-rgb', hexTriplet(skin.barrel || '#00ff66', '0,255,102'));
+  }
+}
 
 function presetById(id) { return SKIN_PRESETS.findIndex(s => s.id === id); }
 function rarityMeta(rarity) { return SKIN_RARITIES[rarity] || SKIN_RARITIES.basic; }
@@ -130,6 +156,7 @@ function updateSkinPreview() {
     note.textContent = `${rarity.label} · ${labelStatus(status)}`;
     note.title = skinNote(p);
   }
+  applySkinTheme(selectedSkinId);
 }
 function setSkinIndex(next) {
   skinIndex = ((next % SKIN_PRESETS.length) + SKIN_PRESETS.length) % SKIN_PRESETS.length;
@@ -145,6 +172,7 @@ function loadSkin() {
   const idx = presetById(selectedSkinId);
   skinIndex = idx >= 0 ? idx : 0;
   updateSkinPreview();
+  applySkinTheme(selectedSkinId);
   return readSkin();
 }
 function fallbackLockedSkin(preferredRarity = '') {
@@ -179,6 +207,7 @@ function handleSkinUnlock(id, source = 'casino') {
     const idx = presetById(skin.id); if (idx >= 0) skinIndex = idx;
     localStorage.setItem(skinSaveKey, selectedSkinId);
     updateSkinPreview();
+    applySkinTheme(selectedSkinId);
     const ru = getLang() !== 'en';
     const prefix = source === 'room' ? (ru ? 'СКИН ИЗ КОМНАТЫ' : 'ROOM SKIN') : (ru ? 'СКИН ОТКРЫТ' : 'SKIN UNLOCKED');
     const suffix = fallback ? (ru ? ' / БЕЗ ДУБЛЯ' : ' / NO DUPLICATE') : '';
@@ -201,6 +230,7 @@ function playerName() {
 }
 $('name-input').value = localStorage.getItem('nnc_name') || '';
 loadSkin();
+applySkinTheme(selectedSkinId);
 $('skin-prev')?.addEventListener('click', () => { uiClick('ui_click'); setSkinIndex(skinIndex - 1); });
 $('skin-next')?.addEventListener('click', () => { uiClick('ui_click'); setSkinIndex(skinIndex + 1); });
 const skinToggle = $('btn-skin-toggle');
@@ -261,16 +291,17 @@ onLangChange(() => {
   updateSkinPreview();
   if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');
   applyVisualFilter(false);
+  setMenuVersion(net.connected ? true : null);
 });
 
 async function connect() {
-  setStatus(NET_STATUS.connecting);
+  setStatus(netStatus('connecting'));
   try {
     await net.connect(WS_URL, playerName(), saveSkin());
-    setStatus(NET_STATUS.online, 'ok');
+    setStatus(netStatus('online'), 'ok');
     return true;
   } catch (e) {
-    setStatus(NET_STATUS.down, 'err');
+    setStatus(netStatus('down'), 'err');
     return false;
   }
 }
@@ -293,7 +324,7 @@ $('btn-create').addEventListener('click', async () => {
 $('btn-join').addEventListener('click', async () => {
   uiClick('run_start');
   const code = $('room-input').value.trim().toUpperCase();
-  if (code.length !== 4) { setStatus(NET_STATUS.code4, 'err'); return; }
+  if (code.length !== 4) { setStatus(netStatus('code4'), 'err'); return; }
   $('btn-join').disabled = true;
   state.localMode = false;
   net._name = playerName();
@@ -311,12 +342,12 @@ fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '
     setMenuVersion(h);
     const serverProto = Number(h?.protocol ?? PROTOCOL);
     if (serverProto !== PROTOCOL) {
-      setStatus(NET_STATUS.update, 'err');
+      setStatus(netStatus('update'), 'err');
       return;
     }
-    setStatus(NET_STATUS.ready, 'ok');
+    setStatus(netStatus('ready'), 'ok');
   })
-  .catch(() => { setMenuVersion(); setStatus(NET_STATUS.waking); });
+  .catch(() => { setMenuVersion(); setStatus(netStatus('waking')); });
 
 // ---------------------------------------------------------------- net handlers
 net.on('welcome', (m) => {
@@ -343,12 +374,12 @@ net.on('weapon_offer_close', () => hud.closeWeaponChest());
 net.on('ability_offer', (m) => hud.openAbilityChest(m.choices));
 net.on('ability_offer_close', () => hud.closeAbilityChest());
 net.on('casino_result', (m) => { if (m?.id === state.myId) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
-net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? NET_STATUS.roomNotFound : m.error === 'room full' ? NET_STATUS.roomFull : String(m.error || 'NETWORK ERROR').toUpperCase(), 'err'); });
+net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? netStatus('roomNotFound') : m.error === 'room full' ? netStatus('roomFull') : netStatus('error'), 'err'); });
 net.on('room_closed', () => location.reload());
 net.on('_closed', () => {
   if (inGame) {
     $('menu').classList.remove('hidden');
-    setStatus(NET_STATUS.lost, 'err');
+    setStatus(netStatus('lost'), 'err');
     inGame = false;
   }
 });

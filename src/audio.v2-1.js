@@ -23,7 +23,7 @@ export class AudioBus {
     this.cooldowns = {
       shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
-      dash: 0.07, dash_jackpot: 0.16, dash_dead_channel: 0.16, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
+      dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
       chest_ability: 0.16, chest_rare: 0.18, chest_cursed: 0.2,
       portal: 0.35, install: 0.18, jackpot: 0.4, active_snap: 0.24, active_blood: 0.24,
@@ -44,7 +44,7 @@ export class AudioBus {
     this.prio = {
       phit: 10, rocket_blast: 9, portal: 8, jackpot: 8, denied: 7,
       casino_static: 8, casino_lose: 7, casino_weapon: 7, casino_ability: 7, casino_win: 6, casino_result: 6, casino_spin: 3, casino_reel_stop: 4,
-      dash: 6, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
+      dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
       shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5
@@ -276,6 +276,23 @@ export class AudioBus {
         this.tone(390, 0.045, 'square', 0.065, 2.25);
         this.tone(1050, 0.032, 'square', 0.045, 0.58, 0.015);
         this.noise(0.035, 0.032, 4600, 12);
+        break;
+      case 'dash_uncommon':
+        this.tone(428, 0.050, 'square', 0.056, 1.64);
+        this.tone(860, 0.040, 'triangle', 0.026, 0.88, 0.010);
+        this.noise(0.030, 0.020, 5100, 11);
+        break;
+      case 'dash_rare':
+        this.tone(312, 0.060, 'square', 0.060, 1.42);
+        this.tone(930, 0.042, 'square', 0.034, 0.76, 0.020);
+        this.noise(0.050, 0.028, 3400, 8);
+        break;
+      case 'dash_superrare':
+        this.noise(0.012, 0.022, 6200, 16, 0.000);
+        this.tone(208, 0.075, 'square', 0.056, 0.72, 0.000);
+        this.tone(612, 0.050, 'square', 0.036, 1.12, 0.016);
+        this.tone(1224, 0.030, 'triangle', 0.022, 0.84, 0.056);
+        this.noise(0.070, 0.026, 4200, 10, 0.024);
         break;
       case 'dash_jackpot':
         // legendary JACKPOT WOUND dash: layered transient/body/tail — slot latch, coin bite, red wound cut.

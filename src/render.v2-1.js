@@ -1,12 +1,28 @@
 // terminal casino roguelike renderer: squares, labels above, silhouettes that telegraph mechanics
 import { P, ENEMY_KINDS, ENEMY_LABELS } from './state.v2-1.js';
-import { ENEMIES } from '../shared/data.v2-1.js';
+import { ENEMIES, SKIN_PRESETS } from '../shared/data.v2-1.js';
 
 const COL = {
   bg: '#050505', fg: '#f3f3f3', dim: '#666',
-  green: '#00ff66', red: '#ff3048', purple: '#b45cff', cyan: '#66f6ff',
+  green: '#00ff66', red: '#ff3048', purple: '#b45cff', cyan: '#66f6ff', gold: '#ffd34d',
   wall: '#0d0d0d', wallEdge: '#2c2c2c', grid: '#0b0b0b'
 };
+
+const SKIN_META_BY_ID = Object.fromEntries(SKIN_PRESETS.map(s => [s.id, s]));
+function rgba(hex, a = 1) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return hex || `rgba(255,255,255,${a})`;
+  const v = m[1];
+  const r = parseInt(v.slice(0, 2), 16), g = parseInt(v.slice(2, 4), 16), b = parseInt(v.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function skinMeta(id, fill, outline) {
+  const base = SKIN_META_BY_ID[String(id || '')] || {};
+  return {
+    id: String(id || base.id || 'terminal_mint'), rarity: String(base.rarity || 'basic'),
+    fill: fill || base.fill || '#f3f3f3', outline: outline || base.outline || '#00ff66', barrel: base.barrel || outline || '#f3f3f3'
+  };
+}
 
 export class Renderer {
   constructor(canvas) {
@@ -46,6 +62,79 @@ export class Renderer {
     if (rotate) ctx.rotate(rotate);
     if (fill) { ctx.fillStyle = fill; ctx.fillRect(-size / 2, -size / 2, size, size); }
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeRect(-size / 2, -size / 2, size, size); }
+    ctx.restore();
+  }
+
+  drawSkinAura(x, y, meta, now) {
+    const ctx = this.ctx;
+    const rarity = String(meta?.rarity || 'basic');
+    const id = String(meta?.id || 'terminal_mint');
+    const outline = meta?.outline || COL.green;
+    const alt = meta?.barrel || COL.fg;
+    const pulse = 0.5 + 0.5 * Math.sin(now * 3.8 + x * 0.01 + y * 0.008);
+    ctx.save();
+    if (rarity !== 'basic') {
+      ctx.globalAlpha = 0.18 + pulse * 0.10;
+      ctx.strokeStyle = outline; ctx.lineWidth = rarity === 'legendary' ? 2 : 1.5;
+      ctx.setLineDash(rarity === 'uncommon' ? [10, 8] : rarity === 'rare' ? [8, 5, 2, 5] : rarity === 'superrare' ? [14, 4, 4, 4] : [16, 4, 2, 4]);
+      ctx.strokeRect(Math.round(x - 20), Math.round(y - 20), 40, 40);
+      ctx.setLineDash([]);
+    }
+    if (rarity === 'rare' || rarity === 'superrare' || rarity === 'legendary') {
+      ctx.globalAlpha = 0.12 + pulse * 0.10;
+      ctx.strokeStyle = rgba(outline, 0.8); ctx.lineWidth = 1.2;
+      ctx.strokeRect(Math.round(x - 25), Math.round(y - 25), 50, 50);
+      for (let i = 0; i < 4; i++) {
+        const ang = now * 1.5 + i * Math.PI * 0.5;
+        const sx = x + Math.cos(ang) * 24, sy = y + Math.sin(ang) * 24;
+        ctx.fillStyle = i % 2 ? outline : alt;
+        ctx.fillRect(Math.round(sx - 2), Math.round(sy - 2), 4, 4);
+      }
+    }
+    if (rarity === 'superrare' || rarity === 'legendary') {
+      const off = 3 + pulse * 2;
+      ctx.globalAlpha = 0.10 + pulse * 0.10;
+      ctx.strokeStyle = alt; ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(x - 14 + off), Math.round(y - 14 - off), 28, 28);
+      ctx.strokeRect(Math.round(x - 14 - off), Math.round(y - 14 + off), 28, 28);
+    }
+    if (rarity === 'legendary') {
+      ctx.globalAlpha = 0.16 + pulse * 0.14;
+      ctx.strokeStyle = outline; ctx.lineWidth = 2.4;
+      ctx.strokeRect(Math.round(x - 31), Math.round(y - 31), 62, 62);
+      ctx.strokeStyle = alt; ctx.lineWidth = 1.3;
+      ctx.strokeRect(Math.round(x - 36), Math.round(y - 36), 72, 72);
+    }
+    // skin family motifs so most skins have their own visual grammar, but still fit the lore.
+    if (id === 'casino_gold' || id === 'mirror_coin' || id === 'jackpot_wound') {
+      ctx.globalAlpha = 0.32 + pulse * 0.18;
+      for (let i = 0; i < 3; i++) {
+        const ang = now * 1.9 + i * 2.09;
+        const sx = x + Math.cos(ang) * 18, sy = y + Math.sin(ang) * 18;
+        ctx.strokeStyle = outline; ctx.lineWidth = 1.4; ctx.strokeRect(Math.round(sx - 4), Math.round(sy - 4), 8, 8);
+      }
+    } else if (id === 'void_cyan' || id === 'terminal_ghost') {
+      ctx.globalAlpha = 0.18 + pulse * 0.12;
+      this.square(x - 10, y - 10, 12, { stroke: outline, lw: 1, alpha: 0.24 });
+      this.square(x + 11, y + 9, 10, { stroke: alt, lw: 1, alpha: 0.16 });
+    } else if (id === 'bad_tv' || id === 'red_static' || id === 'dead_channel' || id === 'bone_static') {
+      ctx.globalAlpha = 0.16 + pulse * 0.08;
+      ctx.strokeStyle = outline; ctx.lineWidth = 1;
+      for (let yy = -16; yy <= 16; yy += 8) {
+        ctx.beginPath(); ctx.moveTo(x - 18, y + yy); ctx.lineTo(x + 18, y + yy + ((yy / 8) % 2 ? 1 : -1)); ctx.stroke();
+      }
+    } else if (id === 'bruise_purple') {
+      ctx.globalAlpha = 0.25 + pulse * 0.10;
+      ctx.strokeStyle = outline; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(x - 18, y - 18); ctx.lineTo(x + 18, y + 18); ctx.moveTo(x - 18, y + 18); ctx.lineTo(x + 18, y - 18); ctx.stroke();
+    } else if (id === 'black_lime') {
+      ctx.globalAlpha = 0.26 + pulse * 0.12;
+      ctx.fillStyle = outline;
+      for (let i = 0; i < 4; i++) {
+        const sx = x + (i < 2 ? -18 : 18), sy = y + (i % 2 ? -18 : 18);
+        ctx.fillRect(Math.round(sx - 2), Math.round(sy - 2), 4, 4);
+      }
+    }
     ctx.restore();
   }
 
@@ -595,7 +684,9 @@ export class Renderer {
       if (elite && !isBossKind) this.label('ELITE', ex, ey - size / 2 - 8, COL.red, 8);
     }
 
-    // player-to-cursor tether: thin, always green, visible even while input is blocked by modals
+    // player-to-cursor tether: skin-aware so higher-rarity skins read differently in motion without changing gameplay.
+    const meRow = view.players.find(p => p[P.ID] === state.myId);
+    const myMeta = meRow ? skinMeta(meRow[P.SKINID], meRow[P.SKINFILL], meRow[P.SKINOUTLINE]) : skinMeta('terminal_mint', '#f3f3f3', COL.green);
     if (myPos && mouse) {
       const mw = this.screenToWorld(mouse.x, mouse.y);
       const dx = mw.x - myPos.x, dy = mw.y - myPos.y;
@@ -604,9 +695,9 @@ export class Renderer {
       const endD = d;
       ctx.save();
       ctx.globalAlpha = 0.18 + 0.08 * Math.sin(now * 7);
-      ctx.strokeStyle = COL.green;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([10, 10]);
+      ctx.strokeStyle = myMeta.outline || COL.green;
+      ctx.lineWidth = myMeta.rarity === 'legendary' ? 1.6 : myMeta.rarity === 'superrare' ? 1.35 : 1;
+      ctx.setLineDash(myMeta.rarity === 'uncommon' ? [11, 8] : myMeta.rarity === 'rare' ? [8, 5, 2, 5] : myMeta.rarity === 'superrare' ? [14, 4, 4, 4] : myMeta.rarity === 'legendary' ? [16, 4, 2, 4] : [10, 10]);
       ctx.beginPath();
       ctx.moveTo(myPos.x + ux * 24, myPos.y + uy * 24);
       ctx.lineTo(myPos.x + ux * endD, myPos.y + uy * endD);
@@ -624,6 +715,7 @@ export class Renderer {
       const skinFill = /^#[0-9a-fA-F]{6}$/.test(p[P.SKINFILL] || '') ? p[P.SKINFILL] : (isMe ? COL.fg : '#cfcfcf');
       const skinOutline = /^#[0-9a-fA-F]{6}$/.test(p[P.SKINOUTLINE] || '') ? p[P.SKINOUTLINE] : (isMe ? COL.green : '#555');
       const skinId = String(p[P.SKINID] || 'terminal_mint');
+      const skinMetaLocal = skinMeta(skinId, skinFill, skinOutline);
       // companions come from authoritative snapshot so drone visuals match real firing origins.
       const drones = p[P.DRONES], orbitals = 0;
       const comps = (view.companions || []).filter(c => c[1] === p[P.ID]);
@@ -639,7 +731,7 @@ export class Renderer {
             ctx.save();
             if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 90) {
               ctx.globalAlpha = 0.24;
-              ctx.strokeStyle = COL.cyan;
+              ctx.strokeStyle = skinMetaLocal.outline || COL.cyan;
               ctx.lineWidth = 1;
               ctx.setLineDash([6, 7]);
               ctx.beginPath();
@@ -647,14 +739,14 @@ export class Renderer {
               ctx.lineTo(cx, cy);
               ctx.stroke();
               ctx.setLineDash([]);
-              this.square(prev.x, prev.y, 7, { stroke: COL.cyan, lw: 1, alpha: 0.16, rotate: a });
+              this.square(prev.x, prev.y, 7, { stroke: skinMetaLocal.outline || COL.cyan, lw: 1, alpha: 0.16, rotate: a });
             }
             ctx.restore();
-            this.square(cx, cy, 13, { stroke: COL.cyan, lw: 1, alpha: 0.24, rotate: a + Math.PI / 4 });
-            this.square(cx, cy, 9, { stroke: COL.cyan, lw: 2, rotate: a });
+            this.square(cx, cy, 13, { stroke: skinMetaLocal.outline || COL.cyan, lw: 1, alpha: 0.24, rotate: a + Math.PI / 4 });
+            this.square(cx, cy, 9, { stroke: skinMetaLocal.outline || COL.cyan, lw: 2, rotate: a });
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
-            this.square(cx, cy, 8, { fill: COL.cyan });
+            this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           }
         }
@@ -665,12 +757,12 @@ export class Renderer {
         for (let i = 0; i < orbitals; i++) {
           const ang = now * 1.8 + (i / Math.max(1, orbitals)) * Math.PI * 2;
           const r = 58 + 14 * Math.floor(i / 8);
-          this.square(px + Math.cos(ang) * r, py + Math.sin(ang) * r, 10, { stroke: COL.cyan, lw: 2, rotate: ang });
+          this.square(px + Math.cos(ang) * r, py + Math.sin(ang) * r, 10, { stroke: skinMetaLocal.outline || COL.cyan, lw: 2, rotate: ang });
         }
         for (let i = 0; i < drones; i++) {
           const ang = now * 1.8 + (i / Math.max(1, drones)) * Math.PI * 2 + 100 * 1.8;
           const r = 58 + 14 * Math.floor(i / 8);
-          this.square(px + Math.cos(ang) * r, py + Math.sin(ang) * r, 8, { fill: COL.cyan });
+          this.square(px + Math.cos(ang) * r, py + Math.sin(ang) * r, 8, { fill: skinMetaLocal.outline || COL.cyan });
         }
       }
       if (!alive) {
@@ -681,6 +773,7 @@ export class Renderer {
       }
       ctx.save();
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
+      this.drawSkinAura(px, py, skinMetaLocal, now);
       // Skins are now static silhouettes: no rarity pulsing/jitter on the body itself.
       // The unlocked skin identity is expressed through dash VFX/SFX instead, to avoid laggy noisy player bodies.
       if (skinId === 'jackpot_wound') {
