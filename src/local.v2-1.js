@@ -90,10 +90,10 @@ export class LocalRoom {
         // from looking stuck when one player has several pending choices and others are still choosing.
         this.offersSent.set(playerId, p.offer);
         this.offerSentAt.set(playerId, performance.now());
-        this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' }, true);
+        this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) }, true);
       }
       else if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
-      else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' }, true);
+      else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) }, true);
       else if (!ok) this.sendTo(playerId, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
     } else if (m.t === 'weapon_pick') {
       const p = this.players.get(playerId);
@@ -168,7 +168,7 @@ export class LocalRoom {
       if (p.offer && (sent !== p.offer || resendDue)) {
         this.offersSent.set(pid, p.offer);
         this.offerSentAt.set(pid, now);
-        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '' };
+        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }

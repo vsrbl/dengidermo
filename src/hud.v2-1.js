@@ -488,6 +488,8 @@ export class Hud {
     this.wasAlive = true;
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, picked: false, bossSignature: false };
+    this.installSyncKey = '';
+    this.installSyncSeenAt = 0;
     this.skinClaim = null;
     this.weapon = { open: false, choices: [], locked: false };
     this.ability = { open: false, choices: [], locked: false };
@@ -817,9 +819,20 @@ export class Hud {
     const myWait = waitPlayers.find(p => String(p.id) === String(me[P.ID]));
     const otherWaiting = waitPlayers.some(p => p && p.waiting && String(p.id) !== String(me[P.ID]));
     const shouldShowWait = room.phase === 'install' && wait && !myWait?.waiting && otherWaiting && !this.install.skinOnly && (!this.install.open || this.install.waitingOnly || this.install.picked);
+    const syncKey = room.phase === 'install' && wait && myWait?.waiting
+      ? `${myWait.offerId || 'pending'}:${myWait.kind || ''}:${myWait.signature || 0}`
+      : '';
+    if (syncKey && syncKey !== this.installSyncKey) {
+      this.installSyncKey = syncKey;
+      this.installSyncSeenAt = performance.now();
+    } else if (!syncKey) {
+      this.installSyncKey = '';
+      this.installSyncSeenAt = 0;
+    }
+    const syncDelayPassed = syncKey && (performance.now() - (this.installSyncSeenAt || 0)) > 1200;
     if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
     else if (room.phase === 'install' && wait && myWait?.waiting && this.install.waitingOnly) this.showInstallOfferSync(wait, me[P.ID]);
-    else if (room.phase === 'install' && wait && myWait?.waiting && !this.install.open) this.showInstallOfferSync(wait, me[P.ID]);
+    else if (room.phase === 'install' && wait && myWait?.waiting && !this.install.open && syncDelayPassed) this.showInstallOfferSync(wait, me[P.ID]);
     else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
     const sigEl = $('hud-signatures');
     if (sigEl) {
@@ -925,18 +938,22 @@ export class Hud {
       }
     } else if (!this.promptTimer) prompt.classList.add('hidden');
 
-    // install timer bar
+    // install timer bar — monotonic on clients. Network resends must not refill it.
     if (this.install.open) {
       if (this.install.waitingOnly && room.installWait) {
         const w = $('install-wait');
         if (w) w.innerHTML = this.installWaitHtml(room.installWait, me[P.ID]);
-        this.install.expires = Math.max(0, room.installWait.nextExpires || this.install.expires || 0);
-        this.install.total = Math.max(this.install.total || 1, this.install.expires || 1);
+        const serverLeft = Number(room.installWait.nextExpires || 0);
+        if (serverLeft > 0) this.install.expires = this.install.expires > 0 ? Math.min(this.install.expires, serverLeft) : serverLeft;
+        else this.install.expires = Math.max(0, this.install.expires - dt);
       } else {
-        this.install.expires -= dt;
+        this.install.expires = Math.max(0, this.install.expires - dt);
       }
       const bar = $('install-timer-bar');
-      if (bar) bar.style.width = Math.max(0, this.install.expires / Math.max(0.001, this.install.total) * 100) + '%';
+      if (bar) {
+        const pct = this.install.total > 0 ? Math.max(0, Math.min(100, this.install.expires / Math.max(0.001, this.install.total) * 100)) : 0;
+        bar.style.width = pct.toFixed(1) + '%';
+      }
     }
   }
 
@@ -1028,7 +1045,7 @@ export class Hud {
       case 'casino': this.casinoResult(f, myId); break;
       case 'active_casino_roll': if (f.id === myId) this.activeRoll(f); break;
       case 'install': if (f.id === myId) this.feed(`${localText('УЛУЧШЕНИЕ', 'INSTALL')}: ${locLabel(f.label)}`, f.cursed ? 'p' : 'g'); break;
-      case 'transition': this.cancelActiveRoll(); this.banner(t('installPhase'), t('installPhaseSub'), 'green'); break;
+      case 'transition': this.cancelActiveRoll(); break;
       case 'run_complete':
         this.banner(localText('СИСТЕМА ОЧИЩЕНА', 'SYSTEM CLEANSED'), localText('10 ЦИКЛОВ ЗАВЕРШЕНЫ', '10 LOOPS COMPLETE'), 'green');
         this.feed(localText('ФИНАЛЬНЫЙ ПОРТАЛ ЗАКРЫЛ ЗАРАЖЁННУЮ ВЕТКУ', 'FINAL PORTAL CLOSED THE INFECTED BRANCH'), 'g');
@@ -1309,7 +1326,9 @@ export class Hud {
     const waitEl = $('install-wait');
     if (!modal || !box || !waitEl) return;
     const sig = Array.isArray(wait?.players) && wait.players.some(p => p && p.waiting && String(p.kind || '') === 'boss_signature');
-    this.install = { open: true, choices: [], offerId: 0, expires: Math.max(1, wait?.nextExpires || 6), total: Math.max(1, wait?.nextExpires || 6), locked: true, waitingOnly: true, picked: true, bossSignature: sig };
+    const left = Math.max(1, Number(wait?.nextExpires || 6));
+    const prev = this.install.open && this.install.waitingOnly ? this.install : null;
+    this.install = { open: true, choices: [], offerId: 0, expires: prev ? Math.min(Math.max(0, prev.expires || left), left) : left, total: prev ? Math.max(1, prev.total || left) : left, locked: true, waitingOnly: true, picked: true, bossSignature: sig };
     modal.classList.toggle('boss-signature-modal', sig);
     modal.classList.add('waiting-only');
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('ОЖИДАНИЕ', 'WAIT');
@@ -1327,7 +1346,9 @@ export class Hud {
     const players = Array.isArray(wait?.players) ? wait.players : [];
     const mine = players.find(p => String(p.id) === String(myId));
     const sig = String(mine?.kind || '') === 'boss_signature' || !!mine?.signature;
-    this.install = { open: true, choices: [], offerId: Math.max(0, mine?.offerId || 0), expires: Math.max(1, wait?.nextExpires || 6), total: Math.max(1, wait?.nextExpires || 6), locked: true, waitingOnly: true, picked: false, bossSignature: sig };
+    const left = Math.max(1, Number(wait?.nextExpires || 6));
+    const prev = this.install.open && this.install.waitingOnly ? this.install : null;
+    this.install = { open: true, choices: [], offerId: Math.max(0, mine?.offerId || 0), expires: prev ? Math.min(Math.max(0, prev.expires || left), left) : left, total: prev ? Math.max(1, prev.total || left) : left, locked: true, waitingOnly: true, picked: false, bossSignature: sig };
     modal.classList.toggle('boss-signature-modal', sig);
     modal.classList.add('waiting-only');
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : localText('СИНХРОНИЗАЦИЯ', 'SYNC');
@@ -1339,9 +1360,24 @@ export class Hud {
     modal.classList.remove('hidden');
   }
 
-  openInstall(choices, pending, offerId = 0, kind = '') {
+  openInstall(choices, pending, offerId = 0, kind = '', expires = 0, total = 0) {
     const sig = String(kind || '') === 'boss_signature';
-    this.install = { open: true, choices, offerId: Math.max(0, offerId | 0), expires: sig ? 32 : 24, total: sig ? 32 : 24, locked: false, waitingOnly: false, picked: false, bossSignature: sig };
+    const normalizedChoices = Array.isArray(choices) ? choices.slice(0, 3) : [];
+    const nextOfferId = Math.max(0, offerId | 0);
+    const nextTotal = Math.max(1, Number(total || 0) || (sig ? 32 : 24));
+    const serverLeftRaw = Number(expires || 0);
+    const nextExpires = Math.max(0.001, Math.min(nextTotal, Number.isFinite(serverLeftRaw) && serverLeftRaw > 0 ? serverLeftRaw : nextTotal));
+    const sameOffer = this.install.open && !this.install.waitingOnly && (this.install.offerId || 0) === nextOfferId && !!this.install.bossSignature === sig && JSON.stringify(this.install.choices || []) === JSON.stringify(normalizedChoices);
+    if (sameOffer) {
+      // Host resends the same offer for reliability. Do not rebuild the modal or refill the timer.
+      this.install.total = Math.max(1, this.install.total || nextTotal);
+      this.install.expires = Math.max(0, Math.min(this.install.expires || nextExpires, nextExpires));
+      const p = $('install-pending'); if (p) p.textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
+      return;
+    }
+    this.install = { open: true, choices: normalizedChoices, offerId: nextOfferId, expires: nextExpires, total: nextTotal, locked: false, waitingOnly: false, picked: false, bossSignature: sig };
+    this.installSyncKey = '';
+    this.installSyncSeenAt = 0;
     const modal = $('install-modal');
     modal?.classList.remove('waiting-only');
     modal?.classList.toggle('boss-signature-modal', sig);
@@ -1349,7 +1385,7 @@ export class Hud {
     $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
     const box = $('install-choices');
     box.innerHTML = '';
-    choices.forEach((id, i) => {
+    normalizedChoices.forEach((id, i) => {
       const u = UPG[id];
       const d = document.createElement('div');
       d.className = 'choice' + (u?.cursed ? ' cursed' : '') + (sig ? ' boss-signature-choice' : '');
@@ -1381,7 +1417,7 @@ export class Hud {
     this.pick(Math.floor(Math.random() * this.install.choices.length));
     return true;
   }
-  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.waitingOnly = false; this.install.picked = false; this.install.bossSignature = false; $('install-modal')?.classList.remove('boss-signature-modal', 'waiting-only'); const w = $('install-wait'); if (w) { w.className = 'install-wait hidden'; w.innerHTML = ''; } $('install-modal').classList.add('hidden'); this.hideTip(); }
+  closeInstall() { this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.waitingOnly = false; this.install.picked = false; this.install.bossSignature = false; this.installSyncKey = ''; this.installSyncSeenAt = 0; $('install-modal')?.classList.remove('boss-signature-modal', 'waiting-only'); const w = $('install-wait'); if (w) { w.className = 'install-wait hidden'; w.innerHTML = ''; } $('install-modal').classList.add('hidden'); this.hideTip(); }
 
   openSkinClaim(skin = {}) {
     if (!skin?.id && !skin?.name && !skin?.allOwned) return;

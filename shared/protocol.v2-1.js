@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.32';
-export const BUILD_ID = 'multiplayer_install_phase_repair';
+export const VERSION = 'v2.1.33';
+export const BUILD_ID = 'install_timer_guest_flash_hotfix';
 export const PROTOCOL = 4;
 
 export const MAX_PLAYERS = 4;

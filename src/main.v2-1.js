@@ -336,7 +336,7 @@ net.on('s', (m) => {
     hud.handleFx(f, state.myId, state);
   }
 });
-net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || ''));
+net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || '', m.expires || 0, m.total || 0));
 net.on('offer_close', () => { if (!hud.install.skinOnly && !(hud.install.picked && state.room?.phase === 'install')) hud.closeInstall(); });
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());

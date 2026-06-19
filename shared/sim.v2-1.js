@@ -95,7 +95,7 @@ function makeInstallOffer(run, p) {
   if (!run) return null;
   run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
-  return { id: run.installOfferSeq, choices: rollCleanInstallChoices(run, p, 3), expires: OFFER_TIMEOUT };
+  return { id: run.installOfferSeq, choices: rollCleanInstallChoices(run, p, 3), expires: OFFER_TIMEOUT, total: OFFER_TIMEOUT };
 }
 
 
@@ -128,7 +128,7 @@ function makeBossSignatureOffer(run, p) {
   run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
   const choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id)).slice(0, 3);
-  return { id: run.installOfferSeq, kind: 'boss_signature', choices: choices.length ? choices : bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss'), expires: OFFER_TIMEOUT + 8 };
+  return { id: run.installOfferSeq, kind: 'boss_signature', choices: choices.length ? choices : bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss'), expires: OFFER_TIMEOUT + 8, total: OFFER_TIMEOUT + 8 };
 }
 function queueBossSignatureReward(run, players, bossKind = 'boss') {
   const choices = bossSignatureChoicesForKind(bossKind, Math.random);
@@ -155,7 +155,7 @@ function installWaitSnapshot(run, players) {
   if (!run || run.phase !== 'install') return null;
   const list = [];
   let total = 0, waiting = 0, ready = 0;
-  let nextExpires = 0;
+  let nextExpires = 0, nextTotal = 0;
   for (const p of players.values()) {
     if (!p.connected) continue;
     total++;
@@ -168,6 +168,8 @@ function installWaitSnapshot(run, players) {
       if (p.offer && Number.isFinite(Number(p.offer.expires))) {
         const ex = Math.max(0, Number(p.offer.expires));
         nextExpires = nextExpires > 0 ? Math.min(nextExpires, ex) : ex;
+        const totalEx = Math.max(1, Number(p.offer.total || p.offer.expires || 0));
+        nextTotal = nextTotal > 0 ? Math.max(nextTotal, totalEx) : totalEx;
       }
     } else ready++;
     list.push({
@@ -178,10 +180,11 @@ function installWaitSnapshot(run, players) {
       pending: pendingInstall,
       signature: pendingSignature ? 1 : 0,
       offerId: p.offer?.id || 0,
-      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : '')
+      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : ''),
+      total: p.offer?.total || 0
     });
   }
-  return { total, waiting, ready, players: list, nextExpires: Math.ceil(nextExpires || 0) };
+  return { total, waiting, ready, players: list, nextExpires: Math.max(0, nextExpires || 0), nextTotal: Math.max(1, nextTotal || nextExpires || 0) };
 }
 
 // v2.1: active abilities were reading too hard. Keep the fantasy, but cut duration/radius/power by ~1.5x.
