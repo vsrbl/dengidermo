@@ -2,7 +2,46 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 5600.00; // v2.1.53: requested 10x louder music bus; internal music bus is rebuilt with filtering/limiting to stay smoother
+const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.54: procedural music disabled; music is now licensed external tracks via HTMLAudioElement
+
+const EXTERNAL_MUSIC_TRACKS = {
+  calm: {
+    id: 'calm',
+    title: 'Fireflies All Over the Sky',
+    author: 'Yoiyami',
+    license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/fireflies-all-over-the-sky-%E2%80%94-yoiyami-core-breakcore-fusion',
+    url: 'https://opengameart.org/sites/default/files/fireflies_all_over_the_sky_0.wav',
+    base: 0.34
+  },
+  combat: {
+    id: 'combat',
+    title: 'Shortcuts',
+    author: 'Zane Little Music',
+    license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/shortcuts',
+    url: 'https://opengameart.org/sites/default/files/shortcuts.ogg',
+    base: 0.46
+  },
+  storm: {
+    id: 'storm',
+    title: 'Passing Timeline',
+    author: 'Tricks & Traps',
+    license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/free-rhythm-game-music-pack-1',
+    url: 'https://opengameart.org/sites/default/files/8_passing_timeline.wav',
+    base: 0.42
+  },
+  boss: {
+    id: 'boss',
+    title: 'Psychic',
+    author: 'Tricks & Traps',
+    license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/free-rhythm-game-music-pack-1',
+    url: 'https://opengameart.org/sites/default/files/10_psychic.wav',
+    base: 0.50
+  }
+};
 
 function inGameMusicAmount(room, menu = false) { return menu ? 0.82 : (room ? 1 : 0); }
 
@@ -41,6 +80,9 @@ export class AudioBus {
     this.musicPortal = 0;
     this.musicResolve = 0;
     this.musicChaos = 0;
+    this.externalMusic = null;
+    this.externalMusicMode = 'calm';
+    this.externalMusicReady = false;
     this.prio = {
       phit: 10, rocket_blast: 9, portal: 8, jackpot: 8, denied: 7,
       casino_static: 8, casino_lose: 7, casino_weapon: 7, casino_ability: 7, casino_win: 6, casino_result: 6, casino_spin: 3, casino_reel_stop: 4,
@@ -74,8 +116,9 @@ export class AudioBus {
     this.musicVolume = this.writeVolume('nnc_music_volume', value);
     if (this.musicGain && this.ctx) {
       this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.musicGain.gain.setValueAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, this.ctx.currentTime);
+      this.musicGain.gain.setTargetAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, this.ctx.currentTime, 0.045);
     }
+    this.applyExternalMusicVolumes?.(0.18);
   }
 
   setSfxVolume(value) {
@@ -119,45 +162,10 @@ export class AudioBus {
     if (now - (this.last.get('volume_preview') || -99) < 0.10) return;
     this.last.set('volume_preview', now);
     if (kind === 'music') {
-      // v2.1.7: dry terminal slider tick routed through music gain.
-      // No pitch glide/lowpass bubble; the preview should feel like UI hardware, not a liquid note.
-      const out = this.musicGain || this.master;
-      const click = this.ctx.createOscillator();
-      const body = this.ctx.createOscillator();
-      const clickFilter = this.ctx.createBiquadFilter();
-      const bodyFilter = this.ctx.createBiquadFilter();
-      const clickGain = this.ctx.createGain();
-      const bodyGain = this.ctx.createGain();
-      click.type = 'square';
-      body.type = 'square';
-      click.frequency.setValueAtTime(1046.5, now);
-      body.frequency.setValueAtTime(261.63, now);
-      clickFilter.type = 'bandpass'; clickFilter.frequency.value = 2400; clickFilter.Q.value = 8.0;
-      bodyFilter.type = 'highpass'; bodyFilter.frequency.value = 360; bodyFilter.Q.value = 0.65;
-      clickGain.gain.setValueAtTime(0.0001, now);
-      clickGain.gain.exponentialRampToValueAtTime(0.0048, now + 0.003);
-      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.038);
-      bodyGain.gain.setValueAtTime(0.0001, now);
-      bodyGain.gain.exponentialRampToValueAtTime(0.0028, now + 0.004);
-      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
-      click.connect(clickFilter); clickFilter.connect(clickGain); clickGain.connect(out);
-      body.connect(bodyFilter); bodyFilter.connect(bodyGain); bodyGain.connect(out);
-      click.start(now); body.start(now + 0.002);
-      click.stop(now + 0.045); body.stop(now + 0.060);
-      // Tiny dry contact noise, also through music gain, gives slider movement a broken-terminal edge.
-      const nDur = 0.018;
-      const buffer = this.ctx.createBuffer(1, Math.max(1, Math.floor(this.ctx.sampleRate * nDur)), this.ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-      const src = this.ctx.createBufferSource();
-      const nf = this.ctx.createBiquadFilter();
-      const ng = this.ctx.createGain();
-      src.buffer = buffer;
-      nf.type = 'bandpass'; nf.frequency.value = 3800; nf.Q.value = 10;
-      ng.gain.setValueAtTime(0.0022, now);
-      ng.gain.exponentialRampToValueAtTime(0.0001, now + nDur);
-      src.connect(nf); nf.connect(ng); ng.connect(out);
-      src.start(now + 0.001); src.stop(now + nDur + 0.004);
+      // v2.1.54: preview goes through normal SFX gain, not the music track bus.
+      // If SFX is lowered, this click is lowered too; no more huge music-slider stab.
+      this.tone(640, 0.028, 'triangle', 0.014, 0.96);
+      this.tone(960, 0.024, 'sine', 0.008, 0.98, 0.018);
       return;
     }
     // Route through current SFX gain so the preview represents the selected SFX volume.
@@ -820,131 +828,96 @@ export class AudioBus {
   }
 
   ensureMusic() {
-    if (!this.ctx || this.ctx.state !== 'running') return false;
-    if (this.music) return true;
-    const master = this.ctx.createGain();
-    master.gain.value = 0.30;
-    master.connect(this.musicGain || this.master);
-    this.music = { master, layers: {}, phraseT: 0.35, motifIndex: 0, lastRoomTone: '', dangerPhrase: 0, scoreT: 0 };
-    this.music.layers.drone = this.makeToneLayer(49, 'sawtooth', 340);
-    this.music.layers.sub = this.makeToneLayer(24.5, 'sine', 70);
-    this.music.layers.pulse = this.makeToneLayer(98, 'square', 150);
-    this.music.layers.hat = this.makeNoiseLayer(4800, 10);
-    this.music.layers.casino = this.makeToneLayer(294, 'square', 620);
-    this.music.layers.choir = this.makeToneLayer(196, 'triangle', 780);
-    this.music.layers.dirgePad = this.makeToneLayer(98, 'triangle', 360);
-    this.music.layers.scrape = this.makeNoiseLayer(760, 3.8);
-    this.music.layers.glass = this.makeToneLayer(392, 'sine', 1500);
-    this.music.layers.highPad = this.makeToneLayer(784, 'sine', 2100);
-    this.music.layers.drive = this.makeToneLayer(147, 'sawtooth', 460);
-    this.music.layers.needle = this.makeNoiseLayer(1850, 5.2);
+    // v2.1.54: the old procedural WebAudio music generator is intentionally disabled.
+    // It caused high-frequency clicks and a constant hum. Music is now licensed tracks.
+    return this.ensureExternalMusic();
+  }
+
+  ensureExternalMusic() {
+    if (typeof Audio === 'undefined') return false;
+    if (this.externalMusicReady) return true;
+    const tracks = {};
+    for (const [id, cfg] of Object.entries(EXTERNAL_MUSIC_TRACKS)) {
+      const el = new Audio(cfg.url);
+      el.crossOrigin = 'anonymous';
+      el.loop = true;
+      el.preload = id === 'calm' || id === 'combat' ? 'auto' : 'metadata';
+      el.volume = 0;
+      el.dataset.musicId = id;
+      tracks[id] = { cfg, el, gain: 0, target: 0, started: false };
+    }
+    this.externalMusic = { tracks, lastTick: 0, mode: 'calm' };
+    this.externalMusicReady = true;
+    this.applyExternalMusicVolumes(0);
     return true;
   }
 
-  setMusicLayer(name, value, glide = 0.72) {
-    if (!this.music?.layers?.[name]) return;
-    const now = this.ctx.currentTime;
-    const v = Math.max(0.0001, Math.min(0.22, value));
-    this.music.layers[name].target = v;
-    this.music.layers[name].g.gain.setTargetAtTime(v, now, glide);
+  chooseExternalMusicMode(state, metrics = {}) {
+    const room = state?.room || null;
+    if (!room || state?.menu) return 'calm';
+    const mods = room?.mods || [];
+    if (room?.cat === 'boss') return 'boss';
+    if (mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus')) return 'storm';
+    if (metrics.intensity > 0.30 || room?.phase === 'play') return 'combat';
+    return 'calm';
   }
 
-  updateMusic(state, dt = 0.016) {
+  startExternalTrack(track) {
+    if (!track || track.started) return;
+    track.started = true;
+    try {
+      track.el.currentTime = 0;
+      const p = track.el.play();
+      if (p && typeof p.catch === 'function') p.catch(() => { track.started = false; });
+    } catch { track.started = false; }
+  }
+
+  applyExternalMusicVolumes(glide = 0.25) {
+    if (!this.externalMusic?.tracks) return;
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const dt = Math.max(0.016, Math.min(0.25, now - (this.externalMusic.lastTick || now)));
+    this.externalMusic.lastTick = now;
+    const k = glide <= 0 ? 1 : Math.min(1, dt / Math.max(0.016, glide));
+    for (const track of Object.values(this.externalMusic.tracks)) {
+      track.gain += (track.target - track.gain) * k;
+      const audible = track.gain > 0.001;
+      if (audible) this.startExternalTrack(track);
+      const vol = Math.max(0, Math.min(1, track.gain * track.cfg.base * this.musicVolume));
+      track.el.volume = vol;
+      if (!audible && track.started) {
+        try { track.el.pause(); } catch {}
+        track.started = false;
+      }
+    }
+  }
+
+  updateExternalMusic(state, dt = 0.016) {
     if (!this.enabled) return;
     this.unlock();
-    if (!this.ensureMusic()) return;
+    if (!this.ensureExternalMusic()) return;
     const room = state?.room || null;
-    const menu = !!state?.menu || !room;
     const latest = state?.latest || null;
     const me = typeof state?.me === 'function' ? state.me() : null;
     const enemies = latest?.enemies?.length || 0;
     const bullets = latest?.bullets?.length || 0;
     const lowHp = me ? Math.max(0, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)) * 1.35) : 0;
-    const mods = room?.mods || [];
-    const combat = !menu && room?.phase === 'play' && !room?.portal?.[2] && room?.cat !== 'chill';
-    const boss = !menu && room?.cat === 'boss';
-    const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
-    const casino = chill || mods.includes('casino_virus') || mods.includes('greed');
-    const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
-    const choir = boss || /HERALD|DAMPER|WARDEN|ANCHOR|PRISM|HUNTER|SHIFTING/.test(String(room?.director || '')) || mods.includes('echo_walls') || mods.includes('moving_room') || mods.includes('hunter_contract');
-    this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.36);
-    this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.42);
-    this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.34);
-    this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.38);
-    this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.46);
     const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
-    const alivePressure = Math.max(0, Math.min(1, enemies / 34));
-    const bulletPressure = Math.max(0, Math.min(1, bullets / 80));
-    const damage = Math.max(0, Math.min(1, this.damageEnergy || 0));
-    const intensity = menu ? 0.20 : Math.max(0, Math.min(1, alivePressure * 0.34 + bulletPressure * 0.12 + lowHp * 0.20 + danger * 0.24 + damage * 0.34 + (boss ? 0.30 : 0) + (staticLike ? 0.10 : 0)));
-    const portalOpen = !!room?.portal?.[2];
-    const area = menu ? 'menu' : `${room?.cat || 'room'}:${room?.special || ''}:${mods.join(',')}:${portalOpen ? 'portal' : 'closed'}`;
-    if (area !== this.musicLastArea) {
-      this.musicTransition = Math.max(this.musicTransition || 0, 0.85);
-      this.music.phraseT = Math.min(this.music.phraseT || 0, 0.22);
-      this.musicLastArea = area;
+    const intensity = Math.max(0, Math.min(1, enemies / 24 + bullets / 110 + lowHp * 0.22 + danger * 0.22 + (room?.cat === 'boss' ? 0.45 : 0)));
+    const mode = this.chooseExternalMusicMode(state, { intensity });
+    this.externalMusicMode = mode;
+    for (const [id, track] of Object.entries(this.externalMusic.tracks)) {
+      let target = id === mode ? 1 : 0;
+      // Small musical bed under combat keeps transitions smooth without stacking many loud files.
+      if (mode === 'combat' && id === 'calm') target = 0.12;
+      if (mode === 'storm' && id === 'combat') target = 0.22;
+      if (mode === 'boss' && id === 'combat') target = 0.18;
+      track.target = target;
     }
-    const mood = this.musicMoodFor({ menu, boss, chill, casino, staticLike, combat, intensity, crowd: alivePressure, damage, chaos: this.musicChaos, portalOpen, portal: this.musicPortal, resolve: this.musicResolve });
-    const root = this.musicRootFor({ menu, boss, chill, casino, staticLike, mood });
+    this.applyExternalMusicVolumes(0.75);
+  }
 
-    this.musicStepT = Math.max(0, (this.musicStepT || 0) - dt);
-    if (this.musicStepT <= 0) {
-      this.musicStepT = menu ? 2.4 : Math.max(0.85, 1.75 - intensity * 0.48);
-      const now = this.ctx.currentTime;
-      const pulse = this.music.layers.pulse;
-      const casinoL = this.music.layers.casino;
-      const dirgePad = this.music.layers.dirgePad;
-      const choirL = this.music.layers.choir;
-      const glass = this.music.layers.glass;
-      const highPad = this.music.layers.highPad;
-      const drive = this.music.layers.drive;
-      const needle = this.music.layers.needle;
-      if (pulse) pulse.o.frequency.setTargetAtTime(root * (combat && intensity > 0.72 ? 2.5 : 2), now, 1.3);
-      if (casinoL) casinoL.o.frequency.setTargetAtTime(root * (casino ? 7 : 4) * (casino && intensity > 0.70 ? Math.pow(2, 3/12) : 1), now, 1.2);
-      if (dirgePad) {
-        const base = root * (menu ? 1 : (boss ? 1.5 : chill ? 1.5 : 2));
-        const wound = staticLike ? Math.pow(2, -2 / 12) : (casino ? Math.pow(2, -6 / 12) : 1);
-        dirgePad.o.frequency.setTargetAtTime(base * wound, now, 1.4);
-        dirgePad.f.frequency.setTargetAtTime(staticLike ? 310 : (boss ? 360 : 440), now, 1.2);
-      }
-      if (choirL) choirL.f.frequency.setTargetAtTime((boss || choir) ? 680 + intensity * 260 : 560 + intensity * 180, now, 1.4);
-      if (glass) glass.o.frequency.setTargetAtTime(root * (menu ? 16 : (casino ? 12 : staticLike ? 10 : 12)), now, 1.6);
-      if (highPad) {
-        const highMul = menu || chill ? 16 : (portalOpen ? 18 : (intensity < 0.50 ? 14 : 12));
-        highPad.o.frequency.setTargetAtTime(root * highMul, now, 2.4);
-        highPad.f.frequency.setTargetAtTime(menu || chill ? 2200 : 1600 + intensity * 420, now, 2.2);
-      }
-      if (drive) {
-        const driveMul = boss ? 3 : (mood === 'chaos' ? 3.5 : casino ? 4 : staticLike ? 3 : 2.5);
-        drive.o.frequency.setTargetAtTime(root * driveMul, now, 1.1);
-        drive.f.frequency.setTargetAtTime(360 + intensity * 360, now, 1.0);
-      }
-      if (needle) needle.f.frequency.setTargetAtTime(staticLike ? 2100 : (casino ? 2600 : 1750 + intensity * 680), now, 1.2);
-    }
-
-    const inGame = inGameMusicAmount(room, menu);
-    this.music.phraseT = Math.max(0, (this.music.phraseT || 0) - dt);
-    if ((room || menu) && this.music.phraseT <= 0) {
-      this.playDirgePhrase({ boss, chill, casino, staticLike, combat, intensity: menu ? 0.10 : intensity, menu, damage, crowd: alivePressure, chaos: this.musicChaos, portalOpen, portal: this.musicPortal, resolve: this.musicResolve, transition: this.musicTransition, mood });
-      const eventPull = Math.max(this.musicPortal || 0, this.musicResolve || 0, this.musicTransition || 0);
-      const calmBase = mood === 'menu' ? 4.8 : mood === 'rest' ? 5.8 : mood === 'portal' ? 2.6 : mood === 'resolve' ? 3.1 : mood.includes('boss') ? 2.65 : mood === 'chaos' ? 2.35 : 3.55;
-      this.music.phraseT = Math.max(mood === 'chaos' ? 1.55 : 2.05, calmBase - intensity * 0.70 - alivePressure * 0.35 - eventPull * 1.1);
-    }
-
-    // v2.1.6: richer score, still tonal-locked. More music is allowed to be loud,
-    // but each layer has a distinct register so it does not sour into false chords.
-    this.setMusicLayer('drone', inGame * (menu ? 0.0058 : (chill ? 0.0054 : 0.0065 + intensity * 0.0022)), 2.4);
-    this.setMusicLayer('sub', menu ? 0.00004 : (combat ? (0.00006 + Math.max(0, intensity - 0.76) * 0.00052 + (boss ? 0.00016 : 0)) : 0.00004), 1.8);
-    this.setMusicLayer('pulse', menu ? 0.00004 : (combat && intensity > 0.58 ? (0.00008 + intensity * 0.00036) : (portalOpen ? 0.00010 : 0.00004)), 1.2);
-    this.setMusicLayer('hat', combat && (mood === 'chaos' || intensity > 0.62) ? (0.00035 + Math.max(0, intensity - 0.46) * 0.0038) : 0.0001, 0.8);
-    this.setMusicLayer('casino', casino ? (0.00055 + intensity * 0.00120) : 0.0001, 1.4);
-    this.setMusicLayer('choir', menu ? 0.0042 : (choir || boss ? (0.0075 + intensity * 0.0135) : (0.0040 + intensity * 0.0055)), 2.0);
-    this.setMusicLayer('dirgePad', inGame * (menu ? 0.0060 : (chill ? 0.0055 : 0.0068 + intensity * 0.0046 + (lowHp * 0.0018))), 2.6);
-    this.setMusicLayer('scrape', combat && (mood === 'chaos' || staticLike || damage > 0.34) ? (0.00050 + intensity * 0.0018) : 0.0001, 1.2);
-    this.setMusicLayer('glass', menu ? 0.0018 : ((mood === 'portal' || mood === 'resolve' || intensity < 0.58 || chill) ? 0.0015 + (1 - intensity) * 0.0016 : 0.00035), 2.2);
-    this.setMusicLayer('highPad', menu ? 0.0018 : ((chill || mood === 'rest' || intensity < 0.56 || portalOpen) ? 0.0014 + (1 - intensity) * 0.0018 : 0.00032), 3.0);
-    this.setMusicLayer('drive', combat && intensity > 0.42 ? 0.00025 + intensity * 0.0019 + (boss ? 0.0008 : 0) : 0.0001, 1.0);
-    this.setMusicLayer('needle', combat && (staticLike || casino || mood === 'chaos' || intensity > 0.70) ? 0.00025 + intensity * 0.0013 : 0.0001, 1.0);
+  updateMusic(state, dt = 0.016) {
+    this.updateExternalMusic(state, dt);
   }
 
 
@@ -5432,4 +5405,66 @@ AudioBus.prototype.handleFx = function handleFxV2153AirBreakcore(f, info = {}) {
     if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.030);
   }
   return out;
+};
+
+// v2.1.54 LICENSED MUSIC HOTFIX
+// Final override: do not run any older procedural music schedulers. They produced HF clicks/hum.
+try {
+  glitchV2153 = function disabledGlitchV2154() {};
+  rollV2153 = function disabledRollV2154() {};
+} catch {}
+
+AudioBus.prototype.updateMusic = function updateMusicV2154LicensedTracks(state, dt = 0.016) {
+  this.updateExternalMusic(state, dt);
+};
+
+const handleFxBeforeV2154Licensed = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2154Licensed(f, info = {}) {
+  // Preserve gameplay SFX, but do not let the old music-hook inject extra glitches/rolls.
+  const oldEnsure = this.ensureMusic;
+  this.ensureMusic = () => false;
+  try { return handleFxBeforeV2154Licensed.call(this, f, info); }
+  finally { this.ensureMusic = oldEnsure; }
+};
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2154Licensed() {
+  if (this.music?.master) {
+    try { this.music.master.disconnect(); } catch {}
+    this.music = null;
+  }
+  return this.ensureExternalMusic();
+};
+
+AudioBus.prototype.setMusicVolume = function setMusicVolumeV2154Licensed(value) {
+  this.musicVolume = this.writeVolume('nnc_music_volume', value);
+  if (this.musicGain && this.ctx) {
+    const t = this.ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(t);
+    this.musicGain.gain.setTargetAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, t, 0.045);
+  }
+  this.applyExternalMusicVolumes?.(0.18);
+};
+
+AudioBus.prototype.previewVolume = function previewVolumeV2154Licensed(kind = 'sfx') {
+  this.unlock();
+  if (!this.ctx || this.ctx.state !== 'running') return;
+  const now = this.ctx.currentTime;
+  if (now - (this.last.get('volume_preview') || -99) < 0.12) return;
+  this.last.set('volume_preview', now);
+  // Both sliders are normal UI sounds through the SFX pool.
+  const isMusic = kind === 'music';
+  const out = this.sfxGain || this.master;
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(isMusic ? 440 : 560, now);
+  o.frequency.setTargetAtTime(isMusic ? 330 : 420, now + 0.012, 0.020);
+  f.type = 'lowpass'; f.frequency.value = 1200; f.Q.value = 0.45;
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(isMusic ? 0.010 : 0.015, now + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.000001, now + 0.065);
+  o.connect(f); f.connect(g); g.connect(out);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(now); o.stop(now + 0.075);
 };
