@@ -658,10 +658,10 @@ export class Hud {
       if (dist2(x, y) < 38 ** 2) found = { title: `PRT / ${t('portalTitle')}`, body: open ? t('portalOpenBody') : t('portalClosedBody'), tone: open ? '' : 'red' };
     }
     if (!found) for (const o of state.latest.objects || []) {
-      const [, type, label, x, y, opened, cost, currency] = o;
+      const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
-      if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}.` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); found = { title: `${label} / ${t('chestTitle')}`, body: `${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : '') }; }
+      if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт комнаты, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`ЦЕННОСТЬ: ${valueLabel}. `, `VALUE: ${valueLabel}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
@@ -1052,9 +1052,15 @@ export class Hud {
         const kills = Math.max(0, f.kills | 0);
         const mult = Number(f.mult || 1).toFixed(1);
         const amount = Math.max(0, f.amount | 0);
-        this.feed(`${name(f.id)}: ${localText('КОМБО', 'COMBO')} ${kills} × x${mult} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
+        const link = f.link ? ` · ${localText('LINK x2', 'LINK x2')}` : '';
+        this.feed(`${name(f.id)}: ${localText('КОМБО', 'COMBO')} ${kills} × x${mult}${link} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
         break;
       }
+      case 'combo_reel': {
+        this.feed(`${name(f.id)}: ${localText('КОМБО-БАРАБАН', 'COMBO REEL')} ${Array.isArray(f.symbols) ? f.symbols.join(' ') : ''} → ${locLabel(f.label || f.outcome)}`, f.outcome === 'STC' ? 'p' : 'g');
+        break;
+      }
+      case 'combo_link_break': if (f.id === myId) this.feed(`${localText('COMBO LINK сорван уроном', 'COMBO LINK broken by damage')}`, 'r'); break;
       case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка скина появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('скин ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('СКИН ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
@@ -1074,6 +1080,9 @@ export class Hud {
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
       case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
       case 'contract_paid': this.banner(t('contractPaid'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
+      case 'contract_wager': if (f.id === myId) this.feed(`${localText('СТАВКА НА КОНТРАКТ', 'CONTRACT WAGER')}: -${f.stake || 0} · ${locLabel(f.label || '')}`, 'p'); break;
+      case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('КОНТРАКТНАЯ ВЫПЛАТА', 'CONTRACT PAYOUT')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
+      case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('КОНТРАКТНАЯ СТАВКА СГОРЕЛА', 'CONTRACT WAGER LOST')}: -${f.stake || 0}`, 'r'); break;
       case 'favor_earned': { const fs = (f.favors || []).map(x => `${this.favorUiLabel(x)}${x.uses > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
@@ -1800,7 +1809,7 @@ export class Hud {
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin') };
+      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), HOLD: 'HOLD', LOCK: 'LOCK', LINK: 'LINK', CSH: 'CASHOUT', DEBT: 'DEBT', RAR: 'RAR' };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
@@ -1823,13 +1832,19 @@ export class Hud {
       if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
       if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
       if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+      if (pl.holdLabel) parts.push(locLabel(pl.holdLabel));
+      if (pl.lockLabel) parts.push(locLabel(pl.lockLabel));
+      if (pl.comboLabel) parts.push(locLabel(pl.comboLabel));
+      if (pl.rareLabel) parts.push(`RAR: ${locLabel(pl.rareLabel)}`);
+      if (pl.contractStake) parts.push(`${localText('КОНТРАКТНАЯ СТАВКА', 'CONTRACT WAGER')} ${pl.contractStake}`);
+      if (f.lockUsed) parts.push(`${localText('LOCK ИСПОЛЬЗОВАН', 'LOCK USED')}: ${f.lockSymbol || ''}`);
       if (pl.static) parts.push(t('nextRoomDebt'));
       if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
       if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       el.innerHTML = parts.map(x => `<span>${esc(x)}</span>`).join('');
       this.feed(`${name(f.id)}: ${localText('BET НАГРАДА', 'BET REWARD')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
-      this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN') ? 'casino_ability' : 'casino_win');
+      this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : (f.outcome === 'STC' || f.outcome === 'DEBT') ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
     }, 640);
     this.casino.reelTimers.push(timer);
   }

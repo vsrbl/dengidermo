@@ -270,9 +270,9 @@ export function defaultStats() {
 // ---- chests -------------------------------------------------------------
 export const CHESTS = {
   basic_chest:   { label: 'BSC', cost: 0 },
-  weapon_chest:  { label: 'WPN', cost: 60 },
-  ability_chest: { label: 'ABL', cost: 55 },
-  rare_chest:    { label: 'RAR', cost: 40 },
+  weapon_chest:  { label: 'WPN', cost: 70, value: 'standard', role: 'weapon route' },
+  ability_chest: { label: 'ABL', cost: 65, value: 'standard', role: 'active route' },
+  rare_chest:    { label: 'RAR', cost: 95, value: 'rare', role: 'run power' },
   cursed_chest:  { label: 'CRS', cost: 0, cursed: true }
 };
 
@@ -345,47 +345,72 @@ export function rollRoomSkin(rng, depth = 0, mods = []) {
 }
 
 // ---- casino / BET -------------------------------------------------------
-export const BET_STAKES = { low: 20, mid: 50, high: 120 };
-export function spinCasino(rng, stakeKey, luck, unlockedSkins = []) {
+export const BET_STAKES = { low: 20, mid: 55, high: 135 };
+export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const stake = BET_STAKES[stakeKey];
   const l = Math.min(luck, 12) * 0.012;
-  const r = rng();
   const known = new Set(Array.isArray(unlockedSkins) ? unlockedSkins : []);
   const hasLockedSkin = SKIN_PRESETS.some(s => s.rarity !== 'basic' && !known.has(s.id));
-  // v2.1: ordinary BET was too generous. Good outcomes are roughly halved,
-  // while LOSE/STC remain real risk. SKN is disabled if the local player owns all non-basic skins.
-  const skinOdds = hasLockedSkin ? ((stakeKey === 'high' ? 0.028 : stakeKey === 'mid' ? 0.019 : 0.012) + l * 0.05) : 0;
-  const odds = [
-    ['JCK', 0.006 + l * 0.18],
-    ['WPN', 0.020 + l * 0.36],
-    ['ABL', stakeKey === 'low' ? 0 : (0.025 + l * 0.36)],
-    ['SKN', skinOdds],
-    ['HEA', 0.052 + l * 0.36],
-    ['EXP', 0.073 + l * 0.36],
-    ['GLD', 0.082 + l * 0.36],
-    ['STC', 0.135]
-  ];
-  let acc = 0;
+  const skinOdds = hasLockedSkin ? ((stakeKey === 'high' ? 0.030 : stakeKey === 'mid' ? 0.020 : 0.010) + l * 0.045) : 0;
+  const high = stakeKey === 'high';
+  const mid = stakeKey === 'mid';
+  const lockSymbol = String(opts.lockSymbol || '').toUpperCase();
+  const canLock = ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA','CSH'].includes(lockSymbol);
   let outcome = 'LOSE';
-  for (const [id, chance] of odds) { acc += chance; if (r < acc) { outcome = id; break; } }
-  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP'][Math.floor(rng()*9)];
+  let usedLock = false;
+  if (canLock && rng() < (high ? 0.58 : mid ? 0.64 : 0.70)) {
+    outcome = (lockSymbol === 'SKN' && !hasLockedSkin) ? 'RAR' : lockSymbol;
+    usedLock = true;
+  } else {
+    const r = rng();
+    const odds = [
+      ['JCK', 0.005 + (high ? 0.010 : mid ? 0.004 : 0) + l * 0.15],
+      ['RAR', (high ? 0.035 : mid ? 0.012 : 0.004) + l * 0.20],
+      ['WPN', 0.020 + (high ? 0.018 : mid ? 0.010 : 0) + l * 0.30],
+      ['ABL', stakeKey === 'low' ? 0.006 : (0.024 + (high ? 0.014 : 0) + l * 0.30)],
+      ['SKN', skinOdds],
+      ['HOLD', 0.032 + (mid ? 0.010 : high ? 0.014 : 0) + l * 0.16],
+      ['LOCK', 0.026 + (mid ? 0.008 : high ? 0.012 : 0) + l * 0.12],
+      ['LINK', 0.030 + (mid ? 0.014 : high ? 0.018 : 0) + l * 0.14],
+      ['CSH', 0.070 + (stakeKey === 'low' ? 0.030 : 0) + l * 0.20],
+      ['DEBT', (high ? 0.070 : mid ? 0.030 : 0.010)],
+      ['HEA', 0.045 + l * 0.26],
+      ['EXP', 0.060 + l * 0.30],
+      ['GLD', 0.070 + l * 0.30],
+      ['STC', 0.125 + (high ? 0.055 : mid ? 0.022 : 0)]
+    ];
+    let acc = 0;
+    for (const [id, chance] of odds) { acc += chance; if (r < acc) { outcome = id; break; } }
+  }
+  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP','HOLD','LOCK','LINK'][Math.floor(rng()*12)];
   let symbols;
   if (outcome === 'LOSE') { symbols = [sym(), sym(), sym()]; if (symbols[0]===symbols[1]&&symbols[1]===symbols[2]) symbols[2]='STC'; }
   else if (outcome === 'JCK') symbols = ['JCK','JCK','JCK'];
+  else if (outcome === 'CSH') symbols = ['CSH','GLD','SAFE'];
+  else if (outcome === 'DEBT') symbols = ['PAY','NOW','STC'];
+  else if (outcome === 'HOLD') symbols = ['HOLD','HOLD','CHEST'];
+  else if (outcome === 'LOCK') symbols = ['LOCK','REEL','NEXT'];
+  else if (outcome === 'LINK') symbols = ['LINK','COMBO','PAY'];
   else symbols = [outcome, outcome, outcome];
   const payload = {};
   switch (outcome) {
-    case 'GLD': payload.gld = Math.round(stake * (1.35 + rng() * 1.15)); break;
-    case 'EXP': payload.xp = Math.round(stake * 1.05); break;
-    case 'HEA': payload.heal = 30 + Math.round(rng() * 30); break;
+    case 'GLD': payload.gld = Math.round(stake * (1.25 + rng() * 1.05)); break;
+    case 'CSH': payload.gld = Math.round(stake * 0.82); payload.cashout = true; break;
+    case 'EXP': payload.xp = Math.round(stake * 0.95); break;
+    case 'HEA': payload.heal = 26 + Math.round(rng() * 28); break;
     case 'WPN': payload.weapon = true; break;
     case 'ABL': payload.ability = true; break;
+    case 'RAR': payload.rare = true; break;
+    case 'HOLD': payload.hold = true; break;
+    case 'LOCK': payload.lock = true; break;
+    case 'LINK': payload.comboLink = true; break;
     case 'SKN': { const skin = rollCasinoSkin(rng, stakeKey, luck, unlockedSkins); payload.skin = true; payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity; break; }
     case 'STC': payload.static = true; break;
-    case 'JCK': payload.gld = Math.round(stake * 6); payload.xp = Math.round(stake * 1.8); break;
+    case 'DEBT': payload.gld = Math.round(stake * 2.15); payload.xp = Math.round(stake * 0.45); payload.static = true; payload.debt = true; break;
+    case 'JCK': payload.gld = Math.round(stake * 5.8); payload.xp = Math.round(stake * 1.65); break;
     case 'LOSE': break;
   }
-  return { symbols, outcome, payload, stake };
+  return { symbols, outcome, payload, stake, usedLock, lockSymbol: usedLock ? lockSymbol : '' };
 }
 
 // ---- room modifiers (rule events, not stat tweaks) ----------------------

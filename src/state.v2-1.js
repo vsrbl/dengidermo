@@ -200,7 +200,7 @@ export class GameState {
     for (const o of this.latest.objects) {
       if (o[5]) continue; // opened
       const d = (px - o[3]) ** 2 + (py - o[4]) ** 2;
-      if (d < bd) { bd = d; best = { kind: o[1], label: o[2], cost: o[6], currency: o[7] || 'GLD', id: o[0] }; }
+      if (d < bd) { bd = d; best = { kind: o[1], label: o[2], cost: o[6], currency: o[7] || 'GLD', value: o[8] || '', valueTier: o[9] || 0, id: o[0] }; }
     }
     return best;
   }

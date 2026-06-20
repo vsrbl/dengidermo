@@ -290,7 +290,18 @@ function genInteractables(rng, category, loopIndex, greed, modIds = [], specialR
   for (let i = 0; i < paidCount; i++) {
     const roll = rng();
     const chest = roll < 0.34 ? 'weapon_chest' : roll < 0.68 ? 'ability_chest' : 'rare_chest';
-    objs.push({ id: `c${id++}`, type: 'chest', chest });
+    const obj = { id: `c${id++}`, type: 'chest', chest };
+    // v2.1.52 casino core: paid chests now have visible value bands.
+    // SIMPLE WPN/ABL = normal price, 3 choices. GOOD/VALUABLE = higher cost, more choices.
+    const valueRoll = rng();
+    const valueChance = (greed ? 0.14 : 0) + loopIndex * 0.025 + (rewardPocket ? 0.36 : 0) + (contract ? 0.08 : 0);
+    if (chest === 'weapon_chest' || chest === 'ability_chest') {
+      if (valueRoll < valueChance * 0.35) obj.costMul = 3.0;
+      else if (valueRoll < valueChance) obj.costMul = 1.9;
+    } else if (chest === 'rare_chest') {
+      if (valueRoll < valueChance * 0.5) obj.costMul = 2.4;
+    }
+    objs.push(obj);
   }
   if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0) + (debtFloor ? 0.14 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
   if (rng() < 0.48 + loopIndex * 0.05 + (mood > 0.75 ? 0.18 : 0) + (contract ? 0.28 : 0)) objs.push({ id: `b${id++}`, type: 'bet' });
