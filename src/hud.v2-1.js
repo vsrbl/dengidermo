@@ -869,7 +869,8 @@ export class Hud {
       }
     }
 
-    // dash pips: compact charge squares only. No large SHIFT READY text.
+    // dash pips: stable right edge. Cooldown and casino charge overflow live on the LEFT,
+    // so the charge squares never shove the hand/weapon HUD when seconds or extra charges appear.
     const pips = $('dash-pips');
     const dashCd = Math.max(0, Number(me[P.DASHCD] || 0));
     const dashCdMax = Math.max(0.01, Number(me[P.DASHCDMAX] || 0.01));
@@ -878,6 +879,21 @@ export class Hud {
     if (pips.dataset.v !== want) {
       pips.dataset.v = want;
       pips.innerHTML = '';
+
+      const cd = document.createElement('span');
+      cd.className = 'dash-cd-mini' + (dashCd > 0 ? '' : ' empty');
+      cd.textContent = dashCd > 0 ? dashCd.toFixed(1) : '0.0';
+      this.setExplain(cd, t('dashChargeTitle'), dashCd > 0 ? `${t('dashEmpty')} · ${dashCd.toFixed(1)}s` : t('dashReady'), 'cyan');
+      pips.appendChild(cd);
+
+      if (me[P.DASHMAX] > 14) {
+        const over = document.createElement('span');
+        over.className = 'dash-overmax-mini';
+        over.textContent = `x${me[P.DASHMAX]}`;
+        this.setExplain(over, t('dashChargeTitle'), `${t('dashReady')} · ${me[P.DASH]}/${me[P.DASHMAX]}`, 'cyan');
+        pips.appendChild(over);
+      }
+
       for (let i = 0; i < Math.min(me[P.DASHMAX], 14); i++) {
         const d = document.createElement('span');
         const isReady = i < me[P.DASH];
@@ -886,14 +902,6 @@ export class Hud {
         if (isCharging) d.style.setProperty('--dash-charge', `${Math.round(dashCharge01 * 100)}%`);
         this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
         pips.appendChild(d);
-      }
-      if (me[P.DASHMAX] > 14) pips.append(` x${me[P.DASHMAX]}`);
-      if (dashCd > 0) {
-        const cd = document.createElement('span');
-        cd.className = 'dash-cd-mini';
-        cd.textContent = dashCd.toFixed(1);
-        this.setExplain(cd, t('dashChargeTitle'), `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
-        pips.appendChild(cd);
       }
     }
 

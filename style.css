@@ -2539,3 +2539,239 @@ body[data-skin-id="jackpot_wound"] #custom-cursor .cc { border-style: double !im
   #hud-left { min-width: min(330px, 54vw) !important; }
   #hud-left .bar-wrap { width: min(330px, 54vw) !important; }
 }
+
+/* v2.1.49 — centered HUD insets, stable dash charges, flat UI surfaces
+   Интерфейс сдвинут от краёв к центру по X/Y. Dash seconds and casino charge overflow
+   stay left of the charge row, while the right edge of charges remains fixed. */
+:root {
+  --ui-center-inset-x: clamp(42px, 5.6vw, 86px);
+  --ui-center-inset-y: clamp(34px, 5.3vh, 58px);
+  --ui-flat-bg: rgba(5,5,5,.88);
+  --ui-flat-bg-soft: rgba(5,5,5,.72);
+  --ui-flat-green: rgba(0,34,14,.74);
+  --ui-flat-cyan: rgba(6,28,32,.74);
+  --ui-flat-gold: rgba(34,25,5,.76);
+  --ui-flat-red: rgba(42,6,10,.76);
+  --ui-flat-purple: rgba(25,8,38,.74);
+}
+#hud-top {
+  padding: var(--ui-center-inset-y) var(--ui-center-inset-x) 0 !important;
+}
+#hud-bottom {
+  left: var(--ui-center-inset-x) !important;
+  right: var(--ui-center-inset-x) !important;
+  bottom: var(--ui-center-inset-y) !important;
+}
+#feed {
+  left: var(--ui-center-inset-x) !important;
+  top: calc(var(--ui-center-inset-y) + 82px) !important;
+}
+#hud-contract-card {
+  right: var(--ui-center-inset-x) !important;
+  top: calc(var(--ui-center-inset-y) + 128px) !important;
+}
+#virus-roll {
+  right: var(--ui-center-inset-x) !important;
+  top: calc(var(--ui-center-inset-y) + 228px) !important;
+}
+#active-roll {
+  top: calc(var(--ui-center-inset-y) + 34px) !important;
+}
+#hud-combo {
+  top: calc(var(--ui-center-inset-y) + 28px) !important;
+}
+#hud-prompt {
+  bottom: calc(var(--ui-center-inset-y) + 116px) !important;
+}
+#hud-lefttop {
+  max-width: min(760px, 50vw) !important;
+}
+#hud-objective {
+  max-width: min(580px, 40vw) !important;
+}
+#hud-right {
+  min-width: min(360px, 42vw) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+}
+#dash-pips {
+  width: min(350px, 42vw) !important;
+  min-height: 22px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 5px !important;
+  text-align: right !important;
+  overflow: hidden !important;
+  margin-bottom: 8px !important;
+}
+.dash-cd-mini {
+  order: 0 !important;
+  flex: 0 0 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  text-align: right !important;
+  margin-right: 2px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.dash-cd-mini.empty {
+  opacity: 0 !important;
+}
+.dash-overmax-mini {
+  order: 1 !important;
+  flex: 0 0 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  color: var(--cyan) !important;
+  opacity: .78 !important;
+  text-align: right !important;
+  font-size: 12.5px !important;
+  line-height: 13px !important;
+  letter-spacing: .08em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+#dash-pips .pip {
+  order: 2 !important;
+  flex: 0 0 13px !important;
+}
+#weapon-slots {
+  width: min(350px, 42vw) !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+#hud-favor-row {
+  min-height: 34px !important;
+}
+#hud-favor {
+  min-width: min(360px, 36vw) !important;
+  max-width: min(540px, 42vw) !important;
+}
+
+/* Flat UI pass: remove gradients from buttons, cards, choice plates and status plates. */
+button,
+button:hover,
+button:disabled,
+.choice,
+.choice:hover,
+.choice.cursed:hover,
+.panel,
+.panel.green-edge,
+.tab-card,
+#menu,
+#menu .menu-card,
+#skin-editor,
+#skin-preview,
+#skin-editor .skin-core,
+#btn-skin-toggle,
+#hud-contract-card,
+#hud-contract-card.failed,
+#hud-contract-card.done,
+#hud-favor,
+#hud-favor.pending,
+#hud-favor.used,
+#hud-prompt,
+#feed div,
+#hud-combo,
+.combo-readout,
+.combo-prize,
+.combo-used,
+#hud-signatures span,
+#active-roll,
+#virus-roll,
+.roll-symbols span,
+#banner,
+#explain-tip,
+.install-wait,
+.install-wait.data,
+#install-modal.boss-signature-modal,
+#install-modal.boss-signature-modal .panel,
+#install-modal .boss-signature-choice,
+#install-modal .boss-signature-choice:hover,
+#install-modal .boss-signature-choice.picked,
+#install-modal.data-loading .panel,
+#dev-panel,
+#filter-switch,
+.run-complete-card,
+.run-complete-panel,
+.lang-mini button,
+.term {
+  background-image: none !important;
+}
+button,
+.lang-mini button {
+  background-color: rgba(5,5,5,.92) !important;
+}
+button:hover,
+.lang-mini button:hover {
+  background-color: var(--fg) !important;
+  color: var(--bg) !important;
+}
+.choice,
+.panel,
+.tab-card,
+#menu,
+#skin-editor,
+#hud-prompt,
+#feed div,
+#active-roll,
+#virus-roll,
+#banner,
+#explain-tip,
+#dev-panel,
+.run-complete-card,
+.run-complete-panel {
+  background-color: var(--ui-flat-bg) !important;
+}
+#hud-contract-card,
+#hud-favor,
+#hud-signatures span,
+.combo-readout,
+.combo-prize,
+#install-modal .boss-signature-choice {
+  background-color: var(--ui-flat-gold) !important;
+}
+#hud-contract-card.failed,
+.choice.cursed,
+#hud-prompt.deny {
+  background-color: var(--ui-flat-red) !important;
+}
+#hud-contract-card.done,
+#hud-favor.used,
+.combo-used {
+  background-color: var(--ui-flat-bg-soft) !important;
+}
+#hud-favor.pending,
+.install-wait.data {
+  background-color: var(--ui-flat-cyan) !important;
+}
+#hud-mods .term,
+.term {
+  background-color: rgba(5,5,5,.78) !important;
+}
+#install-modal.boss-signature-modal.sig-opening::after,
+#install-modal.boss-signature-modal.sig-closing::after,
+.install-wait.data::after,
+.combo-readout::before,
+.combo-readout::after {
+  background-image: none !important;
+}
+@media (max-width: 980px) {
+  #hud-top { padding: 32px 32px 0 !important; }
+  #hud-bottom { left: 32px !important; right: 32px !important; bottom: 32px !important; }
+  #hud-contract-card { right: 32px !important; top: 156px !important; }
+  #feed { left: 32px !important; top: 170px !important; width: min(520px, 64vw) !important; }
+  #hud-objective { max-width: 100% !important; }
+  #hud-lefttop { max-width: 100% !important; }
+  #hud-favor { min-width: 0 !important; max-width: 92vw !important; }
+  #hud-right, #dash-pips, #weapon-slots { width: min(330px, 46vw) !important; min-width: min(330px, 46vw) !important; }
+}
+@media (max-width: 760px) {
+  #hud-top { padding: 24px 20px 0 !important; }
+  #hud-bottom { left: 20px !important; right: 20px !important; bottom: 24px !important; }
+  #feed { left: 20px !important; }
+  #hud-contract-card { right: 20px !important; }
+  #hud-right, #dash-pips, #weapon-slots { width: min(300px, 52vw) !important; min-width: min(300px, 52vw) !important; }
+  .dash-cd-mini { flex-basis: 38px !important; min-width: 38px !important; max-width: 38px !important; }
+}
+
