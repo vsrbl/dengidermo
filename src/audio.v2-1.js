@@ -3785,3 +3785,362 @@ AudioBus.prototype.updateMusic = function updateMusicV2142Breakcore(state, dt = 
   }
   return out;
 };
+
+// v2.1.46 DARK BREAKCORE SOUNDTRACK REWORK
+// The old dark ambient bed is replaced by a procedural breakcore score.
+// No external samples are used: drums are synthesized/noise-sliced in WebAudio so the soundtrack stays shippable.
+const clamp01V2146 = v => Math.max(0, Math.min(1, Number(v) || 0));
+const hzV2146 = (root, semis) => root * Math.pow(2, semis / 12);
+const pickV2146 = (arr, idx) => arr[Math.abs(Math.floor(idx || 0)) % arr.length];
+function stageV2146(room, latest, bossHpPct = 100) {
+  if (!room) return 'menu';
+  if (room?.portal?.[2] || room?.phase === 'clear') return 'clear';
+  if (room?.cat === 'boss') return bossHpPct > 0 && bossHpPct < 42 ? 'bossLow' : 'boss';
+  const enemies = Math.max(0, Number(room?.liveEnemies || latest?.enemies?.length || 0));
+  if (enemies <= 0) return 'clear';
+  if (enemies <= 5) return 'stalk';
+  if (enemies >= 22) return 'climax';
+  return 'fight';
+}
+function musicOutV2146(bus) {
+  return bus.music?.master || bus.musicGain || bus.master;
+}
+function percGainV2146(bus, vol, dur, delay = 0, attack = 0.002, hold = 0.004) {
+  const ctx = bus.ctx;
+  const g = ctx.createGain();
+  const t = ctx.currentTime + Math.max(0, delay);
+  const safe = Math.max(0.0001, vol);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(safe, t + Math.max(0.001, attack));
+  g.gain.setValueAtTime(safe, t + Math.max(0.001, attack) + Math.max(0, hold));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.012, dur));
+  g.connect(musicOutV2146(bus));
+  return { g, t };
+}
+function oscHitV2146(bus, freq, dur, type, vol, delay = 0, bend = 1, filter = 700, q = 0.8) {
+  if (!bus.ctx || !bus.music?.master) return;
+  const ctx = bus.ctx;
+  const { g, t } = percGainV2146(bus, vol, dur, delay, 0.002, dur * 0.08);
+  const o = ctx.createOscillator();
+  const f = ctx.createBiquadFilter();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(20, freq), t);
+  if (bend !== 1) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * bend), t + dur * 0.82);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(Math.max(50, filter), t);
+  f.Q.value = q;
+  o.connect(f); f.connect(g);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(t); o.stop(t + dur + 0.025);
+}
+function noiseHitV2146(bus, dur, vol, filterFreq = 1800, q = 5, delay = 0, mode = 'bandpass', grit = 1) {
+  if (!bus.ctx || !bus.music?.master) return;
+  const ctx = bus.ctx;
+  const sr = ctx.sampleRate;
+  const len = Math.max(1, Math.floor(sr * Math.max(0.006, dur)));
+  const buf = ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  let latch = 0;
+  const step = Math.max(1, Math.floor(1 + grit * 10));
+  for (let i = 0; i < len; i++) {
+    if (i % step === 0) latch = Math.random() * 2 - 1;
+    const env = Math.pow(1 - i / Math.max(1, len - 1), 1.45);
+    data[i] = (latch * 0.68 + (Math.random() * 2 - 1) * 0.32) * env;
+  }
+  const src = ctx.createBufferSource();
+  const f = ctx.createBiquadFilter();
+  const { g, t } = percGainV2146(bus, vol, dur, delay, 0.0015, dur * 0.02);
+  src.buffer = buf;
+  f.type = mode;
+  f.frequency.setValueAtTime(Math.max(40, filterFreq), t);
+  f.Q.value = q;
+  src.connect(f); f.connect(g);
+  src.onended = () => { try { src.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  src.start(t); src.stop(t + dur + 0.018);
+}
+function kickV2146(bus, delay, pressure = 0, boss = false) {
+  const root = boss ? 43.65 : 49.00;
+  const v = 0.0019 + pressure * 0.0028 + (boss ? 0.0010 : 0);
+  oscHitV2146(bus, root * 2.9, 0.110 + pressure * 0.030, 'sine', v, delay, 0.26, 190 + pressure * 110, 0.7);
+  oscHitV2146(bus, root * 0.75, 0.070, 'square', v * 0.42, delay + 0.004, 0.74, 240, 0.9);
+  noiseHitV2146(bus, 0.014, v * 0.60, 1100 + pressure * 500, 3.8, delay, 'bandpass', 0.8);
+}
+function snareV2146(bus, delay, pressure = 0, ghost = false) {
+  const v = (ghost ? 0.00065 : 0.00135) + pressure * (ghost ? 0.0009 : 0.0022);
+  noiseHitV2146(bus, ghost ? 0.040 : 0.075, v, ghost ? 2100 : 1650, ghost ? 8.5 : 5.5, delay, 'bandpass', ghost ? 1.8 : 1.1);
+  oscHitV2146(bus, 170 + pressure * 45, ghost ? 0.036 : 0.060, 'triangle', v * 0.48, delay + 0.002, 0.72, 420, 0.9);
+  if (!ghost && pressure > 0.62) noiseHitV2146(bus, 0.020, v * 0.42, 5200, 9.5, delay + 0.016, 'bandpass', 2.3);
+}
+function hatV2146(bus, delay, pressure = 0, open = false) {
+  const v = (open ? 0.00055 : 0.00032) + pressure * (open ? 0.00095 : 0.00062);
+  noiseHitV2146(bus, open ? 0.060 : 0.022, v, open ? 6400 : 7800, open ? 5.8 : 10.5, delay, 'highpass', 2.4 + pressure * 2.0);
+}
+function glitchV2146(bus, delay, pressure = 0, flavor = 0) {
+  const v = 0.00048 + pressure * 0.00125;
+  const f = [930, 1280, 1750, 2600, 3400, 470][Math.abs(flavor) % 6] + pressure * 350;
+  noiseHitV2146(bus, 0.018 + (flavor % 3) * 0.010, v, f, 9 + (flavor % 4), delay, flavor % 2 ? 'bandpass' : 'highpass', 3.2);
+  if (pressure > 0.55 && flavor % 3 === 0) oscHitV2146(bus, 392 * (flavor % 2 ? 1.5 : 1), 0.022, 'square', v * 0.55, delay + 0.004, 0.62, 1800, 1.2);
+}
+function casinoTickV2146(bus, delay, pressure = 0, good = false) {
+  const root = good ? 261.63 : 196.00;
+  const v = 0.00055 + pressure * 0.00085;
+  oscHitV2146(bus, root, 0.030, 'square', v, delay, good ? 1.22 : 0.78, 1700, 1.4);
+  oscHitV2146(bus, root * (good ? 1.5 : 0.75), 0.026, 'triangle', v * 0.55, delay + 0.018, good ? 1.05 : 0.82, 1400, 1.1);
+}
+function bassPulseV2146(bus, delay, root, step, pressure = 0, boss = false) {
+  const n = pickV2146(boss ? [0, 0, -5, -7, 3, -5] : [0, -5, 0, 3, -7, -5], step);
+  const f = hzV2146(root, n - 12);
+  oscHitV2146(bus, f, 0.110 + pressure * 0.050, step % 4 === 0 ? 'sawtooth' : 'triangle', 0.0010 + pressure * 0.0019 + (boss ? 0.0006 : 0), delay, 0.998, 210 + pressure * 160, 0.9);
+}
+function hookV2146(bus, stage, modTheme, bossTheme, pressure = 0) {
+  if (!bus.music?.master || !bus.ctx) return;
+  const root = stage === 'boss' || stage === 'bossLow' ? 43.65 : modTheme === 'casino' ? 51.91 : 49.00;
+  const motifs = {
+    menu: [12, 10, 7, 5], stalk: [7, 10, 7, 3], fight: [12, 7, 10, 5], climax: [12, 15, 12, 7, 10], boss: [12, 7, 10, 7, 3], bossLow: [15, 12, 10, 7, 3], clear: [7, 5, 3]
+  };
+  let notes = motifs[stage] || motifs.fight;
+  if (bossTheme === 'croupier') notes = [12, 10, 12, 7, 5];
+  if (modTheme === 'static') notes = notes.map((n, i) => n - (i % 2 ? 2 : 0));
+  const step = stage === 'menu' ? 0.34 : stage === 'clear' ? 0.42 : 0.18 - pressure * 0.035;
+  const vol = stage === 'menu' ? 0.0013 : 0.00115 + pressure * 0.00115;
+  notes.forEach((n, i) => {
+    const d = i * step;
+    const dur = step * (i === notes.length - 1 ? 1.8 : 0.72);
+    oscHitV2146(bus, hzV2146(root, n), dur, i % 2 ? 'triangle' : 'square', vol * (i === 0 ? 1.08 : 0.82), d, 0.996, 620 + pressure * 580, 0.95);
+  });
+}
+function scheduleBreakStepV2146(bus, context, step, when) {
+  const pressure = context.pressure;
+  const boss = context.boss;
+  const stage = context.stage;
+  const casino = context.modTheme === 'casino';
+  const staticLike = context.modTheme === 'static';
+  const lowHp = context.lowHp;
+  const root = boss ? 43.65 : casino ? 51.91 : 49.00;
+  const s16 = step % 16;
+  const s32 = step % 32;
+  const seed = (step * 1103515245 + (context.depth || 0) * 97 + (boss ? 41 : 0) + (casino ? 23 : 0)) >>> 0;
+  const chaosHit = ((seed >>> 7) % 100) / 100;
+  const busy = pressure > 0.46 || stage === 'climax' || boss;
+  const insane = pressure > 0.76 || stage === 'bossLow';
+  if (stage === 'clear') {
+    if (s16 === 0) kickV2146(bus, when, 0.20, false);
+    if (s16 === 8) casinoTickV2146(bus, when + 0.014, 0.15, true);
+    return;
+  }
+  if (stage === 'menu') {
+    if (s16 === 0 || s16 === 10) kickV2146(bus, when, 0.24, false);
+    if (s16 === 4 || s16 === 12) snareV2146(bus, when, 0.18, false);
+    if (s16 % 4 === 2) hatV2146(bus, when, 0.12, false);
+    if (s16 === 15) glitchV2146(bus, when + 0.018, 0.22, seed % 9);
+    return;
+  }
+  if (s16 === 0 || s16 === 6 || s16 === 10 || (busy && s16 === 14) || (boss && s16 === 3)) kickV2146(bus, when, pressure, boss);
+  if (s16 === 4 || s16 === 12 || (insane && (s16 === 7 || s16 === 15))) snareV2146(bus, when + (s16 === 15 ? 0.010 : 0), pressure, false);
+  if (busy && (s16 === 2 || s16 === 11)) snareV2146(bus, when + 0.006, pressure * 0.72, true);
+  if (s16 % 2 === 1 || (busy && s16 % 4 === 2)) hatV2146(bus, when, pressure, insane && s16 % 8 === 7);
+  if (s16 === 0 || (busy && s16 === 8) || (insane && s16 % 4 === 0)) bassPulseV2146(bus, when + 0.004, root, step, pressure, boss);
+  if (chaosHit < (0.16 + pressure * 0.34 + (staticLike ? 0.12 : 0))) glitchV2146(bus, when + (chaosHit * 0.030), pressure, seed % 13);
+  if (casino && (s16 === 3 || s16 === 9 || s16 === 13)) casinoTickV2146(bus, when + 0.012, pressure, s32 === 13);
+  if (lowHp > 0.30 && (s16 === 15 || s16 === 7)) {
+    glitchV2146(bus, when + 0.012, Math.max(pressure, lowHp), seed % 17);
+    if (lowHp > 0.58) glitchV2146(bus, when + 0.034, Math.max(pressure, lowHp), (seed + 5) % 17);
+  }
+  if (insane && s16 >= 13) {
+    const micro = context.stepDur * 0.35;
+    glitchV2146(bus, when + micro, pressure, seed % 19);
+    if (s16 === 15) snareV2146(bus, when + micro * 1.55, pressure * 0.82, true);
+  }
+}
+function modThemeV2146(mods = []) {
+  if (mods.includes('casino_virus') || mods.includes('greed')) return 'casino';
+  if (mods.includes('static_rain') || mods.includes('prism_grid')) return 'static';
+  if (mods.includes('hunter_pack') || mods.includes('split_pack')) return 'hunter';
+  return 'none';
+}
+function bossThemeV2146(kind = '') {
+  const k = String(kind || '').toLowerCase();
+  if (k.includes('croupier') || k.includes('casino')) return 'croupier';
+  if (k.includes('hunter')) return 'hunter';
+  if (k.includes('rush')) return 'rush';
+  return 'boss';
+}
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2146DarkBreakcore() {
+  if (!this.ctx || this.ctx.state !== 'running') return false;
+  if (this.music?.flavor === 'dark_breakcore_v2146') return true;
+  if (this.music?.master) { try { this.music.master.disconnect(); } catch {} }
+  const master = this.ctx.createGain();
+  master.gain.value = 0.24;
+  master.connect(this.musicGain || this.master);
+  this.music = {
+    master,
+    flavor: 'dark_breakcore_v2146',
+    layers: {},
+    phraseT: 0.10,
+    motifIndex: 0,
+    lastRoomTone: '',
+    voiceCount: 0,
+    maxVoices: 20,
+    stepIndex: 0,
+    nextStepTime: 0,
+    lastBpm: 180,
+    hitFlashT: 0
+  };
+  const root = 49.00;
+  this.music.layers.drone = this.makeToneLayer(root * 0.5, 'sine', 95);
+  this.music.layers.sub = this.makeToneLayer(root * 0.25, 'sine', 42);
+  this.music.layers.pulse = this.makeToneLayer(root, 'sawtooth', 180);
+  this.music.layers.hat = this.makeNoiseLayer(4800, 7.5);
+  this.music.layers.casino = this.makeToneLayer(root * 6, 'square', 900);
+  this.music.layers.choir = this.makeToneLayer(root * 1.5, 'triangle', 320);
+  this.music.layers.dirgePad = this.makeToneLayer(root, 'sawtooth', 210);
+  this.music.layers.scrape = this.makeNoiseLayer(950, 2.8);
+  this.music.layers.glass = this.makeToneLayer(root * 8, 'triangle', 1500);
+  this.music.layers.highPad = this.makeToneLayer(root * 4, 'square', 1200);
+  this.music.layers.drive = this.makeToneLayer(root * 0.75, 'sawtooth', 360);
+  this.music.layers.bossLine = this.makeToneLayer(root * 1.5, 'square', 520);
+  this.music.layers.needle = this.makeNoiseLayer(2600, 6.5);
+  return true;
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2146DarkBreakcore(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  const room = state?.room || null;
+  const menu = !!state?.menu || !room;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const boss = !menu && room?.cat === 'boss';
+  const bossHpPct = Math.max(0, Number(room?.bossHpPct || 0));
+  const chill = !menu && (room?.cat === 'chill' || room?.special === 'chill_room');
+  const combat = !menu && room?.phase === 'play' && !room?.portal?.[2] && !chill;
+  const enemies = Math.max(0, Number(room?.liveEnemies || latest?.enemies?.length || 0));
+  const bullets = latest?.bullets?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const lowHp = me ? clamp01V2146(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const damage = clamp01V2146(this.damageEnergy || 0);
+  this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.40);
+  this.musicTransition = Math.max(0, (this.musicTransition || 0) - dt * 0.38);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.36);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.42);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.45);
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const crowd = clamp01V2146(enemies / 30);
+  const bulletPressure = clamp01V2146(bullets / 105);
+  const loopHeat = clamp01V2146(Math.floor(depth / 4) / 6);
+  const modTheme = modThemeV2146(mods);
+  const bossTheme = bossThemeV2146(room?.bossKind || '');
+  const stage = menu ? 'menu' : (chill ? 'clear' : stageV2146(room, latest, bossHpPct || 100));
+  let pressure = menu ? 0.18 : clamp01V2146(crowd * 0.34 + bulletPressure * 0.10 + lowHp * 0.22 + danger * 0.18 + damage * 0.23 + loopHeat * 0.17 + (boss ? 0.34 : 0) + (stage === 'climax' || stage === 'bossLow' ? 0.18 : 0) + (this.musicChaos || 0) * 0.20);
+  if (stage === 'clear') pressure = Math.min(0.24, pressure * 0.35);
+  if (boss) pressure = Math.max(pressure, stage === 'bossLow' ? 0.82 : 0.66);
+  const root = boss ? 43.65 : modTheme === 'casino' ? 51.91 : 49.00;
+  const area = menu ? 'menu' : `${room?.phase || 'room'}:${room?.cat || 'room'}:${stage}:${modTheme}:${bossTheme}:${mods.join(',')}`;
+  if (area !== this.musicLastArea) {
+    this.musicTransition = Math.max(this.musicTransition || 0, boss ? 1.0 : 0.65);
+    this.music.phraseT = Math.min(this.music.phraseT || 0.35, boss ? 0.035 : 0.10);
+    this.music.lastBpm = 0;
+    this.musicLastArea = area;
+  }
+  const bpm = menu ? 154 : stage === 'clear' ? 132 : boss ? (stage === 'bossLow' ? 212 : 202) : stage === 'climax' ? 202 : stage === 'fight' ? 190 : 176;
+  const bpmLift = pressure * (boss ? 16 : 12) + lowHp * 10 + (modTheme === 'casino' ? 4 : 0);
+  const finalBpm = Math.max(128, Math.min(224, bpm + bpmLift));
+  const stepDur = 60 / finalBpm / 4;
+  if (!this.music.nextStepTime || Math.abs((this.music.lastBpm || finalBpm) - finalBpm) > 18) {
+    this.music.nextStepTime = this.ctx.currentTime + 0.025;
+    this.music.lastBpm = finalBpm;
+  }
+  const L = this.music.layers || {};
+  const now = this.ctx.currentTime;
+  if (L.drone) { L.drone.o.frequency.setTargetAtTime(root * (boss ? 0.5 : 0.5), now, 0.9); L.drone.f.frequency.setTargetAtTime(80 + pressure * 90, now, 0.8); }
+  if (L.sub) L.sub.o.frequency.setTargetAtTime(root * 0.25, now, 0.8);
+  if (L.pulse) { L.pulse.o.frequency.setTargetAtTime(root * (stage === 'clear' ? 0.5 : boss ? 0.75 : 1), now, 0.45); L.pulse.f.frequency.setTargetAtTime(130 + pressure * 260, now, 0.35); }
+  if (L.casino) { L.casino.o.frequency.setTargetAtTime(root * (modTheme === 'casino' ? 10 : 8), now, 0.55); L.casino.f.frequency.setTargetAtTime(680 + pressure * 720, now, 0.55); }
+  if (L.choir) { L.choir.o.frequency.setTargetAtTime(root * (boss ? 1 : 1.5), now, 1.2); L.choir.f.frequency.setTargetAtTime(220 + pressure * 250, now, 0.9); }
+  if (L.dirgePad) { L.dirgePad.o.frequency.setTargetAtTime(root * 0.75, now, 0.9); L.dirgePad.f.frequency.setTargetAtTime(180 + pressure * 170, now, 0.7); }
+  if (L.glass) L.glass.o.frequency.setTargetAtTime(root * (modTheme === 'casino' ? 12 : 8), now, 0.8);
+  if (L.highPad) { L.highPad.o.frequency.setTargetAtTime(root * (boss ? 3 : 4), now, 0.6); L.highPad.f.frequency.setTargetAtTime(900 + pressure * 700, now, 0.5); }
+  if (L.drive) { L.drive.o.frequency.setTargetAtTime(root * (boss ? 0.5 : 0.75), now, 0.35); L.drive.f.frequency.setTargetAtTime(210 + pressure * 320, now, 0.35); }
+  if (L.bossLine) { L.bossLine.o.frequency.setTargetAtTime(root * (boss ? 1 : 0.75), now, 0.45); L.bossLine.f.frequency.setTargetAtTime(300 + pressure * 360, now, 0.4); }
+  if (L.needle) L.needle.f.frequency.setTargetAtTime(modTheme === 'static' ? 1800 + pressure * 900 : 2300 + pressure * 1400, now, 0.45);
+
+  const inGame = inGameMusicAmount(room, menu);
+  const stageVol = menu ? 0.54 : stage === 'clear' ? 0.30 : boss ? 0.78 : stage === 'climax' ? 0.72 : 0.62;
+  const mul = inGame * stageVol;
+  this.setMusicLayer('drone', mul * (0.00035 + pressure * 0.00060), 0.55);
+  this.setMusicLayer('sub', combat ? mul * (0.000040 + pressure * 0.000135 + (boss ? 0.00005 : 0)) : 0.000018, 0.45);
+  this.setMusicLayer('pulse', combat && pressure > 0.34 ? mul * (0.000055 + pressure * 0.00022) : 0.000018, 0.35);
+  this.setMusicLayer('hat', combat && pressure > 0.62 ? mul * (0.000030 + pressure * 0.000080) : 0.000010, 0.25);
+  this.setMusicLayer('casino', modTheme === 'casino' ? mul * (0.000045 + pressure * 0.000150) : 0.000010, 0.45);
+  this.setMusicLayer('choir', mul * (menu ? 0.00072 : boss ? 0.00125 + pressure * 0.00070 : 0.00055 + pressure * 0.00035), 0.8);
+  this.setMusicLayer('dirgePad', mul * (menu ? 0.00072 : 0.00058 + pressure * 0.00045), 0.65);
+  this.setMusicLayer('scrape', combat && (pressure > 0.55 || modTheme === 'static') ? mul * (0.000030 + pressure * 0.000150) : 0.000010, 0.35);
+  this.setMusicLayer('glass', (menu || stage === 'clear' || modTheme === 'casino') ? mul * 0.000050 : 0.000010, 0.65);
+  this.setMusicLayer('highPad', combat && pressure > 0.68 ? mul * (0.000025 + pressure * 0.000090) : 0.000010, 0.35);
+  this.setMusicLayer('drive', combat && pressure > 0.40 ? mul * (0.000060 + pressure * 0.000280 + (boss ? 0.000090 : 0)) : 0.000010, 0.25);
+  this.setMusicLayer('bossLine', boss ? mul * (0.000080 + pressure * 0.000220) : 0.000010, 0.35);
+  this.setMusicLayer('needle', combat && (pressure > 0.50 || modTheme === 'static') ? mul * (0.000025 + pressure * 0.000115) : 0.000010, 0.25);
+
+  this.music.phraseT = Math.max(0, (this.music.phraseT || 0) - dt);
+  if ((room || menu) && this.music.phraseT <= 0) {
+    hookV2146(this, stage, modTheme, bossTheme, pressure);
+    this.music.phraseT = stage === 'clear' ? 3.2 : menu ? 2.9 : boss ? 1.15 : Math.max(1.20, 2.25 - pressure * 0.82);
+  }
+
+  const scheduleWindow = now + 0.18;
+  while (this.music.nextStepTime < scheduleWindow) {
+    const when = Math.max(0, this.music.nextStepTime - now);
+    scheduleBreakStepV2146(this, { pressure, boss, stage, modTheme, bossTheme, lowHp, depth, stepDur }, this.music.stepIndex || 0, when);
+    this.music.stepIndex = ((this.music.stepIndex || 0) + 1) % 128;
+    this.music.nextStepTime += stepDur;
+  }
+};
+
+const handleFxBeforeV2146DarkBreakcore = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2146DarkBreakcore(f, info = {}) {
+  // Preserve gameplay SFX, but suppress older melodic/ambient event stings.
+  const old = {
+    musicNote: this.musicNote,
+    musicDust: this.musicDust,
+    ambientNote: this.ambientNote,
+    ambientNoise: this.ambientNoise,
+    playDirgePhrase: this.playDirgePhrase,
+    scoreEventWave: this.scoreEventWave
+  };
+  let out;
+  try {
+    this.musicNote = () => {};
+    this.musicDust = () => {};
+    this.ambientNote = () => {};
+    this.ambientNoise = () => {};
+    this.playDirgePhrase = () => {};
+    this.scoreEventWave = () => {};
+    out = handleFxBeforeV2146DarkBreakcore.call(this, f, info);
+  } finally {
+    this.musicNote = old.musicNote;
+    this.musicDust = old.musicDust;
+    this.ambientNote = old.ambientNote;
+    this.ambientNoise = old.ambientNoise;
+    this.playDirgePhrase = old.playDirgePhrase;
+    this.scoreEventWave = old.scoreEventWave;
+  }
+  const mine = f?.id === info?.myId;
+  if (f?.t === 'ehit' || f?.t === 'blast' || f?.t === 'phit' || f?.t === 'rain_hit') this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.09);
+  if (f?.t === 'director_wave' || f?.t === 'casino_virus_spin') this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.32);
+  if (f?.t === 'portal_open' || f?.t === 'room_invoice' || f?.t === 'boss_down') {
+    this.musicResolve = Math.max(this.musicResolve || 0, 0.9);
+    if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.05);
+    if (this.ensureMusic?.()) {
+      const pressure = f?.t === 'boss_down' ? 0.76 : 0.38;
+      casinoTickV2146(this, 0.020, pressure, true);
+      glitchV2146(this, 0.055, pressure, 11);
+    }
+  }
+  if (mine && (f?.t === 'combo_tick' || f?.t === 'casino_tick')) {
+    if (this.ensureMusic?.()) casinoTickV2146(this, 0.010, 0.42, !!f.good);
+  }
+  return out;
+};

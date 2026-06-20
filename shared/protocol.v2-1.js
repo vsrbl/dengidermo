@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.42';
-export const BUILD_ID = 'combat_readability_network_hotfix';
+export const VERSION = 'v2.1.46';
+export const BUILD_ID = 'dark_breakcore_soundtrack_rework';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

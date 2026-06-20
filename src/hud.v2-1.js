@@ -869,25 +869,32 @@ export class Hud {
       }
     }
 
-    // dash pips + recovery time
+    // dash pips: compact charge squares only. No large SHIFT READY text.
     const pips = $('dash-pips');
     const dashCd = Math.max(0, Number(me[P.DASHCD] || 0));
-    const want = `${me[P.DASH]}/${me[P.DASHMAX]}:${dashCd.toFixed(1)}`;
+    const dashCdMax = Math.max(0.01, Number(me[P.DASHCDMAX] || 0.01));
+    const dashCharge01 = dashCd > 0 ? Math.max(0, Math.min(1, 1 - dashCd / dashCdMax)) : 1;
+    const want = `${me[P.DASH]}/${me[P.DASHMAX]}:${dashCd.toFixed(1)}:${dashCdMax.toFixed(1)}`;
     if (pips.dataset.v !== want) {
       pips.dataset.v = want;
       pips.innerHTML = '';
       for (let i = 0; i < Math.min(me[P.DASHMAX], 14); i++) {
         const d = document.createElement('span');
-        d.className = 'pip' + (i < me[P.DASH] ? ' full' : '') + (i === me[P.DASH] && dashCd > 0 ? ' charging' : '');
-        this.setExplain(d, t('dashChargeTitle'), i < me[P.DASH] ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
+        const isReady = i < me[P.DASH];
+        const isCharging = !isReady && i === me[P.DASH] && dashCd > 0;
+        d.className = 'pip' + (isReady ? ' full' : '') + (isCharging ? ' charging' : '');
+        if (isCharging) d.style.setProperty('--dash-charge', `${Math.round(dashCharge01 * 100)}%`);
+        this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
         pips.appendChild(d);
       }
       if (me[P.DASHMAX] > 14) pips.append(` x${me[P.DASHMAX]}`);
-      const cd = document.createElement('span');
-      cd.className = 'dash-cd' + (dashCd <= 0 ? ' ready' : '');
-      cd.textContent = dashCd > 0 ? `SHIFT ${dashCd.toFixed(1)}s` : 'SHIFT READY';
-      this.setExplain(cd, t('dashChargeTitle'), dashCd > 0 ? `${t('dashEmpty')} · ${dashCd.toFixed(1)}s` : t('dashReady'), 'cyan');
-      pips.appendChild(cd);
+      if (dashCd > 0) {
+        const cd = document.createElement('span');
+        cd.className = 'dash-cd-mini';
+        cd.textContent = dashCd.toFixed(1);
+        this.setExplain(cd, t('dashChargeTitle'), `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
+        pips.appendChild(cd);
+      }
     }
 
     const acd = me[P.ACTIVECD] || 0;

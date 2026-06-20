@@ -1138,7 +1138,7 @@ function finalRunSummary(run, players) {
   const mem = run?.runMemory || {};
   const connected = [...players.values()].filter(p => p.connected);
   return {
-    version: 'v2.1.42',
+    version: 'v2.1.46',
     result: 'complete',
     loopsTarget: FINAL_TARGET_LOOPS,
     loopsCleared: FINAL_TARGET_LOOPS,
@@ -3974,6 +3974,15 @@ function applyWeaponChain(run, players, startEnemy, b) {
 }
 
 // ---------------------------------------------------------------- shooting
+function globalDamageMul(p) {
+  return Math.max(0.05, Number(p?.stats?.dmgMul) || 1);
+}
+function weaponDamageMul(p) {
+  return globalDamageMul(p) * Math.max(0.05, Number(p?.stats?.weaponDmgMul) || 1);
+}
+function weaponDamageValue(p, base, scale = 1) {
+  return Math.max(0, Number(base) || 0) * weaponDamageMul(p) * Math.max(0, Number(scale) || 0);
+}
 function fireWeapon(run, players, p, dt) {
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
@@ -4015,7 +4024,7 @@ function fireWeapon(run, players, p, dt) {
       run.bullets.push({
         id: nid(), x: originX, y: originY,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
-        dmg: w.dmg * p.stats.dmgMul, from: 'p', owner: p.id,
+        dmg: weaponDamageValue(p, w.dmg), from: 'p', owner: p.id,
         life, delay, size: w.size, aoe: w.aoe || 0, homing,
         knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist, maxDist, rangeMul,
         bounces: (p.stats.bulletBounce || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0),
@@ -4696,7 +4705,7 @@ function stepCompanions(run, players, dt, now) {
           const n = norm(best.x - dp.x, best.y - dp.y);
           const elem = bulletElementString(p, 'drone');
           const elemPower = bulletElementPower(p, 'drone');
-          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: 8 * p.stats.dmgMul, from: 'p', owner: p.id, life: 1.1 * (p.stats.bulletRange || 1), size: 4, proc: p.stats.droneProc ? Math.min(0.9, p.stats.procBlast * 0.55 + p.stats.droneProc * 0.10) : 0, kind: 'drone', travelled: 0, maxDist: Math.round(570 * (p.stats.bulletRange || 1)), bounces: p.stats.bulletBounce || 0, rangeMul: p.stats.bulletRange || 1, elem, elemPower });
+          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: weaponDamageValue(p, 8), from: 'p', owner: p.id, life: 1.1 * (p.stats.bulletRange || 1), size: 4, proc: p.stats.droneProc ? Math.min(0.9, p.stats.procBlast * 0.55 + p.stats.droneProc * 0.10) : 0, kind: 'drone', travelled: 0, maxDist: Math.round(570 * (p.stats.bulletRange || 1)), bounces: p.stats.bulletBounce || 0, rangeMul: p.stats.bulletRange || 1, elem, elemPower });
         }
       }
     }
@@ -5409,7 +5418,7 @@ function applyWeaponChestOption(run, players, p, opt) {
     u.apply(p.stats);
     run.fx.push({ t: 'weapon_mod', id: p.id, label: u.label, w: u.branch });
   } else if (opt.kind === 'stat') {
-    if (opt.stat === 'dmg') p.stats.dmgMul *= 1.18;
+    if (opt.stat === 'dmg') p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
     else if (opt.stat === 'fire') p.stats.fireMul *= 1.14;
     run.fx.push({ t: 'weapon_mod', id: p.id, label: opt.label, w: 'ALL' });
   } else return false;
@@ -5736,7 +5745,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   if (pl.weapon) {
     const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
     if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
-    else { p.stats.dmgMul *= 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
+    else { p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
   }
   if (pl.static) addStaticDebt(run, 1, 'casino_bet');
   const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
@@ -6011,7 +6020,7 @@ function activeShrapnel(run, p, x, y, power = 1) {
   const rangeMul = p.stats.bulletRange || 1;
   for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.12;
-    run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: activeScale(7 + power * 2) * p.stats.dmgMul, from: 'p', owner: p.id, life: 0.75 * rangeMul, size: 4, proc: p.stats.procBlast * 0.35, kind: 'active_shrapnel', travelled: 0, maxDist: Math.round(450 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
+    run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: activeScale(weaponDamageValue(p, 7 + power * 2)), from: 'p', owner: p.id, life: 0.75 * rangeMul, size: 4, proc: p.stats.procBlast * 0.35, kind: 'active_shrapnel', travelled: 0, maxDist: Math.round(450 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
   }
   run.fx.push({ t: 'active_mutation', label: 'SHRAPNEL', x: Math.round(x), y: Math.round(y), r: 85, tone: 'cyan' });
 }
@@ -6095,7 +6104,7 @@ function activeNeedles(run, p, x, y, count, speed, dmg, kind = 'active_noise') {
   const off = Math.random() * Math.PI * 2;
   for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
     const a = off + (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.26;
-    run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg: activeScale(dmg) * p.stats.dmgMul, from: 'p', owner: p.id, life: 0.62 * rangeMul, size: 3 + Math.min(3, n / 8), proc: p.stats.procBlast * 0.25, kind, travelled: 0, maxDist: Math.round(380 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
+    run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg: activeScale(weaponDamageValue(p, dmg)), from: 'p', owner: p.id, life: 0.62 * rangeMul, size: 3 + Math.min(3, n / 8), proc: p.stats.procBlast * 0.25, kind, travelled: 0, maxDist: Math.round(380 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
   }
 }
 function applyActiveUnstableReactions(run, players, p, ctx, opts = {}) {
@@ -6580,7 +6589,7 @@ function spawnSeekerSwarm(run, players, p) {
     run.bullets.push({
       id: nid(), x: originX, y: originY,
       vx: Math.cos(ang) * (w.speed + 60), vy: Math.sin(ang) * (w.speed + 60),
-      dmg: w.dmg * p.stats.dmgMul * 0.76, from: 'p', owner: p.id,
+      dmg: weaponDamageValue(p, w.dmg, 0.76), from: 'p', owner: p.id,
       life, delay: Math.floor(i / 5) * 0.025, size: w.size, aoe: 0, homing,
       knock: (w.knock || 0) * 0.85, proc: p.stats.procBlast, kind: 'seeker', travelled: 0, maxDist, rangeMul,
       bounces: p.stats.bulletBounce || 0,
@@ -6620,7 +6629,7 @@ function fireShotgunLongshot(run, players, p) {
   const elemPower = bulletElementPower(p, 'weapon');
   const originX = p.x + dir.x * 28;
   const originY = p.y + dir.y * 28;
-  const slugDmg = w.dmg * pellets * charges * 0.55 * dmgStack * p.stats.dmgMul;
+  const slugDmg = weaponDamageValue(p, w.dmg * pellets * charges * 0.55 * dmgStack);
   run.bullets.push({
     id: nid(), x: originX, y: originY,
     vx: dir.x * 930, vy: dir.y * 930,

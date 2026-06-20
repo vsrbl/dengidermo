@@ -100,7 +100,7 @@ export class Effects {
         }
         break;
       case 'spawn_warning':
-        this.add({ kind: 'spawnWarning', x: f.x, y: f.y, r: f.r || 64, ttl: Math.max(0.65, f.delay || 1.0), color: '#ff3048', count: f.count || 1 });
+        this.add({ kind: 'spawnWarning', x: f.x, y: f.y, r: f.r || 64, ttl: Math.max(0.65, f.delay || 1.0), color: '#8a8a8a', count: f.count || 1 });
         break;
       case 'dash': {
         const rarity = String(f.skinRarity || 'basic');
@@ -535,10 +535,10 @@ export class Effects {
         const r = e.r || 64;
         ctx.save();
         ctx.globalAlpha = fade * (0.38 + 0.28 * Math.sin(e.t * 22));
-        ctx.strokeStyle = e.color || '#ff3048'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
+        ctx.strokeStyle = e.color || '#8a8a8a'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
         ctx.strokeRect(Math.round(e.x - r / 2), Math.round(e.y - r / 2), Math.round(r), Math.round(r));
         ctx.setLineDash([]);
-        ctx.globalAlpha = fade * 0.20; ctx.fillStyle = e.color || '#ff3048';
+        ctx.globalAlpha = fade * 0.16; ctx.fillStyle = e.color || '#8a8a8a';
         ctx.fillRect(Math.round(e.x - 4), Math.round(e.y - 4), 8, 8);
         ctx.restore();
       } else if (e.kind === 'dashCut') {

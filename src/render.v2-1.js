@@ -382,16 +382,16 @@ export class Renderer {
       const stroke = elite ? COL.red : COL.fg;
       if (spawnDelay > 0) {
         const pulse = 0.45 + 0.35 * Math.sin(now * 14 + ex * 0.01);
+        const warn = '#8a8a8a';
         ctx.save();
-        ctx.globalAlpha = 0.28 + pulse * 0.30;
-        ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
+        ctx.globalAlpha = 0.18 + pulse * 0.18;
+        ctx.strokeStyle = warn; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
         const r = Math.max(44, size + 36);
         ctx.strokeRect(Math.round(ex - r / 2), Math.round(ey - r / 2), Math.round(r), Math.round(r));
         ctx.setLineDash([]);
-        ctx.globalAlpha = 0.16 + pulse * 0.14;
-        ctx.fillStyle = COL.red; ctx.fillRect(Math.round(ex - 5), Math.round(ey - 5), 10, 10);
+        ctx.globalAlpha = 0.10 + pulse * 0.10;
+        ctx.fillStyle = warn; ctx.fillRect(Math.round(ex - 5), Math.round(ey - 5), 10, 10);
         ctx.restore();
-        this.label('INCOMING', ex, ey - Math.max(34, size / 2 + 14), COL.red, 8);
         continue;
       }
       if (kind === 'bouncer') {
