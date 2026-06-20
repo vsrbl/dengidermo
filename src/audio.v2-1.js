@@ -2,7 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 5.60; // v2.1.7: louder music headroom; music slider preview is a dry terminal tick
+const MUSIC_OUTPUT_GAIN = 56.00; // v2.1.47: music output is 10x louder than v2.1.46
 
 function inGameMusicAmount(room, menu = false) { return menu ? 0.82 : (room ? 1 : 0); }
 
