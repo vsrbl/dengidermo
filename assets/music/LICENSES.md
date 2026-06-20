@@ -1,29 +1,14 @@
-# v2.1.54 Licensed Music Sources
+# Music licenses / v2.1.55
 
-This build disables the procedural breakcore generator and uses externally hosted CC0 music tracks.
+The game uses licensed external music tracks and supports local files if they are later added under `assets/music/`.
 
 ## Tracks
 
-1. **Shortcuts** — Zane Little Music  
-   Source: https://opengameart.org/content/shortcuts  
-   Direct audio: https://opengameart.org/sites/default/files/shortcuts.ogg  
-   License: CC0
+- `Fireflies All Over the Sky` — Yoiyami — CC0 — https://opengameart.org/content/fireflies-all-over-the-sky-%E2%80%94-yoiyami-core-breakcore-fusion
+- `Shortcuts` — Zane Little Music — CC0 — https://opengameart.org/content/shortcuts
+- `Passing Timeline` — tricksntraps — CC0 — https://opengameart.org/content/free-rhythm-game-music-pack-1
+- `Psychic` — tricksntraps — CC0 — https://opengameart.org/content/free-rhythm-game-music-pack-1
 
-2. **Fireflies All Over the Sky — Yoiyami-core / Breakcore Fusion** — Yoiyami  
-   Source: https://opengameart.org/content/fireflies-all-over-the-sky-%E2%80%94-yoiyami-core-breakcore-fusion  
-   Direct audio: https://opengameart.org/sites/default/files/fireflies_all_over_the_sky_0.wav  
-   License: CC0
+## Implementation note
 
-3. **Passing Timeline** — Tricks & Traps, from Free Rhythm Game Music Pack 1  
-   Source: https://opengameart.org/content/free-rhythm-game-music-pack-1  
-   Direct audio: https://opengameart.org/sites/default/files/8_passing_timeline.wav  
-   License: CC0
-
-4. **Psychic** — Tricks & Traps, from Free Rhythm Game Music Pack 1  
-   Source: https://opengameart.org/content/free-rhythm-game-music-pack-1  
-   Direct audio: https://opengameart.org/sites/default/files/10_psychic.wav  
-   License: CC0
-
-Credit is not required for CC0, but source information is kept here for transparency.
-
-Note: in this build, tracks are referenced by URL instead of bundled as binary audio files because the build environment could not save audio MIME types into the sandbox. The game streams the listed files when online.
+The audio files are played through plain `HTMLAudioElement` without `crossOrigin`, because v2.1.54 could fail silently when the host did not provide anonymous CORS headers. The code tries local files first and falls back to OpenGameArt direct URLs.

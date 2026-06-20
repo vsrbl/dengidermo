@@ -2,7 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.54: procedural music disabled; music is now licensed external tracks via HTMLAudioElement
+const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.55: procedural music disabled; licensed tracks via HTMLAudioElement
 
 const EXTERNAL_MUSIC_TRACKS = {
   calm: {
@@ -11,7 +11,7 @@ const EXTERNAL_MUSIC_TRACKS = {
     author: 'Yoiyami',
     license: 'CC0',
     sourcePage: 'https://opengameart.org/content/fireflies-all-over-the-sky-%E2%80%94-yoiyami-core-breakcore-fusion',
-    url: 'https://opengameart.org/sites/default/files/fireflies_all_over_the_sky_0.wav',
+    url: 'https://opengameart.org/sites/default/files/fireflies_all_over_the_sky.wav',
     base: 0.34
   },
   combat: {
@@ -839,7 +839,6 @@ export class AudioBus {
     const tracks = {};
     for (const [id, cfg] of Object.entries(EXTERNAL_MUSIC_TRACKS)) {
       const el = new Audio(cfg.url);
-      el.crossOrigin = 'anonymous';
       el.loop = true;
       el.preload = id === 'calm' || id === 'combat' ? 'auto' : 'metadata';
       el.volume = 0;
@@ -5467,4 +5466,202 @@ AudioBus.prototype.previewVolume = function previewVolumeV2154Licensed(kind = 's
   o.connect(f); f.connect(g); g.connect(out);
   o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
   o.start(now); o.stop(now + 0.075);
+};
+
+
+// v2.1.55 MUSIC STREAM RELIABILITY + UI SLIDER LOUDNESS HOTFIX
+// Why: v2.1.54 used crossOrigin='anonymous' for plain <audio>. OpenGameArt does not need
+// CORS for playback, and anonymous CORS can make browsers silently refuse playback.
+// This final override removes CORS, tries local files first if a future build bundles them,
+// then falls back to OpenGameArt direct files. No procedural music is used.
+const MUSIC_TRACKS_V2155 = {
+  calm: {
+    id: 'calm', title: 'Fireflies All Over the Sky', author: 'Yoiyami', license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/fireflies-all-over-the-sky-%E2%80%94-yoiyami-core-breakcore-fusion',
+    sources: ['assets/music/fireflies_all_over_the_sky.wav', 'https://opengameart.org/sites/default/files/fireflies_all_over_the_sky.wav'],
+    base: 0.78
+  },
+  combat: {
+    id: 'combat', title: 'Shortcuts', author: 'Zane Little Music', license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/shortcuts',
+    sources: ['assets/music/shortcuts.ogg', 'https://opengameart.org/sites/default/files/shortcuts.ogg'],
+    base: 0.92
+  },
+  storm: {
+    id: 'storm', title: 'Passing Timeline', author: 'tricksntraps', license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/free-rhythm-game-music-pack-1',
+    sources: ['assets/music/8_passing_timeline.wav', 'https://opengameart.org/sites/default/files/8_passing_timeline.wav'],
+    base: 0.86
+  },
+  boss: {
+    id: 'boss', title: 'Psychic', author: 'tricksntraps', license: 'CC0',
+    sourcePage: 'https://opengameart.org/content/free-rhythm-game-music-pack-1',
+    sources: ['assets/music/10_psychic.wav', 'https://opengameart.org/sites/default/files/10_psychic.wav'],
+    base: 0.94
+  }
+};
+
+AudioBus.prototype.ensureExternalMusic = function ensureExternalMusicV2155() {
+  if (typeof Audio === 'undefined') return false;
+  if (this.externalMusicReady && this.externalMusic?.version === 2155) return true;
+  if (this.externalMusic?.tracks) {
+    for (const t of Object.values(this.externalMusic.tracks)) {
+      try { t.el.pause(); t.el.removeAttribute('src'); t.el.load(); } catch {}
+    }
+  }
+  const tracks = {};
+  for (const [id, cfg] of Object.entries(MUSIC_TRACKS_V2155)) {
+    const el = new Audio();
+    // IMPORTANT: no crossOrigin here. We only play the file; we do not pipe it through WebAudio.
+    // Setting crossOrigin caused silent failure on some hosts/browsers.
+    el.loop = true;
+    el.preload = id === 'calm' || id === 'combat' ? 'auto' : 'metadata';
+    el.volume = 0;
+    el.dataset.musicId = id;
+    tracks[id] = { cfg, el, gain: 0, target: 0, started: false, sourceIndex: 0, failed: false, lastError: 0 };
+    el.src = cfg.sources[0];
+    el.addEventListener('error', () => {
+      const tr = tracks[id];
+      if (!tr) return;
+      const next = (tr.sourceIndex || 0) + 1;
+      if (next < tr.cfg.sources.length) {
+        tr.sourceIndex = next;
+        tr.started = false;
+        tr.failed = false;
+        try { tr.el.pause(); } catch {}
+        tr.el.src = tr.cfg.sources[next];
+        try { tr.el.load(); } catch {}
+      } else {
+        tr.failed = true;
+        tr.lastError = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      }
+    });
+  }
+  this.externalMusic = { tracks, lastTick: 0, mode: 'calm', version: 2155 };
+  this.externalMusicReady = true;
+  this.applyExternalMusicVolumes(0);
+  return true;
+};
+
+AudioBus.prototype.startExternalTrack = function startExternalTrackV2155(track) {
+  if (!track || track.started || track.failed) return;
+  track.started = true;
+  try {
+    if (!track.el.src && track.cfg.sources?.length) track.el.src = track.cfg.sources[track.sourceIndex || 0];
+    // Do not reset currentTime on every start; pausing a background layer and resuming it
+    // should not make the soundtrack feel like it restarts constantly.
+    const p = track.el.play();
+    if (p && typeof p.catch === 'function') p.catch(() => {
+      track.started = false;
+      // If local relative file is missing, try remote fallback on the next tick.
+      const src = String(track.el.currentSrc || track.el.src || '');
+      if (src && !src.startsWith('http') && (track.sourceIndex || 0) + 1 < track.cfg.sources.length) {
+        track.sourceIndex = (track.sourceIndex || 0) + 1;
+        track.el.src = track.cfg.sources[track.sourceIndex];
+        try { track.el.load(); } catch {}
+      }
+    });
+  } catch {
+    track.started = false;
+  }
+};
+
+AudioBus.prototype.applyExternalMusicVolumes = function applyExternalMusicVolumesV2155(glide = 0.35) {
+  if (!this.externalMusic?.tracks) return;
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  const dt = Math.max(0.016, Math.min(0.25, now - (this.externalMusic.lastTick || now)));
+  this.externalMusic.lastTick = now;
+  const k = glide <= 0 ? 1 : Math.min(1, dt / Math.max(0.016, glide));
+  for (const track of Object.values(this.externalMusic.tracks)) {
+    track.gain += (track.target - track.gain) * k;
+    const audible = track.gain > 0.0008 && this.musicVolume > 0.001;
+    if (audible) this.startExternalTrack(track);
+    const vol = Math.max(0, Math.min(1, track.gain * track.cfg.base * this.musicVolume));
+    track.el.volume = vol;
+    if (!audible && track.started) {
+      try { track.el.pause(); } catch {}
+      track.started = false;
+    }
+  }
+};
+
+AudioBus.prototype.chooseExternalMusicMode = function chooseExternalMusicModeV2155(state, metrics = {}) {
+  const room = state?.room || null;
+  if (!room || state?.menu) return 'calm';
+  const mods = room?.mods || [];
+  if (room?.cat === 'boss') return 'boss';
+  if (mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus')) return 'storm';
+  if (metrics.intensity > 0.22 || room?.phase === 'play') return 'combat';
+  return 'calm';
+};
+
+AudioBus.prototype.updateExternalMusic = function updateExternalMusicV2155(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureExternalMusic()) return;
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const lowHp = me ? Math.max(0, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)) * 1.35) : 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const intensity = Math.max(0, Math.min(1, enemies / 20 + bullets / 95 + lowHp * 0.24 + danger * 0.20 + (room?.cat === 'boss' ? 0.50 : 0)));
+  const mode = this.chooseExternalMusicMode(state, { intensity });
+  this.externalMusicMode = mode;
+  for (const [id, track] of Object.entries(this.externalMusic.tracks)) {
+    let target = id === mode ? 1 : 0;
+    // Slight underlay for continuity; small enough not to become mud.
+    if (mode === 'combat' && id === 'calm') target = 0.07;
+    if (mode === 'storm' && id === 'combat') target = 0.12;
+    if (mode === 'boss' && id === 'combat') target = 0.10;
+    track.target = target;
+  }
+  this.applyExternalMusicVolumes(0.65);
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2155(state, dt = 0.016) {
+  this.updateExternalMusic(state, dt);
+};
+
+AudioBus.prototype.setMusicVolume = function setMusicVolumeV2155(value) {
+  this.musicVolume = this.writeVolume('nnc_music_volume', value);
+  if (this.musicGain && this.ctx) {
+    const t = this.ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(t);
+    this.musicGain.gain.setTargetAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, t, 0.045);
+  }
+  this.applyExternalMusicVolumes?.(0.12);
+};
+
+AudioBus.prototype.previewVolume = function previewVolumeV2155(kind = 'sfx') {
+  this.unlock();
+  if (!this.ctx || this.ctx.state !== 'running') return;
+  const now = this.ctx.currentTime;
+  if (now - (this.last.get('volume_preview') || -99) < 0.055) return;
+  this.last.set('volume_preview', now);
+  const out = this.sfxGain || this.master;
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  const isMusic = kind === 'music';
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(isMusic ? 520 : 620, now);
+  o.frequency.setTargetAtTime(isMusic ? 390 : 465, now + 0.014, 0.018);
+  f.type = 'lowpass'; f.frequency.value = isMusic ? 1900 : 2300; f.Q.value = 0.50;
+  g.gain.setValueAtTime(0.000001, now);
+  // Louder than v2.1.54, but still routed through SFX so global SFX volume controls it.
+  g.gain.linearRampToValueAtTime(isMusic ? 0.070 : 0.085, now + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.000001, now + 0.080);
+  o.connect(f); f.connect(g); g.connect(out);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(now); o.stop(now + 0.092);
+};
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2155() {
+  if (this.music?.master) {
+    try { this.music.master.disconnect(); } catch {}
+    this.music = null;
+  }
+  return this.ensureExternalMusic();
 };
