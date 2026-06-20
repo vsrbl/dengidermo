@@ -1,5 +1,5 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.50';
+export const VERSION = 'v2.1.51';
 export const BUILD_ID = 'starry_breakcore_acceleration';
 export const PROTOCOL = 5;
 

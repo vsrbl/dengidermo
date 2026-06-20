@@ -2,7 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 56.00; // v2.1.47: music output is 10x louder than v2.1.46
+const MUSIC_OUTPUT_GAIN = 560.00; // v2.1.51: whole music bus is 10x louder than v2.1.50, with a new limiter for steadier loudness
 
 function inGameMusicAmount(room, menu = false) { return menu ? 0.82 : (room ? 1 : 0); }
 
@@ -4642,6 +4642,389 @@ AudioBus.prototype.handleFx = function handleFxV2150StarryBreakcore(f, info = {}
     glitchV2150(this, 0.020, p, 99, true);
     microRollV2150(this, 0.040, p, 0.170, 123, 'snare');
     if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.012);
+  }
+  return out;
+};
+
+
+// v2.1.51 EVEN LOUD BREAKCORE REWRITE
+// User note: v2.1.50 still felt slow, strange, monotonous and bland.
+// New direction: louder overall output, steadier compressed bus, authored 12-section break banks,
+// phrase-ending turnarounds, denser rolls, and clearer starry hooks. Original WebAudio synthesis only.
+const clamp01V2151 = v => Math.max(0, Math.min(1, Number(v) || 0));
+const hzV2151 = (root, semis) => root * Math.pow(2, semis / 12);
+const randV2151 = n => {
+  const x = Math.sin((Number(n) || 0) * 91.735 + 17.193) * 49321.7321;
+  return x - Math.floor(x);
+};
+function stageV2151(room, latest, bossHpPct = 100) {
+  if (!room) return 'menu';
+  if (room.cat === 'boss') return bossHpPct <= 35 ? 'bossDrop' : 'boss';
+  if (room.cat === 'chill' || room.special === 'chill_room' || room.portal?.[2]) return 'flow';
+  const enemies = Number(room.liveEnemies || latest?.enemies?.length || 0);
+  if (enemies <= 0 && room.phase === 'play') return 'flow';
+  if (enemies > 24 || Number(room.danger || 0) >= 4) return 'storm';
+  if (enemies > 7) return 'rush';
+  return 'spark';
+}
+function rootV2151(stage, theme, boss) {
+  if (boss) return 46.25;
+  if (theme === 'casino') return 51.91;
+  if (theme === 'static' || theme === 'void') return 43.65;
+  if (theme === 'flesh') return 49.00;
+  return 55.00;
+}
+function musicRouteV2151(bus) { return bus.music?.master || bus.musicGain || bus.master; }
+function percGainV2151(bus, vol, dur, delay = 0, attack = 0.0014, hold = 0.0025) {
+  if (!bus.ctx) return null;
+  const ctx = bus.ctx;
+  const g = ctx.createGain();
+  const t = ctx.currentTime + Math.max(0, delay || 0);
+  const v = Math.max(0.000001, vol || 0.000001);
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.exponentialRampToValueAtTime(v, t + Math.max(0.0008, attack));
+  if (hold > 0) g.gain.setValueAtTime(v, t + attack + hold);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + Math.max(0.008, dur));
+  g.connect(musicRouteV2151(bus));
+  return { g, t };
+}
+function oscHitV2151(bus, freq, dur, type, vol, delay = 0, bend = 1, filter = 900, q = 0.9) {
+  if (!bus.ctx || !bus.music?.master) return;
+  const ctx = bus.ctx;
+  const env = percGainV2151(bus, vol, dur, delay, 0.0014, dur * 0.05);
+  if (!env) return;
+  const o = ctx.createOscillator();
+  const f = ctx.createBiquadFilter();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(18, freq), env.t);
+  if (bend !== 1) o.frequency.exponentialRampToValueAtTime(Math.max(18, freq * bend), env.t + dur * 0.82);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(Math.max(45, filter), env.t);
+  f.Q.value = q;
+  o.connect(f); f.connect(env.g);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); env.g.disconnect(); } catch {} };
+  o.start(env.t); o.stop(env.t + dur + 0.025);
+}
+function noiseHitV2151(bus, dur, vol, filterFreq = 2200, q = 7, delay = 0, mode = 'bandpass', grit = 2.0) {
+  if (!bus.ctx || !bus.music?.master) return;
+  const ctx = bus.ctx;
+  const sr = ctx.sampleRate;
+  const len = Math.max(1, Math.floor(sr * Math.max(0.004, dur)));
+  const buf = ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  let latch = 0;
+  const step = Math.max(1, Math.floor(1 + grit * 7));
+  for (let i = 0; i < len; i++) {
+    if (i % step === 0) latch = Math.random() * 2 - 1;
+    const env = Math.pow(1 - i / Math.max(1, len - 1), 1.28);
+    data[i] = (latch * 0.72 + (Math.random() * 2 - 1) * 0.28) * env;
+  }
+  const src = ctx.createBufferSource();
+  const f = ctx.createBiquadFilter();
+  const env = percGainV2151(bus, vol, dur, delay, 0.001, dur * 0.015);
+  if (!env) return;
+  src.buffer = buf;
+  f.type = mode;
+  f.frequency.setValueAtTime(Math.max(45, filterFreq), env.t);
+  f.Q.value = q;
+  src.connect(f); f.connect(env.g);
+  src.onended = () => { try { src.disconnect(); f.disconnect(); env.g.disconnect(); } catch {} };
+  src.start(env.t); src.stop(env.t + dur + 0.018);
+}
+function kickV2151(bus, w, p = 0, boss = false, ghost = false) {
+  const v = ghost ? 0.00010 + p * 0.00016 : 0.00036 + p * 0.00095 + (boss ? 0.00022 : 0);
+  const base = boss ? 52 : 58;
+  oscHitV2151(bus, base * 2.15, 0.070 + p * 0.024, 'sine', v, w, 0.18, 130 + p * 95, 0.72);
+  if (!ghost) {
+    oscHitV2151(bus, base * 0.82, 0.050, 'square', v * 0.34, w + 0.002, 0.58, 260 + p * 90, 0.9);
+    noiseHitV2151(bus, 0.009, v * 0.45, 950 + p * 700, 4.2, w, 'bandpass', 1.2);
+  }
+}
+function snareV2151(bus, w, p = 0, ghost = false, accent = 1) {
+  const v = (ghost ? 0.00013 + p * 0.00026 : 0.00034 + p * 0.00090) * accent;
+  noiseHitV2151(bus, ghost ? 0.026 : 0.058, v, ghost ? 2850 : 1850, ghost ? 8.8 : 5.4, w, 'bandpass', ghost ? 2.7 : 1.7);
+  oscHitV2151(bus, ghost ? 230 : 174, ghost ? 0.024 : 0.044, 'triangle', v * 0.34, w + 0.0015, 0.70, 520, 0.9);
+  if (!ghost && p > 0.48) noiseHitV2151(bus, 0.012, v * 0.30, 5600 + p * 1200, 10.5, w + 0.010, 'highpass', 3.1);
+}
+function hatV2151(bus, w, p = 0, open = false) {
+  const v = open ? 0.00013 + p * 0.00034 : 0.000060 + p * 0.00018;
+  noiseHitV2151(bus, open ? 0.050 : 0.013, v, open ? 6300 : 9000, open ? 5.4 : 12.5, w, 'highpass', 4.2 + p * 2.2);
+}
+function glitchV2151(bus, w, p = 0, seed = 0, bright = false) {
+  const bank = bright ? [2600, 3400, 4600, 6200, 7600] : [950, 1280, 1720, 2200, 3100];
+  const f = bank[Math.abs(seed) % bank.length] + p * 420;
+  const v = 0.000065 + p * 0.00025;
+  noiseHitV2151(bus, 0.010 + (Math.abs(seed) % 4) * 0.003, v, f, 10 + (seed % 4), w, bright ? 'highpass' : 'bandpass', 4.8);
+  if (p > 0.62 && seed % 3 === 0) oscHitV2151(bus, 440 * (1 + (Math.abs(seed) % 5) * 0.125), 0.014, 'square', v * 0.32, w + 0.003, 0.66, 2600, 1.3);
+}
+function bassV2151(bus, w, root, step, p = 0, boss = false, theme = 'floor', noteOverride = null) {
+  const riffs = {
+    floor: [0, -12, -5, -12, 3, -12, -7, -12, 0, -12, -5, -12, 2, -12, -7, -12],
+    casino: [0, -12, 1, -12, -5, -12, 0, -12, 3, -12, -2, -12, -7, -12, 0, -12],
+    static: [0, -12, -1, -12, -5, -12, 1, -12, -7, -12, -1, -12, -5, -12, 0, -12],
+    flesh: [0, -12, -2, -12, -5, -12, -6, -12, -2, -12, 0, -12, -7, -12, -5, -12],
+    void: [0, -12, -5, -12, -1, -12, -8, -12, 0, -12, -7, -12, -5, -12, -12, -12]
+  };
+  const bossRiff = [0, -12, -1, -12, -5, -12, -6, -12, 0, -12, -7, -12, -5, -12, -1, -12];
+  const riff = boss ? bossRiff : (riffs[theme] || riffs.floor);
+  const semis = (noteOverride == null ? riff[Math.abs(step) % riff.length] : noteOverride) - 12;
+  const v = 0.00020 + p * 0.00068 + (boss ? 0.00016 : 0);
+  oscHitV2151(bus, hzV2151(root, semis), 0.078 + p * 0.030, p > 0.55 ? 'sawtooth' : 'triangle', v, w, 0.996, 190 + p * 260, 0.9);
+}
+function casinoPingV2151(bus, w, p = 0, good = false) {
+  const v = 0.000085 + p * 0.00020;
+  const f = good ? 1760 : 1175;
+  oscHitV2151(bus, f, 0.018, 'square', v, w, good ? 1.20 : 0.70, 2500, 1.6);
+  noiseHitV2151(bus, 0.007, v * 0.40, 3900, 12, w + 0.002, 'bandpass', 2.8);
+}
+function rollV2151(bus, w, p, stepDur, seed = 0, kind = 'snare', count = 6) {
+  const n = Math.max(3, Math.min(10, count));
+  for (let i = 0; i < n; i++) {
+    const t = w + i * stepDur / (n + 0.12) + (i % 2 ? stepDur * 0.010 : 0);
+    const fade = 1.0 - i * 0.045;
+    if (kind === 'kick') kickV2151(bus, t, p * fade, false, i < n - 1);
+    else if (kind === 'hat') hatV2151(bus, t, p * fade, i === n - 1);
+    else snareV2151(bus, t, p * fade, i < n - 1, i === n - 1 ? 1.14 : 0.82);
+  }
+  if (seed % 2 === 0) glitchV2151(bus, w + stepDur * 0.72, p, seed + 19, true);
+}
+function hookV2151(bus, stage, theme, root, p = 0, boss = false, stepIndex = 0) {
+  if (!bus.music?.master || !bus.ctx) return;
+  const phrase = Math.floor(stepIndex / 64) % 12;
+  const motifs = {
+    floor: [[0, 3, 7, 10, 7, 3, 12, 10], [12, 10, 7, 3, 0, 3, 7, 15], [7, 12, 10, 7, 3, 7, 10, 12]],
+    casino: [[0, 4, 7, 11, 7, 4, 12, 11], [12, 11, 7, 4, 0, 4, 7, 16], [7, 11, 12, 7, 4, 7, 11, 12]],
+    static: [[0, 3, 6, 10, 6, 3, 12, 10], [12, 10, 6, 3, 0, 3, 6, 15], [6, 12, 10, 6, 3, 6, 10, 12]],
+    flesh: [[0, 2, 7, 10, 7, 2, 12, 10], [12, 10, 7, 2, 0, 2, 7, 14], [7, 12, 10, 7, 2, 7, 10, 12]],
+    void: [[0, 5, 7, 10, 7, 5, 12, 10], [12, 10, 7, 5, 0, 5, 7, 17], [7, 12, 10, 7, 5, 7, 10, 12]]
+  };
+  const bossMotifs = [[0, 3, 7, 10, 12, 10, 7, 3], [12, 10, 7, 3, 0, -2, 0, 7], [7, 10, 12, 15, 12, 10, 7, 3]];
+  const bank = boss ? bossMotifs : (motifs[theme] || motifs.floor);
+  const motif = bank[(phrase + Math.floor(stepIndex / 16)) % bank.length];
+  const speed = stage === 'flow' ? 0.106 : boss ? 0.070 : stage === 'storm' ? 0.060 : stage === 'rush' ? 0.074 : 0.086;
+  const count = stage === 'flow' ? 6 : boss ? 12 : stage === 'storm' ? 10 : 8;
+  const octaveLift = stage === 'flow' ? 12 : (p > 0.64 || phrase % 3 === 1 ? 24 : 12);
+  const baseVol = 0.000075 + p * 0.00022 + (boss ? 0.00005 : 0);
+  for (let i = 0; i < count; i++) {
+    const semis = motif[i % motif.length] + octaveLift + (i >= 8 && p > 0.7 ? 12 : 0);
+    const d = 0.006 + i * speed + (i % 4 === 3 ? speed * 0.22 : 0);
+    const type = (theme === 'casino' || i % 5 === 0) ? 'square' : 'triangle';
+    oscHitV2151(bus, hzV2151(root, semis), speed * (i % 4 === 3 ? 1.45 : 0.92), type, baseVol * (i === 0 || i === 4 ? 1.18 : 0.74), d, 0.998, 1550 + p * 1900, 1.1);
+    if (i % 4 === 1 && p > 0.42) oscHitV2151(bus, hzV2151(root, semis - 12), speed * 1.25, 'sine', baseVol * 0.30, d + speed * 0.35, 1, 800 + p * 700, 0.9);
+  }
+}
+function scheduleStepV2151(bus, c, step, when) {
+  const { pressure, boss, stage, theme, lowHp, depth, stepDur, root } = c;
+  const s16 = step % 16;
+  const s32 = step % 32;
+  const s64 = step % 64;
+  const section = Math.floor(step / 64) % 12;
+  const seed = step * 73 + Math.floor(depth || 0) * 41 + (boss ? 900 : 0) + (theme === 'casino' ? 191 : 0);
+  const swing = s16 % 2 ? stepDur * 0.018 : 0;
+  const w = when + swing;
+  const busy = pressure > 0.24 || stage === 'rush' || stage === 'storm' || boss;
+  const insane = pressure > 0.54 || stage === 'storm' || stage === 'bossDrop';
+  const halfTimeCut = section === 2 && !boss;
+  const assault = boss || stage === 'storm' || section === 5 || section === 7 || section === 10;
+  const bankA = { k: [0, 3, 6, 10, 14], s: [4, 7, 12, 15], g: [2, 11, 13] };
+  const bankB = { k: [0, 5, 8, 13], s: [3, 6, 12, 15], g: [1, 10, 14] };
+  const bankC = { k: [0, 2, 6, 9, 12, 15], s: [4, 11, 14], g: [7, 10, 13] };
+  const bankD = { k: [0, 4, 8, 10, 12, 14], s: [2, 6, 11, 15], g: [3, 5, 13] };
+  const banks = [bankA, bankB, bankC, bankD, bankA, bankC, bankB, bankD];
+  const bank = banks[(section + (theme === 'casino' ? 2 : 0) + (boss ? 1 : 0)) % banks.length];
+  if (stage === 'flow') {
+    if (s16 === 0 || s16 === 6 || s16 === 10 || s16 === 14) kickV2151(bus, w, 0.38, false);
+    if (s16 === 4 || s16 === 12) snareV2151(bus, w, 0.34, false);
+    if (s16 % 2 === 1 || s16 === 8) hatV2151(bus, w, 0.32, s16 === 15);
+    if (s16 === 0 || s16 === 8) bassV2151(bus, w + 0.001, root, step, 0.30, false, theme);
+    if (s16 === 15) rollV2151(bus, w, 0.38, stepDur * 0.80, seed, section % 2 ? 'hat' : 'snare', 4);
+    return;
+  }
+  if (halfTimeCut) {
+    if ([0, 7, 10, 15].includes(s16)) kickV2151(bus, w, pressure * 0.82, boss, s16 === 15);
+    if ([4, 12].includes(s16)) snareV2151(bus, w, pressure * 0.78, false);
+    if (s16 % 4 === 2 || s16 === 15) hatV2151(bus, w, pressure * 0.54, s16 === 15);
+    if (s16 === 15) rollV2151(bus, w, Math.max(pressure, 0.62), stepDur * 0.90, seed, 'snare', 6);
+    if (s16 === 0 || s16 === 8) bassV2151(bus, w + 0.001, root, step, pressure * 0.72, boss, theme);
+    return;
+  }
+  const gabber = boss && (section >= 4 || stage === 'bossDrop');
+  if (gabber) {
+    if (s16 % 2 === 0 || s16 === 15) kickV2151(bus, w, pressure, boss, s16 % 4 !== 0);
+  } else if (bank.k.includes(s16)) kickV2151(bus, w, pressure, boss, false);
+  if (bank.s.includes(s16)) snareV2151(bus, w + (s16 === 15 ? stepDur * 0.08 : 0), pressure, false, s16 === 15 ? 1.08 : 1);
+  if (busy && bank.g.includes(s16)) snareV2151(bus, w + stepDur * 0.12, pressure * 0.62, true);
+  // Extra coherent top loop glues the slice gaps so it feels less empty and less random.
+  if (s16 % 2 === 1 || (busy && s16 % 4 === 0) || (insane && s16 % 4 === 2) || section === 7) hatV2151(bus, w, pressure, insane && (s16 === 7 || s16 === 15));
+  if (s32 % 8 === 3 && busy) hatV2151(bus, w + stepDur * 0.47, pressure * 0.60, false);
+  if (s16 === 0 || s16 === 6 || s16 === 8 || s16 === 14 || (insane && (s16 === 3 || s16 === 11))) bassV2151(bus, w + 0.0015, root, step, pressure, boss, theme);
+  if (theme === 'casino' && (s16 === 1 || s16 === 5 || s16 === 9 || s16 === 13 || s16 === 15)) casinoPingV2151(bus, w + 0.004, pressure, s16 === 15 || s32 === 9);
+  // Controlled glitch: frequent enough for breakcore, deterministic enough not to feel random-wrong.
+  const gChance = 0.10 + pressure * 0.26 + (theme === 'static' ? 0.13 : 0) + (lowHp > 0.42 ? 0.08 : 0);
+  if (randV2151(seed) < gChance) glitchV2151(bus, w + randV2151(seed + 2) * Math.min(0.014, stepDur * 0.38), pressure, seed, randV2151(seed + 3) > 0.48);
+  // Turnarounds at musical boundaries: fixes the previous flat loop feeling.
+  if (s16 === 15 || (s16 === 7 && (busy || section % 2 === 1)) || (insane && s16 === 3)) {
+    const kind = s16 === 15 ? 'snare' : (section % 3 === 0 ? 'hat' : 'kick');
+    rollV2151(bus, w, Math.max(pressure, 0.56), stepDur * (s16 === 15 ? 0.98 : 0.58), seed, kind, s16 === 15 ? (insane ? 8 : 6) : 5);
+  }
+  if (insane && (s64 === 30 || s64 === 31 || s64 === 62 || s64 === 63)) {
+    glitchV2151(bus, w + stepDur * 0.25, pressure, seed + 17, true);
+    snareV2151(bus, w + stepDur * 0.55, pressure * 0.72, true);
+  }
+}
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2151EvenLoudBreakcore() {
+  if (!this.ctx || this.ctx.state !== 'running') return false;
+  if (this.music?.flavor === 'even_loud_breakcore_v2151') return true;
+  if (this.music?.master) { try { this.music.master.disconnect(); } catch {} }
+  const input = this.ctx.createGain();
+  const comp = this.ctx.createDynamicsCompressor();
+  const post = this.ctx.createGain();
+  input.gain.value = 0.115;
+  comp.threshold.value = -30;
+  comp.knee.value = 10;
+  comp.ratio.value = 16;
+  comp.attack.value = 0.002;
+  comp.release.value = 0.055;
+  post.gain.value = 0.68;
+  input.connect(comp); comp.connect(post); post.connect(this.musicGain || this.master);
+  this.music = {
+    master: input,
+    limiter: comp,
+    post,
+    flavor: 'even_loud_breakcore_v2151',
+    layers: {},
+    phraseT: 0.05,
+    motifIndex: 0,
+    lastRoomTone: '',
+    voiceCount: 0,
+    maxVoices: 38,
+    stepIndex: 0,
+    nextStepTime: 0,
+    lastBpm: 280,
+    hitFlashT: 0
+  };
+  const root = 55.00;
+  this.music.layers.drone = this.makeToneLayer(root * 0.5, 'sine', 90);
+  this.music.layers.sub = this.makeToneLayer(root * 0.25, 'sine', 45);
+  this.music.layers.pulse = this.makeToneLayer(root, 'sawtooth', 320);
+  this.music.layers.hat = this.makeNoiseLayer(7200, 10.5);
+  this.music.layers.casino = this.makeToneLayer(root * 8, 'square', 1650);
+  this.music.layers.choir = this.makeToneLayer(root * 2, 'triangle', 540);
+  this.music.layers.dirgePad = this.makeToneLayer(root, 'sawtooth', 260);
+  this.music.layers.scrape = this.makeNoiseLayer(980, 3.2);
+  this.music.layers.glass = this.makeToneLayer(root * 14, 'triangle', 2600);
+  this.music.layers.highPad = this.makeToneLayer(root * 10, 'sine', 3100);
+  this.music.layers.drive = this.makeToneLayer(root * 0.75, 'sawtooth', 720);
+  this.music.layers.bossLine = this.makeToneLayer(root * 1.5, 'square', 920);
+  this.music.layers.needle = this.makeNoiseLayer(4300, 7.0);
+  return true;
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2151EvenLoudBreakcore(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  const room = state?.room || null;
+  const menu = !!state?.menu || !room;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const boss = !menu && room?.cat === 'boss';
+  const bossHpPct = Math.max(0, Number(room?.bossHpPct || 0));
+  const stage = menu ? 'menu' : stageV2151(room, latest, bossHpPct || 100);
+  const theme = themeFromModsV2148(mods);
+  const enemies = Math.max(0, Number(room?.liveEnemies || latest?.enemies?.length || 0));
+  const bullets = latest?.bullets?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const lowHp = me ? clamp01V2151(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const damage = clamp01V2151(this.damageEnergy || 0);
+  this.damageEnergy = Math.max(0, (this.damageEnergy || 0) - dt * 0.74);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.50);
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const crowd = clamp01V2151(enemies / 22);
+  const bulletPressure = clamp01V2151(bullets / 78);
+  const loopHeat = clamp01V2151(Math.floor(depth / 3) / 7);
+  let pressure = menu ? 0.34 : clamp01V2151(0.24 + crowd * 0.26 + bulletPressure * 0.14 + lowHp * 0.18 + danger * 0.16 + damage * 0.16 + loopHeat * 0.12 + (boss ? 0.34 : 0) + (stage === 'storm' || stage === 'bossDrop' ? 0.20 : 0) + (this.musicChaos || 0) * 0.18);
+  if (stage === 'flow') pressure = Math.max(0.36, Math.min(0.54, pressure * 0.72 + 0.24));
+  if (boss) pressure = Math.max(pressure, stage === 'bossDrop' ? 0.90 : 0.76);
+  const root = rootV2151(stage, theme, boss);
+  const area = menu ? 'menu' : `${room?.phase || 'room'}:${room?.cat || 'room'}:${stage}:${theme}:${mods.join(',')}`;
+  if (area !== this.musicLastArea) {
+    this.musicLastArea = area;
+    this.music.stepIndex = 0;
+    this.music.nextStepTime = this.ctx.currentTime + 0.012;
+    this.music.phraseT = menu ? 0.10 : boss ? 0.010 : 0.018;
+    this.music.lastBpm = 0;
+  }
+  const baseBpm = menu ? 214 : stage === 'flow' ? 252 : boss ? (stage === 'bossDrop' ? 334 : 314) : stage === 'storm' ? 326 : stage === 'rush' ? 304 : 286;
+  const finalBpm = Math.max(206, Math.min(362, baseBpm + pressure * (boss ? 24 : 22) + lowHp * 12 + (theme === 'casino' ? 4 : 0)));
+  const stepDur = 60 / finalBpm / 4;
+  if (!this.music.nextStepTime || Math.abs((this.music.lastBpm || finalBpm) - finalBpm) > 22) {
+    this.music.nextStepTime = this.ctx.currentTime + 0.012;
+    this.music.lastBpm = finalBpm;
+  }
+  const L = this.music.layers || {};
+  const now = this.ctx.currentTime;
+  if (this.music.limiter) {
+    this.music.limiter.threshold.setTargetAtTime(-32 + pressure * 4, now, 0.12);
+    this.music.limiter.release.setTargetAtTime(0.050 + pressure * 0.030, now, 0.12);
+  }
+  if (this.music.post) this.music.post.gain.setTargetAtTime(0.64 + pressure * 0.18, now, 0.10);
+  if (L.drone) { L.drone.o.frequency.setTargetAtTime(root * 0.5, now, 0.45); L.drone.f.frequency.setTargetAtTime(70 + pressure * 140, now, 0.35); }
+  if (L.sub) L.sub.o.frequency.setTargetAtTime(root * 0.25, now, 0.24);
+  if (L.pulse) { L.pulse.o.frequency.setTargetAtTime(root * (boss ? 0.5 : 0.75), now, 0.18); L.pulse.f.frequency.setTargetAtTime(260 + pressure * 760, now, 0.16); }
+  if (L.casino) { L.casino.o.frequency.setTargetAtTime(root * (theme === 'casino' ? 16 : 10), now, 0.20); L.casino.f.frequency.setTargetAtTime(1400 + pressure * 2400, now, 0.16); }
+  if (L.choir) { L.choir.o.frequency.setTargetAtTime(root * (boss ? 1.5 : 2), now, 0.45); L.choir.f.frequency.setTargetAtTime(300 + pressure * 420, now, 0.32); }
+  if (L.dirgePad) { L.dirgePad.o.frequency.setTargetAtTime(root * 0.75, now, 0.42); L.dirgePad.f.frequency.setTargetAtTime(140 + pressure * 210, now, 0.30); }
+  if (L.glass) L.glass.o.frequency.setTargetAtTime(root * (theme === 'casino' ? 20 : 18), now, 0.15);
+  if (L.highPad) { L.highPad.o.frequency.setTargetAtTime(root * (boss ? 5 : 7), now, 0.16); L.highPad.f.frequency.setTargetAtTime(1750 + pressure * 3000, now, 0.12); }
+  if (L.drive) { L.drive.o.frequency.setTargetAtTime(root * (boss ? 0.5 : 0.75), now, 0.12); L.drive.f.frequency.setTargetAtTime(360 + pressure * 980, now, 0.12); }
+  if (L.bossLine) { L.bossLine.o.frequency.setTargetAtTime(root * (boss ? 1 : 0.75), now, 0.16); L.bossLine.f.frequency.setTargetAtTime(620 + pressure * 1050, now, 0.12); }
+  if (L.needle) L.needle.f.frequency.setTargetAtTime(theme === 'static' ? 2800 + pressure * 2600 : 3900 + pressure * 3800, now, 0.10);
+  const inGame = inGameMusicAmount(room, menu);
+  const stageVol = menu ? 0.66 : stage === 'flow' ? 0.74 : boss ? 0.96 : stage === 'storm' ? 1.00 : stage === 'rush' ? 0.92 : 0.84;
+  const mul = inGame * stageVol;
+  // Higher, steadier bed than 2.1.50, but compressed by the v2.1.51 music bus.
+  this.setMusicLayer('drone', mul * (0.000055 + pressure * 0.000130), 0.18);
+  this.setMusicLayer('sub', !menu ? mul * (0.000070 + pressure * 0.000220 + (boss ? 0.000070 : 0)) : 0.000020, 0.16);
+  this.setMusicLayer('pulse', !menu ? mul * (0.000120 + pressure * 0.000360) : 0.000034, 0.12);
+  this.setMusicLayer('hat', !menu ? mul * (0.000060 + pressure * 0.000145) : 0.000018, 0.12);
+  this.setMusicLayer('casino', theme === 'casino' ? mul * (0.000095 + pressure * 0.000210) : 0.000016, 0.16);
+  this.setMusicLayer('choir', mul * (menu ? 0.00042 : boss ? 0.00056 + pressure * 0.00042 : 0.00022 + pressure * 0.00022), 0.24);
+  this.setMusicLayer('dirgePad', mul * (menu ? 0.00030 : 0.000085 + pressure * 0.000120), 0.22);
+  this.setMusicLayer('scrape', !menu && (pressure > 0.42 || theme === 'static') ? mul * (0.000052 + pressure * 0.000160) : 0.000010, 0.14);
+  this.setMusicLayer('glass', !menu ? mul * (0.000095 + pressure * 0.000150) : mul * 0.000060, 0.16);
+  this.setMusicLayer('highPad', !menu ? mul * (0.000070 + pressure * 0.000180) : 0.000018, 0.14);
+  this.setMusicLayer('drive', !menu ? mul * (0.000120 + pressure * 0.000520 + (boss ? 0.000140 : 0)) : 0.000018, 0.11);
+  this.setMusicLayer('bossLine', boss ? mul * (0.000130 + pressure * 0.000300) : 0.000014, 0.12);
+  this.setMusicLayer('needle', !menu && (pressure > 0.34 || theme === 'static') ? mul * (0.000055 + pressure * 0.000160) : 0.000010, 0.12);
+  this.music.phraseT = Math.max(0, (this.music.phraseT || 0) - dt);
+  if ((room || menu) && this.music.phraseT <= 0) {
+    hookV2151(this, stage, theme, root, pressure, boss, this.music.stepIndex || 0);
+    this.music.phraseT = stage === 'flow' ? 0.52 : menu ? 0.72 : boss ? 0.30 : Math.max(0.30, 0.54 - pressure * 0.18);
+  }
+  if (menu) return;
+  const scheduleWindow = now + 0.19;
+  while (this.music.nextStepTime < scheduleWindow) {
+    const when = Math.max(0, this.music.nextStepTime - now);
+    scheduleStepV2151(this, { pressure, boss, stage, theme, lowHp, depth, stepDur, root }, this.music.stepIndex || 0, when);
+    this.music.stepIndex = ((this.music.stepIndex || 0) + 1) % 1536;
+    this.music.nextStepTime += stepDur;
+  }
+};
+
+const handleFxBeforeV2151EvenLoudBreakcore = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2151EvenLoudBreakcore(f, info = {}) {
+  const out = handleFxBeforeV2151EvenLoudBreakcore.call(this, f, info);
+  if (f?.t === 'ehit' || f?.t === 'blast' || f?.t === 'phit' || f?.t === 'rain_hit') this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.18);
+  if (f?.t === 'director_wave' || f?.t === 'casino_virus_spin' || f?.t === 'boss_spawn') this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.58);
+  if ((f?.t === 'portal_open' || f?.t === 'room_invoice' || f?.t === 'boss_down') && this.ensureMusic?.()) {
+    const p = f?.t === 'boss_down' ? 0.96 : 0.74;
+    casinoPingV2151(this, 0.004, p, true);
+    glitchV2151(this, 0.016, p, 151, true);
+    rollV2151(this, 0.028, p, 0.155, 2151, 'snare', f?.t === 'boss_down' ? 9 : 6);
+    if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.006);
   }
   return out;
 };
