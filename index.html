@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminal Casino Roguelike</title>
-<link rel="stylesheet" href="style.css?v=2.1.39">
+<link rel="stylesheet" href="style.css?v=2.1.41">
 </head>
 <body>
 <svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
@@ -34,7 +34,7 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.39</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.41</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -135,14 +135,14 @@
     <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
     <div id="lang-row" class="lang-row" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></div>
 
-    <button id="btn-solo" data-explain-title="СОЛО" data-explain="Запускает одиночный забег.">СОЛО (БЕЗ СЕТИ)</button>
+    <button id="btn-solo" data-explain-title="ОДИНОЧНАЯ ИГРА" data-explain="Запускает одиночный забег без сети.">ОДИНОЧНАЯ ИГРА</button>
     <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
     <div id="join-row">
       <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД КОМНАТЫ" data-explain="Четырёхсимвольный код комнаты друга.">
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.39</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.41</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>

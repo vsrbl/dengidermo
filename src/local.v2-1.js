@@ -1,4 +1,4 @@
-// terminal casino roguelike local room: the simulation runs in the HOST'S BROWSER (or solo, offline).
+// terminal casino roguelike local room: the simulation runs in the HOST'S BROWSER (or single-player, offline).
 // Host input is applied directly (zero latency); guests connect via WebRTC/relay.
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
@@ -113,7 +113,7 @@ export class LocalRoom {
       const ok = handleRerollOffer(this.run, this.players, p, m.kind || '');
       if (!ok) this.sendTo(playerId, { t: 'error', error: 'no contract reroll available' }, true);
     } else if (m.t === 'dev') {
-      if (playerId !== this.hostId) { this.sendTo(playerId, { t: 'error', error: 'dev mode host/solo only' }, true); return; }
+      if (playerId !== this.hostId) { this.sendTo(playerId, { t: 'error', error: 'dev mode host/single-player only' }, true); return; }
       const p = this.players.get(playerId);
       if (!p) return;
       const ok = handleDevCommand(this.run, this.players, p, m.cmd || {});

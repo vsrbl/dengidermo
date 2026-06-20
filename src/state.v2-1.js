@@ -33,7 +33,7 @@ export class GameState {
     this.latest = null;
     this.room = null;
     this.myId = null;
-    this.localMode = false; // solo/host: snapshots arrive every sim tick
+    this.localMode = false; // single-player/host: snapshots arrive every sim tick
     // prediction
     this.pred = { x: 0, y: 0, init: false };
     this.history = [];      // [{seq, mx, my, dt, dash, speed}]

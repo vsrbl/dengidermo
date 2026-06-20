@@ -1138,7 +1138,7 @@ function finalRunSummary(run, players) {
   const mem = run?.runMemory || {};
   const connected = [...players.values()].filter(p => p.connected);
   return {
-    version: 'v2.1.39',
+    version: 'v2.1.41',
     result: 'complete',
     loopsTarget: FINAL_TARGET_LOOPS,
     loopsCleared: FINAL_TARGET_LOOPS,

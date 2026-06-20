@@ -1,5 +1,5 @@
 // terminal casino roguelike net v2: three modes.
-//   solo  — no network at all, sim runs locally
+//   single-player — no network at all, sim runs locally
 //   host  — sim runs here; guests connect via WebRTC (direct) with ws relay fallback
 //   guest — inputs go to the host's browser, not to a far-away server
 // The Render server is ONLY a phonebook (signaling + relay fallback), never the game.
@@ -17,7 +17,7 @@ const safeSendDc = (dc, obj) => {
 
 export class Net {
   constructor() {
-    this.mode = null;          // 'solo' | 'host' | 'guest'
+    this.mode = null;          // internal: single-player | host | guest
     this.id = null;
     this.roomId = null;
     this.ping = 0;
@@ -25,7 +25,7 @@ export class Net {
     this.direct = false;       // guest: unreliable WebRTC input/snapshot channel open
     this.ctrlDirect = false;   // guest: reliable WebRTC command channel open
     this.handlers = {};
-    this.room = null;          // LocalRoom when solo/host
+    this.room = null;          // LocalRoom when single-player/host
     this.ws = null;            // signaling socket
     this.peers = new Map();    // host: gid -> {pc, dc, ctrlDc, open, ctrlOpen}
     this._pc = null;           // guest: peer connection
@@ -37,7 +37,7 @@ export class Net {
   on(type, fn) { this.handlers[type] = fn; }
   emit(type, m) { if (this.handlers[type]) this.handlers[type](m); }
 
-  // ---------------------------------------------------------- solo / host
+  // ---------------------------------------------------------- single-player / host
   startSolo(name, skin = null) {
     this.mode = 'solo';
     this.id = newId();

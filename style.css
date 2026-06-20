@@ -2456,7 +2456,9 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
 }
 
 
-/* v2.1.39 skin rarity / lore pass: rarer skins push more interface identity */
+/* v2.1.40 skin visual restraint hotfix
+   Skins may tint the cursor and menu preview, but they no longer repaint the whole HUD/frame.
+   Cursor stays a square for every skin: no rotation, no dots, no extra glyphs. */
 :root {
   --skin-fill: #f3f3f3;
   --skin-outline: #00ff66;
@@ -2465,54 +2467,27 @@ html[data-filter-preset="lcd"] #global-digital-filter::after {
   --skin-outline-rgb: 0,255,102;
   --skin-barrel-rgb: 0,255,102;
 }
-#hud-top, #hud-bottom, .panel, .choice, #feed div, #custom-cursor .cc { transition: box-shadow .12s linear, border-color .12s linear, background .12s linear; }
 body[data-skin-rarity] #custom-cursor .cc {
   border-color: var(--skin-outline);
-  box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .24), 0 0 14px rgba(var(--skin-outline-rgb), .26);
+  box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .22), 0 0 10px rgba(var(--skin-outline-rgb), .22);
+  transform: none !important;
+  border-style: solid !important;
 }
-body[data-skin-rarity="uncommon"] #hud-top,
-body[data-skin-rarity="uncommon"] #hud-bottom {
-  background: linear-gradient(180deg, rgba(var(--skin-outline-rgb), .055), rgba(5,5,5,0));
-  box-shadow: inset 0 -1px 0 rgba(var(--skin-outline-rgb), .20);
+body[data-skin-rarity="uncommon"] #custom-cursor .cc { box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .24), 0 0 10px rgba(var(--skin-outline-rgb), .24); }
+body[data-skin-rarity="rare"] #custom-cursor .cc { box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .28), 0 0 12px rgba(var(--skin-outline-rgb), .28); }
+body[data-skin-rarity="superrare"] #custom-cursor .cc { box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .34), 0 0 14px rgba(var(--skin-outline-rgb), .32); }
+body[data-skin-rarity="legendary"] #custom-cursor .cc { box-shadow: 0 0 0 1px rgba(var(--skin-outline-rgb), .42), 0 0 16px rgba(var(--skin-outline-rgb), .36); }
+body[data-skin-id] #custom-cursor .cc::before,
+body[data-skin-id] #custom-cursor .cc::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  background: transparent !important;
 }
-body[data-skin-rarity="rare"] #hud-top,
-body[data-skin-rarity="rare"] #hud-bottom,
-body[data-skin-rarity="rare"] #feed div,
-body[data-skin-rarity="rare"] .panel {
-  box-shadow: inset 0 0 0 1px rgba(var(--skin-outline-rgb), .10), 0 0 18px rgba(var(--skin-outline-rgb), .12);
-  border-color: rgba(var(--skin-outline-rgb), .42);
-}
-body[data-skin-rarity="superrare"] #hud-top,
-body[data-skin-rarity="superrare"] #hud-bottom,
-body[data-skin-rarity="superrare"] #feed div,
-body[data-skin-rarity="superrare"] .panel,
-body[data-skin-rarity="superrare"] .choice {
-  border-color: rgba(var(--skin-outline-rgb), .54);
-  box-shadow: inset 0 0 0 1px rgba(var(--skin-outline-rgb), .12), 0 0 22px rgba(var(--skin-outline-rgb), .16);
-  background-image: linear-gradient(180deg, rgba(var(--skin-outline-rgb), .055), rgba(0,0,0,.30));
-}
-body[data-skin-rarity="legendary"] #hud-top,
-body[data-skin-rarity="legendary"] #hud-bottom,
-body[data-skin-rarity="legendary"] #feed div,
-body[data-skin-rarity="legendary"] .panel,
-body[data-skin-rarity="legendary"] .choice,
-body[data-skin-rarity="legendary"] #hud-contract-card {
-  border-color: rgba(var(--skin-outline-rgb), .68);
-  box-shadow: inset 0 0 0 1px rgba(var(--skin-outline-rgb), .18), 0 0 26px rgba(var(--skin-outline-rgb), .22), 0 0 46px rgba(var(--skin-barrel-rgb), .08);
-  background-image: linear-gradient(180deg, rgba(var(--skin-outline-rgb), .080), rgba(0,0,0,.34));
-}
-body[data-skin-rarity="legendary"] #banner { text-shadow: 0 0 22px rgba(var(--skin-outline-rgb), .55); }
-body[data-skin-rarity="legendary"] #hud-objective .room-current .term,
-body[data-skin-rarity="superrare"] #hud-objective .room-current .term,
-body[data-skin-rarity="rare"] #hud-objective .room-current .term { border-color: rgba(var(--skin-outline-rgb), .46); color: var(--skin-outline); }
-body[data-skin-id="casino_gold"] #custom-cursor .cc,
-body[data-skin-id="mirror_coin"] #custom-cursor .cc,
-body[data-skin-id="jackpot_wound"] #custom-cursor .cc { transform: rotate(45deg); border-style: double; }
-body[data-skin-id="void_cyan"] #custom-cursor .cc::after,
-body[data-skin-id="terminal_ghost"] #custom-cursor .cc::after { inset: -6px; border-color: rgba(var(--skin-outline-rgb), .45); }
 body[data-skin-id="bad_tv"] #custom-cursor .cc,
 body[data-skin-id="red_static"] #custom-cursor .cc,
 body[data-skin-id="dead_channel"] #custom-cursor .cc,
-body[data-skin-id="bone_static"] #custom-cursor .cc { border-style: dashed; }
-body[data-skin-id="black_lime"] #custom-cursor .cc { box-shadow: 0 0 0 1px rgba(166,255,0,.28), 0 0 16px rgba(166,255,0,.48); }
-body[data-skin-id="bruise_purple"] #custom-cursor .cc::before { content:''; position:absolute; inset:-4px; border:1px solid rgba(180,92,255,.35); transform: rotate(45deg); }
+body[data-skin-id="bone_static"] #custom-cursor .cc { border-style: dashed !important; }
+body[data-skin-id="casino_gold"] #custom-cursor .cc,
+body[data-skin-id="mirror_coin"] #custom-cursor .cc,
+body[data-skin-id="jackpot_wound"] #custom-cursor .cc { border-style: double !important; }

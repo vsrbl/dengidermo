@@ -1,4 +1,4 @@
-// terminal casino roguelike boot v2: solo (offline), host (sim in your browser), guest (direct to host)
+// terminal casino roguelike boot v2: single-player (offline), host (sim in your browser), guest (direct to host)
 import { Net, VERSION, BUILD_ID, PROTOCOL, GAME_SPEED } from './net.v2-1.js';
 import { Input } from './input.v2-1.js';
 import { GameState, P } from './state.v2-1.js';
@@ -39,8 +39,8 @@ const NET_STATUS = {
   connecting: ['ПОДКЛЮЧЕНИЕ…', 'CONNECTING…'],
   online: ['В СЕТИ', 'ONLINE'],
   ready: ['СЕТЬ ГОТОВА', 'NETWORK READY'],
-  waking: ['СЕТЬ ПРОСЫПАЕТСЯ · СОЛО ГОТОВО', 'NETWORK WAKING · SOLO READY'],
-  down: ['СЕТЬ НЕДОСТУПНА · СОЛО ГОТОВО', 'NETWORK UNAVAILABLE · SOLO READY'],
+  waking: ['СЕТЬ ПРОСЫПАЕТСЯ · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK WAKING · SINGLE PLAYER READY'],
+  down: ['СЕТЬ НЕДОСТУПНА · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK UNAVAILABLE · SINGLE PLAYER READY'],
   update: ['НУЖНО ОБНОВИТЬ СТРАНИЦУ', 'UPDATE REQUIRED'],
   code4: ['КОД КОМНАТЫ: 4 СИМВОЛА', 'ROOM CODE MUST BE 4 SYMBOLS'],
   roomNotFound: ['КОМНАТА НЕ НАЙДЕНА', 'ROOM NOT FOUND'],
@@ -306,7 +306,7 @@ async function connect() {
   }
 }
 
-// SOLO: no network at all — works even with the server down
+// SINGLE PLAYER: no network at all — works even with the server down
 $('btn-solo').addEventListener('click', () => {
   uiClick('run_start');
   state.localMode = true;
@@ -335,7 +335,7 @@ $('btn-join').addEventListener('click', async () => {
 $('room-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-join').click(); });
 $('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create').click(); });
 
-// status probe (informational only — solo never needs it)
+// status probe (informational only — single-player never needs it)
 fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '/health')
   .then(r => r.json())
   .then(h => {
@@ -385,7 +385,7 @@ net.on('_closed', () => {
 });
 
 
-// ---------------------------------------------------------------- developer mode (solo/host only)
+// ---------------------------------------------------------------- developer mode (single-player/host only)
 let devOpen = false;
 let devGod = false;
 let devPanel = null;
@@ -402,7 +402,7 @@ function ensureDevPanel() {
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
   devPanel.innerHTML = `
     <div class="dev-title">DEV MODE <span>F2</span></div>
-    <div class="dev-note">SOLO/HOST only · full test lab · F2</div>
+    <div class="dev-note">SINGLE PLAYER/HOST only · full test lab · F2</div>
     <div class="dev-buttons dev-priority">
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
       <button id="dev-wpn-offer">WPN OFFER</button>

@@ -715,7 +715,8 @@ export class Hud {
     this.wasAlive = aliveNow;
 
     // top
-    $('hud-room').textContent = `${this.net.roomId || '----'} · ${room.id}`;
+    const roomDisplay = this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----');
+    $('hud-room').textContent = `${roomDisplay} · ${room.id}`;
     $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${room.loop} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth} · ${finalGoalLine(room)}`;
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
     const modTone = (m) => m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' ? 'purple' : m === 'greed' ? 'gold' : '';
@@ -1287,7 +1288,7 @@ export class Hud {
           `</div>` +
         `<div class="tab-card run"><h3>${esc(localText('ЗАБЕГ', 'RUN'))}</h3>` +
           `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${room.loop} · <span class="term" ${explainAttr(t('depth'), localText('Сколько комнат уже пройдено в текущем забеге.', 'Rooms cleared in this run.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
-          `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net.roomId || '----')}</p>` +
+          `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----'))}</p>` +
           `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда комната полностью затихнет и враги добиты.', 'The portal opens when the room has fully gone quiet and enemies are down.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the run more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
