@@ -36,14 +36,14 @@ export class Effects {
     if (this.floats.length > 60) this.floats.shift();
   }
 
-  kick(amount) { this.shake = Math.min(18, this.shake + amount); }
+  kick(amount) { this.shake = Math.min(9, this.shake + amount); }
 
   update(dt) {
     for (const e of this.list) e.t += dt;
     this.list = this.list.filter(e => e.t < (e.ttl ?? 0.6));
     for (const f of this.floats) { f.t += dt; f.y -= 34 * dt; }
     this.floats = this.floats.filter(f => f.t < f.ttl);
-    this.shake = Math.max(0, this.shake - 60 * dt);
+    this.shake = Math.max(0, this.shake - 72 * dt);
     this.hitFlash = Math.max(0, this.hitFlash - 2.2 * dt);
     this.slam = Math.max(0, this.slam - 2.5 * dt);
     this.zoomKick = Math.max(0, this.zoomKick - 3 * dt);
@@ -58,14 +58,14 @@ export class Effects {
     switch (f.t) {
       case 'ehit':
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18 });
-        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 16, f.y - 14, String(f.dmg), '#f3f3f3', Math.min(22, 11 + f.dmg * 0.18));
+        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), '#f3f3f3', Math.min(34, 15 + f.dmg * 0.26));
         break;
       case 'phit':
-        if (mine) { this.hitFlash = Math.min(1, 0.35 + f.dmg * 0.02); this.kick(4 + f.dmg * 0.35); }
+        if (mine) { this.hitFlash = Math.min(0.65, 0.24 + f.dmg * 0.012); this.kick(Math.min(3.2, 0.7 + f.dmg * 0.045)); }
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.15 });
         break;
       case 'gld_hit':
-        if (mine) { this.hitFlash = Math.min(1, 0.28); this.kick(5 + (f.cost || 0) * 0.05); }
+        if (mine) { this.hitFlash = Math.min(0.50, 0.22); this.kick(Math.min(2.8, 0.8 + (f.cost || 0) * 0.012)); }
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.24, color: '#ffd34d' });
         this.float(f.x + (Math.random() - 0.5) * 20, f.y - 20, `-${f.cost || 0} GLD`, '#ffd34d', 13);
         if (mine) this.float(f.x, f.y - 38, `BAL ${f.balance ?? 0}`, '#ff3048', 10);
@@ -73,8 +73,13 @@ export class Effects {
       case 'shot': {
         const dx = (f.dx || 100) / 100, dy = (f.dy || 0) / 100;
         const col = f.kind === 'seeker' ? '#66f6ff' : (f.kind === 'rocketgun' ? '#ff3048' : '#f3f3f3');
-        this.add({ kind: 'muzzle', x: f.mx || f.x, y: f.my || f.y, dx, dy, ttl: f.kind === 'rocketgun' ? 0.16 : 0.10, color: col, weapon: f.kind || f.w });
-        if (mine) { this.kick(f.kind === 'rocketgun' ? 7 : f.kind === 'shotgun' ? 4.5 : 2.5); this.zoomKick = Math.max(this.zoomKick, f.kind === 'rocketgun' ? 0.25 : 0.12); }
+        let mx = f.mx || f.x, my = f.my || f.y;
+        if (mine && typeof info.getMyPos === 'function') {
+          const mp = info.getMyPos();
+          if (mp) { mx = Math.round(mp.x + dx * 24); my = Math.round(mp.y + dy * 24); }
+        }
+        this.add({ kind: 'muzzle', x: mx, y: my, dx, dy, ttl: f.kind === 'rocketgun' ? 0.14 : 0.10, color: col, weapon: f.kind || f.w });
+        if (mine) { this.kick(f.kind === 'rocketgun' ? 2.6 : f.kind === 'shotgun' ? 1.8 : 1.1); this.zoomKick = Math.max(this.zoomKick, f.kind === 'rocketgun' ? 0.14 : 0.08); }
         break;
       }
       case 'impact':
@@ -88,11 +93,14 @@ export class Effects {
         if (f.style === 'rocket' || f.style === 'void' || f.style === 'echo' || f.style === 'blood') {
           const col = f.style === 'blood' ? '#ff3048' : f.style === 'void' ? '#b45cff' : f.style === 'echo' ? '#66f6ff' : '#f3f3f3';
           this.add({ kind: 'rocketBlast', x: f.x, y: f.y, r: f.r, ttl: 0.26, color: col });
-          this.kick(f.style === 'rocket' ? 8 : 5);
+          this.kick(Math.min(6.2, (f.style === 'rocket' ? 1.6 : 1.0) + Math.min(4.2, Math.max(0, f.hits || 0) * 0.42)));
         } else {
           this.add({ kind: 'squareBlastLite', x: f.x, y: f.y, r: f.r, ttl: 0.26, color: f.style === 'proc' ? '#66f6ff' : '#f3f3f3' });
-          this.kick(f.style === 'proc' ? 4 : 5);
+          this.kick(Math.min(4.6, (f.style === 'proc' ? 0.8 : 1.0) + Math.min(3.4, Math.max(0, f.hits || 0) * 0.34)));
         }
+        break;
+      case 'spawn_warning':
+        this.add({ kind: 'spawnWarning', x: f.x, y: f.y, r: f.r || 64, ttl: Math.max(0.65, f.delay || 1.0), color: '#ff3048', count: f.count || 1 });
         break;
       case 'dash': {
         const rarity = String(f.skinRarity || 'basic');
@@ -521,6 +529,18 @@ export class Effects {
           const d = base * (0.15 + (i % 5) * 0.13);
           ctx.fillRect(Math.round(e.x + Math.cos(a) * d - block / 2), Math.round(e.y + Math.sin(a) * d - block / 2), block, block);
         }
+      } else if (e.kind === 'spawnWarning') {
+        const p = e.t / (e.ttl || 1);
+        const fade = Math.max(0, 1 - p * 0.65);
+        const r = e.r || 64;
+        ctx.save();
+        ctx.globalAlpha = fade * (0.38 + 0.28 * Math.sin(e.t * 22));
+        ctx.strokeStyle = e.color || '#ff3048'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
+        ctx.strokeRect(Math.round(e.x - r / 2), Math.round(e.y - r / 2), Math.round(r), Math.round(r));
+        ctx.setLineDash([]);
+        ctx.globalAlpha = fade * 0.20; ctx.fillStyle = e.color || '#ff3048';
+        ctx.fillRect(Math.round(e.x - 4), Math.round(e.y - 4), 8, 8);
+        ctx.restore();
       } else if (e.kind === 'dashCut') {
         const dx = e.x2 - e.x, dy = e.y2 - e.y;
         const len = Math.hypot(dx, dy) || 1;

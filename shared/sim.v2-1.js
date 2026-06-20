@@ -1138,7 +1138,7 @@ function finalRunSummary(run, players) {
   const mem = run?.runMemory || {};
   const connected = [...players.values()].filter(p => p.connected);
   return {
-    version: 'v2.1.41',
+    version: 'v2.1.42',
     result: 'complete',
     loopsTarget: FINAL_TARGET_LOOPS,
     loopsCleared: FINAL_TARGET_LOOPS,
@@ -3127,8 +3127,10 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
     spd: def.spd, elite,
     state: 'move', st: 0, // state timer
     vx: 0, vy: 0, fireCd: (def.fireCd || 0) * (0.75 + rng() * 0.75),
-    dirX: 0, dirY: 0, aux: 0
+    dirX: 0, dirY: 0, aux: 0,
+    spawnDelay: (opts.noSpawnWarn || def.boss || opts.packRole === 'hunter_chorus_fragment') ? 0 : 1.05
   };
+  if (e.spawnDelay > 0) run.fx.push({ t: 'spawn_warning', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 44), delay: e.spawnDelay, kind });
   let shell = null;
   if (opts.noArmor) shell = null;
   else if (opts.forceLinked) shell = { type: 'linked', max: shellMaxForArmor(run, def, e, 'linked'), source: 'director' };
@@ -4040,9 +4042,11 @@ function fireWeapon(run, players, p, dt) {
   if (shots > 1) run.fx.push({ t: 'echo_shot', id: p.id, x: Math.round(originX), y: Math.round(originY), weapon: w.id, count: shots - 1 });
 }
 function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style = 'blast', elem = '', elemPower = 0, opts = {}) {
-  run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style, elem, stun: opts.stun ? 1 : 0, scatter: opts.scatter ? 1 : 0 });
+  let hitCount = 0;
   for (const e of [...run.enemies]) {
+    if ((e.spawnDelay || 0) > 0) continue;
     if (dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2) {
+      hitCount++;
       const n = norm(e.x - x, e.y - y);
       if (opts.stun && !ENEMIES[e.kind]?.boss) {
         const dur = Math.min(1.8, 0.42 + (opts.stunStacks || 1) * 0.18);
@@ -4056,6 +4060,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
       damageEnemy(run, players, e, activeScale(dmg), owner, knock, n.x, n.y, opts.comboMethod || (style === 'rocket' ? 'rocketgun' : 'blast'));
     }
   }
+  run.fx.push({ t: 'blast', x: Math.round(x), y: Math.round(y), r: Math.round(r), style, elem, stun: opts.stun ? 1 : 0, scatter: opts.scatter ? 1 : 0, hits: hitCount });
   if (hurtPlayers) {
     for (const p of players.values()) {
       if (p.alive && dist2(p.x, p.y, x, y) < (r + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, dmg, x, y);
@@ -4250,6 +4255,7 @@ function stepBullets(run, players, dt) {
     }
     if (b.from === 'p') {
       for (const e of run.enemies) {
+        if ((e.spawnDelay || 0) > 0) continue;
         if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
           if (b.aoe) { if ((b.kind === 'rocketgun' || b.mine) && b.from === 'p') rocketExplode(run, players, b, b.x, b.y, b.aoe, b.dmg); else explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, b.from === 'e', b.from === 'e' ? 'danger' : 'blast', b.elem || '', b.elemPower || 0); if (b.from === 'p') rocketAftermath(run, players, b); }
           else {
@@ -4320,6 +4326,12 @@ function stepEnemies(run, players, dt) {
   stepEnemySynergies(run, players, dt);
   for (const e of [...run.enemies]) {
     const def = ENEMIES[e.kind];
+    if ((e.spawnDelay || 0) > 0) {
+      e.spawnDelay = Math.max(0, (e.spawnDelay || 0) - dt);
+      e.st = 0;
+      e.fireCd = Math.max(e.fireCd || 0, 0.16);
+      continue;
+    }
     if ((e.frozenT || 0) > 0 || (e.stunT || 0) > 0) {
       if (typeof e.vx === 'number') e.vx *= Math.pow(0.02, dt * 8);
       if (typeof e.vy === 'number') e.vy *= Math.pow(0.02, dt * 8);
@@ -6843,7 +6855,9 @@ export function buildSnapshot(run, players) {
       Math.round(speed(p)), Math.ceil((p.activeCd || 0) * 10) / 10, p.activeBuffT > 0 ? 1 : 0,
       activeSummary(p).label, activeSummary(p).desc,
       p.shgCharges ?? 4, (p.shgCharges ?? 4) >= WEAPONS.shotgun.charges ? 0 : Math.max(0, Math.ceil(((WEAPONS.shotgun.chargeRegen - (p.shgReload || 0)) / Math.max(0.55, 0.78 + Math.min(1.5, Math.max(0, p.stats.fireMul - 1)) * 0.18)) * 10) / 10),
-      p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint'
+      p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint',
+      p.dashCharges < dashMax(p) ? Math.max(0, Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1) - (p.dashTimer || 0)) * 10) / 10) : 0,
+      Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) * 10) / 10
     ]);
   }
   const es = combatEnemies(run).map(e => [
@@ -6860,14 +6874,15 @@ export function buildSnapshot(run, players) {
     (e.poisonT || 0) > 0 ? 1 : 0,
     (e.chillT || 0) > 0 ? 1 : 0,
     (e.stunT || 0) > 0 ? 1 : 0,
-    ((e.shellMax || 0) > 0 && (e.shellHp || 0) > 0 && (e.shellHp || 0) < (e.shellMax || 0) && (e.shellRegenDelay || 0) <= 0) ? 1 : 0
+    ((e.shellMax || 0) > 0 && (e.shellHp || 0) > 0 && (e.shellHp || 0) < (e.shellMax || 0) && (e.shellRegenDelay || 0) <= 0) ? 1 : 0,
+    Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn
     // as floating bullets at their future origin. Mines remain visible during their arm delay.
     .filter(b => (b.delay || 0) <= 0 || b.mine)
     .map(b => [
-      b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0, b.kind === 'rocketgun' ? 1 : 0, b.kind || '', b.elem || '', b.echoProc ? 1 : 0, b.longshot || 0
+      b.id, Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy), b.size, b.from === 'p' ? 1 : 0, b.kind === 'rocketgun' ? 1 : 0, b.kind || '', b.elem || '', b.echoProc ? 1 : 0, b.longshot || 0, b.owner || ''
     ]);
   const cs = [];
   for (const p of players.values()) {

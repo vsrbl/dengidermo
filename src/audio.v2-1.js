@@ -3753,3 +3753,35 @@ AudioBus.prototype.updateMusic = function updateMusicV2130MusicRebuild(state, dt
   this.setMusicLayer('needle', 0.000010, 1.4);
 };
 
+
+
+// v2.1.42: controlled breakcore layer for combat. It is rhythmic pressure, not a random melody.
+const updateMusicBeforeV2142Breakcore = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2142Breakcore(state, dt = 0.016) {
+  const out = updateMusicBeforeV2142Breakcore.call(this, state, dt);
+  if (!this.enabled || !this.music?.master || !this.ctx) return out;
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const combat = !!room && room.phase === 'play' && !room.portal?.[2] && room.cat !== 'chill' && room.special !== 'chill_room';
+  const enemies = Math.max(0, Number(room?.liveEnemies || latest?.enemies?.length || 0));
+  const bullets = latest?.bullets?.length || 0;
+  const boss = room?.cat === 'boss';
+  const pressure = Math.max(0, Math.min(1, enemies / 26 + bullets / 160 + (boss ? 0.28 : 0) + (this.damageEnergy || 0) * 0.25));
+  this.breakcoreT = Math.max(0, (this.breakcoreT || 0) - dt);
+  if (!combat || pressure < 0.28) return out;
+  if (this.breakcoreT <= 0) {
+    const root = boss ? 43.65 : 49.00;
+    const density = pressure > 0.72 ? 8 : pressure > 0.50 ? 6 : 4;
+    const step = pressure > 0.72 ? 0.105 : pressure > 0.50 ? 0.135 : 0.175;
+    const vol = 0.00065 + pressure * 0.0012;
+    for (let i = 0; i < density; i++) {
+      const d = i * step;
+      const strong = i === 0 || i === 3 || (pressure > 0.72 && i === 6);
+      if (strong) this.musicNote(root * 0.5, 0.050, 'square', vol * 1.6, 180 + pressure * 160, d, 0.998, 0);
+      else this.musicDust(0.026 + pressure * 0.018, vol * 0.74, 1400 + (i % 3) * 680, d);
+      if ((i + (room?.depth || 0)) % 4 === 2) this.musicNote(root * 1.5, 0.036, 'square', vol * 0.72, 620 + pressure * 420, d + 0.018, 1, 0);
+    }
+    this.breakcoreT = density * step + (pressure > 0.72 ? 0.08 : pressure > 0.50 ? 0.18 : 0.34);
+  }
+  return out;
+};

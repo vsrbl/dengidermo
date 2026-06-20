@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminal Casino Roguelike</title>
-<link rel="stylesheet" href="style.css?v=2.1.24">
+<link rel="stylesheet" href="style.css?v=2.1.41">
 </head>
 <body>
 <svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
@@ -34,14 +34,14 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="VERSION" data-explain="Текущая версия игры.">v2.1.32</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.41</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
       <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и враги.">ЦИКЛ 0 / ГЛУБИНА 0</span>
       <span id="hud-mods" data-explain-title="МОДИФИКАТОРЫ КОМНАТЫ" data-explain="Наведи на подчёркнутое название модификатора, чтобы увидеть подробное правило именно этой комнаты."></span>
       <span id="hud-ping"></span>
-      <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Пробел включает режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, врагов, подборов и BET-терминала.">ОСМОТР</span>
+      <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Пробел включает режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, врагов, подборов и терминала ставок.">ОСМОТР</span>
       </div>
       <div id="hud-favor-row"><span id="hud-favor" class="hidden term" data-explain-title="ПРИЗ КОНТРАКТА" data-explain="Активный или ожидающий приз контракта."></span></div>
     </div>
@@ -55,8 +55,8 @@
       <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="ЗДОРОВЬЕ" data-explain="Здоровье игрока. При падении до 0 ты выбываешь до следующей комнаты или перезапуска.">100 / 100</span></div>
       <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт повышает уровень. Новый уровень не прерывает бой, а добавляет выбор улучшения между комнатами.">0 / 40</span></div>
       <div id="hud-stats-line">
-        <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и BET-терминала. Подбор GLD делится между живыми игроками.">GLD 0</span>
-        <span id="hud-lvl" data-explain-title="УРОВЕНЬ / Q" data-explain="Текущий уровень и статус активной способности Q: готова, перезаряжается или работает усиление.">LVL 0</span>
+        <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и терминала ставок. Подбор GLD делится между живыми игроками.">GLD 0</span>
+        <span id="hud-lvl" data-explain-title="УРОВЕНЬ / Q" data-explain="Текущий уровень и статус активной способности Q: готова, перезаряжается или работает усиление.">УРОВЕНЬ 0</span>
         <span id="hud-install" class="hidden" data-explain-title="УЛУЧШЕНИЕ" data-explain="Очередь улучшений. Выбор появится после портала и перехода, не во время боя.">УЛУЧШЕНИЕ x0</span>
       </div>
     </div>
@@ -65,7 +65,7 @@
       <div id="weapon-slots"></div>
     </div>
   </div>
-  <div id="hud-prompt" class="hidden" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="Подойди и нажми E. Здесь показываются сундуки, BET-терминал и портал."></div>
+  <div id="hud-prompt" class="hidden" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="Подойди и нажми E. Здесь показываются сундуки, терминал ставок и портал."></div>
   <div id="feed"></div>
 </div>
 
@@ -142,12 +142,12 @@
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.32</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.41</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>
     </div>
-    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — вторичный огонь оружия · Пробел — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши стреляет активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, BET-терминал и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="Пробел включает или выключает подсказки по объектам мира.">SPACE</span> — осмотр · <span class="term" data-explain-title="ВТОРИЧНЫЙ ОГОНЬ" data-explain="ПКМ использует вторичный огонь текущего оружия: SHG LONGSHOT, SEK SWARM или RKT REMOTE DETONATOR.">ПКМ</span> — ALT</div>
+    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — вторичный огонь оружия · Пробел — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши стреляет активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, терминал ставок и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="Пробел включает или выключает подсказки по объектам мира.">SPACE</span> — осмотр · <span class="term" data-explain-title="ВТОРИЧНЫЙ ОГОНЬ" data-explain="ПКМ использует вторичный огонь текущего оружия: SHG LONGSHOT, SEK SWARM или RKT REMOTE DETONATOR.">ПКМ</span> — ALT</div>
     <button id="btn-skin-toggle" type="button" data-explain-title="СМЕНИТЬ СКИН" data-explain="Открывает выбор уже найденных скинов. Закрытые скины видны только внутри выбора.">СМЕНИТЬ СКИН</button>
     <div id="skin-editor" class="collapsed" data-explain-title="СКИН" data-explain="Готовые скин-пресеты. Закрытые облики видны, но выбрать их нельзя до открытия.">
       <button id="skin-prev" class="skin-arrow" type="button" aria-label="Previous skin" data-explain-title="ПРЕДЫДУЩИЙ СКИН" data-explain="Листать назад. Закрытые скины видны, но помечены LOCKED.">◀</button>

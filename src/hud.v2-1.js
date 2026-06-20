@@ -869,19 +869,25 @@ export class Hud {
       }
     }
 
-    // dash pips
+    // dash pips + recovery time
     const pips = $('dash-pips');
-    const want = `${me[P.DASH]}/${me[P.DASHMAX]}`;
+    const dashCd = Math.max(0, Number(me[P.DASHCD] || 0));
+    const want = `${me[P.DASH]}/${me[P.DASHMAX]}:${dashCd.toFixed(1)}`;
     if (pips.dataset.v !== want) {
       pips.dataset.v = want;
       pips.innerHTML = '';
       for (let i = 0; i < Math.min(me[P.DASHMAX], 14); i++) {
         const d = document.createElement('span');
-        d.className = 'pip' + (i < me[P.DASH] ? ' full' : '');
-        this.setExplain(d, t('dashChargeTitle'), i < me[P.DASH] ? t('dashReady') : t('dashEmpty'), 'cyan');
+        d.className = 'pip' + (i < me[P.DASH] ? ' full' : '') + (i === me[P.DASH] && dashCd > 0 ? ' charging' : '');
+        this.setExplain(d, t('dashChargeTitle'), i < me[P.DASH] ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
         pips.appendChild(d);
       }
       if (me[P.DASHMAX] > 14) pips.append(` x${me[P.DASHMAX]}`);
+      const cd = document.createElement('span');
+      cd.className = 'dash-cd' + (dashCd <= 0 ? ' ready' : '');
+      cd.textContent = dashCd > 0 ? `SHIFT ${dashCd.toFixed(1)}s` : 'SHIFT READY';
+      this.setExplain(cd, t('dashChargeTitle'), dashCd > 0 ? `${t('dashEmpty')} · ${dashCd.toFixed(1)}s` : t('dashReady'), 'cyan');
+      pips.appendChild(cd);
     }
 
     const acd = me[P.ACTIVECD] || 0;

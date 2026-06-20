@@ -100,15 +100,16 @@ export class Renderer {
     ctx.restore();
   }
 
-  draw(state, effects, view, myPos, mouse, now) {
+  draw(state, effects, view, myPos, mouse, now, cameraPos = null) {
     const ctx = this.ctx;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     ctx.fillStyle = COL.bg;
     ctx.fillRect(0, 0, this.w, this.h);
 
     const shake = effects.cameraOffset();
-    this.cam.x = myPos.x - this.w / 2 + shake.x;
-    this.cam.y = myPos.y - this.h / 2 + shake.y;
+    const camTarget = cameraPos || myPos;
+    this.cam.x = camTarget.x - this.w / 2 + shake.x;
+    this.cam.y = camTarget.y - this.h / 2 + shake.y;
     // clamp camera to world
     this.cam.x = Math.max(-80, Math.min(state.world.w - this.w + 80, this.cam.x));
     this.cam.y = Math.max(-80, Math.min(state.world.h - this.h + 80, this.cam.y));
@@ -255,7 +256,12 @@ export class Renderer {
 
     // bullets — each weapon gets distinct signal language
     for (const b of view.bullets) {
-      const [, bx, by, vx, vy, size, fromP, rocket, kind, elem = '', echoProc = 0, longshot = 0] = b;
+      const [, rawBx, rawBy, vx, vy, size, fromP, rocket, kind, elem = '', echoProc = 0, longshot = 0, ownerId = ''] = b;
+      let bx = rawBx, by = rawBy;
+      if (fromP && ownerId && ownerId === state.myId && !state.localMode && myPos) {
+        const meAuth = state.me?.();
+        if (meAuth) { bx += (myPos.x - meAuth[P.X]); by += (myPos.y - meAuth[P.Y]); }
+      }
       const enemyEcho = !fromP && !!echoProc;
       const enemyEchoColor = '#ff3048';
       ctx.save();
@@ -263,13 +269,13 @@ export class Renderer {
       ctx.rotate(Math.atan2(vy, vx));
       if (rocket) {
         ctx.strokeStyle = enemyEcho ? enemyEchoColor : COL.fg; ctx.lineWidth = enemyEcho ? 2.8 : 2;
-        ctx.strokeRect(-size * 1.35, -size * 0.75, size * 2.6, size * 1.5);
+        ctx.strokeRect(-size * 1.15, -size * 0.62, size * 2.25, size * 1.24);
         ctx.fillStyle = enemyEcho ? 'rgba(255,48,72,0.95)' : 'rgba(255,48,72,0.7)';
-        ctx.fillRect(-size * 1.95, -size * 0.38, size * 0.65, size * 0.76);
+        ctx.fillRect(-size * 1.65, -size * 0.30, size * 0.48, size * 0.60);
         ctx.strokeStyle = enemyEcho ? '#ff6a78' : COL.red; ctx.lineWidth = enemyEcho ? 1.8 : 1; ctx.setLineDash([5, 4]);
-        ctx.beginPath(); ctx.moveTo(-size * 2.8, 0); ctx.lineTo(-size * 5.9, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-size * 2.8, 0); ctx.lineTo(-size * 4.6, 0); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.globalAlpha = 0.35; ctx.fillStyle = COL.red; ctx.fillRect(-size * 3.2, -2, size * 1.0, 4);
+        ctx.globalAlpha = 0.35; ctx.fillStyle = COL.red; ctx.fillRect(-size * 2.5, -1.5, size * 0.8, 3);
       } else if (kind === 'seeker') {
         // SEK v3: small square lock-round with a clear outline; no needle/bubble silhouette.
         const tick = Math.floor(now * 18 + bx * 0.04 + by * 0.03) & 1;
@@ -370,10 +376,24 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
+      if (spawnDelay > 0) {
+        const pulse = 0.45 + 0.35 * Math.sin(now * 14 + ex * 0.01);
+        ctx.save();
+        ctx.globalAlpha = 0.28 + pulse * 0.30;
+        ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([10, 6]);
+        const r = Math.max(44, size + 36);
+        ctx.strokeRect(Math.round(ex - r / 2), Math.round(ey - r / 2), Math.round(r), Math.round(r));
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.16 + pulse * 0.14;
+        ctx.fillStyle = COL.red; ctx.fillRect(Math.round(ex - 5), Math.round(ey - 5), 10, 10);
+        ctx.restore();
+        this.label('INCOMING', ex, ey - Math.max(34, size / 2 + 14), COL.red, 8);
+        continue;
+      }
       if (kind === 'bouncer') {
         this.square(ex, ey, size, { stroke, lw: 2.5, rotate: Math.PI / 4, fill: 'rgba(255,255,255,0.06)' });
       } else if (kind === 'tank') {

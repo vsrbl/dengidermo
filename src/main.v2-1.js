@@ -363,7 +363,7 @@ net.on('s', (m) => {
   for (const f of m.fx) {
     if (f?.t === 'skin_unlock' && f.skinId) handleSkinUnlock(f.skinId, f.source || 'room');
     audio.handleFx(f, { myId: state.myId });
-    effects.handleFx(f, { myId: state.myId });
+    effects.handleFx(f, { myId: state.myId, getMyPos: () => state.myRenderPos(0), state });
     hud.handleFx(f, state.myId, state);
   }
 });
@@ -542,7 +542,8 @@ function frame(now) {
   effects.update(dt);
   const myPos = state.myRenderPos(dt);
   const view = state.interp();
-  renderer.draw(state, effects, view, myPos, { x: input.mouseX, y: input.mouseY }, now / 1000);
+  const cameraPos = state.cameraRenderPos(view, myPos);
+  renderer.draw(state, effects, view, myPos, { x: input.mouseX, y: input.mouseY }, now / 1000, cameraPos);
   hud.update(state, dt * GAME_SPEED);
   audio.updateMusic(state, dt * GAME_SPEED);
   hud.setInspect(input.inspectMode);

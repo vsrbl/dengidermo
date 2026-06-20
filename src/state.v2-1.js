@@ -10,7 +10,7 @@ export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
-  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32
+  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -137,6 +137,16 @@ export class GameState {
     this.smooth.x = this.pred.x;
     this.smooth.y = this.pred.y;
     return { x: this.pred.x, y: this.pred.y };
+  }
+
+
+  cameraRenderPos(view, myPos) {
+    const me = this.me();
+    if (me && me[P.ALIVE]) return myPos || { x: me[P.X], y: me[P.Y] };
+    const src = view?.players?.length ? view.players : (this.latest?.players || []);
+    const alive = src.find(p => p && p[P.ALIVE]);
+    if (alive) return { x: alive[P.X], y: alive[P.Y] };
+    return myPos || (me ? { x: me[P.X], y: me[P.Y] } : { x: this.world.w / 2, y: this.world.h / 2 });
   }
 
   // interpolated entities at render time
