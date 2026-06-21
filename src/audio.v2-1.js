@@ -2,7 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.56: procedural air digital ambient via WebAudio
+const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.57: dynamic hum + portal bloom ambient
 
 const EXTERNAL_MUSIC_TRACKS = {
   calm: {
@@ -5943,4 +5943,111 @@ AudioBus.prototype.previewVolume = function previewVolumeV2156(kind = 'sfx') {
   o.connect(f); f.connect(g); g.connect(out);
   o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
   o.start(now); o.stop(now + 0.11);
+};
+
+// v2.1.57 DYNAMIC HUM / PORTAL BLOOM HOTFIX
+// Low body is no longer a permanent bed. It breathes with danger and turns into a soft consonant portal bloom.
+const ensureMusicBeforeV2157DynamicHum = AudioBus.prototype.ensureMusic;
+AudioBus.prototype.ensureMusic = function ensureMusicV2157DynamicHum() {
+  const ok = ensureMusicBeforeV2157DynamicHum.call(this);
+  if (!ok || !this.music?.layers || !this.ctx || this.music.flavor !== 'air_digital_ambient_v2156') return ok;
+  const L = this.music.layers;
+  const root = typeof midiFreqV2156 === 'function' ? midiFreqV2156(this.music.rootMidi || 50) : 146.83;
+  if (!L.portalBloom) {
+    L.portalBloom = this.makeToneLayer(root * 2.0, 'sine', 1450);
+    L.portalBloom.g.gain.value = 0.000001;
+  }
+  if (!L.portalGlass) {
+    L.portalGlass = this.makeToneLayer(root * 3.0, 'triangle', 2100);
+    if (L.portalGlass.o.detune) L.portalGlass.o.detune.value = 4;
+    L.portalGlass.g.gain.value = 0.000001;
+  }
+  if (!L.softCurrent) {
+    L.softCurrent = this.makeNoiseLayer(620, 0.32);
+    L.softCurrent.g.gain.value = 0.000001;
+  }
+  return ok;
+};
+
+const updateMusicBeforeV2157DynamicHum = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2157DynamicHum(state, dt = 0.016) {
+  updateMusicBeforeV2157DynamicHum.call(this, state, dt);
+  if (!this.music?.layers || this.music.flavor !== 'air_digital_ambient_v2156' || !this.ctx) return;
+
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const boss = room?.cat === 'boss';
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? Math.max(0, Math.min(1, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)))) : 0;
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus');
+  const combat = !!room && room.phase === 'play' && !portalOpen;
+  const intensity = Math.max(0, Math.min(1, enemies / 30 + bullets / 180 + danger * 0.28 + lowHp * 0.25 + (boss ? 0.42 : 0) + ((this.musicChaos || 0) * 0.16)));
+
+  const slowBreath = 0.5 + 0.5 * Math.sin(now * 0.31 + (this.music.seed || 0) * 0.017);
+  const unevenBreath = 0.5 + 0.5 * Math.sin(now * 0.73 + 1.7);
+  const breath = 0.18 + slowBreath * 0.62 + unevenBreath * 0.20;
+  const threat = Math.max(
+    staticLike ? 0.66 : 0,
+    boss ? 0.72 : 0,
+    combat ? 0.28 + intensity * 0.34 : 0,
+    lowHp * 0.55,
+    danger * 0.38
+  );
+  const hum = portalOpen ? 0 : threat * breath;
+  const portal = Math.max(portalOpen ? 1 : 0, this.musicPortal || 0, this.musicResolve || 0);
+  const rootMidi = portalOpen ? 57 : (boss ? 45 : staticLike ? 48 : 50);
+  const root = typeof midiFreqV2156 === 'function' ? midiFreqV2156(rootMidi) : 220;
+
+  // The previous bossBody layer was the audible permanent hum. Keep it useful, but make it situational and breathing.
+  if (L.bossBody) {
+    L.bossBody.o.frequency.setTargetAtTime(root * (staticLike ? 0.50 : boss ? 0.375 : 0.75), now, 2.0);
+    L.bossBody.f.frequency.setTargetAtTime(210 + hum * 180 + (staticLike ? 120 : 0), now, 1.7);
+    L.bossBody.g.gain.cancelScheduledValues(now);
+    L.bossBody.g.gain.setTargetAtTime(Math.max(0.000001, hum * 0.0032), now, portalOpen ? 0.35 : 1.8);
+  }
+
+  // Portal/open-room state: transform low pressure into a pleasant, consonant shimmer instead of a drone.
+  if (L.portalBloom) {
+    L.portalBloom.o.frequency.setTargetAtTime(root * 2.0, now, 2.6);
+    L.portalBloom.f.frequency.setTargetAtTime(1200 + portal * 620, now, 2.2);
+    L.portalBloom.g.gain.cancelScheduledValues(now);
+    L.portalBloom.g.gain.setTargetAtTime(Math.max(0.000001, portal * 0.0068), now, 1.15);
+  }
+  if (L.portalGlass) {
+    L.portalGlass.o.frequency.setTargetAtTime(root * 3.0, now, 2.8);
+    L.portalGlass.f.frequency.setTargetAtTime(1850 + portal * 520, now, 2.4);
+    L.portalGlass.g.gain.cancelScheduledValues(now);
+    L.portalGlass.g.gain.setTargetAtTime(Math.max(0.000001, portal * 0.0024), now, 1.35);
+  }
+  if (L.softCurrent) {
+    L.softCurrent.f.frequency.setTargetAtTime(portalOpen ? 780 : (staticLike ? 520 : 420), now, 2.0);
+    L.softCurrent.g.gain.cancelScheduledValues(now);
+    L.softCurrent.g.gain.setTargetAtTime(Math.max(0.000001, portalOpen ? 0.0026 : hum * 0.0012), now, 1.6);
+  }
+
+  // During portal/clear, make existing pads slightly more consonant and brighter without adding new clicks.
+  if (portalOpen) {
+    if (L.padA) { L.padA.o.frequency.setTargetAtTime(root, now, 2.8); L.padA.f.frequency.setTargetAtTime(980, now, 2.4); }
+    if (L.padB) { L.padB.o.frequency.setTargetAtTime(root * 1.5, now, 2.8); L.padB.f.frequency.setTargetAtTime(1260, now, 2.4); }
+    if (L.padC) { L.padC.o.frequency.setTargetAtTime(root * 2.25, now, 2.8); L.padC.f.frequency.setTargetAtTime(1720, now, 2.4); }
+    this.ambientLayerTargetV2156?.(L.casinoPing, 0.0008, root * 4.0, 1350, 1.1);
+  }
+};
+
+const handleFxBeforeV2157DynamicHum = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2157DynamicHum(f, info = {}) {
+  const out = handleFxBeforeV2157DynamicHum.call(this, f, info);
+  if (f?.t === 'portal_open' || f?.t === 'room_invoice' || f?.t === 'boss_down') {
+    this.musicPortal = Math.max(this.musicPortal || 0, f?.t === 'portal_open' ? 1.2 : 0.65);
+    this.musicResolve = Math.max(this.musicResolve || 0, 0.8);
+  }
+  return out;
 };
