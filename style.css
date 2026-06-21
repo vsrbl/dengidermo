@@ -2775,3 +2775,121 @@ button:hover,
   .dash-cd-mini { flex-basis: 38px !important; min-width: 38px !important; max-width: 38px !important; }
 }
 
+
+
+/* v2.1.58 — selected/hover plate contrast hotfix.
+   Flat UI keeps plates dark, so old bright-hover rules must not turn text black. */
+.choice:hover:not(.disabled),
+.choice.picked,
+.weapon-choice:hover:not(.disabled),
+.weapon-choice.picked,
+.ability-choice:hover:not(.disabled),
+.ability-choice.picked,
+.ability-card:hover:not(.disabled),
+.ability-card.picked {
+  background-color: var(--ui-flat-green) !important;
+  color: var(--fg) !important;
+  border-color: rgba(0,255,102,.86) !important;
+  text-shadow: 0 0 8px rgba(0,255,102,.18) !important;
+}
+.choice.cursed:hover:not(.disabled),
+.choice.rarity-cursed:hover:not(.disabled),
+.choice.tone-purple:hover:not(.disabled),
+.choice.rarity-rare:hover:not(.disabled) {
+  background-color: var(--ui-flat-purple) !important;
+  color: var(--fg) !important;
+  border-color: rgba(180,92,255,.86) !important;
+  text-shadow: 0 0 8px rgba(180,92,255,.18) !important;
+}
+.choice.tone-cyan:hover:not(.disabled),
+.choice.rarity-core:hover:not(.disabled) {
+  background-color: var(--ui-flat-cyan) !important;
+  color: var(--fg) !important;
+  border-color: rgba(102,246,255,.86) !important;
+  text-shadow: 0 0 8px rgba(102,246,255,.16) !important;
+}
+.favor-reroll:hover,
+.skin-claim-card:hover,
+#install-modal .boss-signature-choice:hover,
+#install-modal .boss-signature-choice.picked {
+  color: var(--fg) !important;
+  text-shadow: 0 0 8px rgba(255,211,77,.15) !important;
+}
+.favor-reroll:hover {
+  background-color: var(--ui-flat-gold) !important;
+  border-color: rgba(255,211,77,.88) !important;
+}
+.skin-claim-card:hover {
+  background-color: var(--ui-flat-purple) !important;
+  border-color: rgba(180,92,255,.90) !important;
+}
+#install-modal .boss-signature-choice:hover {
+  background-color: var(--ui-flat-gold) !important;
+  border-color: rgba(255,235,150,.90) !important;
+}
+#install-modal .boss-signature-choice.picked {
+  background-color: var(--ui-flat-green) !important;
+  border-color: rgba(0,255,102,.90) !important;
+}
+.choice:hover:not(.disabled) .key,
+.choice.picked .key,
+.choice:hover:not(.disabled) .choice-sub,
+.choice.picked .choice-sub,
+.choice:hover:not(.disabled) .choice-preview,
+.choice.picked .choice-preview,
+.choice:hover:not(.disabled) .rarity-tag,
+.choice.picked .rarity-tag,
+.weapon-choice:hover:not(.disabled) .wpn-choice-read,
+.weapon-choice:hover:not(.disabled) .wpn-choice-change,
+.weapon-choice:hover:not(.disabled) .wpn-role,
+.weapon-choice:hover:not(.disabled) .wpn-tag,
+.weapon-choice.picked .wpn-choice-read,
+.weapon-choice.picked .wpn-choice-change,
+.weapon-choice.picked .wpn-role,
+.weapon-choice.picked .wpn-tag,
+.ability-card:hover:not(.disabled) .abl-name,
+.ability-card:hover:not(.disabled) .abl-action,
+.ability-card:hover:not(.disabled) .abl-key,
+.ability-card:hover:not(.disabled) .abl-role,
+.ability-card:hover:not(.disabled) .rarity-tag,
+.ability-card.picked .abl-name,
+.ability-card.picked .abl-action,
+.ability-card.picked .abl-key,
+.ability-card.picked .abl-role,
+.ability-card.picked .rarity-tag,
+.favor-reroll:hover .choice-sub,
+.favor-reroll:hover .favor-uses,
+.skin-claim-card:hover .skin-claim-title,
+.skin-claim-card:hover .skin-claim-rarity,
+#install-modal .boss-signature-choice:hover .sig-choice-top b,
+#install-modal .boss-signature-choice:hover .choice-sub,
+#install-modal .boss-signature-choice.picked .sig-choice-top b,
+#install-modal .boss-signature-choice.picked .choice-sub {
+  color: var(--fg) !important;
+  border-color: rgba(243,243,243,.44) !important;
+  opacity: 1 !important;
+}
+.choice:hover:not(.disabled) .hp-cost,
+.choice.picked .hp-cost {
+  color: #ff9aa8 !important;
+}
+.choice.disabled,
+.weapon-choice.disabled,
+.ability-choice.disabled,
+.ability-card.disabled {
+  opacity: .42 !important;
+}
+.choice.disabled:hover,
+.weapon-choice.disabled:hover,
+.ability-choice.disabled:hover,
+.ability-card.disabled:hover {
+  color: #777 !important;
+  background-color: rgba(255,255,255,.025) !important;
+}
+.lang-row button.active,
+.lang-mini button.active,
+#btn-skin-toggle.open {
+  background-color: var(--ui-flat-cyan) !important;
+  color: var(--fg) !important;
+  border-color: rgba(102,246,255,.90) !important;
+}
