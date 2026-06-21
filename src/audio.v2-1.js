@@ -6051,3 +6051,93 @@ AudioBus.prototype.handleFx = function handleFxV2157DynamicHum(f, info = {}) {
   }
   return out;
 };
+
+// v2.1.59 DEEP HUM ROOT REMOVAL
+// The previous air ambient still had a permanent low root pad around 140-150 Hz.
+// This pass treats low tone as an event layer only; the default bed is mid-air shimmer.
+const updateMusicBeforeV2159DeepHumRootRemoval = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2159DeepHumRootRemoval(state, dt = 0.016) {
+  updateMusicBeforeV2159DeepHumRootRemoval.call(this, state, dt);
+  if (!this.music?.layers || this.music.flavor !== 'air_digital_ambient_v2156' || !this.ctx) return;
+
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+
+  const menu = !room || !!state?.menu;
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const boss = !!room && room.cat === 'boss';
+  const chill = !!room && (room.cat === 'chill' || room.special === 'chill_room');
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? Math.max(0, Math.min(1, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)))) : 0;
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus');
+  const combat = !!room && room.phase === 'play' && !portalOpen && !chill;
+  const intensity = Math.max(0, Math.min(1, enemies / 32 + bullets / 190 + danger * 0.26 + lowHp * 0.28 + (boss ? 0.45 : 0) + ((this.musicChaos || 0) * 0.14)));
+  const threat = portalOpen || menu || chill ? 0 : Math.max(staticLike ? 0.62 : 0, boss ? 0.76 : 0, combat ? 0.22 + intensity * 0.42 : 0, lowHp * 0.55, danger * 0.38);
+  const slow = 0.5 + 0.5 * Math.sin(now * 0.23 + 1.4);
+  const uneven = 0.5 + 0.5 * Math.sin(now * 0.61 + 4.1);
+  const breath = 0.12 + slow * 0.66 + uneven * 0.22;
+  const humPulse = Math.max(0, Math.min(1, threat * breath));
+  const rootMidi = portalOpen ? 57 : boss ? 45 : staticLike ? 48 : 50;
+  const root = typeof midiFreqV2156 === 'function' ? midiFreqV2156(rootMidi) : 146.83;
+  const airRoot = Math.max(240, root * (portalOpen ? 2.25 : menu || chill ? 2.10 : 2.0));
+
+  // Harder high-pass in calm states. This removes the always-on 100-180 Hz body from the default bed.
+  if (this.music.hp?.frequency) {
+    const hpTarget = portalOpen ? 175 : (menu || chill ? 165 : (threat > 0.20 ? 128 : 158));
+    this.music.hp.frequency.setTargetAtTime(hpTarget, now, 1.1);
+  }
+
+  // Recast the three constant pads into mid-air layers. No pad is allowed to sit on the low root forever.
+  if (L.padA) {
+    const g = (portalOpen ? 0.0044 : (menu || chill ? 0.0036 : 0.0024 + humPulse * 0.0022));
+    this.ambientLayerTargetV2156?.(L.padA, g, airRoot, portalOpen ? 1320 : 1080 + humPulse * 180, portalOpen ? 1.8 : 2.4);
+  }
+  if (L.padB) {
+    const g = (portalOpen ? 0.0048 : (menu || chill ? 0.0038 : 0.0026 + (1 - Math.min(1, threat)) * 0.0008));
+    this.ambientLayerTargetV2156?.(L.padB, g, airRoot * 1.5, portalOpen ? 1550 : 1180 + intensity * 140, 2.6);
+  }
+  if (L.padC) {
+    const g = (portalOpen ? 0.0042 : (menu || chill ? 0.0034 : 0.0022 + intensity * 0.0010));
+    this.ambientLayerTargetV2156?.(L.padC, g, airRoot * 2.0, portalOpen ? 1850 : 1440 + intensity * 260, 2.8);
+  }
+
+  // Keep noise as air, not low rumble. Raise its bandpass out of the hum range.
+  if (L.air) {
+    this.ambientLayerTargetV2156?.(L.air, menu ? 0.0028 : (portalOpen ? 0.0038 : 0.0024 + Math.max(0, 0.35 - threat) * 0.0022), null, portalOpen ? 1080 : 880 + intensity * 260, 2.1);
+  }
+
+  // Low layer exists only as a breathing danger cue, never as a permanent ambient foundation.
+  if (L.bossBody) {
+    L.bossBody.o.frequency.setTargetAtTime(root * (boss ? 0.50 : staticLike ? 0.75 : 1.0), now, 2.4);
+    L.bossBody.f.frequency.setTargetAtTime(240 + humPulse * 160 + (staticLike ? 90 : 0), now, 2.0);
+    L.bossBody.g.gain.cancelScheduledValues(now);
+    L.bossBody.g.gain.setTargetAtTime(Math.max(0.000001, humPulse * (boss ? 0.0022 : 0.00135)), now, portalOpen ? 0.35 : 2.1);
+  }
+
+  // The old sub-like pulse is also muted outside danger; otherwise it feels like hidden machinery.
+  if (L.pulse && !combat && !boss && !staticLike && !portalOpen) {
+    L.pulse.g.gain.cancelScheduledValues(now);
+    L.pulse.g.gain.setTargetAtTime(0.0009, now, 1.8);
+    L.pulse.o.frequency.setTargetAtTime(airRoot * 2.0, now, 2.0);
+  }
+
+  // Portal: pleasant bloom, explicitly no low hum.
+  if (portalOpen) {
+    if (L.bossBody) L.bossBody.g.gain.setTargetAtTime(0.000001, now, 0.45);
+    if (L.stormAir) L.stormAir.g.gain.setTargetAtTime(0.000001, now, 0.8);
+    if (L.portalBloom) {
+      L.portalBloom.o.frequency.setTargetAtTime(root * 2.5, now, 2.8);
+      L.portalBloom.g.gain.setTargetAtTime(0.0048, now, 1.4);
+    }
+    if (L.portalGlass) {
+      L.portalGlass.o.frequency.setTargetAtTime(root * 3.75, now, 2.8);
+      L.portalGlass.g.gain.setTargetAtTime(0.0026, now, 1.5);
+    }
+  }
+};
