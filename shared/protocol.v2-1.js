@@ -1,5 +1,5 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.55';
+export const VERSION = 'v2.1.56';
 export const BUILD_ID = 'casino_core_economy_rework';
 export const PROTOCOL = 5;
 

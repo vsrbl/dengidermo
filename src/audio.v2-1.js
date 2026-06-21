@@ -2,7 +2,7 @@
 // No external assets. WebAudio is unlocked by the first user gesture.
 
 const AC = () => globalThis.AudioContext || globalThis.webkitAudioContext;
-const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.55: procedural music disabled; licensed tracks via HTMLAudioElement
+const MUSIC_OUTPUT_GAIN = 1.00; // v2.1.56: procedural air digital ambient via WebAudio
 
 const EXTERNAL_MUSIC_TRACKS = {
   calm: {
@@ -5664,4 +5664,283 @@ AudioBus.prototype.ensureMusic = function ensureMusicV2155() {
     this.music = null;
   }
   return this.ensureExternalMusic();
+};
+
+
+// v2.1.56 PROCEDURAL AIRY DIGITAL AMBIENT
+// Direction: no licensed streaming, no breakcore click rain. Runtime WebAudio only.
+// Design rules: few long layers, soft envelopes, no permanent sub hum, no high-Q 8-10kHz needles.
+function clamp01V2156(v) { return Math.max(0, Math.min(1, Number(v) || 0)); }
+function lerpV2156(a, b, t) { return a + (b - a) * clamp01V2156(t); }
+function softRandV2156(seed) {
+  const x = Math.sin((seed + 1) * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+function midiFreqV2156(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+const AMBIENT_SCALE_V2156 = [0, 2, 5, 7, 9, 12, 14, 17, 19, 21, 24, 26, 29, 31, 33, 36];
+const AMBIENT_MOTIFS_V2156 = [
+  [0, 5, 9, 12, 9, 7, 5, 2],
+  [0, 7, 12, 14, 12, 9, 5, 7],
+  [5, 9, 14, 17, 14, 12, 9, 7],
+  [0, 2, 7, 12, 17, 14, 9, 5],
+  [7, 12, 19, 17, 14, 12, 9, 5],
+  [2, 5, 9, 14, 19, 17, 12, 9]
+];
+
+AudioBus.prototype.stopExternalMusicV2156 = function stopExternalMusicV2156() {
+  if (!this.externalMusic?.tracks) return;
+  for (const track of Object.values(this.externalMusic.tracks)) {
+    try { track.el.pause(); track.el.volume = 0; } catch {}
+    track.started = false;
+    track.target = 0;
+    track.gain = 0;
+  }
+};
+
+AudioBus.prototype.safeParamTargetV2156 = function safeParamTargetV2156(param, value, tc = 0.2) {
+  if (!param || !this.ctx) return;
+  const t = this.ctx.currentTime;
+  try {
+    const current = Number(param.value);
+    param.cancelScheduledValues(t);
+    if (Number.isFinite(current)) param.setValueAtTime(Math.max(0.000001, current), t);
+    param.setTargetAtTime(Math.max(0.000001, Number(value) || 0.000001), t, Math.max(0.01, tc));
+  } catch {}
+};
+
+AudioBus.prototype.ambientLayerTargetV2156 = function ambientLayerTargetV2156(layer, gain, freq = null, filter = null, tc = 0.8) {
+  if (!layer || !this.ctx) return;
+  const t = this.ctx.currentTime;
+  try {
+    layer.g.gain.cancelScheduledValues(t);
+    layer.g.gain.setTargetAtTime(Math.max(0.000001, gain), t, tc);
+    if (freq && layer.o?.frequency) layer.o.frequency.setTargetAtTime(Math.max(18, freq), t, tc * 1.4);
+    if (filter && layer.f?.frequency) layer.f.frequency.setTargetAtTime(Math.max(80, filter), t, tc * 1.1);
+  } catch {}
+};
+
+AudioBus.prototype.ambientNoteV2156 = function ambientNoteV2156(freq, dur, vol = 0.012, delay = 0, opts = {}) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  const pan = typeof this.ctx.createStereoPanner === 'function' ? this.ctx.createStereoPanner() : null;
+  o.type = opts.type || 'sine';
+  o.frequency.setValueAtTime(Math.max(40, freq), t);
+  if (opts.bend && opts.bend !== 1) o.frequency.setTargetAtTime(Math.max(40, freq * opts.bend), t + dur * 0.25, dur * 0.42);
+  if (typeof o.detune?.setValueAtTime === 'function') o.detune.setValueAtTime(Number(opts.detune || 0), t);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(Math.max(220, Math.min(3600, opts.filter || 1500)), t);
+  f.Q.value = Math.max(0.15, Math.min(1.2, opts.q || 0.45));
+  g.gain.setValueAtTime(0.000001, t);
+  const attack = Math.max(0.025, Math.min(0.24, opts.attack || dur * 0.20));
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol), t + attack);
+  g.gain.setTargetAtTime(Math.max(0.000001, vol * 0.55), t + attack, Math.max(0.08, dur * 0.35));
+  g.gain.linearRampToValueAtTime(0.000001, t + dur);
+  o.connect(f); f.connect(g);
+  if (pan) { pan.pan.setValueAtTime(Math.max(-0.85, Math.min(0.85, opts.pan || 0)), t); g.connect(pan); pan.connect(this.music.master); }
+  else g.connect(this.music.master);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); if (pan) pan.disconnect(); } catch {} };
+  o.start(t); o.stop(t + dur + 0.05);
+};
+
+AudioBus.prototype.ambientDustV2156 = function ambientDustV2156(dur = 0.9, vol = 0.004, delay = 0, filter = 1150, panValue = 0) {
+  if (!this.ctx || !this.music?.master) return;
+  const sr = this.ctx.sampleRate;
+  const len = Math.max(1, Math.floor(sr * dur));
+  const buf = this.ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {
+    // Brown-ish soft digital air, not white click noise.
+    last = last * 0.985 + (Math.random() * 2 - 1) * 0.015;
+    const fadeIn = Math.min(1, i / Math.max(1, sr * 0.08));
+    const fadeOut = Math.min(1, (len - i) / Math.max(1, sr * 0.18));
+    data[i] = last * fadeIn * fadeOut;
+  }
+  const src = this.ctx.createBufferSource(); src.buffer = buf;
+  const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = Math.max(180, Math.min(2200, filter)); bp.Q.value = 0.55;
+  const g = this.ctx.createGain();
+  const pan = typeof this.ctx.createStereoPanner === 'function' ? this.ctx.createStereoPanner() : null;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol), t + 0.12);
+  g.gain.linearRampToValueAtTime(0.000001, t + dur);
+  src.connect(bp); bp.connect(g);
+  if (pan) { pan.pan.setValueAtTime(Math.max(-0.75, Math.min(0.75, panValue)), t); g.connect(pan); pan.connect(this.music.master); }
+  else g.connect(this.music.master);
+  src.onended = () => { try { src.disconnect(); bp.disconnect(); g.disconnect(); if (pan) pan.disconnect(); } catch {} };
+  src.start(t); src.stop(t + dur + 0.05);
+};
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2156AirDigitalAmbient() {
+  if (!this.ctx || this.ctx.state !== 'running') return false;
+  this.stopExternalMusicV2156?.();
+  if (this.music?.flavor === 'air_digital_ambient_v2156') return true;
+  if (this.music?.master) { try { this.music.master.disconnect(); } catch {} }
+  const input = this.ctx.createGain();
+  const hp = this.ctx.createBiquadFilter();
+  const lp = this.ctx.createBiquadFilter();
+  const comp = this.ctx.createDynamicsCompressor();
+  const post = this.ctx.createGain();
+  input.gain.value = 0.48;
+  hp.type = 'highpass'; hp.frequency.value = 92; hp.Q.value = 0.58; // removes hum/sub rumble
+  lp.type = 'lowpass'; lp.frequency.value = 3800; lp.Q.value = 0.35; // removes headphone needle highs
+  comp.threshold.value = -30; comp.knee.value = 22; comp.ratio.value = 2.7; comp.attack.value = 0.035; comp.release.value = 0.55;
+  post.gain.value = 0.82;
+  input.connect(hp); hp.connect(lp); lp.connect(comp); comp.connect(post); post.connect(this.musicGain || this.master);
+  this.music = {
+    flavor: 'air_digital_ambient_v2156', master: input, hp, lp, comp, post, layers: {},
+    nextPulseTime: 0, nextBellTime: 0, nextMotifTime: 0, nextDustTime: 0, phrase: 0,
+    lastMode: '', seed: 156, motifStep: 0, rootMidi: 50
+  };
+  const L = this.music.layers;
+  L.padA = this.makeToneLayer(midiFreqV2156(50), 'sine', 980);
+  L.padB = this.makeToneLayer(midiFreqV2156(57), 'triangle', 860); if (L.padB.o.detune) L.padB.o.detune.value = -7;
+  L.padC = this.makeToneLayer(midiFreqV2156(62), 'sine', 1420); if (L.padC.o.detune) L.padC.o.detune.value = 5;
+  L.pulse = this.makeToneLayer(midiFreqV2156(74), 'sine', 1760);
+  L.data = this.makeToneLayer(midiFreqV2156(86), 'triangle', 2100);
+  L.air = this.makeNoiseLayer(900, 0.42);
+  L.stormAir = this.makeNoiseLayer(1250, 0.65);
+  L.bossBody = this.makeToneLayer(midiFreqV2156(43), 'triangle', 520);
+  L.casinoPing = this.makeToneLayer(midiFreqV2156(81), 'sine', 1700);
+  this.music.nextPulseTime = this.ctx.currentTime + 0.5;
+  this.music.nextBellTime = this.ctx.currentTime + 1.2;
+  this.music.nextMotifTime = this.ctx.currentTime + 2.0;
+  this.music.nextDustTime = this.ctx.currentTime + 0.9;
+  return true;
+};
+
+AudioBus.prototype.musicModeV2156 = function musicModeV2156(state, metrics = {}) {
+  const room = state?.room || null;
+  if (!room || state?.menu) return 'menu';
+  const mods = room?.mods || [];
+  if (room?.cat === 'boss') return 'boss';
+  if (mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus')) return 'storm';
+  if (room?.phase === 'clear' || room?.phase === 'won') return 'clear';
+  if (metrics.intensity > 0.52) return 'combat';
+  return 'float';
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2156AirDigitalAmbient(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? clamp01V2156(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const boss = room?.cat === 'boss';
+  const intensity = clamp01V2156(enemies / 28 + bullets / 160 + danger * 0.28 + lowHp * 0.25 + (boss ? 0.52 : 0) + (this.musicChaos || 0) * 0.18);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.32);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.25);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.22);
+  const mode = this.musicModeV2156(state, { intensity });
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+  const isCasino = mods.includes('casino_virus') || mods.includes('jackpot_bias') || mods.includes('weighted_reels');
+  const isStatic = mode === 'storm' || mods.includes('static_rain') || mods.includes('prism_grid');
+  const rootMidi = boss ? 45 : isStatic ? 48 : isCasino ? 52 : mode === 'clear' ? 55 : 50;
+  this.music.rootMidi = rootMidi;
+  const root = midiFreqV2156(rootMidi);
+  if (mode !== this.music.lastMode) {
+    this.music.lastMode = mode;
+    this.music.nextMotifTime = now + 0.25;
+    this.music.nextBellTime = now + 0.55;
+    this.music.nextDustTime = now + 0.35;
+  }
+  const air = mode === 'menu' ? 0.62 : mode === 'clear' ? 0.74 : mode === 'float' ? 0.68 : 0.48;
+  const motion = mode === 'combat' ? 0.52 : mode === 'storm' ? 0.58 : boss ? 0.46 : mode === 'clear' ? 0.24 : 0.30;
+  const body = boss ? 0.34 : mode === 'storm' ? 0.18 : 0.08;
+  if (this.music.hp) this.music.hp.frequency.setTargetAtTime(92 + intensity * 18, now, 0.7);
+  if (this.music.lp) this.music.lp.frequency.setTargetAtTime(2550 + air * 650 + intensity * 380, now, 0.9);
+  if (this.music.post) this.music.post.gain.setTargetAtTime(0.68 + intensity * 0.10, now, 0.8);
+  this.ambientLayerTargetV2156(L.padA, 0.018 * air + 0.005, root, 760 + air * 360, 1.2);
+  this.ambientLayerTargetV2156(L.padB, 0.013 * air + 0.004, root * 1.5, 820 + air * 300, 1.4);
+  this.ambientLayerTargetV2156(L.padC, 0.010 * air + 0.002, root * 2.25, 1220 + air * 500, 1.6);
+  this.ambientLayerTargetV2156(L.pulse, 0.0015 + motion * 0.007, root * 4, 1350 + motion * 480, 0.55);
+  this.ambientLayerTargetV2156(L.data, (isCasino ? 0.006 : 0.003) + intensity * 0.003, root * 6, 1500 + intensity * 350, 0.75);
+  this.ambientLayerTargetV2156(L.air, 0.010 * air + (mode === 'storm' ? 0.004 : 0), null, 720 + intensity * 340, 1.1);
+  this.ambientLayerTargetV2156(L.stormAir, isStatic ? 0.012 + intensity * 0.010 : 0.0015, null, 980 + intensity * 520, 0.8);
+  this.ambientLayerTargetV2156(L.bossBody, body * 0.018, root * 0.5, 360 + intensity * 180, 1.2);
+  this.ambientLayerTargetV2156(L.casinoPing, isCasino ? 0.007 : 0.0012, root * 4.5, 1200 + intensity * 280, 0.7);
+
+  const pulseGap = mode === 'combat' ? lerpV2156(0.58, 0.34, intensity) : mode === 'storm' ? lerpV2156(0.72, 0.42, intensity) : boss ? 0.50 : mode === 'clear' ? 1.15 : 0.92;
+  if (now >= this.music.nextPulseTime) {
+    this.music.nextPulseTime = now + pulseGap;
+    const idx = (this.music.motifStep++ + (boss ? 3 : 0)) % AMBIENT_SCALE_V2156.length;
+    const degree = AMBIENT_SCALE_V2156[idx];
+    const f = midiFreqV2156(rootMidi + 24 + degree);
+    this.ambientNoteV2156(f, 0.42 + air * 0.22, 0.0035 + motion * 0.006, 0, { type: 'sine', filter: 1350 + intensity * 520, attack: 0.045, pan: (softRandV2156(idx + this.music.phrase) - 0.5) * 0.9 });
+  }
+
+  const bellGap = mode === 'menu' ? 5.4 : mode === 'clear' ? 3.8 : mode === 'float' ? 4.6 : mode === 'combat' ? 2.8 : mode === 'storm' ? 2.4 : 2.6;
+  if (now >= this.music.nextBellTime) {
+    this.music.nextBellTime = now + bellGap * (0.75 + softRandV2156(this.music.seed++) * 0.75);
+    const motif = AMBIENT_MOTIFS_V2156[(this.music.phrase + (boss ? 2 : 0) + (isCasino ? 1 : 0)) % AMBIENT_MOTIFS_V2156.length];
+    const start = Math.floor(softRandV2156(this.music.seed + 3) * motif.length);
+    for (let i = 0; i < 3 + (mode === 'clear' ? 1 : 0); i++) {
+      const deg = motif[(start + i) % motif.length];
+      const f = midiFreqV2156(rootMidi + 24 + deg);
+      this.ambientNoteV2156(f, 1.7 + i * 0.28 + air * 0.6, 0.0045 + (mode === 'clear' ? 0.002 : 0) + intensity * 0.0018, i * (0.36 + air * 0.10), { type: i % 2 ? 'triangle' : 'sine', filter: 1320 + i * 180, attack: 0.10 + i * 0.015, pan: (i - 1) * 0.34 });
+    }
+    this.music.phrase++;
+  }
+
+  const motifGap = mode === 'combat' || mode === 'storm' || boss ? 6.2 : 8.5;
+  if (now >= this.music.nextMotifTime) {
+    this.music.nextMotifTime = now + motifGap * (0.82 + softRandV2156(this.music.seed + 9) * 0.55);
+    const motif = AMBIENT_MOTIFS_V2156[(this.music.phrase + 1) % AMBIENT_MOTIFS_V2156.length];
+    motif.slice(0, mode === 'float' || mode === 'menu' ? 4 : 6).forEach((deg, i) => {
+      const octave = i % 3 === 2 ? 12 : 0;
+      const f = midiFreqV2156(rootMidi + 12 + deg + octave);
+      this.ambientNoteV2156(f, 1.25 + (i % 2) * 0.45, 0.0027 + intensity * 0.0022, i * (0.72 - intensity * 0.18), { type: 'triangle', filter: 860 + intensity * 500, attack: 0.09, pan: (softRandV2156(this.music.seed + i) - 0.5) * 0.7 });
+    });
+  }
+
+  const dustGap = mode === 'storm' ? 1.8 : mode === 'combat' || boss ? 2.8 : 4.2;
+  if (now >= this.music.nextDustTime) {
+    this.music.nextDustTime = now + dustGap * (0.8 + softRandV2156(this.music.seed + 15) * 0.7);
+    this.ambientDustV2156(1.2 + air * 0.9, 0.0025 + intensity * 0.0035, 0, 760 + intensity * 620, (softRandV2156(this.music.seed + 4) - 0.5) * 0.9);
+  }
+};
+
+AudioBus.prototype.setMusicVolume = function setMusicVolumeV2156(value) {
+  this.musicVolume = this.writeVolume('nnc_music_volume', value);
+  if (this.musicGain && this.ctx) {
+    const t = this.ctx.currentTime;
+    const current = this.musicGain.gain.value;
+    this.musicGain.gain.cancelScheduledValues(t);
+    this.musicGain.gain.setValueAtTime(Math.max(0.000001, current), t);
+    this.musicGain.gain.setTargetAtTime(MUSIC_OUTPUT_GAIN * this.musicVolume, t, 0.10);
+  }
+  this.stopExternalMusicV2156?.();
+};
+
+AudioBus.prototype.previewVolume = function previewVolumeV2156(kind = 'sfx') {
+  this.unlock();
+  if (!this.ctx || this.ctx.state !== 'running') return;
+  const now = this.ctx.currentTime;
+  if (now - (this.last.get('volume_preview') || -99) < 0.07) return;
+  this.last.set('volume_preview', now);
+  const out = this.sfxGain || this.master;
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  const isMusic = kind === 'music';
+  o.type = 'sine';
+  o.frequency.setValueAtTime(isMusic ? 440 : 520, now);
+  o.frequency.setTargetAtTime(isMusic ? 330 : 390, now + 0.018, 0.020);
+  f.type = 'lowpass'; f.frequency.value = isMusic ? 1500 : 1700; f.Q.value = 0.38;
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(isMusic ? 0.050 : 0.060, now + 0.010);
+  g.gain.linearRampToValueAtTime(0.000001, now + 0.095);
+  o.connect(f); f.connect(g); g.connect(out);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(now); o.stop(now + 0.11);
 };
