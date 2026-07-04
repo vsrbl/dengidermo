@@ -6141,3 +6141,179 @@ AudioBus.prototype.updateMusic = function updateMusicV2159DeepHumRootRemoval(sta
     }
   }
 };
+
+
+// v2.1.60 TERMINAL SLIDER TICK HOTFIX
+// Slider preview used a falling sine glide, which sounded like a watery/bubbly "boop".
+// Replace it with a dry terminal/casino tick: fixed pitch, short gate, tiny filtered transient,
+// no pitch bend and a longer throttle so dragging the slider does not chatter.
+AudioBus.prototype.previewVolume = function previewVolumeV2160TerminalSliderTick(kind = 'sfx') {
+  this.unlock();
+  if (!this.ctx || this.ctx.state !== 'running') return;
+  const now = this.ctx.currentTime;
+  if (now - (this.last.get('volume_preview') || -99) < 0.145) return;
+  this.last.set('volume_preview', now);
+
+  const out = this.sfxGain || this.master;
+  const isMusic = kind === 'music';
+  const base = isMusic ? 1040 : 1180;
+
+  const makeClickTone = (freq, delay, vol, dur, type = 'square') => {
+    const t = now + Math.max(0, delay || 0);
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(freq, t);
+    filter.Q.setValueAtTime(7.5, t);
+    gain.gain.setValueAtTime(0.000001, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.0025);
+    gain.gain.setValueAtTime(vol * 0.88, t + 0.009);
+    gain.gain.exponentialRampToValueAtTime(0.000001, t + dur);
+    osc.connect(filter); filter.connect(gain); gain.connect(out);
+    osc.onended = () => { try { osc.disconnect(); filter.disconnect(); gain.disconnect(); } catch {} };
+    osc.start(t); osc.stop(t + dur + 0.012);
+  };
+
+  // Two dry beeps read as "terminal step" rather than a bubbly UI chirp.
+  makeClickTone(base, 0.000, isMusic ? 0.040 : 0.045, 0.026, 'square');
+  makeClickTone(base * 1.503, 0.010, isMusic ? 0.014 : 0.016, 0.018, 'triangle');
+
+  // Tiny relay/contact transient, low enough not to become a piercing high-frequency click.
+  const sr = this.ctx.sampleRate;
+  const len = Math.max(1, Math.floor(sr * 0.018));
+  const buf = this.ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const env = 1 - i / len;
+    data[i] = (Math.random() * 2 - 1) * env * env;
+  }
+  const src = this.ctx.createBufferSource();
+  const hp = this.ctx.createBiquadFilter();
+  const lp = this.ctx.createBiquadFilter();
+  const ng = this.ctx.createGain();
+  src.buffer = buf;
+  hp.type = 'highpass'; hp.frequency.setValueAtTime(650, now);
+  lp.type = 'lowpass'; lp.frequency.setValueAtTime(2800, now);
+  ng.gain.setValueAtTime(0.000001, now);
+  ng.gain.linearRampToValueAtTime(isMusic ? 0.012 : 0.015, now + 0.002);
+  ng.gain.exponentialRampToValueAtTime(0.000001, now + 0.022);
+  src.connect(hp); hp.connect(lp); lp.connect(ng); ng.connect(out);
+  src.onended = () => { try { src.disconnect(); hp.disconnect(); lp.disconnect(); ng.disconnect(); } catch {} };
+  src.start(now); src.stop(now + 0.030);
+};
+
+
+// v2.1.61 DARK ADAPTIVE DIGITAL AMBIENT
+// The hum was already reactive, but the melodic layer still behaved too much like a fixed ambience bed.
+// This pass makes the written tones darker and state-driven: calm, combat, static/casino, boss and portal all use different roots, density and contour.
+const DARK_AMBIENT_THEMES_V2161 = {
+  menu:   { root: 47, notes: [0, 3, 7, 10, 12, 15], step: 1.55, vol: 0.0028, filter: 920,  wave: 'sine' },
+  float:  { root: 45, notes: [0, 3, 7, 10, 12, 15, 17], step: 1.28, vol: 0.0034, filter: 840,  wave: 'triangle' },
+  combat: { root: 43, notes: [0, 2, 3, 7, 10, 12, 14, 15], step: 0.74, vol: 0.0048, filter: 780,  wave: 'triangle' },
+  storm:  { root: 42, notes: [0, 1, 6, 7, 10, 12, 13, 18], step: 0.62, vol: 0.0052, filter: 700,  wave: 'triangle' },
+  casino: { root: 44, notes: [0, 3, 6, 10, 12, 15, 18], step: 0.66, vol: 0.0048, filter: 760,  wave: 'square' },
+  boss:   { root: 40, notes: [0, 1, 5, 6, 10, 12, 13, 17], step: 0.70, vol: 0.0058, filter: 720,  wave: 'triangle' },
+  portal: { root: 57, notes: [0, 5, 7, 12, 14, 19, 24], step: 1.12, vol: 0.0038, filter: 1260, wave: 'sine' },
+  clear:  { root: 55, notes: [0, 5, 9, 12, 14, 17, 21], step: 1.22, vol: 0.0034, filter: 1180, wave: 'sine' }
+};
+const themeForV2161 = (mode, mods = [], boss = false, portalOpen = false) => {
+  if (portalOpen) return DARK_AMBIENT_THEMES_V2161.portal;
+  if (boss) return DARK_AMBIENT_THEMES_V2161.boss;
+  if (mods.includes('casino_virus')) return DARK_AMBIENT_THEMES_V2161.casino;
+  if (mods.includes('static_rain') || mods.includes('prism_grid')) return DARK_AMBIENT_THEMES_V2161.storm;
+  return DARK_AMBIENT_THEMES_V2161[mode] || DARK_AMBIENT_THEMES_V2161.float;
+};
+const updateMusicBeforeV2161DarkAdaptiveAmbient = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2161DarkAdaptiveAmbient(state, dt = 0.016) {
+  updateMusicBeforeV2161DarkAdaptiveAmbient.call(this, state, dt);
+  if (!this.music?.layers || this.music.flavor !== 'air_digital_ambient_v2156' || !this.ctx) return;
+
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const boss = !!room && room.cat === 'boss';
+  const menu = !room || !!state?.menu;
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? Math.max(0, Math.min(1, 1 - ((me[3] || 0) / Math.max(1, me[4] || 100)))) : 0;
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid') || mods.includes('casino_virus');
+  const mode = menu ? 'menu' : portalOpen ? 'clear' : boss ? 'boss' : staticLike ? 'storm' : (enemies + bullets > 8 || danger > 0.42 ? 'combat' : 'float');
+  const pressure = Math.max(0, Math.min(1, enemies / 26 + bullets / 150 + danger * 0.34 + lowHp * 0.22 + (boss ? 0.42 : 0) + ((this.musicChaos || 0) * 0.18)));
+  const theme = themeForV2161(mode, mods, boss, portalOpen);
+
+  if (!this.music.darkV2161) this.music.darkV2161 = { mode: '', next: 0, phrase: 0, pulse: 0 };
+  const d = this.music.darkV2161;
+  if (d.mode !== mode) {
+    d.mode = mode;
+    d.next = now + 0.10;
+    d.pulse = now + 0.18;
+    d.phrase = (d.phrase + 1) % 999;
+  }
+
+  // Darken the global music color when danger rises; portal/clear remains cleaner and less oppressive.
+  if (this.music.lp?.frequency) {
+    const lpTarget = portalOpen ? 3100 : menu ? 2500 : boss ? 1680 : staticLike ? 1750 : (mode === 'combat' ? 1950 : 2280);
+    this.music.lp.frequency.setTargetAtTime(lpTarget + pressure * (portalOpen ? 180 : -180), now, 1.2);
+  }
+  if (this.music.post?.gain) this.music.post.gain.setTargetAtTime(portalOpen ? 0.76 : 0.62 + pressure * 0.10, now, 0.9);
+
+  // Existing bright melodic helpers are pulled back during danger so the new darker phrase can lead.
+  if (!portalOpen) {
+    if (L.casinoPing) this.ambientLayerTargetV2156?.(L.casinoPing, mods.includes('casino_virus') ? 0.0026 + pressure * 0.0015 : 0.0007, midiFreqV2156(theme.root + 36), 820 + pressure * 180, 1.0);
+    if (L.data) this.ambientLayerTargetV2156?.(L.data, mode === 'combat' || staticLike || boss ? 0.0026 + pressure * 0.0020 : 0.0009, midiFreqV2156(theme.root + 31), 760 + pressure * 260, 0.8);
+    if (L.padC) this.ambientLayerTargetV2156?.(L.padC, 0.0019 + (mode === 'float' ? 0.0010 : pressure * 0.0012), midiFreqV2156(theme.root + 31), 1040 + pressure * 240, 2.6);
+  }
+
+  // Short adaptive phrase: not a constant loop, not a low drone. It changes with room state and intensity.
+  const density = portalOpen ? 4 : boss ? 7 : staticLike ? 7 : mode === 'combat' ? 6 : menu ? 3 : 4;
+  const gap = (portalOpen ? 5.4 : boss ? 2.8 : staticLike ? 2.45 : mode === 'combat' ? 2.75 : menu ? 6.6 : 5.0) * (1 - pressure * 0.22);
+  if (now >= d.next) {
+    d.next = now + Math.max(1.4, gap);
+    d.phrase++;
+    const seed = (this.music.seed || 0) + d.phrase * 17;
+    const dir = (d.phrase % 4 === 0 || boss || staticLike) ? -1 : 1;
+    const offset = Math.floor(softRandV2156(seed) * theme.notes.length);
+    for (let i = 0; i < density; i++) {
+      const idx = (offset + (dir > 0 ? i : -i) + theme.notes.length * 2) % theme.notes.length;
+      const degree = theme.notes[idx];
+      const octave = portalOpen ? 24 + (i % 3 === 2 ? 12 : 0) : (boss || staticLike ? 24 : 24 + (i % 4 === 3 ? 12 : 0));
+      const freq = midiFreqV2156(theme.root + octave + degree);
+      const step = Math.max(0.42, theme.step - pressure * 0.18);
+      const delay = i * step * (staticLike ? 0.74 : boss ? 0.82 : mode === 'combat' ? 0.86 : 1.0);
+      const dur = step * (portalOpen ? 2.1 : (boss || staticLike ? 1.25 : 1.55));
+      const accent = i === 0 || i === density - 1 ? 1.0 : 0.62;
+      const vol = theme.vol * (0.70 + pressure * 0.65) * accent;
+      const filter = theme.filter + (portalOpen ? 480 : pressure * 120) - (boss || staticLike ? 80 : 0);
+      this.ambientNoteV2156(freq, dur, vol, delay, {
+        type: i % 3 === 1 ? 'sine' : theme.wave,
+        filter,
+        attack: portalOpen ? 0.13 : 0.055 + (mode === 'float' ? 0.045 : 0),
+        pan: (softRandV2156(seed + i * 5) - 0.5) * (portalOpen ? 0.95 : 0.65),
+        detune: (softRandV2156(seed + i * 11) - 0.5) * (staticLike ? 7 : 3)
+      });
+    }
+  }
+
+  // Event-like rhythm in melody, not hum: tension ticks in fight/storm/boss, consonant answer in portal.
+  const pulseGap = portalOpen ? 2.6 : boss ? 1.05 : staticLike ? 0.88 : mode === 'combat' ? 1.18 : 3.2;
+  if (now >= d.pulse) {
+    d.pulse = now + pulseGap * (0.88 + softRandV2156((this.music.seed || 0) + d.phrase) * 0.28);
+    const n = portalOpen ? 19 : boss ? (d.phrase % 2 ? 6 : 1) : staticLike ? (d.phrase % 2 ? 6 : 10) : 10;
+    const freq = midiFreqV2156(theme.root + 36 + n);
+    this.ambientNoteV2156(freq, portalOpen ? 1.7 : 0.34 + pressure * 0.12, portalOpen ? 0.0028 : 0.0018 + pressure * 0.0020, 0, {
+      type: portalOpen ? 'sine' : 'triangle',
+      filter: portalOpen ? 1850 : 760 + pressure * 260,
+      attack: portalOpen ? 0.11 : 0.025,
+      pan: (softRandV2156(d.phrase + 61) - 0.5) * 0.8
+    });
+  }
+};

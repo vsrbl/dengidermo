@@ -2893,3 +2893,59 @@ button:hover,
   color: var(--fg) !important;
   border-color: rgba(102,246,255,.90) !important;
 }
+
+
+/* v2.1.61 — 10% smaller in-game HUD + terminal corner frame */
+#hud::before {
+  content: '';
+  position: fixed;
+  inset: 18px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: .62;
+  background:
+    linear-gradient(90deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) left top / 22px 1px no-repeat,
+    linear-gradient(180deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) left top / 1px 22px no-repeat,
+    linear-gradient(270deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) right top / 22px 1px no-repeat,
+    linear-gradient(180deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) right top / 1px 22px no-repeat,
+    linear-gradient(90deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) left bottom / 22px 1px no-repeat,
+    linear-gradient(0deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) left bottom / 1px 22px no-repeat,
+    linear-gradient(270deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) right bottom / 22px 1px no-repeat,
+    linear-gradient(0deg, rgba(102,246,255,.82), rgba(0,255,102,.62)) right bottom / 1px 22px no-repeat;
+  filter: drop-shadow(0 0 5px rgba(102,246,255,.16));
+}
+#hud-top {
+  transform: scale(.90);
+  transform-origin: top center;
+}
+#hud-bottom {
+  transform: scale(.90);
+  transform-origin: bottom center;
+}
+#feed {
+  transform: scale(.90);
+  transform-origin: top left;
+}
+#hud-contract-card {
+  transform: scale(.90);
+  transform-origin: top right;
+}
+#hud-prompt {
+  transform: translateX(-50%) scale(.90);
+  transform-origin: center bottom;
+}
+#active-roll {
+  transform: translateX(-50%) scale(.90);
+  transform-origin: top center;
+}
+#virus-roll {
+  transform: scale(.90);
+  transform-origin: top right;
+}
+#banner {
+  transform: translate(-50%, -50%) scale(.90);
+  transform-origin: center center;
+}
+@media (max-width: 760px) {
+  #hud::before { inset: 12px; opacity: .48; }
+}
