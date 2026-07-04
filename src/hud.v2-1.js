@@ -487,6 +487,7 @@ export class Hud {
     this.virusRollSpin = { token: 0, timers: [], intervals: [] };
     this.wasAlive = true;
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
+    this.casinoLockSymbol = '';
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: false };
     this.installSyncKey = '';
     this.installSyncSeenAt = 0;
@@ -498,8 +499,16 @@ export class Hud {
 
     this.initExplain();
     onLangChange(() => { this.hideTip(); });
-    $('casino-stakes').querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => this.placeBet(btn.dataset.stake));
+    const stakesEl = $('casino-stakes');
+    stakesEl?.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.placeBet(btn.dataset.stake); });
+    });
+    // Safety delegation: keeps BET buttons responsive even if their inner markup changes.
+    stakesEl?.addEventListener('click', (ev) => {
+      const btn = ev.target?.closest?.('button[data-stake]');
+      if (!btn || btn.disabled) return;
+      ev.preventDefault(); ev.stopPropagation();
+      this.placeBet(btn.dataset.stake);
     });
   }
 
@@ -735,6 +744,8 @@ export class Hud {
         this.clearExplain(btn);
       });
     }
+    this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
+    if (this.casino.open) this.updateCasinoLockBadge(this.casinoLockSymbol);
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
     const obj = $('hud-objective');
     const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. После зачистки появится отдельная карточка скина, даже если выбора улучшения нет.', 'This room has a hidden skin. After the room is solved, a separate skin card appears even if there is no INSTALL choice.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
@@ -1732,11 +1743,8 @@ export class Hud {
       ABL: [localText('ПРИЗ СПОСОБНОСТИ', 'ABILITY PRIZE'), localText('Даёт активку/Q-модуль, рывок или полезную мобильность.', 'Grants a Q/ability module, dash, or mobility.'), 'cyan'],
       RAR: [localText('РЕДКИЙ ПРИЗ', 'RARE PRIZE'), localText('Выдаёт усиленный редкий результат казино.', 'Grants a stronger rare casino result.'), 'gold'],
       SKN: [localText('СКИН', 'SKIN'), localText('Открывает косметический скин, если есть закрытые скины.', 'Unlocks a cosmetic skin if any are still locked.'), 'gold'],
-      HOLD: [localText('УДЕРЖАНИЕ', 'HOLD'), localText('Следующий сундук получит дополнительный вариант выбора. HIGH может дать +2.', 'Next chest gets an extra choice. HIGH can grant +2.'), 'green'],
       LOCK: [localText('ФИКСАЦИЯ', 'LOCK'), localText('Следующая ставка заранее получает фиксированный полезный символ.', 'Next bet starts with a fixed useful symbol.'), 'cyan'],
       LINK: [localText('СВЯЗЬ КОМБО', 'COMBO LINK'), localText('Следующая комбо-выплата удвоится, если до неё не получить урон.', 'Next combo payout doubles if you avoid taking damage before it.'), 'purple'],
-      CSH: [localText('ЗАБРАТЬ', 'CASHOUT'), localText('Безопасная малая выплата: меньше риска, меньше награда.', 'Safe small payout: less risk, smaller reward.'), 'green'],
-      DEBT: [localText('ДОЛГ', 'DEBT'), localText('Платит сейчас, но добавляет усиленный статик-долг на следующие комнаты.', 'Pays now, but adds stronger static debt to future rooms.'), 'red'],
       STC: [localText('СТАТИК-ДОЛГ', 'STATIC DEBT'), localText('Награды нет, следующий маршрут получает статик-шторм.', 'No reward; the next route receives static storm debt.'), 'purple'],
       LOSE: [localText('ПРОИГРЫШ', 'LOSS'), localText('Ставка потеряна. Награда не выдана.', 'Stake is lost. No reward is granted.'), 'red']
     };
@@ -1757,16 +1765,8 @@ export class Hud {
       SKN: [localText('SKN', 'SKN'), localText('Скин.', 'Skin.'), 'gold'],
       JCK: [localText('JCK', 'JCK'), localText('Джекпот.', 'Jackpot.'), 'gold'],
       STC: [localText('STC', 'STC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
-      HOLD: [localText('HOLD', 'HOLD'), localText('Следующий сундук: больше выбора.', 'Next chest: more choices.'), 'green'],
       LOCK: [localText('LOCK', 'LOCK'), localText('Следующая ставка получает фиксированную ячейку.', 'Next bet gets a fixed cell.'), 'cyan'],
       LINK: [localText('LINK', 'LINK'), localText('Комбо-выплата x2 без урона.', 'Combo payout x2 if you avoid damage.'), 'purple'],
-      CSH: [localText('CSH', 'CSH'), localText('Безопасно забрать выплату.', 'Safe cashout.'), 'green'],
-      DEBT: [localText('DEBT', 'DEBT'), localText('Выплата сейчас, долг потом.', 'Payout now, debt later.'), 'red'],
-      PAY: [localText('PAY', 'PAY'), localText('Выплата.', 'Payout.'), 'green'],
-      NOW: [localText('NOW', 'NOW'), localText('Сразу.', 'Now.'), 'green'],
-      SAFE: [localText('SAFE', 'SAFE'), localText('Безопасный исход.', 'Safe result.'), 'green'],
-      CHEST: [localText('CHEST', 'CHEST'), localText('Следующий сундук.', 'Next chest.'), 'cyan'],
-      CELL: [localText('CELL', 'CELL'), localText('Ячейка ставки.', 'Bet cell.'), 'cyan'],
       NEXT: [localText('NEXT', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
       COMBO: [localText('COMBO', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
     };
@@ -1779,6 +1779,24 @@ export class Hud {
     delete el.dataset.explainTitle;
     delete el.dataset.explain;
     delete el.dataset.explainTone;
+  }
+
+  updateCasinoLockBadge(symbol = '', used = false) {
+    const el = $('casino-lock-badge');
+    if (!el) return;
+    const s = String(symbol || '').toUpperCase().trim();
+    if (!s) {
+      el.classList.add('hidden');
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '';
+      this.clearExplain(el);
+      return;
+    }
+    el.classList.remove('hidden');
+    el.setAttribute('aria-hidden', 'false');
+    el.classList.toggle('used', !!used);
+    el.innerHTML = `<b>LOCK</b><span>${esc(s)}</span><em>${esc(used ? localText('использован', 'used') : localText('следующая ставка', 'next bet'))}</em>`;
+    this.setExplain(el, 'LOCK', used ? localText(`LOCK использовал ${s}.`, `LOCK used ${s}.`) : localText(`Следующая ставка начнётся с ${s}.`, `Next bet starts with ${s}.`), 'cyan');
   }
 
   setCasinoPanelState(state = 'ready', tone = '') {
@@ -1817,6 +1835,7 @@ export class Hud {
     modal.classList.remove('hidden', 'bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
     this.setCasinoPanelState(localText('ГОТОВ К СТАВКЕ', 'READY'), '');
     this.updateCasinoHelpLanguage();
+    this.updateCasinoLockBadge(this.casinoLockSymbol);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('ВЫБЕРИ СТАВКУ', 'CHOOSE BET'))}</span>`;
     res.style.color = '';
@@ -1830,6 +1849,7 @@ export class Hud {
     const modal = $('casino-modal');
     modal.classList.add('hidden');
     modal.classList.remove('bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
+    this.updateCasinoLockBadge('');
     this.hideTip();
   }
   placeBet(stake) {
@@ -1845,7 +1865,7 @@ export class Hud {
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
-    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'HOLD', 'LOCK', 'LINK', 'CSH'];
+    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'LINK', 'RAR'];
     document.querySelectorAll('.reel').forEach((r, i) => {
       if (r._iv) clearInterval(r._iv);
       r.className = 'reel spin';
@@ -1883,7 +1903,7 @@ export class Hud {
           r.dataset.final = r.textContent;
           const info = this.casinoSymbolInfo(r.textContent);
           this.setExplain(r, info.title, info.body, info.tone);
-          const bad = f.outcome === 'LOSE' || f.outcome === 'STC' || f.outcome === 'DEBT';
+          const bad = f.outcome === 'LOSE' || f.outcome === 'STC';
           r.classList.add(bad ? 'lose' : 'win', 'locked');
         } else {
           r.textContent = '—';
@@ -1894,7 +1914,7 @@ export class Hud {
         if (i === 2) {
           this.casino.spinning = false;
           this.setCasinoButtons(false);
-          this.setCasinoPanelState(localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : (f?.outcome === 'STC' || f?.outcome === 'DEBT') ? 'purple' : f?.outcome === 'JCK' ? 'gold' : 'green');
+          this.setCasinoPanelState(localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : f?.outcome === 'STC' ? 'purple' : f?.outcome === 'JCK' ? 'gold' : 'green');
         }
       }, 190 * (i + 1));
       this.casino.reelTimers.push(timer);
@@ -1918,7 +1938,7 @@ export class Hud {
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), HOLD: 'HOLD', LOCK: 'LOCK', LINK: 'LINK', CSH: 'CASHOUT', DEBT: 'DEBT', RAR: 'RAR' };
+      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', LINK: 'LINK', RAR: 'RAR' };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
@@ -1941,8 +1961,7 @@ export class Hud {
       if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
       if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
       if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
-      if (pl.holdLabel) parts.push(locLabel(pl.holdLabel));
-      if (pl.lockLabel) parts.push(locLabel(pl.lockLabel));
+      if (pl.lockSymbol || pl.lockLabel) parts.push(`LOCK ${pl.lockSymbol || ''}`.trim());
       if (pl.comboLabel) parts.push(locLabel(pl.comboLabel));
       if (pl.rareLabel) parts.push(`RAR: ${locLabel(pl.rareLabel)}`);
       if (pl.contractStake) parts.push(`${localText('КОНТРАКТНАЯ СТАВКА', 'CONTRACT WAGER')} ${pl.contractStake}`);
@@ -1953,13 +1972,15 @@ export class Hud {
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
       modal.classList.remove('bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
-      modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : f.outcome === 'LOSE' ? 'bet-lose' : (f.outcome === 'STC' || f.outcome === 'DEBT') ? 'bet-debt' : 'bet-win');
+      modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : f.outcome === 'LOSE' ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow">${parts.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
-      this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : (f.outcome === 'STC' || f.outcome === 'DEBT') ? 'p' : 'g');
-      el.style.color = f.outcome === 'LOSE' ? '#ff3048' : (f.outcome === 'STC' || f.outcome === 'DEBT') ? '#b45cff' : '#00ff66';
-      this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : (f.outcome === 'STC' || f.outcome === 'DEBT') ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
+      this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
+      if (pl.lockSymbol) { this.casinoLockSymbol = String(pl.lockSymbol).toUpperCase(); this.updateCasinoLockBadge(this.casinoLockSymbol); }
+      else if (f.lockUsed) { this.casinoLockSymbol = ''; this.updateCasinoLockBadge('', true); }
+      this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
     }, 640);
     this.casino.reelTimers.push(timer);
   }

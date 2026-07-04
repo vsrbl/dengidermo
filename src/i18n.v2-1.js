@@ -406,7 +406,7 @@ const RU_LABEL = {
   'BASIC': 'ОБЫЧНЫЙ', 'UNCOMMON': 'НЕОБЫЧНЫЙ', 'RARE': 'РЕДКИЙ', 'SUPER RARE': 'СВЕРХРЕДКИЙ', 'LEGENDARY': 'ЛЕГЕНДАРНЫЙ',
   'Q: BLOOD PULSE': 'Q: КРОВАВЫЙ ИМПУЛЬС', 'Q: FIELD SNAP': 'Q: СТЯЖКА ПОЛЯ', 'Q: OVERCLOCK': 'Q: РАЗГОН',
   'BLOOD RING': 'КРОВАВОЕ КОЛЬЦО', 'FIELD SNAP': 'СТЯЖКА ПОЛЯ', 'BULLET FREEZE': 'ЗАМОРОЗКА ПУЛЬ', 'SHELL RIPPER': 'РАЗРЫВ ЩИТА', 'VOID CUT': 'РАЗРЕЗ ПУСТОТЫ', 'SIGNAL SPIKE': 'СИГНАЛЬНЫЙ ШИП', 'BLACK BOX': 'ЧЁРНЫЙ ЯЩИК', 'STATIC PULSE': 'СТАТИК-ИМПУЛЬС',
-  'HOLD': 'УДЕРЖАНИЕ', 'LOCK': 'ФИКСАЦИЯ', 'LINK': 'СВЯЗЬ', 'CSH': 'ЗАБРАТЬ', 'DEBT': 'ДОЛГ', 'PAY': 'ВЫПЛАТА', 'NOW': 'СЕЙЧАС', 'SAFE': 'БЕЗОПАСНО', 'CHEST': 'СУНДУК', 'REEL': 'ЯЧЕЙКА', 'CELL': 'ЯЧЕЙКА', 'NEXT': 'СЛЕД.',
+  'LOCK': 'ФИКСАЦИЯ', 'LINK': 'СВЯЗЬ', 'REEL': 'ЯЧЕЙКА', 'CELL': 'ЯЧЕЙКА', 'NEXT': 'СЛЕД.',
   'SIMPLE': 'ПРОСТОЙ', 'GOOD': 'ЦЕННЫЙ', 'VALUABLE': 'ДОРОГОЙ', 'PREMIUM': 'ПРЕМИУМ', 'WPN GOOD': 'WPN ЦЕННЫЙ', 'WPN VALUABLE': 'WPN ДОРОГОЙ', 'WPN PREMIUM': 'WPN ПРЕМИУМ', 'ABL GOOD': 'ABL ЦЕННЫЙ', 'ABL VALUABLE': 'ABL ДОРОГОЙ', 'ABL PREMIUM': 'ABL ПРЕМИУМ',
   'NEXT CHEST +1 OPTION': 'СЛЕД. СУНДУК +1 ВЫБОР', 'NEXT CHEST +2 OPTION': 'СЛЕД. СУНДУК +2 ВЫБОРА', 'NEXT COMBO PAYOUT x2 IF NOT HIT': 'СЛЕД. КОМБО x2, ЕСЛИ НЕ ПОЛУЧИТЬ УРОН', 'STATIC STORM BANKED': 'СТАТИК-ШТОРМ ОТЛОЖЕН', 'DASH CHARGE': 'ЗАРЯД РЫВКА',
   'STATIC': 'СТАТИК', 'BLOOD': 'КРОВЬ', 'ECHO': 'ЭХО', 'SHRAPNEL': 'ОСКОЛКИ', 'CASINO': 'КАЗИНО', 'VOID': 'ПУСТОТА', 'LEECH': 'ВАМПИРИЗМ', 'ARMOR CRACK': 'РАЗЛОМ БРОНИ', 'ANCHOR': 'ЯКОРЬ', 'HUNGER': 'ГОЛОД', 'BAD TAPE': 'ПЛОХАЯ ПЛЁНКА'
@@ -492,8 +492,11 @@ export function applyStaticI18n() {
   setExplainSel('#ability-modal .hint .term', localText('ВЫБОР Q', 'ABL PICK'), t('quickPickBody'));
   const ah = document.querySelector('#ability-modal .hint'); if (ah) ah.lastChild && (ah.lastChild.textContent = ` — ${t('chooseOption')}`);
   setExplainSel('#casino-modal .panel-title', t('betTitle'), t('betBody'), 'red');
-  const stakeBodies = { low: t('lowBetBody'), mid: t('midBetBody'), high: t('highBetBody') };
-  document.querySelectorAll('#casino-stakes button').forEach(btn => { const k = btn.dataset.stake; if (stakeBodies[k]) { btn.dataset.explainTitle = `${String(k).toUpperCase()} BET`; btn.dataset.explain = stakeBodies[k]; } });
+  document.querySelectorAll('#casino-stakes button').forEach(btn => {
+    delete btn.dataset.explainTitle;
+    delete btn.dataset.explain;
+    delete btn.dataset.explainTone;
+  });
   setExplainSel('#casino-modal .hint .term', t('betHintTitle'), t('betHintBody'));
   const escTerm = document.querySelector('#casino-modal .hint .term:last-of-type'); if (escTerm) { escTerm.dataset.explainTitle = t('exitTitle'); escTerm.dataset.explain = t('exitBody'); }
   setExplainId('name-input', t('nameTitle'), t('nameBody'));

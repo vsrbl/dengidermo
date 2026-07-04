@@ -3370,3 +3370,74 @@ button:hover,
   #casino-modal .panel { min-height: 0 !important; max-height: 86vh !important; overflow: auto !important; }
   #casino-stakes { flex-wrap: wrap !important; }
 }
+
+/* v2.1.68 — BET cleanup: only LOCK remains, clickable stakes, external badge */
+#casino-modal:not(.hidden) {
+  z-index: 88 !important;
+  pointer-events: auto !important;
+}
+#casino-modal .panel {
+  position: relative !important;
+  overflow: visible !important;
+}
+#casino-stakes,
+#casino-stakes button {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 3 !important;
+  cursor: pointer !important;
+}
+#casino-stakes button:disabled {
+  cursor: default !important;
+}
+#casino-readout,
+#casino-result,
+#reels,
+.reel {
+  pointer-events: none !important;
+}
+.casino-lock-badge {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 58px;
+  width: 128px;
+  box-sizing: border-box;
+  padding: 9px 10px 10px;
+  border: 1px solid rgba(102,246,255,.74);
+  background: rgba(0,0,0,.78);
+  color: var(--cyan);
+  text-align: left;
+  letter-spacing: .14em;
+  box-shadow: 0 0 0 1px rgba(102,246,255,.07), 0 0 16px rgba(102,246,255,.10);
+  pointer-events: auto;
+}
+.casino-lock-badge.hidden { display: none !important; }
+.casino-lock-badge b {
+  display: block;
+  font-size: 12.5px;
+  margin-bottom: 5px;
+  color: var(--fg);
+}
+.casino-lock-badge span {
+  display: block;
+  font-size: 22.5px;
+  line-height: 1;
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(102,246,255,.18);
+}
+.casino-lock-badge em {
+  display: block;
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-style: normal;
+  color: var(--dim);
+  letter-spacing: .08em;
+}
+@media (max-width: 860px) {
+  .casino-lock-badge {
+    position: static;
+    width: auto;
+    margin: -2px auto 10px;
+    text-align: center;
+  }
+}

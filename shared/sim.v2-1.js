@@ -464,14 +464,14 @@ function casinoStakeCost(run, stakeKey) {
   return roundCost(base * loopCostMul(run, 1.85));
 }
 function takeCasinoHoldChoices(p, max = 2) {
-  const n = Math.max(0, Math.min(max, p?.casinoHoldChoices || 0));
-  if (n > 0) p.casinoHoldChoices = Math.max(0, (p.casinoHoldChoices || 0) - n);
-  return n;
+  // Removed BET choice bonus; clear old save residue.
+  if (p) p.casinoHoldChoices = 0;
+  return 0;
 }
 function casinoLockOptionsForStake(stakeKey = 'low') {
   if (stakeKey === 'high') return ['JCK','RAR','WPN','ABL','SKN','GLD'];
   if (stakeKey === 'mid') return ['RAR','WPN','ABL','GLD','EXP','HEA'];
-  return ['WPN','GLD','EXP','HEA','CSH'];
+  return ['WPN','GLD','EXP','HEA'];
 }
 function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   const rng = Math.random;
@@ -1936,14 +1936,14 @@ function applyComboReelOutcome(run, players, owner, outcome, kills = 0, mult = 1
   if (!outcome || !owner) return null;
   const econ = loopEconomyMul(run);
   const base = Math.max(1, Math.round(kills * Math.max(1, mult)));
-  const symbols = outcome === 'JCK' ? ['JCK','JCK','JCK'] : outcome === 'WPN' ? ['WPN','HOLD','WPN'] : outcome === 'DASH' ? ['DASH','DASH','OK'] : outcome === 'STC' ? ['GLD','GLD','STC'] : [outcome, outcome, outcome];
+  const symbols = outcome === 'JCK' ? ['JCK','JCK','JCK'] : outcome === 'WPN' ? ['WPN','WPN','WPN'] : outcome === 'DASH' ? ['DASH','DASH','OK'] : outcome === 'STC' ? ['GLD','GLD','STC'] : [outcome, outcome, outcome];
   let label = outcome;
   let val = 0;
   if (outcome === 'GLD') { val = Math.round(base * 0.55 * econ); owner.economy.money += val; label = `GLD +${val}`; }
   else if (outcome === 'EXP') { val = Math.round(base * 0.45 * econ); addXp(run, owner, val); label = `EXP +${val}`; }
   else if (outcome === 'HEA') { val = Math.max(1, Math.round(base * 0.08)); owner.hp = Math.min(maxHp(owner), owner.hp + val); label = `HP +${val}`; }
   else if (outcome === 'DASH') { owner.dashCharges = Math.min(dashMax(owner), owner.dashCharges + 1); label = 'DASH CHARGE'; }
-  else if (outcome === 'WPN') { owner.casinoHoldChoices = Math.min(3, (owner.casinoHoldChoices || 0) + 1); label = 'NEXT CHEST +1 OPTION'; }
+  else if (outcome === 'WPN') { const unowned = WEAPON_ORDER.filter(w => !owner.weapons.includes(w)); if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; owner.weapons.push(w); label = `WPN ${WEAPONS[w].label}`; } else { owner.stats.weaponDmgMul = Math.max(0.05, Number(owner.stats.weaponDmgMul) || 1) * 1.10; label = 'WPN DMG +10%'; } }
   else if (outcome === 'JCK') { val = Math.round(base * 1.6 * econ); owner.economy.money += val; label = `JACKPOT GLD +${val}`; }
   else if (outcome === 'STC') { addStaticDebt(run, 1, 'combo_reel'); label = 'STATIC STORM BANKED'; }
   run.fx.push({ t: 'combo_reel', id: owner.id, name: owner.name || '', personal: 1, outcome, label, symbols, kills, mult: Math.round(mult * 10) / 10 });
@@ -5571,22 +5571,20 @@ function openChest(run, players, p, o) {
     if (rng() < 0.15) dropPickup(run, o.x, o.y - 50, 'HEA', Math.round(20 + Math.min(60, 5 * Math.log2(lootMul + 1))));
     rewards.push(`LOOT x${Math.round(lootMul * 10) / 10}`);
   } else if (o.chest === 'weapon_chest') {
-    const hold = takeCasinoHoldChoices(p, 2);
-    const count = 3 + value.choiceBonus + hold;
+    takeCasinoHoldChoices(p, 2);
+    const count = 3 + value.choiceBonus;
     p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label };
     run.fx.push({ t: 'weapon_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
     const tag = value.tier > 0 ? `WPN ${value.label}` : 'ВЫБОР WPN';
-    const extra = hold ? `HOLD +${hold} OPTION` : '';
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag, extra].filter(Boolean), x: o.x, y: o.y });
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'ability_chest') {
-    const hold = takeCasinoHoldChoices(p, 2);
-    const count = 3 + value.choiceBonus + hold;
+    takeCasinoHoldChoices(p, 2);
+    const count = 3 + value.choiceBonus;
     p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label };
     run.fx.push({ t: 'ability_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
     const tag = value.tier > 0 ? `ABL ${value.label}` : 'ВЫБОР ABL';
-    const extra = hold ? `HOLD +${hold} OPTION` : '';
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag, extra].filter(Boolean), x: o.x, y: o.y });
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'rare_chest') {
     const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 1);
@@ -5819,7 +5817,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
 export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = []) {
   const fail = (error) => ({ ok: false, error, stakeKey });
   if (!p.alive) return fail('ИГРОК DOWN');
-  if (run.phase !== 'play') return fail('BET ДОСТУПЕН ТОЛЬКО В БОЮ');
+  if (run.phase !== 'play' && run.phase !== 'clear') return fail('BET НЕДОСТУПЕН');
   const baseStake = BET_STAKES[stakeKey];
   const stake = casinoStakeCost(run, stakeKey);
   if (!baseStake || !stake) return fail('НЕВЕРНАЯ СТАВКА');
@@ -5852,8 +5850,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   if (pl.gld) p.economy.money += pl.gld;
   if (pl.xp) addXp(run, p, pl.xp);
   if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
-  if (pl.hold) { p.casinoHoldChoices = Math.min(3, (p.casinoHoldChoices || 0) + (stakeKey === 'high' ? 2 : 1)); pl.holdLabel = `NEXT CHEST +${stakeKey === 'high' ? 2 : 1} OPTION`; }
-  if (pl.lock) { const opts = casinoLockOptionsForStake(stakeKey); p.casinoLockSymbol = opts[Math.floor(Math.random() * opts.length)] || 'WPN'; pl.lockLabel = `NEXT BET LOCK: ${p.casinoLockSymbol}`; }
+  if (pl.lock) { const opts = casinoLockOptionsForStake(stakeKey); p.casinoLockSymbol = opts[Math.floor(Math.random() * opts.length)] || 'WPN'; pl.lockSymbol = p.casinoLockSymbol; pl.lockLabel = `LOCK: ${p.casinoLockSymbol}`; res.symbols = ['LOCK', p.casinoLockSymbol, 'NEXT']; }
   if (pl.comboLink) { p.casinoComboLink = 1; pl.comboLabel = 'NEXT COMBO PAYOUT x2 IF NOT HIT'; }
   if (pl.rare) { pl.rareLabel = grantRareCasinoPrize(run, p, 'CASINO RAR'); }
   if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
@@ -5868,7 +5865,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
     else { p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
   }
-  if (pl.static) addStaticDebt(run, pl.debt ? 2 : 1, pl.debt ? 'casino_debt' : 'casino_bet');
+  if (pl.static) addStaticDebt(run, 1, 'casino_bet');
   if (run.roomObjective && run.roomObjective.id && run.roomObjective.id !== 'lounge_cashout') {
     if (!run.roomContractStakes || typeof run.roomContractStakes !== 'object') run.roomContractStakes = {};
     run.roomContractStakes[p.id] = Math.max(0, (run.roomContractStakes[p.id] || 0)) + Math.max(0, stake | 0);
@@ -7013,7 +7010,8 @@ export function buildSnapshot(run, players) {
       p.shgCharges ?? 4, (p.shgCharges ?? 4) >= WEAPONS.shotgun.charges ? 0 : Math.max(0, Math.ceil(((WEAPONS.shotgun.chargeRegen - (p.shgReload || 0)) / Math.max(0.55, 0.78 + Math.min(1.5, Math.max(0, p.stats.fireMul - 1)) * 0.18)) * 10) / 10),
       p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint',
       p.dashCharges < dashMax(p) ? Math.max(0, Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1) - (p.dashTimer || 0)) * 10) / 10) : 0,
-      Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) * 10) / 10
+      Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) * 10) / 10,
+      String(p.casinoLockSymbol || '').toUpperCase()
     ]);
   }
   const es = combatEnemies(run).map(e => [

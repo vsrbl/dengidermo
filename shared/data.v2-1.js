@@ -355,7 +355,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const high = stakeKey === 'high';
   const mid = stakeKey === 'mid';
   const lockSymbol = String(opts.lockSymbol || '').toUpperCase();
-  const canLock = ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA','CSH'].includes(lockSymbol);
+  const canLock = ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA'].includes(lockSymbol);
   let outcome = 'LOSE';
   let usedLock = false;
   if (canLock && rng() < (high ? 0.58 : mid ? 0.64 : 0.70)) {
@@ -369,11 +369,8 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
       ['WPN', 0.020 + (high ? 0.018 : mid ? 0.010 : 0) + l * 0.30],
       ['ABL', stakeKey === 'low' ? 0.006 : (0.024 + (high ? 0.014 : 0) + l * 0.30)],
       ['SKN', skinOdds],
-      ['HOLD', 0.032 + (mid ? 0.010 : high ? 0.014 : 0) + l * 0.16],
-      ['LOCK', 0.026 + (mid ? 0.008 : high ? 0.012 : 0) + l * 0.12],
-      ['LINK', 0.030 + (mid ? 0.014 : high ? 0.018 : 0) + l * 0.14],
-      ['CSH', 0.070 + (stakeKey === 'low' ? 0.030 : 0) + l * 0.20],
-      ['DEBT', (high ? 0.070 : mid ? 0.030 : 0.010)],
+      ['LOCK', 0.030 + (mid ? 0.010 : high ? 0.016 : 0) + l * 0.15],
+      ['LINK', 0.036 + (mid ? 0.016 : high ? 0.022 : 0) + l * 0.16],
       ['HEA', 0.045 + l * 0.26],
       ['EXP', 0.060 + l * 0.30],
       ['GLD', 0.070 + l * 0.30],
@@ -382,31 +379,25 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     let acc = 0;
     for (const [id, chance] of odds) { acc += chance; if (r < acc) { outcome = id; break; } }
   }
-  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP','HOLD','LOCK','LINK'][Math.floor(rng()*12)];
+  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP','LOCK','LINK','RAR'][Math.floor(rng()*12)];
   let symbols;
   if (outcome === 'LOSE') { symbols = [sym(), sym(), sym()]; if (symbols[0]===symbols[1]&&symbols[1]===symbols[2]) symbols[2]='STC'; }
   else if (outcome === 'JCK') symbols = ['JCK','JCK','JCK'];
-  else if (outcome === 'CSH') symbols = ['CSH','GLD','SAFE'];
-  else if (outcome === 'DEBT') symbols = ['PAY','NOW','STC'];
-  else if (outcome === 'HOLD') symbols = ['HOLD','HOLD','CHEST'];
   else if (outcome === 'LOCK') symbols = ['LOCK','CELL','NEXT'];
   else if (outcome === 'LINK') symbols = ['LINK','COMBO','PAY'];
   else symbols = [outcome, outcome, outcome];
   const payload = {};
   switch (outcome) {
     case 'GLD': payload.gld = Math.round(stake * (1.25 + rng() * 1.05)); break;
-    case 'CSH': payload.gld = Math.round(stake * 0.82); payload.cashout = true; break;
     case 'EXP': payload.xp = Math.round(stake * 0.95); break;
     case 'HEA': payload.heal = 26 + Math.round(rng() * 28); break;
     case 'WPN': payload.weapon = true; break;
     case 'ABL': payload.ability = true; break;
     case 'RAR': payload.rare = true; break;
-    case 'HOLD': payload.hold = true; break;
     case 'LOCK': payload.lock = true; break;
     case 'LINK': payload.comboLink = true; break;
     case 'SKN': { const skin = rollCasinoSkin(rng, stakeKey, luck, unlockedSkins); payload.skin = true; payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity; break; }
     case 'STC': payload.static = true; break;
-    case 'DEBT': payload.gld = Math.round(stake * 2.15); payload.xp = Math.round(stake * 0.45); payload.static = true; payload.debt = true; break;
     case 'JCK': payload.gld = Math.round(stake * 5.8); payload.xp = Math.round(stake * 1.65); break;
     case 'LOSE': break;
   }
