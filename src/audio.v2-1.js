@@ -6546,3 +6546,18 @@ AudioBus.prototype.updateMusic = function updateMusicV2163TechnoCasinoScore(stat
     t.next += stepDur;
   }
 };
+
+
+// v2.1.64 VOLUME CONTROL UI CLICK ALIGNMENT
+// The custom slider preview still had its own small body/noise transient, which made it read as a separate
+// "popping" sound. Volume controls now use the same dry UI click family as normal buttons, with only a
+// modest throttle while dragging.
+AudioBus.prototype.previewVolume = function previewVolumeV2164VolumeUiClickAlignment(kind = 'sfx') {
+  this.unlock();
+  if (!this.ctx || this.ctx.state !== 'running') return;
+  const now = this.ctx.currentTime;
+  if (now - (this.last.get('volume_preview') || -99) < 0.12) return;
+  this.last.set('volume_preview', now);
+  // Match the ordinary button sound exactly instead of making a separate slider-specific cue.
+  this.play('ui_click');
+};
