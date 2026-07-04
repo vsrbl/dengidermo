@@ -6317,3 +6317,232 @@ AudioBus.prototype.updateMusic = function updateMusicV2161DarkAdaptiveAmbient(st
     });
   }
 };
+
+// v2.1.63 TECHNO CASINO SCORE REBUILD
+// Removes the v2.1.61 adaptive ambient melody from the active update path.
+// New direction: dark procedural techno pulse with several state-specific variants.
+// The low hum remains reactive, but the musical lead is now beat/sequence driven, not slow drifting melody.
+function clamp01V2163(v) { return Math.max(0, Math.min(1, Number(v) || 0)); }
+function midiFreqV2163(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function randV2163(seed) { const x = Math.sin((Number(seed) || 0) * 98.422 + 17.17) * 43758.5453; return x - Math.floor(x); }
+const TECHNO_THEMES_V2163 = {
+  menu:   { root: 45, bpm: 96,  scale: [0, 3, 7, 10, 12],       bass: [0, 0, 7, 3],          accent: [0, 8],             density: 0.28 },
+  float:  { root: 43, bpm: 112, scale: [0, 3, 5, 7, 10, 12],    bass: [0, 0, 7, 10],         accent: [0, 8],             density: 0.42 },
+  combat: { root: 42, bpm: 128, scale: [0, 2, 3, 7, 10, 12],    bass: [0, 0, 3, 7, 10, 7],   accent: [0, 4, 8, 12],      density: 0.74 },
+  storm:  { root: 41, bpm: 136, scale: [0, 1, 6, 7, 10, 12],    bass: [0, 6, 0, 10, 1, 7],   accent: [0, 3, 8, 11, 14],  density: 0.86 },
+  casino: { root: 44, bpm: 130, scale: [0, 3, 6, 10, 12, 15],   bass: [0, 0, 6, 10, 3, 10],  accent: [0, 4, 7, 8, 12],   density: 0.78 },
+  boss:   { root: 38, bpm: 132, scale: [0, 1, 5, 6, 10, 12],    bass: [0, 0, 6, 5, 1, 10],   accent: [0, 4, 8, 10, 12],  density: 0.92 },
+  portal: { root: 50, bpm: 118, scale: [0, 5, 7, 12, 14, 19],   bass: [0, 7, 12, 7],         accent: [0, 8, 12],         density: 0.50 },
+  clear:  { root: 48, bpm: 108, scale: [0, 5, 7, 10, 12, 17],   bass: [0, 7, 10, 7],         accent: [0, 8],             density: 0.34 }
+};
+
+AudioBus.prototype.technoKickV2163 = function technoKickV2163(vol = 0.040, delay = 0) {
+  if (!this.ctx || !this.music?.master) return;
+  const now = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(92, now);
+  o.frequency.exponentialRampToValueAtTime(43, now + 0.105);
+  f.type = 'lowpass'; f.frequency.setValueAtTime(720, now); f.Q.value = 0.45;
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol), now + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.000001, now + 0.19);
+  o.connect(f); f.connect(g); g.connect(this.music.master);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(now); o.stop(now + 0.23);
+};
+
+AudioBus.prototype.technoHatV2163 = function technoHatV2163(vol = 0.012, delay = 0, open = false) {
+  if (!this.ctx || !this.music?.master) return;
+  const now = this.ctx.currentTime + Math.max(0, delay || 0);
+  const sr = this.ctx.sampleRate;
+  const dur = open ? 0.115 : 0.042;
+  const len = Math.max(1, Math.floor(sr * dur));
+  const buf = this.ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const env = Math.pow(1 - i / len, open ? 1.45 : 2.2);
+    data[i] = (Math.random() * 2 - 1) * env * 0.75;
+  }
+  const src = this.ctx.createBufferSource(); src.buffer = buf;
+  const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = open ? 1650 : 2100; hp.Q.value = 0.25;
+  const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = open ? 5200 : 4200; lp.Q.value = 0.20;
+  const g = this.ctx.createGain();
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol), now + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.000001, now + dur);
+  src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(this.music.master);
+  src.onended = () => { try { src.disconnect(); hp.disconnect(); lp.disconnect(); g.disconnect(); } catch {} };
+  src.start(now); src.stop(now + dur + 0.015);
+};
+
+AudioBus.prototype.technoBassV2163 = function technoBassV2163(freq, dur = 0.16, vol = 0.018, delay = 0, accent = 1) {
+  if (!this.ctx || !this.music?.master) return;
+  const now = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(Math.max(35, freq), now);
+  if (o.detune) o.detune.setValueAtTime(-5 + accent * 3, now);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(260 + accent * 210, now);
+  f.frequency.setTargetAtTime(120 + accent * 80, now + dur * 0.18, dur * 0.28);
+  f.Q.value = 0.82;
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol * accent), now + 0.010);
+  g.gain.exponentialRampToValueAtTime(0.000001, now + dur);
+  o.connect(f); f.connect(g); g.connect(this.music.master);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(now); o.stop(now + dur + 0.025);
+};
+
+AudioBus.prototype.technoPluckV2163 = function technoPluckV2163(freq, dur = 0.18, vol = 0.008, delay = 0, opts = {}) {
+  if (!this.ctx || !this.music?.master) return;
+  const now = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  const pan = typeof this.ctx.createStereoPanner === 'function' ? this.ctx.createStereoPanner() : null;
+  o.type = opts.wave || 'square';
+  o.frequency.setValueAtTime(Math.max(60, freq), now);
+  if (opts.bend) o.frequency.setTargetAtTime(Math.max(60, freq * opts.bend), now + dur * 0.12, dur * 0.30);
+  if (o.detune) o.detune.setValueAtTime(Number(opts.detune || 0), now);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(Math.max(360, Math.min(2600, opts.filter || 980)), now);
+  f.frequency.setTargetAtTime(Math.max(220, (opts.filter || 980) * 0.44), now + dur * 0.18, dur * 0.42);
+  f.Q.value = Math.max(0.25, Math.min(1.4, opts.q || 0.62));
+  g.gain.setValueAtTime(0.000001, now);
+  g.gain.linearRampToValueAtTime(Math.max(0.000001, vol), now + Math.max(0.004, opts.attack || 0.018));
+  g.gain.exponentialRampToValueAtTime(0.000001, now + dur);
+  o.connect(f); f.connect(g);
+  if (pan) { pan.pan.setValueAtTime(Math.max(-0.85, Math.min(0.85, opts.pan || 0)), now); g.connect(pan); pan.connect(this.music.master); }
+  else g.connect(this.music.master);
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); if (pan) pan.disconnect(); } catch {} };
+  o.start(now); o.stop(now + dur + 0.04);
+};
+
+AudioBus.prototype.technoModeV2163 = function technoModeV2163(state, pressure = 0) {
+  const room = state?.room || null;
+  if (!room || state?.menu) return 'menu';
+  const mods = room?.mods || [];
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  if (portalOpen) return 'portal';
+  if (room.cat === 'boss') return 'boss';
+  if (mods.includes('casino_virus') || mods.includes('weighted_reels') || mods.includes('jackpot_bias')) return 'casino';
+  if (mods.includes('static_rain') || mods.includes('prism_grid')) return 'storm';
+  if (pressure > 0.46) return 'combat';
+  return 'float';
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2163TechnoCasinoScore(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  if (!this.ctx || !this.music?.layers) return;
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? clamp01V2163(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const boss = !!room && room.cat === 'boss';
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const pressure = clamp01V2163(enemies / 24 + bullets / 145 + danger * 0.36 + lowHp * 0.26 + (boss ? 0.44 : 0) + (this.musicChaos || 0) * 0.18);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.34);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.26);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.24);
+
+  const mode = this.technoModeV2163(state, pressure);
+  const theme = TECHNO_THEMES_V2163[mode] || TECHNO_THEMES_V2163.float;
+  const now = this.ctx.currentTime;
+  const L = this.music.layers;
+  if (!this.music.technoV2163) this.music.technoV2163 = { mode: '', step: 0, next: 0, variant: 0, bar: 0 };
+  const t = this.music.technoV2163;
+  if (t.mode !== mode) {
+    t.mode = mode;
+    t.step = 0;
+    t.next = now + 0.035;
+    t.variant = (t.variant + 1) % 6;
+    t.bar++;
+  }
+
+  // Dark techno mix: no old drifting melody, only reactive air + beat + sequenced stabs.
+  const staticLike = mode === 'storm' || mode === 'casino';
+  if (this.music.lp?.frequency) this.music.lp.frequency.setTargetAtTime(portalOpen ? 3350 : boss ? 1850 : staticLike ? 2050 : mode === 'combat' ? 2250 : 2650, now, 1.0);
+  if (this.music.hp?.frequency) this.music.hp.frequency.setTargetAtTime(portalOpen ? 105 : 86, now, 1.4);
+  if (this.music.post?.gain) this.music.post.gain.setTargetAtTime(portalOpen ? 0.78 : 0.68 + pressure * 0.12, now, 0.8);
+
+  // Pull all old ambient/pad tones down hard; they should not carry the melody anymore.
+  this.ambientLayerTargetV2156?.(L.padA, portalOpen ? 0.00035 : 0.000001, midiFreqV2163(theme.root + 24), portalOpen ? 1280 : 620, 1.2);
+  this.ambientLayerTargetV2156?.(L.padB, portalOpen ? 0.00055 : 0.000001, midiFreqV2163(theme.root + 31), portalOpen ? 1380 : 680, 1.2);
+  this.ambientLayerTargetV2156?.(L.padC, portalOpen ? 0.00065 : 0.000001, midiFreqV2163(theme.root + 36), portalOpen ? 1580 : 720, 1.2);
+  this.ambientLayerTargetV2156?.(L.data, 0.000001, midiFreqV2163(theme.root + 43), 920, 0.5);
+  this.ambientLayerTargetV2156?.(L.casinoPing, 0.000001, midiFreqV2163(theme.root + 42), 940, 0.5);
+  this.ambientLayerTargetV2156?.(L.air, mode === 'menu' ? 0.0012 : portalOpen ? 0.0017 : 0.0009 + (1 - pressure) * 0.0006, null, portalOpen ? 1480 : 980 + pressure * 220, 1.4);
+  this.ambientLayerTargetV2156?.(L.stormAir, staticLike ? 0.0014 + pressure * 0.0008 : boss ? 0.0010 : 0.000001, null, 720 + pressure * 350, 0.8);
+  const hum = portalOpen ? 0.000001 : (boss ? 0.0018 : staticLike ? 0.00125 : pressure > 0.54 ? 0.00095 : 0.000001);
+  this.ambientLayerTargetV2156?.(L.bossBody, hum, midiFreqV2163(theme.root + (boss ? 0 : 12)), 380 + pressure * 160, 1.2);
+
+  const bpm = theme.bpm + Math.round(pressure * 10) + ((mode === 'storm' || mode === 'casino') ? 4 : 0);
+  const stepDur = 60 / bpm / 4;
+  let guard = 0;
+  while (now >= t.next && guard++ < 6) {
+    const s = t.step & 15;
+    const half = s & 7;
+    const seed = (this.music.seed || 0) + t.bar * 37 + t.variant * 101 + s * 13;
+    const accent = theme.accent.includes(s) ? 1.0 : 0.62;
+    const heavy = mode === 'boss' || mode === 'combat' || mode === 'storm' || mode === 'casino';
+
+    if (mode === 'menu') {
+      if (s === 0 || s === 8) this.technoKickV2163(0.020, 0);
+    } else if (mode === 'float' || mode === 'clear' || mode === 'portal') {
+      if (s === 0 || s === 8) this.technoKickV2163(portalOpen ? 0.020 : 0.026, 0);
+      if (s === 4 || s === 12) this.technoHatV2163(0.0045, 0, true);
+    } else {
+      if (s % 4 === 0) this.technoKickV2163(mode === 'boss' ? 0.052 : 0.044, 0);
+      if (s % 2 === 1) this.technoHatV2163(0.005 + pressure * 0.004, 0, false);
+      if (s === 6 || s === 14) this.technoHatV2163(0.007 + pressure * 0.005, 0, true);
+    }
+
+    const bassOn = heavy ? (s % 2 === 0 || s === 3 || s === 11 || s === 14) : (s === 0 || s === 6 || s === 8 || s === 13);
+    if (bassOn && mode !== 'menu') {
+      const b = theme.bass[(Math.floor(s / 2) + t.variant) % theme.bass.length];
+      const freq = midiFreqV2163(theme.root + b);
+      this.technoBassV2163(freq, heavy ? stepDur * 1.28 : stepDur * 1.65, (heavy ? 0.014 : 0.009) + pressure * 0.010, 0, accent + pressure * 0.42);
+    }
+
+    const melodyVariant = (t.variant + Math.floor(t.bar / 2)) % 4;
+    const leadGate = portalOpen ? (s === 2 || s === 6 || s === 10 || s === 14) : heavy ? (s === 1 || s === 5 || s === 9 || s === 13 || (melodyVariant > 1 && (s === 3 || s === 11))) : (s === 3 || s === 10);
+    if (leadGate) {
+      const seq = theme.scale;
+      const idx = (Math.floor(s / 2) + t.variant + (melodyVariant === 2 ? 2 : 0)) % seq.length;
+      const jump = melodyVariant === 1 ? 12 : melodyVariant === 2 ? 7 : melodyVariant === 3 ? 10 : 0;
+      const degree = seq[idx] + jump;
+      const octave = portalOpen ? 36 : heavy ? 24 : 31;
+      const freq = midiFreqV2163(theme.root + octave + degree);
+      const filter = portalOpen ? 1650 : heavy ? 720 + pressure * 680 : 980;
+      this.technoPluckV2163(freq, portalOpen ? stepDur * 3.0 : heavy ? stepDur * 1.55 : stepDur * 2.2, portalOpen ? 0.0048 : 0.0042 + pressure * 0.0054, 0, {
+        wave: portalOpen ? 'sine' : (mode === 'casino' && s % 4 ? 'square' : 'triangle'),
+        filter,
+        q: heavy ? 0.95 : 0.55,
+        pan: (randV2163(seed) - 0.5) * (portalOpen ? 0.9 : 0.55),
+        detune: (randV2163(seed + 7) - 0.5) * (staticLike ? 8 : 3),
+        bend: heavy && (s === 11 || s === 13) ? 0.995 : 1
+      });
+    }
+
+    if ((mode === 'casino' || mode === 'storm') && (s === 7 || s === 15)) {
+      const tick = midiFreqV2163(theme.root + 48 + theme.scale[(t.variant + half) % theme.scale.length]);
+      this.technoPluckV2163(tick, stepDur * 0.72, 0.0026 + pressure * 0.0022, 0, { wave: 'square', filter: 1350, q: 0.8, pan: (s === 7 ? -0.42 : 0.42) });
+    }
+
+    t.step = (t.step + 1) & 15;
+    if (t.step === 0) { t.bar++; if (randV2163(seed + t.bar) > 0.62) t.variant = (t.variant + 1) % 6; }
+    t.next += stepDur;
+  }
+};

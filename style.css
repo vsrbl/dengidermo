@@ -3196,3 +3196,15 @@ button:hover,
   #casino-result { max-height: none; min-height: 128px; }
   #casino-stakes { grid-template-columns: 1fr; }
 }
+
+/* v2.1.63 — top-left feed alignment after HUD scale */
+#feed {
+  left: calc(var(--ui-center-inset-x) + 5vw) !important;
+  transform-origin: top left !important;
+}
+@media (max-width: 960px) {
+  #feed { left: calc(var(--ui-center-inset-x) + 3vw) !important; }
+}
+@media (max-width: 760px) {
+  #feed { left: var(--ui-center-inset-x) !important; }
+}
