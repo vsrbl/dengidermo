@@ -389,7 +389,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   else if (outcome === 'CSH') symbols = ['CSH','GLD','SAFE'];
   else if (outcome === 'DEBT') symbols = ['PAY','NOW','STC'];
   else if (outcome === 'HOLD') symbols = ['HOLD','HOLD','CHEST'];
-  else if (outcome === 'LOCK') symbols = ['LOCK','REEL','NEXT'];
+  else if (outcome === 'LOCK') symbols = ['LOCK','CELL','NEXT'];
   else if (outcome === 'LINK') symbols = ['LINK','COMBO','PAY'];
   else symbols = [outcome, outcome, outcome];
   const payload = {};

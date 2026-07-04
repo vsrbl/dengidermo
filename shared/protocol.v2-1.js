@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.61';
-export const BUILD_ID = 'ui_corner_frame_dark_adaptive_ambient';
+export const VERSION = 'v2.1.62';
+export const BUILD_ID = 'bet_terminal_2_clarity_animation';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
