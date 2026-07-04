@@ -6561,3 +6561,423 @@ AudioBus.prototype.previewVolume = function previewVolumeV2164VolumeUiClickAlign
   // Match the ordinary button sound exactly instead of making a separate slider-specific cue.
   this.play('ui_click');
 };
+
+// v2.1.65 PROCEDURAL TECHNO MACHINE REBUILD
+// Architecture is inspired by classic drum-machine / step-sequencer approaches: 16-step grid,
+// state-specific patterns, synthesized kick/bass/hats/clap/acid/casino ticks, no ambient melody bed.
+// This is a fresh internal implementation: no bundled libraries, no samples, no external tracks.
+const TM65_CLAMP = (v, a = 0, b = 1) => Math.max(a, Math.min(b, Number(v) || 0));
+const TM65_MIDI = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const TM65_HAS = (arr, step) => Array.isArray(arr) && arr.includes(step & 15);
+const TM65_RAND = (n) => {
+  const x = Math.sin((n + 1) * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+};
+const TM65_SEQ = {
+  menu: {
+    bpm: 116, root: 38, shade: 0.16,
+    kick: [0, 8], clap: [], oh: [12], hats: [3, 7, 11, 15],
+    bass: [0, 7, 10, 14], bassDeg: [0, 0, -2, 0, 3, 0, -5, -2],
+    acid: [5, 13], acidDeg: [12, 10, 7, 10], casino: [2, 6, 10, 14], stab: [0]
+  },
+  float: {
+    bpm: 124, root: 36, shade: 0.25,
+    kick: [0, 8], clap: [12], oh: [6, 14], hats: [1, 3, 7, 9, 11, 15],
+    bass: [0, 3, 7, 10, 12, 14], bassDeg: [0, 0, -5, 0, 3, 0, -2, 0],
+    acid: [2, 5, 11, 14], acidDeg: [12, 10, 7, 15, 10, 7, 3, 7], casino: [4, 10], stab: [8]
+  },
+  combat: {
+    bpm: 136, root: 35, shade: 0.46,
+    kick: [0, 4, 8, 12], clap: [4, 12], oh: [6, 14], hats: [1, 3, 5, 7, 9, 11, 13, 15],
+    bass: [0, 2, 3, 6, 8, 10, 11, 14], bassDeg: [0, 0, -2, 0, 3, 0, -5, -2],
+    acid: [1, 5, 7, 10, 13, 15], acidDeg: [12, 10, 7, 10, 15, 12, 10, 7], casino: [3, 11, 15], stab: [0, 8]
+  },
+  storm: {
+    bpm: 142, root: 34, shade: 0.62,
+    kick: [0, 4, 8, 12, 15], clap: [4, 10, 12], oh: [6, 13], hats: [1, 2, 5, 7, 9, 11, 14, 15],
+    bass: [0, 2, 5, 6, 8, 9, 11, 14], bassDeg: [0, -1, 0, -6, -1, 0, -5, -1],
+    acid: [1, 3, 6, 7, 10, 12, 15], acidDeg: [12, 13, 7, 6, 12, 10, 6, 1], casino: [2, 6, 7, 11, 15], stab: [0, 6, 12]
+  },
+  casino: {
+    bpm: 138, root: 37, shade: 0.54,
+    kick: [0, 4, 8, 12], clap: [4, 12], oh: [6, 14], hats: [1, 3, 5, 7, 9, 11, 13, 15],
+    bass: [0, 3, 4, 7, 8, 11, 12, 14], bassDeg: [0, 3, 0, -2, 7, 3, 0, -5],
+    acid: [2, 5, 6, 9, 10, 13, 15], acidDeg: [12, 15, 12, 10, 7, 10, 15, 12], casino: [1, 2, 6, 9, 10, 14, 15], stab: [0, 8, 12]
+  },
+  boss: {
+    bpm: 148, root: 33, shade: 0.78,
+    kick: [0, 4, 8, 11, 12, 15], clap: [4, 12], oh: [3, 6, 10, 14], hats: [1, 2, 3, 5, 7, 9, 10, 11, 13, 15],
+    bass: [0, 1, 3, 4, 6, 8, 9, 11, 12, 14, 15], bassDeg: [0, 0, -1, 0, -5, -1, 0, -7],
+    acid: [1, 3, 5, 7, 9, 10, 11, 13, 15], acidDeg: [12, 10, 6, 7, 10, 6, 3, 1], casino: [2, 6, 10, 14], stab: [0, 4, 8, 12]
+  },
+  portal: {
+    bpm: 126, root: 45, shade: 0.18,
+    kick: [0, 8], clap: [], oh: [6, 14], hats: [3, 7, 11, 15],
+    bass: [0, 10], bassDeg: [0, 7, 12, 7],
+    acid: [2, 6, 10, 14], acidDeg: [12, 19, 24, 19, 17, 19], casino: [0, 4, 8, 12], stab: [0]
+  }
+};
+
+AudioBus.prototype.tm65DisposeOldMusic = function tm65DisposeOldMusic() {
+  if (!this.music) return;
+  const old = this.music;
+  try {
+    if (old.post?.gain && this.ctx) old.post.gain.setTargetAtTime(0.000001, this.ctx.currentTime, 0.08);
+    if (old.master?.gain && this.ctx) old.master.gain.setTargetAtTime(0.000001, this.ctx.currentTime, 0.08);
+    for (const layer of Object.values(old.layers || {})) {
+      try { layer.g?.gain?.setTargetAtTime?.(0.000001, this.ctx.currentTime, 0.06); } catch {}
+      try { layer.o?.stop?.(this.ctx.currentTime + 0.10); } catch {}
+    }
+    setTimeout(() => { try { old.master?.disconnect?.(); old.post?.disconnect?.(); } catch {} }, 180);
+  } catch {}
+  this.music = null;
+};
+
+AudioBus.prototype.tm65NoiseLayer = function tm65NoiseLayer(freq = 900, q = 0.8, gain = 0.0001) {
+  const sr = this.ctx.sampleRate;
+  const len = Math.max(1, Math.floor(sr * 2));
+  const buf = this.ctx.createBuffer(1, len, sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.42;
+  const src = this.ctx.createBufferSource();
+  const bp = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  src.buffer = buf; src.loop = true;
+  bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+  g.gain.value = gain;
+  src.connect(bp); bp.connect(g); g.connect(this.music.master);
+  src.start();
+  return { o: src, f: bp, g };
+};
+
+AudioBus.prototype.ensureMusic = function ensureMusicV2165ProceduralTechnoMachine() {
+  this.unlock();
+  if (!this.ctx) return false;
+  if (this.music?.flavor === 'procedural_techno_machine_v2165') return true;
+  this.tm65DisposeOldMusic();
+
+  const input = this.ctx.createGain();
+  const hp = this.ctx.createBiquadFilter();
+  const lp = this.ctx.createBiquadFilter();
+  const comp = this.ctx.createDynamicsCompressor();
+  const post = this.ctx.createGain();
+  input.gain.value = 0.78;
+  hp.type = 'highpass'; hp.frequency.value = 34; hp.Q.value = 0.62;
+  lp.type = 'lowpass'; lp.frequency.value = 5200; lp.Q.value = 0.55;
+  comp.threshold.value = -17;
+  comp.knee.value = 12;
+  comp.ratio.value = 4.2;
+  comp.attack.value = 0.006;
+  comp.release.value = 0.115;
+  post.gain.value = 0.72;
+  input.connect(hp); hp.connect(lp); lp.connect(comp); comp.connect(post); post.connect(this.musicGain || this.master);
+  this.music = {
+    flavor: 'procedural_techno_machine_v2165',
+    master: input,
+    hp, lp, comp, post,
+    layers: {},
+    tm65: { mode: '', step: 0, next: 0, bar: 0, variant: 0, fill: 0, lastKick: 0, seed: Math.floor(Math.random() * 9999) }
+  };
+  this.music.layers.air = this.tm65NoiseLayer(1100, 0.55, 0.0008);
+  this.music.layers.storm = this.tm65NoiseLayer(620, 0.42, 0.000001);
+  return true;
+};
+
+AudioBus.prototype.tm65Out = function tm65Out() { return this.music?.master || this.musicGain || this.master; };
+
+AudioBus.prototype.tm65Dist = function tm65Dist(amount = 1.8) {
+  const ws = this.ctx.createWaveShaper();
+  const n = 128;
+  const c = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    c[i] = Math.tanh(x * amount);
+  }
+  ws.curve = c; ws.oversample = '2x';
+  return ws;
+};
+
+AudioBus.prototype.tm65Kick = function tm65Kick(vol = 0.072, delay = 0, accent = 1) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const out = this.tm65Out();
+  const o = this.ctx.createOscillator();
+  const body = this.ctx.createGain();
+  const lp = this.ctx.createBiquadFilter();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(128, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.062);
+  o.frequency.exponentialRampToValueAtTime(36, t + 0.145);
+  lp.type = 'lowpass'; lp.frequency.setValueAtTime(940, t); lp.Q.value = 0.35;
+  body.gain.setValueAtTime(0.000001, t);
+  body.gain.linearRampToValueAtTime(vol * accent, t + 0.006);
+  body.gain.exponentialRampToValueAtTime(0.000001, t + 0.205);
+  o.connect(lp); lp.connect(body); body.connect(out);
+
+  const len = Math.max(1, Math.floor(this.ctx.sampleRate * 0.015));
+  const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) { const e = 1 - i / len; d[i] = (Math.random() * 2 - 1) * e * e; }
+  const src = this.ctx.createBufferSource();
+  const hp = this.ctx.createBiquadFilter();
+  const cg = this.ctx.createGain();
+  src.buffer = buf;
+  hp.type = 'bandpass'; hp.frequency.setValueAtTime(1900, t); hp.Q.value = 1.1;
+  cg.gain.setValueAtTime(0.000001, t);
+  cg.gain.linearRampToValueAtTime(vol * 0.22 * accent, t + 0.002);
+  cg.gain.exponentialRampToValueAtTime(0.000001, t + 0.020);
+  src.connect(hp); hp.connect(cg); cg.connect(out);
+  o.onended = () => { try { o.disconnect(); lp.disconnect(); body.disconnect(); src.disconnect(); hp.disconnect(); cg.disconnect(); } catch {} };
+  o.start(t); o.stop(t + 0.230);
+  src.start(t); src.stop(t + 0.030);
+};
+
+AudioBus.prototype.tm65Hat = function tm65Hat(vol = 0.010, delay = 0, open = false, broken = false) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const dur = open ? 0.145 : 0.038;
+  const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+  const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) { const e = 1 - i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(e, open ? 1.25 : 2.6); }
+  const src = this.ctx.createBufferSource();
+  const hp = this.ctx.createBiquadFilter();
+  const bp = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  src.buffer = buf;
+  hp.type = 'highpass'; hp.frequency.setValueAtTime(broken ? 1700 : 2200, t);
+  bp.type = 'bandpass'; bp.frequency.setValueAtTime(open ? 5200 : 4200, t); bp.Q.value = open ? 0.58 : 0.85;
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + dur);
+  src.connect(hp); hp.connect(bp); bp.connect(g); g.connect(this.tm65Out());
+  src.onended = () => { try { src.disconnect(); hp.disconnect(); bp.disconnect(); g.disconnect(); } catch {} };
+  src.start(t); src.stop(t + dur + 0.020);
+};
+
+AudioBus.prototype.tm65Clap = function tm65Clap(vol = 0.020, delay = 0) {
+  if (!this.ctx || !this.music?.master) return;
+  for (let k = 0; k < 3; k++) {
+    const t = this.ctx.currentTime + Math.max(0, delay || 0) + k * 0.014;
+    const dur = 0.052 + k * 0.010;
+    const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) { const e = 1 - i / len; d[i] = (Math.random() * 2 - 1) * e * e; }
+    const src = this.ctx.createBufferSource();
+    const bp = this.ctx.createBiquadFilter();
+    const g = this.ctx.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.setValueAtTime(1200 + k * 280, t); bp.Q.value = 1.05;
+    g.gain.setValueAtTime(0.000001, t);
+    g.gain.linearRampToValueAtTime(vol * (0.75 - k * 0.14), t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.000001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(this.tm65Out());
+    src.onended = () => { try { src.disconnect(); bp.disconnect(); g.disconnect(); } catch {} };
+    src.start(t); src.stop(t + dur + 0.020);
+  }
+};
+
+AudioBus.prototype.tm65Bass = function tm65Bass(freq, dur = 0.15, vol = 0.024, delay = 0, acid = 0.35) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const out = this.tm65Out();
+  const o1 = this.ctx.createOscillator();
+  const o2 = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const d = this.tm65Dist(1.7 + acid * 1.8);
+  const g = this.ctx.createGain();
+  o1.type = 'sawtooth'; o2.type = 'square';
+  o1.frequency.setValueAtTime(Math.max(30, freq), t);
+  o2.frequency.setValueAtTime(Math.max(30, freq * 0.500), t);
+  if (o1.detune) o1.detune.setValueAtTime(-4, t);
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(260 + acid * 660, t);
+  f.frequency.setTargetAtTime(130 + acid * 160, t + dur * 0.20, dur * 0.34);
+  f.Q.value = 1.6 + acid * 4.6;
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.010);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + dur);
+  o1.connect(f); o2.connect(f); f.connect(d); d.connect(g); g.connect(out);
+  o1.onended = () => { try { o1.disconnect(); o2.disconnect(); f.disconnect(); d.disconnect(); g.disconnect(); } catch {} };
+  o1.start(t); o2.start(t); o1.stop(t + dur + 0.025); o2.stop(t + dur + 0.025);
+};
+
+AudioBus.prototype.tm65Acid = function tm65Acid(freq, dur = 0.085, vol = 0.009, delay = 0, tone = 0.5, panVal = 0) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  const pan = typeof this.ctx.createStereoPanner === 'function' ? this.ctx.createStereoPanner() : null;
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(Math.max(70, freq), t);
+  o.frequency.setTargetAtTime(Math.max(70, freq * (tone > 0.62 ? 1.006 : 0.996)), t + 0.012, dur * 0.28);
+  f.type = 'bandpass';
+  f.frequency.setValueAtTime(620 + tone * 1450, t);
+  f.frequency.setTargetAtTime(320 + tone * 620, t + dur * 0.20, dur * 0.26);
+  f.Q.value = 3.5 + tone * 6.0;
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + dur);
+  o.connect(f); f.connect(g);
+  if (pan) { pan.pan.setValueAtTime(TM65_CLAMP(panVal, -0.85, 0.85), t); g.connect(pan); pan.connect(this.tm65Out()); }
+  else g.connect(this.tm65Out());
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); if (pan) pan.disconnect(); } catch {} };
+  o.start(t); o.stop(t + dur + 0.026);
+};
+
+AudioBus.prototype.tm65CasinoBlip = function tm65CasinoBlip(freq, vol = 0.006, delay = 0, win = false) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const o = this.ctx.createOscillator();
+  const f = this.ctx.createBiquadFilter();
+  const g = this.ctx.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(freq, t);
+  f.type = 'bandpass'; f.frequency.setValueAtTime(freq * (win ? 1.5 : 1), t); f.Q.value = 4.5;
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + 0.052);
+  o.connect(f); f.connect(g); g.connect(this.tm65Out());
+  o.onended = () => { try { o.disconnect(); f.disconnect(); g.disconnect(); } catch {} };
+  o.start(t); o.stop(t + 0.070);
+};
+
+AudioBus.prototype.tm65Stab = function tm65Stab(rootMidi, vol = 0.010, delay = 0, dark = 0.5) {
+  if (!this.ctx || !this.music?.master) return;
+  const t = this.ctx.currentTime + Math.max(0, delay || 0);
+  const out = this.tm65Out();
+  const notes = dark > 0.55 ? [0, 6, 10] : [0, 7, 10];
+  const f = this.ctx.createBiquadFilter();
+  const d = this.tm65Dist(1.25 + dark * 1.2);
+  const g = this.ctx.createGain();
+  f.type = 'lowpass'; f.frequency.setValueAtTime(760 + (1 - dark) * 840, t); f.Q.value = 0.85;
+  g.gain.setValueAtTime(0.000001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.018);
+  g.gain.exponentialRampToValueAtTime(0.000001, t + 0.320);
+  const oscs = [];
+  for (const n of notes) {
+    const o = this.ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(TM65_MIDI(rootMidi + n), t);
+    if (o.detune) o.detune.setValueAtTime((n - 5) * 1.2, t);
+    o.connect(f); oscs.push(o);
+  }
+  f.connect(d); d.connect(g); g.connect(out);
+  oscs[0].onended = () => { try { for (const o of oscs) o.disconnect(); f.disconnect(); d.disconnect(); g.disconnect(); } catch {} };
+  for (const o of oscs) { o.start(t); o.stop(t + 0.350); }
+};
+
+AudioBus.prototype.tm65Mode = function tm65Mode(state, pressure = 0) {
+  const room = state?.room || null;
+  if (!room || state?.menu) return 'menu';
+  const mods = room?.mods || [];
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  if (portalOpen) return 'portal';
+  if (room.cat === 'boss') return 'boss';
+  if (mods.includes('casino_virus') || mods.includes('weighted_reels') || mods.includes('jackpot_bias')) return 'casino';
+  if (mods.includes('static_rain') || mods.includes('prism_grid')) return 'storm';
+  if (pressure > 0.40) return 'combat';
+  return 'float';
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2165ProceduralTechnoMachine(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  if (!this.ctx || !this.music || this.music.flavor !== 'procedural_techno_machine_v2165') return;
+
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const mods = room?.mods || [];
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const danger = Math.max(0, Math.min(5, Number(room?.danger || 0))) / 5;
+  const lowHp = me ? TM65_CLAMP(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const boss = !!room && room.cat === 'boss';
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
+  const casinoLike = mods.includes('casino_virus') || mods.includes('weighted_reels') || mods.includes('jackpot_bias');
+  const pressure = TM65_CLAMP(enemies / 24 + bullets / 150 + danger * 0.32 + lowHp * 0.28 + (boss ? 0.45 : 0) + (staticLike ? 0.12 : 0) + (casinoLike ? 0.10 : 0) + (this.musicChaos || 0) * 0.18);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.34);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.22);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.24);
+
+  const mode = this.tm65Mode(state, pressure);
+  const cfg = TM65_SEQ[mode] || TM65_SEQ.float;
+  const now = this.ctx.currentTime;
+  const t = this.music.tm65;
+  if (t.mode !== mode) {
+    t.mode = mode; t.step = 0; t.next = now + 0.035; t.bar++; t.variant = (t.variant + 1 + Math.floor(TM65_RAND(t.seed + t.bar) * 3)) % 8;
+    t.fill = mode === 'boss' || mode === 'storm' || mode === 'casino' ? 1 : 0;
+  }
+
+  // Macro mix: no drifting melody. A thin air layer remains, but it sits above the beat and never hums.
+  const air = this.music.layers.air;
+  const storm = this.music.layers.storm;
+  const targetAir = mode === 'portal' ? 0.0022 : mode === 'menu' ? 0.0012 : 0.00065 + (1 - pressure) * 0.00055;
+  const stormAir = (mode === 'storm' || mode === 'casino') ? 0.0010 + pressure * 0.0009 : boss ? 0.0007 : 0.000001;
+  if (air) { air.f.frequency.setTargetAtTime(mode === 'portal' ? 1450 : 920 + pressure * 340, now, 0.9); air.g.gain.setTargetAtTime(targetAir, now, 0.8); }
+  if (storm) { storm.f.frequency.setTargetAtTime(mode === 'storm' ? 560 : 760, now, 0.7); storm.g.gain.setTargetAtTime(stormAir, now, 0.7); }
+  this.music.hp.frequency.setTargetAtTime(mode === 'portal' ? 55 : 32, now, 0.8);
+  this.music.lp.frequency.setTargetAtTime(mode === 'boss' ? 4300 : mode === 'storm' ? 3900 : mode === 'portal' ? 5600 : 5000, now, 0.8);
+  this.music.post.gain.setTargetAtTime(0.72 + pressure * 0.13 + (mode === 'boss' ? 0.08 : 0), now, 0.45);
+
+  const bpm = cfg.bpm + Math.round(pressure * 8) + (this.musicResolve > 0.2 ? -4 : 0);
+  const stepDur = 60 / bpm / 4;
+  let guard = 0;
+  while (now >= t.next && guard++ < 10) {
+    const s = t.step & 15;
+    const bar = t.bar || 0;
+    const seed = t.seed + bar * 97 + t.variant * 131 + s * 17;
+    const broken = mode === 'storm' && TM65_RAND(seed + 4) > 0.72;
+    const dark = cfg.shade + pressure * 0.22;
+    const accent = s === 0 ? 1.2 : s === 8 ? 1.05 : TM65_HAS(cfg.clap, s) ? 0.92 : 0.74;
+
+    if (TM65_HAS(cfg.kick, s) && !broken) this.tm65Kick((mode === 'boss' ? 0.084 : mode === 'combat' ? 0.076 : 0.064) * (mode === 'portal' ? 0.58 : 1), 0, accent);
+    if (TM65_HAS(cfg.clap, s) && mode !== 'portal' && mode !== 'menu') this.tm65Clap(0.014 + pressure * 0.014, 0);
+    if (TM65_HAS(cfg.hats, s) && mode !== 'menu') this.tm65Hat(0.0065 + pressure * 0.004, 0, false, broken);
+    if (TM65_HAS(cfg.oh, s) && mode !== 'menu') this.tm65Hat(0.007 + pressure * 0.006, 0, true, broken);
+
+    if (TM65_HAS(cfg.bass, s) && mode !== 'menu') {
+      const deg = cfg.bassDeg[(Math.floor(s / 2) + t.variant + Math.floor(bar / 2)) % cfg.bassDeg.length];
+      const octave = mode === 'portal' ? 12 : 0;
+      const freq = TM65_MIDI(cfg.root + 24 + octave + deg);
+      this.tm65Bass(freq, stepDur * (mode === 'boss' ? 1.15 : 1.35), (mode === 'boss' ? 0.032 : 0.026) + pressure * 0.012, 0, mode === 'casino' ? 0.72 : mode === 'storm' ? 0.62 : 0.44 + pressure * 0.22);
+    }
+
+    const acidGate = TM65_HAS(cfg.acid, s) || ((mode === 'boss' || mode === 'casino') && (s === 11 || s === 15) && TM65_RAND(seed) > 0.42);
+    if (acidGate && mode !== 'menu') {
+      const deg = cfg.acidDeg[(Math.floor(s / 2) + t.variant + (bar & 3)) % cfg.acidDeg.length];
+      const up = mode === 'portal' ? 36 : mode === 'float' ? 24 : 12;
+      const freq = TM65_MIDI(cfg.root + up + deg);
+      const tone = TM65_CLAMP(0.35 + pressure * 0.35 + TM65_RAND(seed + 9) * 0.25);
+      this.tm65Acid(freq, stepDur * (mode === 'boss' ? 0.92 : 1.12), (mode === 'portal' ? 0.0048 : 0.0075 + pressure * 0.006), 0, tone, (TM65_RAND(seed + 12) - 0.5) * 0.72);
+    }
+
+    if (TM65_HAS(cfg.casino, s)) {
+      const base = TM65_MIDI(cfg.root + (mode === 'portal' ? 48 : 36) + cfg.acidDeg[(s + t.variant) % cfg.acidDeg.length]);
+      this.tm65CasinoBlip(base, mode === 'casino' ? 0.0068 + pressure * 0.004 : 0.0038, 0, mode === 'portal');
+    }
+
+    if (TM65_HAS(cfg.stab, s) && (s === 0 || mode !== 'float' || (bar % 4 === 0))) {
+      this.tm65Stab(cfg.root + (mode === 'boss' ? 24 : 36), mode === 'boss' ? 0.014 : mode === 'storm' ? 0.011 : 0.0075, 0, dark);
+    }
+
+    // Controlled fills: not every bar, only at casino/storm/boss pressure, so the beat feels alive but not random.
+    const fillMoment = (s === 15 && (mode === 'boss' || mode === 'storm' || mode === 'casino') && (bar + t.variant) % 2 === 0);
+    if (fillMoment) {
+      this.tm65Hat(0.006 + pressure * 0.006, stepDur * 0.33, false, true);
+      this.tm65Acid(TM65_MIDI(cfg.root + 36 + cfg.acidDeg[(t.variant + 3) % cfg.acidDeg.length]), stepDur * 0.54, 0.006 + pressure * 0.004, stepDur * 0.50, 0.72, 0.32);
+      if (mode === 'boss') this.tm65Kick(0.052, stepDur * 0.67, 0.9);
+    }
+
+    t.step = (t.step + 1) & 15;
+    if (t.step === 0) {
+      t.bar++;
+      if (t.bar % 2 === 0 || TM65_RAND(seed + t.bar) > 0.66) t.variant = (t.variant + 1 + Math.floor(TM65_RAND(seed + 2) * 2)) % 8;
+    }
+    t.next += stepDur;
+  }
+};
