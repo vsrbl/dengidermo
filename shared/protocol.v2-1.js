@@ -1,5 +1,5 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.73';
+export const VERSION = 'v2.1.74';
 export const BUILD_ID = 'youtube_ambient_drone_status_hotfix';
 export const PROTOCOL = 5;
 

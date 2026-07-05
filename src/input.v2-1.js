@@ -89,8 +89,8 @@ export class Input {
   // consume edges (call once per send tick)
   takeDash() { const v = this.dashEdge; this.dashEdge = false; return v; }
   takeInter() { const v = this.interEdge; this.interEdge = false; return v; }
-  takeActive() { const v = this.activeEdge; this.activeEdge = false;
-    this.rActiveEdge = false; return v; }
+  takeActive() { const v = this.activeEdge; this.activeEdge = false; return v; }
+  takeRActive() { const v = this.rActiveEdge; this.rActiveEdge = false; return v; }
   takeSecondary() { const v = this.secondaryEdge; this.secondaryEdge = false; return v; }
   takeWeapon(count) {
     let w = this.weaponSel; this.weaponSel = -1;
