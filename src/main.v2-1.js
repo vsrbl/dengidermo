@@ -369,9 +369,9 @@ net.on('s', (m) => {
 });
 net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || '', m.expires || 0, m.total || 0));
 net.on('offer_close', () => { if (!hud.install.skinOnly && !(hud.install.picked && state.room?.phase === 'install')) hud.closeInstall(); });
-net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices));
+net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices, m.meta));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
-net.on('ability_offer', (m) => hud.openAbilityChest(m.choices));
+net.on('ability_offer', (m) => hud.openAbilityChest(m.choices, m.meta));
 net.on('ability_offer_close', () => hud.closeAbilityChest());
 net.on('casino_result', (m) => { if (m?.id === state.myId) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
 net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? netStatus('roomNotFound') : m.error === 'room full' ? netStatus('roomFull') : netStatus('error'), 'err'); });

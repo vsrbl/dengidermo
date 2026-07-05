@@ -500,15 +500,33 @@ export class Hud {
     this.initExplain();
     onLangChange(() => { this.hideTip(); });
     const stakesEl = $('casino-stakes');
+    this.lastStakePointerAt = 0;
+    const betButtonFromEvent = (ev) => ev.target?.closest?.('button[data-stake]') || null;
+    const triggerBetFromButton = (ev, btn, immediate = false) => {
+      if (!btn || btn.disabled) return false;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (immediate && typeof performance !== 'undefined') this.lastStakePointerAt = performance.now();
+      this.placeBet(btn.dataset.stake);
+      return true;
+    };
+    // Immediate pointer handler: BET should respond on press, not after hover/focus/tooltips.
+    stakesEl?.addEventListener('pointerdown', (ev) => {
+      if (ev.button != null && ev.button !== 0) return;
+      triggerBetFromButton(ev, betButtonFromEvent(ev), true);
+    });
     stakesEl?.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.placeBet(btn.dataset.stake); });
+      btn.addEventListener('click', (ev) => {
+        const recentPointer = typeof performance !== 'undefined' && performance.now() - (this.lastStakePointerAt || 0) < 320;
+        if (recentPointer) { ev.preventDefault(); ev.stopPropagation(); return; }
+        triggerBetFromButton(ev, btn, false);
+      });
     });
     // Safety delegation: keeps BET buttons responsive even if their inner markup changes.
     stakesEl?.addEventListener('click', (ev) => {
-      const btn = ev.target?.closest?.('button[data-stake]');
-      if (!btn || btn.disabled) return;
-      ev.preventDefault(); ev.stopPropagation();
-      this.placeBet(btn.dataset.stake);
+      const recentPointer = typeof performance !== 'undefined' && performance.now() - (this.lastStakePointerAt || 0) < 320;
+      if (recentPointer) { ev.preventDefault(); ev.stopPropagation(); return; }
+      triggerBetFromButton(ev, betButtonFromEvent(ev), false);
     });
   }
 
@@ -670,7 +688,7 @@ export class Hud {
       const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
       if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт комнаты, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`ЦЕННОСТЬ: ${valueLabel}. `, `VALUE: ${valueLabel}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${valueLabel}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`УСЛОВИЕ: ${reason}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
@@ -1615,9 +1633,51 @@ export class Hud {
     box.appendChild(d);
   }
 
+  chestOfferLabel(meta = {}) {
+    const label = String(meta.label || '').toUpperCase();
+    const ru = String(meta.labelRu || '').trim();
+    const outRu = ru || ({ SIMPLE: 'ПРОСТОЙ', GOOD: 'ХОРОШИЙ', VALUABLE: 'ЦЕННЫЙ', RARE: 'РЕДКИЙ' }[label] || label || 'СУНДУК');
+    return localText(outRu, label || 'CHEST');
+  }
+  setChestOfferHeader(kind = 'weapon', choices = [], meta = {}) {
+    const modal = kind === 'ability' ? $('ability-modal') : $('weapon-modal');
+    if (!modal) return;
+    const title = modal.querySelector('.panel-title');
+    const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
+    const tier = Math.max(0, Math.min(3, Number(meta.tier || 0) | 0));
+    const label = this.chestOfferLabel(meta);
+    const code = kind === 'ability' ? 'ABL' : 'WPN';
+    if (title) {
+      const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
+      title.innerHTML = `${code} CHEST <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}</span>`;
+      title.dataset.explainTitle = `${code}-${localText('СУНДУК', 'CHEST')}`;
+      title.dataset.explain = localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.');
+    }
+    let metaEl = modal.querySelector('.chest-offer-meta');
+    if (!metaEl && title) {
+      metaEl = document.createElement('div');
+      metaEl.className = 'chest-offer-meta';
+      title.insertAdjacentElement('afterend', metaEl);
+    }
+    if (metaEl) {
+      metaEl.className = `chest-offer-meta tier-${tier}`;
+      const cost = Math.max(0, Number(meta.cost || 0) | 0);
+      const unit = String(meta.unit || 'GLD').toUpperCase();
+      const reason = String(meta.reason || '').trim();
+      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}`;
+    }
+    const hintTerm = modal.querySelector('.hint .term');
+    if (hintTerm) {
+      hintTerm.textContent = Array.from({ length: Math.min(5, slots) }, (_, i) => String(i + 1)).join(' / ');
+      hintTerm.dataset.explainTitle = localText('БЫСТРЫЙ ВЫБОР', 'QUICK PICK');
+      hintTerm.dataset.explain = localText('Клавиши выбирают доступный слот сундука.', 'Number keys pick an available chest slot.');
+    }
+  }
+
   // ------------------------------------------------- WPN chest modal
-  openWeaponChest(choices = []) {
-    this.weapon = { open: true, choices, locked: false };
+  openWeaponChest(choices = [], meta = {}) {
+    this.weapon = { open: true, choices, locked: false, meta };
+    this.setChestOfferHeader('weapon', choices, meta);
     const box = $('weapon-choices');
     box.innerHTML = '';
     choices.forEach((opt, i) => {
@@ -1667,8 +1727,9 @@ export class Hud {
   closeWeaponChest() { this.weapon.open = false; this.weapon.locked = false; $('weapon-modal').classList.add('hidden'); this.hideTip(); }
 
   // ------------------------------------------------- ABL chest modal
-  openAbilityChest(choices = []) {
-    this.ability = { open: true, choices, locked: false };
+  openAbilityChest(choices = [], meta = {}) {
+    this.ability = { open: true, choices, locked: false, meta };
+    this.setChestOfferHeader('ability', choices, meta);
     const box = $('ability-choices');
     box.innerHTML = '';
     choices.forEach((opt, i) => {
@@ -1785,18 +1846,30 @@ export class Hud {
     const el = $('casino-lock-badge');
     if (!el) return;
     const s = String(symbol || '').toUpperCase().trim();
-    if (!s) {
+    if (!this.casino?.open) {
       el.classList.add('hidden');
       el.setAttribute('aria-hidden', 'true');
       el.innerHTML = '';
       this.clearExplain(el);
       return;
     }
-    el.classList.remove('hidden');
+    el.classList.remove('hidden', 'active', 'used', 'empty');
     el.setAttribute('aria-hidden', 'false');
-    el.classList.toggle('used', !!used);
-    el.innerHTML = `<b>LOCK</b><span>${esc(s)}</span><em>${esc(used ? localText('использован', 'used') : localText('следующая ставка', 'next bet'))}</em>`;
-    this.setExplain(el, 'LOCK', used ? localText(`LOCK использовал ${s}.`, `LOCK used ${s}.`) : localText(`Следующая ставка начнётся с ${s}.`, `Next bet starts with ${s}.`), 'cyan');
+    if (s) {
+      el.classList.add('active');
+      el.innerHTML = `<b>LOCK</b><span>${esc(s)}</span><em>${esc(localText('следующая ставка', 'next bet'))}</em>`;
+      this.setExplain(el, 'LOCK', localText(`Следующая ставка начнётся с ${s}.`, `Next bet starts with ${s}.`), 'cyan');
+      return;
+    }
+    if (used) {
+      el.classList.add('used');
+      el.innerHTML = `<b>LOCK</b><span>USED</span><em>${esc(localText('ячейка сыграла', 'cell paid'))}</em>`;
+      this.setExplain(el, 'LOCK', localText('Фиксация была использована этой ставкой.', 'The lock was used on this bet.'), 'cyan');
+      return;
+    }
+    el.classList.add('empty');
+    el.innerHTML = `<b>LOCK</b><span>—</span><em>${esc(localText('нет фиксации', 'empty'))}</em>`;
+    this.setExplain(el, 'LOCK', localText('LOCK появится здесь, если казино зафиксирует символ для следующей ставки.', 'LOCK appears here when the casino fixes a symbol for the next bet.'), 'cyan');
   }
 
   setCasinoPanelState(state = 'ready', tone = '') {

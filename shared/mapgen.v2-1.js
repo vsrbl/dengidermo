@@ -260,6 +260,61 @@ function pocketSpot(rng, walls, center, margin, blockers) {
 }
 
 // chest/interactable budget: more texture — empty rooms, pockets, strange clusters, late greed.
+// v2.1.69: chests now roll a real rarity and slot count at room generation time.
+// This keeps cost/hover/opening stable: no re-rolling when the player inspects or opens it.
+function chestRarityProfile(rng, chest, loopIndex = 0, greed = false, modIds = [], specialRoomId = '', mood = 0.5) {
+  const paidChoice = chest === 'weapon_chest' || chest === 'ability_chest';
+  const rareBase = chest === 'rare_chest';
+  const cursed = chest === 'cursed_chest';
+  if (chest === 'basic_chest') return { chestTier: 0, slotCount: 0, costMul: 1, rarityReason: 'BASIC' };
+
+  let score = rng();
+  score += Math.min(0.28, loopIndex * 0.035);
+  if (rareBase) score += 0.42;
+  if (cursed) score += 0.52;
+  if (greed) score += 0.16;
+  if (specialRoomId === 'reward_pocket') score += 0.42;
+  if (specialRoomId === 'signal_contract') score += 0.14;
+  if (specialRoomId === 'chill_room') score += 0.34;
+  if (modIds.includes('casino_virus')) score += 0.16;
+  if (modIds.includes('blood_tax')) score += 0.10;
+  if (modIds.includes('static_rain')) score += 0.08;
+  if (modIds.includes('hunter_contract')) score += 0.06;
+  if (mood > 0.86) score += 0.10;
+
+  let chestTier = 0;
+  if (score >= 1.02) chestTier = 3;
+  else if (score >= 0.76) chestTier = 2;
+  else if (score >= 0.46) chestTier = 1;
+  if (rareBase) chestTier = Math.max(chestTier, 2);
+  if (cursed) chestTier = Math.max(chestTier, 2);
+
+  let slotCount = 0;
+  if (paidChoice) {
+    if (chestTier >= 3) slotCount = 5;
+    else if (chestTier === 2) slotCount = rng() < 0.70 ? 3 : 2;
+    else if (chestTier === 1) slotCount = rng() < 0.65 ? 2 : 3;
+    else slotCount = rng() < 0.62 ? 1 : (rng() < 0.62 ? 2 : 3);
+  }
+
+  // Cost is calculated in sim from tier + slotCount. Keep costMul as a small profile override only.
+  const costMul = 1;
+  const reasons = [];
+  if (rareBase) reasons.push('RARE TYPE');
+  if (cursed) reasons.push('CURSED');
+  if (specialRoomId === 'reward_pocket') reasons.push('REWARD POCKET');
+  if (specialRoomId === 'signal_contract') reasons.push('CONTRACT');
+  if (specialRoomId === 'chill_room') reasons.push('CHILL ROOM');
+  if (greed) reasons.push('GOLD FEVER');
+  if (modIds.includes('casino_virus')) reasons.push('CASINO VIRUS');
+  if (modIds.includes('blood_tax')) reasons.push('BLOOD PAYMENT');
+  if (modIds.includes('static_rain')) reasons.push('STATIC STORM');
+  if (loopIndex >= 3) reasons.push(`LOOP ${loopIndex + 1}`);
+  return { chestTier, slotCount, costMul, rarityReason: reasons.slice(0, 3).join(' + ') || 'ROOM ROLL' };
+}
+function makeChestObj(id, rng, chest, loopIndex, greed, modIds, specialRoomId, mood, extra = {}) {
+  return { id, type: 'chest', chest, ...chestRarityProfile(rng, chest, loopIndex, greed, modIds, specialRoomId, mood), ...extra };
+}
 function genInteractables(rng, category, loopIndex, greed, modIds = [], specialRoomId = '') {
   const objs = [];
   let id = 1;
@@ -273,11 +328,11 @@ function genInteractables(rng, category, loopIndex, greed, modIds = [], specialR
   if (chillRoom) {
     objs.push({ id: `b${id++}`, type: 'bet' });
     objs.push({ id: `b${id++}`, type: 'bet' });
-    objs.push({ id: `c${id++}`, type: 'chest', chest: 'weapon_chest', costMul: 7.5 });
-    objs.push({ id: `c${id++}`, type: 'chest', chest: 'ability_chest', costMul: 7.5 });
-    objs.push({ id: `c${id++}`, type: 'chest', chest: 'weapon_chest', costMul: 9.5 });
-    objs.push({ id: `c${id++}`, type: 'chest', chest: 'ability_chest', costMul: 9.5 });
-    if (loopIndex >= 3) objs.push({ id: `c${id++}`, type: 'chest', chest: 'rare_chest', costMul: 8.0 });
+    objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
+    objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
+    objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + RARE' }));
+    objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + RARE' }));
+    if (loopIndex >= 3) objs.push(makeChestObj(`c${id++}`, rng, 'rare_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, costMul: 2.05, rarityReason: 'CHILL ROOM + LOOP' }));
     return objs;
   }
   const density = rng() * 1.35 + loopIndex * 0.055 + (greed ? 0.28 : 0) + (debtFloor ? 0.45 : 0) + (rewardPocket ? 0.6 : 0);
@@ -285,27 +340,16 @@ function genInteractables(rng, category, loopIndex, greed, modIds = [], specialR
   let paidCount = density < 0.28 ? 0 : density < 0.75 ? 1 : density < 1.14 ? 2 : 3 + Math.floor(rng() * 2);
   if (mood < 0.12) { bscCount = 0; paidCount = rng() < 0.55 ? 0 : 1; }           // dead/quiet room
   else if (mood > 0.86) { bscCount += 1 + Math.floor(rng() * 2); paidCount += 1; } // greedy pocket
-  for (let i = 0; i < bscCount; i++) objs.push({ id: `c${id++}`, type: 'chest', chest: 'basic_chest' });
+  for (let i = 0; i < bscCount; i++) objs.push(makeChestObj(`c${id++}`, rng, 'basic_chest', loopIndex, greed, modIds, specialRoomId, mood));
 
   for (let i = 0; i < paidCount; i++) {
     const roll = rng();
     const chest = roll < 0.34 ? 'weapon_chest' : roll < 0.68 ? 'ability_chest' : 'rare_chest';
-    const obj = { id: `c${id++}`, type: 'chest', chest };
-    // v2.1.52 casino core: paid chests now have visible value bands.
-    // SIMPLE WPN/ABL = normal price, 3 choices. GOOD/VALUABLE = higher cost, more choices.
-    const valueRoll = rng();
-    const valueChance = (greed ? 0.14 : 0) + loopIndex * 0.025 + (rewardPocket ? 0.36 : 0) + (contract ? 0.08 : 0);
-    if (chest === 'weapon_chest' || chest === 'ability_chest') {
-      if (valueRoll < valueChance * 0.35) obj.costMul = 3.0;
-      else if (valueRoll < valueChance) obj.costMul = 1.9;
-    } else if (chest === 'rare_chest') {
-      if (valueRoll < valueChance * 0.5) obj.costMul = 2.4;
-    }
-    objs.push(obj);
+    objs.push(makeChestObj(`c${id++}`, rng, chest, loopIndex, greed, modIds, specialRoomId, mood));
   }
-  if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0) + (debtFloor ? 0.14 : 0)) objs.push({ id: `c${id++}`, type: 'chest', chest: 'cursed_chest' });
+  if (rng() < 0.13 + loopIndex * 0.045 + (greed ? 0.08 : 0) + (debtFloor ? 0.14 : 0)) objs.push(makeChestObj(`c${id++}`, rng, 'cursed_chest', loopIndex, greed, modIds, specialRoomId, mood));
   if (rng() < 0.48 + loopIndex * 0.05 + (mood > 0.75 ? 0.18 : 0) + (contract ? 0.28 : 0)) objs.push({ id: `b${id++}`, type: 'bet' });
-  if (contract) objs.push({ id: `c${id++}`, type: 'chest', chest: rng() < 0.5 ? 'rare_chest' : 'ability_chest' });
+  if (contract) objs.push(makeChestObj(`c${id++}`, rng, rng() < 0.5 ? 'rare_chest' : 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { rarityReason: 'CONTRACT' }));
   return objs;
 }
 

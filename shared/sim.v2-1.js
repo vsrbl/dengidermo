@@ -437,25 +437,35 @@ function forceBigRoomForHunter(run) {
 }
 function chestValueInfo(run, o = {}) {
   const type = String(o?.chest || '');
-  const rawMul = Math.max(1, Number(o?.costMul || 1));
+  const rawMul = Math.max(0.5, Number(o?.costMul || 1));
   const special = String(run?.plan?.specialRoomId || '');
-  let tier = 0;
-  if (type === 'rare_chest') tier = 1;
-  if (type === 'cursed_chest') tier = 2;
-  if (rawMul >= 1.75 || special === 'reward_pocket') tier = Math.max(tier, 1);
-  if (rawMul >= 7.0) tier = Math.max(tier, 2);
-  if (rawMul >= 9.0) tier = Math.max(tier, 3);
-  const label = tier >= 3 ? 'PREMIUM' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
-  const choiceBonus = tier >= 3 ? 2 : tier >= 1 ? 1 : 0;
-  const costValueMul = tier >= 3 ? 1.28 : tier >= 2 ? 1.18 : tier >= 1 ? 1.08 : 1;
-  return { tier, label, choiceBonus, costValueMul, rawMul };
+  let tier = Number.isFinite(Number(o?.chestTier)) ? Math.max(0, Math.min(3, Number(o.chestTier) | 0)) : 0;
+  // Fallback for old/dev objects without a baked profile.
+  if (!Number.isFinite(Number(o?.chestTier))) {
+    if (type === 'rare_chest') tier = Math.max(tier, 2);
+    if (type === 'cursed_chest') tier = Math.max(tier, 2);
+    if (rawMul >= 1.25 || special === 'reward_pocket') tier = Math.max(tier, 1);
+    if (rawMul >= 1.65) tier = Math.max(tier, 2);
+    if (rawMul >= 2.05) tier = Math.max(tier, 3);
+  }
+  const paidChoice = type === 'weapon_chest' || type === 'ability_chest';
+  let slots = Number.isFinite(Number(o?.slotCount)) ? Math.max(0, Number(o.slotCount) | 0) : 0;
+  if (paidChoice && slots <= 0) slots = tier >= 3 ? 5 : Math.max(1, Math.min(3, 1 + tier));
+  if (paidChoice) slots = tier >= 3 ? 5 : Math.max(1, Math.min(3, slots));
+  const label = tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
+  const labelRu = tier >= 3 ? 'РЕДКИЙ' : tier >= 2 ? 'ЦЕННЫЙ' : tier >= 1 ? 'ХОРОШИЙ' : 'ПРОСТОЙ';
+  const costValueMul = [0.78, 1.00, 1.26, 1.72][tier] || 1;
+  const slotCostMul = paidChoice ? (0.82 + slots * 0.18 + (slots >= 5 ? 0.34 : 0)) : 1;
+  const reason = String(o?.rarityReason || '').trim();
+  return { tier, label, labelRu, slots, slotCount: slots, choiceBonus: Math.max(0, slots - 3), costValueMul, slotCostMul, rawMul, reason };
 }
 function effectiveChestCost(run, o) {
   const def = CHESTS[o?.chest];
   if (!def || !def.cost) return 0;
-  if (run?.plan?.specialRoomId === 'chill_room') return roundCost(def.cost * 0.72);
   const info = chestValueInfo(run, o);
-  let mul = loopCostMul(run, 1.42) * Math.max(1, Number(o?.costMul || 1)) * info.costValueMul;
+  const roomDiscount = run?.plan?.specialRoomId === 'chill_room' ? 0.82 : 1;
+  const profileMul = Math.max(0.55, Number(o?.costMul || 1));
+  const mul = loopCostMul(run, 1.42) * profileMul * info.costValueMul * info.slotCostMul * roomDiscount;
   return roundCost(def.cost * mul);
 }
 function casinoStakeCost(run, stakeKey) {
@@ -5300,7 +5310,7 @@ function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier }));
   const choices = [];
   const used = new Set();
-  const want = Math.max(3, Math.min(5, count | 0));
+  const want = Math.max(1, Math.min(5, count | 0));
   let guard = 0;
   while (choices.length < want && guard++ < 120 && pool.length) {
     const opt = weightedPickOption(rng, pool, x => weaponChoiceWeight(p, x, qualityTier), used);
@@ -5386,7 +5396,7 @@ function makeAbilityChestChoices(p, rng = Math.random, count = 3, qualityTier = 
   const a = ensureActive(p);
   const choices = [];
   const used = new Set();
-  const want = Math.max(3, Math.min(5, count | 0));
+  const want = Math.max(1, Math.min(5, count | 0));
   const coreIds = Object.keys(ACTIVE_CORES);
   const mutIds = Object.keys(ACTIVE_MUTATIONS);
   if (!a.core) {
@@ -5572,19 +5582,19 @@ function openChest(run, players, p, o) {
     rewards.push(`LOOT x${Math.round(lootMul * 10) / 10}`);
   } else if (o.chest === 'weapon_chest') {
     takeCasinoHoldChoices(p, 2);
-    const count = 3 + value.choiceBonus;
-    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label };
-    run.fx.push({ t: 'weapon_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
-    const tag = value.tier > 0 ? `WPN ${value.label}` : 'ВЫБОР WPN';
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
+    const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
+    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit };
+    run.fx.push({ t: 'weapon_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: count });
+    const tag = `WPN ${value.label} · ${count} SLOT${count === 1 ? '' : 'S'}`;
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'ability_chest') {
     takeCasinoHoldChoices(p, 2);
-    const count = 3 + value.choiceBonus;
-    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label };
-    run.fx.push({ t: 'ability_offer', id: p.id, obj: o.id, x: o.x, y: o.y });
-    const tag = value.tier > 0 ? `ABL ${value.label}` : 'ВЫБОР ABL';
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
+    const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
+    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit };
+    run.fx.push({ t: 'ability_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: count });
+    const tag = `ABL ${value.label} · ${count} SLOT${count === 1 ? '' : 'S'}`;
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'rare_chest') {
     const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 1);
@@ -5655,9 +5665,13 @@ export function handleRerollOffer(run, players, p, kind = '') {
     return false;
   }
   if (k === 'weapon') {
-    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, Math.random), chestId: p.weaponChestOffer.chestId || 'favor' };
+    const old = p.weaponChestOffer;
+    const count = Math.max(1, Math.min(5, old.slotCount || old.choices?.length || 3));
+    p.weaponChestOffer = { ...old, choices: makeWeaponChestChoices(p, Math.random, count, old.valueTier || 0), chestId: old.chestId || 'favor', slotCount: count };
   } else if (k === 'ability') {
-    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, Math.random), chestId: p.abilityChestOffer.chestId || 'favor' };
+    const old = p.abilityChestOffer;
+    const count = Math.max(1, Math.min(5, old.slotCount || old.choices?.length || 3));
+    p.abilityChestOffer = { ...old, choices: makeAbilityChestChoices(p, Math.random, count, old.valueTier || 0), chestId: old.chestId || 'favor', slotCount: count };
   } else return false;
   run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: k.toUpperCase() + ' REROLLED', playerId: p.id });
   return true;
@@ -5690,12 +5704,12 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'weapon_offer') {
-    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, Math.random), chestId: 'dev' };
+    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV' };
     run.fx.push({ t: 'weapon_offer', id: p.id, obj: 'dev', x: Math.round(p.x), y: Math.round(p.y) });
     return true;
   }
   if (action === 'ability_offer') {
-    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, Math.random), chestId: 'dev' };
+    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV' };
     run.fx.push({ t: 'ability_offer', id: p.id, obj: 'dev', x: Math.round(p.x), y: Math.round(p.y) });
     return true;
   }
@@ -7056,7 +7070,7 @@ export function buildSnapshot(run, players) {
     return [
       o.id, o.type, o.type === 'chest' ? CHESTS[o.chest].label : 'BET',
       o.x, o.y, o.opened ? 1 : 0, o.type === 'chest' ? (blood ? bloodTaxHpCost(effectiveChestCost(run, o)) : effectiveChestCost(run, o)) : 0,
-      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0
+      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0, value?.slotCount || 0, value?.reason || ''
     ];
   });
   const staticMode = staticRainCurrentMode(run);
