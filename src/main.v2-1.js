@@ -287,6 +287,36 @@ function bindVolumeSlider(id, kind) {
 bindVolumeSlider('music-volume', 'music');
 bindVolumeSlider('sfx-volume', 'sfx');
 syncAudioSliders();
+
+function bindYouTubeMusicUi() {
+  const input = $('youtube-playlist');
+  const load = $('youtube-load');
+  const toggle = $('youtube-toggle');
+  const status = $('youtube-status');
+  const saved = localStorage.getItem('tc_youtube_playlist') || '';
+  if (input && saved) input.value = saved;
+  const setYtStatus = txt => { if (status) status.textContent = txt; };
+  const setToggle = txt => { if (toggle) toggle.textContent = txt; };
+  const init = () => audio.initYouTubeMusic?.('youtube-player').catch?.(() => setYtStatus('API ERR'));
+  if (load) load.addEventListener('click', async () => {
+    uiClick('ui_click');
+    const res = await audio.loadYouTubePlaylist?.(input?.value || '');
+    if (res?.ok) { setYtStatus(`LOADED ${res.playlist}`); setToggle('PLAY'); }
+    else setYtStatus('BAD PLAYLIST');
+  });
+  if (toggle) toggle.addEventListener('click', async () => {
+    uiClick('ui_click');
+    const savedNow = input?.value || localStorage.getItem('tc_youtube_playlist') || '';
+    if (!savedNow.trim()) { setYtStatus('PASTE PLAYLIST FIRST'); return; }
+    if (savedNow && savedNow !== localStorage.getItem('tc_youtube_playlist')) await audio.loadYouTubePlaylist?.(savedNow);
+    const playing = await audio.toggleYouTube?.();
+    setToggle(playing ? 'PAUSE' : 'PLAY');
+    setYtStatus(playing ? 'PLAYING · INTERNAL AMBIENT MUTED' : 'PAUSED · INTERNAL AMBIENT');
+  });
+  if (input) input.addEventListener('change', () => { if (input.value.trim()) localStorage.setItem('tc_youtube_playlist', input.value.trim()); });
+  if (saved) init();
+}
+bindYouTubeMusicUi();
 onLangChange(() => {
   updateSkinPreview();
   if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');

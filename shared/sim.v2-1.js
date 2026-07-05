@@ -4261,7 +4261,9 @@ function applyBulletElements(run, players, e, b, strength = 1) {
   const owner = b.owner || null;
   const p = owner ? players.get(owner) : null;
   // Robust fallback: old/projectile code may forget to copy b.elem, but owner stats are the source of truth.
-  const elem = String(b.elem || (p ? bulletElementString(p, b.source || 'weapon') : ''));
+  // v2.1.73: drone projectiles must NOT inherit weapon elements by default; DRONE ELEMENT LINK is the only bridge.
+  const elemSource = b.source || (b.kind === 'drone' ? 'drone' : 'weapon');
+  const elem = String(b.elem || (p ? bulletElementString(p, elemSource) : ''));
   if (!elem) return;
   const fireStacks = Math.max(p?.stats?.bulletFire || 0, elem.includes('fire') ? 1 : 0);
   const freezeStacks = Math.max(p?.stats?.bulletFreeze || 0, elem.includes('freeze') ? 1 : 0);
@@ -5091,7 +5093,7 @@ function stepCompanions(run, players, dt, now) {
           const n = norm(best.x - dp.x, best.y - dp.y);
           const elem = bulletElementString(p, 'drone');
           const elemPower = bulletElementPower(p, 'drone');
-          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: weaponDamageValue(p, 8), from: 'p', owner: p.id, life: 1.1 * (p.stats.bulletRange || 1), size: 4, proc: p.stats.droneProc ? Math.min(0.9, p.stats.procBlast * 0.55 + p.stats.droneProc * 0.10) : 0, kind: 'drone', travelled: 0, maxDist: Math.round(570 * (p.stats.bulletRange || 1)), bounces: p.stats.bulletBounce || 0, rangeMul: p.stats.bulletRange || 1, elem, elemPower });
+          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: weaponDamageValue(p, 8), from: 'p', owner: p.id, life: 1.1 * (p.stats.bulletRange || 1), size: 4, proc: p.stats.droneProc ? Math.min(0.9, p.stats.procBlast * 0.55 + p.stats.droneProc * 0.10) : 0, kind: 'drone', source: 'drone', travelled: 0, maxDist: Math.round(570 * (p.stats.bulletRange || 1)), bounces: p.stats.bulletBounce || 0, rangeMul: p.stats.bulletRange || 1, elem, elemPower });
         }
       }
     }

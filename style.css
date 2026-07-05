@@ -3629,3 +3629,58 @@ button:hover,
   font: inherit;
 }
 #room-wager-card button:hover { background: rgba(255,211,77,0.14); }
+
+/* v2.1.73 YouTube playlist music controls */
+#youtube-music.youtube-music {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(0,255,102,.28);
+  background: rgba(0,255,102,.035);
+  padding: 6px;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+}
+#youtube-music .yt-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 48px 52px;
+  gap: 5px;
+  align-items: center;
+}
+#youtube-music span,
+#youtube-status {
+  color: rgba(0,255,102,.78);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+}
+#youtube-playlist {
+  min-width: 0;
+  background: rgba(5,5,5,.86);
+  border: 1px solid rgba(0,255,102,.32);
+  color: var(--fg);
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 6px;
+  outline: none;
+}
+#youtube-load,
+#youtube-toggle {
+  min-height: 24px;
+  padding: 4px 6px;
+  border: 1px solid rgba(0,255,102,.42);
+  background: rgba(5,5,5,.86);
+  color: var(--green);
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  cursor: default;
+}
+#youtube-player-wrap {
+  width: 260px;
+  height: 146px;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(243,243,243,.16);
+  background: #000;
+  justify-self: center;
+}
+#youtube-player-wrap iframe { display: block; width: 260px !important; height: 146px !important; }

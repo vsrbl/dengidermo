@@ -7220,3 +7220,189 @@ AudioBus.prototype.updateMusic = function updateMusicV2166DarkHeavenHellTechno(s
     t.next += stepDur;
   }
 };
+
+// v2.1.73: dark ambient-only internal score + optional official YouTube playlist player.
+// Internal music no longer schedules melody, drums, acid, casino blips or techno patterns.
+const ensureMusicBeforeV2173Ambient = AudioBus.prototype.ensureMusic;
+AudioBus.prototype.ensureMusic = function ensureMusicV2173AmbientOnly() {
+  this.unlock();
+  if (this.ctx && this.music?.flavor === 'dark_ambient_only_v2173') return true;
+  const ok = ensureMusicBeforeV2173Ambient.call(this);
+  if (!ok || !this.ctx || !this.music) return ok;
+  if (this.music.flavor === 'procedural_techno_machine_v2165') {
+    if (!this.music.layers.v2173LowFog) this.music.layers.v2173LowFog = this.tm65NoiseLayer(180, 0.70, 0.000001);
+    if (!this.music.layers.v2173HighAir) this.music.layers.v2173HighAir = this.tm65NoiseLayer(1650, 0.38, 0.000001);
+    this.music.flavor = 'dark_ambient_only_v2173';
+  }
+  return true;
+};
+
+function v2173Clamp(x, a = 0, b = 1) { return Math.max(a, Math.min(b, Number(x) || 0)); }
+function v2173SetLayer(layer, gain, freq, q, now, tau = 1.1) {
+  if (!layer || !layer.g || !layer.f) return;
+  try {
+    if (Number.isFinite(freq)) layer.f.frequency.setTargetAtTime(Math.max(20, freq), now, tau);
+    if (Number.isFinite(q) && layer.f.Q) layer.f.Q.setTargetAtTime(Math.max(0.05, q), now, tau);
+    layer.g.gain.setTargetAtTime(Math.max(0.000001, gain || 0.000001), now, tau);
+  } catch {}
+}
+
+AudioBus.prototype.isYouTubeActive = function isYouTubeActiveV2173() {
+  try {
+    return !!(this.ytMusic && this.ytMusic.player && this.ytMusic.active && this.ytMusic.playing);
+  } catch { return false; }
+};
+
+AudioBus.prototype.updateMusic = function updateMusicV2173AmbientOnly(state, dt = 0.016) {
+  if (!this.enabled) return;
+  this.unlock();
+  if (!this.ensureMusic()) return;
+  if (!this.ctx || !this.music || this.music.flavor !== 'dark_ambient_only_v2173') return;
+  const now = this.ctx.currentTime;
+  const room = state?.room || null;
+  const latest = state?.latest || null;
+  const me = typeof state?.me === 'function' ? state.me() : null;
+  const menu = !!state?.menu || !room;
+  const mods = room?.mods || [];
+  const portalOpen = !!room?.portal?.[2] || room?.phase === 'clear' || room?.phase === 'won';
+  const boss = !menu && room?.cat === 'boss';
+  const staticLike = mods.includes('static_rain') || mods.includes('prism_grid');
+  const casinoLike = mods.includes('casino_virus') || mods.includes('weighted_reels') || mods.includes('jackpot_bias');
+  const enemies = latest?.enemies?.length || 0;
+  const bullets = latest?.bullets?.length || 0;
+  const depth = Math.max(0, Number(room?.depth || 0));
+  const loopHeat = v2173Clamp(Math.floor(depth / 4) / 9);
+  const danger = v2173Clamp(Number(room?.danger || 0) / 5);
+  const lowHp = me ? v2173Clamp(1 - ((me[3] || 0) / Math.max(1, me[4] || 100))) : 0;
+  const pressure = v2173Clamp((enemies / 28) * 0.25 + (bullets / 190) * 0.08 + danger * 0.20 + lowHp * 0.22 + loopHeat * 0.18 + (boss ? 0.42 : 0) + (staticLike ? 0.16 : 0) + (casinoLike ? 0.08 : 0) + (this.musicChaos || 0) * 0.12);
+  this.musicChaos = Math.max(0, (this.musicChaos || 0) - dt * 0.28);
+  this.musicPortal = Math.max(0, (this.musicPortal || 0) - dt * 0.22);
+  this.musicResolve = Math.max(0, (this.musicResolve || 0) - dt * 0.22);
+
+  const yt = this.isYouTubeActive();
+  const masterMul = yt ? 0.000001 : 1;
+  if (this.music.post?.gain) this.music.post.gain.setTargetAtTime((yt ? 0.000001 : 0.50 + pressure * 0.08), now, 0.45);
+  if (this.music.hp) this.music.hp.frequency.setTargetAtTime(portalOpen ? 70 : boss ? 48 : 55, now, 1.2);
+  if (this.music.lp) this.music.lp.frequency.setTargetAtTime(portalOpen ? 2600 : menu ? 1450 : boss ? 1050 : staticLike ? 920 : 1250, now, 1.5);
+
+  const L = this.music.layers || {};
+  const inGame = menu ? 0.75 : (room ? 1 : 0);
+  const baseAir = (menu ? 0.0014 : portalOpen ? 0.0022 : 0.0011 + (1 - pressure) * 0.0005) * inGame * masterMul;
+  const highAir = (portalOpen ? 0.0014 : menu ? 0.00065 : 0.00035 + staticLike * 0.00030) * inGame * masterMul;
+  const storm = (!portalOpen && (staticLike || boss || pressure > 0.60)) ? (0.00045 + pressure * 0.00115 + (boss ? 0.00055 : 0)) * masterMul : 0.000001;
+  const lowFog = (!menu && !portalOpen && (boss || pressure > 0.72 || lowHp > 0.55)) ? (0.00025 + pressure * 0.00035) * masterMul : 0.000001;
+  v2173SetLayer(L.air, baseAir, portalOpen ? 1850 : menu ? 950 : 620 + (1 - pressure) * 230, 0.42, now, 1.4);
+  v2173SetLayer(L.storm, storm, boss ? 330 : staticLike ? 430 : 520, boss ? 0.80 : 0.54, now, 1.0);
+  v2173SetLayer(L.v2173LowFog, lowFog, boss ? 130 : 180, 0.64, now, 1.7);
+  v2173SetLayer(L.v2173HighAir, highAir, portalOpen ? 2300 : staticLike ? 1700 : 1300, 0.36, now, 1.6);
+};
+
+AudioBus.prototype.parseYouTubePlaylistId = function parseYouTubePlaylistIdV2173(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    const list = u.searchParams.get('list');
+    if (list) return list.trim();
+    const m = u.pathname.match(/(?:playlist\/|embed\/videoseries\/)?([A-Za-z0-9_-]{12,})/);
+    if (m) return m[1];
+  } catch {}
+  const m = raw.match(/(?:list=)?([A-Za-z0-9_-]{12,})/);
+  return m ? m[1] : '';
+};
+
+AudioBus.prototype.ensureYouTubeApi = function ensureYouTubeApiV2173() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (window.__tcYtApiPromise) return window.__tcYtApiPromise;
+  window.__tcYtApiPromise = new Promise((resolve, reject) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReadyV2173() {
+      try { if (typeof prev === 'function') prev(); } catch {}
+      resolve(window.YT);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      tag.async = true;
+      tag.onerror = () => reject(new Error('youtube iframe api failed'));
+      document.head.appendChild(tag);
+    }
+    setTimeout(() => { if (window.YT?.Player) resolve(window.YT); }, 1200);
+  });
+  return window.__tcYtApiPromise;
+};
+
+AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2173(elId = 'youtube-player') {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  if (this.ytMusic.player) return this.ytMusic;
+  const container = document.getElementById(elId);
+  if (!container) return this.ytMusic;
+  const YT = await this.ensureYouTubeApi();
+  this.ytMusic.player = new YT.Player(elId, {
+    width: '260', height: '146',
+    playerVars: {
+      playsinline: 1,
+      controls: 1,
+      rel: 0,
+      modestbranding: 1,
+      listType: 'playlist',
+      list: this.parseYouTubePlaylistId(this.ytMusic.playlist || '') || undefined
+    },
+    events: {
+      onReady: () => {
+        this.ytMusic.ready = true;
+        try { this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100)); } catch {}
+        const id = this.parseYouTubePlaylistId(this.ytMusic.playlist || '');
+        if (id) { try { this.ytMusic.player.cuePlaylist({ listType: 'playlist', list: id }); } catch {} }
+      },
+      onStateChange: e => {
+        const Y = window.YT || {};
+        this.ytMusic.playing = e.data === Y.PlayerState?.PLAYING;
+        this.ytMusic.active = this.ytMusic.playing || this.ytMusic.active;
+      }
+    }
+  });
+  return this.ytMusic;
+};
+
+AudioBus.prototype.loadYouTubePlaylist = async function loadYouTubePlaylistV2173(value = '') {
+  const id = this.parseYouTubePlaylistId(value);
+  this.ytMusic = this.ytMusic || { player: null, playlist: '', active: false, playing: false, ready: false };
+  if (!id) return { ok: false, error: 'NO_PLAYLIST' };
+  this.ytMusic.playlist = id;
+  localStorage.setItem('tc_youtube_playlist', id);
+  await this.initYouTubeMusic();
+  try {
+    if (this.ytMusic.player?.cuePlaylist) this.ytMusic.player.cuePlaylist({ listType: 'playlist', list: id });
+    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100));
+  } catch {}
+  return { ok: true, playlist: id };
+};
+
+AudioBus.prototype.playYouTube = async function playYouTubeV2173() {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  await this.initYouTubeMusic();
+  try {
+    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100));
+    if (this.ytMusic.player?.playVideo) this.ytMusic.player.playVideo();
+    this.ytMusic.active = true;
+    return true;
+  } catch { return false; }
+};
+
+AudioBus.prototype.pauseYouTube = function pauseYouTubeV2173() {
+  try { this.ytMusic?.player?.pauseVideo?.(); } catch {}
+  if (this.ytMusic) { this.ytMusic.playing = false; this.ytMusic.active = false; }
+};
+
+AudioBus.prototype.toggleYouTube = async function toggleYouTubeV2173() {
+  if (this.isYouTubeActive()) { this.pauseYouTube(); return false; }
+  return await this.playYouTube();
+};
+
+const setMusicVolumeBeforeV2173Youtube = AudioBus.prototype.setMusicVolume;
+AudioBus.prototype.setMusicVolume = function setMusicVolumeV2173Youtube(value) {
+  const v = setMusicVolumeBeforeV2173Youtube.call(this, value);
+  try { this.ytMusic?.player?.setVolume?.(Math.round((this.musicVolume || 0) * 100)); } catch {}
+  return v;
+};
