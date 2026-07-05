@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handlePick, handleWeaponPick, handleAbilityPick, handleRerollOffer, handleDevCommand
+  handleCasino, handlePick, handleWeaponPick, handleAbilityPick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -107,6 +107,11 @@ export class LocalRoom {
       const ok = handleAbilityPick(this.run, this.players, p, m.choice);
       if (ok && !p.abilityChestOffer) this.sendTo(playerId, { t: 'ability_offer_close' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid ABL choice' }, true);
+    } else if (m.t === 'room_wager') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const ok = handleRoomWagerAccept(this.run, this.players, p, m.offerId || 0);
+      if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid room wager' }, true);
     } else if (m.t === 'reroll_offer') {
       const p = this.players.get(playerId);
       if (!p) return;
@@ -138,6 +143,7 @@ export class LocalRoom {
     if (m.dash) p.wantDash = true;
     if (m.inter) p.wantInteract = true;
     if (m.active) p.wantActive = true;
+    if (m.ractive) p.wantRActive = true;
     if (m.secondary) p.wantSecondary = true;
     if (typeof m.wpn === 'number' && m.wpn >= 0 && m.wpn <= 8) p.wantWeapon = m.wpn | 0;
   }

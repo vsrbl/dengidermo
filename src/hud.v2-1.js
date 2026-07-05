@@ -836,12 +836,47 @@ export class Hud {
 
     // bars — EXP always with denominator
     const hp = me[P.HP], mhp = me[P.MAXHP];
+    const sh = Math.max(0, me[P.SHIELD] || 0), shm = Math.max(0, me[P.SHIELDMAX] || 0);
+    const sw = $('shield-wrap');
+    if (sw) {
+      sw.classList.toggle('hidden', shm <= 0);
+      $('shield-bar').style.width = shm > 0 ? Math.max(0, sh / shm * 100) + '%' : '0%';
+      $('shield-text').textContent = `SHIELD ${sh} / ${shm}`;
+    }
     $('hp-bar').style.width = Math.max(0, hp / mhp * 100) + '%';
     $('hp-text').textContent = `${hp} / ${mhp}`;
     $('xp-bar').style.width = Math.max(0, me[P.XP] / me[P.NEXTXP] * 100) + '%';
     $('xp-text').textContent = `${me[P.XP]} / ${me[P.NEXTXP]}`;
     $('hud-gld').textContent = `GLD ${me[P.GLD]}`;
     $('hud-lvl').textContent = `LVL ${me[P.LVL]}`;
+    const rEl = $('hud-r-active');
+    if (rEl) {
+      const rLabel = String(me[P.RLABEL] || 'R EMPTY');
+      const rCd = Number(me[P.RCD] || 0), rT = Number(me[P.RT] || 0);
+      const meta = [];
+      if (rT > 0) meta.push(`${rT}s`);
+      else if (rCd > 0) meta.push(`${rCd}s`);
+      if (me[P.MIRRORMAX] > 0) meta.push(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`);
+      if (me[P.REVIVE] > 0) meta.push(`REVIVE ${me[P.REVIVE]}`);
+      if (me[P.BOSSKEY] > 0) meta.push(`KEY ${me[P.BOSSKEY]}`);
+      if (rLabel && rLabel !== 'R EMPTY') { rEl.textContent = `${rLabel}${meta.length ? ' · ' + meta.join(' · ') : ''}`; rEl.classList.remove('hidden'); }
+      else if (meta.length) { rEl.textContent = meta.join(' · '); rEl.classList.remove('hidden'); }
+      else rEl.classList.add('hidden');
+      rEl.dataset.explain = String(me[P.RDESC] || rEl.textContent || '');
+    }
+    const wagerCard = $('room-wager-card');
+    if (wagerCard) {
+      const offer = me[P.ROOMWAGER];
+      const activeWager = me[P.ACTIVEWAGER];
+      if (offer && room.phase === 'install') {
+        wagerCard.classList.remove('hidden');
+        wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept">ACCEPT</button>`;
+        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', () => this.net?.sendRoomWager?.(offer.id || 0), { once: true });
+      } else if (activeWager) {
+        wagerCard.classList.remove('hidden');
+        wagerCard.innerHTML = `<div class="wager-title active">WAGER ACTIVE</div><div class="wager-body">${esc(activeWager.text || '')}</div>`;
+      } else { wagerCard.classList.add('hidden'); wagerCard.innerHTML = ''; }
+    }
     const inst = $('hud-install');
     if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');

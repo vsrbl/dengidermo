@@ -3580,3 +3580,52 @@ button:hover,
 #casino-result {
   pointer-events: none !important;
 }
+
+/* v2.1.71 — boss signature rework HUD */
+.bar-wrap.shield {
+  margin-bottom: 4px;
+  height: 13px;
+  border-color: rgba(102,246,255,0.68);
+  background: rgba(0, 24, 28, 0.62);
+}
+.bar-wrap.shield #shield-bar {
+  background: rgba(102,246,255,0.86);
+  box-shadow: 0 0 10px rgba(102,246,255,0.28);
+}
+#hud-r-active {
+  color: var(--cyan);
+  border: 1px solid rgba(102,246,255,0.45);
+  padding: 1px 5px;
+  background: rgba(0,0,0,0.62);
+}
+#room-wager-card {
+  position: fixed;
+  right: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 360;
+  width: 270px;
+  border: 1px solid rgba(255,211,77,0.72);
+  background: rgba(0,0,0,0.86);
+  box-shadow: 0 0 0 1px rgba(255,211,77,0.16), 0 12px 32px rgba(0,0,0,0.55);
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+#room-wager-card .wager-title {
+  color: var(--gold);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+#room-wager-card .wager-title.active { color: var(--cyan); }
+#room-wager-card .wager-body { color: var(--fg); opacity: 0.95; margin-bottom: 8px; }
+#room-wager-card button {
+  width: 100%;
+  border: 1px solid rgba(255,211,77,0.78);
+  color: var(--gold);
+  background: rgba(255,211,77,0.06);
+  padding: 6px 8px;
+  font: inherit;
+}
+#room-wager-card button:hover { background: rgba(255,211,77,0.14); }

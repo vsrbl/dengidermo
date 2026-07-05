@@ -400,6 +400,15 @@ function ensureDevPanel() {
   const specialOpts = [''].concat(Object.keys(SPECIAL_ROOMS)).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'NONE'}</option>`).join('');
   const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','lounge','boss'].map(v => `<option value="${v}">${v ? v.toUpperCase() : 'AUTO'}</option>`).join('');
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
+  const bossRewardLabel = id => String(id || '').replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
+  const bossRewardOpts = BOSS_SIGNATURE_UPGRADE_IDS.map(id => `<option value="${id}">${bossRewardLabel(id)}</option>`).join('');
+  const rActiveOpts = [
+    ['sig_target_lock', 'TARGET LOCK'],
+    ['sig_redline_boost', 'REDLINE BOOST'],
+    ['sig_ghost_decoy', 'GHOST DECOY'],
+    ['sig_rewind_mark', 'REWIND MARK'],
+    ['sig_kill_switch', 'KILL SWITCH']
+  ].map(([id, label]) => `<option value="${id}">${label}</option>`).join('');
   devPanel.innerHTML = `
     <div class="dev-title">DEV MODE <span>F2</span></div>
     <div class="dev-note">SINGLE PLAYER/HOST only · full test lab · F2</div>
@@ -421,6 +430,24 @@ function ensureDevPanel() {
 
     <div class="dev-section-title">BOSS / SIGNATURE</div>
     <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss">BOS</option></select></div>
+    <div class="dev-row"><label>REWARD</label><select id="dev-boss-reward">${bossRewardOpts}</select></div>
+    <div class="dev-row"><label>R</label><select id="dev-r-active">${rActiveOpts}</select></div>
+    <div class="dev-buttons dev-priority">
+      <button id="dev-give-boss-reward">GIVE REWARD</button>
+      <button id="dev-offer-boss-reward">OFFER SELECTED</button>
+      <button id="dev-set-r-active">SET R ACTIVE</button>
+      <button id="dev-r-ready">R READY</button>
+    </div>
+    <div class="dev-buttons">
+      <button id="dev-aegis">AEGIS +45</button>
+      <button id="dev-spawn-hold">SPAWN HOLD +1</button>
+      <button id="dev-mirror">MIRROR +1</button>
+      <button id="dev-revive">REVIVE +1</button>
+      <button id="dev-boss-key">BOSS KEY +1</button>
+      <button id="dev-room-wager">ROOM WAGER</button>
+      <button id="dev-wager-offer">WAGER OFFER</button>
+      <button id="dev-reset-kill-switch">RESET KILL FLAG</button>
+    </div>
     <div class="dev-section-title">Q / PLAYER</div>
     <div class="dev-row"><label>CORE</label><select id="dev-core">${coreOpts}</select></div>
     <div class="dev-row"><label>LVL</label><select id="dev-level"><option value="1">I</option><option value="2">II</option><option value="3" selected>III</option><option value="4">IV</option><option value="5">V</option><option value="6">VI</option><option value="7">VII</option><option value="8">VIII</option></select></div>
@@ -452,6 +479,18 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed('DEV: PORTAL OPEN', 'c'); });
   devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed('DEV: WPN OFFER', 'c'); });
   devPanel.querySelector('#dev-sig-offer')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind }); hud.feed('DEV: BOSS SIG OFFER', 'c'); });
+  devPanel.querySelector('#dev-give-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`DEV: ${id.replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase()}`, 'c'); });
+  devPanel.querySelector('#dev-offer-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind, force: [id] }); hud.feed('DEV: FORCED BOSS OFFER', 'c'); });
+  devPanel.querySelector('#dev-set-r-active')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-r-active')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`DEV R: ${id.replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase()}`, 'c'); });
+  devPanel.querySelector('#dev-r-ready')?.addEventListener('click', () => { cmd('r_ready'); hud.feed('DEV: R READY', 'c'); });
+  devPanel.querySelector('#dev-aegis')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_aegis_process' }));
+  devPanel.querySelector('#dev-spawn-hold')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_spawn_hold' }));
+  devPanel.querySelector('#dev-mirror')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_mirror_payout' }));
+  devPanel.querySelector('#dev-revive')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_null_revival' }));
+  devPanel.querySelector('#dev-boss-key')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_boss_key' }));
+  devPanel.querySelector('#dev-room-wager')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_room_wager' }));
+  devPanel.querySelector('#dev-wager-offer')?.addEventListener('click', () => { cmd('force_room_wager_offer'); hud.feed('DEV: WAGER OFFER', 'c'); });
+  devPanel.querySelector('#dev-reset-kill-switch')?.addEventListener('click', () => { cmd('reset_kill_switch_flag'); hud.feed('DEV: KILL SWITCH RESET', 'c'); });
   devPanel.querySelector('#dev-win-run')?.addEventListener('click', () => { cmd('win_run'); hud.feed('DEV: WIN RUN', 'c'); });
   devPanel.querySelector('#dev-apply-next')?.addEventListener('click', () => { cmd('set_next_room', readNextRoomLab()); hud.feed('DEV: NEXT ROOM LOCKED', 'c'); });
   devPanel.querySelector('#dev-clear-next')?.addEventListener('click', () => { cmd('clear_next_room'); hud.feed('DEV: NEXT ROOM AUTO', ''); });
@@ -533,9 +572,10 @@ function frame(now) {
     const dash = input.takeDash();
     const inter = input.takeInter();
     const active = input.takeActive();
+    const ractive = input.takeRActive();
     const secondary = input.takeSecondary();
     const wpn = input.takeWeapon(me ? me[P.WEAPONS].length : 1);
-    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen);
+    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen, ractive && !modalOpen);
     net.sendInput(pkt);
   }
 

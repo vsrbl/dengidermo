@@ -80,18 +80,19 @@ export const UPGRADES = [
   { id: 'combo_hp',  label: 'COMBO PAYS HP',  tier: 0, desc: 'Комбо при завершении лечит: убийства × множитель × 0.1, округление до целого.', apply: s => { s.comboPrize = 'hp'; } },
 
 
-  // boss signature modules: antivirus rules taken from defeated threats.
+  // boss signature modules: major powers extracted from defeated bosses.
   // These are not normal INSTALL rolls; they appear only after boss rooms.
-  { id: 'sig_quarantine_buffer', label: 'QUARANTINE BUFFER', tier: 1, bossSig: true, desc: 'В начале каждой комнаты включается временный щит на 10 секунд.', apply: s => { s.sigQuarantineBuffer += 1; } },
-  { id: 'sig_emergency_cleanse', label: 'EMERGENCY CLEANSE', tier: 1, bossSig: true, desc: 'При низком HP запускается 20-секундная очистка ближайших вражеских пуль.', apply: s => { s.sigEmergencyCleanse += 1; } },
-  { id: 'sig_payout_swap', label: 'PAYOUT MIRROR', tier: 1, bossSig: true, desc: 'Маленький шанс удвоить полученный GLD или HEA.', apply: s => { s.sigPayoutMirror += 1; } },
-  { id: 'sig_false_zero', label: 'FALSE ZERO', tier: 1, bossSig: true, desc: 'Вражеские пули иногда записываются как ноль и не наносят урон.', apply: s => { s.sigFalseZero += 1; } },
-  { id: 'sig_deaf_command', label: 'DEAF COMMAND', tier: 1, bossSig: true, desc: 'В начале комнаты часть врагов получает приказ с задержкой.', apply: s => { s.sigDeafCommand += 1; } },
-  { id: 'sig_hunt_route', label: 'HUNT ROUTE', tier: 1, bossSig: true, desc: 'Пока ты двигаешься, скорость слегка растёт. Стоишь — след стирается.', apply: s => { s.sigHuntRoute += 1; } },
-  { id: 'sig_red_overdrive', label: 'RED OVERDRIVE', tier: 1, bossSig: true, desc: 'После рывка следующий выстрел немного сильнее.', apply: s => { s.sigRedOverdrive += 1; } },
-  { id: 'sig_aim_glitch', label: 'AIM GLITCH', tier: 1, bossSig: true, desc: 'После рывка ближайшие вражеские пули слегка сбиваются с курса.', apply: s => { s.sigAimGlitch += 1; } },
-  { id: 'sig_incomplete_delete', label: 'INCOMPLETE DELETE', tier: 1, bossSig: true, desc: 'Сильный враг иногда оставляет обломок с HEA.', apply: s => { s.sigIncompleteDelete += 1; } },
-  { id: 'sig_insurance_process', label: 'INSURANCE PROCESS', tier: 1, bossSig: true, desc: 'Когда HP падает до 10%, враги разбрасываются в стороны. Один раз за комнату.', apply: s => { s.sigInsuranceProcess += 1; } },
+  { id: 'sig_target_lock', label: 'TARGET LOCK', tier: 1, bossSig: true, desc: 'R: захватывает врага. Линия прицела смотрит в цель, а не в курсор. Стаки увеличивают длительность.', apply: s => { if (s.rActiveId === 'target_lock') s.rActiveStacks += 1; else { s.rActiveId = 'target_lock'; s.rActiveStacks = 1; } } },
+  { id: 'sig_redline_boost', label: 'REDLINE BOOST', tier: 1, bossSig: true, desc: 'R: супер-ускорение. Короткий рывок темпа с кулдауном. Стаки увеличивают скорость и длительность.', apply: s => { if (s.rActiveId === 'redline_boost') s.rActiveStacks += 1; else { s.rActiveId = 'redline_boost'; s.rActiveStacks = 1; } } },
+  { id: 'sig_ghost_decoy', label: 'GHOST DECOY', tier: 1, bossSig: true, desc: 'R: игрок становится невидимым, а на месте появляется призрак, который полностью отвлекает врагов.', apply: s => { if (s.rActiveId === 'ghost_decoy') s.rActiveStacks += 1; else { s.rActiveId = 'ghost_decoy'; s.rActiveStacks = 1; } } },
+  { id: 'sig_rewind_mark', label: 'REWIND MARK', tier: 1, bossSig: true, desc: 'R: ставит точку возврата. Повторное R возвращает игрока назад, разбрасывает и станит врагов.', apply: s => { if (s.rActiveId === 'rewind_mark') s.rActiveStacks += 1; else { s.rActiveId = 'rewind_mark'; s.rActiveStacks = 1; } } },
+  { id: 'sig_kill_switch', label: 'KILL SWITCH', tier: 2, bossSig: true, desc: 'R: один раз за run стирает всех врагов на экране, включая босса. После выбора больше не появляется в этом run.', apply: s => { if (!s.killSwitchTaken) { s.killSwitchTaken = 1; s.rActiveId = 'kill_switch'; s.rActiveStacks = 1; s.killSwitchCharge = 1; } } },
+  { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Spawn-warning поля висят намного дольше. Стаки усиливают задержку появления.', apply: s => { s.spawnHoldStacks += 1; } },
+  { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Игрок получает enemy-style shell shield. Каждый стак даёт +45 shield.', apply: s => { s.aegisStacks += 1; } },
+  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующую стакаемую награду с выбором. Charge тратится один раз за loop и восстанавливается в начале loop.', apply: s => { s.mirrorCapacity += 1; } },
+  { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Вторая жизнь. При смерти возвращает игрока с 45% HP. Стаки дают +1 revive charge.', apply: s => { s.nullRevives += 1; } },
+  { id: 'sig_room_wager', label: 'ROOM WAGER', tier: 1, bossSig: true, desc: 'Открывает ставку справа от INSTALL перед комнатой. Платишь только при провале условия.', apply: s => { s.roomWagerUnlocked = 1; } },
+  { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук в loop бесплатно становится максимальной редкости. Каждый стак даёт +1 ключ.', apply: s => { s.bossKeys += 1; } },
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL/level-up rewards.
   { id: 'bullet_ricochet', label: 'BULLET RICOCHET +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
@@ -263,7 +264,7 @@ export function defaultStats() {
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     comboPrize: 'gld', tempFire: 0,
-    sigQuarantineBuffer: 0, sigEmergencyCleanse: 0, sigPayoutMirror: 0, sigFalseZero: 0, sigDeafCommand: 0, sigHuntRoute: 0, sigRedOverdrive: 0, sigAimGlitch: 0, sigIncompleteDelete: 0, sigInsuranceProcess: 0
+    sigQuarantineBuffer: 0, sigEmergencyCleanse: 0, sigPayoutMirror: 0, sigFalseZero: 0, sigDeafCommand: 0, sigHuntRoute: 0, sigRedOverdrive: 0, sigAimGlitch: 0, sigIncompleteDelete: 0, sigInsuranceProcess: 0, rActiveId: '', rActiveStacks: 0, killSwitchTaken: 0, killSwitchCharge: 0, spawnHoldStacks: 0, aegisStacks: 0, mirrorCapacity: 0, nullRevives: 0, roomWagerUnlocked: 0, bossKeys: 0
   };
 }
 

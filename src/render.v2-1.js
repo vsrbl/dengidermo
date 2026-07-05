@@ -670,14 +670,15 @@ export class Renderer {
     const meRow = view.players.find(p => p[P.ID] === state.myId);
     const myMeta = meRow ? skinMeta(meRow[P.SKINID], meRow[P.SKINFILL], meRow[P.SKINOUTLINE]) : skinMeta('terminal_mint', '#f3f3f3', COL.green);
     if (myPos && mouse) {
-      const mw = this.screenToWorld(mouse.x, mouse.y);
+      const lockedAim = meRow && String(meRow[P.RLABEL] || '').includes('TARGET LOCK') && (meRow[P.RT] || 0) > 0;
+      const mw = lockedAim ? { x: meRow[P.AX], y: meRow[P.AY] } : this.screenToWorld(mouse.x, mouse.y);
       const dx = mw.x - myPos.x, dy = mw.y - myPos.y;
       const d = Math.hypot(dx, dy) || 1;
       const ux = dx / d, uy = dy / d;
       const endD = d;
       ctx.save();
       ctx.globalAlpha = 0.18 + 0.08 * Math.sin(now * 7);
-      ctx.strokeStyle = myMeta.outline || COL.green;
+      ctx.strokeStyle = lockedAim ? COL.cyan : (myMeta.outline || COL.green);
       ctx.lineWidth = myMeta.rarity === 'legendary' ? 1.6 : myMeta.rarity === 'superrare' ? 1.35 : 1;
       ctx.setLineDash(myMeta.rarity === 'uncommon' ? [11, 8] : myMeta.rarity === 'rare' ? [8, 5, 2, 5] : myMeta.rarity === 'superrare' ? [14, 4, 4, 4] : myMeta.rarity === 'legendary' ? [16, 4, 2, 4] : [10, 10]);
       ctx.beginPath();
@@ -685,6 +686,24 @@ export class Renderer {
       ctx.lineTo(myPos.x + ux * endD, myPos.y + uy * endD);
       ctx.stroke();
       ctx.restore();
+    }
+
+    // ghost decoys from GHOST DECOY R-active
+    for (const d of (state.room?.decoys || [])) {
+      const dx = d.x, dy = d.y;
+      const pulse = 0.45 + Math.sin(now * 12) * 0.18;
+      ctx.save();
+      ctx.globalAlpha = 0.34 + pulse * 0.18;
+      ctx.strokeStyle = COL.cyan;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 5, 2, 5]);
+      ctx.strokeRect(dx - 17, dy - 17, 34, 34);
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = COL.cyan;
+      ctx.fillRect(dx - 13, dy - 13, 26, 26);
+      ctx.restore();
+      this.label('DECOY', dx, dy - 30, COL.cyan, 8);
     }
 
     // players + companions
@@ -756,6 +775,34 @@ export class Renderer {
       ctx.save();
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
       this.drawSkinAura(px, py, skinMetaLocal, now);
+      const shMax = Math.max(0, p[P.SHIELDMAX] || 0);
+      const sh = Math.max(0, p[P.SHIELD] || 0);
+      if (shMax > 0 && sh > 0) {
+        const shPct = Math.max(0, Math.min(100, sh / shMax * 100));
+        const shSize = 44;
+        ctx.save();
+        ctx.globalAlpha = 0.46 + Math.sin(now * 9) * 0.08;
+        ctx.strokeStyle = COL.cyan;
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([8, 7]);
+        ctx.strokeRect(px - shSize / 2, py - shSize / 2, shSize, shSize);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.24;
+        ctx.strokeRect(px - shSize / 2 + 5, py - shSize / 2 + 5, shSize - 10, shSize - 10);
+        if (shPct < 100) {
+          ctx.globalAlpha = 0.78;
+          ctx.strokeStyle = COL.fg;
+          ctx.lineWidth = 1;
+          const cracks = Math.max(1, Math.round((100 - shPct) / 22));
+          for (let i = 0; i < cracks; i++) {
+            const a = now * 0.6 + i * 1.73;
+            const sx = px + Math.cos(a) * shSize * 0.42;
+            const sy = py + Math.sin(a) * shSize * 0.42;
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a + 1.1) * 10, sy + Math.sin(a + 1.1) * 10); ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
       // Skins are now static silhouettes: no rarity pulsing/jitter on the body itself.
       // The unlocked skin identity is expressed through dash VFX/SFX instead, to avoid laggy noisy player bodies.
       if (skinId === 'jackpot_wound') {

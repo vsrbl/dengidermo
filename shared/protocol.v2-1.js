@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.70';
-export const BUILD_ID = 'chest_rarity_slot_economy_rework';
+export const VERSION = 'v2.1.72';
+export const BUILD_ID = 'boss_signature_r_active_rework';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
@@ -21,7 +21,8 @@ export const C = {
   PICK: 'pick',       // INSTALL pick {choiceIdx}
   WEAPON_PICK: 'weapon_pick', // WPN chest pick {choiceIdx}
   ABILITY_PICK: 'ability_pick', // ABL chest pick {choiceIdx}
-  REROLL_OFFER: 'reroll_offer', // contract favor reroll {kind}
+  REROLL_OFFER: 'reroll_offer',
+  ROOM_WAGER: 'room_wager', // contract favor reroll {kind}
   PING: 'ping',
   LEAVE: 'leave'
 };

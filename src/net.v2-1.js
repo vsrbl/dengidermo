@@ -215,6 +215,7 @@ export class Net {
   sendWeaponPick(choice) { this._game({ t: 'weapon_pick', choice }, true); }
   sendAbilityPick(choice) { this._game({ t: 'ability_pick', choice }, true); }
   sendRerollOffer(kind) { this._game({ t: 'reroll_offer', kind }, true); }
+  sendRoomWager(offerId = 0) { this._game({ t: 'room_wager', offerId }, true); }
   sendDev(cmd) { this._game({ t: 'dev', cmd }, true); }
   _game(m, reliable = false) {
     if (this.room) { this.room.handleMsg(this.id, m); this.ping = 0; }

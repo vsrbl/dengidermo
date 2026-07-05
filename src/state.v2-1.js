@@ -10,7 +10,7 @@ export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
-  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35
+  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -94,7 +94,7 @@ export class GameState {
   }
 
   // apply local input for prediction; returns input packet to send
-  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false) {
+  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false, ractive = false) {
     const me = this.me();
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
@@ -119,7 +119,7 @@ export class GameState {
     return {
       seq: this.seq, mx: mv.x, my: mv.y,
       ax: Math.round(aim.x), ay: Math.round(aim.y),
-      fire, dash: dash || undefined, inter: inter || undefined, active: active || undefined, secondary: secondary || undefined,
+      fire, dash: dash || undefined, inter: inter || undefined, active: active || undefined, ractive: ractive || undefined, secondary: secondary || undefined,
       wpn: wpn >= 0 ? wpn : undefined
     };
   }

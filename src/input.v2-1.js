@@ -7,6 +7,7 @@ export class Input {
     this.dashEdge = false;
     this.interEdge = false;
     this.activeEdge = false;
+    this.rActiveEdge = false;
     this.weaponSel = -1;
     this.tabOpen = false;      // toggle helper panel: press TAB once to open/close
     this.inspectMode = false;  // toggle world explanations: Space
@@ -35,6 +36,7 @@ export class Input {
       if (c === 'ShiftLeft' || c === 'ShiftRight') this.dashEdge = true;
       if (c === 'KeyE') this.interEdge = true;
       if (c === 'KeyQ') this.activeEdge = true;
+      if (c === 'KeyR') this.rActiveEdge = true;
       if (c === 'Space') { e.preventDefault(); this.inspectMode = !this.inspectMode; this.updateCursor(); }
     });
     window.addEventListener('keyup', (e) => {
@@ -87,7 +89,8 @@ export class Input {
   // consume edges (call once per send tick)
   takeDash() { const v = this.dashEdge; this.dashEdge = false; return v; }
   takeInter() { const v = this.interEdge; this.interEdge = false; return v; }
-  takeActive() { const v = this.activeEdge; this.activeEdge = false; return v; }
+  takeActive() { const v = this.activeEdge; this.activeEdge = false;
+    this.rActiveEdge = false; return v; }
   takeSecondary() { const v = this.secondaryEdge; this.secondaryEdge = false; return v; }
   takeWeapon(count) {
     let w = this.weaponSel; this.weaponSel = -1;

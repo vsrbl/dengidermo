@@ -118,23 +118,30 @@ function makeInstallOffer(run, p) {
 
 
 const BOSS_SIGNATURE_POOLS = {
-  boss_croupier: ['sig_payout_swap', 'sig_false_zero', 'sig_quarantine_buffer', 'sig_emergency_cleanse'],
-  boss_hunter_chorus: ['sig_deaf_command', 'sig_hunt_route', 'sig_insurance_process', 'sig_incomplete_delete'],
-  boss_hunter_duelist: ['sig_deaf_command', 'sig_hunt_route', 'sig_insurance_process'],
-  boss_hunter_marksman: ['sig_deaf_command', 'sig_hunt_route', 'sig_false_zero'],
-  boss_hunter_trapper: ['sig_deaf_command', 'sig_incomplete_delete', 'sig_quarantine_buffer'],
-  boss_q_revisor: ['sig_red_overdrive', 'sig_aim_glitch', 'sig_quarantine_buffer', 'sig_insurance_process'],
-  boss_anchor_cashier: ['sig_emergency_cleanse', 'sig_incomplete_delete', 'sig_false_zero', 'sig_quarantine_buffer'],
-  boss: ['sig_quarantine_buffer', 'sig_emergency_cleanse', 'sig_false_zero', 'sig_insurance_process']
+  boss_croupier: ['sig_room_wager', 'sig_mirror_payout', 'sig_boss_key', 'sig_target_lock', 'sig_kill_switch'],
+  boss_hunter_chorus: ['sig_target_lock', 'sig_redline_boost', 'sig_spawn_hold', 'sig_null_revival', 'sig_ghost_decoy'],
+  boss_hunter_duelist: ['sig_target_lock', 'sig_redline_boost', 'sig_ghost_decoy', 'sig_rewind_mark'],
+  boss_hunter_marksman: ['sig_target_lock', 'sig_spawn_hold', 'sig_kill_switch', 'sig_ghost_decoy'],
+  boss_hunter_trapper: ['sig_spawn_hold', 'sig_rewind_mark', 'sig_null_revival', 'sig_boss_key'],
+  boss_q_revisor: ['sig_redline_boost', 'sig_target_lock', 'sig_null_revival', 'sig_room_wager', 'sig_rewind_mark', 'sig_kill_switch'],
+  boss_anchor_cashier: ['sig_aegis_process', 'sig_spawn_hold', 'sig_boss_key', 'sig_mirror_payout', 'sig_rewind_mark'],
+  boss: ['sig_target_lock', 'sig_redline_boost', 'sig_aegis_process', 'sig_spawn_hold', 'sig_null_revival']
 };
-function bossSignatureChoicesForKind(kind = '', rng = Math.random) {
-  const pool = (BOSS_SIGNATURE_POOLS[kind] || BOSS_SIGNATURE_POOLS.boss || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id));
-  const fallback = BOSS_SIGNATURE_UPGRADE_IDS.filter(id => !pool.includes(id));
+const BOSS_SIGNATURE_CHOICE_COUNT = 2;
+function bossRewardBlockedForPlayer(id, p) {
+  if (!id || !p?.stats) return false;
+  if (id === 'sig_kill_switch' && p.stats.killSwitchTaken) return true;
+  if (id === 'sig_room_wager' && p.stats.roomWagerUnlocked) return true;
+  return false;
+}
+function bossSignatureChoicesForKind(kind = '', rng = Math.random, p = null) {
+  const pool = (BOSS_SIGNATURE_POOLS[kind] || BOSS_SIGNATURE_POOLS.boss || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p));
+  const fallback = BOSS_SIGNATURE_UPGRADE_IDS.filter(id => !pool.includes(id) && !bossRewardBlockedForPlayer(id, p));
   const merged = [...pool, ...fallback];
   const out = [];
   const used = new Set();
   let guard = 0;
-  while (out.length < 3 && guard++ < 80 && used.size < merged.length) {
+  while (out.length < BOSS_SIGNATURE_CHOICE_COUNT && guard++ < 120 && used.size < merged.length) {
     const id = merged[Math.floor(rng() * merged.length)];
     if (!id || used.has(id)) continue;
     used.add(id); out.push(id);
@@ -145,19 +152,20 @@ function makeBossSignatureOffer(run, p) {
   if (!run || !p?.bossSignaturePending) return null;
   run.installOfferSeq = ((run.installOfferSeq || 0) + 1) | 0;
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
-  const choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id)).slice(0, 3);
-  return { id: run.installOfferSeq, kind: 'boss_signature', choices: choices.length ? choices : bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss'), expires: OFFER_TIMEOUT + 8, total: OFFER_TIMEOUT + 8 };
+  let choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p)).slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
+  if (choices.length < BOSS_SIGNATURE_CHOICE_COUNT) choices = bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss', Math.random, p);
+  return { id: run.installOfferSeq, kind: 'boss_signature', choices, expires: OFFER_TIMEOUT + 8, total: OFFER_TIMEOUT + 8 };
 }
 function queueBossSignatureReward(run, players, bossKind = 'boss') {
-  const choices = bossSignatureChoicesForKind(bossKind, Math.random);
   run.lastBossKind = bossKind || run.lastBossKind || 'boss';
   for (const p of players.values()) {
     if (!p.connected) continue;
+    const choices = bossSignatureChoicesForKind(bossKind, Math.random, p);
     p.bossSignaturePending = true;
     p.bossSignatureKind = bossKind || 'boss';
-    p.bossSignatureChoices = choices.slice(0, 3);
+    p.bossSignatureChoices = choices.slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
   }
-  run.fx.push({ t: 'boss_signature', label: 'THREAT SIGNATURE', kind: bossKind, choices });
+  run.fx.push({ t: 'boss_signature', label: 'SIGNATURE EXTRACTED', kind: bossKind, choices: bossSignatureChoicesForKind(bossKind, Math.random, null) });
 }
 
 function ensureInstallOffer(run, p) {
@@ -2184,14 +2192,14 @@ export function createPlayer(id, name, idx, skin = null) {
     weaponChestOffer: null,
     abilityChestOffer: null,
     touch: new Map(),
-    wantDash: false, wantInteract: false, wantActive: false, wantWeapon: -1, wantSecondary: false,
+    wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
     connected: true
   };
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
 export function speed(p) {
   const route = Math.min(0.18, ((p.huntRouteT || 0) / Math.max(1, 4.0)) * 0.14 * Math.max(0, p.stats?.sigHuntRoute || 0));
-  return PLAYER_SPEED * p.stats.spdMul * (1 + route) * (p.slowT > 0 ? (p.slowMul || 0.6) : 1);
+  return PLAYER_SPEED * p.stats.spdMul * Math.max(0.05, Number(p.wagerSpeedMul || 1) || 1) * (1 + route) * ((p.redlineT || 0) > 0 ? redlineSpeedMul(p) : 1) * (p.slowT > 0 ? (p.slowMul || 0.6) : 1);
 }
 export function dashMax(p) { return 1 + p.stats.dashAdd; }
 
@@ -2199,6 +2207,7 @@ export function startRoom(run, players) {
   const seed = (run.seedBase + run.runDepth * 7919) >>> 0;
   const loopIndex = Math.floor(run.runDepth / 4);
   run.plan = generateRoom(seed, run.runDepth, loopIndex, run.devNextRoomOverride || null);
+  resetLoopLimitedBossRewards(run, players);
   run.plan.finalBoss = (run.plan.category === 'boss' && run.runDepth >= FINAL_BOSS_DEPTH) ? 1 : 0;
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
@@ -2326,7 +2335,7 @@ export function startRoom(run, players) {
       run.skinPity = Math.min(8, pity + 1);
     }
   }
-  run.enemies = []; run.bullets = []; run.pickups = []; run.activeFields = [];
+  run.enemies = []; run.bullets = []; run.pickups = []; run.activeFields = []; run.decoys = [];
   run.pendingStrikes = []; run.pendingActives = []; run.pendingCasinoRolls = [];
   run.hunterSpawned = false; run.hunterTarget = null; run.roomAge = 0; run.portalOpenedAt = 0;
   run.kills = 0; run.spawned = 0;
@@ -2342,18 +2351,22 @@ export function startRoom(run, players) {
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
-    p.quarantineT = (p.stats.sigQuarantineBuffer || 0) > 0 ? 10 : 0;
-    p.quarantineHp = (p.stats.sigQuarantineBuffer || 0) > 0 ? 34 + Math.min(36, (p.stats.sigQuarantineBuffer - 1) * 10) : 0;
+    p.quarantineT = 0; p.quarantineHp = 0;
+    p.aegisShieldMax = aegisCapacity(p);
+    p.aegisShield = p.aegisShieldMax > 0 ? p.aegisShieldMax : 0;
     p.emergencyCleanseUsed = false; p.emergencyCleanseT = 0; p.emergencyCleansePulse = 0;
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
+    p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
+    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 12; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER DMG x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
+    if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     p.offer = null;
     p.weaponChestOffer = null;
   }
-  if (run.director && [...players.values()].some(p => p.connected && (p.stats?.sigDeafCommand || 0) > 0)) {
-    const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.sigDeafCommand || 0) : 0), 0);
-    run.director.pauseT = Math.max(run.director.pauseT || 0, 2.0 + Math.min(2.4, stacks * 0.55));
-    run.fx.push({ t: 'active_mutation', label: 'DEAF COMMAND', x: run.plan.w / 2, y: run.plan.h / 2, r: 120, tone: 'cyan' });
+  if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
+    const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
+    run.director.pauseT = Math.max(run.director.pauseT || 0, 1.1 + Math.min(4.5, stacks * 0.75));
+    run.fx.push({ t: 'active_mutation', label: `SPAWN HOLD x${stacks}`, x: run.plan.w / 2, y: run.plan.h / 2, r: 150, tone: 'cyan' });
   }
   if (run.plan.specialRoomId === 'chill_room') {
     run.director = null;
@@ -3213,7 +3226,15 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
     dirX: 0, dirY: 0, aux: 0,
     spawnDelay: (opts.noSpawnWarn || def.boss || opts.packRole === 'hunter_chorus_fragment') ? 0 : 1.05
   };
-  if (e.spawnDelay > 0) run.fx.push({ t: 'spawn_warning', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 44), delay: e.spawnDelay, kind });
+  if (e.spawnDelay > 0) {
+    const holdStacks = teamSigStack(players, 'spawnHoldStacks');
+    if (holdStacks > 0) {
+      const bossAdd = def.boss ? 2.5 : (elite ? 3.0 : (def.spd >= 180 ? 4.0 : 5.0));
+      e.spawnDelay += bossAdd + Math.max(0, holdStacks - 1) * (elite ? 1.0 : 1.5);
+      e.heldSpawn = 1;
+    }
+  }
+  if (e.spawnDelay > 0) run.fx.push({ t: 'spawn_warning', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 44), delay: e.spawnDelay, kind, held: e.heldSpawn ? 1 : 0 });
   let shell = null;
   if (opts.noArmor) shell = null;
   else if (opts.forceLinked) shell = { type: 'linked', max: shellMaxForArmor(run, def, e, 'linked'), source: 'director' };
@@ -3602,18 +3623,273 @@ function teamSigStack(players, key) {
 }
 
 const SIGNATURE_LABEL_BY_STAT = {
-  sigQuarantineBuffer: 'QUARANTINE BUFFER', sigEmergencyCleanse: 'EMERGENCY CLEANSE', sigPayoutMirror: 'PAYOUT MIRROR', sigFalseZero: 'FALSE ZERO', sigDeafCommand: 'DEAF COMMAND', sigHuntRoute: 'HUNT ROUTE', sigRedOverdrive: 'RED OVERDRIVE', sigAimGlitch: 'AIM GLITCH', sigIncompleteDelete: 'INCOMPLETE DELETE', sigInsuranceProcess: 'INSURANCE PROCESS'
+  spawnHoldStacks: 'SPAWN HOLD', aegisStacks: 'AEGIS PROCESS', mirrorCapacity: 'MIRROR PAYOUT', nullRevives: 'NULL REVIVAL', roomWagerUnlocked: 'ROOM WAGER', bossKeys: 'BOSS KEY'
 };
+const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'REDLINE BOOST', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
 function activeBossSignatureLabels(players) {
   const out = [];
   const seen = new Set();
   for (const p of players.values()) {
     if (!p.connected) continue;
+    const rLabel = R_ACTIVE_LABELS[String(p.stats?.rActiveId || '')] || '';
+    if (rLabel && !seen.has(rLabel)) { seen.add(rLabel); out.push(rLabel); }
     for (const [stat, label] of Object.entries(SIGNATURE_LABEL_BY_STAT)) {
       if ((p.stats?.[stat] || 0) > 0 && !seen.has(label)) { seen.add(label); out.push(label); }
     }
   }
   return out.slice(0, 12);
+}
+
+function rActiveLabel(p) {
+  const id = String(p?.stats?.rActiveId || '');
+  if (!id) return 'R EMPTY';
+  if (id === 'kill_switch' && !(p?.stats?.killSwitchCharge > 0)) return 'R BURNT';
+  return R_ACTIVE_LABELS[id] || id.toUpperCase();
+}
+function rActiveDesc(p) {
+  const id = String(p?.stats?.rActiveId || '');
+  const st = Math.max(1, p?.stats?.rActiveStacks || 1);
+  if (id === 'target_lock') return `Захват цели ${targetLockDuration(p)}с · CD 12с`;
+  if (id === 'redline_boost') return `Скорость +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)}с · CD 14с`;
+  if (id === 'ghost_decoy') return `Невидимость + призрак ${ghostDecoyDuration(p)}с · CD 22с`;
+  if (id === 'rewind_mark') return `Метка возврата ${rewindWindow(p)}с · стан ${rewindStun(p)}с`;
+  if (id === 'kill_switch') return p?.stats?.killSwitchCharge > 0 ? 'Один раз стирает всех врагов на экране, включая босса.' : 'KILL SWITCH сгорел.';
+  return 'R-активка не выбрана.';
+}
+function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
+function redlineDuration(p) { return Math.round((3 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1) * 10) / 10; }
+function redlineSpeedMul(p) { return 1 + (0.60 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.25); }
+function ghostDecoyDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
+function rewindWindow(p) { return Math.round((6 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
+function rewindStun(p) { return Math.round((1.0 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.3) * 10) / 10; }
+function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45); }
+function mirrorCapacity(p) { return Math.max(0, p?.stats?.mirrorCapacity || 0); }
+function mirrorLeft(p) { return Math.max(0, mirrorCapacity(p) - Math.max(0, p?.mirrorUsedLoop || 0)); }
+function roomLoopIndex(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
+function bossKeyReady(run, p) { return (p?.stats?.bossKeys || 0) > 0 && p.bossKeyLastLoop !== roomLoopIndex(run); }
+function spendBossKey(run, p, o) {
+  if (!bossKeyReady(run, p)) return false;
+  p.stats.bossKeys = Math.max(0, (p.stats.bossKeys || 0) - 1);
+  p.bossKeyLastLoop = roomLoopIndex(run);
+  if (o) { o.chestTier = 3; o.slotCount = 5; o.costMul = 0; o.rarityReason = 'BOSS KEY'; }
+  run.fx.push({ t: 'active_mutation', label: 'BOSS KEY USED', x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
+  return true;
+}
+function bossRewardCanMirror(id) {
+  return ['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key'].includes(String(id || ''));
+}
+function upgradeCanMirror(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  if (!u) return false;
+  if (u.bossSig) return bossRewardCanMirror(id);
+  return true; // normal INSTALL upgrades are stackable by design.
+}
+function useMirrorIfPossible(run, p, label, canStack, applyFn) {
+  if (!p || mirrorLeft(p) <= 0) return false;
+  p.mirrorUsedLoop = Math.max(0, p.mirrorUsedLoop || 0) + 1;
+  if (!canStack) {
+    run.fx.push({ t: 'active_mutation', label: 'MIRROR FAILED — UNIQUE', x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'purple', playerId: p.id });
+    return false;
+  }
+  try { applyFn?.(); } catch {}
+  run.fx.push({ t: 'active_mutation', label: `MIRRORED ${label || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
+  return true;
+}
+function resetLoopLimitedBossRewards(run, players) {
+  const loop = roomLoopIndex(run);
+  for (const p of players.values()) {
+    if (!p.connected) continue;
+    if (p.mirrorLoop !== loop) {
+      p.mirrorLoop = loop;
+      p.mirrorUsedLoop = 0;
+      if (mirrorCapacity(p) > 0) run.fx.push({ t: 'active_mutation', label: `MIRROR RESTORED ${mirrorCapacity(p)}/${mirrorCapacity(p)}`, x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
+    }
+  }
+}
+function scatterAndStunEnemies(run, x, y, r, stun, power = 520) {
+  let hit = 0;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0) continue;
+    const rr = r + (e.size || 24) * 0.5;
+    if (dist2(e.x, e.y, x, y) > rr * rr) continue;
+    const n = norm(e.x - x, e.y - y);
+    e.x += n.x * Math.min(95, power * 0.10);
+    e.y += n.y * Math.min(95, power * 0.10);
+    e.vx = (e.vx || 0) + n.x * power;
+    e.vy = (e.vy || 0) + n.y * power;
+    e.stunT = Math.max(e.stunT || 0, stun);
+    e.activeSlowT = Math.max(e.activeSlowT || 0, stun);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.05);
+    hit++;
+  }
+  return hit;
+}
+function enemyNearPoint(run, x, y, maxR = 260) {
+  let best = null, bd = maxR * maxR;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0) continue;
+    const d = dist2(e.x, e.y, x, y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function doRActive(run, players, p) {
+  if (p.wagerStats) p.wagerStats.r = (p.wagerStats.r || 0) + 1;
+  const id = String(p?.stats?.rActiveId || '');
+  if (!id || !p.alive || run.phase !== 'play') return false;
+  if (id !== 'rewind_mark' && (p.rActiveCd || 0) > 0) return false;
+  if (id === 'target_lock') {
+    if ((p.targetLockT || 0) > 0) { p.targetLockT = 0; p.targetLockTargetId = ''; p.rActiveCd = 12; run.fx.push({ t: 'active_mutation', label: 'LOCK RELEASED', x: Math.round(p.x), y: Math.round(p.y), r: 70, tone: 'cyan', playerId: p.id }); return true; }
+    const e = enemyNearPoint(run, p.aimX, p.aimY, 320) || enemyNearPoint(run, p.x, p.y, 620);
+    if (!e) return false;
+    p.targetLockTargetId = e.id;
+    p.targetLockT = targetLockDuration(p);
+    p.rActiveCd = 12;
+    run.fx.push({ t: 'active_mutation', label: `TARGET LOCK ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 90, tone: 'cyan', playerId: p.id, target: e.id });
+    return true;
+  }
+  if (id === 'redline_boost') {
+    p.redlineT = redlineDuration(p);
+    p.rActiveCd = 14;
+    run.fx.push({ t: 'active_mutation', label: 'REDLINE BOOST', x: Math.round(p.x), y: Math.round(p.y), r: 115, tone: 'red', playerId: p.id });
+    return true;
+  }
+  if (id === 'ghost_decoy') {
+    const dur = ghostDecoyDuration(p);
+    p.ghostT = dur;
+    p.rActiveCd = 22;
+    if (!Array.isArray(run.decoys)) run.decoys = [];
+    run.decoys.push({ id: `decoy:${p.id}:${run.tick || 0}`, owner: p.id, x: p.x, y: p.y, alive: true, t: dur, size: 28, weapons: p.weapons, weaponIdx: p.weaponIdx, decoy: 1 });
+    run.fx.push({ t: 'active_mutation', label: 'GHOST DECOY', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan', playerId: p.id });
+    return true;
+  }
+  if (id === 'rewind_mark') {
+    if ((p.rewindT || 0) > 0 && p.rewindMark) {
+      const m = p.rewindMark;
+      p.x = m.x; p.y = m.y;
+      const radius = 245 + Math.max(0, (p.stats.rActiveStacks || 1) - 1) * 35;
+      const stun = rewindStun(p);
+      const hit = scatterAndStunEnemies(run, p.x, p.y, radius, stun, 720);
+      for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < (radius + 40) ** 2) b.life = -1;
+      p.rewindT = 0; p.rewindMark = null; p.rActiveCd = 20; p.invuln = Math.max(p.invuln || 0, 0.5);
+      run.fx.push({ t: 'active_mutation', label: `REWIND STUN x${hit}`, x: Math.round(p.x), y: Math.round(p.y), r: Math.round(radius), tone: 'purple', playerId: p.id });
+      return true;
+    }
+    if ((p.rActiveCd || 0) > 0) return false;
+    p.rewindT = rewindWindow(p);
+    p.rewindMark = { x: p.x, y: p.y };
+    run.fx.push({ t: 'active_mutation', label: 'REWIND MARK', x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
+    return true;
+  }
+  if (id === 'kill_switch') {
+    if (!(p.stats.killSwitchCharge > 0)) return false;
+    const live = run.enemies.filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0);
+    if (!live.length) return false;
+    p.stats.killSwitchCharge = 0;
+    p.stats.rActiveId = '';
+    p.rActiveCd = 0;
+    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH', x: Math.round(p.x), y: Math.round(p.y), r: 560, tone: 'red', playerId: p.id });
+    for (const b of run.bullets) if (b.from === 'e') b.life = -1;
+    for (const e of [...live]) if (e.hp > 0) damageEnemy(run, players, e, Math.max(99999, (e.maxHp || e.hp || 1) * 20), p.id, 0, 0, 0, 'kill_switch');
+    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH USED', x: Math.round(p.x), y: Math.round(p.y), r: 620, tone: 'red', playerId: p.id });
+    return true;
+  }
+  return false;
+}
+function stepRActiveState(run, players, p, dt) {
+  p.rActiveCd = Math.max(0, (p.rActiveCd || 0) - dt);
+  p.redlineT = Math.max(0, (p.redlineT || 0) - dt);
+  p.tempDmgMulT = Math.max(0, (p.tempDmgMulT || 0) - dt);
+  p.ghostT = Math.max(0, (p.ghostT || 0) - dt);
+  p.targetLockT = Math.max(0, (p.targetLockT || 0) - dt);
+  if ((p.targetLockT || 0) > 0) {
+    const e = run.enemies.find(x => x.id === p.targetLockTargetId && x.hp > 0 && (x.spawnDelay || 0) <= 0);
+    if (e) { p.aimX = e.x; p.aimY = e.y; }
+    else { p.targetLockT = 0; p.targetLockTargetId = ''; }
+  }
+  if ((p.rewindT || 0) > 0) {
+    p.rewindT = Math.max(0, p.rewindT - dt);
+    if (p.rewindT <= 0) { p.rewindMark = null; p.rActiveCd = Math.max(p.rActiveCd || 0, 20); run.fx.push({ t: 'active_mutation', label: 'REWIND EXPIRED', x: Math.round(p.x), y: Math.round(p.y), r: 70, tone: 'purple', playerId: p.id }); }
+  }
+}
+function stepDecoys(run, dt) {
+  if (!Array.isArray(run.decoys)) return;
+  for (const d of run.decoys) d.t = Math.max(0, (d.t || 0) - dt);
+  run.decoys = run.decoys.filter(d => d && d.t > 0);
+}
+
+const ROOM_WAGER_STAKES = [
+  { id: 'all_gld', text: 'всё GLD', loss: (run, p) => { p.economy.money = 0; } },
+  { id: 'hp_50', text: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
+  { id: 'loop_dmg_down', text: '-30% урона до конца loop', loss: (run, p) => { p.wagerDmgMul = Math.min(p.wagerDmgMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'loop_spd_down', text: '-30% скорости до конца loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_forever', text: 'R-активку навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
+  { id: 'maxhp_forever', text: '-10 max HP навсегда', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
+  { id: 'boss_key', text: '1 BOSS KEY', needs: p => (p?.stats?.bossKeys || 0) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, (p.stats.bossKeys || 0) - 1); } },
+  { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } }
+];
+const ROOM_WAGER_CONDITIONS = [
+  { id: 'dash15', text: 'сделать 15 dash', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
+  { id: 'no_damage', text: 'не получить урон всю комнату', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 || roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'q3', text: 'использовать Q 3 раза', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
+  { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
+  { id: 'kills10', text: 'убить 10 врагов', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
+  { id: 'hp50', text: 'закончить комнату выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
+  { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
+];
+const ROOM_WAGER_PRIZES = [
+  { id: 'dmg100', text: 'урон x100 на первые 12 секунд следующей комнаты', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
+  { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'aegis', text: '+1 AEGIS stack', prize: (run, p) => { p.stats.aegisStacks += 1; } },
+  { id: 'boss_key', text: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; } },
+  { id: 'null_revive', text: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
+  { id: 'mirror', text: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
+  { id: 'q_loop', text: 'Q cooldown -30% до конца loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_stack', text: '+1 постоянный стак R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } }
+];
+function pickRoomWagerItem(list, p) {
+  const pool = list.filter(x => !x.needs || x.needs(p));
+  return pool[Math.floor(Math.random() * pool.length)] || list[0];
+}
+function makeRoomWagerOffer(run, p) {
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) return null;
+  run.roomWagerSeq = ((run.roomWagerSeq || 0) + 1) | 0;
+  if (run.roomWagerSeq <= 0) run.roomWagerSeq = 1;
+  const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
+  const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p);
+  const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
+  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, expires: 12, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
+}
+function ensureRoomWagerOffer(run, p) {
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
+  if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
+  return p.roomWagerOffer;
+}
+function handleRoomWagerAccept(run, players, p, offerId = 0) {
+  if (!p?.roomWagerOffer) return false;
+  if (offerId && p.roomWagerOffer.id !== offerId) return false;
+  p.roomWagerActive = { ...p.roomWagerOffer };
+  p.roomWagerOffer = null;
+  run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER ACCEPTED', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold', playerId: p.id });
+  return true;
+}
+function settleRoomWager(run, players, p) {
+  const w = p?.roomWagerActive;
+  if (!w) return;
+  p.roomWagerActive = null;
+  const cond = ROOM_WAGER_CONDITIONS.find(x => x.id === w.condition);
+  const stake = ROOM_WAGER_STAKES.find(x => x.id === w.stake);
+  const prize = ROOM_WAGER_PRIZES.find(x => x.id === w.prize);
+  const ok = cond?.ok?.(run, p) ? true : false;
+  if (ok) {
+    prize?.prize?.(run, p);
+    run.fx.push({ t: 'active_mutation', label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', playerId: p.id, body: w.prizeText });
+  } else {
+    stake?.loss?.(run, p);
+    run.fx.push({ t: 'active_mutation', label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', playerId: p.id, body: w.stakeText });
+  }
 }
 function maybeDoubleResourceBySignature(run, players, type, val, actor = null) {
   const stack = actor ? playerSigStack(actor, 'sigPayoutMirror') : teamSigStack(players, 'sigPayoutMirror');
@@ -3698,6 +3974,13 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
     run.fx.push({ t: 'active_mutation', label: 'QUARANTINE BUFFER', x: Math.round(p.x), y: Math.round(p.y), r: 86, tone: 'cyan', absorbed });
     if (dmg <= 0) { p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN * 0.75); return; }
   }
+  if ((p.aegisShield || 0) > 0 && dmg > 0) {
+    const absorbed = Math.min(dmg, Math.round(p.aegisShield || 0));
+    p.aegisShield = Math.max(0, (p.aegisShield || 0) - absorbed);
+    dmg = Math.max(0, dmg - absorbed);
+    run.fx.push({ t: 'active_mutation', label: absorbed && (p.aegisShield || 0) <= 0 ? 'AEGIS BREAK' : 'AEGIS SHELL', x: Math.round(p.x), y: Math.round(p.y), r: 82, tone: 'cyan', absorbed, playerId: p.id });
+    if (dmg <= 0) { p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN * 0.45); return; }
+  }
   if (run.roomStats) run.roomStats.damageTaken += dmg;
   if (isGreedRoom(run)) {
     playerMoneyCost(run, p, dmg, srcX ?? p.x, srcY ?? p.y, 'GREED HIT');
@@ -3705,6 +3988,7 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
     p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
     return;
   }
+  if (p.wagerStats) p.wagerStats.damage = (p.wagerStats.damage || 0) + dmg;
   p.hp -= dmg;
   p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN);
   run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(srcX ?? p.x), y: Math.round(srcY ?? p.y) });
@@ -3714,6 +3998,16 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
     scatterEnemiesFromPlayer(run, p, 340 + Math.min(120, playerSigStack(p, 'sigInsuranceProcess') * 30));
   }
   if (p.hp <= 0) {
+    if ((p.stats?.nullRevives || 0) > 0) {
+      p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1);
+      p.hp = Math.max(1, Math.round(maxHp(p) * 0.45));
+      p.alive = true;
+      p.invuln = Math.max(p.invuln, 2.0);
+      for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < 420 ** 2) b.life = -1;
+      scatterAndStunEnemies(run, p.x, p.y, 360, 1.2, 620);
+      run.fx.push({ t: 'active_mutation', label: 'NULL REVIVAL', x: Math.round(p.x), y: Math.round(p.y), r: 420, tone: 'purple', playerId: p.id });
+      return;
+    }
     const favor = consumeContractFavor(run, ['portal_insurance']);
     if (favor) {
       p.hp = Math.min(maxHp(p), 50);
@@ -3803,6 +4097,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   run.enemies = run.enemies.filter(x => x.id !== e.id);
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
+  if (killer?.wagerStats) killer.wagerStats.kills = (killer.wagerStats.kills || 0) + 1;
   run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
   registerComboEvent(run, killer, source, e, 1);
   spreadElementStatusesOnKill(run, players, e, killer);
@@ -4058,7 +4353,7 @@ function applyWeaponChain(run, players, startEnemy, b) {
 
 // ---------------------------------------------------------------- shooting
 function globalDamageMul(p) {
-  return Math.max(0.05, Number(p?.stats?.dmgMul) || 1);
+  return Math.max(0.05, Number(p?.stats?.dmgMul) || 1) * Math.max(0.05, Number(p?.wagerDmgMul || 1) || 1) * (((p?.tempDmgMulT || 0) > 0) ? Math.max(1, Number(p?.tempDmgMul || 1) || 1) : 1);
 }
 function weaponDamageMul(p) {
   return globalDamageMul(p) * Math.max(0.05, Number(p?.stats?.weaponDmgMul) || 1);
@@ -4393,6 +4688,7 @@ function blackBoxFieldForPlayer(run, p) {
   return best;
 }
 function playerHiddenFromEnemy(run, p, ex, ey) {
+  if ((p?.ghostT || 0) > 0) return true;
   const f = blackBoxFieldForPlayer(run, p);
   if (!f) return false;
   // BLACK BOX is stealth, not a global freeze: enemies outside the box lose this player as a valid target.
@@ -4402,6 +4698,13 @@ function playerHiddenFromEnemy(run, p, ex, ey) {
 }
 function nearestAlive(players, x, y, run = null) {
   let best = null, bd = Infinity;
+  if (run && Array.isArray(run.decoys)) {
+    for (const d of run.decoys) {
+      if (!d || !(d.t > 0)) continue;
+      const dd = dist2(d.x, d.y, x, y);
+      if (dd < bd) { bd = dd; best = d; }
+    }
+  }
   for (const p of players.values()) {
     if (!p.alive) continue;
     if (run && playerHiddenFromEnemy(run, p, x, y)) continue;
@@ -5483,6 +5786,8 @@ function applyAbilityChestOption(run, players, p, opt) {
     else if (opt.stat === 'dashflow') p.stats.dashRegenMul *= 1.2;
     else return false;
   } else return false;
+  const mirrorable = ['active_upgrade_core','ability_upgrade','stat'].includes(String(opt.kind || ''));
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, opt.label || label, mirrorable, () => applyAbilityChestOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   ensureActive(p);
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
@@ -5527,6 +5832,8 @@ function applyWeaponChestOption(run, players, p, opt) {
     else if (opt.stat === 'fire') p.stats.fireMul *= 1.14;
     run.fx.push({ t: 'weapon_mod', id: p.id, label: opt.label, w: 'ALL' });
   } else return false;
+  const mirrorable = ['weapon_upgrade','stat'].includes(String(opt.kind || ''));
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, opt.label, mirrorable, () => applyWeaponChestOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [opt.label], x: Math.round(p.x), y: Math.round(p.y) });
@@ -5535,8 +5842,9 @@ function applyWeaponChestOption(run, players, p, opt) {
 
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
+  const keyUsed = spendBossKey(run, p, o);
   const value = chestValueInfo(run, o);
-  const cost = effectiveChestCost(run, o);
+  const cost = keyUsed ? 0 : effectiveChestCost(run, o);
   if (cost > 0) {
     if (isBloodTaxRoom(run)) {
       const hpCost = bloodTaxHpCost(cost);
@@ -5654,6 +5962,8 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
   return ok;
 }
 
+export { handleRoomWagerAccept };
+
 export function handleRerollOffer(run, players, p, kind = '') {
   if (!p) return false;
   const k = String(kind || '').toLowerCase();
@@ -5677,6 +5987,28 @@ export function handleRerollOffer(run, players, p, kind = '') {
   return true;
 }
 
+
+function applyDevBossReward(run, p, id) {
+  const u = UPGRADES.find(x => x.id === id && x.bossSig);
+  if (!u || !p?.stats) return false;
+  const beforeAegis = aegisCapacity(p);
+  try { u.apply(p.stats); } catch { return false; }
+  const afterAegis = aegisCapacity(p);
+  if (afterAegis !== beforeAegis) {
+    p.aegisShieldMax = afterAegis;
+    p.aegisShield = afterAegis;
+  }
+  if (id === 'sig_mirror_payout') {
+    p.mirrorLoop = roomLoopIndex(run);
+    p.mirrorUsedLoop = 0;
+  }
+  if (id === 'sig_room_wager') p.roomWagerOffer = makeRoomWagerOffer(run, p);
+  const label = u.label || String(id).replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
+  run.fx.push({ t: 'boss_signature', label: `DEV ${label}`, kind: 'dev', choices: [id], playerId: p.id });
+  run.fx.push({ t: 'active_mutation', label: `DEV ${label}`, x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: id === 'sig_kill_switch' ? 'red' : id === 'sig_mirror_payout' ? 'purple' : id === 'sig_boss_key' || id === 'sig_room_wager' ? 'gold' : 'cyan', playerId: p.id });
+  return true;
+}
+
 export function handleDevCommand(run, players, p, cmd = {}) {
   if (!p || !cmd || typeof cmd !== 'object') return false;
   const action = String(cmd.action || '');
@@ -5696,6 +6028,31 @@ export function handleDevCommand(run, players, p, cmd = {}) {
   if (action === 'reset_cd') {
     p.activeCd = 0; p.dashCharges = dashMax(p); p.hp = maxHp(p);
     run.fx.push({ t: 'active_mutation', label: 'DEV READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'green' });
+    return true;
+  }
+  if (action === 'r_ready') {
+    p.rActiveCd = 0;
+    if (p.stats?.rActiveId === 'kill_switch' && !p.stats.killSwitchCharge && p.stats.killSwitchTaken) p.stats.killSwitchCharge = 1;
+    run.fx.push({ t: 'active_mutation', label: 'DEV R READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'cyan', playerId: p.id });
+    return true;
+  }
+  if (action === 'give_boss_reward') {
+    const id = String(cmd.id || '');
+    return applyDevBossReward(run, p, id);
+  }
+  if (action === 'force_room_wager_offer') {
+    p.stats.roomWagerUnlocked = 1;
+    p.roomWagerActive = null;
+    p.roomWagerOffer = makeRoomWagerOffer(run, p);
+    if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
+    run.fx.push({ t: 'active_mutation', label: 'DEV ROOM WAGER OFFER', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'gold', playerId: p.id });
+    return true;
+  }
+  if (action === 'reset_kill_switch_flag') {
+    p.stats.killSwitchTaken = 0;
+    p.stats.killSwitchCharge = 0;
+    if (p.stats.rActiveId === 'kill_switch') { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; }
+    run.fx.push({ t: 'active_mutation', label: 'DEV KILL SWITCH RESET', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'red', playerId: p.id });
     return true;
   }
   if (action === 'open_portal') {
@@ -5788,20 +6145,19 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'give_all_signatures') {
-    for (const id of BOSS_SIGNATURE_UPGRADE_IDS) {
-      const u = UPGRADES.find(x => x.id === id);
-      if (u) { try { u.apply(p.stats); } catch {} }
-    }
-    run.fx.push({ t: 'boss_signature', label: 'DEV SIGNATURES', kind: 'dev', choices: BOSS_SIGNATURE_UPGRADE_IDS.slice(0, 3) });
+    for (const id of BOSS_SIGNATURE_UPGRADE_IDS) applyDevBossReward(run, p, id);
+    run.fx.push({ t: 'boss_signature', label: 'DEV ALL BOSS REWARDS', kind: 'dev', choices: BOSS_SIGNATURE_UPGRADE_IDS.slice(0, BOSS_SIGNATURE_CHOICE_COUNT) });
     return true;
   }
   if (action === 'boss_signature_offer') {
     p.bossSignaturePending = true;
     p.bossSignatureKind = String(cmd.kind || run.bossKind || run.lastBossKind || 'boss');
-    p.bossSignatureChoices = bossSignatureChoicesForKind(p.bossSignatureKind, Math.random);
+    const forced = Array.isArray(cmd.force) ? cmd.force.filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p)).slice(0, BOSS_SIGNATURE_CHOICE_COUNT) : [];
+    const rolled = bossSignatureChoicesForKind(p.bossSignatureKind, Math.random, p);
+    p.bossSignatureChoices = [...forced, ...rolled.filter(id => !forced.includes(id))].slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
     p.offer = makeBossSignatureOffer(run, p);
     if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
-    run.fx.push({ t: 'boss_signature', label: 'DEV SIGNATURE OFFER', kind: p.bossSignatureKind, choices: p.bossSignatureChoices });
+    run.fx.push({ t: 'boss_signature', label: forced.length ? 'DEV FORCED SIGNATURE OFFER' : 'DEV SIGNATURE OFFER', kind: p.bossSignatureKind, choices: p.bossSignatureChoices });
     return true;
   }
   if (action === 'spawn_boss') {
@@ -5969,6 +6325,7 @@ function beginTransition(run, players) {
   }
   if (contractChain >= 3) addRunTape(run, `CONTRACT CHAIN x${contractChain}`, 'gold');
   if (run.skinRoomReward) addRunTape(run, `HIDDEN SKIN ${String(run.skinRoomReward.rarity || '').toUpperCase()}`, 'purple');
+  for (const wp of players.values()) if (wp.connected) settleRoomWager(run, players, wp);
   run.fx.push({ t: 'room_invoice', roomId: run.plan?.roomId || '', solvedTime: Math.round(time), kills: st.kills ?? run.kills, gld: Math.round(st.gld || 0), exp: Math.round(st.exp || 0), hea: Math.round(st.hea || 0), dmg: Math.round(st.damageTaken || 0), noHit, fast, staticPaid: run.staticRainFromPending ? 1 : 0, nextStatic: nextStaticRainLevel(run, players), archetype: run.plan?.roomArchetype || 'standard', shellBreaks: st.shellBreaks || 0, prismHits: st.prismHits || 0, bloodTaxes: st.bloodTaxes || 0, wireTouches: st.wireTouches || 0, huntedWaves: st.huntedWaves || 0, bonusGld, bonusExp, objectiveBonusGld, objectiveBonusExp, contractChain, contractBonusGld, contractBonusExp, contractFavorsEarned: earnedFavors.map(f => favorSnapshotItem(f, false)), objective: objResult ? { id: objResult.id, label: objResult.label, done: objResult.done, status: objResult.done ? 'paid' : 'failed', statusLabel: objResult.done ? 'PAID' : 'FAILED', failReason: objResult.failReason || '', progress: objResult.progress, prizePreview: objResult.prizePreview || [], bonusGld: objectiveBonusGld, bonusExp: objectiveBonusExp } : null, tapes: tapes.slice(0, 4) });
   if (isFinalBossRoom(run)) {
     run.contractFavorsActive = [];
@@ -6013,7 +6370,9 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
   const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
+  const canMirror = upgradeCanMirror(id);
   u.apply(p.stats);
+  useMirrorIfPossible(run, p, u.label, canMirror, () => u.apply(p.stats));
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   if (wasBossSignature) {
@@ -6038,6 +6397,12 @@ function stepInstall(run, players, dt) {
       p.bossSignaturePending = false;
       p.bossSignatureChoices = null;
       continue;
+    }
+    ensureRoomWagerOffer(run, p);
+    if (p.roomWagerOffer && !p.offer) {
+      p.roomWagerOffer.expires = Math.max(0, (p.roomWagerOffer.expires || 12) - dt);
+      if (p.roomWagerOffer.expires <= 0) p.roomWagerOffer = null;
+      else waiting = true;
     }
     ensureInstallOffer(run, p);
     if (!p.offer) continue;
@@ -6673,6 +7038,7 @@ function stepActiveFields(run, players, dt) {
 
 // ---------------------------------------------------------------- players
 function doActive(run, players, p) {
+  if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
   const a = ensureActive(p);
   if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'NO ACTIVE', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
   if (a.core === 'signal_spike') {
@@ -6703,7 +7069,7 @@ function doActive(run, players, p) {
     delete a.voidChain;
   }
   if (p.activeCd > 0) return;
-  p.activeCd = activeCooldown(p);
+  p.activeCd = activeCooldown(p) * Math.max(0.15, Number(p.wagerQCdMul || 1) || 1);
   const ctx = castActiveCore(run, players, p);
   if (a.core === 'void_cut') {
     const max = voidLaserMaxSegments(p);
@@ -6853,6 +7219,7 @@ function stepPlayers(run, players, dt) {
     p.shgLongshotCd = Math.max(0, (p.shgLongshotCd || 0) - dt);
     p.spikePlaceCd = Math.max(0, (p.spikePlaceCd || 0) - dt);
     p.voidChainPlaceCd = Math.max(0, (p.voidChainPlaceCd || 0) - dt);
+    stepRActiveState(run, players, p, dt);
     if (p.active?.core === 'void_cut' && p.active.voidChain && p.active.voidChain.expires <= (run.now || 0)) delete p.active.voidChain;
     if (p.active?.core === 'signal_spike') {
       const a = ensureActive(p);
@@ -6941,6 +7308,7 @@ function stepPlayers(run, players, dt) {
       }
       p.x = c.x; p.y = c.y;
       p.dashCharges--;
+      if (p.wagerStats) p.wagerStats.dash = (p.wagerStats.dash || 0) + 1;
       if (playerSigStack(p, 'sigRedOverdrive') > 0) p.redOverdriveShots = Math.max(p.redOverdriveShots || 0, 1);
       if (playerSigStack(p, 'sigAimGlitch') > 0) p.aimGlitchT = Math.max(p.aimGlitchT || 0, 1.15 + playerSigStack(p, 'sigAimGlitch') * 0.15);
       p.invuln = Math.max(p.invuln, DASH_INVULN);
@@ -6948,6 +7316,8 @@ function stepPlayers(run, players, dt) {
     p.wantDash = false;
     if (p.wantActive && run.phase === 'play') doActive(run, players, p);
     p.wantActive = false;
+    if (p.wantRActive && run.phase === 'play') doRActive(run, players, p);
+    p.wantRActive = false;
     if (p.wantSecondary && run.phase === 'play') doSecondaryWeapon(run, players, p);
     p.wantSecondary = false;
     // weapon switch
@@ -6980,6 +7350,7 @@ export function step(run, players, dt, now) {
     return;
   }
   stepSignatureModules(run, players, dt);
+  stepDecoys(run, dt);
   stepPlayers(run, players, dt);
   stepActiveFields(run, players, dt);
   director(run, players, dt);
@@ -7025,7 +7396,11 @@ export function buildSnapshot(run, players) {
       p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint',
       p.dashCharges < dashMax(p) ? Math.max(0, Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1) - (p.dashTimer || 0)) * 10) / 10) : 0,
       Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) * 10) / 10,
-      String(p.casinoLockSymbol || '').toUpperCase()
+      String(p.casinoLockSymbol || '').toUpperCase(),
+      Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
+      Math.ceil((p.rActiveCd || 0) * 10) / 10,
+      Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
+      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), Math.max(0, p.stats?.bossKeys || 0), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null
     ]);
   }
   const es = combatEnemies(run).map(e => [
@@ -7112,7 +7487,7 @@ export function buildSnapshot(run, players) {
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run), contractWagers: { ...(run.roomContractStakes || {}) },
-      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), playerCombos: playerCombosSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players)
+      runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), playerCombos: playerCombosSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players), decoys: (run.decoys || []).map(d => ({ x: Math.round(d.x), y: Math.round(d.y), t: Math.ceil((d.t || 0) * 10) / 10 }))
     },
     players: ps, enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
   };
