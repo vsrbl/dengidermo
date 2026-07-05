@@ -697,13 +697,13 @@ export class Renderer {
       ctx.strokeStyle = COL.cyan;
       ctx.lineWidth = 2;
       ctx.setLineDash([7, 5, 2, 5]);
-      ctx.strokeRect(dx - 17, dy - 17, 34, 34);
+      ctx.strokeRect(dx - 13, dy - 13, 26, 26);
       ctx.setLineDash([]);
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = COL.cyan;
-      ctx.fillRect(dx - 13, dy - 13, 26, 26);
+      ctx.fillRect(dx - 9, dy - 9, 18, 18);
       ctx.restore();
-      this.label('DECOY', dx, dy - 30, COL.cyan, 8);
+      this.label('DECOY', dx, dy - 24, COL.cyan, 7);
     }
 
     // players + companions

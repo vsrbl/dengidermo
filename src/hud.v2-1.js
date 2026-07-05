@@ -475,6 +475,33 @@ const activeLabel = p => p?.[P.ACTIVELABEL] || activeNoneLabel();
 const activeDesc = p => activeDescFrom(activeLabel(p), p?.[P.ACTIVEDESC] || activeNoneDesc());
 const activeShort = p => locActiveShort(activeLabel(p));
 
+const BOSS_REWARD_HINTS = {
+  'TARGET LOCK': ['R: TARGET LOCK', 'R захватывает врага рядом с курсором. Линия прицела и стрельба смотрят в цель, а не в курсор. Стаки увеличивают длительность захвата.'],
+  'REDLINE BOOST': ['R: REDLINE BOOST', 'R даёт резкое ускорение. Стаки увеличивают скорость и длительность, cooldown остаётся читаемым.'],
+  'GHOST DECOY': ['R: GHOST DECOY', 'Игрок скрывается, на месте остаётся призрак-приманка. Враги полностью переключают агро на призрака.'],
+  'REWIND MARK': ['R: REWIND MARK', 'Первое R ставит метку. Повторное R возвращает игрока назад, раскидывает врагов и станит их.'],
+  'KILL SWITCH': ['R: KILL SWITCH', 'Одноразовая кнопка на весь run: очищает экран от врагов, включая босса. После выбора больше не появляется в этом run.'],
+  'SPAWN HOLD': ['SPAWN HOLD', 'Spawn-warning поля висят намного дольше. Враги появляются позже, room tempo становится читаемым. Стаки усиливают задержку.'],
+  'AEGIS PROCESS': ['AEGIS PROCESS', 'Даёт player shell-shield в стиле вражеской брони. Каждый стак добавляет +45 к ёмкости щита.'],
+  'MIRROR PAYOUT': ['MIRROR PAYOUT', 'Копирует следующую стакаемую награду с выбором. Charge тратится один раз за loop и восстанавливается в начале нового loop. UNIQUE-награды тратят charge без копии.'],
+  'NULL REVIVAL': ['NULL REVIVAL', 'Вторая жизнь. При смерти отменяет game over, возвращает с 45% HP, чистит пули рядом и тратит один charge.'],
+  'ROOM WAGER': ['ROOM WAGER', 'Открывает ставку справа от INSTALL: одна кнопка, случайная ставка/условие/приз. Ставка теряется только при провале.'],
+  'BOSS KEY': ['BOSS KEY', 'Первый сундук в loop автоматически становится бесплатным, максимальной редкости и 5-slot. Каждый стак даёт +1 ключ.']
+};
+function bossRewardHint(label = '') {
+  const key = String(label || '').toUpperCase().replace(/\s+\d+\/\d+$|\s+X\d+$/i, '').trim();
+  return BOSS_REWARD_HINTS[key] || [label || 'BOSS REWARD', 'Сильная награда после босса.'];
+}
+function casinoLockParts(raw = '') {
+  const s = String(raw || '').toUpperCase().trim();
+  if (!s) return { symbol: '', count: 0, label: '—' };
+  const m = s.match(/^(.+?)\s+X(\d+)$/i);
+  if (m) return { symbol: m[1].trim(), count: Math.max(1, Number(m[2]) || 1), label: s };
+  const plus = s.includes('+') ? s.split('+').map(x => x.trim()).filter(Boolean) : [];
+  if (plus.length) return { symbol: plus[0], count: plus.length, label: s };
+  return { symbol: s, count: 1, label: s };
+}
+
 export class Hud {
   constructor(net, audio = null) {
     this.net = net;
@@ -488,6 +515,7 @@ export class Hud {
     this.wasAlive = true;
     this.casino = { open: false, spinning: false, betId: null, spinToken: 0, timeout: null, lastResultSeq: 0, reelTimers: [] };
     this.casinoLockSymbol = '';
+    this.casinoLockSpinSymbol = '';
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: false };
     this.installSyncKey = '';
     this.installSyncSeenAt = 0;
@@ -724,6 +752,23 @@ export class Hud {
   }
 
 
+  positionRoomWagerCard() {
+    const card = $('room-wager-card');
+    if (!card || card.classList.contains('hidden')) return;
+    const modal = $('install-modal');
+    const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
+    if (!panel) { card.style.left = ''; card.style.top = ''; card.style.right = ''; card.style.bottom = ''; card.style.transform = ''; return; }
+    const r = panel.getBoundingClientRect();
+    const w = card.offsetWidth || 286;
+    const gap = 14;
+    const left = Math.min(window.innerWidth - w - 18, Math.max(18, r.right + gap));
+    card.style.left = `${Math.round(left)}px`;
+    card.style.right = 'auto';
+    card.style.top = `${Math.max(18, Math.round(r.top))}px`;
+    card.style.bottom = 'auto';
+    card.style.transform = 'none';
+  }
+
   // ------------------------------------------------- per-frame update
   update(state, dt) {
     const me = state.me();
@@ -763,7 +808,7 @@ export class Hud {
       });
     }
     this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
-    if (this.casino.open) this.updateCasinoLockBadge(this.casinoLockSymbol);
+    if (this.casino.open) this.updateCasinoLockBadge(this.casino.spinning ? (this.casinoLockSpinSymbol || this.casinoLockSymbol) : this.casinoLockSymbol);
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
     const obj = $('hud-objective');
     const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. После зачистки появится отдельная карточка скина, даже если выбора улучшения нет.', 'This room has a hidden skin. After the room is solved, a separate skin card appears even if there is no INSTALL choice.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
@@ -841,7 +886,7 @@ export class Hud {
     if (sw) {
       sw.classList.toggle('hidden', shm <= 0);
       $('shield-bar').style.width = shm > 0 ? Math.max(0, sh / shm * 100) + '%' : '0%';
-      $('shield-text').textContent = `SHIELD ${sh} / ${shm}`;
+      $('shield-text').textContent = `${sh} / ${shm}`;
     }
     $('hp-bar').style.width = Math.max(0, hp / mhp * 100) + '%';
     $('hp-text').textContent = `${hp} / ${mhp}`;
@@ -853,30 +898,42 @@ export class Hud {
     if (rEl) {
       const rLabel = String(me[P.RLABEL] || 'R EMPTY');
       const rCd = Number(me[P.RCD] || 0), rT = Number(me[P.RT] || 0);
+      const hasR = rLabel && rLabel !== 'R EMPTY';
       const meta = [];
-      if (rT > 0) meta.push(`${rT}s`);
-      else if (rCd > 0) meta.push(`${rCd}s`);
+      if (rT > 0) meta.push(`${rT}s ACTIVE`);
+      else if (rCd > 0) meta.push(`${rCd}s CD`);
+      else if (hasR) meta.push('READY');
       if (me[P.MIRRORMAX] > 0) meta.push(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`);
-      if (me[P.REVIVE] > 0) meta.push(`REVIVE ${me[P.REVIVE]}`);
-      if (me[P.BOSSKEY] > 0) meta.push(`KEY ${me[P.BOSSKEY]}`);
-      if (rLabel && rLabel !== 'R EMPTY') { rEl.textContent = `${rLabel}${meta.length ? ' · ' + meta.join(' · ') : ''}`; rEl.classList.remove('hidden'); }
-      else if (meta.length) { rEl.textContent = meta.join(' · '); rEl.classList.remove('hidden'); }
-      else rEl.classList.add('hidden');
-      rEl.dataset.explain = String(me[P.RDESC] || rEl.textContent || '');
+      if (me[P.REVIVE] > 0) meta.push(`REVIVE x${me[P.REVIVE]}`);
+      if (me[P.BOSSKEY] > 0) meta.push(`KEY x${me[P.BOSSKEY]}`);
+      if (hasR || meta.length) {
+        rEl.classList.remove('hidden', 'ready', 'cooldown', 'active', 'empty');
+        rEl.classList.add(rT > 0 ? 'active' : rCd > 0 ? 'cooldown' : hasR ? 'ready' : 'empty');
+        rEl.innerHTML = `<span class="r-key">R</span><span class="r-main"><b>${esc(hasR ? locLabel(rLabel) : localText('ПАССИВКИ БОССА', 'BOSS PASSIVES'))}</b><em>${esc(meta.join(' · ') || '—')}</em></span>`;
+      } else rEl.classList.add('hidden');
+      const body = `${String(me[P.RDESC] || '').trim()}${me[P.MIRRORMAX] > 0 ? `
+MIRROR: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge в этом loop.` : ''}${me[P.REVIVE] > 0 ? `
+NULL REVIVAL: ${me[P.REVIVE]} charge.` : ''}${me[P.BOSSKEY] > 0 ? `
+BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
+      this.setExplain(rEl, hasR ? locLabel(rLabel) : localText('БОНУСЫ БОССА', 'BOSS BONUSES'), body || rEl.textContent || '', hasR ? 'cyan' : 'gold');
     }
     const wagerCard = $('room-wager-card');
     if (wagerCard) {
       const offer = me[P.ROOMWAGER];
       const activeWager = me[P.ACTIVEWAGER];
       if (offer && room.phase === 'install') {
-        wagerCard.classList.remove('hidden');
-        wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept">ACCEPT</button>`;
-        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', () => this.net?.sendRoomWager?.(offer.id || 0), { once: true });
+        wagerCard.classList.remove('hidden', 'active');
+        wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
+        this.setExplain(wagerCard, 'ROOM WAGER', localText('Ставка не платится сразу. Если условие выполнено — получаешь приз. Если провалено — теряешь ставку.', 'Stake is paid only on failure. Complete the condition to get the prize.'), 'gold');
+        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.net?.sendRoomWager?.(offer.id || 0); }, { once: true });
       } else if (activeWager) {
         wagerCard.classList.remove('hidden');
+        wagerCard.classList.add('active');
         wagerCard.innerHTML = `<div class="wager-title active">WAGER ACTIVE</div><div class="wager-body">${esc(activeWager.text || '')}</div>`;
+        this.setExplain(wagerCard, 'WAGER ACTIVE', localText('Условие отслеживается в текущей комнате. При провале будет списана ставка.', 'The condition is being tracked in this room. The stake is lost only on failure.'), 'cyan');
       } else { wagerCard.classList.add('hidden'); wagerCard.innerHTML = ''; }
     }
+    this.positionRoomWagerCard();
     const inst = $('hud-install');
     if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');
@@ -895,17 +952,32 @@ export class Hud {
       this.installSyncKey = '';
       this.installSyncSeenAt = 0;
     }
-    const shouldShowDataLoading = room.phase === 'install' && wait && myWait?.waiting && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
+    const multiplayerWait = wait && Math.max(1, wait.total || 1) > 1 && this.net?.mode !== 'solo';
+    const shouldShowDataLoading = room.phase === 'install' && multiplayerWait && myWait?.waiting && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
     if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
     else if (shouldShowDataLoading) this.showInstallDataLoading(wait, me[P.ID]);
     else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
     const sigEl = $('hud-signatures');
     if (sigEl) {
-      const sigs = Array.isArray(room.signaturesActive) ? room.signaturesActive.slice(0, 10) : [];
-      if (sigs.length) {
+      const rawSigs = Array.isArray(room.signaturesActive) ? room.signaturesActive.slice(0, 12) : [];
+      const badges = [];
+      const seen = new Set();
+      const addBadge = (label, body = '', tone = 'gold') => {
+        const k = String(label || '').toUpperCase();
+        if (!k || seen.has(k)) return;
+        seen.add(k);
+        const h = bossRewardHint(k);
+        badges.push({ label, title: h[0], body: body || h[1], tone });
+      };
+      for (const x of rawSigs) addBadge(x, '', String(x).includes('MIRROR') ? 'purple' : 'gold');
+      if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно в этом loop. Копирует только стакаемые награды с выбором.`, me[P.MIRROR] > 0 ? 'purple' : '');
+      if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
+      if (me[P.BOSSKEY] > 0) addBadge(`KEY x${me[P.BOSSKEY]}`, `BOSS KEY: ${me[P.BOSSKEY]} ключ. Первый сундук в loop станет бесплатным и max rarity.`, 'gold');
+      if (me[P.SHIELDMAX] > 0) addBadge(`AEGIS ${me[P.SHIELD]}/${me[P.SHIELDMAX]}`, `AEGIS PROCESS: shell-shield игрока. Каждый стак даёт +45 shield capacity.`, 'cyan');
+      if (badges.length) {
         sigEl.classList.remove('hidden');
-        sigEl.innerHTML = sigs.map(x => `<span>${esc(locLabel(x))}</span>`).join('');
-        this.setExplain(sigEl, localText('СИГНАТУРЫ УГРОЗ', 'THREAT SIGNATURES'), sigs.map(x => locLabel(x)).join('\n'), 'gold');
+        sigEl.innerHTML = badges.map(b => `<span class="term ${esc(b.tone || '')}" data-explain-title="${esc(b.title)}" data-explain="${esc(b.body)}"${b.tone ? ` data-explain-tone="${esc(b.tone)}"` : ''}>${esc(locLabel(b.label))}</span>`).join('');
+        this.setExplain(sigEl, localText('СИГНАТУРЫ БОССОВ', 'BOSS SIGNATURES'), badges.map(b => `${locLabel(b.label)}: ${b.body}`).join('\n'), 'gold');
       } else { sigEl.classList.add('hidden'); sigEl.innerHTML = ''; }
     }
     const favorEl = $('hud-favor');
@@ -1543,7 +1615,8 @@ export class Hud {
     const waitEl = $('install-wait');
     if (waitEl) {
       waitEl.className = 'install-wait done' + (this.install.bossSignature ? ' boss' : '');
-      waitEl.innerHTML = `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b><br>${esc(localText('ЖДЁМ ПОДТВЕРЖДЕНИЕ СЕТИ', 'WAITING FOR NETWORK CONFIRM'))}`;
+      const solo = this.net?.mode === 'solo';
+      waitEl.innerHTML = solo ? `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b>` : `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b><br>${esc(localText('ЖДЁМ ОСТАЛЬНЫХ', 'WAITING FOR OTHERS'))}`;
     }
     this.net.sendPick(i, this.install.offerId || 0);
   }
@@ -1891,9 +1964,10 @@ export class Hud {
     el.classList.remove('hidden', 'active', 'used', 'empty');
     el.setAttribute('aria-hidden', 'false');
     if (s) {
+      const lp = casinoLockParts(s);
       el.classList.add('active');
-      el.innerHTML = `<b>LOCK</b><span>${esc(s)}</span><em>${esc(localText('следующая ставка', 'next bet'))}</em>`;
-      this.setExplain(el, 'LOCK', localText(`Следующая ставка начнётся с ${s}.`, `Next bet starts with ${s}.`), 'cyan');
+      el.innerHTML = `<b>LOCK</b><span>${esc(lp.label)}</span><em>${esc(lp.count > 1 ? localText('стак фиксации', 'stacked lock') : localText('следующая ставка', 'next bet'))}</em>`;
+      this.setExplain(el, 'LOCK', localText(`Следующая ставка начнётся с ${lp.label}. Если LOCK стакнут, используется один заряд за ставку.`, `Next bet starts with ${lp.label}. If LOCK is stacked, one charge is used per bet.`), 'cyan');
       return;
     }
     if (used) {
@@ -1943,6 +2017,7 @@ export class Hud {
     modal.classList.remove('hidden', 'bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
     this.setCasinoPanelState(localText('ГОТОВ К СТАВКЕ', 'READY'), '');
     this.updateCasinoHelpLanguage();
+    this.casinoLockSpinSymbol = '';
     this.updateCasinoLockBadge(this.casinoLockSymbol);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('ВЫБЕРИ СТАВКУ', 'CHOOSE BET'))}</span>`;
@@ -1957,6 +2032,7 @@ export class Hud {
     const modal = $('casino-modal');
     modal.classList.add('hidden');
     modal.classList.remove('bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
+    this.casinoLockSpinSymbol = '';
     this.updateCasinoLockBadge('');
     this.hideTip();
   }
@@ -1970,6 +2046,8 @@ export class Hud {
     modal.classList.remove('bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
     modal.classList.add('bet-running');
     this.setCasinoPanelState(localText('СТАВКА', 'BET'), stake === 'high' ? 'red' : stake === 'mid' ? 'gold' : 'green');
+    this.casinoLockSpinSymbol = this.casinoLockSymbol;
+    this.updateCasinoLockBadge(this.casinoLockSpinSymbol || this.casinoLockSymbol);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
@@ -2087,7 +2165,8 @@ export class Hud {
       this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       if (pl.lockSymbol) { this.casinoLockSymbol = String(pl.lockSymbol).toUpperCase(); this.updateCasinoLockBadge(this.casinoLockSymbol); }
-      else if (f.lockUsed) { this.casinoLockSymbol = ''; this.updateCasinoLockBadge('', true); }
+      else if (f.lockUsed) { this.casinoLockSymbol = '';
+    this.casinoLockSpinSymbol = ''; this.updateCasinoLockBadge('', true); }
       this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
     }, 640);
     this.casino.reelTimers.push(timer);

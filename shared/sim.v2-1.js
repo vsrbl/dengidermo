@@ -491,6 +491,40 @@ function casinoLockOptionsForStake(stakeKey = 'low') {
   if (stakeKey === 'mid') return ['RAR','WPN','ABL','GLD','EXP','HEA'];
   return ['WPN','GLD','EXP','HEA'];
 }
+
+function casinoLockStackForPlayer(p) {
+  if (!p) return [];
+  if (!Array.isArray(p.casinoLockStack)) {
+    const legacy = String(p.casinoLockSymbol || '').toUpperCase().replace(/\s+X\d+$/i, '').trim();
+    p.casinoLockStack = legacy ? [legacy] : [];
+  }
+  p.casinoLockStack = p.casinoLockStack.map(x => String(x || '').toUpperCase().replace(/\s+X\d+$/i, '').trim()).filter(Boolean).slice(0, 9);
+  p.casinoLockSymbol = p.casinoLockStack[0] || '';
+  return p.casinoLockStack;
+}
+function casinoLockFirstForPlayer(p) { return casinoLockStackForPlayer(p)[0] || ''; }
+function casinoLockDisplayForPlayer(p) {
+  const st = casinoLockStackForPlayer(p);
+  if (!st.length) return '';
+  const first = st[0];
+  const same = st.every(x => x === first);
+  if (same) return st.length > 1 ? `${first} x${st.length}` : first;
+  return st.length > 3 ? `${st.slice(0, 3).join('+')} +${st.length - 3}` : st.join('+');
+}
+function casinoLockPushForPlayer(p, sym) {
+  const s = String(sym || '').toUpperCase().replace(/\s+X\d+$/i, '').trim();
+  if (!s) return '';
+  const st = casinoLockStackForPlayer(p);
+  st.push(s);
+  p.casinoLockSymbol = st[0] || '';
+  return s;
+}
+function casinoLockConsumeForPlayer(p) {
+  const st = casinoLockStackForPlayer(p);
+  const used = st.shift() || '';
+  p.casinoLockSymbol = st[0] || '';
+  return used;
+}
 function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   const rng = Math.random;
   const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 1);
@@ -3659,7 +3693,7 @@ function rActiveDesc(p) {
 function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
 function redlineDuration(p) { return Math.round((3 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1) * 10) / 10; }
 function redlineSpeedMul(p) { return 1 + (0.60 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.25); }
-function ghostDecoyDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
+function ghostDecoyDuration(p) { return Math.round((4.2 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1.4) * 10) / 10; }
 function rewindWindow(p) { return Math.round((6 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
 function rewindStun(p) { return Math.round((1.0 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.3) * 10) / 10; }
 function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45); }
@@ -3759,7 +3793,7 @@ function doRActive(run, players, p) {
     p.ghostT = dur;
     p.rActiveCd = 22;
     if (!Array.isArray(run.decoys)) run.decoys = [];
-    run.decoys.push({ id: `decoy:${p.id}:${run.tick || 0}`, owner: p.id, x: p.x, y: p.y, alive: true, t: dur, size: 28, weapons: p.weapons, weaponIdx: p.weaponIdx, decoy: 1 });
+    run.decoys.push({ id: `decoy:${p.id}:${run.tick || 0}`, owner: p.id, x: p.x, y: p.y, alive: true, t: dur, size: 22, weapons: p.weapons, weaponIdx: p.weaponIdx, decoy: 1 });
     run.fx.push({ t: 'active_mutation', label: 'GHOST DECOY', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan', playerId: p.id });
     return true;
   }
@@ -3788,10 +3822,16 @@ function doRActive(run, players, p) {
     p.stats.killSwitchCharge = 0;
     p.stats.rActiveId = '';
     p.rActiveCd = 0;
-    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH', x: Math.round(p.x), y: Math.round(p.y), r: 560, tone: 'red', playerId: p.id });
+    run.fx.push({ t: 'kill_switch_screen', id: p.id, x: Math.round(p.x), y: Math.round(p.y), label: 'KILL SWITCH' });
+    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH', x: Math.round(p.x), y: Math.round(p.y), r: 560, tone: 'red', playerId: p.id, noFloat: 1 });
     for (const b of run.bullets) if (b.from === 'e') b.life = -1;
-    for (const e of [...live]) if (e.hp > 0) damageEnemy(run, players, e, Math.max(99999, (e.maxHp || e.hp || 1) * 20), p.id, 0, 0, 0, 'kill_switch');
-    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH USED', x: Math.round(p.x), y: Math.round(p.y), r: 620, tone: 'red', playerId: p.id });
+    let guard = 0;
+    while (run.enemies.some(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0) && guard++ < 700) {
+      const batch = run.enemies.filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0);
+      for (const e of batch) if (run.enemies.includes(e)) killEnemy(run, players, e, p, 'kill_switch');
+    }
+    run.fx.push({ t: 'active_mutation', label: 'FIELD CLEARED', x: Math.round(p.x), y: Math.round(p.y), r: 620, tone: 'red', playerId: p.id, noFloat: 1 });
+    tryCleanupPortal(run);
     return true;
   }
   return false;
@@ -4104,8 +4144,8 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   if (e.kind === 'splitter' && (e.splitStage || 0) < 2) {
     const children = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < children && run.enemies.length < MAX_ENEMIES; i++) {
-      const ch = spawnEnemy(run, players, 'splitter', false);
-      ch.x = e.x + (Math.random() - 0.5) * 70; ch.y = e.y + (Math.random() - 0.5) * 70;
+      const ch = spawnEnemy(run, players, 'splitter', false, { x: e.x + (Math.random() - 0.5) * 70, y: e.y + (Math.random() - 0.5) * 70 }, { noSpawnWarn: true, noArmor: true });
+      ch.spawnDelay = 0;
       ch.splitStage = (e.splitStage || 0) + 1;
       ch.size = Math.max(16, Math.round(e.size * 0.68));
       ch.maxHp = Math.max(10, Math.round(e.maxHp * 0.38)); ch.hp = ch.maxHp;
@@ -6210,9 +6250,9 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     }
     p.economy.money -= stake;
   }
-  const priorLock = String(p.casinoLockSymbol || '').toUpperCase();
+  const priorLock = casinoLockFirstForPlayer(p);
   let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { lockSymbol: priorLock });
-  if (res.usedLock) p.casinoLockSymbol = '';
+  if (res.usedLock) casinoLockConsumeForPlayer(p);
   res.stake = stake;
   const pl = res.payload;
   const stakeScale = Math.max(1, stake / Math.max(1, baseStake));
@@ -6222,7 +6262,18 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   if (pl.gld) p.economy.money += pl.gld;
   if (pl.xp) addXp(run, p, pl.xp);
   if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
-  if (pl.lock) { const opts = casinoLockOptionsForStake(stakeKey); p.casinoLockSymbol = opts[Math.floor(Math.random() * opts.length)] || 'WPN'; pl.lockSymbol = p.casinoLockSymbol; pl.lockLabel = `LOCK: ${p.casinoLockSymbol}`; res.symbols = ['LOCK', p.casinoLockSymbol, 'NEXT']; }
+  if (pl.lock) {
+    const opts = casinoLockOptionsForStake(stakeKey);
+    const lockSym = casinoLockPushForPlayer(p, opts[Math.floor(Math.random() * opts.length)] || 'WPN');
+    const extraChance = stakeKey === 'high' ? 0.42 : stakeKey === 'mid' ? 0.24 : 0.10;
+    let added = 1;
+    if (Math.random() < extraChance) { casinoLockPushForPlayer(p, opts[Math.floor(Math.random() * opts.length)] || lockSym); added++; }
+    pl.lockSymbol = lockSym;
+    pl.lockCount = casinoLockStackForPlayer(p).length;
+    pl.lockAdded = added;
+    pl.lockLabel = `LOCK: ${lockSym}${pl.lockCount > 1 ? ' x' + pl.lockCount : ''}`;
+    res.symbols = ['LOCK', lockSym, added > 1 ? 'x2' : 'NEXT'];
+  }
   if (pl.comboLink) { p.casinoComboLink = 1; pl.comboLabel = 'NEXT COMBO PAYOUT x2 IF NOT HIT'; }
   if (pl.rare) { pl.rareLabel = grantRareCasinoPrize(run, p, 'CASINO RAR'); }
   if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
@@ -6245,7 +6296,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     run.fx.push({ t: 'contract_wager', id: p.id, name: p.name || '', stake, total: run.roomContractStakes[p.id], label: run.roomObjective.label || 'SIGNAL CONTRACT' });
   }
   const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
-  const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, lockUsed: res.usedLock ? 1 : 0, lockSymbol: res.lockSymbol || priorLock || '', hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
+  const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, lockUsed: res.usedLock ? 1 : 0, lockSymbol: res.lockSymbol || priorLock || '', lockLeft: casinoLockDisplayForPlayer(p), hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
   run.fx.push(fx);
   return fx;
 }
@@ -7398,7 +7449,7 @@ export function buildSnapshot(run, players) {
       p.skin?.fill || '#f3f3f3', p.skin?.outline || '#00ff66', p.skin?.barrel || '#00ff66', p.skin?.id || 'terminal_mint',
       p.dashCharges < dashMax(p) ? Math.max(0, Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1) - (p.dashTimer || 0)) * 10) / 10) : 0,
       Math.ceil((DASH_REGEN / Math.max(0.25, p.stats.dashRegenMul || 1)) * 10) / 10,
-      String(p.casinoLockSymbol || '').toUpperCase(),
+      casinoLockDisplayForPlayer(p),
       Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,

@@ -28,6 +28,7 @@ export class Effects {
     this.zoomKick = 0;
     this.levelPulse = 0;
     this.levelLabel = '';
+    this.killSwitchFlash = 0;
   }
 
   add(e) { this.list.push({ ...e, t: 0 }); if (this.list.length > 200) this.list.shift(); }
@@ -49,6 +50,7 @@ export class Effects {
     this.zoomKick = Math.max(0, this.zoomKick - 3 * dt);
     this.levelPulse = Math.max(0, this.levelPulse - 1.35 * dt);
     this.levelEdge = Math.max(0, this.levelEdge - 1.45 * dt);
+    this.killSwitchFlash = Math.max(0, this.killSwitchFlash - 1.85 * dt);
     if (this.sweep > 0) { this.sweep += dt * 1.6; if (this.sweep >= 1) this.sweep = 0; }
   }
 
@@ -329,9 +331,13 @@ export class Effects {
       case 'active_mutation': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : f.tone === 'purple' ? '#b45cff' : '#66f6ff';
         this.add({ kind: f.squareBlast ? 'rocketBlast' : 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 95, ttl: f.squareBlast ? 0.22 : 0.24, color: col });
-        if (f.label) this.float(f.x, f.y - 42, f.label, col, 10);
+        if (f.label && !f.noFloat) this.float(f.x, f.y - 42, f.label, col, 10);
         break;
       }
+      case 'kill_switch_screen':
+        if (mine) { this.killSwitchFlash = 1; this.slam = Math.max(this.slam, 0.35); this.kick(14); }
+        this.add({ kind: 'squareField', activeKind: 'kill_switch_screen', x: f.x, y: f.y, r: 640, ttl: 0.55, color: '#ff3048' });
+        break;
       case 'enemy_combo':
         // Hidden: synergy labels around mobs were too noisy for normal play.
         break;
@@ -1117,6 +1123,25 @@ export class Effects {
       ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 3);
       ctx.font = `bold 9px 'Courier New', monospace`;
       ctx.fillText(localText('УЛУЧШЕНИЕ ГОТОВО', 'INSTALL READY'), cx, cy + 12);
+      ctx.restore();
+    }
+    if (this.killSwitchFlash > 0) {
+      const p = this.killSwitchFlash;
+      ctx.save();
+      ctx.fillStyle = `rgba(255,48,72,${0.18 * p})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 0.80 * p;
+      ctx.strokeStyle = '#ff3048';
+      ctx.lineWidth = 2;
+      const step = 42;
+      for (let x = -step; x < w + step; x += step) ctx.strokeRect(Math.round(x + (1 - p) * 24), Math.round(h * 0.18), 18, Math.round(h * 0.64));
+      ctx.font = `bold ${Math.round(18 + 10 * p)}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(243,243,243,${0.95 * p})`;
+      ctx.fillText('KILL SWITCH', w / 2, h * 0.38);
+      ctx.font = `bold 11px 'Courier New', monospace`;
+      ctx.fillText('FIELD CLEARED', w / 2, h * 0.38 + 26);
       ctx.restore();
     }
     if (this.slam > 0) {
