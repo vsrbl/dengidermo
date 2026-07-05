@@ -52,8 +52,8 @@ function netStatus(key) { const v = NET_STATUS[key] || NET_STATUS.error; return 
 function setStatus(text, cls = '') { status.textContent = Array.isArray(text) ? (getLang() === 'en' ? text[1] : text[0]) : text; status.className = cls; }
 function setMenuVersion(server = null) {
   if (!menuVersion) return;
-  const online = server ? localText('В СЕТИ', 'ONLINE') : localText('ПРОВЕРКА', 'CHECKING');
-  menuVersion.textContent = `${localText('ВЕРСИЯ', 'VERSION')} ${VERSION} · ${online}`;
+  // v2.1.75: keep this plate short and stable. Network status belongs to #menu-status.
+  menuVersion.textContent = `${localText('ВЕРСИЯ', 'VERSION')} ${VERSION}`;
 }
 setMenuVersion();
 

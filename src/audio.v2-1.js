@@ -136,7 +136,7 @@ export class AudioBus {
     if (!this.ctx) {
       this.ctx = new Ctx();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.36;
+      this.master.gain.value = 0.72; // v2.1.75: global game loudness x2
       this.sfxGain = this.ctx.createGain();
       this.musicGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
@@ -7351,7 +7351,7 @@ AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2173(elId 
     events: {
       onReady: () => {
         this.ytMusic.ready = true;
-        try { this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100)); } catch {}
+        try { this.ytMusic.player.setVolume(Math.min(100, Math.round((this.musicVolume || 0.7) * 200))); } catch {}
         const id = this.parseYouTubePlaylistId(this.ytMusic.playlist || '');
         if (id) { try { this.ytMusic.player.cuePlaylist({ listType: 'playlist', list: id }); } catch {} }
       },
@@ -7374,7 +7374,7 @@ AudioBus.prototype.loadYouTubePlaylist = async function loadYouTubePlaylistV2173
   await this.initYouTubeMusic();
   try {
     if (this.ytMusic.player?.cuePlaylist) this.ytMusic.player.cuePlaylist({ listType: 'playlist', list: id });
-    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100));
+    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.min(100, Math.round((this.musicVolume || 0.7) * 200)));
   } catch {}
   return { ok: true, playlist: id };
 };
@@ -7383,7 +7383,7 @@ AudioBus.prototype.playYouTube = async function playYouTubeV2173() {
   this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
   await this.initYouTubeMusic();
   try {
-    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.round((this.musicVolume || 0.7) * 100));
+    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.min(100, Math.round((this.musicVolume || 0.7) * 200)));
     if (this.ytMusic.player?.playVideo) this.ytMusic.player.playVideo();
     this.ytMusic.active = true;
     return true;
@@ -7403,6 +7403,6 @@ AudioBus.prototype.toggleYouTube = async function toggleYouTubeV2173() {
 const setMusicVolumeBeforeV2173Youtube = AudioBus.prototype.setMusicVolume;
 AudioBus.prototype.setMusicVolume = function setMusicVolumeV2173Youtube(value) {
   const v = setMusicVolumeBeforeV2173Youtube.call(this, value);
-  try { this.ytMusic?.player?.setVolume?.(Math.round((this.musicVolume || 0) * 100)); } catch {}
+  try { this.ytMusic?.player?.setVolume?.(Math.min(100, Math.round((this.musicVolume || 0) * 200))); } catch {}
   return v;
 };
