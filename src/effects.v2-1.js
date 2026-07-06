@@ -294,7 +294,12 @@ export class Effects {
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 50 + (f.count || 1) * 4, ttl: 0.18, color: '#66f6ff' });
         break;
       case 'active': {
-        if (mine) { this.sweep = 0.01; this.sweepColor = f.label && f.label.includes('BLOOD') ? '#ff3048' : '#66f6ff'; this.kick(5); }
+        const activeLabel = String(f.label || '').toUpperCase();
+        const noScreenSweep = activeLabel.includes('FIELD SNAP');
+        if (mine) {
+          if (!noScreenSweep) { this.sweep = 0.01; this.sweepColor = activeLabel.includes('BLOOD') ? '#ff3048' : '#66f6ff'; }
+          this.kick(noScreenSweep ? 3 : 5);
+        }
         const isBox = f.kind === 'black_box' || String(f.label || '').includes('BLACK BOX');
         const isFreeze = f.kind === 'freeze_aura' || String(f.label || '').includes('FREEZE');
         const col = isBox ? '#b45cff' : f.label && f.label.includes('BLOOD') ? '#ff3048' : (f.label && f.label.includes('RIPPER') ? '#b45cff' : '#66f6ff');
@@ -425,6 +430,22 @@ export class Effects {
         break;
       case 'casino_tick':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 75, ttl: 0.32, color: f.good ? '#00ff66' : '#b45cff' });
+        break;
+      case 'casino_overload':
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 260, ttl: 0.95, color: '#ff3048' });
+        this.add({ kind: 'ring', x: f.sx || f.x, y: f.sy || f.y, r: 120, ttl: 0.75, color: '#ffd34d' });
+        this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
+        this.slam = 0.65; this.kick(14);
+        break;
+      case 'slot_mob_roll':
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 74, ttl: 0.34, color: '#ffd34d' });
+        this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
+        break;
+      case 'slot_mob_rebuild':
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: 115, ttl: 0.62, color: '#ffd34d' });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.72, color: '#b45cff' });
+        this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
+        this.kick(f.spawn ? 9 : 6);
         break;
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });

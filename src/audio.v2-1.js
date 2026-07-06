@@ -473,6 +473,16 @@ export class AudioBus {
         this.tone(220, 0.09, 'square', 0.055, 0.72);
         this.tone(110, 0.11, 'square', 0.045, 0.62, 0.05);
         break;
+      case 'slot_overload':
+        // Creepy broken-slot melody: descending dry square tones + dirty static tail.
+        this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.55);
+        this.tone(246.94, 0.120, 'square', 0.050, 0.72, 0.000);
+        this.tone(233.08, 0.120, 'square', 0.048, 0.68, 0.085);
+        this.tone(174.61, 0.145, 'sawtooth', 0.052, 0.58, 0.185);
+        this.tone(116.54, 0.220, 'square', 0.048, 0.50, 0.330);
+        this.noise(0.150, 0.110, 620, 2.4, 0.090);
+        this.noise(0.090, 0.030, 4200, 9.5, 0.285);
+        break;
       case 'active_snap':
         this.tone(250, 0.08, 'square', 0.07, 1.9);
         this.noise(0.065, 0.04, 3600, 8);
@@ -995,6 +1005,9 @@ export class AudioBus {
         // outcome sounds here immediately when the authoritative result packet arrives.
         break;
       case 'casino_tick': this.play(f.good ? 'casino_win' : 'casino_static'); break;
+      case 'casino_overload': this.play('slot_overload'); break;
+      case 'slot_mob_roll': this.play('casino_spin'); break;
+      case 'slot_mob_rebuild': this.play(f.spawn ? 'slot_overload' : 'casino_static'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
       case 'rain_hit': this.play('static_storm'); this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.18); break;

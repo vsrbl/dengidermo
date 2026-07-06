@@ -1108,10 +1108,10 @@ export class Hud {
     }
     const favorEl = $('hud-favor');
     if (favorEl) {
-      const activeRaw = room.contractFavors?.active || [];
+      const activeRaw = this.compactFavorItems(room.contractFavors?.active || []);
       const active = activeRaw.slice().sort((a,b) => ((b.uses || 0) > 0 ? 1 : 0) - ((a.uses || 0) > 0 ? 1 : 0));
-      const pending = room.contractFavors?.pending || [];
-      const used = room.contractFavors?.used || [];
+      const pending = this.compactFavorItems(room.contractFavors?.pending || []);
+      const used = this.compactFavorItems(room.contractFavors?.used || []);
       const items = active.length ? active : pending;
       if (items.length) {
         const allUsed = items.every(f => String(f.status || '').toLowerCase() === 'used' || (f.uses || 0) <= 0);
@@ -1277,7 +1277,7 @@ export class Hud {
         if (f.bonusExp) marks.push(`${localText('БОНУС EXP', 'BONUS EXP')} +${f.bonusExp}`);
         if (f.objective) {
           if (f.objective.done) {
-            const fs = (f.contractFavorsEarned || []).map(x => this.favorUiLabel(x)).join(' + ');
+            const fs = this.compactFavorItems(f.contractFavorsEarned || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + ');
             marks.push(`${localText('КОНТРАКТ ОПЛАЧЕН', 'CONTRACT PAID')} ${locLabel(f.objective.label)}${fs ? ' · ' + localText('ПРИЗ', 'PRIZE') + ' ' + fs : ''}`);
           } else {
             marks.push(`${localText('КОНТРАКТ ПРОВАЛЕН', 'CONTRACT FAILED')} ${locLabel(f.objective.label)}${f.objective.failReason ? ' / ' + locFail(f.objective.failReason) : ''}`);
@@ -1355,8 +1355,8 @@ export class Hud {
       case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), cleanPlayerText(f.body || ''), 'gold'); this.feed(`${localText('ROOM WAGER ПРИНЯТ', 'ROOM WAGER ACCEPTED')}: ${cleanPlayerText(f.body || '')}`, 'p'); } break;
       case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), cleanPlayerText(f.body || ''), 'green'); this.feed(`${localText('WAGER ВЫПОЛНЕН', 'WAGER PAID')}: ${cleanPlayerText(f.body || '')}`, 'g'); } break;
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), cleanPlayerText(f.body || ''), 'red'); this.feed(`${localText('WAGER ПРОВАЛЕН', 'WAGER LOST')}: ${cleanPlayerText(f.body || '')}`, 'r'); } break;
-      case 'favor_earned': { const fs = (f.favors || []).map(x => `${this.favorUiLabel(x)}${x.uses > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
-      case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
+      case 'favor_earned': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
+      case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
       case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
       case 'denied': if (f.id === myId) { const msg = denyText(f); if (msg) this.denyPrompt(msg); } break;
@@ -1594,8 +1594,8 @@ export class Hud {
           `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда комната полностью затихнет и враги добиты.', 'The portal opens when the room has fully gone quiet and enemies are down.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the run more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
-          `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
-          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
+          `${this.compactFavorItems(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), this.compactFavorItems(room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${this.compactFavorItems(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
+          `${this.compactFavorItems(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${this.compactFavorItems(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
       `</div>`;
     const table = $('tab-table');
     let html = '<tr>' +
@@ -1837,6 +1837,27 @@ export class Hud {
     box.prepend(d);
   }
 
+  compactFavorItems(items = []) {
+    const out = [];
+    const byId = new Map();
+    for (const raw of Array.isArray(items) ? items : []) {
+      if (!raw) continue;
+      const id = String(raw.id || '').trim();
+      if (!id) continue;
+      let f = byId.get(id);
+      if (!f) {
+        f = { ...raw, id, uses: 0, usesTotal: 0, used: 0 };
+        byId.set(id, f);
+        out.push(f);
+      }
+      f.uses = Math.max(0, Number(f.uses || 0)) + Math.max(0, Number(raw.uses || 0));
+      f.usesTotal = Math.max(0, Number(f.usesTotal || 0)) + Math.max(0, Number(raw.usesTotal || raw.uses || 0));
+      f.used = Math.max(0, Number(f.used || 0)) + Math.max(0, Number(raw.used || 0));
+      if (String(raw.status || '').toLowerCase() === 'active') f.status = 'active';
+      else if (!f.status) f.status = raw.status || '';
+    }
+    return out;
+  }
   favorUiLabel(f = {}) {
     const id = String(f.id || '');
     const ru = {
@@ -1882,18 +1903,16 @@ export class Hud {
     if (id === 'free_reroll' || id === 'epic_reroll') {
       return localText(`${left} ${left === 1 ? 'заряд' : (left >= 2 && left <= 4 ? 'заряда' : 'зарядов')}`, `${left} charge${left === 1 ? '' : 's'}`);
     }
-    if (id === 'portal_insurance') return localText('1 защита', '1 save');
-    if (id === 'clear_debt') return localText('1 очистка', '1 clear');
+    if (id === 'portal_insurance') return localText(`${left} ${left === 1 ? 'защита' : (left >= 2 && left <= 4 ? 'защиты' : 'защит')}`, `${left} save${left === 1 ? '' : 's'}`);
+    if (id === 'clear_debt') return localText(`${left} ${left === 1 ? 'очистка' : (left >= 2 && left <= 4 ? 'очистки' : 'очисток')}`, `${left} clear${left === 1 ? '' : 's'}`);
     if (id === 'double_favor') return localText('следующий контракт', 'next contract');
     if (status === 'pending') return localText('ждёт активации', 'queued');
     return localText('активен', 'active');
   }
   activeRerollFavorUses() {
-    const active = this.latestRoom?.contractFavors?.active || [];
-    const roomKey = `${this.latestRoom?.id || this.latestRoom?.roomId || ''}:${this.latestRoom?.depth || this.latestRoom?.runDepth || ''}`;
-    if (this.rerollSpentRoomKey !== roomKey) { this.rerollSpentRoomKey = roomKey; this.localRerollSpent = 0; }
+    const active = this.compactFavorItems(this.latestRoom?.contractFavors?.active || []);
     const serverLeft = active.reduce((n, f) => n + ((f.id === 'free_reroll' || f.id === 'epic_reroll') ? Math.max(0, f.uses || 0) : 0), 0);
-    return Math.max(0, serverLeft - Math.max(0, this.localRerollSpent || 0));
+    return Math.max(0, serverLeft);
   }
   appendFavorRerollButton(box, kind) {
     let uses = this.activeRerollFavorUses();
@@ -1909,7 +1928,6 @@ export class Hud {
       if (host) { host.classList.remove('rerolling'); void host.offsetWidth; host.classList.add('rerolling'); setTimeout(() => host.classList.remove('rerolling'), 520); }
       d.dataset.locked = '1';
       d.classList.add('picked');
-      this.localRerollSpent = Math.max(0, this.localRerollSpent || 0) + 1;
       uses = Math.max(0, uses - 1);
       this.net.sendRerollOffer(kind);
       if (uses <= 0) d.remove();
@@ -2163,6 +2181,7 @@ export class Hud {
       LOCK: [localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText('LOCK внутри слота превращается в случайный блок и фиксирует этот слот до закрытия терминала.', 'A LOCK inside a slot morphs into a random block and fixes that slot until the terminal closes.'), 'cyan'],
       MIX: [localText('СМЕШАННЫЙ ИТОГ', 'MIXED RESULT'), localText('Несколько слотов дали разные призы или штрафы.', 'Several slots produced different rewards or penalties.'), 'green'],
       STC: [localText('СТАТИК-ДОЛГ', 'STATIC DEBT'), localText('Награды нет, следующий маршрут получает статик-шторм.', 'No reward; the next route receives static storm debt.'), 'purple'],
+      OVERLOAD: [localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD'), localText('Терминал сломался от abuse полного LOCK и выпустил slot-mob.', 'The terminal broke from full-LOCK abuse and released a slot-mob.'), 'red'],
       LOSE: [localText('ПРОИГРЫШ', 'LOSS'), localText('Ставка потеряна. Награда не выдана.', 'Stake is lost. No reward is granted.'), 'red']
     };
     const [title, body, tone] = map[o] || [locLabel(o || 'BET'), localText('Результат ставки применён.', 'Bet result applied.'), 'green'];
@@ -2365,7 +2384,14 @@ export class Hud {
         if (r._iv) clearInterval(r._iv);
         r._iv = null;
         r.classList.remove('spin', 'lock-preview');
-        if (f) {
+        if (f && f.outcome === 'OVERLOAD') {
+          const rawSym = String(f.symbols?.[i] || 'ERR').toUpperCase();
+          r.textContent = i === 1 ? 'ERR' : rawSym;
+          r.dataset.final = 'ERR';
+          r.className = 'reel locked lose slot-overload-break';
+          this.setExplain(r, localText('ПЕРЕГРУЗКА', 'OVERLOAD'), localText('Слот-терминал сломался и выпустил врага.', 'The slot terminal broke and released an enemy.'), 'red');
+          this.playUiSound(i === 1 ? 'slot_overload' : 'casino_static');
+        } else if (f) {
           const c = bySlot.get(i) || { slot: i, raw: f.symbols?.[i] || '—', symbol: f.symbols?.[i] || '—' };
           const raw = String(c.raw || '').toUpperCase();
           const finalSymbol = String(c.symbol || f.symbols?.[i] || '—').toUpperCase();
@@ -2433,7 +2459,7 @@ export class Hud {
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', RAR: 'RAR' };
+      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', RAR: 'RAR', OVERLOAD: localText('ПЕРЕГРУЗКА', 'OVERLOAD') };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
@@ -2449,10 +2475,9 @@ export class Hud {
       const paidUnit = f.bloodTax ? 'HP' : 'GLD';
       const paid = f.bloodTax ? (f.hpStake || f.stake) : f.stake;
       const parts = [`-${paid} ${paidUnit}`];
-      const cellLines = Array.isArray(pl.cellRewards) ? pl.cellRewards.map(casinoCellLine) : [];
-      if (cellLines.length) parts.push(`${localText('СЛОТЫ', 'SLOTS')}: ${cellLines.join(' · ')}`);
       const finalReels = Array.isArray(f.symbols) ? f.symbols.map(x => String(x || '—').toUpperCase()).join(' ') : '';
-      if (pl.tripleMatch) parts.push(`${localText('ТРИ ОДИНАКОВЫХ', 'THREE OF A KIND')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+      if (f.outcome === 'OVERLOAD') parts.push(localText('ТРИ LOCK-слота крутились слишком долго — терминал сломан', 'Three LOCK slots were spun too long — terminal broken'));
+      else if (pl.tripleMatch) parts.push(`${localText('ТРИ ОДИНАКОВЫХ', 'THREE OF A KIND')}: ${String(pl.paySymbol || '').toUpperCase()}`);
       else parts.push(localText('НЕТ ТРЁХ ОДИНАКОВЫХ — НАГРАДЫ НЕТ', 'NO THREE OF A KIND — NO PAYOUT'));
       if (pl.gld) parts.push(`+${pl.gld} GLD${pl.gldCount > 1 ? ' x' + pl.gldCount : ''}`);
       if (pl.xp) parts.push(`+${pl.xp} EXP${pl.xpCount > 1 ? ' x' + pl.xpCount : ''}`);
@@ -2465,13 +2490,14 @@ export class Hud {
       weaponLabels.forEach(x => parts.push(`${localText('WPN', 'WPN')}: ${locLabel(x)}`));
       rareLabels.forEach(x => parts.push(`RAR: ${locLabel(x)}`));
       if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
-      if (pl.lockLabel) parts.push(`LOCK: ${pl.lockLabel}`);
+      if (pl.lockLabel) parts.push(`${localText('LOCK ЗАФИКСИРОВАЛ', 'LOCK FIXED')}: ${pl.lockLabel}`);
       if (pl.comboLabel) parts.push(locLabel(pl.comboLabel));
       if (pl.contractStake) parts.push(`${localText('КОНТРАКТНАЯ СТАВКА', 'CONTRACT WAGER')} ${pl.contractStake}`);
       if (f.lockUsed) parts.push(`${localText('ЗАФИКСИРОВАННЫЕ СЛОТЫ', 'FIXED SLOTS')}: ${f.lockSymbol || f.lockLeft || ''}`.trim());
       if (pl.static || pl.staticCount) parts.push(`${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
-      if (pl.missCount) parts.push(`${localText('ПУСТОЙ СЛОТ', 'MISS')} x${pl.missCount}`);
-      if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
+      if (pl.missCount) parts.push(localText('ПУСТО', 'EMPTY'));
+      if (f.outcome === 'OVERLOAD') parts.unshift(localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD'));
+      else if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
       else if (f.outcome === 'LOSE') parts.unshift(t('lose'));
       else if (f.outcome === 'STC') parts.unshift(t('staticDebt'));
       else if (f.outcome === 'LOCK') parts.unshift(localText('LOCK-СЛОТ', 'LOCK SLOT'));
@@ -2482,12 +2508,13 @@ export class Hud {
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
       modal.classList.remove('bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
-      modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : f.outcome === 'LOSE' ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
+      modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       const compactBits = [];
       if (finalReels) compactBits.push(finalReels);
-      if (pl.tripleMatch) compactBits.push(`${localText('x3', 'x3')} ${String(pl.paySymbol || '').toUpperCase()}`);
+      if (f.outcome === 'OVERLOAD') compactBits.push(localText('OVERLOAD', 'OVERLOAD'));
+      else if (pl.tripleMatch) compactBits.push(`${localText('x3', 'x3')} ${String(pl.paySymbol || '').toUpperCase()}`);
       else if (f.outcome === 'LOCK') compactBits.push(localText('LOCK зафиксировал слот', 'LOCK fixed a slot'));
       else compactBits.push(localText('нет линии', 'no line'));
       if (pl.gld) compactBits.push(`+${pl.gld} GLD`);
@@ -2496,14 +2523,18 @@ export class Hud {
       const compact = compactBits.slice(0, 4);
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact">${compact.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
       const who = f.id === myId ? t('you') : (this.names.get(f.id) || '??');
-      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
-      el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
+      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      el.style.color = (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.casinoSlotLocks = casinoNormalizeSlotLocks(f.lockSlots || pl.lockSlots || this.casinoSlotLocks || []);
       this.paintStoredCasinoLockCells(false);
       this.casinoLockSpinSymbol = '';
       this.updateCasinoLockBadge('');
       const positive = (pl.gld || pl.xp || pl.heal || pl.weapon || pl.ability || pl.rare || pl.skin || pl.jackpotCount);
-      this.playUiSound((pl.jackpotCount || 0) >= 3 || f.outcome === 'JCK' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win')));
+      this.playUiSound(f.outcome === 'OVERLOAD' ? 'slot_overload' : ((pl.jackpotCount || 0) >= 3 || f.outcome === 'JCK' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win'))));
+      if (f.outcome === 'OVERLOAD') {
+        const closeTimer = setTimeout(() => { if (resultToken === this.casino.spinToken) this.closeCasino(); }, 980);
+        this.casino.reelTimers.push(closeTimer);
+      }
     }, 640);
     this.casino.reelTimers.push(timer);
   }

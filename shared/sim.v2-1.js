@@ -554,6 +554,7 @@ export function handleCasinoClose(run, players, p) {
   p.casinoSlotLocks = ['', '', ''];
   p.casinoLockStack = [];
   p.casinoLockSymbol = '';
+  p.casinoFullLockSpins = 0;
   return true;
 }
 function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
@@ -567,6 +568,39 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   p.hp = Math.min(p.hp, maxHp(p));
   run.fx.push({ t: 'install', id: p.id, label: `${source}: ${u.label}`, personal: 1 });
   return u.label;
+}
+
+const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'bouncer', 'pulse'];
+function pickSlotMobMode(prev = '') {
+  const pool = SLOT_MOB_MODES.filter(m => m !== prev);
+  return pool[Math.floor(Math.random() * pool.length)] || SLOT_MOB_MODES[0];
+}
+function placeNearInteractable(run, obj, p, radius = 94) {
+  const cx = Number(obj?.x) || Number(p?.x) || run.plan.w / 2;
+  const cy = Number(obj?.y) || Number(p?.y) || run.plan.h / 2;
+  const tries = [0, Math.PI, Math.PI / 2, -Math.PI / 2, Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4];
+  for (const a of tries) {
+    const x = clamp(cx + Math.cos(a) * radius, WALL_T + 70, run.plan.w - WALL_T - 70);
+    const y = clamp(cy + Math.sin(a) * radius, WALL_T + 70, run.plan.h - WALL_T - 70);
+    const c = collideWalls(x, y, 28, run.plan.walls || [], cx, cy);
+    if (!enemyInsideWall(run, { x: c.x, y: c.y, size: 44 })) return c;
+  }
+  return collideWalls(cx, cy + radius, 28, run.plan.walls || [], cx, cy);
+}
+function spawnCasinoOverloadSlotMob(run, players, near, p) {
+  const pos = placeNearInteractable(run, near, p, 108);
+  const e = spawnEnemy(run, players, 'slot_mob', false, pos, { noSpawnWarn: true, noArmor: true });
+  e.spawnDelay = 0;
+  e.slotLives = 10;
+  e.slotTotalLives = 10;
+  e.slotMode = pickSlotMobMode('');
+  e.slotModeT = 5;
+  e.state = `slot_${e.slotMode}:${e.slotLives}`;
+  e.fireCd = 0.65;
+  e.rebuildT = 0;
+  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD' });
+  run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1 });
+  return e;
 }
 function casinoStakeTable(run) {
   const table = { low: casinoStakeCost(run, 'low'), mid: casinoStakeCost(run, 'mid'), high: casinoStakeCost(run, 'high') };
@@ -706,6 +740,107 @@ function enemyInsideWorld(run, e, margin = 180) {
     && e.x >= -margin && e.y >= -margin
     && e.x <= (run.plan.w || 0) + margin && e.y <= (run.plan.h || 0) + margin;
 }
+function enemyArenaBounds(run, e, extraPad = 0) {
+  const arch = run?.plan?.roomArchetype || (run?.plan?.category === 'boss' ? 'boss' : 'standard');
+  const rr = playableRectForArchetype(arch);
+  const half = Math.max(8, (Number(e?.size) || 24) * 0.5);
+  const pad = Math.max(0, extraPad || 0) + half + 8;
+  return {
+    left: rr.x + pad,
+    top: rr.y + pad,
+    right: Math.max(rr.x + pad, rr.right - pad),
+    bottom: Math.max(rr.y + pad, rr.bottom - pad),
+    cx: (rr.x + rr.right) * 0.5,
+    cy: (rr.y + rr.bottom) * 0.5
+  };
+}
+function clampEnemyToArena(run, e, extraPad = 0) {
+  if (!run?.plan || !e) return false;
+  const b = enemyArenaBounds(run, e, extraPad);
+  const ox = e.x, oy = e.y;
+  if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) {
+    e.x = b.cx; e.y = b.cy;
+  } else {
+    e.x = clamp(e.x, b.left, b.right);
+    e.y = clamp(e.y, b.top, b.bottom);
+  }
+  const moved = Math.abs((ox ?? e.x) - e.x) > 0.01 || Math.abs((oy ?? e.y) - e.y) > 0.01;
+  if (moved) {
+    if (typeof e.vx === 'number') e.vx = 0;
+    if (typeof e.vy === 'number') e.vy = 0;
+    e.stuckT = 0;
+    e._stuckT = 0;
+  }
+  return moved;
+}
+function rescueBossToArena(run, players, e, reason = 'bounds') {
+  if (!run?.plan || !e) return false;
+  const b = enemyArenaBounds(run, e, 22);
+  const walls = run.plan.walls || [];
+  const half = Math.max(8, (Number(e.size) || 72) * 0.5);
+  const oldX = e.x, oldY = e.y;
+  const candidates = [
+    { x: b.cx, y: b.cy },
+    { x: b.cx + 220, y: b.cy },
+    { x: b.cx - 220, y: b.cy },
+    { x: b.cx, y: b.cy + 170 },
+    { x: b.cx, y: b.cy - 170 },
+    { x: b.cx + 310, y: b.cy + 190 },
+    { x: b.cx - 310, y: b.cy - 190 },
+    { x: b.cx + 310, y: b.cy - 190 },
+    { x: b.cx - 310, y: b.cy + 190 }
+  ];
+  const alive = players ? [...players.values()].filter(p => p && p.alive) : [];
+  if (alive.length) {
+    const p = alive[0];
+    candidates.push({ x: p.x + 360, y: p.y });
+    candidates.push({ x: p.x - 360, y: p.y });
+    candidates.push({ x: p.x, y: p.y + 300 });
+    candidates.push({ x: p.x, y: p.y - 300 });
+  }
+  for (const raw of candidates) {
+    const x = clamp(raw.x, b.left, b.right);
+    const y = clamp(raw.y, b.top, b.bottom);
+    const c = collideWalls(x, y, half, walls, oldX, oldY);
+    const test = { ...e, x: clamp(c.x, b.left, b.right), y: clamp(c.y, b.top, b.bottom) };
+    if (!enemyInsideWall(run, test)) {
+      e.x = test.x; e.y = test.y;
+      if (typeof e.vx === 'number') e.vx = 0;
+      if (typeof e.vy === 'number') e.vy = 0;
+      e.stuckT = 0; e._stuckT = 0;
+      e.state = e.state === 'charge' ? 'cool' : (e.state || 'move');
+      if ((run.now || 0) - (e._bossRescueFxAt || -999) > 0.65) {
+        e._bossRescueFxAt = run.now || 0;
+        run.fx.push({ t: 'blink', id: e.id, fx: Math.round(Number.isFinite(oldX) ? oldX : test.x), fy: Math.round(Number.isFinite(oldY) ? oldY : test.y), tx: Math.round(e.x), ty: Math.round(e.y), boss: 1, reason });
+      }
+      return true;
+    }
+  }
+  e.x = b.cx; e.y = b.cy;
+  if (typeof e.vx === 'number') e.vx = 0;
+  if (typeof e.vy === 'number') e.vy = 0;
+  e.stuckT = 0; e._stuckT = 0;
+  return true;
+}
+function containBossesInArena(run, players = null) {
+  if (!run?.enemies) return 0;
+  let fixed = 0;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || !ENEMIES[e.kind]?.boss) continue;
+    const moved = clampEnemyToArena(run, e, 18);
+    const outside = !enemyInsideWorld(run, e, 0);
+    if (outside || enemyInsideWall(run, e)) {
+      if (rescueBossToArena(run, players, e, outside ? 'offscreen' : 'wall')) fixed++;
+    } else if (moved) {
+      fixed++;
+      if ((run.now || 0) - (e._bossClampFxAt || -999) > 1.2) {
+        e._bossClampFxAt = run.now || 0;
+        run.fx.push({ t: 'path_turn', id: e.id, x: Math.round(e.x), y: Math.round(e.y), boss: 1 });
+      }
+    }
+  }
+  return fixed;
+}
 function isCombatEnemy(run, e) {
   if (!e || e.hp <= 0) return false;
   if (!ENEMIES[e.kind]) return false;
@@ -740,11 +875,21 @@ function rescueEnemyToFloor(run, players, e) {
 }
 function sanitizeEnemiesForRoom(run, players = null, dt = 0) {
   if (!run?.enemies) return;
+  containBossesInArena(run, players);
   const before = run.enemies.length;
-  run.enemies = run.enemies.filter(e => e && e.hp > 0 && ENEMIES[e.kind] && enemyInsideWorld(run, e, 420));
+  run.enemies = run.enemies.filter(e => {
+    if (!e || e.hp <= 0 || !ENEMIES[e.kind]) return false;
+    if (ENEMIES[e.kind]?.boss) return true;
+    return enemyInsideWorld(run, e, 420);
+  });
   if (before !== run.enemies.length && run.roomStats) run.roomStats.cleanedGhostEnemies = (run.roomStats.cleanedGhostEnemies || 0) + before - run.enemies.length;
   for (const e of run.enemies) {
     if (!e || e.hp <= 0) continue;
+    if (ENEMIES[e.kind]?.boss) {
+      if (enemyInsideWall(run, e)) rescueBossToArena(run, players, e, 'wall');
+      else clampEnemyToArena(run, e, 18);
+      continue;
+    }
     if (enemyInsideWall(run, e)) {
       e._stuckT = (e._stuckT || 0) + Math.max(0.05, dt || 0.05);
       if (e._stuckT > 0.75 && players) rescueEnemyToFloor(run, players, e);
@@ -823,6 +968,29 @@ function makeContractFavor(id, sourceChain = 1) {
   const d = favorDef(id) || CONTRACT_FAVOR_DEFS.free_reroll;
   return { id: d.id, label: d.label, labelRu: d.labelRu, tier: d.tier, uses: d.uses || 1, used: 0, sourceChain: Math.max(1, sourceChain | 0), nextRoomOnly: 0, persistent: 1 };
 }
+
+function compactContractFavors(list = []) {
+  const out = [];
+  const byId = new Map();
+  for (const raw of Array.isArray(list) ? list : []) {
+    if (!raw) continue;
+    const id = String(raw.id || '').trim();
+    if (!id) continue;
+    const def = favorDef(id) || {};
+    let f = byId.get(id);
+    if (!f) {
+      f = { ...raw, id, label: raw.label || def.label || id, labelRu: raw.labelRu || def.labelRu || '', tier: raw.tier || def.tier || 'common', uses: 0, used: 0, sourceChain: 0, persistent: 1, nextRoomOnly: 0 };
+      byId.set(id, f);
+      out.push(f);
+    }
+    f.uses = Math.max(0, Number(f.uses || 0)) + Math.max(0, Number(raw.uses || def.uses || 0));
+    f.used = Math.max(0, Number(f.used || 0)) + Math.max(0, Number(raw.used || 0));
+    f.sourceChain = Math.max(Math.max(0, Number(f.sourceChain || 0)), Math.max(0, Number(raw.sourceChain || 0)));
+    f.activeDepth = raw.activeDepth ?? f.activeDepth;
+  }
+  for (const f of out) f.used = Math.min(Math.max(0, Number(f.used || 0)), Math.max(0, Number(f.uses || 0)));
+  return out;
+}
 function activeContractFavors(run) {
   return Array.isArray(run?.contractFavorsActive) ? run.contractFavorsActive : [];
 }
@@ -874,7 +1042,7 @@ function activatePendingContractFavors(run) {
   const incoming = pendingContractFavors(run).map(f => ({ ...f, activeDepth: run.runDepth || 0, used: Math.max(0, f.used || 0), persistent: 1, nextRoomOnly: 0 }));
   run.contractFavorsPending = [];
   run.contractFavorsUsedThisRoom = [];
-  run.contractFavorsActive = [...carry, ...incoming];
+  run.contractFavorsActive = compactContractFavors([...carry, ...incoming]);
   for (const f of run.contractFavorsActive) {
     const left = Math.max(0, (f.uses || 0) - (f.used || 0));
     if (left <= 0) continue;
@@ -887,7 +1055,7 @@ function activatePendingContractFavors(run) {
       }
     }
   }
-  if (incoming.length) run.fx.push({ t: 'favor_active', favors: incoming.map(f => favorSnapshotItem(f, true)) });
+  if (incoming.length) run.fx.push({ t: 'favor_active', favors: compactContractFavors(incoming).map(f => favorSnapshotItem(f, true)) });
 }
 function hasClearableUpcomingStatic(run) {
   const curDebt = run?.staticDebt === true ? 1 : Math.max(0, run?.staticDebt || 0);
@@ -955,15 +1123,16 @@ function grantContractFavors(run, chain = 1, count = 1) {
   const favors = planned.slice(0, want).map(f => ({ ...f, activeDepth: run.runDepth || 0, persistent: 1, nextRoomOnly: 0 }));
   run.contractFavorsPending = [];
   const live = activeContractFavors(run).filter(f => Math.max(0, (f.uses || 0) - (f.used || 0)) > 0);
-  run.contractFavorsActive = [...live, ...favors];
-  run.fx.push({ t: 'favor_earned', favors: favors.map(f => favorSnapshotItem(f, true)) });
-  run.fx.push({ t: 'favor_active', favors: favors.map(f => favorSnapshotItem(f, true)) });
+  run.contractFavorsActive = compactContractFavors([...live, ...favors]);
+  const earnedSnapshot = compactContractFavors(favors).map(f => favorSnapshotItem(f, true));
+  run.fx.push({ t: 'favor_earned', favors: earnedSnapshot });
+  run.fx.push({ t: 'favor_active', favors: earnedSnapshot });
   return favors;
 }
 function contractFavorSnapshot(run) {
   return {
-    active: activeContractFavors(run).map(f => favorSnapshotItem(f, true)),
-    pending: pendingContractFavors(run).map(f => favorSnapshotItem(f, false)),
+    active: compactContractFavors(activeContractFavors(run)).map(f => favorSnapshotItem(f, true)),
+    pending: compactContractFavors(pendingContractFavors(run)).map(f => favorSnapshotItem(f, false)),
     used: Array.isArray(run?.contractFavorsUsedThisRoom) ? run.contractFavorsUsedThisRoom : []
   };
 }
@@ -1379,16 +1548,23 @@ function aabbHit(x, y, half, w) {
   return x + half > w.x && x - half < w.x + w.w && y + half > w.y && y - half < w.y + w.h;
 }
 function collideWalls(x, y, half, walls, ox, oy) {
-  // axis-separated slide
+  // axis-separated slide. Use the previous position when possible so fast pushes
+  // cannot tunnel through an outer wall and get resolved onto the far/outside face.
   let nx = x, ny = y;
+  const fromLeftOf = (w, prev, cur) => Number.isFinite(prev)
+    ? (prev <= w.x || (prev < w.x + w.w && cur <= w.x + w.w / 2))
+    : cur <= w.x + w.w / 2;
+  const fromTopOf = (w, prev, cur) => Number.isFinite(prev)
+    ? (prev <= w.y || (prev < w.y + w.h && cur <= w.y + w.h / 2))
+    : cur <= w.y + w.h / 2;
   for (const w of walls) {
     if (aabbHit(nx, oy, half, w)) {
-      nx = nx > w.x + w.w / 2 ? w.x + w.w + half : w.x - half;
+      nx = fromLeftOf(w, ox, nx) ? w.x - half : w.x + w.w + half;
     }
   }
   for (const w of walls) {
     if (aabbHit(nx, ny, half, w)) {
-      ny = ny > w.y + w.h / 2 ? w.y + w.h + half : w.y - half;
+      ny = fromTopOf(w, oy, ny) ? w.y - half : w.y + w.h + half;
     }
   }
   return { x: nx, y: ny };
@@ -1684,11 +1860,15 @@ function resolveEnemyCrowd(run, walls, dt) {
         const overlap = (minD - d) * 0.5;
         const heavyA = ENEMIES[a.kind]?.boss || a.kind === 'tank' || a.kind === 'anchor' || a.kind === 'herald' || a.kind === 'damper';
         const heavyB = ENEMIES[b.kind]?.boss || b.kind === 'tank' || b.kind === 'anchor' || b.kind === 'herald' || b.kind === 'damper';
-        const am = heavyA ? 0.35 : 0.65;
-        const bm = heavyB ? 0.35 : 0.65;
+        const bossA = !!ENEMIES[a.kind]?.boss;
+        const bossB = !!ENEMIES[b.kind]?.boss;
+        const am = bossA ? 0.08 : (heavyA ? 0.35 : 0.65);
+        const bm = bossB ? 0.08 : (heavyB ? 0.35 : 0.65);
         const ac = collideWalls(a.x - nx * overlap * am, a.y - ny * overlap * am, a.size / 2, walls, a.x, a.y);
         const bc = collideWalls(b.x + nx * overlap * bm, b.y + ny * overlap * bm, b.size / 2, walls, b.x, b.y);
         a.x = ac.x; a.y = ac.y; b.x = bc.x; b.y = bc.y;
+        if (bossA) clampEnemyToArena(run, a, 18);
+        if (bossB) clampEnemyToArena(run, b, 18);
       }
     }
   }
@@ -1877,11 +2057,12 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
   const ny = dy / d;
   const overlap = minD - d;
   const bossy = ENEMIES[e.kind]?.boss || e.kind === 'tank';
-  const enemyMove = overlap * (bossy ? 0.42 : 0.78);
-  const playerMove = overlap * (bossy ? 0.78 : 0.48) + (opts.playerKick ?? 0);
+  const enemyMove = overlap * (bossy ? 0.12 : 0.78);
+  const playerMove = overlap * (bossy ? 1.05 : 0.48) + (opts.playerKick ?? 0);
   const ec = collideWalls(e.x - nx * enemyMove, e.y - ny * enemyMove, e.size / 2, walls, e.x, e.y);
   const pc = collideWalls(p.x + nx * playerMove, p.y + ny * playerMove, PLAYER_SIZE / 2, walls, p.x, p.y);
   e.x = ec.x; e.y = ec.y;
+  if (bossy) clampEnemyToArena(run, e, 18);
   p.x = pc.x; p.y = pc.y;
   if (opts.fx && Math.random() < 0.18) run.fx.push({ t: 'body_push', x: Math.round((e.x + p.x) / 2), y: Math.round((e.y + p.y) / 2) });
   return { nx, ny, overlap };
@@ -4184,6 +4365,7 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
 
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
   const def = ENEMIES[e.kind];
+  if (e.kind === 'slot_mob' && (e.rebuildT || 0) > 0) return;
   // Armor is a real shell class: it absorbs hits before HP.
   // Plain shell loses shell HP from shots. Linked shell loses nothing while its unarmored battery mob is alive nearby.
   const rawDmg = Math.max(1, Math.round(dmg));
@@ -4255,6 +4437,18 @@ function spreadElementStatusesOnKill(run, players, dead, killer) {
 
 function killEnemy(run, players, e, killer, source = 'hit') {
   const def = ENEMIES[e.kind];
+  if (e.kind === 'slot_mob' && Math.max(1, Number(e.slotLives || 1) | 0) > 1) {
+    e.slotLives = Math.max(1, (Number(e.slotLives || 1) | 0) - 1);
+    e.hp = e.maxHp = Math.max(30, Math.round((ENEMIES.slot_mob?.hp || 92) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
+    e.rebuildT = 0.92;
+    e.slotModeT = 0;
+    e.vx = 0; e.vy = 0; e.st = 0;
+    e.shellHp = 0; e.shellMax = 0; e.armorLinkId = '';
+    syncSlotMobState(e);
+    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives });
+    registerComboEvent(run, killer, source, e, 1);
+    return;
+  }
   run.enemies = run.enemies.filter(x => x.id !== e.id);
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
@@ -4888,6 +5082,90 @@ function nearestAlive(players, x, y, run = null) {
   return best;
 }
 
+
+function syncSlotMobState(e) {
+  if (!e || e.kind !== 'slot_mob') return;
+  const mode = String(e.slotMode || 'runner');
+  const lives = Math.max(1, Number(e.slotLives || 1) | 0);
+  e.state = (e.rebuildT || 0) > 0 ? `slot_rebuild:${lives}` : `slot_${mode}:${lives}`;
+}
+function rerollSlotMobMode(run, e, force = false) {
+  if (!e || e.kind !== 'slot_mob') return;
+  if (!force && (e.slotModeT || 0) > 0) return;
+  const prev = String(e.slotMode || '');
+  e.slotMode = pickSlotMobMode(prev);
+  e.slotModeT = 5.0;
+  e.st = 0;
+  e.fireCd = Math.min(e.fireCd || 99, 0.55);
+  syncSlotMobState(e);
+  run.fx.push({ t: 'slot_mob_roll', id: e.id, x: Math.round(e.x), y: Math.round(e.y), mode: e.slotMode, lives: e.slotLives || 1 });
+}
+function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
+  const def = ENEMIES.slot_mob;
+  e.slotModeT = Math.max(0, (e.slotModeT || 0) - dt);
+  rerollSlotMobMode(run, e, false);
+  const mode = String(e.slotMode || 'runner');
+  syncSlotMobState(e);
+  if (mode === 'shooter') {
+    const keep = 330;
+    let mv = dT > keep + 35 ? 0.72 : dT < keep - 70 ? -0.62 : 0;
+    if (mv !== 0) steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd * 0.78, dt, { target });
+    e.fireCd -= dt;
+    if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 2) {
+      e.fireCd = enemyFireCooldown(1.12, e);
+      const base = Math.atan2(toT.y, toT.x);
+      const bspd = enemyBulletSpeed(def.bulletSpd || 250, e);
+      for (const da of [-0.16, 0.16]) run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: Math.cos(base + da) * bspd, vy: Math.sin(base + da) * bspd, dmg: enemyDamageValue(e, 0.82), from: 'e', life: 2.25, size: 6, kind: 'slot' });
+      run.fx.push({ t: 'eshot', id: e.id, slot: 1 });
+    }
+  } else if (mode === 'charger') {
+    if (!['slot_windup', 'slot_charge', 'slot_cool'].includes(e.slotChargeState || '')) e.slotChargeState = 'slot_move';
+    if (e.slotChargeState === 'slot_move') {
+      if (dT < 360) { e.slotChargeState = 'slot_windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
+      else steerMove(run, e, toT, spd * 0.92, dt, { target });
+    } else if (e.slotChargeState === 'slot_windup') {
+      e.dirX = toT.x; e.dirY = toT.y;
+      if (e.st >= 0.62) { e.slotChargeState = 'slot_charge'; e.st = 0; run.fx.push({ t: 'dash', id: e.id, x: Math.round(e.x), y: Math.round(e.y), enemy: 1 }); }
+    } else if (e.slotChargeState === 'slot_charge') {
+      const c = collideWalls(e.x + (e.dirX || toT.x) * 520 * dt, e.y + (e.dirY || toT.y) * 520 * dt, e.size / 2, walls, e.x, e.y);
+      const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
+      for (const p of players.values()) if (p.alive) {
+        const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: 13, fx: true });
+        if (sep) { damagePlayer(run, p, enemyDamageValue(e, 1.18), e.x, e.y); e.slotChargeState = 'slot_cool'; e.st = 0; }
+      }
+      if (e.st >= 0.50 || blocked) { e.slotChargeState = 'slot_cool'; e.st = 0; }
+    } else if (e.slotChargeState === 'slot_cool') {
+      if (e.st >= 1.35) { e.slotChargeState = 'slot_move'; e.st = 0; }
+    }
+  } else if (mode === 'bouncer') {
+    if (!Number.isFinite(e.vx) || !Number.isFinite(e.vy) || Math.hypot(e.vx, e.vy) < 60) {
+      const a = Math.atan2(toT.y, toT.x) + (Math.random() - 0.5) * 0.7;
+      e.vx = Math.cos(a) * 245; e.vy = Math.sin(a) * 245;
+    }
+    let nx = e.x + e.vx * dt, ny = e.y + e.vy * dt;
+    for (const w of walls) {
+      if (aabbHit(nx, e.y, e.size / 2, w)) { e.vx *= -1; nx = e.x; }
+      if (aabbHit(e.x, ny, e.size / 2, w)) { e.vy *= -1; ny = e.y; }
+    }
+    e.x = nx; e.y = ny;
+    touchDamage(run, e, players, dt);
+  } else if (mode === 'pulse') {
+    steerMove(run, e, toT, spd * 0.62, dt, { target });
+    e.fireCd -= dt;
+    if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 5) {
+      e.fireCd = enemyFireCooldown(1.85, e);
+      const nx = -toT.y, ny = toT.x;
+      const wspd = enemyBulletSpeed(330, e);
+      for (let i = -2; i <= 2; i++) run.bullets.push({ id: nid(), x: e.x + nx * i * 17, y: e.y + ny * i * 17, vx: toT.x * wspd, vy: toT.y * wspd, dmg: enemyDamageValue(e, 0.72), from: 'e', life: 1.35, size: 8, kind: 'slot_wave' });
+      run.fx.push({ t: 'pulse_wave', id: e.id, x: Math.round(e.x), y: Math.round(e.y), dx: toT.x, dy: toT.y, slot: 1 });
+    }
+    touchDamage(run, e, players, dt);
+  } else {
+    steerMove(run, e, toT, spd * 1.18, dt, { target });
+    touchDamage(run, e, players, dt);
+  }
+  e.dirX = toT.x; e.dirY = toT.y;
+}
 function stepEnemies(run, players, dt) {
   if (run.phase !== 'play') return;
   sanitizeEnemiesForRoom(run, players, dt);
@@ -4899,6 +5177,13 @@ function stepEnemies(run, players, dt) {
       e.spawnDelay = Math.max(0, (e.spawnDelay || 0) - dt);
       e.st = 0;
       e.fireCd = Math.max(e.fireCd || 0, 0.16);
+      continue;
+    }
+    if (e.kind === 'slot_mob' && (e.rebuildT || 0) > 0) {
+      e.rebuildT = Math.max(0, (e.rebuildT || 0) - dt);
+      e.fireCd = Math.max(e.fireCd || 0, 0.20);
+      if (e.rebuildT <= 0) rerollSlotMobMode(run, e, true);
+      else syncSlotMobState(e);
       continue;
     }
     if ((e.frozenT || 0) > 0 || (e.stunT || 0) > 0) {
@@ -4937,7 +5222,9 @@ function stepEnemies(run, players, dt) {
     const toT = norm(target.x - e.x, target.y - e.y);
     const dT = Math.hypot(target.x - e.x, target.y - e.y);
 
-    if (e.kind === 'shooter') {
+    if (e.kind === 'slot_mob') {
+      stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls);
+    } else if (e.kind === 'shooter') {
       const inFormation = escortOrbitMove(run, e, dt, spd, target);
       let mv = 0;
       if (!inFormation) {
@@ -6484,10 +6771,27 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     p.economy.money -= stake;
   }
   const priorSlotLocks = casinoSlotLocksForPlayer(p).slice(0, 3);
+  const fullLockedBeforeSpin = priorSlotLocks.every(Boolean);
+  if (fullLockedBeforeSpin) {
+    p.casinoFullLockSpins = Math.max(0, Number(p.casinoFullLockSpins || 0) | 0) + 1;
+    if (p.casinoFullLockSpins > 10) {
+      const lockedText = priorSlotLocks.join(' ');
+      casinoSlotLocksSetForPlayer(p, ['', '', '']);
+      p.casinoFullLockSpins = 0;
+      spawnCasinoOverloadSlotMob(run, players, near, p);
+      const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
+      const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: priorSlotLocks.slice(0, 3), outcome: 'OVERLOAD', payload: { overload: 1, paySymbol: '', noMatch: 1, lockedText }, stake, lockUsed: 1, lockSymbol: lockedText, lockLeft: '', lockSlots: ['', '', ''], hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
+      run.fx.push(fx);
+      return fx;
+    }
+  } else {
+    p.casinoFullLockSpins = 0;
+  }
   let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { slotLocks: priorSlotLocks });
   res.stake = stake;
   const pl = res.payload;
   casinoSlotLocksSetForPlayer(p, res.lockSlots || pl.lockSlots || []);
+  if (!casinoSlotLocksForPlayer(p).every(Boolean)) p.casinoFullLockSpins = 0;
   const stakeScale = Math.max(1, stake / Math.max(1, baseStake));
   const greedGoldBonus = isGreedRoom(run) && pl.gld ? 1.35 : 1;
   if (pl.gld) pl.gld = Math.round(pl.gld * stakeScale * greedGoldBonus);

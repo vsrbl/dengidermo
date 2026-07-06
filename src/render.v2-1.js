@@ -487,6 +487,33 @@ export class Renderer {
         this.square(ex, ey, size, { stroke: COL.red, lw: 4, fill: 'rgba(255,48,72,0.06)' });
         this.square(ex, ey, size * 0.65, { stroke: COL.purple, lw: 2 });
         this.label('HRD', ex, ey - size / 2 - 9, COL.red, 9);
+      } else if (kind === 'slot_mob') {
+        const stateText = String(st || 'slot_runner:1');
+        const mode = (stateText.match(/slot_([^:]+)/) || [,'runner'])[1];
+        const lives = Math.max(1, Number((stateText.match(/:(\d+)/) || [,'1'])[1]) || 1);
+        const isRebuild = mode === 'rebuild';
+        const pulse = 0.5 + Math.sin(now * 18) * 0.22;
+        const frameCol = isRebuild ? COL.gold : (mode === 'charger' ? COL.red : mode === 'shooter' ? COL.cyan : mode === 'pulse' ? COL.purple : COL.fg);
+        ctx.save();
+        if (isRebuild) ctx.globalAlpha = 0.62 + pulse * 0.25;
+        this.square(ex, ey, size, { stroke: frameCol, lw: 3.5, fill: 'rgba(255,211,77,0.055)' });
+        this.square(ex, ey, size * 0.70, { stroke: COL.fg, lw: 1.4, fill: 'rgba(0,0,0,0.28)' });
+        const reelSyms = ['GLD','WPN','ABL','STC','BAD','RAR','JCK'];
+        const idx = Math.floor(now * 5 + ex * 0.01 + ey * 0.01) % reelSyms.length;
+        ctx.fillStyle = frameCol;
+        ctx.font = '700 10px var(--mono, monospace)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(isRebuild ? 'ERR' : reelSyms[(idx + lives) % reelSyms.length], Math.round(ex), Math.round(ey));
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = frameCol;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(Math.round(ex - size * 0.38), Math.round(ey - size * 0.15), Math.round(size * 0.76), Math.round(size * 0.30));
+        ctx.setLineDash([]);
+        ctx.restore();
+        this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, frameCol, 9);
+        if (!isRebuild) this.label(mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });
