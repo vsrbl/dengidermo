@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.82';
-export const BUILD_ID = 'slot_lock_8bit_feed_focus_hotfix';
+export const VERSION = 'v2.1.83';
+export const BUILD_ID = 'youtube_video_8bit_filter_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

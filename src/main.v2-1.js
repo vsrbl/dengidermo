@@ -656,7 +656,11 @@ function bindYouTubeMiniControlsV2180() {
     if (pp) pp.textContent = active ? 'PAUSE' : 'PLAY';
     const vol = Math.round(audio.youTubeVolume?.() ?? Math.min(100, (audio.musicVolume || 0.7) * 200));
     if (label) label.textContent = `YT ${vol}`;
-    if (bit) bit.classList.toggle('on', !!audio.getYouTube8BitMask?.());
+    const video8Bit = !!audio.getYouTube8BitMask?.();
+    if (bit) bit.classList.toggle('on', video8Bit);
+    document.documentElement.classList.toggle('yt-video-8bit', video8Bit);
+    $('youtube-music')?.classList.toggle('yt-video-8bit', video8Bit);
+    $('youtube-player-wrap')?.classList.toggle('yt-video-8bit', video8Bit);
   };
   const blockGameClick = e => {
     e.stopPropagation();
