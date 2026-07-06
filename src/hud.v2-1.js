@@ -557,6 +557,8 @@ export class Hud {
     this.skinClaim = null;
     this.weapon = { open: false, choices: [], locked: false };
     this.ability = { open: false, choices: [], locked: false };
+    this.rare = { open: false, choices: [], locked: false };
+    this.wagerRenderKey = '';
     this.names = new Map();
     this.localRerollSpent = 0;
 
@@ -787,6 +789,20 @@ export class Hud {
   }
 
 
+  positionFeedBelowLeftTop() {
+    const feed = $('feed');
+    const leftTop = $('hud-lefttop');
+    if (!feed || !leftTop) return;
+    const r = leftTop.getBoundingClientRect();
+    if (!Number.isFinite(r.left) || !Number.isFinite(r.bottom) || r.width <= 0) return;
+    const left = Math.max(12, Math.round(r.left));
+    const top = Math.max(96, Math.round(r.bottom + 10));
+    feed.style.setProperty('left', `${left}px`, 'important');
+    feed.style.setProperty('top', `${top}px`, 'important');
+    feed.style.setProperty('width', `min(560px, ${Math.max(260, Math.round(window.innerWidth - left - 24))}px)`, 'important');
+    feed.style.setProperty('max-height', `${Math.max(120, Math.round(window.innerHeight - top - 140))}px`, 'important');
+  }
+
   positionRoomWagerCard() {
     const card = $('room-wager-card');
     if (!card || card.classList.contains('hidden')) return;
@@ -966,16 +982,35 @@ export class Hud {
       const offer = me[P.ROOMWAGER];
       const activeWager = me[P.ACTIVEWAGER];
       if (offer && room.phase === 'install') {
+        const key = `offer:${offer.id || 0}:${offer.text || ''}`;
         wagerCard.classList.remove('hidden', 'active');
-        wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
-        this.setExplain(wagerCard, 'ROOM WAGER', localText('Ставка не платится сразу. Если условие выполнено — получаешь приз. Если провалено — теряешь ставку.', 'Stake is paid only on failure. Complete the condition to get the prize.'), 'gold');
-        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.net?.sendRoomWager?.(offer.id || 0); });
+        if (this.wagerRenderKey !== key) {
+          this.wagerRenderKey = key;
+          wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
+          const accept = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const btn = ev.currentTarget || wagerCard.querySelector('#room-wager-accept');
+            if (btn?.disabled) return;
+            this.playUiSound('ui_click');
+            this.net?.sendRoomWager?.(offer.id || 0);
+            if (btn) { btn.disabled = true; btn.textContent = localText('ПРИНЯТО', 'ACCEPTED'); }
+          };
+          const btn = wagerCard.querySelector('#room-wager-accept');
+          btn?.addEventListener('pointerdown', accept);
+          btn?.addEventListener('click', accept);
+        }
+        this.setExplain(wagerCard, 'ROOM WAGER', localText('Ставка живёт внутри общего времени INSTALL. Отдельного таймера принятия нет: успей принять её до конца установки.', 'The wager lives inside the normal INSTALL timer. There is no separate accept timer: accept it before install ends.'), 'gold');
       } else if (activeWager) {
+        const key = `active:${activeWager.id || 0}:${activeWager.text || ''}`;
         wagerCard.classList.remove('hidden');
         wagerCard.classList.add('active');
-        wagerCard.innerHTML = `<div class="wager-title active">WAGER ACTIVE</div><div class="wager-body">${esc(activeWager.text || '')}</div>`;
+        if (this.wagerRenderKey !== key) {
+          this.wagerRenderKey = key;
+          wagerCard.innerHTML = `<div class="wager-title active">WAGER ACTIVE</div><div class="wager-body">${esc(activeWager.text || '')}</div>`;
+        }
         this.setExplain(wagerCard, 'WAGER ACTIVE', localText('Условие отслеживается в текущей комнате. При провале будет списана ставка.', 'The condition is being tracked in this room. The stake is lost only on failure.'), 'cyan');
-      } else { wagerCard.classList.add('hidden'); wagerCard.innerHTML = ''; }
+      } else { wagerCard.classList.add('hidden'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
     }
     this.positionRoomWagerCard();
     const inst = $('hud-install');
@@ -1021,7 +1056,9 @@ export class Hud {
       }
       if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно до следующей победы над боссом. Копирует только стакаемые награды с выбором и не копирует саму MIRROR.`, me[P.MIRROR] > 0 ? 'purple' : '');
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
-      if (me[P.BOSSKEY] > 0) addBadge(`KEY x${me[P.BOSSKEY]}`, `BOSS KEY: ${me[P.BOSSKEY]} ключ. Первый сундук в loop станет бесплатным и max rarity.`, 'gold');
+      const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
+      const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
+      if (bossKeyMax > 0) addBadge(`KEY ${bossKeyCur}/${bossKeyMax}`, `BOSS KEY: ${bossKeyCur}/${bossKeyMax} доступно в этом loop. Ключи восстанавливаются до ${bossKeyMax}/${bossKeyMax} на новом loop после boss/core. Первый сундук станет бесплатным и max rarity.`, bossKeyCur > 0 ? 'gold' : '');
       if (me[P.SHIELDMAX] > 0) addBadge(`AEGIS`, `AEGIS PROCESS: shell-shield игрока. Ёмкость зависит только от стаков босса: ${me[P.SHIELDMAX]}.`, 'cyan');
       if (badges.length) {
         sigEl.classList.remove('hidden');
@@ -1038,11 +1075,14 @@ export class Hud {
       const items = active.length ? active : pending;
       if (items.length) {
         const f = items[0];
-        const extra = items.length > 1 ? ` +${items.length - 1}` : '';
+        const extra = items.length > 1 ? localText(` + ещё ${items.length - 1}`, ` + ${items.length - 1} more`) : '';
+        const isReroll = f.id === 'free_reroll' || f.id === 'epic_reroll';
+        const uses = Math.max(0, f.uses || 0);
+        const status = isReroll && uses > 0 ? localText(`${uses} переброс`, `${uses} reroll`) : this.favorStatusText(f);
         favorEl.classList.remove('hidden', 'used', 'pending');
         if (!active.length) favorEl.classList.add('pending');
         if (String(f.status || '') === 'used' || (f.uses || 0) <= 0) favorEl.classList.add('used');
-        favorEl.innerHTML = `<b>${esc(localText('ПРИЗ', 'PRIZE'))}</b> ${esc(this.favorUiLabel(f))}${extra} <em>${esc(this.favorStatusText(f))}${f.uses ? ' x' + f.uses : ''}</em>`;
+        favorEl.innerHTML = `<b>${esc(localText('ПРИЗ', 'PRIZE'))}</b> ${esc(this.favorUiLabel(f))}${esc(extra)} <em>${esc(status)}</em>`;
         this.setExplain(favorEl, localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), items.map(x => `${this.favorUiLabel(x)}: ${this.favorUiBody(x)} (${this.favorStatusText(x)})`).join('\n'), active.length ? 'gold' : 'cyan');
       } else if (used.length) {
         const f = used[0];
@@ -1055,6 +1095,7 @@ export class Hud {
         favorEl.innerHTML = '';
       }
     }
+    this.positionFeedBelowLeftTop();
 
     // dash pips: stable right edge. Cooldown and casino charge overflow live on the LEFT,
     // so the charge squares never shove the hand/weapon HUD when seconds or extra charges appear.
@@ -1830,18 +1871,18 @@ export class Hud {
     return localText(outRu, label || 'CHEST');
   }
   setChestOfferHeader(kind = 'weapon', choices = [], meta = {}) {
-    const modal = kind === 'ability' ? $('ability-modal') : $('weapon-modal');
+    const modal = (kind === 'ability' || kind === 'rare') ? $('ability-modal') : $('weapon-modal');
     if (!modal) return;
     const title = modal.querySelector('.panel-title');
     const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
     const tier = Math.max(0, Math.min(3, Number(meta.tier || 0) | 0));
     const label = this.chestOfferLabel(meta);
-    const code = kind === 'ability' ? 'ABL' : 'WPN';
+    const code = kind === 'rare' ? 'RAR' : (kind === 'ability' ? 'ABL' : 'WPN');
     if (title) {
       const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
       title.innerHTML = `${code} CHEST <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}</span>`;
       title.dataset.explainTitle = `${code}-${localText('СУНДУК', 'CHEST')}`;
-      title.dataset.explain = localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.');
+      title.dataset.explain = kind === 'rare' ? localText('Редкий сундук теперь даёт выбор из двух вариантов. Выбираешь один.', 'Rare chest now offers two options. Pick one.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.');
     }
     let metaEl = modal.querySelector('.chest-offer-meta');
     if (!metaEl && title) {
@@ -1976,6 +2017,60 @@ export class Hud {
     return true;
   }
   closeAbilityChest() { this.ability.open = false; this.ability.locked = false; $('ability-modal').classList.add('hidden'); this.hideTip(); }
+
+
+  // ------------------------------------------------- RAR chest modal
+  openRareChest(choices = [], meta = {}) {
+    this.rare = { open: true, choices, locked: false, meta };
+    this.ability.open = false;
+    this.setChestOfferHeader('rare', choices, { ...meta, slots: 2 });
+    const box = $('ability-choices');
+    box.innerHTML = '';
+    choices.forEach((opt, i) => {
+      const d = document.createElement('div');
+      const tier = Math.max(1, Number(opt.tier || 1) | 0);
+      const tone = opt.disabled ? 'red' : (opt.tone || (opt.cursed ? 'red' : tier >= 2 ? 'purple' : 'gold'));
+      d.className = `choice ability-choice ability-card rare-choice tone-${tone} rarity-rare` + (opt.disabled ? ' disabled' : '');
+      const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
+      const bonus = Math.max(0, Number(meta.bonusGld || 0) | 0);
+      const bonusLine = bonus > 0 ? `<div class="abl-action">${esc(localText('БОНУС', 'BONUS'))}: +${bonus} GLD</div>` : '';
+      d.innerHTML = `
+        <div class="abl-card-top">
+          <span class="key abl-key">[${i + 1}]</span>
+          <div class="abl-title-wrap">
+            <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
+            ${bonusLine}
+          </div>
+          <div class="abl-tags"><span class="rarity-tag">RAR</span>${locked}</div>
+        </div>`;
+      const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('К выбранному варианту добавится золото сундука.', 'Chest gold bonus is added to the selected option.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
+      this.setExplain(d, `${locLabel(opt.label || opt.id)} / RAR`, body, opt.disabled ? 'red' : tone);
+      d.addEventListener('click', () => {
+        if (opt.disabled) { this.playUiSound('denied'); return; }
+        this.pickRare(i);
+      });
+      box.appendChild(d);
+    });
+    $('ability-modal').classList.remove('hidden');
+    this.playUiSound('chest_rare');
+  }
+  pickRare(i) {
+    if (this.rare.locked || !this.rare.open) return;
+    const opt = this.rare.choices[i];
+    if (!opt || opt.disabled) { this.playUiSound('denied'); return; }
+    this.rare.locked = true;
+    const els = document.querySelectorAll('#ability-choices .choice');
+    els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
+    this.net.sendRarePick(i);
+  }
+  pickRandomRare() {
+    if (!this.rare.open || this.rare.locked || !this.rare.choices.length) return false;
+    const valid = this.rare.choices.map((o, i) => ({ o, i })).filter(x => x.o && !x.o.disabled);
+    const pool = valid.length ? valid : this.rare.choices.map((o, i) => ({ o, i }));
+    this.pickRare(pool[Math.floor(Math.random() * pool.length)].i);
+    return true;
+  }
+  closeRareChest() { this.rare.open = false; this.rare.locked = false; $('ability-modal').classList.add('hidden'); this.hideTip(); }
 
 
   casinoStakeProfile(stakeKey = 'low', cost = 0, blood = false, room = null) {
@@ -2334,7 +2429,8 @@ export class Hud {
       if (pl.heal) compactBits.push(`+${pl.heal} HP`);
       const compact = compactBits.slice(0, 4);
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact">${compact.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
-      this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      const who = f.id === myId ? t('you') : (this.names.get(f.id) || '??');
+      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.casinoSlotLocks = casinoNormalizeSlotLocks(f.lockSlots || pl.lockSlots || this.casinoSlotLocks || []);
       this.paintStoredCasinoLockCells(false);

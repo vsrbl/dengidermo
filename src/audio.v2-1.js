@@ -7699,3 +7699,28 @@ AudioBus.prototype.handleFx = function handleFxV2186TargetLockSound(f, info = {}
   }
   return out;
 };
+
+// v2.1.87 — every R-active has an explicit cue; GHOST/KILL were previously too silent.
+const handleFxBeforeV2187RActiveAudio = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2187RActiveAudio(f, info = {}) {
+  const out = handleFxBeforeV2187RActiveAudio.call(this, f, info);
+  const mine = f?.id === info?.myId || f?.playerId === info?.myId;
+  if (!mine) return out;
+  try {
+    if (f?.t === 'ghost_decoy') {
+      this.play('active_snap');
+      this.play('dash_superrare');
+      this.play('shield');
+    } else if (f?.t === 'kill_switch_screen') {
+      this.play('blast');
+      this.play('active_over');
+      this.play('jackpot');
+    } else if (f?.t === 'active_mutation') {
+      const label = String(f.label || '').toUpperCase();
+      if (label.includes('REWIND EXPIRED')) this.play('denied');
+      else if (label.includes('GHOST MODE')) this.play('active_snap');
+      else if (label.includes('KILL SWITCH') || label.includes('FIELD CLEARED')) this.play('blast');
+    }
+  } catch {}
+  return out;
+};

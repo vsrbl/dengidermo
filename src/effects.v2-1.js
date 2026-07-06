@@ -41,9 +41,19 @@ export class Effects {
 
   kick(amount) { this.shake = Math.min(9, this.shake + amount); }
 
-  update(dt) {
+  update(dt, state = null) {
     for (const e of this.list) e.t += dt;
     this.list = this.list.filter(e => e.t < (e.ttl ?? 0.6));
+    // v2.1.87: spawn-warning zones are only pre-spawn telegraphs.
+    // As soon as the authoritative snapshot says an enemy at that spot is live,
+    // remove the old world FX immediately instead of letting it fade over the mob.
+    const enemies = state?.latest?.enemies || [];
+    if (enemies.length) {
+      this.list = this.list.filter(e => {
+        if (e.kind !== 'spawnWarning') return true;
+        return !enemies.some(row => row && Number(row[21] || 0) <= 0 && Math.abs(Number(row[2] || 0) - e.x) <= 8 && Math.abs(Number(row[3] || 0) - e.y) <= 8);
+      });
+    }
     for (const f of this.floats) { f.t += dt; f.y -= 34 * dt; }
     this.floats = this.floats.filter(f => f.t < f.ttl);
     this.shake = Math.max(0, this.shake - 72 * dt);
@@ -343,6 +353,12 @@ export class Effects {
           this.add({ kind: 'squareField', activeKind: 'redline_speed_line', x: f.x + Math.cos(a) * 24, y: f.y + Math.sin(a) * 24, r: 42 + stack * 5, ttl: 0.18 + i * 0.025, color: '#ff3048', tick: 1 });
         }
         this.float(f.x, f.y - 56, `REDLINE x${stack}`, '#ff3048', 13);
+        break;
+      }
+      case 'ghost_decoy': {
+        if (mine) { this.slam = Math.max(this.slam, 0.10); this.kick(5); }
+        this.add({ kind: 'squareField', activeKind: 'ghost_decoy_start', x: f.x, y: f.y, r: f.r || 125, ttl: 0.42, color: '#66f6ff', tick: 1 });
+        this.float(f.x, f.y - 56, 'GHOST MODE', '#66f6ff', 13);
         break;
       }
       case 'active_mutation': {

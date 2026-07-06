@@ -419,6 +419,8 @@ net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices, m.meta));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
 net.on('ability_offer', (m) => hud.openAbilityChest(m.choices, m.meta));
 net.on('ability_offer_close', () => hud.closeAbilityChest());
+net.on('rare_offer', (m) => hud.openRareChest(m.choices, m.meta));
+net.on('rare_offer_close', () => hud.closeRareChest());
 net.on('casino_result', (m) => { if (m?.id === state.myId) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
 net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? netStatus('roomNotFound') : m.error === 'room full' ? netStatus('roomFull') : netStatus('error'), 'err'); });
 net.on('room_closed', () => location.reload());
@@ -586,7 +588,7 @@ function frame(now) {
   const me = state.me();
   const room = state.room;
 
-  const modalOpen = hud.casino.open || hud.install.open || hud.weapon.open || hud.ability.open;
+  const modalOpen = hud.casino.open || hud.install.open || hud.weapon.open || hud.ability.open || hud.rare.open;
   document.body.classList.toggle('modal-open', !!modalOpen);
   input.blocked = modalOpen;
 
@@ -595,6 +597,7 @@ function frame(now) {
     else if (hud.install.open && !hud.install.waitingOnly) hud.pickRandomInstall();
     else if (hud.weapon.open) hud.pickRandomWeapon();
     else if (hud.ability.open) hud.pickRandomAbility();
+    else if (hud.rare.open) hud.pickRandomRare();
     else if (input.tabOpen) input.tabOpen = false;
   }
   const num = input.takeNum();
@@ -602,12 +605,14 @@ function frame(now) {
     if (hud.install.open && !hud.install.waitingOnly) hud.pick(num);
     else if (hud.weapon.open) hud.pickWeapon(num);
     else if (hud.ability.open) hud.pickAbility(num);
+    else if (hud.rare.open) hud.pickRare(num);
     else if (hud.casino.open && !hud.casino.spinning) hud.placeBet(['low', 'mid', 'high'][num]);
   }
   if (hud.install.open && !hud.install.skinOnly && me && me[P.PEND] === 0 && room && room.phase !== 'install') hud.closeInstall();
   if (room && room.phase === 'play' && hud.install.open && !hud.install.skinOnly) hud.closeInstall();
   if (room && room.phase !== 'play' && hud.weapon.open) hud.closeWeaponChest();
   if (room && room.phase !== 'play' && hud.ability.open) hud.closeAbilityChest();
+  if (room && room.phase !== 'play' && hud.rare.open) hud.closeRareChest();
 
   const mv = input.moveVec();
   const aim = renderer.screenToWorld(input.mouseX, input.mouseY);
@@ -625,7 +630,7 @@ function frame(now) {
     net.sendInput(pkt);
   }
 
-  effects.update(dt);
+  effects.update(dt, state);
   const myPos = state.myRenderPos(dt);
   const view = state.interp();
   const cameraPos = state.cameraRenderPos(view, myPos);

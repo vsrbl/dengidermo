@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
+  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -24,6 +24,7 @@ export class LocalRoom {
     this.offerSentAt = new Map();
     this.weaponOffersSent = new Map();
     this.abilityOffersSent = new Map();
+    this.rareOffersSent = new Map();
     this.lastTickAt = performance.now();
     this.simNow = this.lastTickAt / 1000;
     this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -69,6 +70,7 @@ export class LocalRoom {
     this.offerSentAt.delete(guestId);
     this.weaponOffersSent.delete(guestId);
     this.abilityOffersSent.delete(guestId);
+    this.rareOffersSent.delete(guestId);
     this.run.fx.push({ t: 'leave', id: guestId, name: p.name });
   }
 
@@ -111,6 +113,12 @@ export class LocalRoom {
       const ok = handleAbilityPick(this.run, this.players, p, m.choice);
       if (ok && !p.abilityChestOffer) this.sendTo(playerId, { t: 'ability_offer_close' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid ABL choice' }, true);
+    } else if (m.t === 'rare_pick') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const ok = handleRarePick(this.run, this.players, p, m.choice);
+      if (ok && !p.rareChestOffer) this.sendTo(playerId, { t: 'rare_offer_close' }, true);
+      else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid RAR choice' }, true);
     } else if (m.t === 'room_wager') {
       const p = this.players.get(playerId);
       if (!p) return;
@@ -211,6 +219,18 @@ export class LocalRoom {
         else this.sendTo(pid, msg, true);
       }
       if (!p.abilityChestOffer && sent) this.abilityOffersSent.delete(pid);
+    }
+
+    // RAR chest choice offers
+    for (const [pid, p] of this.players) {
+      const sent = this.rareOffersSent.get(pid);
+      if (p.rareChestOffer && sent !== p.rareChestOffer) {
+        this.rareOffersSent.set(pid, p.rareChestOffer);
+        const msg = { t: 'rare_offer', choices: p.rareChestOffer.choices, meta: { tier: p.rareChestOffer.valueTier || 0, label: p.rareChestOffer.valueLabel || '', labelRu: p.rareChestOffer.valueLabelRu || '', slots: p.rareChestOffer.slotCount || p.rareChestOffer.choices?.length || 2, reason: p.rareChestOffer.rarityReason || '', cost: p.rareChestOffer.costPaid || 0, unit: p.rareChestOffer.costUnit || 'GLD', bonusGld: p.rareChestOffer.bonusGld || 0 } };
+        if (pid === this.hostId) this.onLocal(msg);
+        else this.sendTo(pid, msg, true);
+      }
+      if (!p.rareChestOffer && sent) this.rareOffersSent.delete(pid);
     }
 
     this.tickN++;

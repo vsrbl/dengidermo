@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.86';
-export const BUILD_ID = 'lock_contract_rewind_wager_target_hotfix';
+export const VERSION = 'v2.1.88';
+export const BUILD_ID = 'spawn_contract_ghost_rare_key_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
@@ -22,6 +22,7 @@ export const C = {
   PICK: 'pick',       // INSTALL pick {choiceIdx}
   WEAPON_PICK: 'weapon_pick', // WPN chest pick {choiceIdx}
   ABILITY_PICK: 'ability_pick', // ABL chest pick {choiceIdx}
+  RARE_PICK: 'rare_pick', // RAR chest pick {choiceIdx}
   REROLL_OFFER: 'reroll_offer',
   ROOM_WAGER: 'room_wager', // contract favor reroll {kind}
   PING: 'ping',
@@ -36,6 +37,7 @@ export const S = {
   OFFER: 'offer',     // INSTALL choices
   WEAPON_OFFER: 'weapon_offer',
   ABILITY_OFFER: 'ability_offer',
+  RARE_OFFER: 'rare_offer',
   ERROR: 'error',
   PONG: 'pong',
   ROOM_CLOSED: 'room_closed'

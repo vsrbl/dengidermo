@@ -2268,6 +2268,8 @@ export function createPlayer(id, name, idx, skin = null) {
     offer: null, bossSignaturePending: false, bossSignatureChoices: null, bossSignatureKind: '',
     weaponChestOffer: null,
     abilityChestOffer: null,
+    rareChestOffer: null,
+    bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
     connected: true
@@ -2437,8 +2439,11 @@ export function startRoom(run, players) {
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
     if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 12; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER DMG x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
+    ensureBossKeyCharges(run, p);
     p.offer = null;
     p.weaponChestOffer = null;
+    p.abilityChestOffer = null;
+    p.rareChestOffer = null;
   }
   if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
     const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
@@ -2495,7 +2500,7 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [] };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.rareChestOffer = null; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
   }
   startRoom(run, players);
 }
@@ -3745,13 +3750,29 @@ function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45
 function mirrorCapacity(p) { return Math.max(0, p?.stats?.mirrorCapacity || 0); }
 function mirrorLeft(p) { return Math.max(0, mirrorCapacity(p) - Math.max(0, p?.mirrorUsedLoop || 0)); }
 function roomLoopIndex(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
-function bossKeyReady(run, p) { return (p?.stats?.bossKeys || 0) > 0 && p.bossKeyLastLoop !== roomLoopIndex(run); }
+function bossKeyMax(p) { return Math.max(0, Number(p?.stats?.bossKeys || 0) | 0); }
+function ensureBossKeyCharges(run, p) {
+  const loop = roomLoopIndex(run);
+  const max = bossKeyMax(p);
+  if (!p) return 0;
+  if (p.bossKeyChargeLoop !== loop) {
+    const prev = Math.max(0, Number(p.bossKeyCharges || 0) | 0);
+    p.bossKeyCharges = max;
+    p.bossKeyChargeLoop = loop;
+    if (max > 0 && prev < max && run?.fx) run.fx.push({ t: 'active_mutation', label: `BOSS KEY ${max}/${max}`, x: Math.round(p.x), y: Math.round(p.y), r: 96, tone: 'gold', playerId: p.id });
+  } else if (p.bossKeyCharges == null) {
+    p.bossKeyCharges = max;
+  } else {
+    p.bossKeyCharges = Math.min(max, Math.max(0, Number(p.bossKeyCharges || 0) | 0));
+  }
+  return Math.max(0, Number(p.bossKeyCharges || 0) | 0);
+}
+function bossKeyReady(run, p) { return bossKeyMax(p) > 0 && ensureBossKeyCharges(run, p) > 0; }
 function spendBossKey(run, p, o) {
   if (!bossKeyReady(run, p)) return false;
-  p.stats.bossKeys = Math.max(0, (p.stats.bossKeys || 0) - 1);
-  p.bossKeyLastLoop = roomLoopIndex(run);
+  p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1);
   if (o) { o.chestTier = 3; o.slotCount = 5; o.costMul = 0; o.rarityReason = 'BOSS KEY'; }
-  run.fx.push({ t: 'active_mutation', label: 'BOSS KEY USED', x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
+  run.fx.push({ t: 'active_mutation', label: `BOSS KEY ${p.bossKeyCharges}/${bossKeyMax(p)}`, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
   return true;
 }
 function bossRewardCanMirror(id) {
@@ -3854,7 +3875,8 @@ function doRActive(run, players, p) {
     p.rActiveCd = 22;
     if (!Array.isArray(run.decoys)) run.decoys = [];
     run.decoys.push({ id: `decoy:${p.id}:${run.tick || 0}`, owner: p.id, x: p.x, y: p.y, alive: true, t: dur, size: 22, weapons: p.weapons, weaponIdx: p.weaponIdx, decoy: 1 });
-    run.fx.push({ t: 'active_mutation', label: 'GHOST DECOY', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan', playerId: p.id });
+    run.fx.push({ t: 'ghost_decoy', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), r: 135, dur });
+    run.fx.push({ t: 'active_mutation', label: 'GHOST MODE', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan', playerId: p.id });
     return true;
   }
   if (id === 'rewind_mark') {
@@ -3938,7 +3960,7 @@ const ROOM_WAGER_STAKES = [
   { id: 'loop_spd_down', text: '-30% скорости до конца loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'r_forever', text: 'R-активку навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
   { id: 'maxhp_forever', text: '-10 max HP навсегда', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
-  { id: 'boss_key', text: '1 BOSS KEY', needs: p => (p?.stats?.bossKeys || 0) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, (p.stats.bossKeys || 0) - 1); } },
+  { id: 'boss_key', text: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
   { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } }
 ];
 const ROOM_WAGER_CONDITIONS = [
@@ -3956,7 +3978,7 @@ const ROOM_WAGER_PRIZES = [
   { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'aegis', text: '+1 AEGIS stack', prize: (run, p) => { p.stats.aegisStacks += 1; } },
-  { id: 'boss_key', text: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; } },
+  { id: 'boss_key', text: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
   { id: 'null_revive', text: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
   { id: 'mirror', text: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
   { id: 'q_loop', text: 'Q cooldown -30% до конца loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
@@ -3973,7 +3995,9 @@ function makeRoomWagerOffer(run, p) {
   const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
   const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p);
   const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
-  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, expires: 24, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
+  // ROOM WAGER has no separate accept timer. It is only available during
+  // the normal INSTALL window and disappears when INSTALL advances.
+  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
 }
 function ensureRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
@@ -4281,9 +4305,13 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     const otherBossAlive = run.enemies.some(x => x && x.hp > 0 && ENEMIES[x.kind]?.boss);
     if (!def.bossFragment || !otherBossAlive) {
       if (run.runMemory) run.runMemory.bossesDefeated = (run.runMemory.bossesDefeated || 0) + 1;
-      // boss reward burst
+      // boss reward burst. GOLD FEVER keeps enemy/boss loot pure GLD too.
       const burst = def.bossFragment ? 4 : 6;
-      for (let i = 0; i < burst; i++) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', 20 + Math.round(Math.random() * 20));
+      for (let i = 0; i < burst; i++) {
+        const baseVal = 20 + Math.round(Math.random() * 20);
+        if (run.plan.modifierIds.includes('greed')) dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, 'GLD', Math.round(baseVal * 1.35));
+        else dropPickup(run, e.x + (Math.random() - 0.5) * 160, e.y + (Math.random() - 0.5) * 160, Math.random() < 0.7 ? 'GLD' : 'EXP', baseVal);
+      }
       queueBossSignatureReward(run, players, run.bossKind || e.kind || 'boss');
       openPortal(run);
     }
@@ -5983,6 +6011,53 @@ function applyWeaponChestOption(run, players, p, opt) {
   return true;
 }
 
+
+function makeRareChestChoices(p, rng = Math.random, count = 2, qualityTier = 0) {
+  const pool = eligibleHeroUpgrades(p, null).filter(u => u && (u.tier === 1 || (qualityTier >= 2 && u.tier === 2)));
+  const fallback = eligibleHeroUpgrades(p, null).filter(u => u && u.tier <= 2);
+  const list = pool.length ? pool : fallback;
+  const used = new Set();
+  const out = [];
+  const want = Math.max(2, Math.min(2, Number(count || 2) | 0));
+  while (out.length < want && list.length) {
+    const avail = list.filter(u => !used.has(u.id));
+    const u = avail[Math.floor(rng() * avail.length)];
+    if (!u) break;
+    used.add(u.id);
+    out.push({
+      id: u.id,
+      upgrade: u.id,
+      kind: 'rare_upgrade',
+      label: u.label,
+      desc: u.desc || '',
+      tier: u.tier || 1,
+      cursed: !!u.cursed,
+      group: 'RAR',
+      tone: u.cursed ? 'red' : (u.tier >= 2 ? 'purple' : 'gold'),
+      valueTier: qualityTier
+    });
+  }
+  return out;
+}
+
+function handleRarePick(run, players, p, choiceIdx) {
+  if (!p.rareChestOffer) return false;
+  const idx = choiceIdx | 0;
+  if (idx < 0 || idx >= p.rareChestOffer.choices.length) return false;
+  const opt = p.rareChestOffer.choices[idx];
+  const u = HERO_UPGRADES.find(x => x.id === (opt.upgrade || opt.id));
+  if (!u) return false;
+  u.apply(p.stats);
+  p.hp = Math.min(p.hp, maxHp(p));
+  const rewards = [u.label];
+  const bonus = Math.max(0, Number(p.rareChestOffer.bonusGld || 0) | 0);
+  if (bonus > 0) { p.economy.money += bonus; rewards.push(`GLD +${bonus}`); }
+  run.fx.push({ t: 'install', id: p.id, label: `RAR: ${u.label}`, cursed: !!u.cursed });
+  run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'RAR', rewards, x: Math.round(p.x), y: Math.round(p.y) });
+  p.rareChestOffer = null;
+  return true;
+}
+
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
   const keyUsed = spendBossKey(run, p, o);
@@ -6048,26 +6123,14 @@ function openChest(run, players, p, o) {
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'rare_chest') {
-    const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 1);
-    const fallback = eligibleHeroUpgrades(p, null).filter(u => u.tier <= 1);
-    const list = pool.length ? pool : fallback;
-    const picks = Math.max(1, value.tier >= 3 ? 2 : 1);
-    const used = new Set();
-    for (let i = 0; i < picks; i++) {
-      const avail = list.filter(u => u && !used.has(u.id));
-      const u = avail[Math.floor(rng() * avail.length)];
-      if (u) {
-        used.add(u.id);
-        u.apply(p.stats);
-        p.hp = Math.min(p.hp, maxHp(p));
-        rewards.push(u.label);
-      }
-    }
-    if (value.tier >= 2) {
-      const val = Math.round((22 + rng() * 28) * loopEconomyMul(run));
-      p.economy.money += val;
-      rewards.push(`GLD +${val}`);
-    }
+    takeCasinoHoldChoices(p, 2);
+    const bonusGld = value.tier >= 2 ? Math.round((22 + rng() * 28) * loopEconomyMul(run)) : 0;
+    const choices = makeRareChestChoices(p, rng, 2, value.tier);
+    p.rareChestOffer = { choices, chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: 2, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, bonusGld };
+    run.fx.push({ t: 'rare_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: 2 });
+    const tag = `RAR ${value.label} · 2 CHOICES${bonusGld > 0 ? ` · +${bonusGld} GLD` : ''}`;
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: 2, rewards: [tag], x: o.x, y: o.y });
+    return;
   } else if (o.chest === 'cursed_chest') {
     const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 2);
     const fallback = eligibleHeroUpgrades(p, null).filter(u => u.cursed);
@@ -6105,7 +6168,7 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
   return ok;
 }
 
-export { handleRoomWagerAccept };
+export { handleRoomWagerAccept, handleRarePick };
 
 function choiceIdentity(c) { return String(c?.id || c?.upgrade || c?.weapon || c?.core || c?.mutation || c || ''); }
 function rerollChoicesDifferent(makeFn, oldChoices = [], count = 2, fallback = []) {
@@ -6569,6 +6632,7 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const canMirror = wasBossSignature && !mirrorSelfPick && upgradeCanMirror(id);
   u.apply(p.stats);
   if (wasBossSignature && !mirrorSelfPick) useMirrorIfPossible(run, p, u.label, canMirror, () => { u.apply(p.stats); return true; });
+  if (id === 'sig_boss_key') { p.bossKeyChargeLoop = roomLoopIndex(run); p.bossKeyCharges = bossKeyMax(p); }
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   if (wasBossSignature) {
@@ -6595,11 +6659,6 @@ function stepInstall(run, players, dt) {
       continue;
     }
     ensureRoomWagerOffer(run, p);
-    if (p.roomWagerOffer && !p.offer) {
-      p.roomWagerOffer.expires = Math.max(0, (p.roomWagerOffer.expires || 24) - dt);
-      if (p.roomWagerOffer.expires <= 0) p.roomWagerOffer = null;
-      else waiting = true;
-    }
     ensureInstallOffer(run, p);
     if (!p.offer) continue;
     p.offer.expires -= dt;
@@ -6610,6 +6669,9 @@ function stepInstall(run, players, dt) {
   // v2.1 hotfix: do not advance just because a global install timer expired.
   // Multiple players can have multiple queued INSTALL choices; every pending stack must be offered or auto-picked.
   if (!waiting) {
+    for (const p of players.values()) {
+      if (p) p.roomWagerOffer = null;
+    }
     run.runDepth++;
     startRoom(run, players);
   }
@@ -7596,8 +7658,8 @@ export function buildSnapshot(run, players) {
       Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
-      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), Math.max(0, p.stats?.bossKeys || 0), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null
+      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null,
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p)
     ]);
   }
   const es = combatEnemies(run).map(e => [

@@ -4413,3 +4413,52 @@ html.yt-video-8bit #youtube-player-wrap::before {
   background: rgba(255,211,77,.92) !important;
   box-shadow: 0 0 16px rgba(255,211,77,.28) !important;
 }
+
+/* v2.1.87 — contract card aligned with the top-right dossier, not glued to the screen edge. */
+#hud-contract-card {
+  right: var(--ui-center-inset-x, 42px) !important;
+  left: auto !important;
+  top: calc(var(--ui-center-inset-y, 40px) + 132px) !important;
+  width: min(570px, 44vw) !important;
+  max-width: min(570px, 44vw) !important;
+  min-width: 300px !important;
+  text-align: left !important;
+}
+@media (max-width: 960px) {
+  #hud-contract-card {
+    position: absolute !important;
+    right: 32px !important;
+    top: 226px !important;
+    width: min(360px, 92vw) !important;
+    min-width: 0 !important;
+  }
+}
+@media (max-width: 760px) {
+  #hud-contract-card {
+    right: 20px !important;
+  }
+}
+
+/* v2.1.88 — feed follows the top-left block/favor row; WAGER uses install time only. */
+#feed {
+  left: var(--ui-center-inset-x) !important;
+  top: calc(var(--ui-center-inset-y) + 166px) !important;
+  z-index: 3 !important;
+}
+#room-wager-card {
+  overflow: hidden !important;
+  pointer-events: auto !important;
+  z-index: 520 !important;
+}
+#room-wager-card button {
+  touch-action: manipulation !important;
+  pointer-events: auto !important;
+}
+#room-wager-card button:disabled {
+  opacity: .62 !important;
+  color: var(--dim) !important;
+  border-color: rgba(120,120,120,.55) !important;
+}
+#hud-favor em {
+  white-space: nowrap !important;
+}

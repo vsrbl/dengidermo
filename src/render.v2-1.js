@@ -802,8 +802,26 @@ export class Renderer {
         continue;
       }
       ctx.save();
+      const ghostActive = String(p[P.RLABEL] || '').includes('GHOST') && Number(p[P.RT] || 0) > 0;
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
+      if (ghostActive) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.38 + Math.sin(now * 16) * 0.12);
       const redlineActive = String(p[P.RLABEL] || '').includes('REDLINE') && Number(p[P.RT] || 0) > 0;
+      if (ghostActive) {
+        const gp = 0.50 + Math.sin(now * 20) * 0.22;
+        ctx.save();
+        ctx.globalAlpha = 0.22 + gp * 0.18;
+        ctx.strokeStyle = COL.cyan;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5, 2, 5]);
+        const gr = 46 + Math.sin(now * 12) * 4;
+        ctx.strokeRect(px - gr / 2, py - gr / 2, gr, gr);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = COL.cyan;
+        ctx.fillRect(px - 3, py - 34, 6, 6);
+        ctx.restore();
+        this.label('GHOST', px, py - 46, COL.cyan, 8);
+      }
       if (redlineActive) {
         const pulse = 0.55 + Math.sin(now * 28) * 0.18;
         const rt = Math.max(0, Number(p[P.RT] || 0));
