@@ -434,11 +434,12 @@ export class Effects {
       case 'casino_overload': {
         const d = Math.max(3.0, Number(f.breakDelay || 4.18));
         const hold = Math.max(3.0, Number(f.holdDelay || 3.0));
-        const g = Math.max(d + hold, Number(f.gatherDelay || (d + hold)));
-        // First the terminal only shakes/tears while inactive. The actual physical
-        // break happens after the BET window has closed, then exactly four chunks
-        // bounce, settle, magnetize one by one and become the slot-mob seed.
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + 3.4, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherAt: g, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
+        const step = Math.max(0.32, Number(f.gatherStep || 0.52));
+        const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
+        // One authoritative visual chain: terminal shakes after the BET window closes,
+        // breaks into 4 colored physical quarters, then the quarters magnetize back.
+        // The slot mob itself is still hidden in the snapshot until this chain ends.
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + step * 3 + dur + 0.65, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
         break;
@@ -453,12 +454,30 @@ export class Effects {
       case 'slot_mob_rebuild': {
         const d = Math.max(0, Number(f.delay || 0));
         const hold = Math.max(3.0, Number(f.holdDelay || 3.0));
-        const gatherAt = Math.max(0.9 + hold, Number(f.gatherDelay || (0.95 + hold)));
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: gatherAt + 3.2, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherAt, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
+        const step = Math.max(0.32, Number(f.gatherStep || 0.52));
+        const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + step * 3 + dur + 0.65, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
         if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
       }
+      case 'slot_mob_break':
+        this.add({ kind: 'squareBlastLite', x: f.x, y: f.y, r: 86, ttl: 0.30, color: '#ff3048' });
+        this.float(f.x, f.y - 62, localText('РАЗЛОМ СЛОТА', 'SLOT FRACTURE'), '#ff3048', 14);
+        this.slam = Math.max(this.slam, 0.35); this.kick(12);
+        break;
+      case 'slot_mob_piece_impact': {
+        const final = !!f.final;
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: final ? 145 : 58 + (f.step || 1) * 18, ttl: final ? 0.46 : 0.26, color: final ? '#ff3048' : '#ffd34d' });
+        this.kick(final ? 15 : (2.5 + (f.step || 1) * 2));
+        if (final) this.slam = Math.max(this.slam, 0.50);
+        break;
+      }
+      case 'slot_mob_assemble_burst':
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: 110, ttl: 0.34, color: '#ffd34d' });
+        this.float(f.x, f.y - 62, 'SLOT MOB', '#ffd34d', 16);
+        this.kick(14); this.slam = Math.max(this.slam, 0.40);
+        break;
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
@@ -597,129 +616,177 @@ export class Effects {
           ctx.stroke();
         }
       } else if (e.kind === 'slotBreakChunks') {
-        // Four physical casino plates. They shake before breaking, fly out, bounce/settle,
-        // rest for a few seconds, then magnetize back one-by-one into the mob core.
+        // One strict physical/magnet chain. Four colored quarters are the mob body:
+        // they bounce/settle, wait, then magnetize back one-by-one. The live mob is
+        // rendered only after the server hidden timer ends, so there is no separate ghost mob.
         const pre = Math.max(0, Number(e.preBreak || 0));
         const hold = Math.max(0, Number(e.hold || 3.0));
-        const gatherAt = Math.max(pre + hold, Number(e.gatherAt || (pre + hold)));
+        const step = Math.max(0.32, Number(e.gatherStep || 0.52));
+        const dur = Math.max(0.72, Number(e.gatherDur || 1.08));
+        const mobSize = Math.max(34, Number(e.mobSize || 44) || 44);
+        const quarter = Math.max(14, mobSize / 2);
         if (e.t < pre) {
           const q = e.t / Math.max(0.01, pre);
-          const jx = Math.sin(e.t * 52) * (2 + q * 7);
-          const jy = Math.cos(e.t * 47) * (1.5 + q * 5);
+          const jx = Math.sin(e.t * 58) * (2 + q * 8) + Math.sin(e.t * 119) * q * 2;
+          const jy = Math.cos(e.t * 51) * (1.5 + q * 6) + Math.cos(e.t * 101) * q * 2;
           ctx.save();
-          ctx.globalAlpha = 0.52 + Math.sin(e.t * 28) * 0.18;
-          ctx.strokeStyle = '#ff3048'; ctx.fillStyle = 'rgba(255,48,72,0.08)'; ctx.lineWidth = 3;
+          ctx.globalAlpha = 0.56 + Math.sin(e.t * 31) * 0.18;
+          ctx.strokeStyle = '#ff3048'; ctx.fillStyle = 'rgba(255,48,72,0.10)'; ctx.lineWidth = 3.2;
           ctx.setLineDash([9, 5]);
-          const s = 58 + q * 18;
+          const s = mobSize * (1.26 + q * 0.42);
           ctx.strokeRect(Math.round(e.x - s / 2 + jx), Math.round(e.y - s / 2 + jy), Math.round(s), Math.round(s));
           ctx.fillRect(Math.round(e.x - s / 2 + jx), Math.round(e.y - s / 2 + jy), Math.round(s), Math.round(s));
           ctx.setLineDash([]);
-          ctx.globalAlpha = 0.34 + q * 0.22;
-          ctx.strokeStyle = e.color || '#ffd34d';
-          ctx.strokeRect(Math.round(e.x - s * 0.32 - jx), Math.round(e.y - s * 0.32 - jy), Math.round(s * 0.64), Math.round(s * 0.64));
+          ctx.globalAlpha = 0.48 + q * 0.24;
+          ctx.strokeStyle = '#ffd34d';
+          ctx.strokeRect(Math.round(e.x - quarter / 2 - jx), Math.round(e.y - quarter / 2 - jy), Math.round(quarter), Math.round(quarter));
           ctx.restore();
         } else {
-        if (!e.parts) {
-          const seed = (Math.sin((e.x || 1) * 12.9898 + (e.y || 1) * 78.233 + ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) * 0.001) * 43758.5453) % 1;
-          const rnd = (i, off = 0) => {
-            const v = Math.sin((seed + i * 19.19 + off) * 999.13) * 43758.5453;
-            return v - Math.floor(v);
-          };
-          const baseSize = Math.max(18, Math.round((Number(e.mobSize || 44) || 44) / 2));
-          const angles = [
-            -2.55 + rnd(0) * 0.45,
-            -0.82 + rnd(1) * 0.45,
-            0.75 + rnd(2) * 0.45,
-            2.38 + rnd(3) * 0.45
+          const t = Math.max(0, e.t - pre);
+          if (!e.parts) {
+            const timeSeed = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) * 0.001;
+            const seed = Math.abs(Math.sin((e.x || 1) * 12.9898 + (e.y || 1) * 78.233 + timeSeed * 37.719) * 43758.5453);
+            const rnd = (i, off = 0) => {
+              const v = Math.sin((seed + i * 23.71 + off * 9.13) * 997.31) * 43758.5453;
+              return v - Math.floor(v);
+            };
+            const cols = ['#ffd34d', '#66f6ff', '#b45cff', '#ff3048'];
+            const order = [0, 1, 2, 3].sort((a, b) => rnd(a, 7) - rnd(b, 7));
+            e.parts = order.map((quad, i) => {
+              const a = (-Math.PI + rnd(i, 1) * Math.PI * 2);
+              const sp = 245 + rnd(i, 2) * 155;
+              return {
+                quad, col: cols[quad % cols.length],
+                px: e.x + (rnd(i, 3) - 0.5) * 8,
+                py: e.y + (rnd(i, 4) - 0.5) * 8,
+                vx: Math.cos(a) * sp,
+                vy: Math.sin(a) * sp - (150 + rnd(i, 5) * 170),
+                rot: (rnd(i, 6) - 0.5) * Math.PI,
+                spin: (rnd(i, 8) < 0.5 ? -1 : 1) * (4.4 + rnd(i, 9) * 5.2),
+                joined: false, gatherFrom: null
+              };
+            });
+            e.lastPhysT = t;
+            e.impacts = [];
+            e.finalBits = [];
+          }
+          const dtp = Math.max(0, Math.min(0.05, t - (e.lastPhysT ?? t)));
+          e.lastPhysT = t;
+          const targetX = Number(e.x2 || e.x), targetY = Number(e.y2 || e.y);
+          const localMinX = Math.min(e.x, targetX) - 300, localMaxX = Math.max(e.x, targetX) + 300;
+          const localMinY = Math.min(e.y, targetY) - 230, localMaxY = Math.max(e.y, targetY) + 230;
+          const groundY = Math.min(localMaxY, Math.max(e.y, targetY) + 142);
+          const finalOffsetsByQuad = [
+            [-quarter / 2, -quarter / 2],
+            [ quarter / 2, -quarter / 2],
+            [-quarter / 2,  quarter / 2],
+            [ quarter / 2,  quarter / 2]
           ];
-          e.parts = angles.map((a, i) => ({
-            a,
-            vx: Math.cos(a) * (175 + rnd(i, 3) * 95),
-            vy: Math.sin(a) * (145 + rnd(i, 5) * 82) - (120 + rnd(i, 7) * 90),
-            spin: (i % 2 ? -1 : 1) * (3.4 + rnd(i, 11) * 3.2),
-            sz: baseSize,
-            rest: null,
-            joined: false
-          }));
-        }
-        const t = Math.max(0, e.t - pre);
-        const explodeT = Math.min(1.16, t);
-        const targetX = Number(e.x2 || e.x), targetY = Number(e.y2 || e.y);
-        const localMinX = e.x - 245, localMaxX = e.x + 245;
-        const localMinY = e.y - 180, localMaxY = e.y + 150;
-        const groundY = e.y + 126;
-        const pieceSize = Math.max(18, Number(e.parts?.[0]?.sz || (Number(e.mobSize || 44) / 2)) || 22);
-        const finalOffsets = [
-          [-pieceSize / 2, -pieceSize / 2],
-          [ pieceSize / 2, -pieceSize / 2],
-          [-pieceSize / 2,  pieceSize / 2],
-          [ pieceSize / 2,  pieceSize / 2]
-        ];
-        ctx.save();
-        ctx.strokeStyle = e.color || '#ffd34d';
-        ctx.fillStyle = 'rgba(255,211,77,0.15)';
-        ctx.lineWidth = e.heavy ? 3.2 : 2.4;
-        for (let i = 0; i < e.parts.length; i++) {
-          const part = e.parts[i];
-          let x = e.x + part.vx * explodeT;
-          let y = e.y + part.vy * explodeT + 280 * explodeT * explodeT;
-          // visual physics: bounce against a local room-sized box and settle with weight.
-          if (x < localMinX) x = localMinX + (localMinX - x) * 0.52;
-          if (x > localMaxX) x = localMaxX - (x - localMaxX) * 0.52;
-          if (y < localMinY) y = localMinY + (localMinY - y) * 0.34;
-          if (y > groundY) y = groundY - (y - groundY) * 0.42;
-          if (y > localMaxY) y = localMaxY;
-          if (!part.rest && t >= 1.16) part.rest = { x, y };
-          if (part.rest) { x = part.rest.x; y = part.rest.y; }
-          const gatherStart = Math.max(gatherAt - pre, 0) + i * 0.42;
-          const gatherDur = 0.86;
-          let rot = part.a + part.spin * Math.min(t, 1.16);
-          let impactQ = 0;
-          if (t >= gatherStart) {
-            const q = Math.max(0, Math.min(1, (t - gatherStart) / gatherDur));
-            // Magnetic pull: slow at the start, then accelerates hard near the core.
-            const mag = Math.pow(q, 2.65);
-            const final = finalOffsets[i] || [0, 0];
-            const tx = targetX + final[0];
-            const ty = targetY + final[1];
-            const distLeft = 1 - mag;
-            const vib = Math.sin((t - gatherStart) * (38 + i * 11) + i * 2.7) * distLeft * (2.2 + i * 0.7);
-            x = part.rest.x + (tx - part.rest.x) * mag + vib;
-            y = part.rest.y + (ty - part.rest.y) * mag - Math.sin(q * Math.PI) * (26 + i * 2) + vib * 0.45;
-            rot += q * Math.PI * (i % 2 ? -1 : 1);
-            impactQ = Math.max(0, (q - 0.82) / 0.18);
-            if (!part.joined && q >= 0.98) {
-              part.joined = true;
-              this.kick(2 + i * 2.3);
-              if (i === 3) { this.slam = Math.max(this.slam, 0.35); this.kick(13); }
+          ctx.save();
+          for (let i = 0; i < e.parts.length; i++) {
+            const part = e.parts[i];
+            const gatherStart = hold + i * step;
+            let rot = part.rot;
+            if (t < gatherStart) {
+              // True visual physics while the piece is still free: gravity, damping,
+              // and bounces against the local arena/wall box.
+              if (dtp > 0) {
+                part.vy += 640 * dtp;
+                part.px += part.vx * dtp;
+                part.py += part.vy * dtp;
+                part.rot += part.spin * dtp;
+                const bounce = 0.58;
+                if (part.px < localMinX + quarter / 2) { part.px = localMinX + quarter / 2; part.vx = Math.abs(part.vx) * bounce; part.spin *= -0.78; }
+                if (part.px > localMaxX - quarter / 2) { part.px = localMaxX - quarter / 2; part.vx = -Math.abs(part.vx) * bounce; part.spin *= -0.78; }
+                if (part.py < localMinY + quarter / 2) { part.py = localMinY + quarter / 2; part.vy = Math.abs(part.vy) * bounce; part.spin *= -0.72; }
+                if (part.py > groundY - quarter / 2) {
+                  part.py = groundY - quarter / 2;
+                  part.vy = -Math.abs(part.vy) * 0.34;
+                  part.vx *= 0.78;
+                  part.spin *= 0.66;
+                  if (Math.abs(part.vy) < 38) part.vy = 0;
+                  if (Math.abs(part.vx) < 9) part.vx = 0;
+                }
+              }
+            } else {
+              if (!part.gatherFrom) part.gatherFrom = { x: part.px, y: part.py, rot: part.rot };
+              const q = Math.max(0, Math.min(1, (t - gatherStart) / dur));
+              // Magnet feel: very slow at first, then rapidly accelerates near the core.
+              const mag = Math.pow(q, 2.8);
+              const final = finalOffsetsByQuad[part.quad] || [0, 0];
+              const tx = targetX + final[0];
+              const ty = targetY + final[1];
+              const left = 1 - mag;
+              const vib = Math.sin((t - gatherStart) * (46 + i * 13) + part.quad * 1.7) * left * (2.4 + i * 0.9);
+              part.px = part.gatherFrom.x + (tx - part.gatherFrom.x) * mag + vib;
+              part.py = part.gatherFrom.y + (ty - part.gatherFrom.y) * mag - Math.sin(q * Math.PI) * (20 + i * 5) + vib * 0.35;
+              rot = part.gatherFrom.rot + q * Math.PI * (i % 2 ? -1 : 1) * 1.35;
+              part.rot = rot;
+              if (!part.joined && q >= 1) {
+                part.joined = true;
+                part.px = tx; part.py = ty;
+                const pow = i + 1;
+                e.impacts.push({ x: targetX, y: targetY, t: 0, ttl: i === 3 ? 0.62 : 0.34, pow, col: i === 3 ? '#ff3048' : part.col });
+                this.kick(i === 3 ? 14 : (2.8 + i * 2.2));
+                if (i === 3) {
+                  this.slam = Math.max(this.slam, 0.45);
+                  const burstCols = ['#ffd34d', '#66f6ff', '#b45cff', '#ff3048'];
+                  e.finalBits = Array.from({ length: 18 }, (_, k) => {
+                    const a = (k / 18) * Math.PI * 2 + (k % 3) * 0.18;
+                    const sp = 80 + (k % 5) * 18;
+                    return { a, sp, col: burstCols[k % burstCols.length], sz: 3 + (k % 3), t: 0 };
+                  });
+                }
+              }
             }
-            if (impactQ > 0) {
-              const pow = impactQ * (0.35 + i * 0.22);
+            ctx.save();
+            ctx.translate(Math.round(part.px), Math.round(part.py));
+            ctx.rotate(rot);
+            ctx.globalAlpha = 0.96;
+            ctx.fillStyle = part.col + '2a';
+            ctx.strokeStyle = part.col;
+            ctx.lineWidth = 2.6;
+            ctx.fillRect(-quarter / 2, -quarter / 2, quarter, quarter);
+            ctx.strokeRect(-quarter / 2, -quarter / 2, quarter, quarter);
+            ctx.globalAlpha = 0.75;
+            ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-quarter * 0.32, 0); ctx.lineTo(quarter * 0.32, 0);
+            ctx.moveTo(0, -quarter * 0.32); ctx.lineTo(0, quarter * 0.32);
+            ctx.stroke();
+            ctx.restore();
+          }
+          if (Array.isArray(e.impacts)) {
+            for (const imp of e.impacts) {
+              imp.t += dtp;
+              const q = Math.max(0, Math.min(1, imp.t / Math.max(0.01, imp.ttl)));
               ctx.save();
-              ctx.globalAlpha = Math.max(0, 1 - impactQ) * (0.45 + i * 0.12);
-              ctx.strokeStyle = i === 3 ? '#ff3048' : (e.color || '#ffd34d');
-              ctx.lineWidth = 1.5 + i * 0.45;
-              ctx.setLineDash([5, 4]);
-              const boom = pieceSize * (1.9 + i * 0.55) + pow * 75;
-              ctx.strokeRect(Math.round(targetX - boom / 2), Math.round(targetY - boom / 2), Math.round(boom), Math.round(boom));
+              ctx.globalAlpha = (1 - q) * (imp.pow >= 4 ? 0.95 : 0.62);
+              ctx.strokeStyle = imp.col; ctx.lineWidth = imp.pow >= 4 ? 4 : 1.6 + imp.pow * 0.45;
+              ctx.setLineDash(imp.pow >= 4 ? [] : [5, 4]);
+              const s = mobSize * (0.85 + imp.pow * 0.28 + q * (imp.pow >= 4 ? 2.4 : 1.2));
+              ctx.strokeRect(Math.round(imp.x - s / 2), Math.round(imp.y - s / 2), Math.round(s), Math.round(s));
               ctx.setLineDash([]);
               ctx.restore();
             }
+            e.impacts = e.impacts.filter(imp => imp.t < imp.ttl);
           }
-          const sz = Math.max(12, part.sz);
-          ctx.save();
-          ctx.globalAlpha = 1;
-          ctx.translate(Math.round(x), Math.round(y));
-          ctx.rotate(rot);
-          ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
-          ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
-          ctx.beginPath();
-          ctx.moveTo(-sz * 0.36, 0); ctx.lineTo(sz * 0.36, 0);
-          ctx.moveTo(0, -sz * 0.36); ctx.lineTo(0, sz * 0.36);
-          ctx.stroke();
+          if (Array.isArray(e.finalBits) && e.finalBits.length) {
+            for (const bit of e.finalBits) {
+              bit.t += dtp;
+              const q = Math.max(0, Math.min(1, bit.t / 0.55));
+              ctx.save();
+              ctx.globalAlpha = 1 - q;
+              ctx.fillStyle = bit.col;
+              const d = bit.sp * q;
+              const x = targetX + Math.cos(bit.a) * d;
+              const y = targetY + Math.sin(bit.a) * d;
+              ctx.fillRect(Math.round(x - bit.sz / 2), Math.round(y - bit.sz / 2), bit.sz, bit.sz);
+              ctx.restore();
+            }
+            e.finalBits = e.finalBits.filter(bit => bit.t < 0.55);
+          }
           ctx.restore();
-        }
-        ctx.restore();
         }
       } else if (e.kind === 'slotTick') {
         ctx.save();

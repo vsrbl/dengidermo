@@ -572,12 +572,15 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
 
 const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'pulse'];
 const SLOT_MOB_ROLL_T = 6.0;
-const SLOT_MOB_ASSEMBLE_T = 0.80;
+const SLOT_MOB_ASSEMBLE_T = 0.18;
 const SLOT_MOB_PIECES_HOLD_T = 3.0;
-const SLOT_MOB_GATHER_T = 2.35;
+const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
+const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
+const SLOT_MOB_PIECE_FINAL_BUFFER_T = 0.68;
+const SLOT_MOB_GATHER_T = SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_GATHER_DUR_T + SLOT_MOB_PIECE_FINAL_BUFFER_T;
 const SLOT_MOB_FIRST_BREAK_DELAY_T = 4.18;
-const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_GATHER_T;
-const SLOT_MOB_DEATH_PIECES_T = 0.95 + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_GATHER_T;
+const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_GATHER_T;
+const SLOT_MOB_DEATH_PIECES_T = SLOT_MOB_GATHER_T;
 const SLOT_MOB_REBUILD_T = SLOT_MOB_ROLL_T + SLOT_MOB_ASSEMBLE_T;
 function pickSlotMobMode(prev = '') {
   const pool = SLOT_MOB_MODES.filter(m => m !== prev);
@@ -608,13 +611,15 @@ function spawnCasinoOverloadSlotMob(run, players, near, p) {
   // First appearance is staged: the mob is hidden/non-physical while the casino terminal closes
   // and the broken slot chest explodes into heavy pieces. Only after that does the mob assemble.
   e.slotHiddenT = SLOT_MOB_FIRST_BREAK_T;
+  e.slotHiddenTotal = SLOT_MOB_FIRST_BREAK_T;
+  e.slotBreakDelay = SLOT_MOB_FIRST_BREAK_DELAY_T;
+  e.slotPieceFxMask = 0;
   e.state = `slot_hidden:${e.slotLives}`;
   e.fireCd = 0.80;
   e.slotRollSfxT = 0;
   e.rebuildT = SLOT_MOB_REBUILD_T;
   e.shellHp = e.shellMax = Math.max(e.shellMax || 0, Math.round((e.maxHp || ENEMIES.slot_mob.hp || 2300) * 0.22));
-  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_PIECES_HOLD_T, mobSize: ENEMIES.slot_mob.size });
-  run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1, assemble: 1, delay: SLOT_MOB_FIRST_BREAK_T, mobSize: ENEMIES.slot_mob.size, visualOnly: 1 });
+  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
   return e;
 }
 function casinoStakeTable(run) {
@@ -1915,9 +1920,9 @@ function resolveEnemyCrowd(run, walls, dt) {
   const maxPairs = n > 42 ? 3 : 5;
   for (let pass = 0; pass < maxPairs; pass++) {
     for (let i = 0; i < n; i++) {
-      const a = arr[i]; if (!a) continue;
+      const a = arr[i]; if (!a || (a.kind === 'slot_mob' && (a.slotHiddenT || 0) > 0)) continue;
       for (let j = i + 1; j < n; j++) {
-        const b = arr[j]; if (!b) continue;
+        const b = arr[j]; if (!b || (b.kind === 'slot_mob' && (b.slotHiddenT || 0) > 0)) continue;
         const minD = (a.size + b.size) / 2 + 5;
         let dx = b.x - a.x, dy = b.y - a.y;
         let d = Math.hypot(dx, dy);
@@ -2136,6 +2141,7 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
 }
 function resolveEnemyPlayerBodies(run, players, walls) {
   for (const e of run.enemies) {
+    if (e.kind === 'slot_mob' && (e.slotHiddenT || 0) > 0) continue;
     for (const p of players.values()) resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 8 });
   }
 }
@@ -4529,6 +4535,9 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     e.hp = e.maxHp = Math.max(300, Math.round((ENEMIES.slot_mob?.hp || 2300) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
     e.rebuildT = SLOT_MOB_REBUILD_T;
     e.slotHiddenT = SLOT_MOB_DEATH_PIECES_T;
+    e.slotHiddenTotal = SLOT_MOB_DEATH_PIECES_T;
+    e.slotBreakDelay = 0;
+    e.slotPieceFxMask = 0;
     e.slotMode = 'rolling';
     e.slotModeT = 0;
     e.slotChargeState = 'move';
@@ -4537,7 +4546,8 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.22));
     e.armorLinkId = '';
     syncSlotMobState(e);
-    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: 0.95 + SLOT_MOB_PIECES_HOLD_T, mobSize: ENEMIES.slot_mob.size });
+    run.fx.push({ t: 'slot_mob_break', id: e.id, x: Math.round(e.x), y: Math.round(e.y), death: 1 });
+    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
     registerComboEvent(run, killer, source, e, 1);
     return;
   }
@@ -5290,7 +5300,32 @@ function stepEnemies(run, players, dt) {
       continue;
     }
     if (e.kind === 'slot_mob' && (e.slotHiddenT || 0) > 0) {
+      const total = Math.max(Number(e.slotHiddenTotal || 0), Number(e.slotHiddenT || 0), 0.01);
+      const breakDelay = Math.max(0, Number(e.slotBreakDelay || 0));
+      const before = total - Math.max(0, Number(e.slotHiddenT || 0));
       e.slotHiddenT = Math.max(0, (e.slotHiddenT || 0) - dt);
+      const after = total - Math.max(0, Number(e.slotHiddenT || 0));
+      const cross = (tm) => before < tm && after >= tm;
+      let mask = Number(e.slotPieceFxMask || 0) | 0;
+      if (breakDelay > 0 && cross(breakDelay) && !(mask & 1)) {
+        mask |= 1;
+        run.fx.push({ t: 'slot_mob_break', id: e.id, x: Math.round(e.x), y: Math.round(e.y), close: 1 });
+      }
+      const joinBase = breakDelay + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_DUR_T;
+      for (let i = 0; i < 4; i++) {
+        const bit = 1 << (i + 1);
+        const tm = joinBase + SLOT_MOB_PIECE_GATHER_STEP_T * i;
+        if (!(mask & bit) && cross(tm)) {
+          mask |= bit;
+          run.fx.push({ t: 'slot_mob_piece_impact', id: e.id, x: Math.round(e.x), y: Math.round(e.y), step: i + 1, final: i === 3 ? 1 : 0 });
+        }
+      }
+      const finalTm = joinBase + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_FINAL_BUFFER_T;
+      if (!(mask & 64) && (cross(finalTm) || e.slotHiddenT <= 0.0001)) {
+        mask |= 64;
+        run.fx.push({ t: 'slot_mob_assemble_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+      }
+      e.slotPieceFxMask = mask;
       e.st = 0; e.vx = 0; e.vy = 0;
       e.fireCd = Math.max(e.fireCd || 0, 0.35);
       syncSlotMobState(e);

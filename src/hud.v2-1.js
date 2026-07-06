@@ -2563,7 +2563,13 @@ export class Hud {
       const positive = (pl.gld || pl.xp || pl.heal || pl.weapon || pl.ability || pl.rare || pl.skin || pl.jackpotCount);
       this.playUiSound(f.outcome === 'OVERLOAD' ? 'slot_overload' : ((pl.jackpotCount || 0) >= 3 || f.outcome === 'JCK' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win'))));
       if (f.outcome === 'OVERLOAD') {
-        const closeTimer = setTimeout(() => { if (resultToken === this.casino.spinToken) this.closeCasino(); }, 980);
+        const closeTimer = setTimeout(() => {
+          if (resultToken === this.casino.spinToken) {
+            this.playUiSound('slot_overload');
+            this.playUiSound('casino_static');
+            this.closeCasino();
+          }
+        }, 980);
         this.casino.reelTimers.push(closeTimer);
       }
     }, 640);

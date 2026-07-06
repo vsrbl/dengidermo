@@ -1005,10 +1005,13 @@ export class AudioBus {
         // outcome sounds here immediately when the authoritative result packet arrives.
         break;
       case 'casino_tick': this.play(f.good ? 'casino_win' : 'casino_static'); break;
-      case 'casino_overload': this.play('slot_overload'); this.play('casino_static'); break;
+      case 'casino_overload': this.play('casino_static'); break;
+      case 'slot_mob_break': this.play('slot_overload'); this.play('blast'); this.play('casino_static'); break;
+      case 'slot_mob_piece_impact': this.play(f.final ? 'slot_overload' : 'casino_reel_stop'); this.play(f.final ? 'blast' : 'impact'); break;
+      case 'slot_mob_assemble_burst': this.play('jackpot'); this.play('casino_result'); break;
       case 'slot_mob_roll': this.play('casino_spin'); this.play('casino_reel_stop'); this.play('casino_result'); break;
       case 'slot_mob_roll_tick': this.play('casino_spin'); break;
-      case 'slot_mob_rebuild': if (!f.visualOnly) { this.play(f.spawn ? 'slot_overload' : 'casino_static'); this.play('casino_spin'); this.play('casino_reel_stop'); } break;
+      case 'slot_mob_rebuild': if (!f.visualOnly) { this.play(f.spawn ? 'slot_overload' : 'casino_static'); } break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
       case 'rain_hit': this.play('static_storm'); this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.18); break;
