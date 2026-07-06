@@ -438,7 +438,7 @@ export class Effects {
         const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
         // One authoritative visual chain: terminal shakes after the BET window closes,
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
-        // The slot mob itself is still hidden in the snapshot until this chain ends.
+        // The slot mob entity is not present in the snapshot until this chain has fully ended.
         this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + step * 3 + dur + 0.65, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
@@ -618,7 +618,7 @@ export class Effects {
       } else if (e.kind === 'slotBreakChunks') {
         // One strict physical/magnet chain. Four colored quarters are the mob body:
         // they bounce/settle, wait, then magnetize back one-by-one. The live mob is
-        // rendered only after the server hidden timer ends, so there is no separate ghost mob.
+        // rendered only after the server-side pending assembly resolves, so there is no separate ghost mob.
         const pre = Math.max(0, Number(e.preBreak || 0));
         const hold = Math.max(0, Number(e.hold || 3.0));
         const step = Math.max(0.32, Number(e.gatherStep || 0.52));

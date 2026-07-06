@@ -576,7 +576,7 @@ const SLOT_MOB_ASSEMBLE_T = 0.18;
 const SLOT_MOB_PIECES_HOLD_T = 3.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
-const SLOT_MOB_PIECE_FINAL_BUFFER_T = 0.68;
+const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.08;
 const SLOT_MOB_GATHER_T = SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_GATHER_DUR_T + SLOT_MOB_PIECE_FINAL_BUFFER_T;
 const SLOT_MOB_FIRST_BREAK_DELAY_T = 4.18;
 const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_GATHER_T;
@@ -598,29 +598,86 @@ function placeNearInteractable(run, obj, p, radius = 94) {
   }
   return collideWalls(cx, cy + radius, 28, run.plan.walls || [], cx, cy);
 }
-function spawnCasinoOverloadSlotMob(run, players, near, p) {
-  const pos = placeNearInteractable(run, near, p, 108);
+function createSlotMobEntity(run, players, pending) {
+  if (!run || !pending) return null;
+  const pos = { x: Number(pending.x) || run.plan.w / 2, y: Number(pending.y) || run.plan.h / 2 };
   const e = spawnEnemy(run, players, 'slot_mob', false, pos, { noSpawnWarn: true, noArmor: true });
-  // The mob is assembled from broken slot particles after the terminal break animation.
   e.spawnDelay = 0;
-  e.slotLives = 10;
-  e.slotTotalLives = 10;
+  e.slotLives = Math.max(1, Number(pending.lives || 10) | 0);
+  e.slotTotalLives = Math.max(e.slotLives, Number(pending.totalLives || 10) | 0);
   e.slotMode = 'rolling';
   e.slotModeT = 0;
   e.slotChargeState = 'move';
-  // First appearance is staged: the mob is hidden/non-physical while the casino terminal closes
-  // and the broken slot chest explodes into heavy pieces. Only after that does the mob assemble.
-  e.slotHiddenT = SLOT_MOB_FIRST_BREAK_T;
-  e.slotHiddenTotal = SLOT_MOB_FIRST_BREAK_T;
-  e.slotBreakDelay = SLOT_MOB_FIRST_BREAK_DELAY_T;
-  e.slotPieceFxMask = 0;
-  e.state = `slot_hidden:${e.slotLives}`;
-  e.fireCd = 0.80;
   e.slotRollSfxT = 0;
   e.rebuildT = SLOT_MOB_REBUILD_T;
-  e.shellHp = e.shellMax = Math.max(e.shellMax || 0, Math.round((e.maxHp || ENEMIES.slot_mob.hp || 2300) * 0.22));
-  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
+  e.slotHiddenT = 0;
+  e.slotHiddenTotal = 0;
+  e.slotPieceFxMask = 0;
+  e.hp = e.maxHp = Math.max(300, Math.round((ENEMIES.slot_mob?.hp || 2300) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
+  e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.22));
+  e.fireCd = 0.80;
+  syncSlotMobState(e);
+  run.fx.push({ t: 'slot_mob_assemble_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y), born: 1 });
   return e;
+}
+function scheduleSlotMobAssembly(run, players, pos, opts = {}) {
+  if (!run) return null;
+  if (!Array.isArray(run.pendingSlotMobs)) run.pendingSlotMobs = [];
+  const first = !!opts.first;
+  const total = first ? SLOT_MOB_FIRST_BREAK_T : SLOT_MOB_DEATH_PIECES_T;
+  const pending = {
+    id: nid(),
+    x: Math.round(Number(pos?.x) || run.plan.w / 2),
+    y: Math.round(Number(pos?.y) || run.plan.h / 2),
+    t: total, total,
+    lives: Math.max(1, Number(opts.lives || 10) | 0),
+    totalLives: Math.max(1, Number(opts.totalLives || 10) | 0),
+    breakDelay: first ? SLOT_MOB_FIRST_BREAK_DELAY_T : 0,
+    mask: 0, first: first ? 1 : 0
+  };
+  run.pendingSlotMobs.push(pending);
+  return pending;
+}
+function spawnCasinoOverloadSlotMob(run, players, near, p) {
+  const pos = placeNearInteractable(run, near, p, 108);
+  // Important: there is no slot_mob enemy here. The 4 physical block sequence is the
+  // actual spawn condition. The enemy entity is created only after the fourth block
+  // has magnetized, disappeared, and fired the final assemble event.
+  const pending = scheduleSlotMobAssembly(run, players, pos, { first: true, lives: 10, totalLives: 10 });
+  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
+  return pending;
+}
+function stepPendingSlotMobs(run, players, dt) {
+  if (!run || !Array.isArray(run.pendingSlotMobs) || !run.pendingSlotMobs.length) return;
+  const next = [];
+  for (const p of run.pendingSlotMobs) {
+    if (!p) continue;
+    const total = Math.max(Number(p.total || 0), Number(p.t || 0), 0.01);
+    const before = total - Math.max(0, Number(p.t || 0));
+    p.t = Math.max(0, Number(p.t || 0) - dt);
+    const after = total - Math.max(0, Number(p.t || 0));
+    const cross = (tm) => before < tm && after >= tm;
+    const breakDelay = Math.max(0, Number(p.breakDelay || 0));
+    let mask = Number(p.mask || 0) | 0;
+    if (breakDelay > 0 && cross(breakDelay) && !(mask & 1)) {
+      mask |= 1;
+      run.fx.push({ t: 'slot_mob_break', id: p.id, x: Math.round(p.x), y: Math.round(p.y), close: 1 });
+    }
+    const joinBase = breakDelay + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_DUR_T;
+    for (let i = 0; i < 4; i++) {
+      const bit = 1 << (i + 1);
+      const tm = joinBase + SLOT_MOB_PIECE_GATHER_STEP_T * i;
+      if (!(mask & bit) && cross(tm)) {
+        mask |= bit;
+        run.fx.push({ t: 'slot_mob_piece_impact', id: p.id, x: Math.round(p.x), y: Math.round(p.y), step: i + 1, final: i === 3 ? 1 : 0 });
+      }
+    }
+    p.mask = mask;
+    if (p.t <= 0.0001) {
+      createSlotMobEntity(run, players, p);
+    } else next.push(p);
+  }
+  run.pendingSlotMobs = next;
 }
 function casinoStakeTable(run) {
   const table = { low: casinoStakeCost(run, 'low'), mid: casinoStakeCost(run, 'mid'), high: casinoStakeCost(run, 'high') };
@@ -890,15 +947,18 @@ function isCombatEnemy(run, e) {
 function combatEnemies(run) {
   return (run?.enemies || []).filter(e => isCombatEnemy(run, e));
 }
+function slotMobSequencePending(run) {
+  return (run?.pendingSlotMobs || []).some(p => p && (p.t || 0) > 0);
+}
 function roomHasLiveEnemies(run) {
-  return combatEnemies(run).length > 0;
+  return combatEnemies(run).length > 0 || slotMobSequencePending(run);
 }
 function roomQuotaReached(run) {
   const q = Math.max(0, run?.plan?.quota || 0);
   return (run?.kills || 0) >= q || (run?.spawned || 0) >= q;
 }
 function liveEnemyCount(run) {
-  return combatEnemies(run).length;
+  return combatEnemies(run).length + (slotMobSequencePending(run) ? 1 : 0);
 }
 function rescueEnemyToFloor(run, players, e) {
   if (!run || !e) return false;
@@ -2475,7 +2535,7 @@ export function createRun(seedBase) {
     tapeLog: [],
     finalSummary: null, completedAt: 0,
     plan: null,
-    enemies: [], bullets: [], pickups: [], activeFields: [], pendingCasinoRolls: [],
+    enemies: [], bullets: [], pickups: [], activeFields: [], pendingCasinoRolls: [], pendingSlotMobs: [],
     portal: null,
     kills: 0, spawned: 0,
     directorT: 1.2,
@@ -2748,7 +2808,7 @@ export function resetRun(run, players) {
   run.roomStaticRainFalls = 0;
   run.combo = createComboState();
   run.playerCombos = {};
-  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
+  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
   run.tapeLog = [];
   run.finalSummary = null;
@@ -4531,23 +4591,15 @@ function spreadElementStatusesOnKill(run, players, dead, killer) {
 function killEnemy(run, players, e, killer, source = 'hit') {
   const def = ENEMIES[e.kind];
   if (e.kind === 'slot_mob' && Math.max(1, Number(e.slotLives || 1) | 0) > 1) {
-    e.slotLives = Math.max(1, (Number(e.slotLives || 1) | 0) - 1);
-    e.hp = e.maxHp = Math.max(300, Math.round((ENEMIES.slot_mob?.hp || 2300) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
-    e.rebuildT = SLOT_MOB_REBUILD_T;
-    e.slotHiddenT = SLOT_MOB_DEATH_PIECES_T;
-    e.slotHiddenTotal = SLOT_MOB_DEATH_PIECES_T;
-    e.slotBreakDelay = 0;
-    e.slotPieceFxMask = 0;
-    e.slotMode = 'rolling';
-    e.slotModeT = 0;
-    e.slotChargeState = 'move';
-    e.slotRollSfxT = 0;
-    e.vx = 0; e.vy = 0; e.st = 0;
-    e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.22));
-    e.armorLinkId = '';
-    syncSlotMobState(e);
-    run.fx.push({ t: 'slot_mob_break', id: e.id, x: Math.round(e.x), y: Math.round(e.y), death: 1 });
-    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
+    const nextLives = Math.max(1, (Number(e.slotLives || 1) | 0) - 1);
+    const x = Math.round(e.x), y = Math.round(e.y);
+    // The slot mob is not allowed to exist as a hidden enemy during rebuild. Remove it
+    // from the enemy list, let the four physical blocks become the condition, then
+    // create a fresh enemy only after the fourth block has snapped into place.
+    run.enemies = run.enemies.filter(xe => xe.id !== e.id);
+    run.fx.push({ t: 'slot_mob_break', id: e.id, x, y, death: 1 });
+    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x, y, lives: nextLives, left: nextLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
+    scheduleSlotMobAssembly(run, players, { x, y }, { first: false, lives: nextLives, totalLives: e.slotTotalLives || 10 });
     registerComboEvent(run, killer, source, e, 1);
     return;
   }
@@ -8131,6 +8183,7 @@ export function step(run, players, dt, now) {
   stepPlayers(run, players, dt);
   stepActiveFields(run, players, dt);
   director(run, players, dt);
+  stepPendingSlotMobs(run, players, dt);
   stepEnemies(run, players, dt);
   stepBullets(run, players, dt);
   stepCompanions(run, players, dt, now);
