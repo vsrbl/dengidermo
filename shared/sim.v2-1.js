@@ -459,8 +459,8 @@ function chestValueInfo(run, o = {}) {
   }
   const paidChoice = type === 'weapon_chest' || type === 'ability_chest';
   let slots = Number.isFinite(Number(o?.slotCount)) ? Math.max(0, Number(o.slotCount) | 0) : 0;
-  if (paidChoice && slots <= 0) slots = tier >= 3 ? 5 : Math.max(1, Math.min(3, 1 + tier));
-  if (paidChoice) slots = tier >= 3 ? 5 : Math.max(1, Math.min(3, slots));
+  if (paidChoice && slots <= 0) slots = tier >= 3 ? 5 : (tier >= 2 ? 3 : Math.max(1, Math.min(2, 1 + tier)));
+  if (paidChoice) slots = tier >= 3 ? 5 : (tier >= 2 ? Math.max(1, Math.min(3, slots)) : Math.max(1, Math.min(2, slots)));
   const label = tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
   const labelRu = tier >= 3 ? 'РЕДКИЙ' : tier >= 2 ? 'ЦЕННЫЙ' : tier >= 1 ? 'ХОРОШИЙ' : 'ПРОСТОЙ';
   const costValueMul = [0.78, 1.00, 1.26, 1.72][tier] || 1;

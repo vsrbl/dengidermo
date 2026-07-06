@@ -46,9 +46,21 @@ export class Input {
           });
     window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; });
 
-    window.addEventListener('mousemove', (e) => {
-      this.mouseX = e.clientX; this.mouseY = e.clientY; this._cursorVisible = true; this.updateCursor();
-    });
+    // v2.1.92: keep aim/cursor as raw as the browser allows.
+    // The old mousemove-only path could feel a frame behind on some displays, especially
+    // with the DOM cursor overlay. pointerrawupdate has higher-resolution deltas in
+    // Chromium; pointermove/mousemove remain fallbacks for other browsers.
+    const movePointer = (e) => {
+      if (e && Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+        this.mouseX = e.clientX;
+        this.mouseY = e.clientY;
+      }
+      this._cursorVisible = true;
+      this.updateCursor();
+    };
+    if ('onpointerrawupdate' in window) window.addEventListener('pointerrawupdate', movePointer, { passive: true });
+    window.addEventListener('pointermove', movePointer, { passive: true });
+    window.addEventListener('mousemove', movePointer, { passive: true });
     window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursor(); });
     window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursor(); });
     window.addEventListener('mousedown', (e) => {

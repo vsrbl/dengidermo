@@ -293,8 +293,10 @@ function chestRarityProfile(rng, chest, loopIndex = 0, greed = false, modIds = [
   if (paidChoice) {
     if (chestTier >= 3) slotCount = 5;
     else if (chestTier === 2) slotCount = rng() < 0.70 ? 3 : 2;
-    else if (chestTier === 1) slotCount = rng() < 0.65 ? 2 : 3;
-    else slotCount = rng() < 0.62 ? 1 : (rng() < 0.62 ? 2 : 3);
+    // Simple/good paid chests must stay compact: never more than two choices.
+    // The big 5-slot / double-pick rule is reserved for the most valuable tier only.
+    else if (chestTier === 1) slotCount = rng() < 0.72 ? 2 : 1;
+    else slotCount = rng() < 0.62 ? 1 : 2;
   }
 
   // Cost is calculated in sim from tier + slotCount. Keep costMul as a small profile override only.

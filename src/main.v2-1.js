@@ -330,7 +330,9 @@ function bindYouTubeMusicUi() {
     }, 950);
   });
   if (input) input.addEventListener('change', () => { if (input.value.trim()) localStorage.setItem('tc_youtube_playlist', input.value.trim()); });
-  if (saved) init();
+  // v2.1.91: do not build the YouTube iframe on page load.
+  // The iframe/API is initialized by LOAD/PLAY click so browser autoplay/origin warnings do not spam startup.
+  if (saved) { setYtStatus('PLAYLIST SAVED · CLICK PLAY'); setToggle('PLAY'); }
 }
 bindYouTubeMusicUi();
 onLangChange(() => {

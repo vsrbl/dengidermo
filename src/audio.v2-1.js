@@ -91,7 +91,11 @@ export class AudioBus {
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
       shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5
     };
-    this._unlock = () => this.unlock();
+    this.userGestureUnlocked = false;
+    this._unlock = ev => {
+      this.userGestureUnlocked = true;
+      this.unlock(ev);
+    };
     if (typeof window !== 'undefined') {
       window.addEventListener('pointerdown', this._unlock, { passive: true });
       window.addEventListener('keydown', this._unlock, { passive: true });
@@ -129,10 +133,18 @@ export class AudioBus {
     }
   }
 
-  unlock() {
-    if (!this.enabled) return;
+  unlock(ev = null) {
+    if (!this.enabled) return false;
     const Ctx = AC();
-    if (!Ctx) return;
+    if (!Ctx) return false;
+    const userActive = !!(
+      this.userGestureUnlocked ||
+      ev?.isTrusted ||
+      (typeof navigator !== 'undefined' && navigator.userActivation?.isActive)
+    );
+    // Browsers block AudioContext start/resume before a real user gesture.
+    // Game loops may call audio methods every frame, so silently defer until input.
+    if (!this.ctx && !userActive) return false;
     if (!this.ctx) {
       this.ctx = new Ctx();
       this.master = this.ctx.createGain();
@@ -152,7 +164,8 @@ export class AudioBus {
       this.master.connect(this.comp);
       this.comp.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    if (this.ctx.state === 'suspended' && userActive) this.ctx.resume().catch(() => {});
+    return true;
   }
 
   previewVolume(kind = 'sfx') {
@@ -7728,4 +7741,151 @@ AudioBus.prototype.handleFx = function handleFxV2187RActiveAudio(f, info = {}) {
     }
   } catch {}
   return out;
+};
+
+// v2.1.91 — browser-safe AudioContext + YouTube iframe init.
+// Do not create/resume WebAudio before a real user gesture, and do not send
+// commands to the YouTube iframe until the official player fires onReady.
+function tcrYouTubeOriginV2191() {
+  try {
+    const loc = window.location;
+    if (loc?.origin && /^https?:\/\//i.test(loc.origin)) return loc.origin;
+  } catch {}
+  return 'https://nncckkrr.space';
+}
+
+AudioBus.prototype.awaitYouTubeReady = function awaitYouTubeReadyV2191(timeoutMs = 2600) {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  if (this.ytMusic.ready && this.ytMusic.player) return Promise.resolve(true);
+  if (this.ytMusic.readyPromise) return this.ytMusic.readyPromise;
+  this.ytMusic.readyPromise = new Promise(resolve => {
+    const started = Date.now();
+    const tick = () => {
+      if (this.ytMusic?.ready && this.ytMusic?.player) return resolve(true);
+      if (Date.now() - started >= timeoutMs) return resolve(false);
+      setTimeout(tick, 60);
+    };
+    tick();
+  });
+  return this.ytMusic.readyPromise;
+};
+
+AudioBus.prototype.ensureYouTubeApi = function ensureYouTubeApiV2191() {
+  if (typeof window === 'undefined') return Promise.reject(new Error('NO_WINDOW'));
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (window.__tcYtApiPromise) return window.__tcYtApiPromise;
+  window.__tcYtApiPromise = new Promise((resolve, reject) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function onYouTubeIframeAPIReadyV2191() {
+      try { if (typeof prev === 'function') prev(); } catch {}
+      if (window.YT?.Player) resolve(window.YT);
+      else reject(new Error('youtube iframe api missing player'));
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      tag.async = true;
+      tag.onerror = () => reject(new Error('youtube iframe api failed'));
+      document.head.appendChild(tag);
+    }
+    setTimeout(() => { if (window.YT?.Player) resolve(window.YT); }, 1800);
+  });
+  return window.__tcYtApiPromise;
+};
+
+AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2191(elId = 'youtube-player') {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  if (this.ytMusic.player) return this.ytMusic;
+  const container = document.getElementById(elId);
+  if (!container) return this.ytMusic;
+  const YT = await this.ensureYouTubeApi();
+  const origin = tcrYouTubeOriginV2191();
+  this.ytMusic.ready = false;
+  this.ytMusic.readyPromise = null;
+  this.ytMusic.player = new YT.Player(elId, {
+    width: '260',
+    height: '146',
+    host: 'https://www.youtube.com',
+    playerVars: {
+      playsinline: 1,
+      enablejsapi: 1,
+      origin,
+      widget_referrer: origin,
+      controls: 1,
+      rel: 0,
+      modestbranding: 1
+    },
+    events: {
+      onReady: () => {
+        this.ytMusic.ready = true;
+        try { this.ytMusic.player.setVolume(this.youTubeVolume?.() ?? Math.min(100, Math.round((this.musicVolume || 0.7) * 200))); } catch {}
+        const id = this.parseYouTubePlaylistId(this.ytMusic.playlist || localStorage.getItem('tc_youtube_playlist') || '');
+        if (id) {
+          try { this.ytMusic.player.cuePlaylist({ listType: 'playlist', list: id }); } catch {}
+        }
+      },
+      onStateChange: e => {
+        const Y = window.YT || {};
+        this.ytMusic.lastState = e.data;
+        this.ytMusic.playing = e.data === Y.PlayerState?.PLAYING;
+        this.ytMusic.active = this.ytMusic.playing || (this.ytMusic.active && e.data !== Y.PlayerState?.ENDED);
+      },
+      onError: e => {
+        this.ytMusic.error = e?.data || 'YT_ERROR';
+        this.ytMusic.playing = false;
+        this.ytMusic.active = false;
+      }
+    }
+  });
+  return this.ytMusic;
+};
+
+AudioBus.prototype.loadYouTubePlaylist = async function loadYouTubePlaylistV2191(value = '') {
+  const id = this.parseYouTubePlaylistId(value);
+  this.ytMusic = this.ytMusic || { player: null, playlist: '', active: false, playing: false, ready: false };
+  if (!id) return { ok: false, error: 'NO_PLAYLIST' };
+  this.ytMusic.playlist = id;
+  localStorage.setItem('tc_youtube_playlist', id);
+  await this.initYouTubeMusic();
+  const ready = await this.awaitYouTubeReady?.();
+  if (!ready) return { ok: false, error: 'PLAYER_NOT_READY' };
+  try {
+    this.ytMusic.player?.cuePlaylist?.({ listType: 'playlist', list: id });
+    this.ytMusic.player?.setVolume?.(this.youTubeVolume?.() ?? Math.min(100, Math.round((this.musicVolume || 0.7) * 200)));
+  } catch {}
+  return { ok: true, playlist: id };
+};
+
+AudioBus.prototype.playYouTube = async function playYouTubeV2191() {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  const id = this.parseYouTubePlaylistId(this.ytMusic.playlist || localStorage.getItem('tc_youtube_playlist') || '');
+  await this.initYouTubeMusic();
+  const ready = await this.awaitYouTubeReady?.();
+  if (!ready) return false;
+  try {
+    this.ytMusic.player?.setVolume?.(this.youTubeVolume?.() ?? Math.min(100, Math.round((this.musicVolume || 0.7) * 200)));
+    if (id) this.ytMusic.player?.loadPlaylist?.({ listType: 'playlist', list: id, index: 0, startSeconds: 0 });
+    else this.ytMusic.player?.playVideo?.();
+    setTimeout(() => { try { this.ytMusic?.player?.playVideo?.(); } catch {} }, 120);
+    this.ytMusic.active = true;
+    return true;
+  } catch { return false; }
+};
+
+AudioBus.prototype.youTubeNext = function youTubeNextV2191() {
+  if (!this.ytMusic?.ready) return false;
+  try { this.ytMusic.player?.nextVideo?.(); this.ytMusic.active = true; return true; } catch { return false; }
+};
+AudioBus.prototype.youTubePrev = function youTubePrevV2191() {
+  if (!this.ytMusic?.ready) return false;
+  try { this.ytMusic.player?.previousVideo?.(); this.ytMusic.active = true; return true; } catch { return false; }
+};
+AudioBus.prototype.youTubeVolumeDelta = function youTubeVolumeDeltaV2191(delta = 0) {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  const cur = Number.isFinite(Number(this.ytMusic.volume)) ? Number(this.ytMusic.volume) : this.youTubeVolume?.() ?? Math.min(100, Math.round((this.musicVolume || 0.7) * 200));
+  const next = Math.max(0, Math.min(100, Math.round(cur + Number(delta || 0))));
+  this.ytMusic.volume = next;
+  try { if (this.ytMusic.ready) this.ytMusic.player?.setVolume?.(next); } catch {}
+  localStorage.setItem('tc_youtube_volume', String(next));
+  return next;
 };
