@@ -382,6 +382,29 @@ export class Renderer {
       const stroke = elite ? COL.red : COL.fg;
       if (spawnDelay > 0) {
         const pulse = 0.45 + 0.35 * Math.sin(now * 14 + ex * 0.01);
+        if (kind === 'slot_mob') {
+          ctx.save();
+          const r = Math.max(70, size + 54);
+          const p = Math.max(0, Math.min(1, 1 - spawnDelay / 1.0));
+          ctx.globalAlpha = 0.35 + pulse * 0.28;
+          ctx.strokeStyle = COL.gold; ctx.lineWidth = 2; ctx.setLineDash([3, 6]);
+          ctx.strokeRect(Math.round(ex - r / 2), Math.round(ey - r / 2), Math.round(r), Math.round(r));
+          ctx.setLineDash([]);
+          const syms = ['GLD','EXP','STC','WPN','ABL','BAD','JCK','RAR'];
+          ctx.fillStyle = COL.gold;
+          ctx.font = '700 8px var(--mono, monospace)';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          for (let i = 0; i < 18; i++) {
+            const a = i * 2.399 + now * 2.2;
+            const d = r * (0.65 - p * 0.52) + ((i * 13) % 17);
+            const px = ex + Math.cos(a) * d;
+            const py = ey + Math.sin(a) * d;
+            ctx.globalAlpha = 0.38 + ((i % 3) * 0.08);
+            ctx.fillText(syms[i % syms.length], Math.round(px), Math.round(py));
+          }
+          ctx.restore();
+          continue;
+        }
         const warn = '#8a8a8a';
         ctx.save();
         ctx.globalAlpha = 0.18 + pulse * 0.18;
@@ -491,7 +514,7 @@ export class Renderer {
         const stateText = String(st || 'slot_runner:1');
         const mode = (stateText.match(/slot_([^:]+)/) || [,'runner'])[1];
         const lives = Math.max(1, Number((stateText.match(/:(\d+)/) || [,'1'])[1]) || 1);
-        const isRebuild = mode === 'rebuild';
+        const isRebuild = mode === 'rebuild' || mode === 'rolling';
         const pulse = 0.5 + Math.sin(now * 18) * 0.22;
         const frameCol = isRebuild ? COL.gold : (mode === 'charger' ? COL.red : mode === 'shooter' ? COL.cyan : mode === 'pulse' ? COL.purple : COL.fg);
         ctx.save();
@@ -504,7 +527,7 @@ export class Renderer {
         ctx.font = '700 10px var(--mono, monospace)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(isRebuild ? 'ERR' : reelSyms[(idx + lives) % reelSyms.length], Math.round(ex), Math.round(ey));
+        ctx.fillText(isRebuild ? reelSyms[idx] : reelSyms[(idx + lives) % reelSyms.length], Math.round(ex), Math.round(ey));
         ctx.globalAlpha = 0.55;
         ctx.strokeStyle = frameCol;
         ctx.lineWidth = 1;
@@ -513,7 +536,7 @@ export class Renderer {
         ctx.setLineDash([]);
         ctx.restore();
         this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, frameCol, 9);
-        if (!isRebuild) this.label(mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
+        this.label(isRebuild ? 'ROLLING' : mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });

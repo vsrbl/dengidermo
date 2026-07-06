@@ -16,11 +16,12 @@ export class Input {
     this.numEdge = -1;   // 1/2/3 pressed this frame (for modals)
     this.devToggleEdge = false; // F2 developer panel
     this.blocked = false; // modal open: block game actions
-    // v2.1.94: use the browser/native cursor for zero-latency feel.
-    // The old DOM cursor followed mouse events and could feel one frame behind,
-    // especially while modal/chest overlays were open. Aim still uses raw mouse coords.
-    this.cursorEl = null;
-    this._cursorVisible = true;
+    // v2.1.98: restore the terminal custom cursor, but keep it hard-snapped.
+    // No smoothing, no transitions, no requestAnimationFrame queue: the DOM cursor moves
+    // on the same pointer event that updates aim coordinates.
+    this.cursorEl = document.getElementById('custom-cursor');
+    this._cursorVisible = false;
+    this.updateCursor();
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -39,7 +40,7 @@ export class Input {
       if (c === 'KeyE') this.interEdge = true;
       if (c === 'KeyQ') this.activeEdge = true;
       if (c === 'KeyR') this.rActiveEdge = true;
-      if (c === 'Space') { e.preventDefault(); this.inspectMode = !this.inspectMode; }
+      if (c === 'Space') { e.preventDefault(); this.inspectMode = !this.inspectMode; this.updateCursor(); }
     });
     window.addEventListener('keyup', (e) => {
       const c = e.code;
@@ -58,14 +59,15 @@ export class Input {
         this.mouseY = e.clientY;
       }
       this._cursorVisible = true;
+      this.updateCursor();
     };
     // Prefer one pointer path only. Running raw + pointermove + mousemove together can
     // apply older fallback events after newer raw coordinates on some browsers.
     if ('onpointerrawupdate' in window) window.addEventListener('pointerrawupdate', movePointer, { passive: true });
     else if ('onpointermove' in window) window.addEventListener('pointermove', movePointer, { passive: true });
     else window.addEventListener('mousemove', movePointer, { passive: true });
-    window.addEventListener('mouseenter', () => { this._cursorVisible = true; });
-    window.addEventListener('mouseleave', () => { this._cursorVisible = false; });
+    window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursor(); });
+    window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursor(); });
     window.addEventListener('mousedown', (e) => {
       if (e.button === 2) {
         e.preventDefault();
@@ -84,7 +86,11 @@ export class Input {
   }
 
   updateCursor() {
-    // Native cursor is instant; do not move a DOM overlay on every pointer event.
+    if (!this.cursorEl) return;
+    this.cursorEl.classList.toggle('hidden', !this._cursorVisible);
+    this.cursorEl.classList.toggle('inspect', !!this.inspectMode);
+    // Hard snap: keep the old visual cursor but remove the sluggish, trailing feel.
+    this.cursorEl.style.transform = `translate3d(${Math.round(this.mouseX - 8)}px, ${Math.round(this.mouseY - 8)}px, 0)`;
   }
 
   moveVec() {

@@ -570,7 +570,7 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   return u.label;
 }
 
-const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'bouncer', 'pulse'];
+const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'pulse'];
 function pickSlotMobMode(prev = '') {
   const pool = SLOT_MOB_MODES.filter(m => m !== prev);
   return pool[Math.floor(Math.random() * pool.length)] || SLOT_MOB_MODES[0];
@@ -590,14 +590,16 @@ function placeNearInteractable(run, obj, p, radius = 94) {
 function spawnCasinoOverloadSlotMob(run, players, near, p) {
   const pos = placeNearInteractable(run, near, p, 108);
   const e = spawnEnemy(run, players, 'slot_mob', false, pos, { noSpawnWarn: true, noArmor: true });
-  e.spawnDelay = 0;
+  // The mob is assembled from broken slot particles after the terminal break animation.
+  e.spawnDelay = 0.95;
   e.slotLives = 10;
   e.slotTotalLives = 10;
-  e.slotMode = pickSlotMobMode('');
-  e.slotModeT = 5;
-  e.state = `slot_${e.slotMode}:${e.slotLives}`;
+  e.slotMode = 'rolling';
+  e.slotModeT = 0;
+  e.state = `slot_rebuild:${e.slotLives}`;
   e.fireCd = 0.65;
-  e.rebuildT = 0;
+  e.rebuildT = 3.0;
+  e.shellHp = e.shellMax = Math.max(e.shellMax || 0, Math.round((e.maxHp || 920) * 0.18));
   run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD' });
   run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1 });
   return e;
@@ -4476,13 +4478,15 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   const def = ENEMIES[e.kind];
   if (e.kind === 'slot_mob' && Math.max(1, Number(e.slotLives || 1) | 0) > 1) {
     e.slotLives = Math.max(1, (Number(e.slotLives || 1) | 0) - 1);
-    e.hp = e.maxHp = Math.max(30, Math.round((ENEMIES.slot_mob?.hp || 92) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
-    e.rebuildT = 0.92;
+    e.hp = e.maxHp = Math.max(300, Math.round((ENEMIES.slot_mob?.hp || 920) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
+    e.rebuildT = 3.0;
+    e.slotMode = 'rolling';
     e.slotModeT = 0;
     e.vx = 0; e.vy = 0; e.st = 0;
-    e.shellHp = 0; e.shellMax = 0; e.armorLinkId = '';
+    e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.18));
+    e.armorLinkId = '';
     syncSlotMobState(e);
-    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives });
+    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1 });
     registerComboEvent(run, killer, source, e, 1);
     return;
   }
@@ -5131,7 +5135,9 @@ function rerollSlotMobMode(run, e, force = false) {
   if (!force && (e.slotModeT || 0) > 0) return;
   const prev = String(e.slotMode || '');
   e.slotMode = pickSlotMobMode(prev);
-  e.slotModeT = 5.0;
+  e.slotModeT = 0;
+  e.slotChargeState = 'slot_move';
+  e.vx = 0; e.vy = 0;
   e.st = 0;
   e.fireCd = Math.min(e.fireCd || 99, 0.55);
   syncSlotMobState(e);
@@ -5139,8 +5145,7 @@ function rerollSlotMobMode(run, e, force = false) {
 }
 function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
   const def = ENEMIES.slot_mob;
-  e.slotModeT = Math.max(0, (e.slotModeT || 0) - dt);
-  rerollSlotMobMode(run, e, false);
+  // Mode is chosen only after each 3-second rebuild roll.
   const mode = String(e.slotMode || 'runner');
   syncSlotMobState(e);
   if (mode === 'shooter') {
@@ -5174,18 +5179,6 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
     } else if (e.slotChargeState === 'slot_cool') {
       if (e.st >= 1.35) { e.slotChargeState = 'slot_move'; e.st = 0; }
     }
-  } else if (mode === 'bouncer') {
-    if (!Number.isFinite(e.vx) || !Number.isFinite(e.vy) || Math.hypot(e.vx, e.vy) < 60) {
-      const a = Math.atan2(toT.y, toT.x) + (Math.random() - 0.5) * 0.7;
-      e.vx = Math.cos(a) * 245; e.vy = Math.sin(a) * 245;
-    }
-    let nx = e.x + e.vx * dt, ny = e.y + e.vy * dt;
-    for (const w of walls) {
-      if (aabbHit(nx, e.y, e.size / 2, w)) { e.vx *= -1; nx = e.x; }
-      if (aabbHit(e.x, ny, e.size / 2, w)) { e.vy *= -1; ny = e.y; }
-    }
-    e.x = nx; e.y = ny;
-    touchDamage(run, e, players, dt);
   } else if (mode === 'pulse') {
     steerMove(run, e, toT, spd * 0.62, dt, { target });
     e.fireCd -= dt;
@@ -5219,8 +5212,10 @@ function stepEnemies(run, players, dt) {
     if (e.kind === 'slot_mob' && (e.rebuildT || 0) > 0) {
       e.rebuildT = Math.max(0, (e.rebuildT || 0) - dt);
       e.fireCd = Math.max(e.fireCd || 0, 0.20);
-      if (e.rebuildT <= 0) rerollSlotMobMode(run, e, true);
-      else syncSlotMobState(e);
+      if (e.rebuildT <= 0) {
+        e.shellHp = 0; e.shellMax = 0;
+        rerollSlotMobMode(run, e, true);
+      } else syncSlotMobState(e);
       continue;
     }
     if ((e.frozenT || 0) > 0 || (e.stunT || 0) > 0) {

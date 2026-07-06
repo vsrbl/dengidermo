@@ -433,7 +433,7 @@ export class Effects {
         break;
       case 'casino_overload':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 260, ttl: 0.95, color: '#ff3048' });
-        this.add({ kind: 'ring', x: f.sx || f.x, y: f.sy || f.y, r: 120, ttl: 0.75, color: '#ffd34d' });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 1.25, color: '#ffd34d', explode: 1 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.65; this.kick(14);
         break;
@@ -442,8 +442,8 @@ export class Effects {
         this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
         break;
       case 'slot_mob_rebuild':
-        this.add({ kind: 'burst', x: f.x, y: f.y, r: 115, ttl: 0.62, color: '#ffd34d' });
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.72, color: '#b45cff' });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.10, color: '#ffd34d', collapse: 1 });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 108, ttl: 0.90, color: '#b45cff', tick: 1 });
         this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
         this.kick(f.spawn ? 9 : 6);
         break;
@@ -583,6 +583,27 @@ export class Effects {
           ctx.lineTo(e.x + Math.cos(a) * d2, e.y + Math.sin(a) * d2);
           ctx.stroke();
         }
+      } else if (e.kind === 'slotScatter') {
+        const syms = ['GLD','EXP','STC','WPN','ABL','BAD','JCK','RAR'];
+        const cx = e.x2 || e.x, cy = e.y2 || e.y;
+        ctx.save();
+        ctx.font = '700 9px var(--mono, monospace)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (let i = 0; i < 22; i++) {
+          const a = i * 2.399 + e.x * 0.013;
+          const far = 35 + (i % 7) * 15;
+          const sx = e.x + Math.cos(a) * far;
+          const sy = e.y + Math.sin(a) * far;
+          const tx = cx + Math.cos(a + 1.2) * (6 + (i % 4) * 3);
+          const ty = cy + Math.sin(a + 1.2) * (6 + (i % 4) * 3);
+          const q = e.explode ? Math.min(1, p * 1.15) : (1 - Math.pow(1 - p, 2));
+          const x = sx + (tx - sx) * q;
+          const y = sy + (ty - sy) * q;
+          ctx.globalAlpha = Math.max(0, (1 - p * 0.55)) * (0.45 + (i % 4) * 0.09);
+          ctx.fillStyle = i % 3 === 0 ? '#66f6ff' : (i % 3 === 1 ? '#ffd34d' : '#f3f3f3');
+          ctx.fillText(syms[i % syms.length], Math.round(x), Math.round(y));
+        }
+        ctx.restore();
       } else if (e.kind === 'rocketBlast') {
         const step = Math.min(1, Math.floor(p * 6) / 5);
         const base = e.r * (0.28 + step * 0.9);
