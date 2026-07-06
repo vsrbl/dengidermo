@@ -359,7 +359,9 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const canLock = ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA'].includes(lockSymbol);
   let outcome = 'LOSE';
   let usedLock = false;
-  if (canLock && rng() < (high ? 0.58 : mid ? 0.64 : 0.70)) {
+  if (canLock) {
+    // v2.1.81: LOCK is a clear stored cell, not an invisible chance.
+    // When a lock is active, the next spin must visibly resolve through that symbol.
     outcome = (lockSymbol === 'SKN' && !hasLockedSkin) ? 'RAR' : lockSymbol;
     usedLock = true;
   } else {

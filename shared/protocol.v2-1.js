@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
 export const VERSION = 'v2.1.81';
-export const BUILD_ID = 'casino_lock_music_player_layout_hotfix';
+export const BUILD_ID = 'casino_lock_8bit_hud_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

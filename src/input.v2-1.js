@@ -52,13 +52,6 @@ export class Input {
     window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursor(); });
     window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursor(); });
     window.addEventListener('mousedown', (e) => {
-      const t = e.target;
-      const uiHit = t && t !== canvas && (t.closest?.('button,input,textarea,select,#hud .yt-mini,#menu,#dev-panel,.overlay,#explain-tip') || t.id === 'custom-cursor');
-      if (uiHit) {
-        if (e.button === 2) e.preventDefault();
-        if (e.button === 0) this.fire = false;
-        return;
-      }
       if (e.button === 2) {
         e.preventDefault();
         if (!this.blocked) this.secondaryEdge = true;

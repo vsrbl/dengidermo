@@ -520,9 +520,14 @@ export class AudioBus {
         this.noise(0.012, 0.010, 4200, 10, 0.002);
         break;
       case 'jackpot':
-        this.tone(164.81, 0.180, 'square', 0.052, 1.20);
-        this.tone(329.63, 0.135, 'square', 0.034, 0.92, 0.060);
-        this.tone(415.30, 0.110, 'triangle', 0.020, 0.86, 0.120);
+        // v2.1.81: short victorious slot melody instead of one dull stab.
+        this.noise(0.018, 0.020, 5200, 12, 0.000);
+        this.tone(261.63, 0.070, 'square', 0.040, 1.02, 0.000);
+        this.tone(329.63, 0.070, 'square', 0.034, 1.02, 0.070);
+        this.tone(392.00, 0.080, 'square', 0.034, 1.02, 0.140);
+        this.tone(523.25, 0.130, 'triangle', 0.032, 0.96, 0.230);
+        this.tone(783.99, 0.060, 'square', 0.018, 0.88, 0.345);
+        this.noise(0.085, 0.018, 6400, 13, 0.230);
         break;
     }
   }
@@ -7496,11 +7501,11 @@ AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2180()
   if (this.yt8bit) return this.yt8bit;
   const ctx = this.ctx;
   const out = ctx.createGain(); out.gain.value = 0.000001;
-  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1450; filter.Q.value = 1.1;
+  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1280; filter.Q.value = 2.2;
   const osc = ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = 92;
   const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 184;
-  const g1 = ctx.createGain(); g1.gain.value = 0.22;
-  const g2 = ctx.createGain(); g2.gain.value = 0.08;
+  const g1 = ctx.createGain(); g1.gain.value = 0.34;
+  const g2 = ctx.createGain(); g2.gain.value = 0.16;
   osc.connect(g1); osc2.connect(g2); g1.connect(filter); g2.connect(filter); filter.connect(out);
   out.connect(this.master || ctx.destination);
   osc.start(); osc2.start();
@@ -7522,7 +7527,7 @@ AudioBus.prototype.updateMusic = function updateMusicV2180YtMask(state, dt = 0.0
       layer.o1.frequency.setTargetAtTime(root, now, 0.025);
       layer.o2.frequency.setTargetAtTime(root * 2, now, 0.025);
       layer.f.frequency.setTargetAtTime(900 + step * 115, now, 0.08);
-      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.012) : 0.000001, now, 0.10);
+      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.035) : 0.000001, now, 0.075);
     }
   } catch {}
   return out;
@@ -7534,6 +7539,107 @@ AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2180Vol(el
   return yt;
 };
 
+
+// v2.1.81 — explicit game-audio bitcrusher route for the 8BIT toggle.
+// YouTube iframe audio remains cross-origin and cannot be routed into this graph, so the toggle now does two visible/audible things:
+// 1) real bitcrusher on all in-game WebAudio output; 2) stronger chiptune mask over YouTube playback.
+function createTcrBitcrusherNodeV2181(ctx, bitDepth = 8, frequency = 0.23) {
+  const bits = Math.max(1, Math.min(16, bitDepth | 0));
+  const freq = Math.max(0.015, Math.min(1, Number(frequency) || 0.23));
+  const levels = Math.max(1, Math.pow(2, bits) - 1);
+  if (ctx.createScriptProcessor) {
+    const node = ctx.createScriptProcessor(1024, 2, 2);
+    const held = [0, 0];
+    let phase = 1;
+    node.onaudioprocess = e => {
+      const channels = Math.min(e.inputBuffer.numberOfChannels || 1, e.outputBuffer.numberOfChannels || 1, 2);
+      const frames = e.outputBuffer.length || 0;
+      for (let ch = 0; ch < channels; ch++) {
+        const input = e.inputBuffer.getChannelData(ch);
+        const output = e.outputBuffer.getChannelData(ch);
+        let last = held[ch] || 0;
+        let ph = phase;
+        for (let i = 0; i < frames; i++) {
+          ph += freq;
+          if (ph >= 1) {
+            ph -= 1;
+            last = Math.round(Math.max(-1, Math.min(1, input[i])) * levels) / levels;
+          }
+          output[i] = last;
+        }
+        held[ch] = last;
+        if (ch === 0) phase = ph;
+      }
+      for (let ch = channels; ch < e.outputBuffer.numberOfChannels; ch++) {
+        const output = e.outputBuffer.getChannelData(ch);
+        for (let i = 0; i < frames; i++) output[i] = held[0] || 0;
+      }
+    };
+    return { input: node, output: node, node, kind: 'script' };
+  }
+  const shaper = ctx.createWaveShaper();
+  const len = 65536;
+  const curve = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const x = (i / (len - 1)) * 2 - 1;
+    curve[i] = Math.round(x * levels) / levels;
+  }
+  shaper.curve = curve;
+  shaper.oversample = 'none';
+  return { input: shaper, output: shaper, node: shaper, kind: 'waveshaper' };
+}
+
+AudioBus.prototype.ensure8BitCrusher = function ensure8BitCrusherV2181() {
+  if (!this.ctx) return null;
+  if (this.bitcrusher) return this.bitcrusher;
+  this.bitcrusher = createTcrBitcrusherNodeV2181(this.ctx, 8, 0.20);
+  return this.bitcrusher;
+};
+
+AudioBus.prototype.apply8BitCrusherRouting = function apply8BitCrusherRoutingV2181(on) {
+  if (!this.ctx || !this.master || !this.comp) return false;
+  const enabled = !!on;
+  if (this._bitcrusherRouted === enabled) return enabled;
+  try { this.master.disconnect(); } catch {}
+  if (this.bitcrusher?.output) { try { this.bitcrusher.output.disconnect(); } catch {} }
+  if (enabled) {
+    const crush = this.ensure8BitCrusher?.();
+    if (crush?.input && crush?.output) {
+      try { crush.output.disconnect(); } catch {}
+      this.master.connect(crush.input);
+      crush.output.connect(this.comp);
+      this._bitcrusherRouted = true;
+      return true;
+    }
+  }
+  this.master.connect(this.comp);
+  this._bitcrusherRouted = false;
+  return false;
+};
+
+const unlockBeforeV2181Bitcrusher = AudioBus.prototype.unlock;
+AudioBus.prototype.unlock = function unlockV2181Bitcrusher() {
+  const out = unlockBeforeV2181Bitcrusher.call(this);
+  if (this.getYouTube8BitMask?.()) this.apply8BitCrusherRouting?.(true);
+  return out;
+};
+
+const setYouTube8BitMaskBeforeV2181Crusher = AudioBus.prototype.setYouTube8BitMask;
+AudioBus.prototype.setYouTube8BitMask = function setYouTube8BitMaskV2181Crusher(on) {
+  const enabled = setYouTube8BitMaskBeforeV2181Crusher.call(this, on);
+  this.unlock();
+  this.apply8BitCrusherRouting?.(enabled);
+  if (enabled) this.ensureYouTube8BitMask?.();
+  return enabled;
+};
+
+const updateMusicBeforeV2181Crusher = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2181Crusher(state, dt = 0.016) {
+  const out = updateMusicBeforeV2181Crusher.call(this, state, dt);
+  try { this.apply8BitCrusherRouting?.(!!this.getYouTube8BitMask?.()); } catch {}
+  return out;
+};
+
 const handleFxBeforeV2180ChoiceReroll = AudioBus.prototype.handleFx;
 AudioBus.prototype.handleFx = function handleFxV2180ChoiceReroll(f, info = {}) {
   const out = handleFxBeforeV2180ChoiceReroll.call(this, f, info);
@@ -7541,78 +7647,5 @@ AudioBus.prototype.handleFx = function handleFxV2180ChoiceReroll(f, info = {}) {
     try { this.play('contract'); } catch {}
     try { this.play('ui_click'); } catch {}
   }
-  return out;
-};
-
-// v2.1.81 — clearer jackpot melody and stronger 8-bit YouTube mask.
-const playBeforeV2181JackpotMelody = AudioBus.prototype.play;
-AudioBus.prototype.play = function playV2181JackpotMelody(type, ...args) {
-  if (type === 'jackpot_melody') {
-    try {
-      // Short victorious casino terminal jingle: dry square arpeggio + bright payout tail.
-      this.tone(261.63, 0.090, 'square', 0.070, 1.20, 0.000);
-      this.tone(329.63, 0.090, 'square', 0.065, 1.05, 0.080);
-      this.tone(392.00, 0.105, 'square', 0.060, 1.00, 0.160);
-      this.tone(523.25, 0.150, 'square', 0.050, 0.90, 0.250);
-      this.tone(1046.50, 0.070, 'triangle', 0.030, 0.62, 0.330);
-      this.noise(0.105, 0.024, 5200, 14, 0.045);
-    } catch {}
-    return;
-  }
-  return playBeforeV2181JackpotMelody.call(this, type, ...args);
-};
-
-AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2181() {
-  this.unlock();
-  if (!this.ctx) return null;
-  if (this.yt8bit && this.yt8bit.version === 2181) return this.yt8bit;
-  try {
-    if (this.yt8bit?.g) this.yt8bit.g.gain.value = 0.000001;
-    if (this.yt8bit?.o1) this.yt8bit.o1.stop?.();
-    if (this.yt8bit?.o2) this.yt8bit.o2.stop?.();
-    if (this.yt8bit?.o3) this.yt8bit.o3.stop?.();
-  } catch {}
-  const ctx = this.ctx;
-  const out = ctx.createGain(); out.gain.value = 0.000001;
-  const drive = ctx.createWaveShaper();
-  drive.curve = new Float32Array([-1, -0.75, -0.25, 0, 0.25, 0.75, 1]);
-  drive.oversample = 'none';
-  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1250; filter.Q.value = 3.8;
-  const osc = ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = 110;
-  const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 220;
-  const osc3 = ctx.createOscillator(); osc3.type = 'square'; osc3.frequency.value = 440;
-  const g1 = ctx.createGain(); g1.gain.value = 0.34;
-  const g2 = ctx.createGain(); g2.gain.value = 0.14;
-  const g3 = ctx.createGain(); g3.gain.value = 0.08;
-  osc.connect(g1); osc2.connect(g2); osc3.connect(g3);
-  g1.connect(drive); g2.connect(drive); g3.connect(drive);
-  drive.connect(filter); filter.connect(out);
-  out.connect(this.master || ctx.destination);
-  osc.start(); osc2.start(); osc3.start();
-  this.yt8bit = { version: 2181, g: out, f: filter, d: drive, o1: osc, o2: osc2, o3: osc3, t: 0 };
-  return this.yt8bit;
-};
-
-const updateMusicBeforeV2181YtMask = AudioBus.prototype.updateMusic;
-AudioBus.prototype.updateMusic = function updateMusicV2181YtMask(state, dt = 0.016) {
-  const out = updateMusicBeforeV2181YtMask.call(this, state, dt);
-  try {
-    const layer = this.ensureYouTube8BitMask?.();
-    if (layer && this.ctx) {
-      layer.t = (layer.t || 0) + dt;
-      const active = this.isYouTubeActive?.() && this.getYouTube8BitMask?.();
-      const vol = (this.youTubeVolume?.() ?? 70) / 100;
-      const now = this.ctx.currentTime;
-      // Quantized sample-and-hold arpeggio, intentionally obvious over the iframe audio.
-      const step = Math.floor(layer.t * 9.0) % 16;
-      const root = [55,55,82.41,55,110,82.41,65.41,55, 73.42,73.42,110,73.42,146.83,110,92.5,73.42][step] || 55;
-      layer.o1.frequency.setTargetAtTime(root, now, 0.006);
-      layer.o2.frequency.setTargetAtTime(root * 2, now, 0.006);
-      layer.o3.frequency.setTargetAtTime(root * 4, now, 0.006);
-      layer.f.frequency.setTargetAtTime(620 + ((step * 173) % 1550), now, 0.025);
-      layer.f.Q.setTargetAtTime(3.2 + (step % 4) * 0.55, now, 0.03);
-      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.038) : 0.000001, now, 0.055);
-    }
-  } catch {}
   return out;
 };

@@ -501,6 +501,24 @@ function casinoLockParts(raw = '') {
   if (plus.length) return { symbol: plus[0], count: plus.length, label: s };
   return { symbol: s, count: 1, label: s };
 }
+function casinoCellTone(symbol = '') {
+  const x = String(symbol || '').toUpperCase().trim();
+  if (!x || x === '—') return '';
+  if (x === 'STC' || x === 'LOSE' || x === 'NO' || x === 'ОТК') return 'lose';
+  if (x === 'LOCK' || x === 'NEXT' || x === 'CELL') return 'lock';
+  if (x === 'JCK') return 'jackpot';
+  return 'win';
+}
+function casinoCellClass(symbol = '') {
+  const tone = casinoCellTone(symbol);
+  if (tone === 'lose') return 'lose';
+  if (tone === 'jackpot') return 'win jackpot';
+  if (tone === 'lock') return 'win lock-cell';
+  if (tone === 'win') return 'win';
+  return '';
+}
+function casinoIsBadCell(symbol = '') { return casinoCellTone(symbol) === 'lose'; }
+
 
 export class Hud {
   constructor(net, audio = null) {
@@ -817,7 +835,10 @@ export class Hud {
       });
     }
     this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
-    if (this.casino.open) this.updateCasinoLockBadge(this.casino.spinning ? (this.casinoLockSpinSymbol || this.casinoLockSymbol) : this.casinoLockSymbol);
+    if (this.casino.open) {
+      this.updateCasinoLockBadge('');
+      if (!this.casino.spinning) this.paintStoredCasinoLockCell(this.casinoLockSymbol, false);
+    }
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
     const obj = $('hud-objective');
     const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ СКИН', 'HIDDEN SKIN'))}" data-explain="${esc(localText('В этой комнате есть скрытый скин. После зачистки появится отдельная карточка скина, даже если выбора улучшения нет.', 'This room has a hidden skin. After the room is solved, a separate skin card appears even if there is no INSTALL choice.'))}">${esc(localText('СКИН', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
@@ -1302,7 +1323,7 @@ export class Hud {
     }
     this.clearVirusRollSpin();
     const token = this.virusRollSpin.token;
-    const reelPool = ['MOB', 'RAIN', 'BIG', 'ELT', 'HER', 'GLD', 'BAD', 'STC', 'BOSS', 'WIN'];
+    const reelPool = ['MOB', 'RAIN', 'BIG', 'ELT', 'HER', 'GLD', 'BAD', 'STC', 'BOSS', 'PAY'];
     const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols.slice(0, 3) : ['VIR', 'ROLL', '?'];
     const bad = String(f.label || '').toUpperCase().includes('BOSS') || String(f.label || '').toUpperCase().includes('BIG') || String(f.label || '').toUpperCase().includes('ELITE');
     el.className = 'spinning';
@@ -1354,7 +1375,7 @@ export class Hud {
     const el = $('active-roll');
     if (!el) return;
     const tone = f.tone === 'red' ? 'red' : f.tone === 'purple' ? 'purple' : f.tone === 'cyan' ? 'cyan' : '';
-    const casinoSymbols = ['Q', 'GLD', 'EXP', 'HEA', 'DMG', 'STC', 'COPY', '10', 'OK', 'BAD'];
+    const casinoSymbols = ['Q', 'GLD', 'EXP', 'HEA', 'DMG', 'STC', 'COPY', '10', 'PAY', 'BAD'];
     clearTimeout(this.activeRollTimer);
 
     if (f.phase === 'spin') {
@@ -1991,13 +2012,32 @@ export class Hud {
   }
 
   updateCasinoLockBadge(symbol = '', used = false) {
-    // v2.1.81: side LOCK plaque removed. LOCK is now shown only inside the reels.
+    // v2.1.81: the separate right-side LOCK badge was removed.
+    // LOCK is now represented directly inside the casino cells.
     const el = $('casino-lock-badge');
     if (!el) return;
     el.classList.add('hidden');
     el.setAttribute('aria-hidden', 'true');
     el.innerHTML = '';
     this.clearExplain(el);
+  }
+
+  paintStoredCasinoLockCell(symbol = '', force = false) {
+    const reels = [...document.querySelectorAll('.reel')];
+    const first = reels[0];
+    if (!first) return;
+    const s = String(symbol || '').toUpperCase().trim();
+    if (!force && !(first.textContent === '—' || first.classList.contains('lock-ready'))) return;
+    if (!s) {
+      if (force) { first.textContent = '—'; first.className = 'reel'; delete first.dataset.final; this.clearExplain(first); }
+      return;
+    }
+    const lp = casinoLockParts(s);
+    first.textContent = lp.symbol;
+    first.dataset.final = lp.symbol;
+    first.className = `reel locked lock-ready ${casinoCellClass(lp.symbol)}`.trim();
+    const info = this.casinoSymbolInfo(lp.symbol);
+    this.setExplain(first, localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText(`Следующая ставка начнётся с ${lp.label}.`, `Next bet starts with ${lp.label}.`), info.tone || 'cyan');
   }
 
   setCasinoPanelState(state = 'ready', tone = '') {
@@ -2037,11 +2077,12 @@ export class Hud {
     this.setCasinoPanelState(localText('ГОТОВ К СТАВКЕ', 'READY'), '');
     this.updateCasinoHelpLanguage();
     this.casinoLockSpinSymbol = '';
-    this.updateCasinoLockBadge(this.casinoLockSymbol);
+    this.updateCasinoLockBadge('');
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('ВЫБЕРИ СТАВКУ', 'CHOOSE BET'))}</span>`;
     res.style.color = '';
     document.querySelectorAll('.reel').forEach(r => { r.textContent = '—'; r.className = 'reel'; delete r.dataset.final; this.clearExplain(r); });
+    this.paintStoredCasinoLockCell(this.casinoLockSymbol, true);
   }
   closeCasino() {
     this.clearReels();
@@ -2071,21 +2112,21 @@ export class Hud {
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
     const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'RAR'];
-    const locked = casinoLockParts(this.casinoLockSpinSymbol || '').label;
+    const spinLock = casinoLockParts(this.casinoLockSpinSymbol || '').symbol;
     document.querySelectorAll('.reel').forEach((r, i) => {
       if (r._iv) clearInterval(r._iv);
       this.clearExplain(r);
-      if (locked && i === 0) {
-        r.className = `reel locked lock-fixed ${locked === 'STC' || locked === 'LOSE' ? 'lose' : 'win'}`;
-        r.textContent = locked;
-        r.dataset.final = locked;
-        const info = this.casinoSymbolInfo(locked);
-        this.setExplain(r, info.title, localText('Фиксированная ячейка этой ставки. LOCK-заряд будет потрачен на результат.', 'Fixed cell for this bet. One LOCK charge will be consumed.'), info.tone || 'cyan');
+      if (i === 0 && spinLock) {
+        r.className = `reel spin lock-preview ${casinoCellClass(spinLock)}`.trim();
+        r.textContent = spinLock;
+        const info = this.casinoSymbolInfo(spinLock);
+        this.setExplain(r, localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText(`Эта ставка крутится через зафиксированный символ ${spinLock}.`, `This bet spins through fixed symbol ${spinLock}.`), info.tone || 'cyan');
+        r._iv = setInterval(() => { r.textContent = spinLock; if (i === 0) this.playUiSound('casino_spin'); }, 118);
         return;
       }
       r.className = 'reel spin';
       r.textContent = '···';
-      r._iv = setInterval(() => { r.textContent = syms[(Math.floor(Math.random() * syms.length) + i) % syms.length]; if (i === 1 || (!locked && i === 0)) this.playUiSound('casino_spin'); }, 92 + i * 13);
+      r._iv = setInterval(() => { r.textContent = syms[(Math.floor(Math.random() * syms.length) + i) % syms.length]; if (i === 0) this.playUiSound('casino_spin'); }, 92 + i * 13);
     });
     this.playUiSound('casino_spin');
     this.net.sendCasino(stake);
@@ -2107,26 +2148,42 @@ export class Hud {
     for (const t of this.casino.reelTimers || []) clearTimeout(t);
     this.casino.reelTimers = [];
     const reels = [...document.querySelectorAll('.reel')];
+    const payload = f?.payload || {};
     reels.forEach((r, i) => {
       const timer = setTimeout(() => {
         if (r._iv) clearInterval(r._iv);
         r._iv = null;
-        r.classList.remove('spin');
+        r.classList.remove('spin', 'lock-preview');
         if (f) {
-          const finalText = (f.lockUsed && i === 0 && f.lockSymbol) ? f.lockSymbol : (f.symbols?.[i] || '—');
-          r.textContent = finalText;
-          r.dataset.final = r.textContent;
-          const info = this.casinoSymbolInfo(r.textContent);
-          const isLockCell = !!(f.lockUsed && i === 0 && f.lockSymbol);
-          this.setExplain(r, info.title, isLockCell ? localText('Эта ячейка была заранее зафиксирована LOCK.', 'This cell was fixed by LOCK before the spin.') : info.body, info.tone);
-          const bad = f.outcome === 'LOSE' || f.outcome === 'STC' || finalText === 'STC' || finalText === 'LOSE';
-          r.classList.add(bad ? 'lose' : 'win', 'locked');
-          if (isLockCell) r.classList.add('lock-used-cell');
-          if (f.outcome === 'LOCK' && i === 0) r.classList.add('lock-new-cell');
+          let finalSymbol = f.symbols?.[i] || '—';
+          const lockCreated = f.outcome === 'LOCK' && i === 0 && payload.lockSymbol;
+          if (lockCreated) {
+            r.textContent = 'LOCK';
+            r.dataset.final = 'LOCK';
+            r.className = 'reel locked lock-vanish win lock-cell';
+            this.setExplain(r, 'LOCK', localText('LOCK-ячейка растворяется и превращается в новый фиксированный символ.', 'LOCK cell dissolves into a new fixed symbol.'), 'cyan');
+            const morph = setTimeout(() => {
+              const sym = String(payload.lockSymbol || 'WPN').toUpperCase();
+              r.textContent = sym;
+              r.dataset.final = sym;
+              r.className = `reel locked lock-ready ${casinoCellClass(sym)}`.trim();
+              const info = this.casinoSymbolInfo(sym);
+              this.setExplain(r, localText('ЗАФИКСИРОВАНО', 'LOCKED'), localText(`Следующая ставка начнётся с ${sym}.`, `Next bet starts with ${sym}.`), info.tone || 'cyan');
+              this.playUiSound('casino_reel_stop');
+            }, 260);
+            this.casino.reelTimers.push(morph);
+          } else {
+            r.textContent = finalSymbol;
+            r.dataset.final = finalSymbol;
+            const info = this.casinoSymbolInfo(finalSymbol);
+            this.setExplain(r, info.title, info.body, info.tone);
+            const bad = f.outcome === 'LOSE' || f.outcome === 'STC' || casinoIsBadCell(finalSymbol);
+            r.className = `reel locked ${bad ? 'lose' : casinoCellClass(finalSymbol) || 'win'}${f.lockUsed && i === 0 ? ' lock-used' : ''}`.trim();
+          }
         } else {
           r.textContent = '—';
           this.clearExplain(r);
-          r.classList.add('lose', 'locked');
+          r.className = 'reel locked lose';
         }
         this.playUiSound('casino_reel_stop');
         if (i === 2) {
@@ -2150,10 +2207,10 @@ export class Hud {
     document.querySelectorAll('.reel').forEach(r => { r.textContent = localText('ОТК', 'NO'); r.className = 'reel lose locked'; });
     const el = $('casino-result');
     const errors = { 'BET FAILED': t('betFailed'), 'not enough GLD': t('gldLack'), 'НЕДОСТАТОЧНО GLD': t('gldLack'), 'НЕДОСТАТОЧНО HP': localText('НЕТ HP', 'NO HP'), 'not enough HP': localText('НЕТ HP', 'NO HP'), 'invalid stake': t('invalidStake') };
-    const failText = errors[f.error] || f.error || t('betFailed');
-    el.textContent = failText;
+    const msg = errors[f.error] || f.error || t('betFailed');
+    el.textContent = msg;
     el.style.color = '#ff3048';
-    this.feed(`${localText('BET ОТКАЗ', 'BET DENIED')}: ${failText}`, 'r');
+    this.feed(`${localText('BET ОТКАЗАН', 'BET DENIED')} · ${msg}`, 'r');
   }
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
@@ -2181,12 +2238,18 @@ export class Hud {
       if (pl.abilityLabel) parts.push(locLabel(pl.abilityLabel));
       if (pl.weaponLabel) parts.push(locLabel(pl.weaponLabel));
       if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
-      if (pl.lockSymbol || pl.lockLabel) parts.push(`${localText('LOCK СОХРАНЁН', 'LOCK STORED')} ${pl.lockSymbol || ''}`.trim());
+      if (pl.lockSymbol || pl.lockLabel) parts.push(`LOCK ${pl.lockSymbol || ''}`.trim());
+      if (pl.comboLabel) parts.push(locLabel(pl.comboLabel));
       if (pl.rareLabel) parts.push(`RAR: ${locLabel(pl.rareLabel)}`);
       if (pl.contractStake) parts.push(`${localText('КОНТРАКТНАЯ СТАВКА', 'CONTRACT WAGER')} ${pl.contractStake}`);
       if (f.lockUsed) parts.push(`${localText('LOCK ИСПОЛЬЗОВАН', 'LOCK USED')}: ${f.lockSymbol || ''}`);
       if (pl.static) parts.push(t('nextRoomDebt'));
       if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
+      else if (f.outcome === 'LOSE') parts.unshift(t('lose'));
+      else if (f.outcome === 'STC') parts.unshift(t('staticDebt'));
+      else if (f.outcome === 'LOCK') parts.unshift(localText('LOCK ЗАФИКСИРОВАН', 'LOCK STORED'));
+      else if (f.outcome === 'SKN') parts.unshift(t('skin'));
+      else if (f.outcome === 'RAR') parts.unshift('RAR');
       if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
@@ -2195,12 +2258,18 @@ export class Hud {
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow">${parts.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
-      this.feed(`${name(f.id)}: ${localText('BET ИТОГ', 'BET RESULT')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : f.outcome === 'JCK' ? 'p' : 'g');
+      this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
-      if (pl.lockSymbol) { this.casinoLockSymbol = String(pl.lockSymbol).toUpperCase(); this.updateCasinoLockBadge(this.casinoLockSymbol); }
-      else if (f.lockUsed) { this.casinoLockSymbol = '';
-    this.casinoLockSpinSymbol = ''; this.updateCasinoLockBadge('', true); }
-      this.playUiSound(f.outcome === 'JCK' ? 'jackpot_melody' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
+      if (pl.lockSymbol) {
+        this.casinoLockSymbol = String(pl.lockSymbol).toUpperCase();
+        this.paintStoredCasinoLockCell(this.casinoLockSymbol, false);
+      } else if (f.lockUsed) {
+        this.casinoLockSymbol = String(f.lockLeft || '').toUpperCase();
+        if (this.casinoLockSymbol) this.paintStoredCasinoLockCell(this.casinoLockSymbol, false);
+      }
+      this.casinoLockSpinSymbol = '';
+      this.updateCasinoLockBadge('');
+      this.playUiSound(f.outcome === 'JCK' ? 'jackpot' : f.outcome === 'LOSE' ? 'casino_lose' : f.outcome === 'STC' ? 'casino_static' : f.outcome === 'WPN' ? 'casino_weapon' : (f.outcome === 'ABL' || f.outcome === 'SKN' || f.outcome === 'RAR') ? 'casino_ability' : 'casino_win');
     }, 640);
     this.casino.reelTimers.push(timer);
   }
