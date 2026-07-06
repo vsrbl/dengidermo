@@ -577,7 +577,7 @@ const SLOT_MOB_PIECES_HOLD_T = 3.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
 const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.15;
-const SLOT_MOB_POST_BLOCK_SPAWN_T = 1.15;
+const SLOT_MOB_POST_BLOCK_SPAWN_T = 3.25;
 // Full sequential assembly time: pieces do not overlap. One block flies in,
 // snaps, impacts, then the next block starts. This is intentionally longer
 // than the visual fade so the enemy can never appear while blocks are lying or

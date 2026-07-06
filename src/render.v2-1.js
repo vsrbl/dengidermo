@@ -378,6 +378,9 @@ export class Renderer {
     for (const e of view.enemies) {
       const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
+      if (kind === 'slot_mob' && effects && typeof effects.slotAssemblyActiveNear === 'function' && effects.slotAssemblyActiveNear(ex, ey, 220)) {
+        continue;
+      }
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
       if (spawnDelay > 0) {
