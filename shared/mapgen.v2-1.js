@@ -310,7 +310,7 @@ function chestRarityProfile(rng, chest, loopIndex = 0, greed = false, modIds = [
   if (modIds.includes('blood_tax')) reasons.push('BLOOD PAYMENT');
   if (modIds.includes('static_rain')) reasons.push('STATIC STORM');
   if (loopIndex >= 3) reasons.push(`LOOP ${loopIndex + 1}`);
-  return { chestTier, slotCount, costMul, rarityReason: reasons.slice(0, 3).join(' + ') || 'ROOM ROLL' };
+  return { chestTier, slotCount, costMul, rarityReason: reasons.slice(0, 3).join(' + ') || '' };
 }
 function makeChestObj(id, rng, chest, loopIndex, greed, modIds, specialRoomId, mood, extra = {}) {
   return { id, type: 'chest', chest, ...chestRarityProfile(rng, chest, loopIndex, greed, modIds, specialRoomId, mood), ...extra };

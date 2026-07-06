@@ -5272,7 +5272,7 @@ function casinoVirusSymbols(label = '') {
   if (l.includes('STATIC')) return ['STC', 'RAIN', 'LVL2'];
   if (l.includes('ELITE')) return ['ELT', 'PACK', 'RED'];
   if (l.includes('BOSS')) return ['HER', 'BOSS', 'BAD'];
-  if (l.includes('JACKPOT')) return ['GLD', 'GLD', 'PAY'];
+  if (l.includes('JACKPOT')) return ['GLD', 'GLD', 'WIN'];
   return ['MOB', 'PACK', 'BAD'];
 }
 function buildCasinoVirusEvent(run, players) {
@@ -6341,7 +6341,8 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     pl.lockCount = casinoLockStackForPlayer(p).length;
     pl.lockAdded = added;
     pl.lockLabel = `LOCK: ${lockSym}${pl.lockCount > 1 ? ' x' + pl.lockCount : ''}`;
-    res.symbols = ['LOCK', lockSym, added > 1 ? 'x2' : 'NEXT'];
+    // v2.1.81: LOCK becomes a fixed colored reel cell, not a side plaque.
+    res.symbols = [lockSym, 'LOCK', added > 1 ? 'x2' : 'NEXT'];
   }
   // v2.1.77: casino LINK / COMBO PAY removed. Ignore old payloads/saves.
   p.casinoComboLink = 0;
@@ -6694,7 +6695,7 @@ function buildActiveCasinoRoll(run, p, ctx) {
   else if (r < 0.18) { outcome = 'DEBT'; label = 'STATIC STORM'; tone = 'purple'; symbols = ['STC', 'STORM', 'Q']; }
   else if (r < 0.38) { outcome = 'DOUBLE'; label = 'Q x2'; tone = 'cyan'; symbols = ['Q', 'Q', 'COPY']; }
   else if (r < 0.43) { outcome = 'TEN'; label = 'Q x10'; tone = 'green'; symbols = ['Q', 'Q', '10']; }
-  else if (r < 0.62) { outcome = 'GLD'; label = 'CASINO GLD'; tone = 'green'; symbols = ['GLD', 'GLD', 'PAY']; }
+  else if (r < 0.62) { outcome = 'GLD'; label = 'CASINO GLD'; tone = 'green'; symbols = ['GLD', 'GLD', 'OK']; }
   else if (r < 0.78) { outcome = 'EXP'; label = 'CASINO EXP'; tone = 'cyan'; symbols = ['EXP', 'EXP', 'UP']; }
   else { outcome = 'HEAL'; label = 'CASINO HEAL'; tone = 'green'; symbols = ['HEA', 'HEA', 'OK']; }
 

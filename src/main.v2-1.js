@@ -648,23 +648,31 @@ function bindYouTubeMiniControlsV2180() {
   const update = () => {
     const active = !!audio.isYouTubeActive?.();
     const hasPlaylist = !!(localStorage.getItem('tc_youtube_playlist') || audio.ytMusic?.playlist || '').trim();
-    box.classList.toggle('hidden', !hasPlaylist && !active);
-    if (pp) pp.textContent = active ? 'Ⅱ' : '▶';
+    const visible = !!(hasPlaylist || active);
+    box.classList.toggle('hidden', !visible);
+    document.body.classList.toggle('yt-mini-visible', visible);
+    if (pp) pp.textContent = active ? 'PAUSE' : 'PLAY';
     const vol = Math.round(audio.youTubeVolume?.() ?? Math.min(100, (audio.musicVolume || 0.7) * 200));
     if (label) label.textContent = `YT ${vol}`;
-    if (bit) bit.classList.toggle('on', !!audio.getYouTube8BitMask?.());
+    const bitOn = !!audio.getYouTube8BitMask?.();
+    if (bit) bit.classList.toggle('on', bitOn);
+    document.body.classList.toggle('yt-8bit-on', bitOn && visible);
   };
-  prev?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubePrev?.(); update(); });
-  next?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeNext?.(); update(); });
-  pp?.addEventListener('click', async () => {
+  box.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  box.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+  box.addEventListener('click', (e) => { e.stopPropagation(); });
+  prev?.addEventListener('click', (e) => { e.stopPropagation(); uiClick('ui_click'); audio.youTubePrev?.(); update(); });
+  next?.addEventListener('click', (e) => { e.stopPropagation(); uiClick('ui_click'); audio.youTubeNext?.(); update(); });
+  pp?.addEventListener('click', async (e) => {
+    e.stopPropagation();
     uiClick('ui_click');
     if (audio.isYouTubeActive?.()) audio.pauseYouTube?.();
     else await audio.playYouTube?.();
     update();
   });
-  minus?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeVolumeDelta?.(-10); update(); });
-  plus?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeVolumeDelta?.(10); update(); });
-  bit?.addEventListener('click', () => { uiClick('ui_click'); audio.setYouTube8BitMask?.(!audio.getYouTube8BitMask?.()); update(); });
+  minus?.addEventListener('click', (e) => { e.stopPropagation(); uiClick('ui_click'); audio.youTubeVolumeDelta?.(-10); update(); });
+  plus?.addEventListener('click', (e) => { e.stopPropagation(); uiClick('ui_click'); audio.youTubeVolumeDelta?.(10); update(); });
+  bit?.addEventListener('click', (e) => { e.stopPropagation(); uiClick('ui_click'); audio.setYouTube8BitMask?.(!audio.getYouTube8BitMask?.()); update(); });
   setInterval(update, 850);
   update();
 }

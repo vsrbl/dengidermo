@@ -7543,3 +7543,76 @@ AudioBus.prototype.handleFx = function handleFxV2180ChoiceReroll(f, info = {}) {
   }
   return out;
 };
+
+// v2.1.81 — clearer jackpot melody and stronger 8-bit YouTube mask.
+const playBeforeV2181JackpotMelody = AudioBus.prototype.play;
+AudioBus.prototype.play = function playV2181JackpotMelody(type, ...args) {
+  if (type === 'jackpot_melody') {
+    try {
+      // Short victorious casino terminal jingle: dry square arpeggio + bright payout tail.
+      this.tone(261.63, 0.090, 'square', 0.070, 1.20, 0.000);
+      this.tone(329.63, 0.090, 'square', 0.065, 1.05, 0.080);
+      this.tone(392.00, 0.105, 'square', 0.060, 1.00, 0.160);
+      this.tone(523.25, 0.150, 'square', 0.050, 0.90, 0.250);
+      this.tone(1046.50, 0.070, 'triangle', 0.030, 0.62, 0.330);
+      this.noise(0.105, 0.024, 5200, 14, 0.045);
+    } catch {}
+    return;
+  }
+  return playBeforeV2181JackpotMelody.call(this, type, ...args);
+};
+
+AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2181() {
+  this.unlock();
+  if (!this.ctx) return null;
+  if (this.yt8bit && this.yt8bit.version === 2181) return this.yt8bit;
+  try {
+    if (this.yt8bit?.g) this.yt8bit.g.gain.value = 0.000001;
+    if (this.yt8bit?.o1) this.yt8bit.o1.stop?.();
+    if (this.yt8bit?.o2) this.yt8bit.o2.stop?.();
+    if (this.yt8bit?.o3) this.yt8bit.o3.stop?.();
+  } catch {}
+  const ctx = this.ctx;
+  const out = ctx.createGain(); out.gain.value = 0.000001;
+  const drive = ctx.createWaveShaper();
+  drive.curve = new Float32Array([-1, -0.75, -0.25, 0, 0.25, 0.75, 1]);
+  drive.oversample = 'none';
+  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1250; filter.Q.value = 3.8;
+  const osc = ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = 110;
+  const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 220;
+  const osc3 = ctx.createOscillator(); osc3.type = 'square'; osc3.frequency.value = 440;
+  const g1 = ctx.createGain(); g1.gain.value = 0.34;
+  const g2 = ctx.createGain(); g2.gain.value = 0.14;
+  const g3 = ctx.createGain(); g3.gain.value = 0.08;
+  osc.connect(g1); osc2.connect(g2); osc3.connect(g3);
+  g1.connect(drive); g2.connect(drive); g3.connect(drive);
+  drive.connect(filter); filter.connect(out);
+  out.connect(this.master || ctx.destination);
+  osc.start(); osc2.start(); osc3.start();
+  this.yt8bit = { version: 2181, g: out, f: filter, d: drive, o1: osc, o2: osc2, o3: osc3, t: 0 };
+  return this.yt8bit;
+};
+
+const updateMusicBeforeV2181YtMask = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2181YtMask(state, dt = 0.016) {
+  const out = updateMusicBeforeV2181YtMask.call(this, state, dt);
+  try {
+    const layer = this.ensureYouTube8BitMask?.();
+    if (layer && this.ctx) {
+      layer.t = (layer.t || 0) + dt;
+      const active = this.isYouTubeActive?.() && this.getYouTube8BitMask?.();
+      const vol = (this.youTubeVolume?.() ?? 70) / 100;
+      const now = this.ctx.currentTime;
+      // Quantized sample-and-hold arpeggio, intentionally obvious over the iframe audio.
+      const step = Math.floor(layer.t * 9.0) % 16;
+      const root = [55,55,82.41,55,110,82.41,65.41,55, 73.42,73.42,110,73.42,146.83,110,92.5,73.42][step] || 55;
+      layer.o1.frequency.setTargetAtTime(root, now, 0.006);
+      layer.o2.frequency.setTargetAtTime(root * 2, now, 0.006);
+      layer.o3.frequency.setTargetAtTime(root * 4, now, 0.006);
+      layer.f.frequency.setTargetAtTime(620 + ((step * 173) % 1550), now, 0.025);
+      layer.f.Q.setTargetAtTime(3.2 + (step % 4) * 0.55, now, 0.03);
+      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.038) : 0.000001, now, 0.055);
+    }
+  } catch {}
+  return out;
+};
