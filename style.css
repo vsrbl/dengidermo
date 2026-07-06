@@ -4567,3 +4567,62 @@ html.yt-video-8bit #youtube-player-wrap::before {
 @media (max-width: 760px) {
   #room-wager-card.active { right: 20px !important; width: min(330px, 92vw) !important; }
 }
+
+
+/* v2.1.94 — native cursor latency hotfix.
+   The custom DOM cursor looked stylized but always trails event delivery by at least one paint,
+   and it becomes especially noticeable over chest/install overlays. Keep aiming raw in JS,
+   but let the browser draw the visible cursor instantly. */
+#custom-cursor { display: none !important; opacity: 0 !important; visibility: hidden !important; }
+*, *::before, *::after { cursor: crosshair !important; }
+html, body, canvas#game, #hud, #overlay, #menu, .modal, .install-panel, .choice, .casino-terminal {
+  cursor: crosshair !important;
+}
+button,
+.btn,
+.choice,
+.chest-card,
+.skin-claim-card,
+.lang-btn,
+.yt-mini-btn,
+.bet-btn,
+.wager-accept,
+[role="button"],
+[data-clickable="true"] {
+  cursor: pointer !important;
+}
+input, textarea, select { cursor: auto !important; }
+body.modal-open,
+body.modal-open #overlay,
+body.modal-open #hud,
+body.modal-open .modal,
+body.modal-open .install-panel {
+  cursor: default !important;
+}
+body.modal-open button,
+body.modal-open .btn,
+body.modal-open .choice,
+body.modal-open .chest-card,
+body.modal-open .skin-claim-card,
+body.modal-open .wager-accept,
+body.modal-open [role="button"],
+body.modal-open [data-clickable="true"] {
+  cursor: pointer !important;
+}
+
+
+/* v2.1.96 — casino full-lock overload break animation */
+.reel.slot-overload-break {
+  animation: slotOverloadBreak .16s steps(2,end) infinite !important;
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+  background: rgba(255,48,72,.15) !important;
+  box-shadow: 0 0 20px rgba(255,48,72,.28), inset 0 0 0 2px rgba(255,211,77,.14) !important;
+}
+@keyframes slotOverloadBreak {
+  0% { transform: translate(0,0) skewX(0deg); opacity: 1; }
+  25% { transform: translate(-3px,2px) skewX(-5deg); opacity: .68; }
+  50% { transform: translate(3px,-1px) skewX(4deg); opacity: .92; }
+  75% { transform: translate(-1px,-2px) skewX(-2deg); opacity: .56; }
+  100% { transform: translate(0,0) skewX(0deg); opacity: 1; }
+}
