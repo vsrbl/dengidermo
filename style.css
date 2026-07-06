@@ -4331,3 +4331,59 @@ html.yt-video-8bit #youtube-player-wrap::after {
   letter-spacing: .16em;
   text-shadow: 1px 0 rgba(255,64,64,.42), -1px 0 rgba(77,255,255,.35);
 }
+
+/* v2.1.84 — compact BET result readout; details live in the feed/history. */
+#casino-modal .panel {
+  overflow: visible !important;
+}
+#casino-result {
+  min-height: 70px !important;
+  height: 70px !important;
+  max-height: 70px !important;
+  overflow: hidden !important;
+  align-content: center !important;
+  gap: 4px !important;
+  padding: 6px 8px !important;
+}
+#casino-result .casino-result-title {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+#casino-result .casino-result-flow,
+#casino-result .casino-result-flow.compact {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 5px !important;
+  max-height: 28px !important;
+  overflow: hidden !important;
+}
+#casino-result .casino-result-flow b,
+#casino-result .casino-result-flow.compact b {
+  max-width: 160px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 10.5px !important;
+  line-height: 1.05 !important;
+}
+
+/* v2.1.84 — keep YouTube 8BIT visual-only and less destructive; no fake audio layer. */
+#youtube-player-wrap.yt-video-8bit iframe,
+html.yt-video-8bit #youtube-player-wrap iframe {
+  width: 67% !important;
+  height: 75px !important;
+  transform: scale(1.5) translateZ(0) !important;
+  filter:
+    contrast(1.7)
+    saturate(1.55)
+    brightness(.94)
+    sepia(.16)
+    hue-rotate(38deg) !important;
+}
+#youtube-player-wrap.yt-video-8bit::before,
+html.yt-video-8bit #youtube-player-wrap::before {
+  opacity: .42 !important;
+}

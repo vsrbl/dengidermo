@@ -423,12 +423,23 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   }
   payload.lockSlots = nextLocks.slice(0, 3);
   const add = (k, v = 1) => { payload[k] = Math.max(0, Number(payload[k] || 0)) + v; };
-  for (const c of payload.cellRewards) {
-    const sym = String(c.symbol || '').toUpperCase();
-    switch (sym) {
-      case 'GLD': add('gld', Math.round(stake * (0.38 + rng() * 0.36))); add('gldCount'); break;
-      case 'EXP': add('xp', Math.round(stake * 0.34)); add('xpCount'); break;
-      case 'HEA': add('heal', 10 + Math.round(rng() * 16)); add('healCount'); break;
+  const finalSymbols = symbols.map(x => String(x || '').toUpperCase().trim());
+  const triple = finalSymbols.length === 3 && !!finalSymbols[0] && finalSymbols.every(x => x === finalSymbols[0]);
+  const paySymbol = triple ? finalSymbols[0] : '';
+  payload.tripleMatch = triple ? 1 : 0;
+  payload.paySymbol = paySymbol;
+  if (!triple) payload.noMatch = 1;
+
+  // v2.1.84: casino payout is a real slot-machine rule again.
+  // Individual prize-looking cells do not pay by themselves. A payout/penalty is
+  // applied only when the three final cells match. LOCK still morphs and fixes
+  // an individual slot, but its replacement symbol only matters for future
+  // three-of-a-kind checks while the BET terminal stays open.
+  if (triple) {
+    switch (paySymbol) {
+      case 'GLD': add('gld', Math.round(stake * (1.35 + rng() * 0.75))); add('gldCount'); break;
+      case 'EXP': add('xp', Math.round(stake * 0.82)); add('xpCount'); break;
+      case 'HEA': add('heal', 24 + Math.round(rng() * 22)); add('healCount'); break;
       case 'WPN': payload.weapon = true; add('weaponCount'); break;
       case 'ABL': payload.ability = true; add('abilityCount'); break;
       case 'RAR': payload.rare = true; add('rareCount'); break;
@@ -441,8 +452,8 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
         break;
       }
       case 'STC': payload.static = true; add('staticCount'); break;
-      case 'JCK': add('jackpotCount'); add('gld', Math.round(stake * 1.94)); add('xp', Math.round(stake * 0.55)); break;
-      case 'BAD': add('missCount'); break;
+      case 'JCK': payload.jackpotCount = 3; add('gld', Math.round(stake * 2.75)); add('xp', Math.round(stake * 0.80)); break;
+      case 'BAD': add('missCount', 3); break;
     }
   }
   if (createdLock) {
@@ -450,13 +461,12 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     payload.lockCreated = 1;
     payload.lockLabel = payload.cellRewards.filter(c => c.lockCreated).map(c => `S${c.slot + 1}->${c.symbol}`).join(' ');
   }
-  const positives = (payload.gldCount || 0) + (payload.xpCount || 0) + (payload.healCount || 0) + (payload.weaponCount || 0) + (payload.abilityCount || 0) + (payload.rareCount || 0) + (payload.skinCount || 0) + (payload.jackpotCount || 0);
   let outcome = 'LOSE';
-  if ((payload.jackpotCount || 0) >= 3) outcome = 'JCK';
-  else if (createdLock) outcome = 'LOCK';
-  else if (positives > 0 && (payload.staticCount || 0) > 0) outcome = 'MIX';
-  else if (positives > 0) outcome = positives === 1 ? (symbols.find(s => !['BAD','STC'].includes(s)) || 'MIX') : 'MIX';
-  else if ((payload.staticCount || 0) > 0) outcome = 'STC';
+  if (triple) {
+    if (paySymbol === 'JCK') outcome = 'JCK';
+    else if (paySymbol === 'STC') outcome = 'STC';
+    else if (paySymbol && paySymbol !== 'BAD') outcome = paySymbol;
+  } else if (createdLock) outcome = 'LOCK';
   return {
     symbols,
     outcome,

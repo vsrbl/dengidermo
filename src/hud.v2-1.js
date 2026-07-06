@@ -2283,6 +2283,9 @@ export class Hud {
       const parts = [`-${paid} ${paidUnit}`];
       const cellLines = Array.isArray(pl.cellRewards) ? pl.cellRewards.map(casinoCellLine) : [];
       if (cellLines.length) parts.push(`${localText('СЛОТЫ', 'SLOTS')}: ${cellLines.join(' · ')}`);
+      const finalReels = Array.isArray(f.symbols) ? f.symbols.map(x => String(x || '—').toUpperCase()).join(' ') : '';
+      if (pl.tripleMatch) parts.push(`${localText('ТРИ ОДИНАКОВЫХ', 'THREE OF A KIND')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+      else parts.push(localText('НЕТ ТРЁХ ОДИНАКОВЫХ — НАГРАДЫ НЕТ', 'NO THREE OF A KIND — NO PAYOUT'));
       if (pl.gld) parts.push(`+${pl.gld} GLD${pl.gldCount > 1 ? ' x' + pl.gldCount : ''}`);
       if (pl.xp) parts.push(`+${pl.xp} EXP${pl.xpCount > 1 ? ' x' + pl.xpCount : ''}`);
       if (pl.heal) parts.push(`+${pl.heal} HP${pl.healCount > 1 ? ' x' + pl.healCount : ''}`);
@@ -2314,7 +2317,16 @@ export class Hud {
       modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : f.outcome === 'LOSE' ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
-      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow">${parts.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
+      const compactBits = [];
+      if (finalReels) compactBits.push(finalReels);
+      if (pl.tripleMatch) compactBits.push(`${localText('x3', 'x3')} ${String(pl.paySymbol || '').toUpperCase()}`);
+      else if (f.outcome === 'LOCK') compactBits.push(localText('LOCK зафиксировал слот', 'LOCK fixed a slot'));
+      else compactBits.push(localText('нет линии', 'no line'));
+      if (pl.gld) compactBits.push(`+${pl.gld} GLD`);
+      if (pl.xp) compactBits.push(`+${pl.xp} EXP`);
+      if (pl.heal) compactBits.push(`+${pl.heal} HP`);
+      const compact = compactBits.slice(0, 4);
+      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact">${compact.map(x => `<b>${esc(locLabel(x))}</b>`).join('')}</span>`;
       this.feed(`${name(f.id)}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, f.outcome === 'LOSE' ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = f.outcome === 'LOSE' ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.casinoSlotLocks = casinoNormalizeSlotLocks(f.lockSlots || pl.lockSlots || this.casinoSlotLocks || []);

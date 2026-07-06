@@ -7649,3 +7649,33 @@ AudioBus.prototype.handleFx = function handleFxV2180ChoiceReroll(f, info = {}) {
   }
   return out;
 };
+
+// v2.1.84 — remove fake 8-bit audio processing from the YouTube toggle.
+// A cross-origin YouTube iframe cannot be used as a WebAudio source in this page,
+// and the previous crusher only damaged in-game audio / added a separate mask.
+// The 8BIT toggle is now intentionally visual-only for the YouTube window.
+AudioBus.prototype.apply8BitCrusherRouting = function apply8BitCrusherRoutingV2184Disabled() {
+  if (!this.ctx || !this.master || !this.comp) return false;
+  if (this._bitcrusherRouted) {
+    try { this.master.disconnect(); } catch {}
+    if (this.bitcrusher?.output) { try { this.bitcrusher.output.disconnect(); } catch {} }
+    try { this.master.connect(this.comp); } catch {}
+  }
+  this._bitcrusherRouted = false;
+  return false;
+};
+AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2184Disabled() {
+  if (this.yt8bit?.g && this.ctx) {
+    try { this.yt8bit.g.gain.setTargetAtTime(0.000001, this.ctx.currentTime, 0.02); } catch {}
+  }
+  return null;
+};
+AudioBus.prototype.setYouTube8BitMask = function setYouTube8BitMaskV2184VisualOnly(on) {
+  this.yt8bitMaskEnabled = !!on;
+  localStorage.setItem('tc_youtube_8bit_mask', this.yt8bitMaskEnabled ? '1' : '0');
+  this.apply8BitCrusherRouting?.(false);
+  if (this.yt8bit?.g && this.ctx) {
+    try { this.yt8bit.g.gain.setTargetAtTime(0.000001, this.ctx.currentTime, 0.02); } catch {}
+  }
+  return this.yt8bitMaskEnabled;
+};
