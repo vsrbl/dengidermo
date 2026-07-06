@@ -632,6 +632,8 @@ function roomDangerScore(plan = {}, staticLevel = 0) {
   else if (arch === 'compact') score += 0.6;
   else if (arch === 'long_lane') score += 0.5;
   else if (arch === 'wide') score += 0.45;
+  else if (arch === 'cashier_maze') score += 1.25;
+  else if (['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) score += 0.55;
   if (special === 'signal_contract') score += 0.9;
   if (special === 'debt_node') score += 0.75;
   if (special === 'reward_pocket') score += 0.25;
@@ -658,6 +660,13 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   else if (arch === 'compact') tags.push('DASH SPACE');
   else if (arch === 'wide') tags.push('CROSSFIRE');
   else if (arch === 'long_lane') tags.push('LANES');
+  else if (arch === 'ripped_table') tags.push('NARROW BRIDGE');
+  else if (arch === 'cross_terminal') tags.push('CROSS LANES');
+  else if (arch === 'ring_track') tags.push('CHASE LOOP');
+  else if (arch === 'three_paylines') tags.push('PAYLINES');
+  else if (arch === 'clamp_room') tags.push('SQUEEZE LANES');
+  else if (arch === 'cashier_maze') tags.push('LONG MAZE');
+  else if (arch === 'machine_core') tags.push('CORE POCKETS');
   else if (arch === 'lounge') tags.push('SHOP');
   // Static Storm is shown only in the unified top-right stack readout, not duplicated as a threat tag.
   if (mods.includes('hunter_contract')) tags.push('LOCKED WAVES');
@@ -684,6 +693,13 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
+  if (arch === 'cashier_maze') return 'CASHIER MAZE: portal is hidden far from the start; expect double director pressure.';
+  if (arch === 'ripped_table') return 'RIPPED TABLE: the bridge decides when fights spill between halves.';
+  if (arch === 'cross_terminal') return 'CROSS TERMINAL: threats travel through four lanes into the center.';
+  if (arch === 'ring_track') return 'RING TRACK: keep moving around the blocked core.';
+  if (arch === 'three_paylines') return 'THREE PAYLINES: lane gaps decide safe rotations.';
+  if (arch === 'clamp_room') return 'CLAMP ROOM: space squeezes into readable bands.';
+  if (arch === 'machine_core') return 'MACHINE CORE: clear pockets before the core area floods.';
   if (arch === 'panic_box') return 'PANIC BOX: use dash as a reset, not only as speed.';
   if (arch === 'long_lane') return 'LONG LANE: watch chargers and prism angles before committing.';
   if (arch === 'wide') return 'WIDE FIELD: pick a side and collapse ranged nests.';
@@ -714,8 +730,9 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Spend HP if you dare, then clear the room.' };
   if (mods.includes('static_rain')) return { id: 'static_clean', label: 'STATIC CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy while taking low damage.' };
   if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', reward: 'FAVOR', goal: 'Kill every enemy and claim the cache.' };
+  if (arch === 'cashier_maze') return { id: 'clean_signal', label: 'MAZE CLEANUP', reward: 'FAVOR', goal: 'Find the far exit and kill every enemy in the maze.' };
   if (arch === 'panic_box' || arch === 'compact') return { id: 'fast_clear', label: 'FAST CLEANUP', reward: 'FAVOR', goal: `Kill every enemy before ${fastClearTimeLimit({ plan })}s.` };
-  if (arch === 'wide' || arch === 'long_lane') return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
+  if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
   return { id: 'clean_signal', label: 'FULL CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy in the room.' };
 }
 function shouldOfferRoomContract(plan = {}, depth = 0, seed = 1) {
@@ -1299,7 +1316,9 @@ function settleRoomObjectiveAtPortalOpen(run) {
 function playableRectForArchetype(archetype) {
   const defs = {
     panic_box: { w: 1120, h: 760 }, compact: { w: 1420, h: 960 }, standard: { w: 2200, h: 1500 },
-    wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 }
+    wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 },
+    ripped_table: { w: 2200, h: 1500 }, cross_terminal: { w: 2200, h: 1500 }, ring_track: { w: 2200, h: 1500 },
+    three_paylines: { w: 2200, h: 1500 }, clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 }
   };
   const d = defs[archetype] || defs.standard;
   const x = Math.round((2200 - d.w) / 2), y = Math.round((1500 - d.h) / 2);
@@ -2100,6 +2119,8 @@ function roomDirectorMinAge(run) {
   const loop = Math.floor(Math.max(0, run?.runDepth || 0) / 4);
   let t = 11.5 + Math.min(8, q * 0.34) + Math.min(4, loop * 0.7);
   if (arch === 'wide' || arch === 'long_lane') t += 3.0;
+  if (arch === 'cashier_maze') t += 8.0;
+  if (['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) t += 1.4;
   if (arch === 'panic_box' || arch === 'compact') t -= 1.2;
   return Math.max(10, Math.min(24, t));
 }
@@ -2115,7 +2136,9 @@ function roomDirectorTarget(run) {
   extra += Math.min(4, Math.max(0, df.loop) + Math.floor(Math.max(0, df.late) * 0.6));
   if ((plan.modifierIds || []).some(m => ['static_rain','prism_grid','moving_room','blood_tax','skin_cache'].includes(m))) extra += 1;
   if ((plan.modifierIds || []).includes('casino_virus') && (run?.casinoVirus?.spinsLeft || 0) > 0) extra += 3 + Math.min(3, df.loop);
-  return Math.max(q + 1, Math.round(q + extra));
+  let target = Math.max(q + 1, Math.round(q + extra));
+  if (arch === 'cashier_maze') target = Math.max(target + 8, Math.round(target * 2));
+  return target;
 }
 function roomPacingReady(run) {
   if (!run || (run.spawned || 0) <= 0) return false;
@@ -3009,6 +3032,13 @@ function archetypeIntentMul(archetype, intent) {
     standard: {},
     wide: { ranged: 1.28, control: 1.20, director: 1.12, swarm: 0.86, chaos: 0.92 },
     long_lane: { ranged: 1.30, control: 1.25, chaos: 1.08, support: 0.88, swarm: 0.88 },
+    ripped_table: { swarm: 1.10, chaos: 1.08, ranged: 1.06, control: 1.04 },
+    cross_terminal: { ranged: 1.16, control: 1.08, swarm: 1.04, chaos: 1.04 },
+    ring_track: { swarm: 1.14, chaos: 1.10, ranged: 0.92, control: 1.04 },
+    three_paylines: { ranged: 1.24, control: 1.14, swarm: 0.92, chaos: 1.02 },
+    clamp_room: { swarm: 1.10, chaos: 1.10, control: 1.08, ranged: 0.98 },
+    cashier_maze: { swarm: 1.24, chaos: 1.18, support: 1.12, ranged: 0.82, director: 1.22 },
+    machine_core: { support: 1.20, director: 1.14, ranged: 1.08, swarm: 0.94 },
     lounge: { chaos: 0.45, swarm: 0.45, ranged: 0.45, armor: 0.45, support: 0.45, control: 0.45, director: 0.45 },
     boss: { director: 1.2, ranged: 1.05, swarm: 0.92 }
   };
@@ -3069,6 +3099,13 @@ const CROWD_FORM_WEIGHTS_BY_ARCHETYPE = {
   standard: { wall: 20, fan: 19, pinch: 19, stream: 18, cloud: 14, ring: 10, nest: 9, lane: 7 },
   wide: { lane: 28, wall: 24, nest: 22, stream: 16, fan: 10, pinch: 9, ring: 5, cloud: 5 },
   long_lane: { wall: 34, lane: 30, stream: 20, pinch: 16, fan: 8, nest: 7, ring: 3, cloud: 3 },
+  ripped_table: { pinch: 26, stream: 22, lane: 18, wall: 15, fan: 10, cloud: 7, ring: 5, nest: 5 },
+  cross_terminal: { lane: 28, wall: 20, fan: 18, pinch: 14, stream: 12, nest: 8, ring: 6, cloud: 5 },
+  ring_track: { stream: 28, ring: 22, pinch: 16, cloud: 12, fan: 10, lane: 8, wall: 6, nest: 5 },
+  three_paylines: { lane: 34, wall: 24, stream: 15, pinch: 12, fan: 8, nest: 6, ring: 4, cloud: 3 },
+  clamp_room: { pinch: 28, wall: 22, stream: 18, fan: 10, lane: 9, cloud: 6, nest: 6, ring: 4 },
+  cashier_maze: { stream: 30, nest: 22, pinch: 18, cloud: 14, fan: 10, wall: 8, lane: 5, ring: 4 },
+  machine_core: { nest: 25, ring: 20, wall: 18, lane: 12, fan: 8, stream: 8, pinch: 7, cloud: 5 },
   lounge: { cloud: 12, fan: 8, ring: 5, wall: 4, stream: 4, pinch: 3, lane: 2, nest: 2 },
   boss: { ring: 22, stream: 20, fan: 18, lane: 16, wall: 10, pinch: 8, cloud: 5, nest: 4 }
 };

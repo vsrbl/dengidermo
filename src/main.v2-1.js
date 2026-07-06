@@ -448,7 +448,7 @@ function ensureDevPanel() {
   const mutOpts = Object.values(ACTIVE_MUTATIONS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
   const categoryOpts = [''].concat(ROOM_SEQUENCE, ['chill']).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'AUTO'}</option>`).join('');
   const specialOpts = [''].concat(Object.keys(SPECIAL_ROOMS)).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'NONE'}</option>`).join('');
-  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','lounge','boss'].map(v => `<option value="${v}">${v ? v.toUpperCase() : 'AUTO'}</option>`).join('');
+  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? v.toUpperCase() : 'AUTO'}</option>`).join('');
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
   const bossRewardLabel = id => String(id || '').replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
   const bossRewardOpts = BOSS_SIGNATURE_UPGRADE_IDS.map(id => `<option value="${id}">${bossRewardLabel(id)}</option>`).join('');
