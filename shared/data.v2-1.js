@@ -89,7 +89,7 @@ export const UPGRADES = [
   { id: 'sig_kill_switch', label: 'KILL SWITCH', tier: 2, bossSig: true, desc: 'R: один раз за run стирает всех врагов на экране, включая босса. После выбора больше не появляется в этом run.', apply: s => { if (!s.killSwitchTaken) { s.killSwitchTaken = 1; s.rActiveId = 'kill_switch'; s.rActiveStacks = Math.max(1, s.rActiveStacks || 1); s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } else if (s.rActiveId === 'kill_switch') { s.rActiveStacks = Math.max(1, s.rActiveStacks || 1) + 1; s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } } },
   { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Spawn-warning поля висят намного дольше. Стаки усиливают задержку появления.', apply: s => { s.spawnHoldStacks += 1; } },
   { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Игрок получает enemy-style shell shield. Каждый стак даёт +45 shield.', apply: s => { s.aegisStacks += 1; } },
-  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующую стакаемую награду с выбором. Charge тратится один раз за loop и восстанавливается в начале loop.', apply: s => { s.mirrorCapacity += 1; } },
+  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующую стакаемую награду с выбором. Не копирует саму себя. Charge восстанавливается после победы над главным процессом.', apply: s => { s.mirrorCapacity += 1; } },
   { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Вторая жизнь. При смерти возвращает игрока с 45% HP. Стаки дают +1 revive charge.', apply: s => { s.nullRevives += 1; } },
   { id: 'sig_room_wager', label: 'ROOM WAGER', tier: 1, bossSig: true, desc: 'Открывает ставку справа от INSTALL перед комнатой. Платишь только при провале условия.', apply: s => { s.roomWagerUnlocked = 1; } },
   { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук в loop бесплатно становится максимальной редкости. Каждый стак даёт +1 ключ.', apply: s => { s.bossKeys += 1; } },
@@ -397,6 +397,11 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const nextLocks = slotLocks.slice(0, 3);
   let usedLock = false;
   let createdLock = false;
+  // v2.1.86: LOCK is a sticky-slot copier. The first locked symbol in the
+  // terminal becomes the anchor. Every later LOCK, even in the same spin,
+  // morphs into that same symbol and fixes its own slot until the BET terminal
+  // closes. This allows lucky runs like WPN / LOCK / LOCK -> three fixed WPN.
+  let lockAnchorSymbol = slotLocks.map(cleanSym).find(Boolean) || '';
   for (let i = 0; i < 3; i++) {
     const locked = cleanSym(slotLocks[i]);
     if (locked) {
@@ -404,16 +409,19 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
       nextLocks[i] = finalLocked;
       symbols[i] = finalLocked;
       usedLock = true;
+      if (!lockAnchorSymbol) lockAnchorSymbol = finalLocked;
       payload.cellRewards.push({ slot: i, raw: finalLocked, symbol: finalLocked, locked: 1 });
       continue;
     }
     const raw = drawCell();
     if (raw === 'LOCK') {
-      const finalSym = drawLockPrize();
+      const finalSymRaw = lockAnchorSymbol || drawLockPrize();
+      const finalSym = finalSymRaw === 'SKN' && !hasLockedSkin ? 'RAR' : finalSymRaw;
+      lockAnchorSymbol = finalSym;
       nextLocks[i] = finalSym;
       symbols[i] = finalSym;
       createdLock = true;
-      payload.cellRewards.push({ slot: i, raw: 'LOCK', symbol: finalSym, lockCreated: 1 });
+      payload.cellRewards.push({ slot: i, raw: 'LOCK', symbol: finalSym, lockCreated: 1, lockCopied: lockAnchorSymbol === finalSym ? 1 : 0 });
     } else {
       const finalSym = raw === 'SKN' && !hasLockedSkin ? 'RAR' : raw;
       nextLocks[i] = '';

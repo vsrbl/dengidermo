@@ -483,7 +483,7 @@ const BOSS_REWARD_HINTS = {
   'KILL SWITCH': ['R: KILL SWITCH', 'Одноразовая кнопка на весь run: очищает экран от врагов, включая босса. После выбора больше не появляется в этом run.'],
   'SPAWN HOLD': ['SPAWN HOLD', 'Spawn-warning поля висят намного дольше. Враги появляются позже, room tempo становится читаемым. Стаки усиливают задержку.'],
   'AEGIS PROCESS': ['AEGIS PROCESS', 'Даёт player shell-shield в стиле вражеской брони. Каждый стак добавляет +45 к ёмкости щита.'],
-  'MIRROR PAYOUT': ['MIRROR PAYOUT', 'Копирует следующую стакаемую награду с выбором. Charge тратится один раз за loop и восстанавливается в начале нового loop. UNIQUE-награды тратят charge без копии.'],
+  'MIRROR PAYOUT': ['MIRROR PAYOUT', 'Копирует следующую стакаемую награду с выбором. Не копирует саму MIRROR PAYOUT. Charge восстанавливается после победы над боссом/главным процессом.'],
   'NULL REVIVAL': ['NULL REVIVAL', 'Вторая жизнь. При смерти отменяет game over, возвращает с 45% HP, чистит пули рядом и тратит один charge.'],
   'ROOM WAGER': ['ROOM WAGER', 'Открывает ставку справа от INSTALL: одна кнопка, случайная ставка/условие/приз. Ставка теряется только при провале.'],
   'BOSS KEY': ['BOSS KEY', 'Первый сундук в loop автоматически становится бесплатным, максимальной редкости и 5-slot. Каждый стак даёт +1 ключ.']
@@ -791,25 +791,29 @@ export class Hud {
     const card = $('room-wager-card');
     if (!card || card.classList.contains('hidden')) return;
     const modal = $('install-modal');
-    if (modal && card.parentElement !== modal) modal.appendChild(card);
+    // Keep the card outside the overlay stacking context so the button is never
+    // covered by the INSTALL panel/backdrop. It is still positioned from the
+    // INSTALL panel rectangle every frame.
+    if (card.parentElement !== document.body) document.body.appendChild(card);
     const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
     if (!panel) {
-      card.style.left = ''; card.style.top = ''; card.style.right = ''; card.style.bottom = ''; card.style.transform = '';
-      card.style.zIndex = '90'; card.style.pointerEvents = 'auto';
+      for (const k of ['left','top','right','bottom','transform']) card.style.removeProperty(k);
+      card.style.setProperty('z-index', '420', 'important');
+      card.style.setProperty('pointer-events', 'auto', 'important');
       return;
     }
     const r = panel.getBoundingClientRect();
-    const w = Math.max(260, Math.min(320, card.offsetWidth || 286));
-    const gap = 12;
+    const w = Math.max(260, Math.min(320, card.offsetWidth || 306));
+    const gap = 14;
     let left = r.right + gap;
     if (left + w > window.innerWidth - 14) left = Math.max(14, r.left - w - gap);
-    card.style.left = `${Math.round(Math.max(14, left))}px`;
-    card.style.right = 'auto';
-    card.style.top = `${Math.max(14, Math.round(r.top))}px`;
-    card.style.bottom = 'auto';
-    card.style.transform = 'none';
-    card.style.zIndex = '90';
-    card.style.pointerEvents = 'auto';
+    card.style.setProperty('left', `${Math.round(Math.max(14, left))}px`, 'important');
+    card.style.setProperty('right', 'auto', 'important');
+    card.style.setProperty('top', `${Math.max(14, Math.round(r.top))}px`, 'important');
+    card.style.setProperty('bottom', 'auto', 'important');
+    card.style.setProperty('transform', 'none', 'important');
+    card.style.setProperty('z-index', '420', 'important');
+    card.style.setProperty('pointer-events', 'auto', 'important');
   }
 
   // ------------------------------------------------- per-frame update
@@ -1015,7 +1019,7 @@ export class Hud {
         if (explicit.has(ux)) continue;
         addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
       }
-      if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно в этом loop. Копирует только стакаемые награды с выбором. Обычное INSTALL-окно не тратит копирку.`, me[P.MIRROR] > 0 ? 'purple' : '');
+      if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно до следующей победы над боссом. Копирует только стакаемые награды с выбором и не копирует саму MIRROR.`, me[P.MIRROR] > 0 ? 'purple' : '');
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
       if (me[P.BOSSKEY] > 0) addBadge(`KEY x${me[P.BOSSKEY]}`, `BOSS KEY: ${me[P.BOSSKEY]} ключ. Первый сундук в loop станет бесплатным и max rarity.`, 'gold');
       if (me[P.SHIELDMAX] > 0) addBadge(`AEGIS`, `AEGIS PROCESS: shell-shield игрока. Ёмкость зависит только от стаков босса: ${me[P.SHIELDMAX]}.`, 'cyan');
@@ -1613,10 +1617,13 @@ export class Hud {
   }
   mirrorMetaForChoice(id, opt = null, context = '') {
     if (this.mirrorChargesReady() <= 0) return null;
-    const bossStack = new Set(['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key']);
+    const bossStack = new Set(['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_null_revival','sig_boss_key']);
     const ctx = String(context || '');
     if (ctx === 'install') return null;
-    if (ctx === 'boss') return bossStack.has(String(id || '')) ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+    if (ctx === 'boss') {
+      if (String(id || '') === 'sig_mirror_payout') return null;
+      return bossStack.has(String(id || '')) ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+    }
     if (ctx === 'weapon') {
       const k = String(opt?.kind || '');
       return (k === 'weapon_upgrade' || k === 'stat') ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };

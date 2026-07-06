@@ -332,6 +332,19 @@ export class Effects {
       case 'active_tick':
         this.add({ kind: 'squareField', activeKind: String(f.kind || '') + '_tick', x: f.x, y: f.y, r: f.r || 130, ttl: 0.12, color: f.tone === 'red' ? '#ff3048' : (f.tone === 'purple' ? '#b45cff' : '#66f6ff'), tick: 1 });
         break;
+      case 'redline_boost': {
+        if (mine) { this.slam = Math.max(this.slam, 0.18); this.kick(7 + Math.min(8, f.stack || 1)); }
+        const stack = Math.max(1, Number(f.stack || 1) | 0);
+        const r = Number(f.r || 140);
+        this.add({ kind: 'squareField', activeKind: 'redline_boost_start', x: f.x, y: f.y, r, ttl: 0.36, color: '#ff3048' });
+        this.add({ kind: 'squareField', activeKind: 'redline_boost_core', x: f.x, y: f.y, r: Math.max(52, r * 0.52), ttl: 0.42, color: '#ffd34d', tick: 1 });
+        for (let i = 0; i < Math.min(6, 2 + stack); i++) {
+          const a = (i / Math.max(1, Math.min(6, 2 + stack))) * Math.PI * 2;
+          this.add({ kind: 'squareField', activeKind: 'redline_speed_line', x: f.x + Math.cos(a) * 24, y: f.y + Math.sin(a) * 24, r: 42 + stack * 5, ttl: 0.18 + i * 0.025, color: '#ff3048', tick: 1 });
+        }
+        this.float(f.x, f.y - 56, `REDLINE x${stack}`, '#ff3048', 13);
+        break;
+      }
       case 'active_mutation': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : f.tone === 'purple' ? '#b45cff' : '#66f6ff';
         this.add({ kind: f.squareBlast ? 'rocketBlast' : 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 95, ttl: f.squareBlast ? 0.22 : 0.24, color: col });
@@ -1145,18 +1158,13 @@ export class Effects {
     if ((this.rewindPulse || 0) > 0) {
       const p = this.rewindPulse;
       ctx.save();
-      ctx.fillStyle = `rgba(180,92,255,${0.08 * p})`;
+      ctx.fillStyle = `rgba(180,92,255,${0.06 * p})`;
       ctx.fillRect(0, 0, w, h);
-      ctx.globalAlpha = 0.55 * p;
-      ctx.strokeStyle = '#b45cff';
-      ctx.lineWidth = 1.5;
       const cx = w / 2, cy = h * 0.42;
-      const step = 34;
-      for (let i = -5; i <= 5; i++) ctx.strokeRect(Math.round(cx + i * step - 8), Math.round(cy - 38 - p * 10), 16, 76);
       ctx.font = `bold ${Math.round(12 + 5 * p)}px 'Courier New', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = `rgba(243,243,243,${0.74 * p})`;
+      ctx.fillStyle = `rgba(243,243,243,${0.70 * p})`;
       ctx.fillText('REWIND', cx, cy - 56);
       ctx.restore();
     }

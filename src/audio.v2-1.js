@@ -962,6 +962,7 @@ export class AudioBus {
       case 'phit': if (mine) this.play('phit'); break;
       case 'denied': if (mine) this.play('denied'); break;
       case 'active_denied': if (mine) this.play('active'); break;
+      case 'redline_boost': if (mine) { this.play('active_over'); this.play('dash'); } break;
       case 'bet_ui': if (mine) this.play('bet_open'); break;
       case 'chest_open':
         if (mine) {
@@ -7678,4 +7679,23 @@ AudioBus.prototype.setYouTube8BitMask = function setYouTube8BitMaskV2184VisualOn
     try { this.yt8bit.g.gain.setTargetAtTime(0.000001, this.ctx.currentTime, 0.02); } catch {}
   }
   return this.yt8bitMaskEnabled;
+};
+
+
+// v2.1.86 — TARGET LOCK readable audio cues.
+const handleFxBeforeV2186TargetLockSound = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2186TargetLockSound(f, info = {}) {
+  const out = handleFxBeforeV2186TargetLockSound.call(this, f, info);
+  if (f?.id === info?.myId || f?.playerId === info?.myId) {
+    if (f?.t === 'target_lock_acquire') {
+      try { this.play('active_snap'); } catch {}
+      try { this.play('shield'); } catch {}
+    } else if (f?.t === 'target_lock_jump') {
+      try { this.play('active'); } catch {}
+      try { this.play('casino_reel_stop'); } catch {}
+    } else if (f?.t === 'target_lock_end') {
+      try { this.play('denied'); } catch {}
+    }
+  }
+  return out;
 };

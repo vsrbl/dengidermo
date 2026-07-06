@@ -27,7 +27,7 @@ const FINAL_TARGET_DEPTH = FINAL_TARGET_LOOPS * ROOMS_PER_LOOP;
 const FINAL_BOSS_DEPTH = FINAL_TARGET_DEPTH - 1;
 const GOLD_FEVER_DAMAGE_MULT = 5;
 const PLAYER_ORBITALS_REMOVED = true;
-const OFFER_TIMEOUT = 24;
+const OFFER_TIMEOUT = 48;
 const STATIC_RAIN_MAX_LEVEL = 99; // no player-facing cap; HUD shows the true stacked level
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
 const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v | 0));
@@ -154,10 +154,11 @@ function makeBossSignatureOffer(run, p) {
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
   let choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p)).slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
   if (choices.length < BOSS_SIGNATURE_CHOICE_COUNT) choices = bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss', Math.random, p);
-  return { id: run.installOfferSeq, kind: 'boss_signature', choices, expires: OFFER_TIMEOUT + 8, total: OFFER_TIMEOUT + 8 };
+  return { id: run.installOfferSeq, kind: 'boss_signature', choices, expires: OFFER_TIMEOUT + 16, total: OFFER_TIMEOUT + 16 };
 }
 function queueBossSignatureReward(run, players, bossKind = 'boss') {
   run.lastBossKind = bossKind || run.lastBossKind || 'boss';
+  restoreMirrorChargesAfterBoss(run, players);
   for (const p of players.values()) {
     if (!p.connected) continue;
     const choices = bossSignatureChoicesForKind(bossKind, Math.random, p);
@@ -2283,7 +2284,7 @@ export function startRoom(run, players) {
   const seed = (run.seedBase + run.runDepth * 7919) >>> 0;
   const loopIndex = Math.floor(run.runDepth / 4);
   run.plan = generateRoom(seed, run.runDepth, loopIndex, run.devNextRoomOverride || null);
-  resetLoopLimitedBossRewards(run, players);
+  // MIRROR charges restore only after boss/core victory, not on loop transition.
   run.plan.finalBoss = (run.plan.category === 'boss' && run.runDepth >= FINAL_BOSS_DEPTH) ? 1 : 0;
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
@@ -3720,7 +3721,9 @@ function rActiveLabel(p) {
   const id = String(p?.stats?.rActiveId || '');
   if (!id) return 'R EMPTY';
   if (id === 'kill_switch' && !(p?.stats?.killSwitchCharge > 0)) return 'R BURNT';
-  return R_ACTIVE_LABELS[id] || id.toUpperCase();
+  const base = R_ACTIVE_LABELS[id] || id.toUpperCase();
+  const stacks = Math.max(1, Number(p?.stats?.rActiveStacks || 1) | 0);
+  return id !== 'kill_switch' && stacks > 1 ? `${base} x${stacks}` : base;
 }
 function rActiveDesc(p) {
   const id = String(p?.stats?.rActiveId || '');
@@ -3752,7 +3755,7 @@ function spendBossKey(run, p, o) {
   return true;
 }
 function bossRewardCanMirror(id) {
-  return ['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key'].includes(String(id || ''));
+  return ['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_null_revival','sig_boss_key'].includes(String(id || '')); // MIRROR PAYOUT must not copy itself
 }
 function upgradeCanMirror(id) {
   const u = UPGRADES.find(x => x.id === id);
@@ -3780,14 +3783,16 @@ function useMirrorIfPossible(run, p, label, canStack, applyFn) {
   run.fx.push({ t: 'active_mutation', label: `MIRRORED ${cleanLabel || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
   return true;
 }
-function resetLoopLimitedBossRewards(run, players) {
-  const loop = roomLoopIndex(run);
+function restoreMirrorChargesAfterBoss(run, players) {
+  const bossCycle = Math.max(0, run?.runMemory?.bossesDefeated || 0);
   for (const p of players.values()) {
     if (!p.connected) continue;
-    if (p.mirrorLoop !== loop) {
-      p.mirrorLoop = loop;
-      p.mirrorUsedLoop = 0;
-      if (mirrorCapacity(p) > 0) run.fx.push({ t: 'active_mutation', label: `MIRROR RESTORED ${mirrorCapacity(p)}/${mirrorCapacity(p)}`, x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
+    const cap = mirrorCapacity(p);
+    const hadSpent = Math.max(0, p.mirrorUsedLoop || 0) > 0;
+    p.mirrorBossCycle = bossCycle;
+    p.mirrorUsedLoop = 0;
+    if (cap > 0 || hadSpent) {
+      run.fx.push({ t: 'active_mutation', label: `MIRROR RESTORED ${cap}/${cap}`, x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
     }
   }
 }
@@ -3824,19 +3829,23 @@ function doRActive(run, players, p) {
   if (!id || !p.alive || run.phase !== 'play') return false;
   if (id !== 'rewind_mark' && (p.rActiveCd || 0) > 0) return false;
   if (id === 'target_lock') {
-    if ((p.targetLockT || 0) > 0) { p.targetLockT = 0; p.targetLockTargetId = ''; p.rActiveCd = 12; run.fx.push({ t: 'active_mutation', label: 'LOCK RELEASED', x: Math.round(p.x), y: Math.round(p.y), r: 70, tone: 'cyan', playerId: p.id }); return true; }
+    if ((p.targetLockT || 0) > 0) { p.targetLockT = 0; p.targetLockTargetId = ''; p.rActiveCd = 12; run.fx.push({ t: 'target_lock_end', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'release' }); run.fx.push({ t: 'active_mutation', label: 'LOCK RELEASED', x: Math.round(p.x), y: Math.round(p.y), r: 70, tone: 'cyan', playerId: p.id }); return true; }
     const e = enemyNearPoint(run, p.aimX, p.aimY, 320) || enemyNearPoint(run, p.x, p.y, 620);
     if (!e) return false;
     p.targetLockTargetId = e.id;
     p.targetLockT = targetLockDuration(p);
     p.rActiveCd = 12;
+    run.fx.push({ t: 'target_lock_acquire', id: p.id, playerId: p.id, x: Math.round(e.x), y: Math.round(e.y), target: e.id });
     run.fx.push({ t: 'active_mutation', label: `TARGET LOCK ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 90, tone: 'cyan', playerId: p.id, target: e.id });
     return true;
   }
   if (id === 'redline_boost') {
-    p.redlineT = redlineDuration(p);
+    const stacks = Math.max(1, Number(p.stats?.rActiveStacks || 1) | 0);
+    const dur = redlineDuration(p);
+    p.redlineT = dur;
     p.rActiveCd = 14;
-    run.fx.push({ t: 'active_mutation', label: 'REDLINE BOOST', x: Math.round(p.x), y: Math.round(p.y), r: 115, tone: 'red', playerId: p.id });
+    run.fx.push({ t: 'redline_boost', id: p.id, playerId: p.id, stack: stacks, dur, mul: redlineSpeedMul(p), x: Math.round(p.x), y: Math.round(p.y), r: 135 + stacks * 18 });
+    run.fx.push({ t: 'active_mutation', label: `REDLINE BOOST x${stacks}`, x: Math.round(p.x), y: Math.round(p.y), r: 115 + stacks * 16, tone: 'red', playerId: p.id });
     return true;
   }
   if (id === 'ghost_decoy') {
@@ -3892,18 +3901,24 @@ function stepRActiveState(run, players, p, dt) {
   p.redlineT = Math.max(0, (p.redlineT || 0) - dt);
   p.tempDmgMulT = Math.max(0, (p.tempDmgMulT || 0) - dt);
   p.ghostT = Math.max(0, (p.ghostT || 0) - dt);
+  const targetLockWasActive = (p.targetLockT || 0) > 0;
   p.targetLockT = Math.max(0, (p.targetLockT || 0) - dt);
+  if (targetLockWasActive && (p.targetLockT || 0) <= 0 && p.targetLockTargetId) {
+    run.fx.push({ t: 'target_lock_end', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'expired' });
+    p.targetLockTargetId = '';
+  }
   if ((p.targetLockT || 0) > 0) {
     let e = run.enemies.find(x => x.id === p.targetLockTargetId && x.hp > 0 && (x.spawnDelay || 0) <= 0);
     if (!e) {
       e = enemyNearPoint(run, p.x, p.y, 980) || enemyNearPoint(run, p.aimX, p.aimY, 980);
       if (e) {
         p.targetLockTargetId = e.id;
+        run.fx.push({ t: 'target_lock_jump', id: p.id, playerId: p.id, x: Math.round(e.x), y: Math.round(e.y), target: e.id });
         run.fx.push({ t: 'active_mutation', label: `LOCK JUMP ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 74, tone: 'cyan', playerId: p.id, target: e.id });
       }
     }
     if (e) { p.aimX = e.x; p.aimY = e.y; }
-    else { p.targetLockT = 0; p.targetLockTargetId = ''; }
+    else { p.targetLockT = 0; if (p.targetLockTargetId) run.fx.push({ t: 'target_lock_end', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'lost' }); p.targetLockTargetId = ''; }
   }
   if ((p.rewindT || 0) > 0) {
     p.rewindT = Math.max(0, p.rewindT - dt);
@@ -3958,7 +3973,7 @@ function makeRoomWagerOffer(run, p) {
   const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
   const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p);
   const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
-  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, expires: 12, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
+  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, expires: 24, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
 }
 function ensureRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
@@ -4247,9 +4262,16 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   const greed = run.plan.modifierIds.includes('greed');
   const mult = (e.elite ? 2.5 : 1) * (def.boss ? 1 : 1);
   const goldMul = (killer ? killer.stats.goldMul : 1) * (greed ? 1.6 : 1);
-  dropPickup(run, e.x, e.y, 'GLD', Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run))));
-  dropPickup(run, e.x + 14, e.y - 8, 'EXP', Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45))));
-  if ((e.elite && Math.random() < 0.35) || def.boss) dropPickup(run, e.x - 14, e.y + 8, 'HEA', 25);
+  const gldDrop = Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run)));
+  const expDrop = Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45)));
+  if (greed) {
+    // GOLD FEVER means mob loot is pure GLD: no EXP/HEA pickups from enemy deaths.
+    dropPickup(run, e.x, e.y, 'GLD', gldDrop + Math.max(1, Math.round(expDrop * 0.55)));
+  } else {
+    dropPickup(run, e.x, e.y, 'GLD', gldDrop);
+    dropPickup(run, e.x + 14, e.y - 8, 'EXP', expDrop);
+    if ((e.elite && Math.random() < 0.35) || def.boss) dropPickup(run, e.x - 14, e.y + 8, 'HEA', 25);
+  }
   if (!def.boss && killer && playerSigStack(killer, 'sigIncompleteDelete') > 0 && (e.elite || (def.score || 0) >= 3) && Math.random() < Math.min(0.28, 0.10 + playerSigStack(killer, 'sigIncompleteDelete') * 0.035)) {
     dropPersonalPickup(run, killer, e.x + 8, e.y + 12, 'HEA', 6 + Math.round(Math.random() * 8), 'INCOMPLETE DELETE');
     run.fx.push({ t: 'active_mutation', label: 'INCOMPLETE DELETE', x: Math.round(e.x), y: Math.round(e.y), r: 70, tone: 'green' });
@@ -4909,7 +4931,14 @@ function stepEnemies(run, players, dt) {
           explode(run, players, e.x, e.y, def.blast, e.dmg, null, true, 'danger');
           run.enemies = run.enemies.filter(x => x.id !== e.id); run.kills++;
           run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
-          dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6 * mobLootMul(run))); dropPickup(run, e.x + 10, e.y, 'EXP', Math.max(1, Math.round(def.xp * (1 + (mobLootMul(run) - 1) * 0.45))));
+          if (run.plan.modifierIds.includes('greed')) {
+            const g = Math.round(def.gld * scaling(run) * 0.6 * mobLootMul(run));
+            const x = Math.max(1, Math.round(def.xp * (1 + (mobLootMul(run) - 1) * 0.45)));
+            dropPickup(run, e.x, e.y, 'GLD', Math.max(1, g + Math.round(x * 0.55)));
+          } else {
+            dropPickup(run, e.x, e.y, 'GLD', Math.round(def.gld * scaling(run) * 0.6 * mobLootMul(run)));
+            dropPickup(run, e.x + 10, e.y, 'EXP', Math.max(1, Math.round(def.xp * (1 + (mobLootMul(run) - 1) * 0.45))));
+          }
           if (quotaCanOpenPortal(run)) openPortal(run);
         }
       }
@@ -6140,7 +6169,7 @@ function applyDevBossReward(run, p, id) {
     p.aegisShield = afterAegis;
   }
   if (id === 'sig_mirror_payout') {
-    p.mirrorLoop = roomLoopIndex(run);
+    p.mirrorBossCycle = Math.max(0, run?.runMemory?.bossesDefeated || 0);
     p.mirrorUsedLoop = 0;
   }
   if (id === 'sig_room_wager') p.roomWagerOffer = makeRoomWagerOffer(run, p);
@@ -6502,8 +6531,8 @@ function beginTransition(run, players) {
     completeRun(run, players);
     return;
   }
-  run.contractFavorsActive = [];
-  run.contractFavorsUsedThisRoom = [];
+  // Contract prizes persist until used. Do not clear active prizes when the
+  // room ends; startRoom() will drop only used-up prizes and keep unused ones.
   awardAllComboPayouts(run, players, 'room_transition');
   run.combo = createComboState();
   run.playerCombos = {};
@@ -6536,9 +6565,10 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
   const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
-  const canMirror = wasBossSignature && upgradeCanMirror(id);
+  const mirrorSelfPick = id === 'sig_mirror_payout';
+  const canMirror = wasBossSignature && !mirrorSelfPick && upgradeCanMirror(id);
   u.apply(p.stats);
-  if (wasBossSignature) useMirrorIfPossible(run, p, u.label, canMirror, () => { u.apply(p.stats); return true; });
+  if (wasBossSignature && !mirrorSelfPick) useMirrorIfPossible(run, p, u.label, canMirror, () => { u.apply(p.stats); return true; });
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   if (wasBossSignature) {
@@ -6566,7 +6596,7 @@ function stepInstall(run, players, dt) {
     }
     ensureRoomWagerOffer(run, p);
     if (p.roomWagerOffer && !p.offer) {
-      p.roomWagerOffer.expires = Math.max(0, (p.roomWagerOffer.expires || 12) - dt);
+      p.roomWagerOffer.expires = Math.max(0, (p.roomWagerOffer.expires || 24) - dt);
       if (p.roomWagerOffer.expires <= 0) p.roomWagerOffer = null;
       else waiting = true;
     }

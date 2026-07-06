@@ -803,6 +803,30 @@ export class Renderer {
       }
       ctx.save();
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
+      const redlineActive = String(p[P.RLABEL] || '').includes('REDLINE') && Number(p[P.RT] || 0) > 0;
+      if (redlineActive) {
+        const pulse = 0.55 + Math.sin(now * 28) * 0.18;
+        const rt = Math.max(0, Number(p[P.RT] || 0));
+        ctx.save();
+        ctx.globalAlpha = 0.20 + pulse * 0.16;
+        ctx.strokeStyle = COL.red;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 6]);
+        const rr = 44 + Math.sin(now * 19) * 5;
+        ctx.strokeRect(px - rr / 2, py - rr / 2, rr, rr);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.28;
+        for (let i = 0; i < 5; i++) {
+          const a = now * 5.6 + i * Math.PI * 0.4;
+          const lx = px - Math.cos(a) * (28 + i * 5);
+          const ly = py - Math.sin(a) * (28 + i * 5);
+          ctx.beginPath();
+          ctx.moveTo(lx, ly);
+          ctx.lineTo(lx - Math.cos(a) * (18 + rt * 2), ly - Math.sin(a) * (18 + rt * 2));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       this.drawSkinAura(px, py, skinMetaLocal, now);
       const shMax = Math.max(0, p[P.SHIELDMAX] || 0);
       const sh = Math.max(0, p[P.SHIELD] || 0);
