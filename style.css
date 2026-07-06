@@ -4387,3 +4387,29 @@ html.yt-video-8bit #youtube-player-wrap iframe {
 html.yt-video-8bit #youtube-player-wrap::before {
   opacity: .42 !important;
 }
+
+
+/* v2.1.86 — WAGER card hard alignment/click target */
+#room-wager-card {
+  pointer-events: auto !important;
+  z-index: 420 !important;
+  overflow: hidden !important;
+  max-height: 62vh !important;
+}
+#room-wager-card .wager-body {
+  max-height: 120px !important;
+  overflow: hidden !important;
+}
+#room-wager-card button,
+#room-wager-card button:hover,
+#room-wager-card button:focus-visible {
+  pointer-events: auto !important;
+  border-color: rgba(255,211,77,.95) !important;
+  outline: none !important;
+}
+#room-wager-card button:hover,
+#room-wager-card button:focus-visible {
+  color: #050505 !important;
+  background: rgba(255,211,77,.92) !important;
+  box-shadow: 0 0 16px rgba(255,211,77,.28) !important;
+}
