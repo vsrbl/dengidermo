@@ -403,6 +403,17 @@ export class Effects {
       case 'contract':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 180, ttl: 0.8, color: '#ff3048' });
         break;
+      case 'room_event':
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 170, ttl: 0.55, color: '#b45cff' });
+        break;
+      case 'room_event_done':
+      case 'room_wager_paid':
+      case 'room_wager_accept':
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 210, ttl: 0.65, color: '#ffd34d' }); this.kick(6);
+        break;
+      case 'room_wager_lost':
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 220, ttl: 0.72, color: '#ff3048' }); this.kick(8);
+        break;
       case 'contract_done':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 220, ttl: 0.7, color: '#00ff66' }); this.kick(7);
         break;

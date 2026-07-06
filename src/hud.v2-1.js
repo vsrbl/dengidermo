@@ -803,18 +803,54 @@ export class Hud {
     feed.style.setProperty('max-height', `${Math.max(120, Math.round(window.innerHeight - top - 140))}px`, 'important');
   }
 
+
+  roomWagerActiveHtml(w = {}) {
+    const progress = w.progress || {};
+    const pct = progress.max ? Math.max(0, Math.min(100, Math.round((Number(progress.value || 0) / Math.max(1, Number(progress.max || 1))) * 100))) : 0;
+    const progText = String(progress.text || '').trim();
+    return `<div class="wager-title active">${esc(localText('СТАВКА АКТИВНА', 'WAGER ACTIVE'))}</div>
+      <div class="wager-line"><b>${esc(localText('РИСК', 'RISK'))}</b><span>${esc(w.stakeText || '—')}</span></div>
+      <div class="wager-line"><b>${esc(localText('УСЛОВИЕ', 'CONDITION'))}</b><span>${esc(w.conditionText || '—')}</span></div>
+      <div class="wager-line"><b>${esc(localText('НАГРАДА', 'PRIZE'))}</b><span>${esc(w.prizeText || '—')}</span></div>
+      ${progText ? `<div class="wager-progress"><span>${esc(progText)}</span><i style="width:${pct}%"></i></div>` : ''}`;
+  }
+
+  positionRightStatusCards() {
+    const contract = $('hud-contract-card');
+    const wager = $('room-wager-card');
+    const baseTop = Math.max(92, Math.round((($('hud-top')?.getBoundingClientRect?.().bottom) || 110) + 12));
+    const right = Math.max(14, Math.round(window.innerWidth - (($('hud-right')?.getBoundingClientRect?.().right) || (window.innerWidth - 42))));
+    const width = Math.min(570, Math.max(300, Math.round(Math.min(window.innerWidth * 0.44, 570))));
+    let nextTop = baseTop;
+    if (contract && !contract.classList.contains('hidden')) {
+      contract.style.setProperty('right', `${right}px`, 'important');
+      contract.style.setProperty('top', `${nextTop}px`, 'important');
+      contract.style.setProperty('width', `min(${width}px, 44vw)`, 'important');
+      nextTop += Math.max(72, Math.round(contract.getBoundingClientRect().height || contract.offsetHeight || 74)) + 10;
+    }
+    if (wager && !wager.classList.contains('hidden') && wager.classList.contains('active')) {
+      if (wager.parentElement !== document.body) document.body.appendChild(wager);
+      wager.style.setProperty('left', 'auto', 'important');
+      wager.style.setProperty('right', `${right}px`, 'important');
+      wager.style.setProperty('top', `${nextTop}px`, 'important');
+      wager.style.setProperty('bottom', 'auto', 'important');
+      wager.style.setProperty('transform', 'none', 'important');
+      wager.style.setProperty('width', `min(${width}px, 44vw)`, 'important');
+      wager.style.setProperty('z-index', '520', 'important');
+      wager.style.setProperty('pointer-events', 'auto', 'important');
+    }
+  }
+
   positionRoomWagerCard() {
     const card = $('room-wager-card');
     if (!card || card.classList.contains('hidden')) return;
+    if (card.classList.contains('active')) { this.positionRightStatusCards(); return; }
     const modal = $('install-modal');
-    // Keep the card outside the overlay stacking context so the button is never
-    // covered by the INSTALL panel/backdrop. It is still positioned from the
-    // INSTALL panel rectangle every frame.
     if (card.parentElement !== document.body) document.body.appendChild(card);
     const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
     if (!panel) {
       for (const k of ['left','top','right','bottom','transform']) card.style.removeProperty(k);
-      card.style.setProperty('z-index', '420', 'important');
+      card.style.setProperty('z-index', '520', 'important');
       card.style.setProperty('pointer-events', 'auto', 'important');
       return;
     }
@@ -828,7 +864,8 @@ export class Hud {
     card.style.setProperty('top', `${Math.max(14, Math.round(r.top))}px`, 'important');
     card.style.setProperty('bottom', 'auto', 'important');
     card.style.setProperty('transform', 'none', 'important');
-    card.style.setProperty('z-index', '420', 'important');
+    card.style.setProperty('width', `min(306px, calc(50vw - 40px))`, 'important');
+    card.style.setProperty('z-index', '520', 'important');
     card.style.setProperty('pointer-events', 'auto', 'important');
   }
 
@@ -984,6 +1021,7 @@ export class Hud {
       if (offer && room.phase === 'install') {
         const key = `offer:${offer.id || 0}:${offer.text || ''}`;
         wagerCard.classList.remove('hidden', 'active');
+        wagerCard.classList.add('offer');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
           wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
@@ -1001,18 +1039,20 @@ export class Hud {
           btn?.addEventListener('click', accept);
         }
         this.setExplain(wagerCard, 'ROOM WAGER', localText('Ставка живёт внутри общего времени INSTALL. Отдельного таймера принятия нет: успей принять её до конца установки.', 'The wager lives inside the normal INSTALL timer. There is no separate accept timer: accept it before install ends.'), 'gold');
-      } else if (activeWager) {
-        const key = `active:${activeWager.id || 0}:${activeWager.text || ''}`;
-        wagerCard.classList.remove('hidden');
+      } else if (activeWager && room.phase !== 'install') {
+        const prog = activeWager.progress || {};
+        const key = `active:${activeWager.id || 0}:${activeWager.text || ''}:${prog.text || ''}`;
+        wagerCard.classList.remove('hidden', 'offer');
         wagerCard.classList.add('active');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
-          wagerCard.innerHTML = `<div class="wager-title active">WAGER ACTIVE</div><div class="wager-body">${esc(activeWager.text || '')}</div>`;
+          wagerCard.innerHTML = this.roomWagerActiveHtml(activeWager);
         }
-        this.setExplain(wagerCard, 'WAGER ACTIVE', localText('Условие отслеживается в текущей комнате. При провале будет списана ставка.', 'The condition is being tracked in this room. The stake is lost only on failure.'), 'cyan');
-      } else { wagerCard.classList.add('hidden'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
+        this.setExplain(wagerCard, 'WAGER ACTIVE', localText('Активная ставка комнаты. Сверху показаны риск, условие, награда и текущий прогресс.', 'Active room wager. The card shows risk, condition, reward, and current progress.'), 'cyan');
+      } else { wagerCard.classList.add('hidden'); wagerCard.classList.remove('offer', 'active'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
     }
     this.positionRoomWagerCard();
+    this.positionRightStatusCards();
     const inst = $('hud-install');
     if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');
@@ -1074,16 +1114,14 @@ export class Hud {
       const used = room.contractFavors?.used || [];
       const items = active.length ? active : pending;
       if (items.length) {
-        const f = items[0];
-        const extra = items.length > 1 ? localText(` + ещё ${items.length - 1}`, ` + ${items.length - 1} more`) : '';
-        const isReroll = f.id === 'free_reroll' || f.id === 'epic_reroll';
-        const uses = Math.max(0, f.uses || 0);
-        const status = isReroll && uses > 0 ? localText(`${uses} переброс`, `${uses} reroll`) : this.favorStatusText(f);
+        const allUsed = items.every(f => String(f.status || '').toLowerCase() === 'used' || (f.uses || 0) <= 0);
         favorEl.classList.remove('hidden', 'used', 'pending');
         if (!active.length) favorEl.classList.add('pending');
-        if (String(f.status || '') === 'used' || (f.uses || 0) <= 0) favorEl.classList.add('used');
-        favorEl.innerHTML = `<b>${esc(localText('ПРИЗ', 'PRIZE'))}</b> ${esc(this.favorUiLabel(f))}${esc(extra)} <em>${esc(status)}</em>`;
-        this.setExplain(favorEl, localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), items.map(x => `${this.favorUiLabel(x)}: ${this.favorUiBody(x)} (${this.favorStatusText(x)})`).join('\n'), active.length ? 'gold' : 'cyan');
+        if (allUsed) favorEl.classList.add('used');
+        const title = items.length > 1 ? localText('ПРИЗЫ', 'PRIZES') : localText('ПРИЗ', 'PRIZE');
+        const list = items.map(f => `<span class="favor-chip"><span class="favor-chip-name">${esc(this.favorUiLabel(f))}</span><em>${esc(this.favorCompactStatus(f))}</em></span>`).join('<span class="favor-sep">·</span>');
+        favorEl.innerHTML = `<b>${esc(title)}</b> <span class="favor-list">${list}</span>`;
+        this.setExplain(favorEl, localText('ПРИЗЫ КОНТРАКТА', 'CONTRACT PRIZES'), items.map(x => `${this.favorUiLabel(x)}: ${this.favorUiBody(x)} (${this.favorCompactStatus(x)})`).join('\n'), active.length ? 'gold' : 'cyan');
       } else if (used.length) {
         const f = used[0];
         favorEl.classList.remove('hidden', 'pending');
@@ -1307,11 +1345,16 @@ export class Hud {
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
       case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
+      case 'room_event': this.banner(locLabel(f.label || localText('СОБЫТИЕ КОМНАТЫ', 'ROOM EVENT')), f.body ? cleanPlayerText(f.body) : localText('Особое правило комнаты активно.', 'Special room rule active.'), 'purple'); break;
+      case 'room_event_done': this.banner(locLabel(f.label || localText('СОБЫТИЕ', 'EVENT')), f.body ? cleanPlayerText(f.body) : localText('Завершено', 'Done'), 'green'); break;
       case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
       case 'contract_paid': this.banner(t('contractPaid'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
       case 'contract_wager': if (f.id === myId) this.feed(`${localText('СТАВКА НА КОНТРАКТ', 'CONTRACT WAGER')}: -${f.stake || 0} · ${locLabel(f.label || '')}`, 'p'); break;
       case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('КОНТРАКТНАЯ ВЫПЛАТА', 'CONTRACT PAYOUT')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
       case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('КОНТРАКТНАЯ СТАВКА СГОРЕЛА', 'CONTRACT WAGER LOST')}: -${f.stake || 0}`, 'r'); break;
+      case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), cleanPlayerText(f.body || ''), 'gold'); this.feed(`${localText('ROOM WAGER ПРИНЯТ', 'ROOM WAGER ACCEPTED')}: ${cleanPlayerText(f.body || '')}`, 'p'); } break;
+      case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), cleanPlayerText(f.body || ''), 'green'); this.feed(`${localText('WAGER ВЫПОЛНЕН', 'WAGER PAID')}: ${cleanPlayerText(f.body || '')}`, 'g'); } break;
+      case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), cleanPlayerText(f.body || ''), 'red'); this.feed(`${localText('WAGER ПРОВАЛЕН', 'WAGER LOST')}: ${cleanPlayerText(f.body || '')}`, 'r'); } break;
       case 'favor_earned': { const fs = (f.favors || []).map(x => `${this.favorUiLabel(x)}${x.uses > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = (f.favors || []).map(x => this.favorUiLabel(x)).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
@@ -1831,6 +1874,20 @@ export class Hud {
     if (status === 'pending') return localText('АКТИВЕН', 'ACTIVE');
     return localText('АКТИВЕН', 'ACTIVE');
   }
+  favorCompactStatus(f = {}) {
+    const id = String(f.id || '');
+    const status = String(f.status || '').toLowerCase();
+    const left = Math.max(0, Number(f.uses || 0) | 0);
+    if (status === 'used' || left <= 0) return localText('использован', 'used');
+    if (id === 'free_reroll' || id === 'epic_reroll') {
+      return localText(`${left} ${left === 1 ? 'заряд' : (left >= 2 && left <= 4 ? 'заряда' : 'зарядов')}`, `${left} charge${left === 1 ? '' : 's'}`);
+    }
+    if (id === 'portal_insurance') return localText('1 защита', '1 save');
+    if (id === 'clear_debt') return localText('1 очистка', '1 clear');
+    if (id === 'double_favor') return localText('следующий контракт', 'next contract');
+    if (status === 'pending') return localText('ждёт активации', 'queued');
+    return localText('активен', 'active');
+  }
   activeRerollFavorUses() {
     const active = this.latestRoom?.contractFavors?.active || [];
     const roomKey = `${this.latestRoom?.id || this.latestRoom?.roomId || ''}:${this.latestRoom?.depth || this.latestRoom?.runDepth || ''}`;
@@ -1880,9 +1937,14 @@ export class Hud {
     const code = kind === 'rare' ? 'RAR' : (kind === 'ability' ? 'ABL' : 'WPN');
     if (title) {
       const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
-      title.innerHTML = `${code} CHEST <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}</span>`;
+      const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
+      const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
+      const pickText = picksTotal > 1 ? ` · ${esc(localText(`ВЫБЕРИ ${picksRemaining}/${picksTotal}`, `PICK ${picksRemaining}/${picksTotal}`))}` : '';
+      title.innerHTML = `${code} CHEST <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = `${code}-${localText('СУНДУК', 'CHEST')}`;
-      title.dataset.explain = kind === 'rare' ? localText('Редкий сундук теперь даёт выбор из двух вариантов. Выбираешь один.', 'Rare chest now offers two options. Pick one.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.');
+      title.dataset.explain = kind === 'rare'
+        ? localText('Редкий сундук выдаёт приз сразу после открытия.', 'Rare chest grants its prize immediately when opened.')
+        : (picksTotal > 1 ? localText('Это ценный 5-слотовый сундук: можно выбрать два улучшения из предложенных пяти.', 'This is a valuable 5-slot chest: pick two upgrades from the five offered.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.'));
     }
     let metaEl = modal.querySelector('.chest-offer-meta');
     if (!metaEl && title) {
@@ -1895,7 +1957,11 @@ export class Hud {
       const cost = Math.max(0, Number(meta.cost || 0) | 0);
       const unit = String(meta.unit || 'GLD').toUpperCase();
       const reason = String(meta.reason || '').trim();
-      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}`;
+      const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
+      const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
+      const picks = picksTotal > 1 ? `<span>${esc(localText('ВЫБОРЫ', 'PICKS'))}: <b>${picksRemaining}/${picksTotal}</b></span>` : '';
+      const picked = Array.isArray(meta.pickedLabels) && meta.pickedLabels.length ? `<span class="chest-reason">${esc(localText('ВЗЯТО', 'TAKEN'))}: ${esc(meta.pickedLabels.map(locLabel).join(' + '))}</span>` : '';
+      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}${picked}`;
     }
     const hintTerm = modal.querySelector('.hint .term');
     if (hintTerm) {
@@ -2023,7 +2089,7 @@ export class Hud {
   openRareChest(choices = [], meta = {}) {
     this.rare = { open: true, choices, locked: false, meta };
     this.ability.open = false;
-    this.setChestOfferHeader('rare', choices, { ...meta, slots: 2 });
+    this.setChestOfferHeader('rare', choices, meta);
     const box = $('ability-choices');
     box.innerHTML = '';
     choices.forEach((opt, i) => {

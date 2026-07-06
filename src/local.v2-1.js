@@ -74,6 +74,16 @@ export class LocalRoom {
     this.run.fx.push({ t: 'leave', id: guestId, name: p.name });
   }
 
+  chestOfferMeta(offer = {}) {
+    return {
+      tier: offer.valueTier || 0, label: offer.valueLabel || '', labelRu: offer.valueLabelRu || '',
+      slots: offer.slotCount || offer.choices?.length || 0, reason: offer.rarityReason || '',
+      cost: offer.costPaid || 0, unit: offer.costUnit || 'GLD', rerollSeq: offer.rerollAnimSeq || 0,
+      picksTotal: offer.picksTotal || 1, picksRemaining: offer.picksRemaining || 1,
+      pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [], pickSeq: offer.pickSeq || 0
+    };
+  }
+
   // message from a guest (via rtc or relay) or from the host's own client
   handleMsg(playerId, m) {
     if (!m || typeof m !== 'object') return;
@@ -105,13 +115,15 @@ export class LocalRoom {
       const p = this.players.get(playerId);
       if (!p) return;
       const ok = handleWeaponPick(this.run, this.players, p, m.choice);
-      if (ok && !p.weaponChestOffer) this.sendTo(playerId, { t: 'weapon_offer_close' }, true);
+      if (ok && p.weaponChestOffer) { this.weaponOffersSent.set(playerId, p.weaponChestOffer); this.sendTo(playerId, { t: 'weapon_offer', choices: p.weaponChestOffer.choices, meta: this.chestOfferMeta(p.weaponChestOffer) }, true); }
+      else if (ok && !p.weaponChestOffer) this.sendTo(playerId, { t: 'weapon_offer_close' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid WPN choice' }, true);
     } else if (m.t === 'ability_pick') {
       const p = this.players.get(playerId);
       if (!p) return;
       const ok = handleAbilityPick(this.run, this.players, p, m.choice);
-      if (ok && !p.abilityChestOffer) this.sendTo(playerId, { t: 'ability_offer_close' }, true);
+      if (ok && p.abilityChestOffer) { this.abilityOffersSent.set(playerId, p.abilityChestOffer); this.sendTo(playerId, { t: 'ability_offer', choices: p.abilityChestOffer.choices, meta: this.chestOfferMeta(p.abilityChestOffer) }, true); }
+      else if (ok && !p.abilityChestOffer) this.sendTo(playerId, { t: 'ability_offer_close' }, true);
       else if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid ABL choice' }, true);
     } else if (m.t === 'rare_pick') {
       const p = this.players.get(playerId);
@@ -202,7 +214,7 @@ export class LocalRoom {
       const sent = this.weaponOffersSent.get(pid);
       if (p.weaponChestOffer && sent !== p.weaponChestOffer) {
         this.weaponOffersSent.set(pid, p.weaponChestOffer);
-        const msg = { t: 'weapon_offer', choices: p.weaponChestOffer.choices, meta: { tier: p.weaponChestOffer.valueTier || 0, label: p.weaponChestOffer.valueLabel || '', labelRu: p.weaponChestOffer.valueLabelRu || '', slots: p.weaponChestOffer.slotCount || p.weaponChestOffer.choices?.length || 0, reason: p.weaponChestOffer.rarityReason || '', cost: p.weaponChestOffer.costPaid || 0, unit: p.weaponChestOffer.costUnit || 'GLD', rerollSeq: p.weaponChestOffer.rerollAnimSeq || 0 } };
+        const msg = { t: 'weapon_offer', choices: p.weaponChestOffer.choices, meta: this.chestOfferMeta(p.weaponChestOffer) };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
@@ -214,7 +226,7 @@ export class LocalRoom {
       const sent = this.abilityOffersSent.get(pid);
       if (p.abilityChestOffer && sent !== p.abilityChestOffer) {
         this.abilityOffersSent.set(pid, p.abilityChestOffer);
-        const msg = { t: 'ability_offer', choices: p.abilityChestOffer.choices, meta: { tier: p.abilityChestOffer.valueTier || 0, label: p.abilityChestOffer.valueLabel || '', labelRu: p.abilityChestOffer.valueLabelRu || '', slots: p.abilityChestOffer.slotCount || p.abilityChestOffer.choices?.length || 0, reason: p.abilityChestOffer.rarityReason || '', cost: p.abilityChestOffer.costPaid || 0, unit: p.abilityChestOffer.costUnit || 'GLD', rerollSeq: p.abilityChestOffer.rerollAnimSeq || 0 } };
+        const msg = { t: 'ability_offer', choices: p.abilityChestOffer.choices, meta: this.chestOfferMeta(p.abilityChestOffer) };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }

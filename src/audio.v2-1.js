@@ -998,6 +998,11 @@ export class AudioBus {
         break;
       case 'contract': this.play('contract'); break;
       case 'contract_done': this.play('jackpot'); break;
+      case 'room_event_done': this.play('casino_win'); break;
+      case 'room_event': this.play('contract'); break;
+      case 'room_wager_accept': if (mine) { this.play('contract'); this.play('casino_win'); } break;
+      case 'room_wager_paid': if (mine) { this.play('jackpot'); this.play('casino_win'); } break;
+      case 'room_wager_lost': if (mine) { this.play('denied'); this.play('debt'); } break;
       case 'contract_fail': this.play('denied'); break;
       case 'debt': this.play('debt'); break;
       case 'shield': this.play('shield'); break;

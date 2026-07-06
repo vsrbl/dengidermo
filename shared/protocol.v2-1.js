@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.88';
-export const BUILD_ID = 'spawn_contract_ghost_rare_key_hotfix';
+export const VERSION = 'v2.1.90';
+export const BUILD_ID = 'wager_contract_chest_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

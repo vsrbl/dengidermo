@@ -2437,7 +2437,8 @@ export function startRoom(run, players) {
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
-    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 12; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER DMG x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
+    p.tempDmgMulRoom = 0;
+    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER DMG x100 ROOM', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     ensureBossKeyCharges(run, p);
     p.offer = null;
@@ -2462,7 +2463,7 @@ export function startRoom(run, players) {
     run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
   }
   else if (run.plan.modifierIds.includes('hunter_contract')) {
-    run.fx.push({ t: 'contract', label: 'HUNTER WAVES', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
+    run.fx.push({ t: 'room_event', label: 'HUNTER WAVES', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
   }
   if (run.plan.specialRoomId === 'reward_pocket') {
     for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18), { personal: 1, label: 'REWARD POCKET' });
@@ -3966,7 +3967,7 @@ const ROOM_WAGER_STAKES = [
 const ROOM_WAGER_CONDITIONS = [
   { id: 'dash15', text: 'сделать 15 dash', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
   { id: 'no_damage', text: 'не получить урон всю комнату', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
-  { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 || roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
   { id: 'q3', text: 'использовать Q 3 раза', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
   { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
   { id: 'kills10', text: 'убить 10 врагов', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
@@ -3974,7 +3975,7 @@ const ROOM_WAGER_CONDITIONS = [
   { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
 ];
 const ROOM_WAGER_PRIZES = [
-  { id: 'dmg100', text: 'урон x100 на первые 12 секунд следующей комнаты', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
+  { id: 'dmg100', text: 'урон x100 на всю следующую комнату', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
   { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'aegis', text: '+1 AEGIS stack', prize: (run, p) => { p.stats.aegisStacks += 1; } },
@@ -4009,7 +4010,7 @@ function handleRoomWagerAccept(run, players, p, offerId = 0) {
   if (offerId && p.roomWagerOffer.id !== offerId) return false;
   p.roomWagerActive = { ...p.roomWagerOffer };
   p.roomWagerOffer = null;
-  run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER ACCEPTED', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold', playerId: p.id });
+  run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', body: p.roomWagerActive?.text || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
   return true;
 }
 function settleRoomWager(run, players, p) {
@@ -4022,12 +4023,29 @@ function settleRoomWager(run, players, p) {
   const ok = cond?.ok?.(run, p) ? true : false;
   if (ok) {
     prize?.prize?.(run, p);
-    run.fx.push({ t: 'active_mutation', label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', playerId: p.id, body: w.prizeText });
+    run.fx.push({ t: 'room_wager_paid', id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', body: w.prizeText, wager: w.text || '' });
   } else {
     stake?.loss?.(run, p);
-    run.fx.push({ t: 'active_mutation', label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', playerId: p.id, body: w.stakeText });
+    run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: w.stakeText, wager: w.text || '' });
   }
 }
+
+function roomWagerProgress(run, p, w = null) {
+  const id = String((w || p?.roomWagerActive || {}).condition || '');
+  const st = p?.wagerStats || {};
+  const solved = Math.max(0, roomSolvedTime(run));
+  const dmg = Math.max(0, st.damage || 0);
+  if (id === 'dash15') return { value: Math.min(15, st.dash || 0), max: 15, text: `${Math.min(15, st.dash || 0)}/15 DASH` };
+  if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 Q` };
+  if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 R` };
+  if (id === 'kills10') return { value: Math.min(10, st.kills || 0), max: 10, text: `${Math.min(10, st.kills || 0)}/10 KILL` };
+  if (id === 'no_damage') return { value: dmg > 0 ? 0 : 1, max: 1, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0' };
+  if (id === 'damage10') return { value: dmg > 0 ? 0 : Math.min(10, Math.floor(solved)), max: 10, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : `${Math.min(10, Math.floor(solved))}/10 СЕК БЕЗ УРОНА` };
+  if (id === 'hp50') return { value: Math.max(0, Math.min(100, Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100))), max: 50, text: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%` };
+  if (id === 'lowhp15') return { value: (p?.hp || 0) <= maxHp(p) * 0.35 ? 1 : 0, max: 1, text: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%' };
+  return { value: 0, max: 1, text: '' };
+}
+
 function maybeDoubleResourceBySignature(run, players, type, val, actor = null) {
   const stack = actor ? playerSigStack(actor, 'sigPayoutMirror') : teamSigStack(players, 'sigPayoutMirror');
   if (!stack || !(type === 'GLD' || type === 'HEA' || type === 'hp' || type === 'gld')) return val;
@@ -4262,7 +4280,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   }
   if (e.hunter || e.id === run.hunterTarget) {
     run.hunterTarget = null;
-    run.fx.push({ t: 'contract_done', x: Math.round(e.x), y: Math.round(e.y) });
+    run.fx.push({ t: 'room_event_done', label: 'HUNTER TARGET', x: Math.round(e.x), y: Math.round(e.y) });
     for (const p of players.values()) if (p.alive && p.connected) {
       const pool = HERO_UPGRADES.filter(u => u.tier === 1 || u.tier === 2);
       const u = pool[Math.floor(Math.random() * pool.length)];
@@ -4509,7 +4527,7 @@ function applyWeaponChain(run, players, startEnemy, b) {
 
 // ---------------------------------------------------------------- shooting
 function globalDamageMul(p) {
-  return Math.max(0.05, Number(p?.stats?.dmgMul) || 1) * Math.max(0.05, Number(p?.wagerDmgMul || 1) || 1) * (((p?.tempDmgMulT || 0) > 0) ? Math.max(1, Number(p?.tempDmgMul || 1) || 1) : 1);
+  return Math.max(0.05, Number(p?.stats?.dmgMul) || 1) * Math.max(0.05, Number(p?.wagerDmgMul || 1) || 1) * ((((p?.tempDmgMulT || 0) > 0) || p?.tempDmgMulRoom) ? Math.max(1, Number(p?.tempDmgMul || 1) || 1) : 1);
 }
 function weaponDamageMul(p) {
   return globalDamageMul(p) * Math.max(0.05, Number(p?.stats?.weaponDmgMul) || 1);
@@ -5342,7 +5360,7 @@ function stepHunterWaves(run, players, dt) {
   if (run.enemies.length <= 0) {
     if (hw.index >= hw.total) {
       hw.done = true;
-      run.fx.push({ t: 'contract_done', label: 'HUNTER WAVES', body: 'ALL WAVES CLEAR' });
+      run.fx.push({ t: 'room_event_done', label: 'HUNTER WAVES', body: 'ALL WAVES CLEAR' });
       openPortal(run);
       return;
     }
@@ -5436,7 +5454,7 @@ function applyCasinoVirusEvent(run, players, ev) {
     if (!(cv.activeRainStacks > 0)) cv.rainT = ev.kind === 'big_static' ? 0.12 : 0.18;
     cv.activeRainStacks = Math.max(cv.activeRainStacks || 0, Math.max(1, ev.stacks || 2));
     cv.rainKind = cv.activeRainStacks >= 5 ? 'big' : 'static';
-    run.fx.push({ t: 'contract_done', label: 'CASINO VIRUS', body: ev.kind === 'big_static' ? 'BIG ROOM STATIC STORM STARTED' : 'ROOM STATIC STORM STARTED' });
+    run.fx.push({ t: 'room_event_done', label: 'CASINO VIRUS', body: ev.kind === 'big_static' ? 'BIG ROOM STATIC STORM STARTED' : 'ROOM STATIC STORM STARTED' });
   } else if (ev.kind === 'mini_boss') {
     if (df.loop < 3 || !enemyAllowedForModifier(run, 'herald')) return 0;
     const e = spawnEnemy(run, players, 'herald', true, center, { noArmor: true });
@@ -5447,7 +5465,7 @@ function applyCasinoVirusEvent(run, players, ev) {
   } else if (ev.kind === 'jackpot') {
     const n = Math.max(1, ev.n || 6);
     for (let i = 0; i < n; i++) dropPickup(run, center.x + (Math.random() - 0.5) * 180, center.y + (Math.random() - 0.5) * 150, 'GLD', 10 + Math.round(Math.random() * 18), { personal: 1, label: 'CASINO JACKPOT' });
-    run.fx.push({ t: 'contract_done', label: 'CASINO VIRUS', body: 'SLOT JACKPOT PAID' });
+    run.fx.push({ t: 'room_event_done', label: 'CASINO VIRUS', body: 'SLOT JACKPOT PAID' });
   }
   cv.lastAppliedLabel = ev.label;
   cv.appliedSpins = Math.max(0, (cv.appliedSpins || 0)) + 1;
@@ -5499,7 +5517,7 @@ function stepCasinoVirus(run, players, dt) {
     if (cv.nextSpin <= 0) scheduleCasinoVirusEvent(run, players);
   } else if (!cv.pendingEvent && liveEnemyCount(run) <= 0 && (cv.appliedSpins || 0) >= (cv.totalSpins || 3)) {
     cv.done = true;
-    run.fx.push({ t: 'contract_done', label: 'CASINO VIRUS', body: '3 SPINS CLEARED' });
+    run.fx.push({ t: 'room_event_done', label: 'CASINO VIRUS', body: '3 SPINS CLEARED' });
     openPortal(run);
   }
 }
@@ -6109,7 +6127,7 @@ function openChest(run, players, p, o) {
   } else if (o.chest === 'weapon_chest') {
     takeCasinoHoldChoices(p, 2);
     const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
-    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit };
+    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, picksTotal: count >= 5 ? 2 : 1, picksRemaining: count >= 5 ? 2 : 1, pickedLabels: [] };
     run.fx.push({ t: 'weapon_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: count });
     const tag = `WPN ${value.label} · ${count} SLOT${count === 1 ? '' : 'S'}`;
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
@@ -6117,20 +6135,28 @@ function openChest(run, players, p, o) {
   } else if (o.chest === 'ability_chest') {
     takeCasinoHoldChoices(p, 2);
     const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
-    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit };
+    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, picksTotal: count >= 5 ? 2 : 1, picksRemaining: count >= 5 ? 2 : 1, pickedLabels: [] };
     run.fx.push({ t: 'ability_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: count });
     const tag = `ABL ${value.label} · ${count} SLOT${count === 1 ? '' : 'S'}`;
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'rare_chest') {
     takeCasinoHoldChoices(p, 2);
-    const bonusGld = value.tier >= 2 ? Math.round((22 + rng() * 28) * loopEconomyMul(run)) : 0;
-    const choices = makeRareChestChoices(p, rng, 2, value.tier);
-    p.rareChestOffer = { choices, chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: 2, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, bonusGld };
-    run.fx.push({ t: 'rare_offer', id: p.id, obj: o.id, x: o.x, y: o.y, value: value.label, slots: 2 });
-    const tag = `RAR ${value.label} · 2 CHOICES${bonusGld > 0 ? ` · +${bonusGld} GLD` : ''}`;
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: 2, rewards: [tag], x: o.x, y: o.y });
-    return;
+    const pool = eligibleHeroUpgrades(p, null).filter(u => value.tier >= 2 ? u.tier <= 2 : u.tier === 1);
+    const fallback = eligibleHeroUpgrades(p, null).filter(u => u.tier <= 2);
+    const list = pool.length ? pool : fallback;
+    const u = list[Math.floor(rng() * list.length)];
+    if (u) {
+      u.apply(p.stats);
+      p.hp = Math.min(p.hp, maxHp(p));
+      rewards.push(u.label);
+      run.fx.push({ t: 'install', id: p.id, label: `RAR: ${u.label}`, cursed: !!u.cursed });
+    }
+    if (value.tier >= 2) {
+      const bonusGld = Math.round((22 + rng() * 28) * loopEconomyMul(run));
+      p.economy.money += bonusGld;
+      rewards.push(`GLD +${bonusGld}`);
+    }
   } else if (o.chest === 'cursed_chest') {
     const pool = eligibleHeroUpgrades(p, null).filter(u => u.tier === 2);
     const fallback = eligibleHeroUpgrades(p, null).filter(u => u.cursed);
@@ -6148,23 +6174,39 @@ function openChest(run, players, p, o) {
 
 
 
+function continueMultiPickChestOffer(prev, idx, label = '') {
+  const picksRemaining = Math.max(1, Number(prev?.picksRemaining || 1) | 0);
+  if (picksRemaining <= 1) return null;
+  const choices = (prev.choices || []).filter((_, i) => i !== idx);
+  return {
+    ...prev,
+    choices,
+    picksRemaining: picksRemaining - 1,
+    picksTotal: Math.max(Number(prev?.picksTotal || 1) | 0, picksRemaining),
+    pickedLabels: [...(Array.isArray(prev?.pickedLabels) ? prev.pickedLabels : []), String(label || '').trim()].filter(Boolean),
+    pickSeq: ((prev?.pickSeq || 0) + 1) | 0
+  };
+}
+
 export function handleWeaponPick(run, players, p, choiceIdx) {
   if (!p.weaponChestOffer) return false;
+  const prev = p.weaponChestOffer;
   const idx = choiceIdx | 0;
-  if (idx < 0 || idx >= p.weaponChestOffer.choices.length) return false;
-  const opt = p.weaponChestOffer.choices[idx];
+  if (idx < 0 || idx >= prev.choices.length) return false;
+  const opt = prev.choices[idx];
   const ok = applyWeaponChestOption(run, players, p, opt);
-  if (ok) p.weaponChestOffer = null;
+  if (ok) p.weaponChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'WPN');
   return ok;
 }
 
 export function handleAbilityPick(run, players, p, choiceIdx) {
   if (!p.abilityChestOffer) return false;
+  const prev = p.abilityChestOffer;
   const idx = choiceIdx | 0;
-  if (idx < 0 || idx >= p.abilityChestOffer.choices.length) return false;
-  const opt = p.abilityChestOffer.choices[idx];
+  if (idx < 0 || idx >= prev.choices.length) return false;
+  const opt = prev.choices[idx];
   const ok = applyAbilityChestOption(run, players, p, opt);
-  if (ok) p.abilityChestOffer = null;
+  if (ok) p.abilityChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'ABL');
   return ok;
 }
 
@@ -6294,12 +6336,12 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'weapon_offer') {
-    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV' };
+    p.weaponChestOffer = { choices: makeWeaponChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV', picksTotal: 1, picksRemaining: 1, pickedLabels: [] };
     run.fx.push({ t: 'weapon_offer', id: p.id, obj: 'dev', x: Math.round(p.x), y: Math.round(p.y) });
     return true;
   }
   if (action === 'ability_offer') {
-    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV' };
+    p.abilityChestOffer = { choices: makeAbilityChestChoices(p, Math.random, 3, 1), chestId: 'dev', valueTier: 1, valueLabel: 'GOOD', valueLabelRu: 'ХОРОШИЙ', slotCount: 3, rarityReason: 'DEV', picksTotal: 1, picksRemaining: 1, pickedLabels: [] };
     run.fx.push({ t: 'ability_offer', id: p.id, obj: 'dev', x: Math.round(p.x), y: Math.round(p.y) });
     return true;
   }
@@ -7658,7 +7700,7 @@ export function buildSnapshot(run, players) {
       Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
-      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null,
+      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
       p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p)
     ]);
   }
