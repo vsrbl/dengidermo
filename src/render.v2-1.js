@@ -518,7 +518,9 @@ export class Renderer {
         const isAssemble = modeRaw === 'assemble';
         const isRebuild = modeRaw === 'rebuild' || modeRaw === 'rolling';
         const isChargerWindup = modeRaw === 'charger_windup';
-        const mode = isChargerWindup ? 'charger' : modeRaw;
+        const isChargerCharge = modeRaw === 'charger_charge';
+        const isChargerCool = modeRaw === 'charger_cool';
+        const mode = (isChargerWindup || isChargerCharge || isChargerCool) ? 'charger' : modeRaw;
         const pulse = 0.5 + Math.sin(now * 18) * 0.22;
         const frameCol = isRebuild ? COL.gold : (mode === 'charger' ? COL.red : mode === 'shooter' ? COL.cyan : mode === 'pulse' ? COL.purple : COL.fg);
         ctx.save();
@@ -544,11 +546,22 @@ export class Renderer {
           this.label('ASSEMBLE', ex, ey + size / 2 + 17, COL.gold, 8);
           continue;
         }
-        if (isChargerWindup) {
-          ctx.globalAlpha = 0.52 + Math.sin(now * 24) * 0.28;
-          ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
-          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + (dirX / 100) * 430, ey + (dirY / 100) * 430); ctx.stroke();
+        if (isChargerWindup || isChargerCharge) {
+          const dx = (dirX / 100) || 1, dy = (dirY / 100) || 0;
+          ctx.globalAlpha = isChargerCharge ? 0.78 : (0.52 + Math.sin(now * 24) * 0.28);
+          ctx.strokeStyle = COL.red;
+          ctx.lineWidth = isChargerCharge ? 4 : 2.4;
+          ctx.setLineDash(isChargerCharge ? [] : [8, 6]);
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + dx * 500, ey + dy * 500); ctx.stroke();
           ctx.setLineDash([]);
+          if (isChargerCharge) {
+            ctx.globalAlpha = 0.24 + Math.sin(now * 38) * 0.08;
+            ctx.fillStyle = COL.red;
+            for (let i = 1; i <= 5; i++) {
+              const bx = ex - dx * i * 18, by = ey - dy * i * 18;
+              ctx.fillRect(Math.round(bx - size * 0.32), Math.round(by - size * 0.32), Math.round(size * 0.64), Math.round(size * 0.64));
+            }
+          }
           ctx.globalAlpha = 1;
         }
         if (isRebuild) ctx.globalAlpha = 0.62 + pulse * 0.25;
@@ -569,7 +582,8 @@ export class Renderer {
         ctx.setLineDash([]);
         ctx.restore();
         this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, frameCol, 9);
-        this.label(isRebuild ? 'ROLLING' : mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
+        const modeLabel = isChargerWindup ? 'AIMING' : isChargerCharge ? 'CHARGE' : isChargerCool ? 'COOL' : mode.toUpperCase().slice(0, 7);
+        this.label(isRebuild ? 'ROLLING' : modeLabel, ex, ey + size / 2 + 17, frameCol, 8);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });
@@ -983,7 +997,20 @@ export class Renderer {
       } else if (skinId === 'casino_gold') {
         ctx.strokeRect(px - 8, py - 8, 16, 16); ctx.beginPath(); ctx.moveTo(px, py - 12); ctx.lineTo(px + 12, py); ctx.lineTo(px, py + 12); ctx.lineTo(px - 12, py); ctx.closePath(); ctx.stroke();
       } else if (skinId === 'bone_static') {
-        for (let yy = -8; yy <= 8; yy += 5) { ctx.beginPath(); ctx.moveTo(px - 10, py + yy); ctx.lineTo(px + 10, py + yy + ((yy/5)%2 ? 1 : -1)); ctx.stroke(); }
+        // BONE NOISE rework: clean fossil/circuit marks instead of messy scanline noise.
+        ctx.strokeStyle = '#e7dcc4';
+        ctx.lineWidth = 1.25;
+        ctx.strokeRect(px - 10, py - 10, 20, 20);
+        ctx.strokeStyle = '#8df7ff';
+        ctx.globalAlpha *= 0.82;
+        ctx.beginPath();
+        ctx.moveTo(px - 7, py - 5); ctx.lineTo(px - 1, py - 5); ctx.lineTo(px + 5, py - 10);
+        ctx.moveTo(px - 7, py + 5); ctx.lineTo(px - 1, py + 5); ctx.lineTo(px + 5, py + 10);
+        ctx.moveTo(px - 3, py - 9); ctx.lineTo(px + 2, py); ctx.lineTo(px - 3, py + 9);
+        ctx.stroke();
+        ctx.strokeStyle = '#e7dcc4';
+        ctx.globalAlpha *= 0.72;
+        for (const yy of [-7, 0, 7]) { ctx.beginPath(); ctx.moveTo(px + 7, py + yy); ctx.lineTo(px + 11, py + yy); ctx.stroke(); }
       } else if (skinId === 'bad_tv') {
         ctx.setLineDash([2,2]); ctx.strokeRect(px - 11, py - 11, 22, 22); ctx.setLineDash([]);
       } else if (skinId === 'black_lime') {

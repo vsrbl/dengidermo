@@ -432,14 +432,16 @@ export class Effects {
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 75, ttl: 0.32, color: f.good ? '#00ff66' : '#b45cff' });
         break;
       case 'casino_overload': {
-        const d = Math.max(0.65, Number(f.breakDelay || 1.15));
-        // First the terminal/slot fails, then after the bet window closes the chest breaks in-world.
+        const d = Math.max(0.85, Number(f.breakDelay || 1.18));
+        const g = Math.max(d + 0.95, Number(f.gatherDelay || (d + 1.35)));
+        // Terminal fails first while the BET window is closing; only after that the physical
+        // casino chest breaks in-world and its fragments become the slot-mob seed.
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 220, ttl: 0.82, color: '#ff3048' });
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.45, color: '#ffd34d', delay: d, heavy: 1 });
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', explode: 1, delay: d, heavy: 1 });
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 1.95, color: '#ffd34d', collapse: 1, delay: d + 0.62, heavy: 1 });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.95, color: '#ffd34d', delay: d, heavy: 1, physical: 1 });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 2.05, color: '#ffd34d', explode: 1, delay: d + 0.05, heavy: 1, physical: 1 });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 2.05, color: '#ffd34d', collapse: 1, delay: g, heavy: 1, physical: 1 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
-        this.slam = 0.65; this.kick(14);
+        this.slam = 0.65; this.kick(16);
         break;
       }
       case 'slot_mob_roll':
@@ -449,13 +451,13 @@ export class Effects {
       case 'slot_mob_rebuild': {
         const d = Math.max(0, Number(f.delay || 0));
         if (f.scatter || f.spawn) {
-          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.30, color: '#ffd34d', delay: d, heavy: 1 });
-          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.45, color: '#ffd34d', explode: 1, delay: d, heavy: 1 });
+          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', delay: d, heavy: 1, physical: 1 });
+          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.65, color: '#ffd34d', explode: 1, delay: d + 0.03, heavy: 1, physical: 1 });
         }
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.75, color: '#ffd34d', collapse: 1, delay: d + 0.55, heavy: 1 });
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1, delay: d + 0.45 });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.95, color: '#ffd34d', collapse: 1, delay: d + 0.62, heavy: 1, physical: 1 });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1, delay: d + 0.76 });
         if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
-        this.kick(f.spawn ? 10 : 7);
+        this.kick(f.spawn ? 11 : 8);
         break;
       }
       case 'boss_burst':
@@ -596,57 +598,87 @@ export class Effects {
           ctx.stroke();
         }
       } else if (e.kind === 'slotBreakChunks') {
+        if (!e.parts) {
+          e.parts = Array.from({ length: 4 }, (_, i) => {
+            const a = Math.PI / 4 + i * Math.PI / 2 + ((e.x + e.y + i * 31) % 17) * 0.01;
+            const m = e.heavy ? 1.25 : 1;
+            return {
+              a,
+              vx: Math.cos(a) * (130 + i * 26) * m,
+              vy: Math.sin(a) * (112 + i * 22) * m - (120 + i * 18),
+              spin: (i % 2 ? -1 : 1) * (3.6 + i * 0.55),
+              sz: 30 - i * 2
+            };
+          });
+        }
         ctx.save();
         ctx.strokeStyle = e.color || '#ffd34d';
-        ctx.fillStyle = 'rgba(255,211,77,0.12)';
-        ctx.lineWidth = 2.4;
-        for (let i = 0; i < 4; i++) {
-          const a = Math.PI / 4 + i * Math.PI / 2;
-          const vx = Math.cos(a) * (96 + i * 18);
-          const vy = Math.sin(a) * (84 + i * 14) - 55;
-          const t = p * 1.25;
-          const x = e.x + vx * t;
-          const y = e.y + vy * t + 170 * t * t;
-          const sz = 26 - p * 6;
+        ctx.fillStyle = 'rgba(255,211,77,0.13)';
+        ctx.lineWidth = e.heavy ? 3.1 : 2.4;
+        for (const part of e.parts) {
+          const tt = Math.min(1.25, p * 1.38);
+          const x = e.x + part.vx * tt;
+          const y = e.y + part.vy * tt + 235 * tt * tt;
+          const sz = Math.max(10, part.sz * (1 - p * 0.22));
           ctx.save();
-          ctx.globalAlpha = Math.max(0, 1 - p * 0.78);
+          ctx.globalAlpha = Math.max(0, 1 - p * 0.62);
           ctx.translate(Math.round(x), Math.round(y));
-          ctx.rotate(a + p * (i % 2 ? -4.2 : 3.4));
+          ctx.rotate(part.a + part.spin * tt);
           ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
           ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
           ctx.beginPath();
-          ctx.moveTo(-sz * 0.35, 0); ctx.lineTo(sz * 0.35, 0); ctx.stroke();
+          ctx.moveTo(-sz * 0.38, 0); ctx.lineTo(sz * 0.38, 0);
+          ctx.moveTo(0, -sz * 0.38); ctx.lineTo(0, sz * 0.38);
+          ctx.stroke();
           ctx.restore();
         }
         ctx.restore();
       } else if (e.kind === 'slotScatter') {
         const syms = ['GLD','EXP','STC','WPN','ABL','BAD','JCK','RAR'];
         const cx = e.x2 || e.x, cy = e.y2 || e.y;
+        if (!e.bits) {
+          e.bits = Array.from({ length: e.heavy ? 44 : 30 }, (_, i) => {
+            const a = i * 2.399 + e.x * 0.013;
+            const m = 0.82 + ((i * 37) % 29) / 28;
+            const vx = Math.cos(a) * (105 + (i % 9) * 18) * m;
+            const vy = Math.sin(a) * (82 + (i % 6) * 17) * m - (55 + (i % 5) * 19);
+            const far = 42 + (i % 9) * 19;
+            return { a, vx, vy, far, rot: (i % 2 ? -1 : 1) * (2.2 + (i % 7) * 0.38), sym: syms[i % syms.length] };
+          });
+        }
         ctx.save();
         ctx.font = '700 9px var(--mono, monospace)';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < 30; i++) {
-          const a = i * 2.399 + e.x * 0.013;
-          const far = 38 + (i % 8) * 18;
-          const vx = Math.cos(a) * (80 + (i % 7) * 18);
-          const vy = Math.sin(a) * (70 + (i % 5) * 16) - (i % 4) * 22;
-          let x, y;
+        for (let i = 0; i < e.bits.length; i++) {
+          const bit = e.bits[i];
+          let x, y, alpha;
           if (e.explode) {
-            const tt = p * 1.18;
-            x = e.x + vx * tt;
-            y = e.y + vy * tt + 140 * tt * tt;
+            const tt = Math.min(1.22, p * 1.24);
+            x = e.x + bit.vx * tt;
+            y = e.y + bit.vy * tt + 185 * tt * tt;
+            alpha = Math.max(0, 1 - p * 0.52);
           } else {
-            const sx = e.x + Math.cos(a) * far + vx * 0.36;
-            const sy = e.y + Math.sin(a) * far + vy * 0.22 + 34;
-            const tx = cx + Math.cos(a + 1.2) * (6 + (i % 4) * 3);
-            const ty = cy + Math.sin(a + 1.2) * (6 + (i % 4) * 3);
-            const q = 1 - Math.pow(1 - p, 3);
+            const sx = e.x + Math.cos(bit.a) * bit.far + bit.vx * 0.44;
+            const sy = e.y + Math.sin(bit.a) * bit.far + bit.vy * 0.26 + 48;
+            const tx = cx + Math.cos(bit.a + 1.2) * (7 + (i % 5) * 3);
+            const ty = cy + Math.sin(bit.a + 1.2) * (7 + (i % 5) * 3);
+            const q = 1 - Math.pow(1 - p, 3.2);
             x = sx + (tx - sx) * q;
-            y = sy + (ty - sy) * q - Math.sin(p * Math.PI) * 28;
+            y = sy + (ty - sy) * q - Math.sin(p * Math.PI) * 36;
+            alpha = Math.max(0, 0.92 - p * 0.28);
           }
-          ctx.globalAlpha = Math.max(0, (1 - p * 0.48)) * (0.46 + (i % 4) * 0.10);
+          ctx.save();
+          ctx.translate(Math.round(x), Math.round(y));
+          ctx.rotate(bit.rot * p);
+          ctx.globalAlpha = alpha * (0.50 + (i % 4) * 0.11);
           ctx.fillStyle = i % 3 === 0 ? '#66f6ff' : (i % 3 === 1 ? '#ffd34d' : '#f3f3f3');
-          ctx.fillText(syms[i % syms.length], Math.round(x), Math.round(y));
+          if ((i % 5) === 0) {
+            const sz = 8 + (i % 4) * 2;
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz/2, -sz/2, sz, sz);
+          } else ctx.fillText(bit.sym, 0, 0);
+          ctx.restore();
         }
         ctx.restore();
       } else if (e.kind === 'rocketBlast') {

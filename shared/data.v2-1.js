@@ -27,7 +27,7 @@ export const ENEMIES = {
   bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'space pressure' },
   bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'movement pressure' },
   glitch:   { label: 'GLT', hp: 34,   spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2, role: 'backline disruptor', combo: 'ambush pressure' },
-  slot_mob: { label: 'SLT', hp: 2300, spd: 118, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 250, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
+  slot_mob: { label: 'SLT', hp: 6120, spd: 177, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 250, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
 
   // anomaly pack
   echo:     { label: 'ECH', hp: 48,   spd: 145, size: 26, dmg: 12, echo: true, mirrorFireCd: 1.15, xp: 18, gld: 12, score: 3, role: 'weapon mimic', combo: 'mirror pressure' },
@@ -294,7 +294,7 @@ export const SKIN_PRESETS = [
   { id: 'void_cyan', name: 'VOID CHANNEL', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодный канал пустоты / фазовый хвост' },
   { id: 'casino_gold', name: 'CASHIER GLEAM', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'свет кассы / золотой жетонный след' },
   { id: 'bruise_purple', name: 'BRUISED CIRCUIT', rarity: 'uncommon', fill: '#100617', outline: '#b45cff', barrel: '#ff3048', dash: '#b45cff', dashAlt: '#ff3048', dashStyle: 'bruise', note: 'сбитая проводка / фиолетовый надрез' },
-  { id: 'bone_static', name: 'BONE NOISE', rarity: 'rare', fill: '#d8d0bd', outline: '#6f6f6f', barrel: '#66f6ff', dash: '#d8d0bd', dashAlt: '#66f6ff', dashStyle: 'static', note: 'мертвенная кость эфира / строчный шум' },
+  { id: 'bone_static', name: 'BONE NOISE', rarity: 'rare', fill: '#090806', outline: '#e7dcc4', barrel: '#8df7ff', dash: '#e7dcc4', dashAlt: '#8df7ff', dashStyle: 'bone', note: 'костяная схема / сухой терминальный треск' },
   { id: 'black_lime', name: 'LIME BREACH', rarity: 'rare', fill: '#020202', outline: '#a6ff00', barrel: '#a6ff00', dash: '#a6ff00', dashAlt: '#f3f3f3', dashStyle: 'lime', note: 'кислотный пролом / резкие лаймовые искры' },
   { id: 'bad_tv', name: 'BAD BROADCAST', rarity: 'rare', fill: '#ffffff', outline: '#111111', barrel: '#ff3048', dash: '#f3f3f3', dashAlt: '#ff3048', dashStyle: 'tv', note: 'битый эфир / перегоревший экранный след' },
   { id: 'red_static', name: 'RED STORM', rarity: 'superrare', fill: '#060101', outline: '#ff3048', barrel: '#66f6ff', dash: '#ff3048', dashAlt: '#66f6ff', dashStyle: 'red_static', note: 'красный статик-шторм / битый канал в рывке' },

@@ -617,9 +617,9 @@ function frame(now) {
   }
   if (hud.install.open && !hud.install.skinOnly && me && me[P.PEND] === 0 && room && room.phase !== 'install') hud.closeInstall();
   if (room && room.phase === 'play' && hud.install.open && !hud.install.skinOnly) hud.closeInstall();
-  if (room && room.phase !== 'play' && hud.weapon.open) hud.closeWeaponChest();
-  if (room && room.phase !== 'play' && hud.ability.open) hud.closeAbilityChest();
-  if (room && room.phase !== 'play' && hud.rare.open) hud.closeRareChest();
+  // WPN/ABL/RAR choice windows are authoritative server offers. Do not close them just
+  // because the room phase changed: valuable 5-slot chests may need a second pick after
+  // the first selection. They close via *_offer_close or on actual room transition fx.
 
   const mv = input.moveVec();
   const aim = renderer.screenToWorld(input.mouseX, input.mouseY);

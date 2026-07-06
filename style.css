@@ -4621,3 +4621,29 @@ a, a:hover, label, label:hover,
   cursor: none !important;
 }
 #custom-cursor { pointer-events: none !important; }
+
+/* v2.1.102 — polish: no native cursor leak, readable casino result, BONE NOISE rework */
+html, body, body *, body *::before, body *::after,
+button, input, select, textarea, a, label, iframe,
+button:hover, input:hover, select:hover, textarea:hover, a:hover, label:hover, iframe:hover {
+  cursor: none !important;
+}
+#youtube-player-wrap iframe { pointer-events: none !important; cursor: none !important; }
+body[data-skin-id="bone_static"] #custom-cursor .cc {
+  border-style: solid !important;
+  border-color: #e7dcc4 !important;
+  box-shadow: 0 0 0 1px rgba(231,220,196,.34), 0 0 12px rgba(141,247,255,.20) !important;
+}
+#casino-result .casino-result-flow,
+#casino-result .casino-result-flow.compact {
+  min-width: 0 !important;
+}
+#casino-result .casino-result-flow b,
+#casino-result .casino-result-flow.compact b {
+  max-width: min(420px, calc(100vw - 120px)) !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 0 2px !important;
+}

@@ -573,7 +573,7 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
 const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'pulse'];
 const SLOT_MOB_ROLL_T = 3.0;
 const SLOT_MOB_ASSEMBLE_T = 1.35;
-const SLOT_MOB_FIRST_BREAK_T = 2.35;
+const SLOT_MOB_FIRST_BREAK_T = 3.65;
 const SLOT_MOB_REBUILD_T = SLOT_MOB_ROLL_T + SLOT_MOB_ASSEMBLE_T;
 function pickSlotMobMode(prev = '') {
   const pool = SLOT_MOB_MODES.filter(m => m !== prev);
@@ -608,7 +608,7 @@ function spawnCasinoOverloadSlotMob(run, players, near, p) {
   e.fireCd = 0.80;
   e.rebuildT = SLOT_MOB_REBUILD_T;
   e.shellHp = e.shellMax = Math.max(e.shellMax || 0, Math.round((e.maxHp || ENEMIES.slot_mob.hp || 2300) * 0.22));
-  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_T * 0.52 });
+  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: 1.18, gatherDelay: Math.max(2.20, SLOT_MOB_FIRST_BREAK_T - 1.05) });
   run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1, assemble: 1, delay: SLOT_MOB_FIRST_BREAK_T });
   return e;
 }
@@ -1635,6 +1635,39 @@ function wallPenalty(x, y, half, walls) {
   let penalty = 0;
   for (const w of walls) if (aabbHit(x, y, half, w)) penalty += 1;
   return penalty;
+}
+function settleForcedEnemyMove(run, players, e, oldX, oldY, reason = 'forced') {
+  if (!run?.plan || !e) return false;
+  const walls = run.plan.walls || [];
+  const half = Math.max(7, (Number(e.size) || 24) * 0.5);
+  const ox = Number.isFinite(oldX) ? oldX : e.x;
+  const oy = Number.isFinite(oldY) ? oldY : e.y;
+  const b = enemyArenaBounds(run, e, 4);
+  const trySet = (x, y) => {
+    const sx = clamp(x, b.left, b.right);
+    const sy = clamp(y, b.top, b.bottom);
+    const c = collideWalls(sx, sy, half, walls, ox, oy);
+    const tx = clamp(c.x, b.left, b.right);
+    const ty = clamp(c.y, b.top, b.bottom);
+    if (!enemyInsideWall(run, { ...e, x: tx, y: ty })) { e.x = tx; e.y = ty; return true; }
+    return false;
+  };
+  if (trySet(e.x, e.y)) return true;
+  // Step back along the pull path first. FIELD SNAP used near a wall can
+  // otherwise shove an enemy through a thin wall and leave it invisible.
+  for (const t of [0.82, 0.66, 0.50, 0.34, 0.18, 0]) {
+    const x = ox + (e.x - ox) * t;
+    const y = oy + (e.y - oy) * t;
+    if (trySet(x, y)) return true;
+  }
+  // Last resort: search a small square around the original visible position,
+  // keeping the enemy near the cast instead of teleporting it to a spawn point.
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+  for (const r of [22, 44, 72, 104]) {
+    for (const [dx,dy] of dirs) if (trySet(ox + dx * r, oy + dy * r)) return true;
+  }
+  if (players) return rescueEnemyToFloor(run, players, e);
+  return false;
 }
 function segmentBlockedByWalls(ax, ay, bx, by, walls, pad = 18) {
   for (const w of walls || []) {
@@ -5146,7 +5179,12 @@ function syncSlotMobState(e) {
   else if (rebuild > SLOT_MOB_ROLL_T) e.state = `slot_assemble:${lives}`;
   else if (rebuild > 0) e.state = `slot_rebuild:${lives}`;
   else {
-    const sub = mode === 'charger' && e.slotChargeState === 'slot_windup' ? '_windup' : '';
+    let sub = '';
+    if (mode === 'charger') {
+      if (e.slotChargeState === 'slot_windup') sub = '_windup';
+      else if (e.slotChargeState === 'slot_charge') sub = '_charge';
+      else if (e.slotChargeState === 'slot_cool') sub = '_cool';
+    }
     e.state = `slot_${mode}${sub}:${lives}`;
   }
 }
@@ -5171,7 +5209,10 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
   if (mode === 'shooter') {
     const keep = 330;
     let mv = dT > keep + 35 ? 0.72 : dT < keep - 70 ? -0.62 : 0;
-    if (mv !== 0) steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd * 0.96, dt, { target });
+    // Shooter mode should hold a firing lane. In tight corners the old keep-distance
+    // micro-corrections could flip every frame and look jittery, so brace instead.
+    const cornerBrace = wallPenalty(e.x, e.y, e.size / 2 + 14, walls) > 0;
+    if (mv !== 0 && !cornerBrace) steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd * 0.96, dt, { target });
     e.fireCd -= dt;
     if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 2) {
       e.fireCd = enemyFireCooldown(def.fireCd || 1.25, e);
@@ -6845,6 +6886,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       casinoSlotLocksSetForPlayer(p, ['', '', '']);
       p.casinoFullLockSpins = 0;
       spawnCasinoOverloadSlotMob(run, players, near, p);
+      run.plan.interactables = (run.plan.interactables || []).filter(o => o && o.id !== near.id);
       const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
       const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: priorSlotLocks.slice(0, 3), outcome: 'OVERLOAD', payload: { overload: 1, paySymbol: '', noMatch: 1, lockedText }, stake, lockUsed: 1, lockSymbol: lockedText, lockLeft: '', lockSlots: ['', '', ''], hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
       run.fx.push(fx);
@@ -7454,8 +7496,12 @@ function castActiveCore(run, players, p, opts = {}) {
     ctx.r = activeRadiusForLevel(lvl, 310, 455);
     const pull = activeRadiusForLevel(lvl, 105, 205);
     for (const e of [...activeTargets(run, p.x, p.y, ctx.r)]) {
+      const ox = e.x, oy = e.y;
       const n = norm(p.x - e.x, p.y - e.y);
       e.x += n.x * pull; e.y += n.y * pull;
+      settleForcedEnemyMove(run, players, e, ox, oy, 'field_snap');
+      if (typeof e.vx === 'number') e.vx *= 0.18;
+      if (typeof e.vy === 'number') e.vy *= 0.18;
       e.activeSlowT = Math.max(e.activeSlowT || 0, 0.32);
       e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(0.62));
       ctx.damageDone += activeDamageEnemy(run, players, e, (18 + lvl * 11) * p.stats.dmgMul, p.id);

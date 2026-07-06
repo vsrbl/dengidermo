@@ -2475,25 +2475,44 @@ export class Hud {
   }
   casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
     const clean = (x) => locLabel(String(x || '').replace(/^CASINO\s+/i, '').trim());
-    const weaponLine = (x) => {
+    const weaponDetail = (x) => {
       const raw = String(x || '').trim();
-      if (/WEAPON DMG/i.test(raw) || /DMG|УРОН/i.test(raw)) return `${localText('УСИЛЕНИЕ ОРУЖИЯ', 'WEAPON UPGRADE')}: ${clean(raw)}`;
-      return `${localText('НОВОЕ ОРУЖИЕ', 'NEW WEAPON')}: ${clean(raw)}`;
+      if (/WEAPON DMG/i.test(raw) || /DMG|УРОН/i.test(raw)) return localText('+15% урон оружия', '+15% weapon damage');
+      return clean(raw) || localText('новое оружие добавлено', 'new weapon added');
     };
-    const abilityLine = (x) => `${localText('МУТАЦИЯ', 'MUTATION')}: ${clean(x)}`;
-    const rareLine = (x) => `${localText('РЕДКИЙ БОНУС', 'RARE BONUS')}: ${clean(x)}`;
+    const abilityDetail = (x) => clean(x) || localText('новая мутация добавлена', 'new mutation added');
+    const rareDetail = (x) => clean(x) || localText('редкое усиление применено', 'rare bonus applied');
     if (f.outcome === 'OVERLOAD') return localText('слот сломан, враг собирается', 'slot broken, enemy assembling');
-    if (pl.static || pl.staticCount) return `${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
-    if (pl.lockLabel) return `${localText('зафиксирован', 'fixed')} ${pl.lockLabel}`;
-    if (weaponLabels.length) return weaponLine(weaponLabels[0]);
-    if (abilityLabels.length) return abilityLine(abilityLabels[0]);
-    if (rareLabels.length) return rareLine(rareLabels[0]);
-    if (pl.skinLabel) return `${localText('СКИН', 'SKIN')}: ${pl.skinLabel}`;
+    if (pl.static || pl.staticCount) return `${localText('следующая комната загрязнена статикой', 'next room gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
+    if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${pl.lockLabel}`;
+    if (weaponLabels.length) return weaponDetail(weaponLabels[0]);
+    if (abilityLabels.length) return abilityDetail(abilityLabels[0]);
+    if (rareLabels.length) return rareDetail(rareLabels[0]);
+    if (pl.skinLabel) return `${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`;
     if (pl.gld) return `+${pl.gld} GLD`;
     if (pl.xp) return `+${pl.xp} EXP`;
     if (pl.heal) return `+${pl.heal} HP`;
     if (pl.dash) return locLabel('DASH +1');
     return `-${paid} ${paidUnit}`;
+  }
+  casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
+    const list = [];
+    const add = (x) => { const s = locLabel(String(x || '').trim()); if (s && !list.includes(s)) list.push(s); };
+    if (f.outcome === 'OVERLOAD') add(localText('перегрузка закрыла терминал и вызвала SLOT MOB', 'overload closed the terminal and spawned SLOT MOB'));
+    if (pl.lockLabel) add(`${localText('фикс', 'fixed')}: ${pl.lockLabel}`);
+    if (pl.gld) add(`+${pl.gld} GLD`);
+    if (pl.xp) add(`+${pl.xp} EXP`);
+    if (pl.heal) add(`+${pl.heal} HP`);
+    if (pl.dash) add('DASH +1');
+    for (const x of weaponLabels) add(this.casinoPrizeLineForResult({ outcome: 'WPN' }, {}, paid, paidUnit, [], [x], []));
+    for (const x of abilityLabels) add(this.casinoPrizeLineForResult({ outcome: 'ABL' }, {}, paid, paidUnit, [x], [], []));
+    for (const x of rareLabels) add(this.casinoPrizeLineForResult({ outcome: 'RAR' }, {}, paid, paidUnit, [], [], [x]));
+    if (pl.skinLabel) add(`${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+    if (pl.static || pl.staticCount) add(`${localText('статик-долг', 'static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
+    if (pl.tripleMatch) add(`${localText('три одинаковых', 'three of a kind')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+    if (pl.noMatch && !pl.lockLabel && f.outcome !== 'OVERLOAD') add(localText('линия не собрана', 'no line'));
+    add(`-${paid} ${paidUnit}`);
+    return list.slice(0, 8);
   }
 
   casinoResult(f, myId) {
@@ -2514,37 +2533,10 @@ export class Hud {
       const pl = f.payload || {};
       const paidUnit = f.bloodTax ? 'HP' : 'GLD';
       const paid = f.bloodTax ? (f.hpStake || f.stake) : f.stake;
-      const parts = [`-${paid} ${paidUnit}`];
-      const finalReels = Array.isArray(f.symbols) ? f.symbols.map(x => String(x || '—').toUpperCase()).join(' ') : '';
-      if (f.outcome === 'OVERLOAD') parts.push(localText('ТРИ LOCK-слота крутились слишком долго — терминал сломан', 'Three LOCK slots were spun too long — terminal broken'));
-      else if (pl.tripleMatch) parts.push(`${localText('ТРИ ОДИНАКОВЫХ', 'THREE OF A KIND')}: ${String(pl.paySymbol || '').toUpperCase()}`);
-      else parts.push(localText('НЕТ ТРЁХ ОДИНАКОВЫХ — НАГРАДЫ НЕТ', 'NO THREE OF A KIND — NO PAYOUT'));
-      if (pl.gld) parts.push(`+${pl.gld} GLD${pl.gldCount > 1 ? ' x' + pl.gldCount : ''}`);
-      if (pl.xp) parts.push(`+${pl.xp} EXP${pl.xpCount > 1 ? ' x' + pl.xpCount : ''}`);
-      if (pl.heal) parts.push(`+${pl.heal} HP${pl.healCount > 1 ? ' x' + pl.healCount : ''}`);
-      if (pl.dash) parts.push(locLabel('DASH +1'));
       const abilityLabels = Array.isArray(pl.abilityLabels) && pl.abilityLabels.length ? pl.abilityLabels : (pl.abilityLabel ? [pl.abilityLabel] : []);
       const weaponLabels = Array.isArray(pl.weaponLabels) && pl.weaponLabels.length ? pl.weaponLabels : (pl.weaponLabel ? [pl.weaponLabel] : []);
       const rareLabels = Array.isArray(pl.rareLabels) && pl.rareLabels.length ? pl.rareLabels : (pl.rareLabel ? [pl.rareLabel] : []);
-      abilityLabels.forEach(x => parts.push(`${localText('ABL', 'ABL')}: ${locLabel(x)}`));
-      weaponLabels.forEach(x => parts.push(`${localText('WPN', 'WPN')}: ${locLabel(x)}`));
-      rareLabels.forEach(x => parts.push(`RAR: ${locLabel(x)}`));
-      if (pl.skinLabel) parts.push(`${localText('СКИН', 'SKN')}: ${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
-      if (pl.lockLabel) parts.push(`${localText('LOCK ЗАФИКСИРОВАЛ', 'LOCK FIXED')}: ${pl.lockLabel}`);
-      if (pl.comboLabel) parts.push(locLabel(pl.comboLabel));
-      if (pl.contractStake) parts.push(`${localText('КОНТРАКТНАЯ СТАВКА', 'CONTRACT WAGER')} ${pl.contractStake}`);
-      if (f.lockUsed) parts.push(`${localText('ЗАФИКСИРОВАННЫЕ СЛОТЫ', 'FIXED SLOTS')}: ${f.lockSymbol || f.lockLeft || ''}`.trim());
-      if (pl.static || pl.staticCount) parts.push(`${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
-      if (pl.missCount) parts.push(localText('ПУСТО', 'EMPTY'));
-      if (f.outcome === 'OVERLOAD') parts.unshift(localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD'));
-      else if (f.outcome === 'JCK') parts.unshift(t('jackpot'));
-      else if (f.outcome === 'LOSE') parts.unshift(t('lose'));
-      else if (f.outcome === 'STC') parts.unshift(t('staticDebt'));
-      else if (f.outcome === 'LOCK') parts.unshift(localText('LOCK-СЛОТ', 'LOCK SLOT'));
-      else if (f.outcome === 'MIX') parts.unshift(localText('СМЕШАННЫЙ ИТОГ', 'MIXED RESULT'));
-      else if (f.outcome === 'SKN') parts.unshift(t('skin'));
-      else if (f.outcome === 'RAR') parts.unshift('RAR');
-      if (pl.gld && !f.bloodTax) parts.push(`${localText('ИТОГ', 'NET')} ${pl.gld - f.stake >= 0 ? '+' : ''}${pl.gld - f.stake} GLD`);
+      const parts = this.casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
       modal.classList.remove('bet-running', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
@@ -2555,9 +2547,6 @@ export class Hud {
       const detailParts = parts.map(locLabel).filter(x => {
         const sx = String(x || '').trim();
         if (!sx || sx === info.title || sx === resultLine) return false;
-        if (sx === t('lose') || sx === t('jackpot') || sx === t('staticDebt') || sx === t('skin')) return false;
-        if (/^(LOCK|LOCK-|LOCK\s)/i.test(sx) && /^LOCK/i.test(info.title)) return false;
-        if (/^(ПРОИГРЫШ|LOSS)/i.test(sx) && /^(ПРОИГРЫШ|LOSS)/i.test(info.title)) return false;
         return true;
       }).slice(0, 5);
       const fullResultText = `${info.title}: ${resultLine}${detailParts.length ? ' · ' + detailParts.join(' · ') : ''}`;
