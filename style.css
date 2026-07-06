@@ -16,13 +16,14 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #custom-cursor {
   position: fixed; left: 0; top: 0; width: 16px; height: 16px; pointer-events: none;
-  z-index: 9999; transform: translate3d(-100px, -100px, 0); mix-blend-mode: screen;
-  filter: drop-shadow(0 0 5px rgba(0,255,102,.7));
+  z-index: 9999; transform: translate3d(-100px, -100px, 0);
+  will-change: transform; contain: layout style paint; transition: none !important;
 }
 #custom-cursor .cx, #custom-cursor .cy { display: none; }
 #custom-cursor .cc {
   position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; display: block;
   border: 1px solid var(--green); background: rgba(0,255,102,.045);
+  box-shadow: 0 0 6px rgba(0,255,102,.38); transition: none !important;
 }
 #custom-cursor .cc::after {
   content: ''; position: absolute; left: 4px; top: 4px; width: 2px; height: 2px; background: var(--green);
