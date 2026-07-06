@@ -2456,6 +2456,29 @@ export class Hud {
     el.style.color = '#ff3048';
     this.feed(`${localText('BET ОТКАЗАН', 'BET DENIED')} · ${msg}`, 'r');
   }
+  casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
+    const clean = (x) => locLabel(String(x || '').replace(/^CASINO\s+/i, '').trim());
+    const weaponLine = (x) => {
+      const raw = String(x || '').trim();
+      if (/WEAPON DMG/i.test(raw) || /DMG|УРОН/i.test(raw)) return `${localText('УСИЛЕНИЕ ОРУЖИЯ', 'WEAPON UPGRADE')}: ${clean(raw)}`;
+      return `${localText('НОВОЕ ОРУЖИЕ', 'NEW WEAPON')}: ${clean(raw)}`;
+    };
+    const abilityLine = (x) => `${localText('МУТАЦИЯ', 'MUTATION')}: ${clean(x)}`;
+    const rareLine = (x) => `${localText('РЕДКИЙ БОНУС', 'RARE BONUS')}: ${clean(x)}`;
+    if (f.outcome === 'OVERLOAD') return localText('ПЕРЕГРУЗКА: слот сломан, враг собирается', 'OVERLOAD: slot broken, enemy assembling');
+    if (pl.static || pl.staticCount) return `${localText('ПРОИГРЫШ', 'LOSS')}: ${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
+    if (pl.lockLabel) return `${localText('LOCK', 'LOCK')}: ${localText('зафиксирован', 'fixed')} ${pl.lockLabel}`;
+    if (weaponLabels.length) return weaponLine(weaponLabels[0]);
+    if (abilityLabels.length) return abilityLine(abilityLabels[0]);
+    if (rareLabels.length) return rareLine(rareLabels[0]);
+    if (pl.skinLabel) return `${localText('СКИН', 'SKIN')}: ${pl.skinLabel}`;
+    if (pl.gld) return `+${pl.gld} GLD`;
+    if (pl.xp) return `+${pl.xp} EXP`;
+    if (pl.heal) return `+${pl.heal} HP`;
+    if (pl.dash) return locLabel('DASH +1');
+    return `${localText('ПРОИГРЫШ', 'LOSS')}: -${paid} ${paidUnit}`;
+  }
+
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
@@ -2511,23 +2534,11 @@ export class Hud {
       modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
-      const resultLine = (() => {
-        const won = [];
-        if (pl.gld) won.push(`+${pl.gld} GLD`);
-        if (pl.xp) won.push(`+${pl.xp} EXP`);
-        if (pl.heal) won.push(`+${pl.heal} HP`);
-        if (pl.dash) won.push(locLabel('DASH +1'));
-        abilityLabels.forEach(x => won.push(`${localText('МУТАЦИЯ', 'MUTATION')}: ${locLabel(x)}`));
-        weaponLabels.forEach(x => won.push(`${localText('ПРОТОКОЛ', 'PROTOCOL')}: ${locLabel(x)}`));
-        rareLabels.forEach(x => won.push(`RAR: ${locLabel(x)}`));
-        if (pl.skinLabel) won.push(`${localText('СКИН', 'SKIN')}: ${pl.skinLabel}`);
-        if (pl.static || pl.staticCount) return `${localText('ПРОИГРЫШ', 'LOSS')}: ${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
-        if (f.outcome === 'OVERLOAD') return localText('ПЕРЕГРУЗКА: слот сломан, враг собирается', 'OVERLOAD: slot broken, enemy assembling');
-        if (pl.lockLabel) return `${localText('LOCK', 'LOCK')}: ${localText('зафиксирован', 'fixed')} ${pl.lockLabel}`;
-        if (won.length) return `${localText('ВЫИГРЫШ', 'WIN')}: ${won.slice(0, 2).join(' · ')}`;
-        return `${localText('ПРОИГРЫШ', 'LOSS')}: -${paid} ${paidUnit}`;
-      })();
-      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact"><b>${esc(resultLine)}</b></span>`;
+      const resultLine = this.casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
+      const fullResultText = `${info.title}: ${resultLine} · ${parts.map(locLabel).join(' · ')}`;
+      el.title = fullResultText;
+      this.setExplain(el, info.title, fullResultText, info.tone);
+      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact" title="${esc(fullResultText)}"><b>${esc(resultLine)}</b></span>`;
       const who = f.id === myId ? t('you') : (this.names.get(f.id) || '??');
       this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';

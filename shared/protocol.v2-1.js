@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.98';
-export const BUILD_ID = 'casino_slot_overload_hotfix';
+export const VERSION = 'v2.1.99';
+export const BUILD_ID = 'rar_casino_slotmob_polish_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

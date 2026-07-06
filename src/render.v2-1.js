@@ -512,17 +512,49 @@ export class Renderer {
         this.label('HRD', ex, ey - size / 2 - 9, COL.red, 9);
       } else if (kind === 'slot_mob') {
         const stateText = String(st || 'slot_runner:1');
-        const mode = (stateText.match(/slot_([^:]+)/) || [,'runner'])[1];
+        const modeRaw = (stateText.match(/slot_([^:]+)/) || [,'runner'])[1];
         const lives = Math.max(1, Number((stateText.match(/:(\d+)/) || [,'1'])[1]) || 1);
-        const isRebuild = mode === 'rebuild' || mode === 'rolling';
+        const isAssemble = modeRaw === 'assemble';
+        const isRebuild = modeRaw === 'rebuild' || modeRaw === 'rolling';
+        const isChargerWindup = modeRaw === 'charger_windup';
+        const mode = isChargerWindup ? 'charger' : modeRaw;
         const pulse = 0.5 + Math.sin(now * 18) * 0.22;
         const frameCol = isRebuild ? COL.gold : (mode === 'charger' ? COL.red : mode === 'shooter' ? COL.cyan : mode === 'pulse' ? COL.purple : COL.fg);
         ctx.save();
+        if (isAssemble) {
+          const syms = ['GLD','EXP','STC','WPN','ABL','BAD','RAR','JCK'];
+          ctx.font = '700 9px var(--mono, monospace)';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          for (let i = 0; i < 28; i++) {
+            const a = i * 2.399 + now * 2.1;
+            const d = 86 - ((now * 48 + i * 7) % 54);
+            const px = ex + Math.cos(a) * d;
+            const py = ey + Math.sin(a) * d;
+            ctx.globalAlpha = 0.28 + (i % 5) * 0.08;
+            ctx.fillStyle = i % 3 === 0 ? COL.cyan : (i % 3 === 1 ? COL.gold : COL.fg);
+            ctx.fillText(syms[i % syms.length], Math.round(px), Math.round(py));
+          }
+          ctx.globalAlpha = 0.55 + pulse * 0.20;
+          ctx.strokeStyle = COL.gold; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
+          ctx.strokeRect(Math.round(ex - size * 0.55), Math.round(ey - size * 0.55), Math.round(size * 1.10), Math.round(size * 1.10));
+          ctx.setLineDash([]);
+          ctx.restore();
+          this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, COL.gold, 9);
+          this.label('ASSEMBLE', ex, ey + size / 2 + 17, COL.gold, 8);
+          continue;
+        }
+        if (isChargerWindup) {
+          ctx.globalAlpha = 0.52 + Math.sin(now * 24) * 0.28;
+          ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + (dirX / 100) * 430, ey + (dirY / 100) * 430); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        }
         if (isRebuild) ctx.globalAlpha = 0.62 + pulse * 0.25;
         this.square(ex, ey, size, { stroke: frameCol, lw: 3.5, fill: 'rgba(255,211,77,0.055)' });
         this.square(ex, ey, size * 0.70, { stroke: COL.fg, lw: 1.4, fill: 'rgba(0,0,0,0.28)' });
         const reelSyms = ['GLD','WPN','ABL','STC','BAD','RAR','JCK'];
-        const idx = Math.floor(now * 5 + ex * 0.01 + ey * 0.01) % reelSyms.length;
+        const idx = Math.floor(now * (isRebuild ? 10 : 5) + ex * 0.01 + ey * 0.01) % reelSyms.length;
         ctx.fillStyle = frameCol;
         ctx.font = '700 10px var(--mono, monospace)';
         ctx.textAlign = 'center';

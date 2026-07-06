@@ -438,14 +438,18 @@ export class Effects {
         this.slam = 0.65; this.kick(14);
         break;
       case 'slot_mob_roll':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: 74, ttl: 0.34, color: '#ffd34d' });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.34, color: '#ffd34d' });
         this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
         break;
       case 'slot_mob_rebuild':
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.10, color: '#ffd34d', collapse: 1 });
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 108, ttl: 0.90, color: '#b45cff', tick: 1 });
+        if (f.scatter || f.spawn) {
+          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.05, color: '#ffd34d' });
+          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.30, color: '#ffd34d', explode: 1 });
+        }
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', collapse: 1 });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1 });
         this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
-        this.kick(f.spawn ? 9 : 6);
+        this.kick(f.spawn ? 10 : 7);
         break;
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
@@ -583,6 +587,26 @@ export class Effects {
           ctx.lineTo(e.x + Math.cos(a) * d2, e.y + Math.sin(a) * d2);
           ctx.stroke();
         }
+      } else if (e.kind === 'slotBreakChunks') {
+        ctx.save();
+        ctx.strokeStyle = e.color || '#ffd34d';
+        ctx.fillStyle = 'rgba(255,211,77,0.10)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          const a = Math.PI / 4 + i * Math.PI / 2;
+          const d = 10 + p * 72;
+          const x = e.x + Math.cos(a) * d;
+          const y = e.y + Math.sin(a) * d;
+          const sz = 22 - p * 5;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - p * 0.82);
+          ctx.translate(Math.round(x), Math.round(y));
+          ctx.rotate(a + p * (i % 2 ? -1.8 : 1.8));
+          ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
+          ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+          ctx.restore();
+        }
+        ctx.restore();
       } else if (e.kind === 'slotScatter') {
         const syms = ['GLD','EXP','STC','WPN','ABL','BAD','JCK','RAR'];
         const cx = e.x2 || e.x, cy = e.y2 || e.y;
