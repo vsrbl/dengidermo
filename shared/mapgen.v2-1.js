@@ -72,6 +72,9 @@ function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loo
 }
 
 function archetypeRect(archetype) {
+  // Room archetype = base silhouette. These rectangles deliberately change the playable
+  // footprint before any per-run cover is added. Extra archetypes should not all inherit
+  // the default full WORLD_W/WORLD_H arena.
   const defs = {
     panic_box: { w: 1120, h: 760 },
     compact: { w: 1420, h: 960 },
@@ -80,13 +83,14 @@ function archetypeRect(archetype) {
     long_lane: { w: WORLD_W, h: 920 },
     lounge: { w: 1500, h: 920 },
     boss: { w: WORLD_W, h: WORLD_H },
-    ripped_table: { w: WORLD_W, h: WORLD_H },
-    cross_terminal: { w: WORLD_W, h: WORLD_H },
-    ring_track: { w: WORLD_W, h: WORLD_H },
-    three_paylines: { w: WORLD_W, h: WORLD_H },
-    clamp_room: { w: WORLD_W, h: WORLD_H },
+    // v2.1.109: every new room has its own base size/footprint.
+    ripped_table: { w: 1860, h: 1220 },
+    cross_terminal: { w: 1960, h: 1320 },
+    ring_track: { w: 2040, h: 1280 },
+    three_paylines: { w: 2120, h: 1120 },
+    clamp_room: { w: 1660, h: 1360 },
     cashier_maze: { w: WORLD_W, h: WORLD_H },
-    machine_core: { w: WORLD_W, h: WORLD_H }
+    machine_core: { w: 1780, h: 1220 }
   };
   const d = defs[archetype] || defs.standard;
   const left = Math.round((WORLD_W - d.w) / 2);
@@ -102,6 +106,9 @@ function applyRoomArchetypeWalls(walls, archetype) {
   if (r.bottom < WORLD_H) pushWall(walls, -EDGE_T, r.bottom, WORLD_W + EDGE_T * 2, WORLD_H - r.bottom + EDGE_T);
 }
 
+function roomRect(archetype) { return archetypeRect(archetype); }
+function addBaseVoid(walls, x, y, w, h) { pushWall(walls, x, y, w, h); }
+function addBaseGateBlock(walls, x, y, w, h) { pushWall(walls, x, y, w, h); }
 
 function finishArchetypeWalls(walls, archetype) {
   applyRoomArchetypeWalls(walls, archetype);
@@ -109,125 +116,137 @@ function finishArchetypeWalls(walls, archetype) {
 }
 
 function addRippedTableWalls(walls, rng) {
+  const r = roomRect('ripped_table');
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  const thick = 138;
-  // Two heavy broken casino-table slabs. They carve two real sectors and a crooked anti-dash middle cut.
-  pushWall(walls, SAFE + 120, SAFE + 110, 650, thick);
-  pushWall(walls, SAFE + 120, SAFE + 110 + thick, 180, 350);
-  pushWall(walls, SAFE + 120, WORLD_H - SAFE - 250, 710, thick);
-  pushWall(walls, WORLD_W - SAFE - 770, SAFE + 110, 650, thick);
-  pushWall(walls, WORLD_W - SAFE - 300, SAFE + 110 + thick, 180, 350);
-  pushWall(walls, WORLD_W - SAFE - 830, WORLD_H - SAFE - 250, 710, thick);
-  // Split center gate: thick enough that a dash cannot hop the divider; gaps are deliberate doors.
-  pushWall(walls, cx - thick / 2, SAFE + 70, thick, 330 + rng() * 40);
-  pushWall(walls, cx - thick / 2, cy + 225 + rng() * 20, thick, WORLD_H - SAFE - (cy + 225) - 70);
-  // Heavy torn teeth near the openings, not decorative toothpicks.
-  pushWall(walls, cx - 390, cy - 260, 250, 112);
-  pushWall(walls, cx + 140, cy + 150, 270, 112);
-  if (rng() < 0.55) pushWall(walls, cx - 560, cy + 95, 190, 118);
-  else pushWall(walls, cx + 370, cy - 210, 190, 118);
+  const t = 168;
+  // Base shape: two torn table halves linked by an S-shaped cashier cut.
+  // These are structural base cuts, not decorative random walls.
+  addBaseVoid(walls, r.x, r.y, 410, 340);
+  addBaseVoid(walls, r.right - 410, r.bottom - 340, 410, 340);
+  addBaseVoid(walls, r.x, r.bottom - 300, 300, 300);
+  addBaseVoid(walls, r.right - 300, r.y, 300, 300);
+  // Main tear: two thick shifted slabs leave a readable center seam.
+  addBaseGateBlock(walls, cx - 92, r.y + 70, t, 385 + rng() * 35);
+  addBaseGateBlock(walls, cx - 92, cy + 245 + rng() * 30, t, r.bottom - cy - 310);
+  // The table halves are part of the base footprint: large mass, committed turns.
+  addBaseGateBlock(walls, r.x + 260, r.y + 275, 520, 170);
+  addBaseGateBlock(walls, r.right - 780, r.bottom - 445, 520, 170);
+  addBaseGateBlock(walls, r.x + 390, r.bottom - 245, 410, 150);
+  addBaseGateBlock(walls, r.right - 800, r.y + 95, 410, 150);
+  // Small per-run identity only near the seam; not responsible for the room shape.
+  if (rng() < 0.5) addBaseGateBlock(walls, cx - 520, cy + 95, 230, 132);
+  else addBaseGateBlock(walls, cx + 290, cy - 230, 230, 132);
+  walls._portalHint = rng() < 0.5 ? { x: r.x + 285, y: r.bottom - 205 } : { x: r.right - 285, y: r.y + 205 };
 }
 
 function addCrossTerminalWalls(walls, rng) {
+  const r = roomRect('cross_terminal');
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  const gapW = 355, gapH = 315;
-  const slabW = 610, slabH = 390;
-  // Four massive terminal blocks define a real cross-shaped room. Center spawn stays clear.
-  pushWall(walls, SAFE + 105, SAFE + 105, slabW, slabH);
-  pushWall(walls, WORLD_W - SAFE - 105 - slabW, SAFE + 105, slabW, slabH);
-  pushWall(walls, SAFE + 105, WORLD_H - SAFE - 105 - slabH, slabW, slabH);
-  pushWall(walls, WORLD_W - SAFE - 105 - slabW, WORLD_H - SAFE - 105 - slabH, slabW, slabH);
-  // Thick terminal jaws along the cross corridors create committed turns and cover, not open fields.
-  pushWall(walls, cx - 430, cy - gapH / 2 - 112, 285, 112);
-  pushWall(walls, cx + 145, cy + gapH / 2, 285, 112);
-  pushWall(walls, cx - gapW / 2 - 120, cy + 145, 120, 280);
-  pushWall(walls, cx + gapW / 2, cy - 425, 120, 280);
-  if (rng() < 0.5) pushWall(walls, cx - 105, SAFE + 98, 210, 112);
-  else pushWall(walls, cx - 105, WORLD_H - SAFE - 190, 210, 112);
+  // Base shape: cross-room carved from a smaller rectangle by blocking off the corners.
+  const cornerW = 650, cornerH = 430;
+  addBaseVoid(walls, r.x, r.y, cornerW, cornerH);
+  addBaseVoid(walls, r.right - cornerW, r.y, cornerW, cornerH);
+  addBaseVoid(walls, r.x, r.bottom - cornerH, cornerW, cornerH);
+  addBaseVoid(walls, r.right - cornerW, r.bottom - cornerH, cornerW, cornerH);
+  // Thick terminal lips define the four arms without turning the center into a field.
+  addBaseGateBlock(walls, cx - 420, r.y + 480, 300, 145);
+  addBaseGateBlock(walls, cx + 120, r.bottom - 625, 300, 145);
+  addBaseGateBlock(walls, r.x + 650, cy + 130, 145, 310);
+  addBaseGateBlock(walls, r.right - 795, cy - 440, 145, 310);
+  if (rng() < 0.5) addBaseGateBlock(walls, cx - 118, r.y + 150, 236, 136);
+  else addBaseGateBlock(walls, cx - 118, r.bottom - 286, 236, 136);
+  walls._portalHint = rng() < 0.5 ? { x: cx, y: r.y + 190 } : { x: cx, y: r.bottom - 190 };
 }
 
 function addRingTrackWalls(walls, rng) {
+  const r = roomRect('ring_track');
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  const t = 118;
-  // Track is now defined by chunky rails with four gates, while the center spawn remains open.
-  const railTop = SAFE + 105, railBottom = WORLD_H - SAFE - 105 - t;
-  const railLeft = SAFE + 105, railRight = WORLD_W - SAFE - 105 - t;
-  pushWall(walls, railLeft, railTop, 610, t);
-  pushWall(walls, WORLD_W - SAFE - 105 - 610, railTop, 610, t);
-  pushWall(walls, railLeft, railBottom, 610, t);
-  pushWall(walls, WORLD_W - SAFE - 105 - 610, railBottom, 610, t);
-  pushWall(walls, railLeft, railTop + t, t, 340);
-  pushWall(walls, railLeft, WORLD_H - SAFE - 105 - t - 340, t, 340);
-  pushWall(walls, railRight, railTop + t, t, 340);
-  pushWall(walls, railRight, WORLD_H - SAFE - 105 - t - 340, t, 340);
-  // Inner casino core is split into four quarter-blocks so it cannot trap the default center spawn.
-  pushWall(walls, cx - 390, cy - 285, 225, 145);
-  pushWall(walls, cx + 165, cy - 285, 225, 145);
-  pushWall(walls, cx - 390, cy + 140, 225, 145);
-  pushWall(walls, cx + 165, cy + 140, 225, 145);
-  if (rng() < 0.6) pushWall(walls, cx - 70, railTop + 95, 140, 112);
-  if (rng() < 0.6) pushWall(walls, cx - 70, railBottom - 77, 140, 112);
+  const t = 150;
+  // Base shape: oval-ish track with four chunky outside bites and a center hub.
+  // The center remains playable for the fixed player spawn, while the room reads as lanes.
+  addBaseVoid(walls, r.x, r.y, 420, 300);
+  addBaseVoid(walls, r.right - 420, r.y, 420, 300);
+  addBaseVoid(walls, r.x, r.bottom - 300, 420, 300);
+  addBaseVoid(walls, r.right - 420, r.bottom - 300, 420, 300);
+  // Inner rails are base dividers that form the track, not random cover.
+  addBaseGateBlock(walls, cx - 475, cy - 330, 330, t);
+  addBaseGateBlock(walls, cx + 145, cy - 330, 330, t);
+  addBaseGateBlock(walls, cx - 475, cy + 180, 330, t);
+  addBaseGateBlock(walls, cx + 145, cy + 180, 330, t);
+  addBaseGateBlock(walls, cx - 535, cy - 190, t, 380);
+  addBaseGateBlock(walls, cx + 385, cy - 190, t, 380);
+  // Procedural gate nudges change which lap feels safer, without changing the base concept.
+  if (rng() < 0.55) addBaseGateBlock(walls, cx - 75, r.y + 190, 150, 130);
+  if (rng() < 0.55) addBaseGateBlock(walls, cx - 75, r.bottom - 320, 150, 130);
+  walls._portalHint = rng() < 0.5 ? { x: r.x + 250, y: cy } : { x: r.right - 250, y: cy };
 }
 
 function addThreePaylinesWalls(walls, rng) {
-  const divW = 132;
-  const laneW = WORLD_W / 3;
-  // Three lanes with thick, segmented cashier walls. Gaps alternate so routing matters.
-  for (const [i, xBase] of [laneW, laneW * 2].entries()) {
-    const gapA = 355 + rng() * 85;
-    const gapB = 955 + rng() * 85;
-    const topEnd = gapA - 150;
-    const midStart = gapA + 205;
-    const midEnd = gapB - 205;
-    const botStart = gapB + 150;
-    pushWall(walls, xBase - divW / 2, SAFE + 60, divW, Math.max(170, topEnd - (SAFE + 60)));
-    pushWall(walls, xBase - divW / 2, midStart, divW, Math.max(185, midEnd - midStart));
-    pushWall(walls, xBase - divW / 2, botStart, divW, Math.max(170, WORLD_H - SAFE - 60 - botStart));
-    const y = i === 0 ? WORLD_H - SAFE - 295 : SAFE + 190;
-    pushWall(walls, xBase - 305, y, 225, 118);
-    pushWall(walls, xBase + 80, WORLD_H - y - 118, 225, 118);
+  const r = roomRect('three_paylines');
+  const laneW = r.w / 3;
+  const divW = 170;
+  // Base shape: a shortened casino board with three real lanes. The lane dividers are
+  // structural boundaries with alternating doors; later wall variation is not the room.
+  addBaseVoid(walls, r.x, r.y, 330, 260);
+  addBaseVoid(walls, r.right - 330, r.bottom - 260, 330, 260);
+  for (const [i, xBase] of [r.x + laneW, r.x + laneW * 2].entries()) {
+    const gapA = r.y + 315 + rng() * 65;
+    const gapB = r.bottom - 335 - rng() * 65;
+    addBaseGateBlock(walls, xBase - divW / 2, r.y + 55, divW, Math.max(160, gapA - r.y - 210));
+    addBaseGateBlock(walls, xBase - divW / 2, gapA + 190, divW, Math.max(150, gapB - gapA - 380));
+    addBaseGateBlock(walls, xBase - divW / 2, gapB + 190, divW, Math.max(160, r.bottom - gapB - 245));
+    const y = i === 0 ? r.bottom - 285 : r.y + 165;
+    addBaseGateBlock(walls, xBase - 335, y, 250, 140);
+    addBaseGateBlock(walls, xBase + 85, r.bottom + r.y - y - 140, 250, 140);
   }
-  // Each lane gets one substantial block, not small decorative scraps.
+  // One heavy lane anchor per lane, varied but not shaping the base by itself.
   for (let lane = 0; lane < 3; lane++) {
-    const w = 245 + rng() * 90, h = 112 + rng() * 45;
-    const x = lane * laneW + laneW * 0.5 - w / 2 + (rng() - 0.5) * 95;
-    const y = lane % 2 ? SAFE + 245 + rng() * 110 : WORLD_H - SAFE - 395 - rng() * 110;
+    const w = 260 + rng() * 70, h = 128 + rng() * 34;
+    const x = r.x + lane * laneW + laneW * 0.5 - w / 2 + (rng() - 0.5) * 70;
+    const y = lane % 2 ? r.y + 250 + rng() * 90 : r.bottom - 395 - rng() * 90;
     addRandomBlock(rng, walls, x, y, w, h);
   }
+  walls._portalHint = rng() < 0.5 ? { x: r.x + 270, y: r.y + 560 } : { x: r.right - 270, y: r.bottom - 560 };
 }
 
 function addClampRoomWalls(walls, rng) {
-  const t = 142;
+  const r = roomRect('clamp_room');
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  // Clamp room becomes two massive jaws plus offset side locks: readable pressure corridors.
-  pushWall(walls, SAFE + 95, SAFE + 105, WORLD_W - SAFE * 2 - 190, t);
-  pushWall(walls, SAFE + 95, WORLD_H - SAFE - 105 - t, WORLD_W - SAFE * 2 - 190, t);
-  pushWall(walls, SAFE + 155, SAFE + 295, t, 430);
-  pushWall(walls, WORLD_W - SAFE - 155 - t, WORLD_H - SAFE - 295 - 430, t, 430);
-  pushWall(walls, cx - 515, cy - 80, 260, 116);
-  pushWall(walls, cx + 255, cy - 36, 260, 116);
-  pushWall(walls, cx - 125, SAFE + 300, 250, 112);
-  pushWall(walls, cx - 125, WORLD_H - SAFE - 412, 250, 112);
-  if (rng() < 0.5) pushWall(walls, SAFE + 385, cy + 175, 250, 112);
-  else pushWall(walls, WORLD_W - SAFE - 635, cy - 287, 250, 112);
+  const t = 188;
+  // Base shape: a narrower vertical room with closing jaws. The room footprint itself is
+  // reduced, then jaws define two compressed combat bands.
+  addBaseVoid(walls, r.x, r.y, 250, 285);
+  addBaseVoid(walls, r.right - 250, r.bottom - 285, 250, 285);
+  addBaseGateBlock(walls, r.x + 95, r.y + 130, r.w - 190, t);
+  addBaseGateBlock(walls, r.x + 95, r.bottom - 130 - t, r.w - 190, t);
+  addBaseGateBlock(walls, r.x + 185, r.y + 385, t, 420);
+  addBaseGateBlock(walls, r.right - 185 - t, r.bottom - 385 - 420, t, 420);
+  addBaseGateBlock(walls, cx - 455, cy - 82, 285, 136);
+  addBaseGateBlock(walls, cx + 170, cy - 54, 285, 136);
+  if (rng() < 0.5) addBaseGateBlock(walls, r.x + 360, cy + 205, 260, 136);
+  else addBaseGateBlock(walls, r.right - 620, cy - 340, 260, 136);
+  walls._portalHint = rng() < 0.5 ? { x: r.x + 265, y: cy } : { x: r.right - 265, y: cy };
 }
 
 function addMachineCoreWalls(walls, rng) {
+  const r = roomRect('machine_core');
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  const t = 126;
-  // Machine core is now a set of locked cashier modules around the spawn, with real corridors.
-  pushWall(walls, SAFE + 120, SAFE + 110, 420, 255);
-  pushWall(walls, WORLD_W - SAFE - 540, SAFE + 110, 420, 255);
-  pushWall(walls, SAFE + 120, WORLD_H - SAFE - 365, 420, 255);
-  pushWall(walls, WORLD_W - SAFE - 540, WORLD_H - SAFE - 365, 420, 255);
-  pushWall(walls, cx - 430, cy - 315, 300, t);
-  pushWall(walls, cx + 130, cy - 315, 300, t);
-  pushWall(walls, cx - 430, cy + 189, 300, t);
-  pushWall(walls, cx + 130, cy + 189, 300, t);
-  pushWall(walls, cx - 64, SAFE + 150, 128, 270);
-  pushWall(walls, cx - 64, WORLD_H - SAFE - 420, 128, 270);
-  if (rng() < 0.65) pushWall(walls, SAFE + 585, cy - 58, 235, 116);
-  if (rng() < 0.65) pushWall(walls, WORLD_W - SAFE - 820, cy - 58, 235, 116);
+  const t = 158;
+  // Base shape: compact square core with four cashier modules cut out of the corners.
+  // The center is a hub, each side a deliberate service corridor.
+  addBaseVoid(walls, r.x, r.y, 430, 300);
+  addBaseVoid(walls, r.right - 430, r.y, 430, 300);
+  addBaseVoid(walls, r.x, r.bottom - 300, 430, 300);
+  addBaseVoid(walls, r.right - 430, r.bottom - 300, 430, 300);
+  addBaseGateBlock(walls, cx - 445, cy - 350, 330, t);
+  addBaseGateBlock(walls, cx + 115, cy - 350, 330, t);
+  addBaseGateBlock(walls, cx - 445, cy + 192, 330, t);
+  addBaseGateBlock(walls, cx + 115, cy + 192, 330, t);
+  addBaseGateBlock(walls, cx - 79, r.y + 205, 158, 285);
+  addBaseGateBlock(walls, cx - 79, r.bottom - 490, 158, 285);
+  if (rng() < 0.60) addBaseGateBlock(walls, r.x + 560, cy - 255, 255, 128);
+  if (rng() < 0.60) addBaseGateBlock(walls, r.right - 815, cy + 127, 255, 128);
+  walls._portalHint = rng() < 0.5 ? { x: r.x + 285, y: cy } : { x: r.right - 285, y: cy };
 }
 
 function farthestMazeCell(cells, startIndex, cols = 1) {
@@ -272,16 +291,17 @@ function pushMergedRuns(walls, runs, vertical, thick, marginX, marginY, cellW, c
 }
 
 function addCashierMazeWalls(walls, rng) {
-  // v2.1.107: true full-width dark cashier maze. Thick seamless walls, no shortcut shaving.
-  const cols = 7, rows = 5;
-  const marginX = 70, marginY = 78;
+  // v2.1.109: room type is the base here: a very wide, blackout cashier bunker.
+  // Thick merged cell walls are the primary footprint; there is no open arena under it.
+  const cols = 8, rows = 4;
+  const marginX = 36, marginY = 40;
   const cellW = (WORLD_W - marginX * 2) / cols;
   const cellH = (WORLD_H - marginY * 2) / rows;
-  const thick = 132;
+  const thick = 178; // intentionally too thick to dash-hop through.
   const idx = (c, r) => r * cols + c;
   const cells = Array.from({ length: cols * rows }, (_, i) => ({ i, links: [] }));
   const visited = new Set();
-  const startC = Math.floor(cols / 2), startR = Math.floor(rows / 2);
+  const startC = 3, startR = 1; // center lobby spans 3/4 x 1/2, covering all player spawns.
   const stack = [idx(startC, startR)];
   visited.add(stack[0]);
   const vWalls = Array.from({ length: rows }, () => Array(cols - 1).fill(true));
@@ -290,9 +310,9 @@ function addCashierMazeWalls(walls, rng) {
     const cur = stack[stack.length - 1];
     const c = cur % cols, r = Math.floor(cur / cols);
     const options = [];
-    // Bias horizontal growth a little so the room feels wide/long, not boxy.
-    if (c > 0 && !visited.has(idx(c - 1, r))) options.push([c - 1, r], [c - 1, r]);
-    if (c < cols - 1 && !visited.has(idx(c + 1, r))) options.push([c + 1, r], [c + 1, r]);
+    // Strong horizontal bias: this maze should feel wide and long, not like a small grid room.
+    if (c > 0 && !visited.has(idx(c - 1, r))) options.push([c - 1, r], [c - 1, r], [c - 1, r]);
+    if (c < cols - 1 && !visited.has(idx(c + 1, r))) options.push([c + 1, r], [c + 1, r], [c + 1, r]);
     if (r > 0 && !visited.has(idx(c, r - 1))) options.push([c, r - 1]);
     if (r < rows - 1 && !visited.has(idx(c, r + 1))) options.push([c, r + 1]);
     if (!options.length) { stack.pop(); continue; }
@@ -304,8 +324,8 @@ function addCashierMazeWalls(walls, rng) {
     visited.add(ni); stack.push(ni);
   }
 
-  // One central cashier lobby for the 4 default spawn points, but not a full empty arena.
-  const lobby = [[startC, startR], [startC - 1, startR], [startC, startR + 1], [startC - 1, startR + 1]];
+  // Central spawn lobby is a tiny junction, not a wide field. Open only the four spawn cells.
+  const lobby = [[3, 1], [4, 1], [3, 2], [4, 2]];
   for (const [c, r] of lobby) {
     if (c >= 0 && c < cols - 1 && r >= 0 && r < rows) vWalls[r][c] = false;
     if (c - 1 >= 0 && c - 1 < cols - 1 && r >= 0 && r < rows) vWalls[r][c - 1] = false;
@@ -338,7 +358,7 @@ function addCashierMazeWalls(walls, rng) {
   pushMergedRuns(walls, vRuns, true, thick, marginX, marginY, cellW, cellH);
   pushMergedRuns(walls, hRuns, false, thick, marginX, marginY, cellW, cellH);
 
-  // Massive outer cashier rim inside the real border reinforces the dark bunker feel.
+  // A single seamless bunker rim: it is part of the room base, not procedural cover.
   pushWall(walls, marginX - thick / 2, marginY - thick / 2, WORLD_W - marginX * 2 + thick, thick);
   pushWall(walls, marginX - thick / 2, WORLD_H - marginY - thick / 2, WORLD_W - marginX * 2 + thick, thick);
   pushWall(walls, marginX - thick / 2, marginY - thick / 2, thick, WORLD_H - marginY * 2 + thick);
@@ -346,9 +366,11 @@ function addCashierMazeWalls(walls, rng) {
 
   const exit = farthestMazeCell(cells, idx(startC, startR), cols);
   const ec = exit % cols, er = Math.floor(exit / cols);
+  const safeX = clamp(marginX + ec * cellW + cellW / 2, marginX + thick / 2 + 140, WORLD_W - marginX - thick / 2 - 140);
+  const safeY = clamp(marginY + er * cellH + cellH / 2, marginY + thick / 2 + 140, WORLD_H - marginY - thick / 2 - 140);
   walls._portalHint = {
-    x: Math.round(marginX + ec * cellW + cellW / 2),
-    y: Math.round(marginY + er * cellH + cellH / 2),
+    x: Math.round(safeX),
+    y: Math.round(safeY),
     cashierMaze: 1,
     darkMaze: 1
   };
@@ -530,12 +552,25 @@ function blockedByObjects(x, y, blockers) {
 }
 
 function freeSpot(rng, walls, margin = 70, blockers = []) {
-  for (let tries = 0; tries < 110; tries++) {
+  for (let tries = 0; tries < 190; tries++) {
     const x = SAFE + margin + rng() * (WORLD_W - (SAFE + margin) * 2);
     const y = SAFE + margin + rng() * (WORLD_H - (SAFE + margin) * 2);
-    if (!blockedByWalls(x, y, walls, margin) && !blockedByObjects(x, y, blockers)) return { x: Math.round(x), y: Math.round(y) };
+    if (!blockedByWalls(x, y, walls, Math.max(80, margin)) && !blockedByObjects(x, y, blockers)) return { x: Math.round(x), y: Math.round(y) };
   }
-  return { x: WORLD_W / 2 + Math.round((rng() - 0.5) * 360), y: WORLD_H / 2 + Math.round((rng() - 0.5) * 260) };
+  const cols = 11, rows = 7;
+  const candidates = [];
+  for (let iy = 0; iy < rows; iy++) {
+    for (let ix = 0; ix < cols; ix++) {
+      const x = SAFE + margin + (ix + 0.5) * ((WORLD_W - (SAFE + margin) * 2) / cols);
+      const y = SAFE + margin + (iy + 0.5) * ((WORLD_H - (SAFE + margin) * 2) / rows);
+      candidates.push({ x, y, d: Math.hypot(x - WORLD_W / 2, y - WORLD_H / 2) + rng() * 40 });
+    }
+  }
+  candidates.sort((a, b) => b.d - a.d);
+  for (const c of candidates) {
+    if (!blockedByWalls(c.x, c.y, walls, Math.max(80, margin)) && !blockedByObjects(c.x, c.y, blockers)) return { x: Math.round(c.x), y: Math.round(c.y) };
+  }
+  return { x: WORLD_W / 2 + Math.round((rng() - 0.5) * 260), y: WORLD_H / 2 + Math.round((rng() - 0.5) * 200) };
 }
 
 function pocketSpot(rng, walls, center, margin, blockers) {
@@ -544,7 +579,7 @@ function pocketSpot(rng, walls, center, margin, blockers) {
     const r = 95 + rng() * 220;
     const x = clamp(center.x + Math.cos(a) * r, SAFE + margin, WORLD_W - SAFE - margin);
     const y = clamp(center.y + Math.sin(a) * r, SAFE + margin, WORLD_H - SAFE - margin);
-    if (!blockedByWalls(x, y, walls, margin) && !blockedByObjects(x, y, blockers)) return { x: Math.round(x), y: Math.round(y) };
+    if (!blockedByWalls(x, y, walls, Math.max(80, margin)) && !blockedByObjects(x, y, blockers)) return { x: Math.round(x), y: Math.round(y) };
   }
   return freeSpot(rng, walls, margin, blockers);
 }
@@ -742,19 +777,54 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
 }
 
 export function portalSpot(seed, walls, interactables = []) {
-  if (walls?._portalHint) return { x: walls._portalHint.x, y: walls._portalHint.y };
+  if (walls?._portalHint && !blockedByWalls(walls._portalHint.x, walls._portalHint.y, walls, 110)) return { x: walls._portalHint.x, y: walls._portalHint.y };
   const rng = mulberry32((seed ^ 0x9E3779B9) >>> 0);
   const blockers = [
     { x: WORLD_W / 2, y: WORLD_H / 2, r: 360 },
     ...interactables.map(o => ({ x: o.x, y: o.y, r: 210 }))
   ];
-  // favor any quadrant, but keep it readable and clear of walls/chests/player spawn.
-  for (let tries = 0; tries < 140; tries++) {
-    const p = freeSpot(rng, walls, 125, blockers);
-    if (dist2ish(p.x, p.y, WORLD_W / 2, WORLD_H / 2) > 420 * 420) return p;
+  const minD2 = 420 * 420;
+  // First try random far spots with generous clearance.
+  for (const margin of [125, 105, 85, 65]) {
+    for (let tries = 0; tries < 180; tries++) {
+      const x = SAFE + margin + rng() * (WORLD_W - (SAFE + margin) * 2);
+      const y = SAFE + margin + rng() * (WORLD_H - (SAFE + margin) * 2);
+      if (dist2ish(x, y, WORLD_W / 2, WORLD_H / 2) <= minD2) continue;
+      if (!blockedByWalls(x, y, walls, Math.max(80, margin)) && !blockedByObjects(x, y, blockers)) return { x: Math.round(x), y: Math.round(y) };
+    }
+    // Then grid scan sorted from farthest to center. This prevents fallback portals inside
+    // structural base walls in tight new room shapes.
+    const candidates = [];
+    const cols = 15, rows = 10;
+    for (let iy = 0; iy < rows; iy++) {
+      for (let ix = 0; ix < cols; ix++) {
+        const x = SAFE + margin + (ix + 0.5) * ((WORLD_W - (SAFE + margin) * 2) / cols);
+        const y = SAFE + margin + (iy + 0.5) * ((WORLD_H - (SAFE + margin) * 2) / rows);
+        candidates.push({ x, y, d: dist2ish(x, y, WORLD_W / 2, WORLD_H / 2) + rng() * 20 });
+      }
+    }
+    candidates.sort((a, b) => b.d - a.d);
+    for (const c of candidates) {
+      if (c.d < minD2) continue;
+      if (!blockedByWalls(c.x, c.y, walls, Math.max(80, margin)) && !blockedByObjects(c.x, c.y, blockers)) return { x: Math.round(c.x), y: Math.round(c.y) };
+    }
   }
-  return freeSpot(rng, walls, 125, blockers);
+  // Last resort: favor room geometry over object spacing, but still never place inside walls.
+  const last = [];
+  for (let iy = 0; iy < 9; iy++) {
+    for (let ix = 0; ix < 13; ix++) {
+      const x = SAFE + 80 + (ix + 0.5) * ((WORLD_W - (SAFE + 80) * 2) / 13);
+      const y = SAFE + 80 + (iy + 0.5) * ((WORLD_H - (SAFE + 80) * 2) / 9);
+      last.push({ x, y, d: dist2ish(x, y, WORLD_W / 2, WORLD_H / 2) + rng() * 30 });
+    }
+  }
+  last.sort((a, b) => b.d - a.d);
+  for (const c of last) {
+    if (!blockedByWalls(c.x, c.y, walls, 80)) return { x: Math.round(c.x), y: Math.round(c.y) };
+  }
+  return { x: WORLD_W / 2, y: WORLD_H / 2 };
 }
+
 function dist2ish(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 
 export function spawnPoint(idx) {

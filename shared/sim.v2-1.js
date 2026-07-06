@@ -577,6 +577,7 @@ const SLOT_MOB_PIECES_HOLD_T = 3.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
 const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.08;
+const SLOT_MOB_POST_BLOCK_SPAWN_T = 1.35;
 const SLOT_MOB_GATHER_T = SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_GATHER_DUR_T + SLOT_MOB_PIECE_FINAL_BUFFER_T;
 const SLOT_MOB_FIRST_BREAK_DELAY_T = 4.18;
 const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_GATHER_T;
@@ -652,6 +653,16 @@ function stepPendingSlotMobs(run, players, dt) {
   const next = [];
   for (const p of run.pendingSlotMobs) {
     if (!p) continue;
+    // Hard gate: after the fourth block has snapped in, keep a separate spawn delay.
+    // This prevents a lag/large-dt frame from emitting the final magnet impact and
+    // creating the enemy in the same simulation tick, which made the mob appear while
+    // the four visual blocks were still assembling on the client.
+    if (p.assembled) {
+      p.spawnGateT = Math.max(0, Number(p.spawnGateT || 0) - dt);
+      if (p.spawnGateT <= 0.0001) createSlotMobEntity(run, players, p);
+      else next.push(p);
+      continue;
+    }
     const total = Math.max(Number(p.total || 0), Number(p.t || 0), 0.01);
     const before = total - Math.max(0, Number(p.t || 0));
     p.t = Math.max(0, Number(p.t || 0) - dt);
@@ -670,12 +681,16 @@ function stepPendingSlotMobs(run, players, dt) {
       if (!(mask & bit) && cross(tm)) {
         mask |= bit;
         run.fx.push({ t: 'slot_mob_piece_impact', id: p.id, x: Math.round(p.x), y: Math.round(p.y), step: i + 1, final: i === 3 ? 1 : 0 });
+        if (i === 3) {
+          p.assembled = 1;
+          p.spawnGateT = SLOT_MOB_POST_BLOCK_SPAWN_T;
+        }
       }
     }
     p.mask = mask;
-    if (p.t <= 0.0001) {
-      createSlotMobEntity(run, players, p);
-    } else next.push(p);
+    // Do not create from p.t. The only valid spawn condition is: fourth block impact
+    // happened in a previous tick, then the post-block gate elapsed.
+    next.push(p);
   }
   run.pendingSlotMobs = next;
 }
@@ -948,7 +963,7 @@ function combatEnemies(run) {
   return (run?.enemies || []).filter(e => isCombatEnemy(run, e));
 }
 function slotMobSequencePending(run) {
-  return (run?.pendingSlotMobs || []).some(p => p && (p.t || 0) > 0);
+  return (run?.pendingSlotMobs || []).some(p => p && ((p.t || 0) > 0 || (p.spawnGateT || 0) > 0 || p.assembled));
 }
 function roomHasLiveEnemies(run) {
   return combatEnemies(run).length > 0 || slotMobSequencePending(run);
@@ -1750,6 +1765,53 @@ function segmentBlockedByWalls(ax, ay, bx, by, walls, pad = 18) {
     }
   }
   return null;
+}
+function enemyHasLineOfSight(run, e, target, pad = 14) {
+  if (!run || !e || !target) return false;
+  const walls = run.plan?.walls || [];
+  const dx = target.x - e.x, dy = target.y - e.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const sx = e.x + (dx / len) * Math.max(8, (e.size || 28) * 0.42);
+  const sy = e.y + (dy / len) * Math.max(8, (e.size || 28) * 0.42);
+  const tx = target.x - (dx / len) * Math.max(10, PLAYER_SIZE * 0.45);
+  const ty = target.y - (dy / len) * Math.max(10, PLAYER_SIZE * 0.45);
+  return !segmentBlockedByWalls(sx, sy, tx, ty, walls, pad);
+}
+function rangedLineMove(run, e, target, toT, dT, spd, dt, opts = {}) {
+  const walls = run.plan?.walls || [];
+  if (enemyHasLineOfSight(run, e, target, opts.pad || 14)) return false;
+  e.losBlockedT = Math.max(e.losBlockedT || 0, 0.35);
+  e.fireCd = Math.max(e.fireCd || 0, opts.fireHold || 0.26);
+  const sideBase = e.losSide || e.steerSide || ((parseInt(e.id || '1', 36) || 1) % 2 ? 1 : -1);
+  const dirs = [];
+  const keep = opts.keep || 340;
+  const forward = dT > keep ? 0.78 : (dT < keep * 0.72 ? -0.45 : 0.22);
+  for (const sgn of [sideBase, -sideBase]) {
+    dirs.push({ x: toT.x * forward + (-toT.y) * 0.92 * sgn, y: toT.y * forward + toT.x * 0.92 * sgn, side: sgn });
+    dirs.push({ x: toT.x * 0.58 + (-toT.y) * 1.22 * sgn, y: toT.y * 0.58 + toT.x * 1.22 * sgn, side: sgn });
+    dirs.push({ x: (-toT.y) * sgn, y: toT.x * sgn, side: sgn });
+  }
+  dirs.push({ x: toT.x, y: toT.y, side: sideBase });
+  let best = null;
+  const look = Math.max(70, (e.size || 28) * 2.4);
+  for (const d of dirs) {
+    const n = norm(d.x, d.y);
+    const ox = e.x, oy = e.y;
+    const c = collideWalls(ox + n.x * look, oy + n.y * look, (e.size || 28) / 2, walls, ox, oy);
+    const moved = Math.hypot(c.x - ox, c.y - oy);
+    const los = enemyHasLineOfSight(run, { ...e, x: c.x, y: c.y }, target, opts.pad || 14) ? 1 : 0;
+    const wall = wallPenalty(c.x + n.x * 24, c.y + n.y * 24, (e.size || 28) / 2, walls);
+    const score = los * 1000 + moved * 2 - wall * 150 - Math.abs(Math.hypot(target.x - c.x, target.y - c.y) - keep) * 0.05;
+    if (!best || score > best.score) best = { ...n, side: d.side, score };
+  }
+  if (best) {
+    e.losSide = best.side;
+    steerMove(run, e, best, spd * (opts.speedMul || 0.92), dt, { target });
+  }
+  return true;
+}
+function enemyCanShoot(run, e, target, pad = 14) {
+  return enemyHasLineOfSight(run, e, target, pad);
 }
 function buildHeraldFloorPath(run, h, target, fixedSeed = 0) {
   const walls = run.plan?.walls || [];
@@ -3738,6 +3800,7 @@ function bossRadial(run, e, count, spd, dmg, size = 8, life = 3.0, spin = 0) {
 function bossAimBurst(run, e, target, count, spread, spd, dmg, size = 7) {
   if (!target || run.bullets.length > MAX_BULLETS - count - 2) return;
   const base = Math.atan2(target.y - e.y, target.x - e.x);
+  if (!enemyHasLineOfSight(run, e, target, 18)) { e.dirX = Math.cos(base); e.dirY = Math.sin(base); return; }
   for (let i = 0; i < count; i++) {
     const t = count <= 1 ? 0 : i / (count - 1) - 0.5;
     const a = base + t * spread;
@@ -5278,13 +5341,14 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
   syncSlotMobState(e);
   if (mode === 'shooter') {
     const keep = 330;
+    const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep, speedMul: 0.98, pad: 15, fireHold: 0.34 });
     let mv = dT > keep + 35 ? 0.72 : dT < keep - 70 ? -0.62 : 0;
     // Shooter mode should hold a firing lane. In tight corners the old keep-distance
     // micro-corrections could flip every frame and look jittery, so brace instead.
     const cornerBrace = wallPenalty(e.x, e.y, e.size / 2 + 14, walls) > 0;
-    if (mv !== 0 && !cornerBrace) steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd * 0.96, dt, { target });
+    if (!losBlocked && mv !== 0 && !cornerBrace) steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd * 0.96, dt, { target });
     e.fireCd -= dt;
-    if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 2) {
+    if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 15) && run.bullets.length < MAX_BULLETS - 2) {
       e.fireCd = enemyFireCooldown(def.fireCd || 1.25, e);
       const base = Math.atan2(toT.y, toT.x);
       const bspd = enemyBulletSpeed(def.bulletSpd || 250, e);
@@ -5316,9 +5380,10 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
       if (e.st >= chg.chargeCd) { e.slotChargeState = 'move'; e.st = 0; }
     }
   } else if (mode === 'pulse') {
-    steerMove(run, e, toT, spd * 0.86, dt, { target });
+    const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep: 300, speedMul: 0.88, pad: 16, fireHold: 0.32 });
+    if (!losBlocked) steerMove(run, e, toT, spd * 0.86, dt, { target });
     e.fireCd -= dt;
-    if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 5) {
+    if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 16) && run.bullets.length < MAX_BULLETS - 5) {
       e.fireCd = enemyFireCooldown(1.35, e);
       const nx = -toT.y, ny = toT.x;
       const wspd = enemyBulletSpeed(360, e);
@@ -5440,13 +5505,14 @@ function stepEnemies(run, players, dt) {
       stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls);
     } else if (e.kind === 'shooter') {
       const inFormation = escortOrbitMove(run, e, dt, spd, target);
+      const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep: def.keep || 330, speedMul: 1.0, pad: 15, fireHold: 0.30 });
       let mv = 0;
-      if (!inFormation) {
+      if (!inFormation && !losBlocked) {
         if (dT > def.keep + 40) mv = 1; else if (dT < def.keep - 60) mv = -1;
         if (mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       }
       e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
+      if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 15) && run.bullets.length < MAX_BULLETS) {
         e.fireCd = enemyFireCooldown(def.fireCd, e);
         const bspd = enemyBulletSpeed(def.bulletSpd, e);
         run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * bspd, vy: toT.y * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.6, size: 7 });
@@ -5505,9 +5571,10 @@ function stepEnemies(run, players, dt) {
       const keep = wid === 'rocketgun' ? 410 : (wid === 'seeker' ? 360 : 300);
       let mv = dT > keep ? 0.92 : dT < keep * 0.70 ? -0.88 : 0.12;
       const side = { x: -toT.y * 0.24, y: toT.x * 0.24 };
-      if (mv !== 0 || Math.abs(side.x) + Math.abs(side.y) > 0) { steerMove(run, e, { x: toT.x * mv + side.x, y: toT.y * mv + side.y }, spd * 0.92, dt, { target }); }
+      const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep, speedMul: 0.94, pad: 15, fireHold: 0.32 });
+      if (!losBlocked && (mv !== 0 || Math.abs(side.x) + Math.abs(side.y) > 0)) { steerMove(run, e, { x: toT.x * mv + side.x, y: toT.y * mv + side.y }, spd * 0.92, dt, { target }); }
       e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
+      if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 15) && run.bullets.length < MAX_BULLETS) {
         e.fireCd = echoMimicCooldown(wid, def, e);
         fireEchoMimicShot(run, players, e, target, toT, def);
       }
@@ -5518,11 +5585,11 @@ function stepEnemies(run, players, dt) {
       const mv = norm(desired.x - e.x, desired.y - e.y);
       steerMove(run, e, mv, spd, dt, { target: desired });
       e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS) {
+      if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 15) && run.bullets.length < MAX_BULLETS) {
         e.fireCd = enemyFireCooldown(def.fireCd, e);
         const bspd = enemyBulletSpeed(def.bulletSpd, e);
         run.bullets.push({ id: nid(), x: e.x, y: e.y, vx: toT.x * bspd, vy: toT.y * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.1, size: 6 });
-      }
+      } else if (e.fireCd <= 0) e.fireCd = Math.max(e.fireCd, 0.20);
       e.dirX = toT.x; e.dirY = toT.y;
       touchDamage(run, e, players, dt);
     } else if (e.kind === 'damper') {
@@ -5565,10 +5632,11 @@ function stepEnemies(run, players, dt) {
       touchDamage(run, e, players, dt);
     } else if (e.kind === 'prism') {
       const inFormation = escortOrbitMove(run, e, dt, spd, target);
+      const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep: 340, speedMul: 0.94, pad: 16, fireHold: 0.34 });
       let mv = dT > 360 ? 1 : dT < 260 ? -1 : 0;
-      if (!inFormation && mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
+      if (!inFormation && !losBlocked && mv !== 0) { steerMove(run, e, { x: toT.x * mv, y: toT.y * mv }, spd, dt, { target }); }
       e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 3) {
+      if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 16) && run.bullets.length < MAX_BULLETS - 3) {
         e.fireCd = enemyFireCooldown(def.fireCd, e);
         const base = Math.atan2(toT.y, toT.x);
         const bspd = enemyBulletSpeed(def.beamSpd, e);
@@ -5578,9 +5646,10 @@ function stepEnemies(run, players, dt) {
       e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'pulse') {
       const inFormation = escortOrbitMove(run, e, dt, spd, target);
-      if (!inFormation) steerMove(run, e, toT, spd, dt, { target });
+      const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep: 290, speedMul: 0.94, pad: 16, fireHold: 0.34 });
+      if (!inFormation && !losBlocked) steerMove(run, e, toT, spd, dt, { target });
       e.fireCd -= dt;
-      if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 5) {
+      if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 16) && run.bullets.length < MAX_BULLETS - 5) {
         e.fireCd = enemyFireCooldown(def.fireCd, e);
         const nx = -toT.y, ny = toT.x;
         const wspd = enemyBulletSpeed(def.waveSpd, e);
