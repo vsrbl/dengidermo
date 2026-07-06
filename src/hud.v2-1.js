@@ -899,23 +899,16 @@ export class Hud {
       const rLabel = String(me[P.RLABEL] || 'R EMPTY');
       const rCd = Number(me[P.RCD] || 0), rT = Number(me[P.RT] || 0);
       const hasR = rLabel && rLabel !== 'R EMPTY';
-      const meta = [];
-      if (rT > 0) meta.push(`${rT}s ACTIVE`);
-      else if (rCd > 0) meta.push(`${rCd}s CD`);
-      else if (hasR) meta.push('READY');
-      if (me[P.MIRRORMAX] > 0) meta.push(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`);
-      if (me[P.REVIVE] > 0) meta.push(`REVIVE x${me[P.REVIVE]}`);
-      if (me[P.BOSSKEY] > 0) meta.push(`KEY x${me[P.BOSSKEY]}`);
-      if (hasR || meta.length) {
+      if (hasR) {
+        const stateTxt = rT > 0 ? `${rT}s` : rCd > 0 ? `${rCd}s CD` : localText('ГОТОВА', 'READY');
         rEl.classList.remove('hidden', 'ready', 'cooldown', 'active', 'empty');
-        rEl.classList.add(rT > 0 ? 'active' : rCd > 0 ? 'cooldown' : hasR ? 'ready' : 'empty');
-        rEl.innerHTML = `<span class="r-key">R</span><span class="r-main"><b>${esc(hasR ? locLabel(rLabel) : localText('ПАССИВКИ БОССА', 'BOSS PASSIVES'))}</b><em>${esc(meta.join(' · ') || '—')}</em></span>`;
-      } else rEl.classList.add('hidden');
-      const body = `${String(me[P.RDESC] || '').trim()}${me[P.MIRRORMAX] > 0 ? `
-MIRROR: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge в этом loop.` : ''}${me[P.REVIVE] > 0 ? `
-NULL REVIVAL: ${me[P.REVIVE]} charge.` : ''}${me[P.BOSSKEY] > 0 ? `
-BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
-      this.setExplain(rEl, hasR ? locLabel(rLabel) : localText('БОНУСЫ БОССА', 'BOSS BONUSES'), body || rEl.textContent || '', hasR ? 'cyan' : 'gold');
+        rEl.classList.add(rT > 0 ? 'active' : rCd > 0 ? 'cooldown' : 'ready');
+        rEl.textContent = `R ${locLabel(rLabel)} · ${stateTxt}`;
+        this.setExplain(rEl, locLabel(rLabel), String(me[P.RDESC] || '').trim() || rEl.textContent || '', 'cyan');
+      } else {
+        rEl.classList.add('hidden');
+        rEl.textContent = 'R —';
+      }
     }
     const wagerCard = $('room-wager-card');
     if (wagerCard) {
@@ -1913,7 +1906,6 @@ BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
       RAR: [localText('РЕДКИЙ ПРИЗ', 'RARE PRIZE'), localText('Выдаёт усиленный редкий результат казино.', 'Grants a stronger rare casino result.'), 'gold'],
       SKN: [localText('СКИН', 'SKIN'), localText('Открывает косметический скин, если есть закрытые скины.', 'Unlocks a cosmetic skin if any are still locked.'), 'gold'],
       LOCK: [localText('ФИКСАЦИЯ', 'LOCK'), localText('Следующая ставка заранее получает фиксированный полезный символ.', 'Next bet starts with a fixed useful symbol.'), 'cyan'],
-      LINK: [localText('СВЯЗЬ КОМБО', 'COMBO LINK'), localText('Следующая комбо-выплата удвоится, если до неё не получить урон.', 'Next combo payout doubles if you avoid taking damage before it.'), 'purple'],
       STC: [localText('СТАТИК-ДОЛГ', 'STATIC DEBT'), localText('Награды нет, следующий маршрут получает статик-шторм.', 'No reward; the next route receives static storm debt.'), 'purple'],
       LOSE: [localText('ПРОИГРЫШ', 'LOSS'), localText('Ставка потеряна. Награда не выдана.', 'Stake is lost. No reward is granted.'), 'red']
     };
@@ -1935,7 +1927,6 @@ BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
       JCK: [localText('JCK', 'JCK'), localText('Джекпот.', 'Jackpot.'), 'gold'],
       STC: [localText('STC', 'STC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
       LOCK: [localText('LOCK', 'LOCK'), localText('Следующая ставка получает фиксированную ячейку.', 'Next bet gets a fixed cell.'), 'cyan'],
-      LINK: [localText('LINK', 'LINK'), localText('Комбо-выплата x2 без урона.', 'Combo payout x2 if you avoid damage.'), 'purple'],
       NEXT: [localText('NEXT', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
       COMBO: [localText('COMBO', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
     };
@@ -2051,7 +2042,7 @@ BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
-    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'LINK', 'RAR'];
+    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'RAR'];
     document.querySelectorAll('.reel').forEach((r, i) => {
       if (r._iv) clearInterval(r._iv);
       r.className = 'reel spin';
@@ -2124,7 +2115,7 @@ BOSS KEY: ${me[P.BOSSKEY]} ключ.` : ''}`.trim();
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', LINK: 'LINK', RAR: 'RAR' };
+      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', RAR: 'RAR' };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }

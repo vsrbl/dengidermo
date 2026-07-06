@@ -7342,6 +7342,8 @@ AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2173(elId 
     width: '260', height: '146',
     playerVars: {
       playsinline: 1,
+      enablejsapi: 1,
+      origin: location.origin,
       controls: 1,
       rel: 0,
       modestbranding: 1,
@@ -7357,8 +7359,13 @@ AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2173(elId 
       },
       onStateChange: e => {
         const Y = window.YT || {};
+        this.ytMusic.lastState = e.data;
         this.ytMusic.playing = e.data === Y.PlayerState?.PLAYING;
         this.ytMusic.active = this.ytMusic.playing || this.ytMusic.active;
+      },
+      onError: e => {
+        this.ytMusic.error = e?.data || 'YT_ERROR';
+        this.ytMusic.playing = false;
       }
     }
   });
@@ -7405,4 +7412,46 @@ AudioBus.prototype.setMusicVolume = function setMusicVolumeV2173Youtube(value) {
   const v = setMusicVolumeBeforeV2173Youtube.call(this, value);
   try { this.ytMusic?.player?.setVolume?.(Math.min(100, Math.round((this.musicVolume || 0) * 200))); } catch {}
   return v;
+};
+
+// v2.1.77 — NULL REVIVAL event sound
+const handleFxBeforeV2177NullRevivalSound = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2177NullRevivalSound(f, info = {}) {
+  const out = handleFxBeforeV2177NullRevivalSound.call(this, f, info);
+  if (f?.t === 'null_revival_screen' && f?.id === info?.myId) {
+    try { this.play('levelup'); } catch {}
+    try { this.play('portal'); } catch {}
+    this.musicResolve = Math.max(this.musicResolve || 0, 1.0);
+    this.musicPortal = Math.max(this.musicPortal || 0, 0.65);
+  }
+  return out;
+};
+
+
+// v2.1.78 — reliable playlist PLAY: start playlist directly from a user click.
+AudioBus.prototype.playYouTube = async function playYouTubeV2178() {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  await this.initYouTubeMusic();
+  const id = this.parseYouTubePlaylistId(this.ytMusic.playlist || localStorage.getItem('tc_youtube_playlist') || '');
+  try {
+    if (this.ytMusic.player?.setVolume) this.ytMusic.player.setVolume(Math.min(100, Math.round((this.musicVolume || 0.7) * 200)));
+    if (id && this.ytMusic.player?.loadPlaylist) this.ytMusic.player.loadPlaylist({ listType: 'playlist', list: id, index: 0, startSeconds: 0 });
+    else if (this.ytMusic.player?.playVideo) this.ytMusic.player.playVideo();
+    setTimeout(() => { try { this.ytMusic?.player?.playVideo?.(); } catch {} }, 180);
+    this.ytMusic.active = true;
+    return true;
+  } catch { return false; }
+};
+
+const handleFxBeforeV2178RewindSound = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2178RewindSound(f, info = {}) {
+  const out = handleFxBeforeV2178RewindSound.call(this, f, info);
+  if (f?.id === info?.myId && f?.t === 'rewind_mark') {
+    try { this.play('active_snap'); } catch {}
+    try { this.play('portal'); } catch {}
+  } else if (f?.id === info?.myId && f?.t === 'rewind_return') {
+    try { this.play('dash_superrare'); } catch {}
+    try { this.play('blast'); } catch {}
+  }
+  return out;
 };

@@ -2011,8 +2011,8 @@ function awardComboPayout(run, players, c = {}, reason = 'break') {
   const type = comboRewardType(run, players, c);
   const raw = kills * mult;
   let amount = type === 'hp' ? Math.max(0, Math.round(raw * 0.1)) : Math.max(1, Math.round(raw * loopEconomyMul(run)));
-  const link = owner.casinoComboLink ? 1 : 0;
-  if (link) { amount *= 2; owner.casinoComboLink = 0; }
+  const link = 0;
+  owner.casinoComboLink = 0;
   if (amount <= 0) return null;
   if (type === 'gld') owner.economy.money += amount;
   else if (type === 'exp') addXp(run, owner, amount);
@@ -2090,7 +2090,7 @@ function damageCombo(run, p, dmg = 0) {
   c.drop = 0.45;
   c.flash = 0.10;
   if (c.score <= 0) { c.count = 0; c.lastMethod = ''; c.recent = []; c.lastLabel = ''; }
-  if (p.casinoComboLink) { p.casinoComboLink = 0; run.fx.push({ t: 'combo_link_break', id: p.id, dmg: Math.round(dmg || 0) }); }
+  p.casinoComboLink = 0;
   run.fx.push({ t: 'combo_drop', mult: c.mult, id: p.id, dmg: Math.round(dmg || 0) });
 }
 function stepOneCombo(run, players, c, dt) {
@@ -3806,12 +3806,14 @@ function doRActive(run, players, p) {
       const hit = scatterAndStunEnemies(run, p.x, p.y, radius, stun, 720);
       for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < (radius + 40) ** 2) b.life = -1;
       p.rewindT = 0; p.rewindMark = null; p.rActiveCd = 20; p.invuln = Math.max(p.invuln || 0, 0.5);
+      run.fx.push({ t: 'rewind_return', id: p.id, x: Math.round(p.x), y: Math.round(p.y), r: Math.round(radius), hit });
       run.fx.push({ t: 'active_mutation', label: `REWIND STUN x${hit}`, x: Math.round(p.x), y: Math.round(p.y), r: Math.round(radius), tone: 'purple', playerId: p.id });
       return true;
     }
     if ((p.rActiveCd || 0) > 0) return false;
     p.rewindT = rewindWindow(p);
     p.rewindMark = { x: p.x, y: p.y };
+    run.fx.push({ t: 'rewind_mark', id: p.id, x: Math.round(p.x), y: Math.round(p.y), r: 110 });
     run.fx.push({ t: 'active_mutation', label: 'REWIND MARK', x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
     return true;
   }
@@ -4040,12 +4042,18 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
   if (p.hp <= 0) {
     if ((p.stats?.nullRevives || 0) > 0) {
       p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1);
+      const cx = Number(run?.plan?.w) ? run.plan.w / 2 : p.x;
+      const cy = Number(run?.plan?.h) ? run.plan.h / 2 : p.y;
+      const safe = collideWalls(cx, cy, PLAYER_SIZE / 2, run?.plan?.walls || [], p.x, p.y);
+      p.x = Math.round(safe.x);
+      p.y = Math.round(safe.y);
       p.hp = Math.max(1, Math.round(maxHp(p) * 0.45));
       p.alive = true;
-      p.invuln = Math.max(p.invuln, 2.0);
-      for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < 420 ** 2) b.life = -1;
-      scatterAndStunEnemies(run, p.x, p.y, 360, 1.2, 620);
-      run.fx.push({ t: 'active_mutation', label: 'NULL REVIVAL', x: Math.round(p.x), y: Math.round(p.y), r: 420, tone: 'purple', playerId: p.id });
+      p.invuln = Math.max(p.invuln, 2.4);
+      for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < 520 ** 2) b.life = -1;
+      scatterAndStunEnemies(run, p.x, p.y, 430, 1.45, 720);
+      run.fx.push({ t: 'null_revival_screen', id: p.id, x: Math.round(p.x), y: Math.round(p.y), label: 'NULL REVIVAL' });
+      run.fx.push({ t: 'active_mutation', label: 'NULL REVIVAL', x: Math.round(p.x), y: Math.round(p.y), r: 520, tone: 'purple', playerId: p.id, noFloat: 1 });
       return;
     }
     const favor = consumeContractFavor(run, ['portal_insurance']);
@@ -6274,7 +6282,9 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     pl.lockLabel = `LOCK: ${lockSym}${pl.lockCount > 1 ? ' x' + pl.lockCount : ''}`;
     res.symbols = ['LOCK', lockSym, added > 1 ? 'x2' : 'NEXT'];
   }
-  if (pl.comboLink) { p.casinoComboLink = 1; pl.comboLabel = 'NEXT COMBO PAYOUT x2 IF NOT HIT'; }
+  // v2.1.77: casino LINK / COMBO PAY removed. Ignore old payloads/saves.
+  p.casinoComboLink = 0;
+  if (pl.comboLink) delete pl.comboLink;
   if (pl.rare) { pl.rareLabel = grantRareCasinoPrize(run, p, 'CASINO RAR'); }
   if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
   if (pl.ability) {
@@ -7453,7 +7463,8 @@ export function buildSnapshot(run, players) {
       Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
-      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), Math.max(0, p.stats?.bossKeys || 0), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null
+      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), Math.max(0, p.stats?.bossKeys || 0), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive } : null,
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null
     ]);
   }
   const es = combatEnemies(run).map(e => [

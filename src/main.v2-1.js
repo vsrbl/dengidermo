@@ -308,10 +308,22 @@ function bindYouTubeMusicUi() {
     uiClick('ui_click');
     const savedNow = input?.value || localStorage.getItem('tc_youtube_playlist') || '';
     if (!savedNow.trim()) { setYtStatus('PASTE PLAYLIST FIRST'); return; }
-    if (savedNow && savedNow !== localStorage.getItem('tc_youtube_playlist')) await audio.loadYouTubePlaylist?.(savedNow);
-    const playing = await audio.toggleYouTube?.();
+    if (audio.isYouTubeActive?.()) {
+      audio.pauseYouTube?.();
+      setToggle('PLAY');
+      setYtStatus('PAUSED · INTERNAL AMBIENT');
+      return;
+    }
+    const parsed = audio.parseYouTubePlaylistId?.(savedNow) || savedNow.trim();
+    if (parsed !== localStorage.getItem('tc_youtube_playlist')) await audio.loadYouTubePlaylist?.(savedNow);
+    const playing = await audio.playYouTube?.();
     setToggle(playing ? 'PAUSE' : 'PLAY');
-    setYtStatus(playing ? 'PLAYING · INTERNAL AMBIENT MUTED' : 'PAUSED · INTERNAL AMBIENT');
+    setYtStatus(playing ? 'STARTING YOUTUBE...' : 'PLAYER BLOCKED');
+    if (playing) setTimeout(() => {
+      if (audio.isYouTubeActive?.()) { setToggle('PAUSE'); setYtStatus('PLAYING · INTERNAL AMBIENT MUTED'); }
+      else if (audio.ytMusic?.error) { setToggle('PLAY'); setYtStatus(`YT ERR ${audio.ytMusic.error}`); }
+      else { setToggle('PLAY'); setYtStatus('CLICK PLAY ON VIDEO'); }
+    }, 950);
   });
   if (input) input.addEventListener('change', () => { if (input.value.trim()) localStorage.setItem('tc_youtube_playlist', input.value.trim()); });
   if (saved) init();

@@ -669,6 +669,34 @@ export class Renderer {
     // player-to-cursor tether: skin-aware so higher-rarity skins read differently in motion without changing gameplay.
     const meRow = view.players.find(p => p[P.ID] === state.myId);
     const myMeta = meRow ? skinMeta(meRow[P.SKINID], meRow[P.SKINFILL], meRow[P.SKINOUTLINE]) : skinMeta('terminal_mint', '#f3f3f3', COL.green);
+    // REWIND MARK tether: visible return line from player to saved anchor point.
+    if (myPos && meRow && String(meRow[P.RLABEL] || '').includes('REWIND') && (meRow[P.RT] || 0) > 0 && Number.isFinite(Number(meRow[P.RMARKX])) && Number.isFinite(Number(meRow[P.RMARKY]))) {
+      const rx = Number(meRow[P.RMARKX]), ry = Number(meRow[P.RMARKY]);
+      const dx = rx - myPos.x, dy = ry - myPos.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const ux = dx / d, uy = dy / d;
+      const pulse = 0.5 + Math.sin(now * 10) * 0.25;
+      ctx.save();
+      ctx.globalAlpha = 0.34 + pulse * 0.22;
+      ctx.strokeStyle = COL.purple;
+      ctx.lineWidth = 2.1;
+      ctx.setLineDash([12, 5, 2, 5]);
+      ctx.beginPath();
+      ctx.moveTo(myPos.x + ux * 26, myPos.y + uy * 26);
+      ctx.lineTo(rx - ux * 18, ry - uy * 18);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.72;
+      ctx.strokeStyle = COL.purple;
+      ctx.lineWidth = 2;
+      const s = 38 + pulse * 5;
+      ctx.strokeRect(rx - s / 2, ry - s / 2, s, s);
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = COL.purple;
+      ctx.fillRect(rx - 12, ry - 12, 24, 24);
+      ctx.restore();
+      this.label('RETURN', rx, ry - 31, COL.purple, 8);
+    }
     if (myPos && mouse) {
       const lockedAim = meRow && String(meRow[P.RLABEL] || '').includes('TARGET LOCK') && (meRow[P.RT] || 0) > 0;
       const mw = lockedAim ? { x: meRow[P.AX], y: meRow[P.AY] } : this.screenToWorld(mouse.x, mouse.y);

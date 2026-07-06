@@ -29,6 +29,8 @@ export class Effects {
     this.levelPulse = 0;
     this.levelLabel = '';
     this.killSwitchFlash = 0;
+    this.nullRevivalFlash = 0;
+    this.rewindPulse = 0;
   }
 
   add(e) { this.list.push({ ...e, t: 0 }); if (this.list.length > 200) this.list.shift(); }
@@ -51,6 +53,8 @@ export class Effects {
     this.levelPulse = Math.max(0, this.levelPulse - 1.35 * dt);
     this.levelEdge = Math.max(0, this.levelEdge - 1.45 * dt);
     this.killSwitchFlash = Math.max(0, this.killSwitchFlash - 1.85 * dt);
+    this.nullRevivalFlash = Math.max(0, this.nullRevivalFlash - 1.25 * dt);
+    this.rewindPulse = Math.max(0, (this.rewindPulse || 0) - 1.65 * dt);
     if (this.sweep > 0) { this.sweep += dt * 1.6; if (this.sweep >= 1) this.sweep = 0; }
   }
 
@@ -334,9 +338,24 @@ export class Effects {
         if (f.label && !f.noFloat) this.float(f.x, f.y - 42, f.label, col, 10);
         break;
       }
+      case 'rewind_mark':
+        if (mine) { this.rewindPulse = 0.70; this.kick(4); }
+        this.add({ kind: 'squareField', activeKind: 'rewind_mark', x: f.x, y: f.y, r: f.r || 110, ttl: 0.62, color: '#b45cff' });
+        this.float(f.x, f.y - 46, 'REWIND MARK', '#b45cff', 11);
+        break;
+      case 'rewind_return':
+        if (mine) { this.rewindPulse = 1; this.slam = Math.max(this.slam, 0.16); this.kick(10); }
+        this.add({ kind: 'squareField', activeKind: 'rewind_return', x: f.x, y: f.y, r: f.r || 260, ttl: 0.50, color: '#b45cff' });
+        this.float(f.x, f.y - 62, `REWIND STUN x${f.hit || 0}`, '#b45cff', 15);
+        break;
       case 'kill_switch_screen':
         if (mine) { this.killSwitchFlash = 1; this.slam = Math.max(this.slam, 0.35); this.kick(14); }
         this.add({ kind: 'squareField', activeKind: 'kill_switch_screen', x: f.x, y: f.y, r: 640, ttl: 0.55, color: '#ff3048' });
+        break;
+      case 'null_revival_screen':
+        if (mine) { this.nullRevivalFlash = 1; this.slam = Math.max(this.slam, 0.26); this.kick(11); }
+        this.add({ kind: 'squareField', activeKind: 'null_revival_screen', x: f.x, y: f.y, r: 560, ttl: 0.70, color: '#b45cff' });
+        this.float(f.x, f.y - 68, f.label || 'NULL REVIVAL', '#b45cff', 16);
         break;
       case 'enemy_combo':
         // Hidden: synergy labels around mobs were too noisy for normal play.
@@ -1125,6 +1144,24 @@ export class Effects {
       ctx.fillText(localText('УЛУЧШЕНИЕ ГОТОВО', 'INSTALL READY'), cx, cy + 12);
       ctx.restore();
     }
+    if ((this.rewindPulse || 0) > 0) {
+      const p = this.rewindPulse;
+      ctx.save();
+      ctx.fillStyle = `rgba(180,92,255,${0.08 * p})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 0.55 * p;
+      ctx.strokeStyle = '#b45cff';
+      ctx.lineWidth = 1.5;
+      const cx = w / 2, cy = h * 0.42;
+      const step = 34;
+      for (let i = -5; i <= 5; i++) ctx.strokeRect(Math.round(cx + i * step - 8), Math.round(cy - 38 - p * 10), 16, 76);
+      ctx.font = `bold ${Math.round(12 + 5 * p)}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(243,243,243,${0.74 * p})`;
+      ctx.fillText('REWIND', cx, cy - 56);
+      ctx.restore();
+    }
     if (this.killSwitchFlash > 0) {
       const p = this.killSwitchFlash;
       ctx.save();
@@ -1142,6 +1179,29 @@ export class Effects {
       ctx.fillText('KILL SWITCH', w / 2, h * 0.38);
       ctx.font = `bold 11px 'Courier New', monospace`;
       ctx.fillText('FIELD CLEARED', w / 2, h * 0.38 + 26);
+      ctx.restore();
+    }
+    if (this.nullRevivalFlash > 0) {
+      const p = this.nullRevivalFlash;
+      ctx.save();
+      ctx.fillStyle = `rgba(180,92,255,${0.20 * p})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 0.85 * p;
+      ctx.strokeStyle = '#b45cff';
+      ctx.lineWidth = 2;
+      const cx = w / 2, cy = h * 0.40;
+      const r = 78 + (1 - p) * 90;
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2 + (1 - p) * 0.45;
+        ctx.strokeRect(Math.round(cx + Math.cos(a) * r - 20), Math.round(cy + Math.sin(a) * r - 20), 40, 40);
+      }
+      ctx.font = `bold ${Math.round(19 + 9 * p)}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(243,243,243,${0.96 * p})`;
+      ctx.fillText('NULL REVIVAL', cx, cy - 4);
+      ctx.font = `bold 11px 'Courier New', monospace`;
+      ctx.fillText(localText('СМЕРТЬ ОТМЕНЕНА · ВОЗВРАТ В ЦЕНТР', 'DEATH DENIED · CENTER REBOOT'), cx, cy + 25);
       ctx.restore();
     }
     if (this.slam > 0) {

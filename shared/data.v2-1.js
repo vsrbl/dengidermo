@@ -371,7 +371,6 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
       ['ABL', stakeKey === 'low' ? 0.006 : (0.024 + (high ? 0.014 : 0) + l * 0.30)],
       ['SKN', skinOdds],
       ['LOCK', 0.030 + (mid ? 0.010 : high ? 0.016 : 0) + l * 0.15],
-      ['LINK', 0.036 + (mid ? 0.016 : high ? 0.022 : 0) + l * 0.16],
       ['HEA', 0.045 + l * 0.26],
       ['EXP', 0.060 + l * 0.30],
       ['GLD', 0.070 + l * 0.30],
@@ -380,12 +379,11 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     let acc = 0;
     for (const [id, chance] of odds) { acc += chance; if (r < acc) { outcome = id; break; } }
   }
-  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP','LOCK','LINK','RAR'][Math.floor(rng()*12)];
+  const sym = () => ['GLD','HEA','EXP','WPN','ABL','STC','GLD','HEA','EXP','LOCK','RAR','GLD'][Math.floor(rng()*12)];
   let symbols;
   if (outcome === 'LOSE') { symbols = [sym(), sym(), sym()]; if (symbols[0]===symbols[1]&&symbols[1]===symbols[2]) symbols[2]='STC'; }
   else if (outcome === 'JCK') symbols = ['JCK','JCK','JCK'];
   else if (outcome === 'LOCK') symbols = ['LOCK','CELL','NEXT'];
-  else if (outcome === 'LINK') symbols = ['LINK','COMBO','PAY'];
   else symbols = [outcome, outcome, outcome];
   const payload = {};
   switch (outcome) {
@@ -396,7 +394,6 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     case 'ABL': payload.ability = true; break;
     case 'RAR': payload.rare = true; break;
     case 'LOCK': payload.lock = true; break;
-    case 'LINK': payload.comboLink = true; break;
     case 'SKN': { const skin = rollCasinoSkin(rng, stakeKey, luck, unlockedSkins); payload.skin = true; payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity; break; }
     case 'STC': payload.static = true; break;
     case 'JCK': payload.gld = Math.round(stake * 5.8); payload.xp = Math.round(stake * 1.65); break;

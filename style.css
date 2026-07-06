@@ -3969,3 +3969,33 @@ button:hover,
   #room-wager-card { left: auto !important; right: 18px !important; top: auto !important; bottom: 120px !important; transform: none !important; width: min(300px, 88vw) !important; }
   .casino-lock-badge { position: static !important; width: auto !important; min-height: 0 !important; margin: 0 auto 10px !important; }
 }
+
+
+/* v2.1.77 — casino LINK removed / NULL REVIVAL clarity */
+
+
+/* v2.1.78 — R active HUD matches simple Q/LVL status line */
+#hud-r-active {
+  display: inline !important;
+  margin-right: 18px !important;
+  margin-left: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--cyan) !important;
+  font-size: 17.5px !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  white-space: nowrap !important;
+  max-width: none !important;
+  vertical-align: baseline !important;
+}
+#hud-r-active.hidden { display: none !important; }
+#hud-r-active.ready { color: var(--cyan) !important; }
+#hud-r-active.cooldown { color: var(--gold) !important; }
+#hud-r-active.active { color: var(--red) !important; text-shadow: 0 0 10px rgba(255,48,72,.20) !important; }
+#hud-r-active .r-key,
+#hud-r-active .r-main,
+#hud-r-active .r-main b,
+#hud-r-active .r-main em { display: contents !important; }
