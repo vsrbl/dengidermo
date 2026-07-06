@@ -573,8 +573,8 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
 const SLOT_MOB_MODES = ['shooter', 'charger', 'runner', 'pulse'];
 const SLOT_MOB_ROLL_T = 6.0;
 const SLOT_MOB_ASSEMBLE_T = 0.80;
-const SLOT_MOB_PIECES_HOLD_T = 5.0;
-const SLOT_MOB_GATHER_T = 2.55;
+const SLOT_MOB_PIECES_HOLD_T = 3.0;
+const SLOT_MOB_GATHER_T = 2.35;
 const SLOT_MOB_FIRST_BREAK_DELAY_T = 4.18;
 const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_GATHER_T;
 const SLOT_MOB_DEATH_PIECES_T = 0.95 + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_GATHER_T;
@@ -613,8 +613,8 @@ function spawnCasinoOverloadSlotMob(run, players, near, p) {
   e.slotRollSfxT = 0;
   e.rebuildT = SLOT_MOB_REBUILD_T;
   e.shellHp = e.shellMax = Math.max(e.shellMax || 0, Math.round((e.maxHp || ENEMIES.slot_mob.hp || 2300) * 0.22));
-  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_PIECES_HOLD_T });
-  run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1, assemble: 1, delay: SLOT_MOB_FIRST_BREAK_T });
+  run.fx.push({ t: 'casino_overload', id: p?.id || '', x: Math.round(Number(near?.x) || pos.x), y: Math.round(Number(near?.y) || pos.y), sx: Math.round(pos.x), sy: Math.round(pos.y), label: 'SLOT OVERLOAD', breakDelay: SLOT_MOB_FIRST_BREAK_DELAY_T, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_PIECES_HOLD_T, mobSize: ENEMIES.slot_mob.size });
+  run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, spawn: 1, assemble: 1, delay: SLOT_MOB_FIRST_BREAK_T, mobSize: ENEMIES.slot_mob.size, visualOnly: 1 });
   return e;
 }
 function casinoStakeTable(run) {
@@ -4537,7 +4537,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.22));
     e.armorLinkId = '';
     syncSlotMobState(e);
-    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: 0.95 + SLOT_MOB_PIECES_HOLD_T });
+    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x: Math.round(e.x), y: Math.round(e.y), lives: e.slotLives, left: e.slotLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherDelay: 0.95 + SLOT_MOB_PIECES_HOLD_T, mobSize: ENEMIES.slot_mob.size });
     registerComboEvent(run, killer, source, e, 1);
     return;
   }
@@ -5237,13 +5237,13 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
     const cst = String(e.slotChargeState || 'move').replace(/^slot_/, '');
     e.slotChargeState = ['move', 'windup', 'charge', 'cool'].includes(cst) ? cst : 'move';
     if (e.slotChargeState === 'move') {
-      if (dT < 300) { e.slotChargeState = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
+      if (dT < 300) { e.slotChargeState = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; e.chargeAimX = toT.x; e.chargeAimY = toT.y; }
       else { steerMove(run, e, toT, spd, dt, { target }); }
     } else if (e.slotChargeState === 'windup') {
-      e.dirX = toT.x; e.dirY = toT.y;
+      e.dirX = e.chargeAimX || e.dirX || toT.x; e.dirY = e.chargeAimY || e.dirY || toT.y;
       if (e.st >= chg.windup) { e.slotChargeState = 'charge'; e.st = 0; run.fx.push({ t: 'dash', id: e.id, x: Math.round(e.x), y: Math.round(e.y), enemy: 1 }); }
     } else if (e.slotChargeState === 'charge') {
-      const c = collideWalls(e.x + (e.dirX || toT.x) * chg.chargeSpd * dt, e.y + (e.dirY || toT.y) * chg.chargeSpd * dt, e.size / 2, walls, e.x, e.y);
+      const c = collideWalls(e.x + (e.chargeAimX || e.dirX || toT.x) * chg.chargeSpd * dt, e.y + (e.chargeAimY || e.dirY || toT.y) * chg.chargeSpd * dt, e.size / 2, walls, e.x, e.y);
       const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
       for (const p of players.values()) if (p.alive) {
         const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: 16, fx: true });
@@ -5268,7 +5268,12 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
     steerMove(run, e, toT, spd * 1.10, dt, { target });
     touchDamage(run, e, players, dt);
   }
-  e.dirX = toT.x; e.dirY = toT.y;
+  if (mode === 'charger' && ['windup', 'charge'].includes(String(e.slotChargeState || ''))) {
+    e.dirX = e.chargeAimX || e.dirX || toT.x;
+    e.dirY = e.chargeAimY || e.dirY || toT.y;
+  } else {
+    e.dirX = toT.x; e.dirY = toT.y;
+  }
   syncSlotMobState(e);
 }
 function stepEnemies(run, players, dt) {
@@ -5297,7 +5302,7 @@ function stepEnemies(run, players, dt) {
       if ((e.rebuildT || 0) > 0 && (e.rebuildT || 0) <= SLOT_MOB_ROLL_T) {
         e.slotRollSfxT = Math.max(0, Number(e.slotRollSfxT || 0) - dt);
         if (e.slotRollSfxT <= 0) {
-          e.slotRollSfxT = 0.42;
+          e.slotRollSfxT = 0.18;
           run.fx.push({ t: 'slot_mob_roll_tick', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
         }
       }
@@ -5363,13 +5368,13 @@ function stepEnemies(run, players, dt) {
       e.dirX = toT.x; e.dirY = toT.y;
     } else if (e.kind === 'charger') {
       if (e.state === 'move') {
-        if (dT < 300) { e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; }
+        if (dT < 300) { e.state = 'windup'; e.st = 0; e.dirX = toT.x; e.dirY = toT.y; e.chargeAimX = toT.x; e.chargeAimY = toT.y; }
         else { steerMove(run, e, toT, spd, dt, { target }); }
       } else if (e.state === 'windup') {
-        e.dirX = toT.x; e.dirY = toT.y;
+        e.dirX = e.chargeAimX || e.dirX || toT.x; e.dirY = e.chargeAimY || e.dirY || toT.y;
         if (e.st >= def.windup) { e.state = 'charge'; e.st = 0; }
       } else if (e.state === 'charge') {
-        const c = collideWalls(e.x + e.dirX * def.chargeSpd * dt, e.y + e.dirY * def.chargeSpd * dt, half, walls, e.x, e.y);
+        const c = collideWalls(e.x + (e.chargeAimX || e.dirX) * def.chargeSpd * dt, e.y + (e.chargeAimY || e.dirY) * def.chargeSpd * dt, half, walls, e.x, e.y);
         const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
         for (const p of players.values()) if (p.alive) {
           const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: 16, fx: true });

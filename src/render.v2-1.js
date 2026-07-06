@@ -433,7 +433,17 @@ export class Renderer {
           ctx.strokeStyle = COL.red; ctx.lineWidth = kind === 'charger' ? 2 : 2.8; ctx.setLineDash([8, 6]);
           ctx.beginPath(); ctx.moveTo(ex, ey);
           const len = kind === 'charger' ? 320 : 460;
-          ctx.lineTo(ex + (dirX / 100) * len, ey + (dirY / 100) * len); ctx.stroke();
+          const dx = (dirX / 100) || 1, dy = (dirY / 100) || 0;
+          const tx = ex + dx * len, ty = ey + dy * len;
+          ctx.lineTo(tx, ty); ctx.stroke();
+          if (kind === 'charger') {
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 0.92;
+            ctx.fillStyle = COL.red;
+            ctx.fillRect(Math.round(tx - 4), Math.round(ty - 4), 8, 8);
+            ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
+            ctx.strokeRect(Math.round(tx - 5), Math.round(ty - 5), 10, 10);
+          }
           ctx.restore();
         }
         this.square(ex, ey, size * (winding ? 0.85 : 1), {
@@ -551,7 +561,14 @@ export class Renderer {
           ctx.save();
           ctx.globalAlpha = 0.5 + Math.sin(now * 20) * 0.4;
           ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
-          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + dx * 320, ey + dy * 320); ctx.stroke();
+          const tx = ex + dx * 320, ty = ey + dy * 320;
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(tx, ty); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.92;
+          ctx.fillStyle = COL.red;
+          ctx.fillRect(Math.round(tx - 4), Math.round(ty - 4), 8, 8);
+          ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
+          ctx.strokeRect(Math.round(tx - 5), Math.round(ty - 5), 10, 10);
           ctx.restore();
         }
         if (isRebuild) ctx.globalAlpha = 0.62 + pulse * 0.25;
