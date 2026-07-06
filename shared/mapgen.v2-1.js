@@ -109,111 +109,125 @@ function finishArchetypeWalls(walls, archetype) {
 }
 
 function addRippedTableWalls(walls, rng) {
-  const gapY = WORLD_H / 2;
-  const wallW = 92;
-  const gapH = 520 + rng() * 70;
-  pushWall(walls, WORLD_W / 2 - wallW / 2, SAFE + 30, wallW, gapY - gapH / 2 - SAFE - 30);
-  pushWall(walls, WORLD_W / 2 - wallW / 2, gapY + gapH / 2, wallW, WORLD_H - SAFE - 30 - (gapY + gapH / 2));
-  // Small bridge teeth so the connector reads like a torn table edge, not a clean doorway.
-  pushWall(walls, WORLD_W / 2 - 260, gapY - gapH / 2 - 72, 180, 42);
-  pushWall(walls, WORLD_W / 2 + 80, gapY + gapH / 2 + 28, 180, 42);
-  for (const side of [-1, 1]) {
-    const cx = WORLD_W / 2 + side * (430 + rng() * 260);
-    for (let i = 0; i < 3; i++) {
-      const w = 64 + rng() * 110, h = 42 + rng() * 86;
-      addRandomBlock(rng, walls, cx + (rng() - 0.5) * 320 - w / 2, SAFE + 130 + rng() * (WORLD_H - SAFE * 2 - 260) - h / 2, w, h);
-    }
-  }
+  const cx = WORLD_W / 2, cy = WORLD_H / 2;
+  const thick = 138;
+  // Two heavy broken casino-table slabs. They carve two real sectors and a crooked anti-dash middle cut.
+  pushWall(walls, SAFE + 120, SAFE + 110, 650, thick);
+  pushWall(walls, SAFE + 120, SAFE + 110 + thick, 180, 350);
+  pushWall(walls, SAFE + 120, WORLD_H - SAFE - 250, 710, thick);
+  pushWall(walls, WORLD_W - SAFE - 770, SAFE + 110, 650, thick);
+  pushWall(walls, WORLD_W - SAFE - 300, SAFE + 110 + thick, 180, 350);
+  pushWall(walls, WORLD_W - SAFE - 830, WORLD_H - SAFE - 250, 710, thick);
+  // Split center gate: thick enough that a dash cannot hop the divider; gaps are deliberate doors.
+  pushWall(walls, cx - thick / 2, SAFE + 70, thick, 330 + rng() * 40);
+  pushWall(walls, cx - thick / 2, cy + 225 + rng() * 20, thick, WORLD_H - SAFE - (cy + 225) - 70);
+  // Heavy torn teeth near the openings, not decorative toothpicks.
+  pushWall(walls, cx - 390, cy - 260, 250, 112);
+  pushWall(walls, cx + 140, cy + 150, 270, 112);
+  if (rng() < 0.55) pushWall(walls, cx - 560, cy + 95, 190, 118);
+  else pushWall(walls, cx + 370, cy - 210, 190, 118);
 }
 
 function addCrossTerminalWalls(walls, rng) {
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  const qW = 455, qH = 305;
-  // Four quadrant blocks leave a real cross-shaped terminal path.
-  for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-    pushWall(walls, cx + sx * 210 + (sx > 0 ? 0 : -qW), cy + sy * 155 + (sy > 0 ? 0 : -qH), qW, qH);
-  }
-  const teeth = 2 + Math.floor(rng() * 3);
-  for (let i = 0; i < teeth; i++) {
-    const vertical = rng() < 0.5;
-    const w = vertical ? 46 + rng() * 34 : 130 + rng() * 105;
-    const h = vertical ? 130 + rng() * 105 : 46 + rng() * 34;
-    const laneSide = rng() < 0.5 ? -1 : 1;
-    const x = vertical ? cx + laneSide * (90 + rng() * 140) - w / 2 : SAFE + rng() * (WORLD_W - SAFE * 2 - w);
-    const y = vertical ? SAFE + rng() * (WORLD_H - SAFE * 2 - h) : cy + laneSide * (80 + rng() * 130) - h / 2;
-    addRandomBlock(rng, walls, x, y, w, h);
-  }
+  const gapW = 355, gapH = 315;
+  const slabW = 610, slabH = 390;
+  // Four massive terminal blocks define a real cross-shaped room. Center spawn stays clear.
+  pushWall(walls, SAFE + 105, SAFE + 105, slabW, slabH);
+  pushWall(walls, WORLD_W - SAFE - 105 - slabW, SAFE + 105, slabW, slabH);
+  pushWall(walls, SAFE + 105, WORLD_H - SAFE - 105 - slabH, slabW, slabH);
+  pushWall(walls, WORLD_W - SAFE - 105 - slabW, WORLD_H - SAFE - 105 - slabH, slabW, slabH);
+  // Thick terminal jaws along the cross corridors create committed turns and cover, not open fields.
+  pushWall(walls, cx - 430, cy - gapH / 2 - 112, 285, 112);
+  pushWall(walls, cx + 145, cy + gapH / 2, 285, 112);
+  pushWall(walls, cx - gapW / 2 - 120, cy + 145, 120, 280);
+  pushWall(walls, cx + gapW / 2, cy - 425, 120, 280);
+  if (rng() < 0.5) pushWall(walls, cx - 105, SAFE + 98, 210, 112);
+  else pushWall(walls, cx - 105, WORLD_H - SAFE - 190, 210, 112);
 }
 
 function addRingTrackWalls(walls, rng) {
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  // Four inner chunks imply a blocked core/track without covering the player spawn in the center.
-  const iw = 250 + rng() * 60, ih = 150 + rng() * 45;
-  pushWall(walls, cx - 430, cy - 300, iw, ih);
-  pushWall(walls, cx + 180, cy - 300, iw, ih);
-  pushWall(walls, cx - 430, cy + 155, iw, ih);
-  pushWall(walls, cx + 180, cy + 155, iw, ih);
-  // Broken gates on the track edges create chase rhythm while the center stays open.
-  const chunks = [
-    [SAFE + 170, SAFE + 110, 250, 62], [WORLD_W - SAFE - 420, SAFE + 115, 250, 62],
-    [SAFE + 170, WORLD_H - SAFE - 172, 250, 62], [WORLD_W - SAFE - 420, WORLD_H - SAFE - 178, 250, 62],
-    [SAFE + 115, SAFE + 250, 62, 230], [WORLD_W - SAFE - 177, SAFE + 260, 62, 230],
-    [SAFE + 115, WORLD_H - SAFE - 480, 62, 230], [WORLD_W - SAFE - 177, WORLD_H - SAFE - 490, 62, 230]
-  ];
-  for (const [x, y, w, h] of chunks) if (rng() > 0.18) pushWall(walls, x, y, w, h);
+  const t = 118;
+  // Track is now defined by chunky rails with four gates, while the center spawn remains open.
+  const railTop = SAFE + 105, railBottom = WORLD_H - SAFE - 105 - t;
+  const railLeft = SAFE + 105, railRight = WORLD_W - SAFE - 105 - t;
+  pushWall(walls, railLeft, railTop, 610, t);
+  pushWall(walls, WORLD_W - SAFE - 105 - 610, railTop, 610, t);
+  pushWall(walls, railLeft, railBottom, 610, t);
+  pushWall(walls, WORLD_W - SAFE - 105 - 610, railBottom, 610, t);
+  pushWall(walls, railLeft, railTop + t, t, 340);
+  pushWall(walls, railLeft, WORLD_H - SAFE - 105 - t - 340, t, 340);
+  pushWall(walls, railRight, railTop + t, t, 340);
+  pushWall(walls, railRight, WORLD_H - SAFE - 105 - t - 340, t, 340);
+  // Inner casino core is split into four quarter-blocks so it cannot trap the default center spawn.
+  pushWall(walls, cx - 390, cy - 285, 225, 145);
+  pushWall(walls, cx + 165, cy - 285, 225, 145);
+  pushWall(walls, cx - 390, cy + 140, 225, 145);
+  pushWall(walls, cx + 165, cy + 140, 225, 145);
+  if (rng() < 0.6) pushWall(walls, cx - 70, railTop + 95, 140, 112);
+  if (rng() < 0.6) pushWall(walls, cx - 70, railBottom - 77, 140, 112);
 }
 
 function addThreePaylinesWalls(walls, rng) {
-  const divW = 58;
+  const divW = 132;
   const laneW = WORLD_W / 3;
-  for (const xBase of [laneW, laneW * 2]) {
-    const gap1 = 260 + rng() * 160;
-    const gap2 = 940 + rng() * 150;
-    pushWall(walls, xBase - divW / 2, SAFE + 20, divW, gap1 - 130);
-    pushWall(walls, xBase - divW / 2, gap1 + 170, divW, gap2 - gap1 - 340);
-    pushWall(walls, xBase - divW / 2, gap2 + 170, divW, WORLD_H - SAFE - 20 - (gap2 + 170));
+  // Three lanes with thick, segmented cashier walls. Gaps alternate so routing matters.
+  for (const [i, xBase] of [laneW, laneW * 2].entries()) {
+    const gapA = 355 + rng() * 85;
+    const gapB = 955 + rng() * 85;
+    const topEnd = gapA - 150;
+    const midStart = gapA + 205;
+    const midEnd = gapB - 205;
+    const botStart = gapB + 150;
+    pushWall(walls, xBase - divW / 2, SAFE + 60, divW, Math.max(170, topEnd - (SAFE + 60)));
+    pushWall(walls, xBase - divW / 2, midStart, divW, Math.max(185, midEnd - midStart));
+    pushWall(walls, xBase - divW / 2, botStart, divW, Math.max(170, WORLD_H - SAFE - 60 - botStart));
+    const y = i === 0 ? WORLD_H - SAFE - 295 : SAFE + 190;
+    pushWall(walls, xBase - 305, y, 225, 118);
+    pushWall(walls, xBase + 80, WORLD_H - y - 118, 225, 118);
   }
-  for (let i = 0; i < 5; i++) {
-    const lane = Math.floor(rng() * 3);
-    const w = 120 + rng() * 120, h = 42 + rng() * 64;
-    addRandomBlock(rng, walls, lane * laneW + 120 + rng() * Math.max(80, laneW - 240 - w), SAFE + 160 + rng() * (WORLD_H - SAFE * 2 - 320), w, h);
+  // Each lane gets one substantial block, not small decorative scraps.
+  for (let lane = 0; lane < 3; lane++) {
+    const w = 245 + rng() * 90, h = 112 + rng() * 45;
+    const x = lane * laneW + laneW * 0.5 - w / 2 + (rng() - 0.5) * 95;
+    const y = lane % 2 ? SAFE + 245 + rng() * 110 : WORLD_H - SAFE - 395 - rng() * 110;
+    addRandomBlock(rng, walls, x, y, w, h);
   }
 }
 
 function addClampRoomWalls(walls, rng) {
-  const topBite = 230 + rng() * 70;
-  const bottomBite = 230 + rng() * 70;
-  // Static geometry version of the clamp-room concept: playable width changes in bands.
-  pushWall(walls, SAFE + 130, SAFE + 120, WORLD_W - SAFE * 2 - 260, 70);
-  pushWall(walls, SAFE + 130, WORLD_H - SAFE - 190, WORLD_W - SAFE * 2 - 260, 70);
-  for (const [x, y, h] of [[SAFE + 170, SAFE + topBite, 390], [WORLD_W - SAFE - 230, WORLD_H - SAFE - bottomBite - 390, 390]]) {
-    pushWall(walls, x, y, 70, h);
-  }
-  for (let i = 0; i < 4; i++) {
-    const horizontal = rng() < 0.65;
-    const w = horizontal ? 180 + rng() * 220 : 55 + rng() * 50;
-    const h = horizontal ? 55 + rng() * 50 : 180 + rng() * 230;
-    addRandomBlock(rng, walls, SAFE + 260 + rng() * (WORLD_W - SAFE * 2 - 520 - w), SAFE + 260 + rng() * (WORLD_H - SAFE * 2 - 520 - h), w, h);
-  }
+  const t = 142;
+  const cx = WORLD_W / 2, cy = WORLD_H / 2;
+  // Clamp room becomes two massive jaws plus offset side locks: readable pressure corridors.
+  pushWall(walls, SAFE + 95, SAFE + 105, WORLD_W - SAFE * 2 - 190, t);
+  pushWall(walls, SAFE + 95, WORLD_H - SAFE - 105 - t, WORLD_W - SAFE * 2 - 190, t);
+  pushWall(walls, SAFE + 155, SAFE + 295, t, 430);
+  pushWall(walls, WORLD_W - SAFE - 155 - t, WORLD_H - SAFE - 295 - 430, t, 430);
+  pushWall(walls, cx - 515, cy - 80, 260, 116);
+  pushWall(walls, cx + 255, cy - 36, 260, 116);
+  pushWall(walls, cx - 125, SAFE + 300, 250, 112);
+  pushWall(walls, cx - 125, WORLD_H - SAFE - 412, 250, 112);
+  if (rng() < 0.5) pushWall(walls, SAFE + 385, cy + 175, 250, 112);
+  else pushWall(walls, WORLD_W - SAFE - 635, cy - 287, 250, 112);
 }
 
 function addMachineCoreWalls(walls, rng) {
   const cx = WORLD_W / 2, cy = WORLD_H / 2;
-  // Core is split into four terminal plates so the default center spawn remains clear.
-  pushWall(walls, cx - 265, cy - 215, 150, 105);
-  pushWall(walls, cx + 115, cy - 215, 150, 105);
-  pushWall(walls, cx - 265, cy + 110, 150, 105);
-  pushWall(walls, cx + 115, cy + 110, 150, 105);
-  const pockets = [
-    [SAFE + 170, SAFE + 145, 310, 170], [WORLD_W - SAFE - 480, SAFE + 145, 310, 170],
-    [SAFE + 170, WORLD_H - SAFE - 315, 310, 170], [WORLD_W - SAFE - 480, WORLD_H - SAFE - 315, 310, 170],
-    [cx - 145, SAFE + 95, 290, 120], [cx - 145, WORLD_H - SAFE - 215, 290, 120]
-  ];
-  for (const [x, y, w, h] of pockets) if (rng() > 0.12) pushWall(walls, x, y, w, h);
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2 + rng() * 0.5;
-    addRandomBlock(rng, walls, cx + Math.cos(a) * 500 - 45, cy + Math.sin(a) * 310 - 45, 90, 90);
-  }
+  const t = 126;
+  // Machine core is now a set of locked cashier modules around the spawn, with real corridors.
+  pushWall(walls, SAFE + 120, SAFE + 110, 420, 255);
+  pushWall(walls, WORLD_W - SAFE - 540, SAFE + 110, 420, 255);
+  pushWall(walls, SAFE + 120, WORLD_H - SAFE - 365, 420, 255);
+  pushWall(walls, WORLD_W - SAFE - 540, WORLD_H - SAFE - 365, 420, 255);
+  pushWall(walls, cx - 430, cy - 315, 300, t);
+  pushWall(walls, cx + 130, cy - 315, 300, t);
+  pushWall(walls, cx - 430, cy + 189, 300, t);
+  pushWall(walls, cx + 130, cy + 189, 300, t);
+  pushWall(walls, cx - 64, SAFE + 150, 128, 270);
+  pushWall(walls, cx - 64, WORLD_H - SAFE - 420, 128, 270);
+  if (rng() < 0.65) pushWall(walls, SAFE + 585, cy - 58, 235, 116);
+  if (rng() < 0.65) pushWall(walls, WORLD_W - SAFE - 820, cy - 58, 235, 116);
 }
 
 function farthestMazeCell(cells, startIndex, cols = 1) {
@@ -226,7 +240,13 @@ function farthestMazeCell(cells, startIndex, cols = 1) {
     const d = dist.get(i) || 0;
     const c = i % cols, r = Math.floor(i / cols);
     const geo = Math.hypot(c - sc, r - sr);
-    const score = geo * 100 + d;
+    const rowCount = Math.floor(cells.length / cols);
+    const degree = cells[i].links.length;
+    const edge = (c === 0 || r === 0 || c === cols - 1 || r === rowCount - 1);
+    const farEnough = geo >= Math.max(2.75, cols * 0.34);
+    const deadEndBonus = degree <= 1 ? 520 : 0;
+    const edgeBonus = edge ? 360 : -240;
+    const score = (farEnough ? 0 : -2000) + geo * 520 + d * 140 + deadEndBonus + edgeBonus;
     if (score > bestScore) { bestScore = score; best = i; }
     for (const n of cells[i].links) {
       if (!dist.has(n)) { dist.set(n, d + 1); q.push(n); }
@@ -235,16 +255,34 @@ function farthestMazeCell(cells, startIndex, cols = 1) {
   return best;
 }
 
+function pushMergedRuns(walls, runs, vertical, thick, marginX, marginY, cellW, cellH) {
+  for (const run of runs) {
+    if (vertical) {
+      const x = marginX + (run.c + 1) * cellW - thick / 2;
+      const y = marginY + run.r0 * cellH - thick / 2;
+      const h = (run.r1 - run.r0 + 1) * cellH + thick;
+      pushWall(walls, x, y, thick, h);
+    } else {
+      const x = marginX + run.c0 * cellW - thick / 2;
+      const y = marginY + (run.r + 1) * cellH - thick / 2;
+      const w = (run.c1 - run.c0 + 1) * cellW + thick;
+      pushWall(walls, x, y, w, thick);
+    }
+  }
+}
+
 function addCashierMazeWalls(walls, rng) {
-  const cols = 10, rows = 7;
-  const marginX = 160, marginY = 135;
+  // v2.1.107: true full-width dark cashier maze. Thick seamless walls, no shortcut shaving.
+  const cols = 7, rows = 5;
+  const marginX = 70, marginY = 78;
   const cellW = (WORLD_W - marginX * 2) / cols;
   const cellH = (WORLD_H - marginY * 2) / rows;
-  const thick = 38;
+  const thick = 132;
   const idx = (c, r) => r * cols + c;
   const cells = Array.from({ length: cols * rows }, (_, i) => ({ i, links: [] }));
   const visited = new Set();
-  const stack = [idx(Math.floor(cols / 2), Math.floor(rows / 2))];
+  const startC = Math.floor(cols / 2), startR = Math.floor(rows / 2);
+  const stack = [idx(startC, startR)];
   visited.add(stack[0]);
   const vWalls = Array.from({ length: rows }, () => Array(cols - 1).fill(true));
   const hWalls = Array.from({ length: rows - 1 }, () => Array(cols).fill(true));
@@ -252,8 +290,9 @@ function addCashierMazeWalls(walls, rng) {
     const cur = stack[stack.length - 1];
     const c = cur % cols, r = Math.floor(cur / cols);
     const options = [];
-    if (c > 0 && !visited.has(idx(c - 1, r))) options.push([c - 1, r]);
-    if (c < cols - 1 && !visited.has(idx(c + 1, r))) options.push([c + 1, r]);
+    // Bias horizontal growth a little so the room feels wide/long, not boxy.
+    if (c > 0 && !visited.has(idx(c - 1, r))) options.push([c - 1, r], [c - 1, r]);
+    if (c < cols - 1 && !visited.has(idx(c + 1, r))) options.push([c + 1, r], [c + 1, r]);
     if (r > 0 && !visited.has(idx(c, r - 1))) options.push([c, r - 1]);
     if (r < rows - 1 && !visited.has(idx(c, r + 1))) options.push([c, r + 1]);
     if (!options.length) { stack.pop(); continue; }
@@ -264,58 +303,56 @@ function addCashierMazeWalls(walls, rng) {
     cells[cur].links.push(ni); cells[ni].links.push(cur);
     visited.add(ni); stack.push(ni);
   }
-  // Keep the four default player spawn points in one open cashier lobby.
-  const safeC0 = Math.floor(cols / 2) - 1, safeC1 = Math.floor(cols / 2);
-  const safeR0 = Math.floor(rows / 2), safeR1 = Math.min(rows - 1, safeR0 + 1);
-  for (const r of [safeR0, safeR1]) {
-    for (const c of [safeC0 - 1, safeC0, safeC1]) if (vWalls[r]?.[c] !== undefined) vWalls[r][c] = false;
-  }
-  for (const r of [safeR0 - 1, safeR0, safeR1]) {
-    for (const c of [safeC0, safeC1]) if (hWalls[r]?.[c] !== undefined) hWalls[r][c] = false;
+
+  // One central cashier lobby for the 4 default spawn points, but not a full empty arena.
+  const lobby = [[startC, startR], [startC - 1, startR], [startC, startR + 1], [startC - 1, startR + 1]];
+  for (const [c, r] of lobby) {
+    if (c >= 0 && c < cols - 1 && r >= 0 && r < rows) vWalls[r][c] = false;
+    if (c - 1 >= 0 && c - 1 < cols - 1 && r >= 0 && r < rows) vWalls[r][c - 1] = false;
+    if (r >= 0 && r < rows - 1 && c >= 0 && c < cols) hWalls[r][c] = false;
+    if (r - 1 >= 0 && r - 1 < rows - 1 && c >= 0 && c < cols) hWalls[r - 1][c] = false;
   }
 
-  // A few extra broken casino shortcuts keep combat from deadlocking, but the maze remains long.
-  const shortcuts = 3 + Math.floor(rng() * 3);
-  for (let i = 0; i < shortcuts; i++) {
-    if (rng() < 0.5) {
-      const r = Math.floor(rng() * rows), c = Math.floor(rng() * (cols - 1));
-      if (vWalls[r][c]) {
-        vWalls[r][c] = false;
-        const a = idx(c, r), b = idx(c + 1, r); cells[a].links.push(b); cells[b].links.push(a);
-      }
-    } else {
-      const r = Math.floor(rng() * (rows - 1)), c = Math.floor(rng() * cols);
-      if (hWalls[r][c]) {
-        hWalls[r][c] = false;
-        const a = idx(c, r), b = idx(c, r + 1); cells[a].links.push(b); cells[b].links.push(a);
-      }
+  const vRuns = [];
+  for (let c = 0; c < cols - 1; c++) {
+    let r = 0;
+    while (r < rows) {
+      if (!vWalls[r][c]) { r++; continue; }
+      const r0 = r;
+      while (r + 1 < rows && vWalls[r + 1][c]) r++;
+      vRuns.push({ c, r0, r1: r });
+      r++;
     }
   }
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols - 1; c++) if (vWalls[r][c]) {
-      const x = marginX + (c + 1) * cellW - thick / 2;
-      const y = marginY + r * cellH - thick / 2;
-      pushWall(walls, x, y, thick, cellH + thick);
-    }
-  }
+  const hRuns = [];
   for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < cols; c++) if (hWalls[r][c]) {
-      const x = marginX + c * cellW - thick / 2;
-      const y = marginY + (r + 1) * cellH - thick / 2;
-      pushWall(walls, x, y, cellW + thick, thick);
+    let c = 0;
+    while (c < cols) {
+      if (!hWalls[r][c]) { c++; continue; }
+      const c0 = c;
+      while (c + 1 < cols && hWalls[r][c + 1]) c++;
+      hRuns.push({ r, c0, c1: c });
+      c++;
     }
   }
-  const start = idx(Math.floor(cols / 2), Math.floor(rows / 2));
-  const farCorners = [idx(0, 0), idx(cols - 1, 0), idx(0, rows - 1), idx(cols - 1, rows - 1)];
-  const exit = farCorners[Math.floor(rng() * farCorners.length)] ?? farthestMazeCell(cells, start, cols);
+  pushMergedRuns(walls, vRuns, true, thick, marginX, marginY, cellW, cellH);
+  pushMergedRuns(walls, hRuns, false, thick, marginX, marginY, cellW, cellH);
+
+  // Massive outer cashier rim inside the real border reinforces the dark bunker feel.
+  pushWall(walls, marginX - thick / 2, marginY - thick / 2, WORLD_W - marginX * 2 + thick, thick);
+  pushWall(walls, marginX - thick / 2, WORLD_H - marginY - thick / 2, WORLD_W - marginX * 2 + thick, thick);
+  pushWall(walls, marginX - thick / 2, marginY - thick / 2, thick, WORLD_H - marginY * 2 + thick);
+  pushWall(walls, WORLD_W - marginX - thick / 2, marginY - thick / 2, thick, WORLD_H - marginY * 2 + thick);
+
+  const exit = farthestMazeCell(cells, idx(startC, startR), cols);
   const ec = exit % cols, er = Math.floor(exit / cols);
   walls._portalHint = {
     x: Math.round(marginX + ec * cellW + cellW / 2),
     y: Math.round(marginY + er * cellH + cellH / 2),
-    cashierMaze: 1
+    cashierMaze: 1,
+    darkMaze: 1
   };
 }
-
 
 // Layout variants: cover and identity, still no true mazes before pathfinding.
 function genWalls(rng, category, loopIndex, archetype = 'standard') {
@@ -666,6 +703,11 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
   let forcedArchetype = forced?.archetype && ALL_ROOM_ARCHETYPES.includes(forced.archetype) ? String(forced.archetype) : '';
   if (!forcedArchetype && modifierIds.includes('hunter_contract')) forcedArchetype = 'wide';
   const roomArchetype = forcedArchetype || chooseRoomArchetype(rng, category, specialRoomId, modifierIds, loopIndex);
+  if (roomArchetype === 'cashier_maze') {
+    const withoutBlackout = modifierIds.filter(m => m !== 'blackout');
+    modifierIds.length = 0;
+    modifierIds.push('blackout', ...withoutBlackout);
+  }
   const walls = genWalls(rng, category, loopIndex, roomArchetype);
   const interactables = genInteractables(rng, category, loopIndex, greed, modifierIds, specialRoomId);
   const blockers = [

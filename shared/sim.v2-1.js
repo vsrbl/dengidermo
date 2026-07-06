@@ -652,7 +652,7 @@ function roomDangerScore(plan = {}, staticLevel = 0) {
   else if (arch === 'compact') score += 0.6;
   else if (arch === 'long_lane') score += 0.5;
   else if (arch === 'wide') score += 0.45;
-  else if (arch === 'cashier_maze') score += 1.25;
+  else if (arch === 'cashier_maze') score += 1.65;
   else if (['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) score += 0.55;
   if (special === 'signal_contract') score += 0.9;
   if (special === 'debt_node') score += 0.75;
@@ -685,7 +685,7 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   else if (arch === 'ring_track') tags.push('CHASE LOOP');
   else if (arch === 'three_paylines') tags.push('PAYLINES');
   else if (arch === 'clamp_room') tags.push('SQUEEZE LANES');
-  else if (arch === 'cashier_maze') tags.push('LONG MAZE');
+  else if (arch === 'cashier_maze') { tags.push('LONG MAZE'); tags.push('BLACKOUT'); }
   else if (arch === 'machine_core') tags.push('CORE POCKETS');
   else if (arch === 'lounge') tags.push('SHOP');
   // Static Storm is shown only in the unified top-right stack readout, not duplicated as a threat tag.
@@ -713,7 +713,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
-  if (arch === 'cashier_maze') return 'CASHIER MAZE: portal is hidden far from the start; expect double director pressure.';
+  if (arch === 'cashier_maze') return 'CASHIER MAZE: blackout is forced; thick walls block dash skips and the portal is hidden in the farthest reachable cell.';
   if (arch === 'ripped_table') return 'RIPPED TABLE: the bridge decides when fights spill between halves.';
   if (arch === 'cross_terminal') return 'CROSS TERMINAL: threats travel through four lanes into the center.';
   if (arch === 'ring_track') return 'RING TRACK: keep moving around the blocked core.';
