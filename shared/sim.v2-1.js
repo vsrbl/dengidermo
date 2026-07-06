@@ -222,7 +222,7 @@ const activeSoftMul = v => 1 - (1 - v) * ACTIVE_BALANCE_SCALE;
 export const ENEMY_KINDS = Object.keys(ENEMIES); // index -> kind
 const KIND_IDX = Object.fromEntries(ENEMY_KINDS.map((k, i) => [k, i]));
 const SKIN_BY_ID = Object.fromEntries(SKIN_PRESETS.map(s => [s.id, s]));
-const ROOM_ARCHETYPES = ['panic_box','compact','standard','wide','long_lane','lounge','boss'];
+const ROOM_ARCHETYPES = ['panic_box','compact','standard','wide','long_lane','lounge','boss','ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','cashier_maze','machine_core'];
 function sanitizeDevRoomOverride(cmd = {}) {
   const category = ROOM_SEQUENCE.includes(cmd.category) || cmd.category === 'chill' ? String(cmd.category) : '';
   const specialRoomId = cmd.specialRoomId && SPECIAL_ROOMS[cmd.specialRoomId] ? String(cmd.specialRoomId) : '';
@@ -4001,7 +4001,9 @@ function spendBossKey(run, p, o) {
   if (!bossKeyReady(run, p)) return false;
   p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1);
   if (o) { o.chestTier = 3; o.slotCount = 5; o.costMul = 0; o.rarityReason = 'BOSS KEY'; }
-  run.fx.push({ t: 'active_mutation', label: `BOSS KEY ${p.bossKeyCharges}/${bossKeyMax(p)}`, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
+  const left = `${p.bossKeyCharges}/${bossKeyMax(p)}`;
+  run.fx.push({ t: 'boss_key_used', id: p.id, playerId: p.id, label: `BOSS KEY ${left}`, body: 'FREE MAX-RARITY CHEST', left, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y) });
+  run.fx.push({ t: 'active_mutation', label: `BOSS KEY USED ${left}`, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
   return true;
 }
 function bossRewardCanMirror(id) {
@@ -6523,14 +6525,17 @@ function openChest(run, players, p, o) {
 
 
 function continueMultiPickChestOffer(prev, idx, label = '') {
-  const picksRemaining = Math.max(1, Number(prev?.picksRemaining || 1) | 0);
+  const slotCount = Math.max(0, Number(prev?.slotCount || prev?.slots || (prev?.choices?.length || 0)) | 0);
+  const inferredTotal = slotCount >= 5 ? 2 : 1;
+  const picksTotal = Math.max(1, inferredTotal, Number(prev?.picksTotal || 0) | 0);
+  const picksRemaining = Math.max(1, Math.min(picksTotal, Number(prev?.picksRemaining || picksTotal) | 0));
   if (picksRemaining <= 1) return null;
   const choices = (prev.choices || []).filter((_, i) => i !== idx);
   return {
     ...prev,
     choices,
     picksRemaining: picksRemaining - 1,
-    picksTotal: Math.max(Number(prev?.picksTotal || 1) | 0, picksRemaining),
+    picksTotal,
     pickedLabels: [...(Array.isArray(prev?.pickedLabels) ? prev.pickedLabels : []), String(label || '').trim()].filter(Boolean),
     pickSeq: ((prev?.pickSeq || 0) + 1) | 0
   };
@@ -7779,7 +7784,7 @@ function spawnSeekerSwarm(run, players, p) {
       id: nid(), x: originX, y: originY,
       vx: Math.cos(ang) * (w.speed + 60), vy: Math.sin(ang) * (w.speed + 60),
       dmg: weaponDamageValue(p, w.dmg, 0.76), from: 'p', owner: p.id,
-      life, delay: Math.floor(i / 5) * 0.025, size: w.size, aoe: 0, homing,
+      life, delay: i * 0.018, size: w.size, aoe: 0, homing,
       knock: (w.knock || 0) * 0.85, proc: p.stats.procBlast, kind: 'seeker', travelled: 0, maxDist, rangeMul,
       bounces: p.stats.bulletBounce || 0,
       sekSplit: p.stats.sekSplit || 0,

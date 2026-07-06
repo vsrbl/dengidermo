@@ -1800,7 +1800,7 @@ body::after { display: none !important; }
   text-shadow: none !important;
   box-shadow: none !important;
   opacity: .74 !important;
-  cursor: pointer !important;
+  cursor: none !important;
 }
 #filter-switch:hover { opacity: 1 !important; background: rgba(0,255,102,.13) !important; }
 #menu:not(.hidden) ~ #filter-switch { bottom: 14px !important; right: 14px !important; }
@@ -3386,10 +3386,10 @@ button:hover,
   pointer-events: auto !important;
   position: relative !important;
   z-index: 3 !important;
-  cursor: pointer !important;
+  cursor: none !important;
 }
 #casino-stakes button:disabled {
-  cursor: default !important;
+  cursor: none !important;
 }
 #casino-readout,
 #casino-result,
@@ -3673,7 +3673,7 @@ button:hover,
   font: inherit;
   font-size: 10.5px;
   letter-spacing: .08em;
-  cursor: default;
+  cursor: none !important;
 }
 #youtube-player-wrap {
   width: 260px;
@@ -4608,3 +4608,16 @@ canvas#game, #hud, #overlay, #menu, .modal, .install-panel, .choice, .casino-ter
   75% { transform: translate(-1px,-2px) skewX(-2deg); opacity: .56; }
   100% { transform: translate(0,0) skewX(0deg); opacity: 1; }
 }
+
+
+/* v2.1.101 — never show native system cursor.
+   Keep the terminal cursor visible even over buttons, debug panel, YouTube controls and casino UI. */
+html, body, body *, body *::before, body *::after,
+button, button:hover, button:active, button:focus,
+select, select:hover, input, input:hover, textarea, textarea:hover,
+a, a:hover, label, label:hover,
+#filter-switch, #filter-switch:hover, #casino-stakes button, #casino-stakes button:hover,
+.choice, .choice:hover, .dev-panel, .dev-panel *, .youtube-control, .lang-btn {
+  cursor: none !important;
+}
+#custom-cursor { pointer-events: none !important; }

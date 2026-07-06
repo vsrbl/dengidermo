@@ -1342,6 +1342,13 @@ export class Hud {
       case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
       case 'mirror_copy': if (f.id === myId || f.playerId === myId) this.feed(`${localText('КОПИРКА', 'MIRROR')}: ${f.ok ? localText('СКОПИРОВАНО', 'COPIED') : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}`, f.ok ? 'p' : 'r'); break;
+      case 'boss_key_used':
+        if (f.id === myId || f.playerId === myId) {
+          const left = f.left ? ` · ${f.left}` : '';
+          this.banner(localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED'), localText('Сундук открыт бесплатно и поднят до max rarity.', 'Chest opened for free and upgraded to max rarity.') + left, 'gold');
+          this.feed(`${localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED')}: ${localText('бесплатный max-rarity сундук', 'free max-rarity chest')}${left}`, 'p');
+        }
+        break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
       case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
@@ -1939,6 +1946,14 @@ export class Hud {
     box.appendChild(d);
   }
 
+  normalizeChestPickMeta(meta = {}, choices = []) {
+    const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
+    const inferredPicks = slots >= 5 ? 2 : 1;
+    const picksTotal = Math.max(1, inferredPicks, Number(meta.picksTotal || 0) | 0);
+    const picksRemaining = Math.max(1, Math.min(picksTotal, Number(meta.picksRemaining || picksTotal) | 0));
+    return { ...meta, slots, picksTotal, picksRemaining };
+  }
+
   chestOfferLabel(meta = {}) {
     const label = String(meta.label || '').toUpperCase();
     const ru = String(meta.labelRu || '').trim();
@@ -1991,6 +2006,7 @@ export class Hud {
 
   // ------------------------------------------------- WPN chest modal
   openWeaponChest(choices = [], meta = {}) {
+    meta = this.normalizeChestPickMeta(meta, choices);
     this.weapon = { open: true, choices, locked: false, meta };
     this.setChestOfferHeader('weapon', choices, meta);
     const box = $('weapon-choices');
@@ -2045,6 +2061,7 @@ export class Hud {
 
   // ------------------------------------------------- ABL chest modal
   openAbilityChest(choices = [], meta = {}) {
+    meta = this.normalizeChestPickMeta(meta, choices);
     this.ability = { open: true, choices, locked: false, meta };
     this.setChestOfferHeader('ability', choices, meta);
     const box = $('ability-choices');

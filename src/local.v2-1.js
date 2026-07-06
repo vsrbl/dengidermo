@@ -75,11 +75,15 @@ export class LocalRoom {
   }
 
   chestOfferMeta(offer = {}) {
+    const slots = Math.max(0, Number(offer.slotCount || offer.choices?.length || 0) | 0);
+    const inferredPicks = slots >= 5 ? 2 : 1;
+    const picksTotal = Math.max(1, inferredPicks, Number(offer.picksTotal || 0) | 0);
+    const picksRemaining = Math.max(1, Math.min(picksTotal, Number(offer.picksRemaining || picksTotal) | 0));
     return {
       tier: offer.valueTier || 0, label: offer.valueLabel || '', labelRu: offer.valueLabelRu || '',
-      slots: offer.slotCount || offer.choices?.length || 0, reason: offer.rarityReason || '',
+      slots, reason: offer.rarityReason || '',
       cost: offer.costPaid || 0, unit: offer.costUnit || 'GLD', rerollSeq: offer.rerollAnimSeq || 0,
-      picksTotal: offer.picksTotal || 1, picksRemaining: offer.picksRemaining || 1,
+      picksTotal, picksRemaining,
       pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [], pickSeq: offer.pickSeq || 0
     };
   }
