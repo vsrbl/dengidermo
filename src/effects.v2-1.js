@@ -439,7 +439,7 @@ export class Effects {
         // One authoritative visual chain: terminal shakes after the BET window closes,
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
         // The slot mob entity is not present in the snapshot until this chain has fully ended.
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + step * 3 + dur + 0.65, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + dur * 4 + step * 3 + 0.92, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
         break;
@@ -456,7 +456,7 @@ export class Effects {
         const hold = Math.max(3.0, Number(f.holdDelay || 3.0));
         const step = Math.max(0.32, Number(f.gatherStep || 0.52));
         const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + step * 3 + dur + 0.65, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + dur * 4 + step * 3 + 0.92, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
         if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
@@ -685,7 +685,7 @@ export class Effects {
           ctx.save();
           for (let i = 0; i < e.parts.length; i++) {
             const part = e.parts[i];
-            const gatherStart = hold + i * step;
+            const gatherStart = hold + i * (dur + step);
             let rot = part.rot;
             if (t < gatherStart) {
               // True visual physics while the piece is still free: gravity, damping,
@@ -729,6 +729,7 @@ export class Effects {
                 e.impacts.push({ x: targetX, y: targetY, t: 0, ttl: i === 3 ? 0.62 : 0.34, pow, col: i === 3 ? '#ff3048' : part.col });
                 this.kick(i === 3 ? 14 : (2.8 + i * 2.2));
                 if (i === 3) {
+                  e.finalJoinT = t;
                   this.slam = Math.max(this.slam, 0.45);
                   const burstCols = ['#ffd34d', '#66f6ff', '#b45cff', '#ff3048'];
                   e.finalBits = Array.from({ length: 18 }, (_, k) => {
@@ -739,10 +740,13 @@ export class Effects {
                 }
               }
             }
+            const afterFinal = (typeof e.finalJoinT === 'number') ? Math.max(0, t - e.finalJoinT) : 0;
+            const finalFade = (typeof e.finalJoinT === 'number') ? Math.max(0, 1 - afterFinal / 0.52) : 1;
+            if (finalFade <= 0.01) continue;
             ctx.save();
             ctx.translate(Math.round(part.px), Math.round(part.py));
             ctx.rotate(rot);
-            ctx.globalAlpha = 0.96;
+            ctx.globalAlpha = 0.96 * finalFade;
             ctx.fillStyle = part.col + '2a';
             ctx.strokeStyle = part.col;
             ctx.lineWidth = 2.6;

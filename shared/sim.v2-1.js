@@ -576,9 +576,13 @@ const SLOT_MOB_ASSEMBLE_T = 0.18;
 const SLOT_MOB_PIECES_HOLD_T = 3.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
-const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.08;
-const SLOT_MOB_POST_BLOCK_SPAWN_T = 1.35;
-const SLOT_MOB_GATHER_T = SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_GATHER_DUR_T + SLOT_MOB_PIECE_FINAL_BUFFER_T;
+const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.15;
+const SLOT_MOB_POST_BLOCK_SPAWN_T = 1.15;
+// Full sequential assembly time: pieces do not overlap. One block flies in,
+// snaps, impacts, then the next block starts. This is intentionally longer
+// than the visual fade so the enemy can never appear while blocks are lying or
+// still magnetizing.
+const SLOT_MOB_GATHER_T = SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_DUR_T * 4 + SLOT_MOB_PIECE_GATHER_STEP_T * 3 + SLOT_MOB_PIECE_FINAL_BUFFER_T;
 const SLOT_MOB_FIRST_BREAK_DELAY_T = 4.18;
 const SLOT_MOB_FIRST_BREAK_T = SLOT_MOB_FIRST_BREAK_DELAY_T + SLOT_MOB_GATHER_T;
 const SLOT_MOB_DEATH_PIECES_T = SLOT_MOB_GATHER_T;
@@ -625,7 +629,8 @@ function scheduleSlotMobAssembly(run, players, pos, opts = {}) {
   if (!run) return null;
   if (!Array.isArray(run.pendingSlotMobs)) run.pendingSlotMobs = [];
   const first = !!opts.first;
-  const total = first ? SLOT_MOB_FIRST_BREAK_T : SLOT_MOB_DEATH_PIECES_T;
+  const breakDelay = first ? SLOT_MOB_FIRST_BREAK_DELAY_T : 0;
+  const total = breakDelay + SLOT_MOB_GATHER_T + SLOT_MOB_POST_BLOCK_SPAWN_T;
   const pending = {
     id: nid(),
     x: Math.round(Number(pos?.x) || run.plan.w / 2),
@@ -633,9 +638,16 @@ function scheduleSlotMobAssembly(run, players, pos, opts = {}) {
     t: total, total,
     lives: Math.max(1, Number(opts.lives || 10) | 0),
     totalLives: Math.max(1, Number(opts.totalLives || 10) | 0),
-    breakDelay: first ? SLOT_MOB_FIRST_BREAK_DELAY_T : 0,
-    mask: 0, first: first ? 1 : 0
+    breakDelay,
+    first: first ? 1 : 0,
+    // Authoritative state machine. There is no slot_mob enemy until phase
+    // `spawn_gate` completes after joined === 4.
+    phase: breakDelay > 0 ? 'prebreak' : 'hold',
+    phaseT: breakDelay > 0 ? breakDelay : SLOT_MOB_PIECES_HOLD_T,
+    joined: 0,
+    piece: 0
   };
+  if (breakDelay <= 0) pending.breakFxDone = 1;
   run.pendingSlotMobs.push(pending);
   return pending;
 }
@@ -650,47 +662,92 @@ function spawnCasinoOverloadSlotMob(run, players, near, p) {
 }
 function stepPendingSlotMobs(run, players, dt) {
   if (!run || !Array.isArray(run.pendingSlotMobs) || !run.pendingSlotMobs.length) return;
+  const stepDt = Math.max(0, Math.min(0.25, Number(dt) || 0));
   const next = [];
   for (const p of run.pendingSlotMobs) {
     if (!p) continue;
-    // Hard gate: after the fourth block has snapped in, keep a separate spawn delay.
-    // This prevents a lag/large-dt frame from emitting the final magnet impact and
-    // creating the enemy in the same simulation tick, which made the mob appear while
-    // the four visual blocks were still assembling on the client.
-    if (p.assembled) {
-      p.spawnGateT = Math.max(0, Number(p.spawnGateT || 0) - dt);
-      if (p.spawnGateT <= 0.0001) createSlotMobEntity(run, players, p);
-      else next.push(p);
-      continue;
+    if (!p.phase) {
+      p.phase = (Number(p.breakDelay || 0) > 0 && !p.breakFxDone) ? 'prebreak' : 'hold';
+      p.phaseT = p.phase === 'prebreak' ? Number(p.breakDelay || 0) : SLOT_MOB_PIECES_HOLD_T;
+      p.joined = 0;
+      p.piece = 0;
     }
-    const total = Math.max(Number(p.total || 0), Number(p.t || 0), 0.01);
-    const before = total - Math.max(0, Number(p.t || 0));
-    p.t = Math.max(0, Number(p.t || 0) - dt);
-    const after = total - Math.max(0, Number(p.t || 0));
-    const cross = (tm) => before < tm && after >= tm;
-    const breakDelay = Math.max(0, Number(p.breakDelay || 0));
-    let mask = Number(p.mask || 0) | 0;
-    if (breakDelay > 0 && cross(breakDelay) && !(mask & 1)) {
-      mask |= 1;
-      run.fx.push({ t: 'slot_mob_break', id: p.id, x: Math.round(p.x), y: Math.round(p.y), close: 1 });
-    }
-    const joinBase = breakDelay + SLOT_MOB_PIECES_HOLD_T + SLOT_MOB_PIECE_GATHER_DUR_T;
-    for (let i = 0; i < 4; i++) {
-      const bit = 1 << (i + 1);
-      const tm = joinBase + SLOT_MOB_PIECE_GATHER_STEP_T * i;
-      if (!(mask & bit) && cross(tm)) {
-        mask |= bit;
-        run.fx.push({ t: 'slot_mob_piece_impact', id: p.id, x: Math.round(p.x), y: Math.round(p.y), step: i + 1, final: i === 3 ? 1 : 0 });
-        if (i === 3) {
-          p.assembled = 1;
-          p.spawnGateT = SLOT_MOB_POST_BLOCK_SPAWN_T;
-        }
+    p.t = Math.max(0, Number(p.t || 0) - stepDt);
+    let budget = stepDt;
+    let guard = 0;
+    while (budget > 0.0001 && guard++ < 10) {
+      if (p.phase === 'prebreak') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        p.breakFxDone = 1;
+        run.fx.push({ t: 'slot_mob_break', id: p.id, x: Math.round(p.x), y: Math.round(p.y), close: 1 });
+        p.phase = 'hold';
+        p.phaseT = SLOT_MOB_PIECES_HOLD_T;
+        continue;
       }
+      if (p.phase === 'hold') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        p.phase = 'piece_fly';
+        p.phaseT = SLOT_MOB_PIECE_GATHER_DUR_T;
+        p.piece = Math.max(0, Math.min(3, Number(p.joined || 0) | 0));
+        continue;
+      }
+      if (p.phase === 'piece_fly') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        const idx = Math.max(0, Math.min(3, Number(p.piece || 0) | 0));
+        p.joined = Math.max(Number(p.joined || 0) | 0, idx + 1);
+        run.fx.push({ t: 'slot_mob_piece_impact', id: p.id, x: Math.round(p.x), y: Math.round(p.y), step: idx + 1, final: idx === 3 ? 1 : 0 });
+        if (idx >= 3) {
+          p.phase = 'final_buffer';
+          p.phaseT = SLOT_MOB_PIECE_FINAL_BUFFER_T;
+        } else {
+          p.phase = 'piece_gap';
+          p.phaseT = SLOT_MOB_PIECE_GATHER_STEP_T;
+          p.piece = idx + 1;
+        }
+        continue;
+      }
+      if (p.phase === 'piece_gap') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        p.phase = 'piece_fly';
+        p.phaseT = SLOT_MOB_PIECE_GATHER_DUR_T;
+        continue;
+      }
+      if (p.phase === 'final_buffer') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        // Only now have all four blocks snapped and faded. Until this exact state,
+        // there is no enemy entity and no roll can exist.
+        p.phase = 'spawn_gate';
+        p.phaseT = SLOT_MOB_POST_BLOCK_SPAWN_T;
+        p.assembled = 1;
+        continue;
+      }
+      if (p.phase === 'spawn_gate') {
+        const take = Math.min(budget, Math.max(0, Number(p.phaseT || 0)));
+        p.phaseT = Math.max(0, Number(p.phaseT || 0) - take);
+        budget -= take;
+        if (p.phaseT > 0.0001) break;
+        createSlotMobEntity(run, players, p);
+        p.phase = 'done';
+        break;
+      }
+      break;
     }
-    p.mask = mask;
-    // Do not create from p.t. The only valid spawn condition is: fourth block impact
-    // happened in a previous tick, then the post-block gate elapsed.
-    next.push(p);
+    if (p.phase !== 'done') next.push(p);
   }
   run.pendingSlotMobs = next;
 }
