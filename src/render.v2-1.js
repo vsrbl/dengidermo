@@ -514,6 +514,7 @@ export class Renderer {
         const stateText = String(st || 'slot_runner:1');
         const modeRaw = (stateText.match(/slot_([^:]+)/) || [,'runner'])[1];
         const lives = Math.max(1, Number((stateText.match(/:(\d+)/) || [,'1'])[1]) || 1);
+        if (modeRaw === 'hidden') continue;
         const isAssemble = modeRaw === 'assemble';
         const isRebuild = modeRaw === 'rebuild' || modeRaw === 'rolling';
         const isChargerWindup = modeRaw === 'charger_windup';

@@ -2465,9 +2465,9 @@ export class Hud {
     };
     const abilityLine = (x) => `${localText('МУТАЦИЯ', 'MUTATION')}: ${clean(x)}`;
     const rareLine = (x) => `${localText('РЕДКИЙ БОНУС', 'RARE BONUS')}: ${clean(x)}`;
-    if (f.outcome === 'OVERLOAD') return localText('ПЕРЕГРУЗКА: слот сломан, враг собирается', 'OVERLOAD: slot broken, enemy assembling');
-    if (pl.static || pl.staticCount) return `${localText('ПРОИГРЫШ', 'LOSS')}: ${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
-    if (pl.lockLabel) return `${localText('LOCK', 'LOCK')}: ${localText('зафиксирован', 'fixed')} ${pl.lockLabel}`;
+    if (f.outcome === 'OVERLOAD') return localText('слот сломан, враг собирается', 'slot broken, enemy assembling');
+    if (pl.static || pl.staticCount) return `${t('nextRoomDebt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
+    if (pl.lockLabel) return `${localText('зафиксирован', 'fixed')} ${pl.lockLabel}`;
     if (weaponLabels.length) return weaponLine(weaponLabels[0]);
     if (abilityLabels.length) return abilityLine(abilityLabels[0]);
     if (rareLabels.length) return rareLine(rareLabels[0]);
@@ -2476,7 +2476,7 @@ export class Hud {
     if (pl.xp) return `+${pl.xp} EXP`;
     if (pl.heal) return `+${pl.heal} HP`;
     if (pl.dash) return locLabel('DASH +1');
-    return `${localText('ПРОИГРЫШ', 'LOSS')}: -${paid} ${paidUnit}`;
+    return `-${paid} ${paidUnit}`;
   }
 
   casinoResult(f, myId) {
@@ -2535,7 +2535,15 @@ export class Hud {
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       const resultLine = this.casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
-      const fullResultText = `${info.title}: ${resultLine} · ${parts.map(locLabel).join(' · ')}`;
+      const detailParts = parts.map(locLabel).filter(x => {
+        const sx = String(x || '').trim();
+        if (!sx || sx === info.title || sx === resultLine) return false;
+        if (sx === t('lose') || sx === t('jackpot') || sx === t('staticDebt') || sx === t('skin')) return false;
+        if (/^(LOCK|LOCK-|LOCK\s)/i.test(sx) && /^LOCK/i.test(info.title)) return false;
+        if (/^(ПРОИГРЫШ|LOSS)/i.test(sx) && /^(ПРОИГРЫШ|LOSS)/i.test(info.title)) return false;
+        return true;
+      }).slice(0, 5);
+      const fullResultText = `${info.title}: ${resultLine}${detailParts.length ? ' · ' + detailParts.join(' · ') : ''}`;
       el.title = fullResultText;
       this.setExplain(el, info.title, fullResultText, info.tone);
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact" title="${esc(fullResultText)}"><b>${esc(resultLine)}</b></span>`;

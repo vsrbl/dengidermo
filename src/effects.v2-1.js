@@ -33,7 +33,7 @@ export class Effects {
     this.rewindPulse = 0;
   }
 
-  add(e) { this.list.push({ ...e, t: 0 }); if (this.list.length > 200) this.list.shift(); }
+  add(e) { const delay = Math.max(0, Number(e?.delay || 0)); this.list.push({ ...e, t: -delay }); if (this.list.length > 220) this.list.shift(); }
   float(x, y, text, color = '#f3f3f3', size = 13) {
     this.floats.push({ x, y, text, color, size, t: 0, ttl: 0.9 });
     if (this.floats.length > 60) this.floats.shift();
@@ -431,26 +431,33 @@ export class Effects {
       case 'casino_tick':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 75, ttl: 0.32, color: f.good ? '#00ff66' : '#b45cff' });
         break;
-      case 'casino_overload':
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 260, ttl: 0.95, color: '#ff3048' });
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 1.25, color: '#ffd34d', explode: 1 });
+      case 'casino_overload': {
+        const d = Math.max(0.65, Number(f.breakDelay || 1.15));
+        // First the terminal/slot fails, then after the bet window closes the chest breaks in-world.
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 220, ttl: 0.82, color: '#ff3048' });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.45, color: '#ffd34d', delay: d, heavy: 1 });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', explode: 1, delay: d, heavy: 1 });
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 1.95, color: '#ffd34d', collapse: 1, delay: d + 0.62, heavy: 1 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.65; this.kick(14);
         break;
+      }
       case 'slot_mob_roll':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.34, color: '#ffd34d' });
         this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
         break;
-      case 'slot_mob_rebuild':
+      case 'slot_mob_rebuild': {
+        const d = Math.max(0, Number(f.delay || 0));
         if (f.scatter || f.spawn) {
-          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.05, color: '#ffd34d' });
-          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.30, color: '#ffd34d', explode: 1 });
+          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.30, color: '#ffd34d', delay: d, heavy: 1 });
+          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.45, color: '#ffd34d', explode: 1, delay: d, heavy: 1 });
         }
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', collapse: 1 });
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1 });
-        this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
+        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.75, color: '#ffd34d', collapse: 1, delay: d + 0.55, heavy: 1 });
+        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1, delay: d + 0.45 });
+        if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
+      }
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
@@ -482,7 +489,8 @@ export class Effects {
   // draw world-space effects (ctx already camera-transformed)
   drawWorld(ctx) {
     for (const e of this.list) {
-      const p = e.t / (e.ttl ?? 0.6);
+      if (e.t < 0) continue;
+      const p = Math.max(0, Math.min(1, e.t / (e.ttl ?? 0.6)));
       ctx.save();
       if (e.kind === 'muzzle') {
         const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
@@ -590,20 +598,24 @@ export class Effects {
       } else if (e.kind === 'slotBreakChunks') {
         ctx.save();
         ctx.strokeStyle = e.color || '#ffd34d';
-        ctx.fillStyle = 'rgba(255,211,77,0.10)';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(255,211,77,0.12)';
+        ctx.lineWidth = 2.4;
         for (let i = 0; i < 4; i++) {
           const a = Math.PI / 4 + i * Math.PI / 2;
-          const d = 10 + p * 72;
-          const x = e.x + Math.cos(a) * d;
-          const y = e.y + Math.sin(a) * d;
-          const sz = 22 - p * 5;
+          const vx = Math.cos(a) * (96 + i * 18);
+          const vy = Math.sin(a) * (84 + i * 14) - 55;
+          const t = p * 1.25;
+          const x = e.x + vx * t;
+          const y = e.y + vy * t + 170 * t * t;
+          const sz = 26 - p * 6;
           ctx.save();
-          ctx.globalAlpha = Math.max(0, 1 - p * 0.82);
+          ctx.globalAlpha = Math.max(0, 1 - p * 0.78);
           ctx.translate(Math.round(x), Math.round(y));
-          ctx.rotate(a + p * (i % 2 ? -1.8 : 1.8));
+          ctx.rotate(a + p * (i % 2 ? -4.2 : 3.4));
           ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
           ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+          ctx.beginPath();
+          ctx.moveTo(-sz * 0.35, 0); ctx.lineTo(sz * 0.35, 0); ctx.stroke();
           ctx.restore();
         }
         ctx.restore();
@@ -613,17 +625,26 @@ export class Effects {
         ctx.save();
         ctx.font = '700 9px var(--mono, monospace)';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < 22; i++) {
+        for (let i = 0; i < 30; i++) {
           const a = i * 2.399 + e.x * 0.013;
-          const far = 35 + (i % 7) * 15;
-          const sx = e.x + Math.cos(a) * far;
-          const sy = e.y + Math.sin(a) * far;
-          const tx = cx + Math.cos(a + 1.2) * (6 + (i % 4) * 3);
-          const ty = cy + Math.sin(a + 1.2) * (6 + (i % 4) * 3);
-          const q = e.explode ? Math.min(1, p * 1.15) : (1 - Math.pow(1 - p, 2));
-          const x = sx + (tx - sx) * q;
-          const y = sy + (ty - sy) * q;
-          ctx.globalAlpha = Math.max(0, (1 - p * 0.55)) * (0.45 + (i % 4) * 0.09);
+          const far = 38 + (i % 8) * 18;
+          const vx = Math.cos(a) * (80 + (i % 7) * 18);
+          const vy = Math.sin(a) * (70 + (i % 5) * 16) - (i % 4) * 22;
+          let x, y;
+          if (e.explode) {
+            const tt = p * 1.18;
+            x = e.x + vx * tt;
+            y = e.y + vy * tt + 140 * tt * tt;
+          } else {
+            const sx = e.x + Math.cos(a) * far + vx * 0.36;
+            const sy = e.y + Math.sin(a) * far + vy * 0.22 + 34;
+            const tx = cx + Math.cos(a + 1.2) * (6 + (i % 4) * 3);
+            const ty = cy + Math.sin(a + 1.2) * (6 + (i % 4) * 3);
+            const q = 1 - Math.pow(1 - p, 3);
+            x = sx + (tx - sx) * q;
+            y = sy + (ty - sy) * q - Math.sin(p * Math.PI) * 28;
+          }
+          ctx.globalAlpha = Math.max(0, (1 - p * 0.48)) * (0.46 + (i % 4) * 0.10);
           ctx.fillStyle = i % 3 === 0 ? '#66f6ff' : (i % 3 === 1 ? '#ffd34d' : '#f3f3f3');
           ctx.fillText(syms[i % syms.length], Math.round(x), Math.round(y));
         }
