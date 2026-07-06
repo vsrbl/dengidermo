@@ -30,7 +30,11 @@ let lastFrame = performance.now();
 
 $('hud-version').textContent = VERSION;
 setupLanguageButtons();
-document.querySelectorAll('[data-lang-btn]').forEach(btn => btn.addEventListener('click', () => uiClick('ui_click')));
+document.querySelectorAll('[data-lang-btn]').forEach(btn => btn.addEventListener('click', (ev) => { uiClick('ui_click'); ev.currentTarget?.blur?.(); }));
+document.addEventListener('pointerup', (ev) => {
+  const btn = ev.target?.closest?.('.yt-mini button, .lang-mini button, .lang-row button');
+  if (btn) setTimeout(() => btn.blur?.(), 0);
+}, { passive: true });
 
 // ---------------------------------------------------------------- menu
 const status = $('menu-status');
@@ -657,6 +661,7 @@ function bindYouTubeMiniControlsV2180() {
   const blockGameClick = e => {
     e.stopPropagation();
     if (e.type === 'pointerdown' || e.type === 'mousedown') input.fire = false;
+    e.target?.closest?.('button')?.blur?.();
   };
   ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'].forEach(type => {
     box.addEventListener(type, blockGameClick);

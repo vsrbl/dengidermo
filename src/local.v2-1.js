@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handlePick, handleWeaponPick, handleAbilityPick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
+  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -81,6 +81,10 @@ export class LocalRoom {
       if (!p) return;
       const result = handleCasino(this.run, this.players, p, String(m.stake || ''), Array.isArray(m.skins) ? m.skins : []);
       this.sendTo(playerId, { ...(result || { ok: false, error: 'BET FAILED' }), t: 'casino_result' }, true);
+    } else if (m.t === 'casino_close') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      handleCasinoClose(this.run, this.players, p);
     } else if (m.t === 'pick') {
       const p = this.players.get(playerId);
       if (!p) return;

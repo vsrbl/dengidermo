@@ -4232,3 +4232,35 @@ button:hover,
   #feed { top: 176px !important; }
   #yt-mini-controls.yt-mini { max-width: 92vw !important; flex-wrap: wrap !important; }
 }
+
+/* v2.1.82 — exact scaled HUD/feed alignment, no post-click focus rings, stronger LOCK morph */
+#feed {
+  left: calc(5vw + var(--ui-center-inset-x) - 8px) !important;
+  top: calc(var(--ui-center-inset-y) + 132px) !important;
+}
+.yt-mini button:focus,
+.yt-mini button:focus-visible,
+.lang-mini button:focus,
+.lang-mini button:focus-visible,
+.lang-row button:focus,
+.lang-row button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.reel.lock-morph {
+  color: var(--gold) !important;
+  border-color: rgba(255,211,77,.72) !important;
+  background: rgba(255,211,77,.07) !important;
+  animation: casinoLockMorphV2182 .18s steps(3,end) infinite !important;
+}
+@keyframes casinoLockMorphV2182 {
+  0% { transform: translateY(-2px); filter: brightness(1.8) contrast(1.3); }
+  50% { transform: translateY(2px); filter: brightness(2.6) contrast(1.6); }
+  100% { transform: none; filter: brightness(1.4); }
+}
+@media (max-width: 980px) {
+  #feed { left: calc(5vw + 29px) !important; top: 190px !important; }
+}
+@media (max-width: 760px) {
+  #feed { left: calc(5vw + 18px) !important; top: 176px !important; }
+}

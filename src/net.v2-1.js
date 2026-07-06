@@ -211,6 +211,7 @@ export class Net {
   createRoom() { this.hostRoom(this._name, this._skin); }
   sendInput(i) { this._game({ t: 'input', ...i }, false); }
   sendCasino(stake) { this._game({ t: 'casino', stake, skins: Array.isArray(this._skinUnlocks) ? this._skinUnlocks : [] }, true); }
+  sendCasinoClose() { this._game({ t: 'casino_close' }, true); }
   sendPick(choice, offerId = 0) { this._game({ t: 'pick', choice, offerId }, true); }
   sendWeaponPick(choice) { this._game({ t: 'weapon_pick', choice }, true); }
   sendAbilityPick(choice) { this._game({ t: 'ability_pick', choice }, true); }

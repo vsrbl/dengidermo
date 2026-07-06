@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.81';
-export const BUILD_ID = 'casino_lock_8bit_hud_hotfix';
+export const VERSION = 'v2.1.82';
+export const BUILD_ID = 'slot_lock_8bit_feed_focus_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
@@ -18,6 +18,7 @@ export const C = {
   JOIN: 'join',
   INPUT: 'input',
   CASINO: 'casino',
+  CASINO_CLOSE: 'casino_close',
   PICK: 'pick',       // INSTALL pick {choiceIdx}
   WEAPON_PICK: 'weapon_pick', // WPN chest pick {choiceIdx}
   ABILITY_PICK: 'ability_pick', // ABL chest pick {choiceIdx}

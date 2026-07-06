@@ -504,6 +504,7 @@ function casinoLockStackForPlayer(p) {
 }
 function casinoLockFirstForPlayer(p) { return casinoLockStackForPlayer(p)[0] || ''; }
 function casinoLockDisplayForPlayer(p) {
+  if (Array.isArray(p?.casinoSlotLocks) && p.casinoSlotLocks.some(Boolean)) return casinoSlotLockDisplayForPlayer(p);
   const st = casinoLockStackForPlayer(p);
   if (!st.length) return '';
   const first = st[0];
@@ -524,6 +525,35 @@ function casinoLockConsumeForPlayer(p) {
   const used = st.shift() || '';
   p.casinoLockSymbol = st[0] || '';
   return used;
+}
+
+function casinoCleanSlotLockSymbol(sym = '') {
+  const s = String(sym || '').toUpperCase().replace(/\s+X\d+$/i, '').trim();
+  return ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA','STC','BAD'].includes(s) ? s : '';
+}
+function casinoSlotLocksForPlayer(p) {
+  if (!p) return ['', '', ''];
+  if (!Array.isArray(p.casinoSlotLocks)) p.casinoSlotLocks = ['', '', ''];
+  p.casinoSlotLocks = [0, 1, 2].map(i => casinoCleanSlotLockSymbol(p.casinoSlotLocks[i]));
+  return p.casinoSlotLocks;
+}
+function casinoSlotLockDisplayForPlayer(p) {
+  const locks = casinoSlotLocksForPlayer(p);
+  const parts = locks.map((s, i) => s ? `${i + 1}:${s}` : '').filter(Boolean);
+  return parts.join('|');
+}
+function casinoSlotLocksSetForPlayer(p, locks = []) {
+  p.casinoSlotLocks = [0, 1, 2].map(i => casinoCleanSlotLockSymbol(locks[i]));
+  p.casinoLockStack = [];
+  p.casinoLockSymbol = casinoSlotLockDisplayForPlayer(p);
+  return p.casinoSlotLocks;
+}
+export function handleCasinoClose(run, players, p) {
+  if (!p) return false;
+  p.casinoSlotLocks = ['', '', ''];
+  p.casinoLockStack = [];
+  p.casinoLockSymbol = '';
+  return true;
 }
 function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   const rng = Math.random;
@@ -6319,11 +6349,11 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     }
     p.economy.money -= stake;
   }
-  const priorLock = casinoLockFirstForPlayer(p);
-  let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { lockSymbol: priorLock });
-  if (res.usedLock) casinoLockConsumeForPlayer(p);
+  const priorSlotLocks = casinoSlotLocksForPlayer(p).slice(0, 3);
+  let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { slotLocks: priorSlotLocks });
   res.stake = stake;
   const pl = res.payload;
+  casinoSlotLocksSetForPlayer(p, res.lockSlots || pl.lockSlots || []);
   const stakeScale = Math.max(1, stake / Math.max(1, baseStake));
   const greedGoldBonus = isGreedRoom(run) && pl.gld ? 1.35 : 1;
   if (pl.gld) pl.gld = Math.round(pl.gld * stakeScale * greedGoldBonus);
@@ -6331,35 +6361,47 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   if (pl.gld) p.economy.money += pl.gld;
   if (pl.xp) addXp(run, p, pl.xp);
   if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
-  if (pl.lock) {
-    const opts = casinoLockOptionsForStake(stakeKey);
-    const lockSym = casinoLockPushForPlayer(p, opts[Math.floor(Math.random() * opts.length)] || 'WPN');
-    const extraChance = stakeKey === 'high' ? 0.42 : stakeKey === 'mid' ? 0.24 : 0.10;
-    let added = 1;
-    if (Math.random() < extraChance) { casinoLockPushForPlayer(p, opts[Math.floor(Math.random() * opts.length)] || lockSym); added++; }
-    pl.lockSymbol = lockSym;
-    pl.lockCount = casinoLockStackForPlayer(p).length;
-    pl.lockAdded = added;
-    pl.lockLabel = `LOCK: ${lockSym}${pl.lockCount > 1 ? ' x' + pl.lockCount : ''}`;
-    res.symbols = ['LOCK', lockSym, added > 1 ? 'x2' : 'NEXT'];
-  }
   // v2.1.77: casino LINK / COMBO PAY removed. Ignore old payloads/saves.
   p.casinoComboLink = 0;
   if (pl.comboLink) delete pl.comboLink;
-  if (pl.rare) { pl.rareLabel = grantRareCasinoPrize(run, p, 'CASINO RAR'); }
+  const rareCount = Math.max(0, Number(pl.rareCount || (pl.rare ? 1 : 0)) | 0);
+  if (rareCount) {
+    pl.rareLabels = [];
+    for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
+    pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
+  }
   if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
-  if (pl.ability) {
-    if (!applyRandomCasinoAbility(run, players, p, pl)) {
-      p.stats.dashAdd += 1; pl.dash = 1; pl.abilityLabel = 'DASH +1';
-      p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+  const abilityCount = Math.max(0, Number(pl.abilityCount || (pl.ability ? 1 : 0)) | 0);
+  if (abilityCount) {
+    pl.abilityLabels = [];
+    for (let i = 0; i < abilityCount; i++) {
+      const before = pl.abilityLabel || '';
+      const tmp = {};
+      if (!applyRandomCasinoAbility(run, players, p, tmp)) {
+        p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1';
+        p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+      }
+      pl.abilityLabels.push(tmp.abilityLabel || before || 'ABL');
     }
+    pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
   }
-  if (pl.weapon) {
-    const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
-    if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; p.weapons.push(w); pl.weaponLabel = WEAPONS[w].label; }
-    else { p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15; pl.weaponLabel = 'WEAPON DMG +15%'; }
+  const weaponCount = Math.max(0, Number(pl.weaponCount || (pl.weapon ? 1 : 0)) | 0);
+  if (weaponCount) {
+    pl.weaponLabels = [];
+    for (let i = 0; i < weaponCount; i++) {
+      const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
+      if (unowned.length) {
+        const w = unowned[Math.floor(Math.random() * unowned.length)];
+        p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
+      } else {
+        p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15;
+        pl.weaponLabels.push('WEAPON DMG +15%');
+      }
+    }
+    pl.weaponLabel = pl.weaponLabels.join(' + ');
   }
-  if (pl.static) addStaticDebt(run, 1, 'casino_bet');
+  const staticCount = Math.max(0, Number(pl.staticCount || (pl.static ? 1 : 0)) | 0);
+  for (let i = 0; i < staticCount; i++) addStaticDebt(run, 1, 'casino_bet');
   if (run.roomObjective && run.roomObjective.id && run.roomObjective.id !== 'lounge_cashout') {
     if (!run.roomContractStakes || typeof run.roomContractStakes !== 'object') run.roomContractStakes = {};
     run.roomContractStakes[p.id] = Math.max(0, (run.roomContractStakes[p.id] || 0)) + Math.max(0, stake | 0);
@@ -6367,7 +6409,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     run.fx.push({ t: 'contract_wager', id: p.id, name: p.name || '', stake, total: run.roomContractStakes[p.id], label: run.roomObjective.label || 'SIGNAL CONTRACT' });
   }
   const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
-  const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, lockUsed: res.usedLock ? 1 : 0, lockSymbol: res.lockSymbol || priorLock || '', lockLeft: casinoLockDisplayForPlayer(p), hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
+  const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, lockUsed: res.usedLock ? 1 : 0, lockSymbol: res.lockSymbol || priorSlotLocks.filter(Boolean).join('+') || '', lockLeft: casinoSlotLockDisplayForPlayer(p), lockSlots: casinoSlotLocksForPlayer(p).slice(0, 3), hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
   run.fx.push(fx);
   return fx;
 }

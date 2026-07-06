@@ -7501,11 +7501,11 @@ AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2180()
   if (this.yt8bit) return this.yt8bit;
   const ctx = this.ctx;
   const out = ctx.createGain(); out.gain.value = 0.000001;
-  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1280; filter.Q.value = 2.2;
+  const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1150; filter.Q.value = 8.5;
   const osc = ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = 92;
-  const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 184;
-  const g1 = ctx.createGain(); g1.gain.value = 0.34;
-  const g2 = ctx.createGain(); g2.gain.value = 0.16;
+  const osc2 = ctx.createOscillator(); osc2.type = 'sawtooth'; osc2.frequency.value = 184;
+  const g1 = ctx.createGain(); g1.gain.value = 0.82;
+  const g2 = ctx.createGain(); g2.gain.value = 0.46;
   osc.connect(g1); osc2.connect(g2); g1.connect(filter); g2.connect(filter); filter.connect(out);
   out.connect(this.master || ctx.destination);
   osc.start(); osc2.start();
@@ -7522,12 +7522,12 @@ AudioBus.prototype.updateMusic = function updateMusicV2180YtMask(state, dt = 0.0
       const active = this.isYouTubeActive?.() && this.getYouTube8BitMask?.();
       const vol = (this.youTubeVolume?.() ?? 70) / 100;
       const now = this.ctx.currentTime;
-      const step = Math.floor(layer.t * 7.5) % 8;
-      const root = [73, 73, 92, 73, 110, 92, 73, 55][step] || 73;
-      layer.o1.frequency.setTargetAtTime(root, now, 0.025);
-      layer.o2.frequency.setTargetAtTime(root * 2, now, 0.025);
-      layer.f.frequency.setTargetAtTime(900 + step * 115, now, 0.08);
-      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.035) : 0.000001, now, 0.075);
+      const step = Math.floor(layer.t * 11.5) % 8;
+      const root = [55, 73, 55, 110, 73, 146, 92, 55][step] || 55;
+      layer.o1.frequency.setTargetAtTime(root, now, 0.006);
+      layer.o2.frequency.setTargetAtTime(root * (step % 3 === 0 ? 3 : 2), now, 0.006);
+      layer.f.frequency.setTargetAtTime(520 + step * 95, now, 0.018);
+      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.28) : 0.000001, now, 0.028);
     }
   } catch {}
   return out;
@@ -7592,7 +7592,7 @@ function createTcrBitcrusherNodeV2181(ctx, bitDepth = 8, frequency = 0.23) {
 AudioBus.prototype.ensure8BitCrusher = function ensure8BitCrusherV2181() {
   if (!this.ctx) return null;
   if (this.bitcrusher) return this.bitcrusher;
-  this.bitcrusher = createTcrBitcrusherNodeV2181(this.ctx, 8, 0.20);
+  this.bitcrusher = createTcrBitcrusherNodeV2181(this.ctx, 3, 0.055);
   return this.bitcrusher;
 };
 
