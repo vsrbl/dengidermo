@@ -686,16 +686,17 @@ export class Renderer {
       ctx.lineTo(rx - ux * 18, ry - uy * 18);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.globalAlpha = 0.72;
+      ctx.globalAlpha = 0.70;
       ctx.strokeStyle = COL.purple;
-      ctx.lineWidth = 2;
-      const s = 38 + pulse * 5;
-      ctx.strokeRect(rx - s / 2, ry - s / 2, s, s);
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = COL.purple;
-      ctx.fillRect(rx - 12, ry - 12, 24, 24);
+      ctx.lineWidth = 1.6;
+      const s = 12 + pulse * 3;
+      ctx.beginPath();
+      ctx.moveTo(rx - s, ry);
+      ctx.lineTo(rx + s, ry);
+      ctx.moveTo(rx, ry - s);
+      ctx.lineTo(rx, ry + s);
+      ctx.stroke();
       ctx.restore();
-      this.label('RETURN', rx, ry - 31, COL.purple, 8);
     }
     if (myPos && mouse) {
       const lockedAim = meRow && String(meRow[P.RLABEL] || '').includes('TARGET LOCK') && (meRow[P.RT] || 0) > 0;

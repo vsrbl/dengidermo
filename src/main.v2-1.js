@@ -633,3 +633,39 @@ function frame(now) {
   hud.setTab(input.tabOpen, state);
 }
 requestAnimationFrame(frame);
+
+// v2.1.80 — compact in-game YouTube controls in top-left HUD.
+function bindYouTubeMiniControlsV2180() {
+  const box = $('yt-mini-controls');
+  const prev = $('yt-prev');
+  const next = $('yt-next');
+  const pp = $('yt-playpause');
+  const minus = $('yt-vol-down');
+  const plus = $('yt-vol-up');
+  const bit = $('yt-bit');
+  const label = $('yt-vol-label');
+  if (!box) return;
+  const update = () => {
+    const active = !!audio.isYouTubeActive?.();
+    const hasPlaylist = !!(localStorage.getItem('tc_youtube_playlist') || audio.ytMusic?.playlist || '').trim();
+    box.classList.toggle('hidden', !hasPlaylist && !active);
+    if (pp) pp.textContent = active ? 'Ⅱ' : '▶';
+    const vol = Math.round(audio.youTubeVolume?.() ?? Math.min(100, (audio.musicVolume || 0.7) * 200));
+    if (label) label.textContent = `YT ${vol}`;
+    if (bit) bit.classList.toggle('on', !!audio.getYouTube8BitMask?.());
+  };
+  prev?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubePrev?.(); update(); });
+  next?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeNext?.(); update(); });
+  pp?.addEventListener('click', async () => {
+    uiClick('ui_click');
+    if (audio.isYouTubeActive?.()) audio.pauseYouTube?.();
+    else await audio.playYouTube?.();
+    update();
+  });
+  minus?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeVolumeDelta?.(-10); update(); });
+  plus?.addEventListener('click', () => { uiClick('ui_click'); audio.youTubeVolumeDelta?.(10); update(); });
+  bit?.addEventListener('click', () => { uiClick('ui_click'); audio.setYouTube8BitMask?.(!audio.getYouTube8BitMask?.()); update(); });
+  setInterval(update, 850);
+  update();
+}
+bindYouTubeMiniControlsV2180();

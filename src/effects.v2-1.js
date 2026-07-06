@@ -339,14 +339,12 @@ export class Effects {
         break;
       }
       case 'rewind_mark':
-        if (mine) { this.rewindPulse = 0.70; this.kick(4); }
-        this.add({ kind: 'squareField', activeKind: 'rewind_mark', x: f.x, y: f.y, r: f.r || 110, ttl: 0.62, color: '#b45cff' });
-        this.float(f.x, f.y - 46, 'REWIND MARK', '#b45cff', 11);
+        if (mine) { this.rewindPulse = 0.42; this.kick(3); }
+        this.float(f.x, f.y - 42, 'REWIND MARK', '#b45cff', 10);
         break;
       case 'rewind_return':
-        if (mine) { this.rewindPulse = 1; this.slam = Math.max(this.slam, 0.16); this.kick(10); }
-        this.add({ kind: 'squareField', activeKind: 'rewind_return', x: f.x, y: f.y, r: f.r || 260, ttl: 0.50, color: '#b45cff' });
-        this.float(f.x, f.y - 62, `REWIND STUN x${f.hit || 0}`, '#b45cff', 15);
+        if (mine) { this.rewindPulse = 0.82; this.slam = Math.max(this.slam, 0.12); this.kick(9); }
+        this.float(f.x, f.y - 56, `REWIND STUN x${f.hit || 0}`, '#b45cff', 13);
         break;
       case 'kill_switch_screen':
         if (mine) { this.killSwitchFlash = 1; this.slam = Math.max(this.slam, 0.35); this.kick(14); }

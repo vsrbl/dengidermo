@@ -756,17 +756,25 @@ export class Hud {
     const card = $('room-wager-card');
     if (!card || card.classList.contains('hidden')) return;
     const modal = $('install-modal');
+    if (modal && card.parentElement !== modal) modal.appendChild(card);
     const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
-    if (!panel) { card.style.left = ''; card.style.top = ''; card.style.right = ''; card.style.bottom = ''; card.style.transform = ''; return; }
+    if (!panel) {
+      card.style.left = ''; card.style.top = ''; card.style.right = ''; card.style.bottom = ''; card.style.transform = '';
+      card.style.zIndex = '90'; card.style.pointerEvents = 'auto';
+      return;
+    }
     const r = panel.getBoundingClientRect();
-    const w = card.offsetWidth || 286;
-    const gap = 14;
-    const left = Math.min(window.innerWidth - w - 18, Math.max(18, r.right + gap));
-    card.style.left = `${Math.round(left)}px`;
+    const w = Math.max(260, Math.min(320, card.offsetWidth || 286));
+    const gap = 12;
+    let left = r.right + gap;
+    if (left + w > window.innerWidth - 14) left = Math.max(14, r.left - w - gap);
+    card.style.left = `${Math.round(Math.max(14, left))}px`;
     card.style.right = 'auto';
-    card.style.top = `${Math.max(18, Math.round(r.top))}px`;
+    card.style.top = `${Math.max(14, Math.round(r.top))}px`;
     card.style.bottom = 'auto';
     card.style.transform = 'none';
+    card.style.zIndex = '90';
+    card.style.pointerEvents = 'auto';
   }
 
   // ------------------------------------------------- per-frame update
@@ -775,6 +783,7 @@ export class Hud {
     const room = state.room;
     if (!me || !room) return;
     this.latestRoom = room;
+    this.latestMe = me;
     if (room.phase === 'won') this.showRunComplete(room); else this.hideRunComplete();
     for (const p of state.latest.players) this.names.set(p[P.ID], p[P.NAME]);
     const aliveNow = !!me[P.ALIVE] && (me[P.HP] > 0);
@@ -918,7 +927,7 @@ export class Hud {
         wagerCard.classList.remove('hidden', 'active');
         wagerCard.innerHTML = `<div class="wager-title">ROOM WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
         this.setExplain(wagerCard, 'ROOM WAGER', localText('Ставка не платится сразу. Если условие выполнено — получаешь приз. Если провалено — теряешь ставку.', 'Stake is paid only on failure. Complete the condition to get the prize.'), 'gold');
-        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.net?.sendRoomWager?.(offer.id || 0); }, { once: true });
+        wagerCard.querySelector('#room-wager-accept')?.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this.net?.sendRoomWager?.(offer.id || 0); });
       } else if (activeWager) {
         wagerCard.classList.remove('hidden');
         wagerCard.classList.add('active');
@@ -962,11 +971,16 @@ export class Hud {
         const h = bossRewardHint(k);
         badges.push({ label, title: h[0], body: body || h[1], tone });
       };
-      for (const x of rawSigs) addBadge(x, '', String(x).includes('MIRROR') ? 'purple' : 'gold');
-      if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно в этом loop. Копирует только стакаемые награды с выбором.`, me[P.MIRROR] > 0 ? 'purple' : '');
+      const explicit = new Set(['MIRROR PAYOUT', 'AEGIS PROCESS', 'NULL REVIVAL', 'BOSS KEY']);
+      for (const x of rawSigs) {
+        const ux = String(x || '').toUpperCase();
+        if (explicit.has(ux)) continue;
+        addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
+      }
+      if (me[P.MIRRORMAX] > 0) addBadge(`MIRROR ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `MIRROR PAYOUT: ${me[P.MIRROR]}/${me[P.MIRRORMAX]} charge доступно в этом loop. Копирует только стакаемые награды с выбором. Обычное INSTALL-окно не тратит копирку.`, me[P.MIRROR] > 0 ? 'purple' : '');
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
       if (me[P.BOSSKEY] > 0) addBadge(`KEY x${me[P.BOSSKEY]}`, `BOSS KEY: ${me[P.BOSSKEY]} ключ. Первый сундук в loop станет бесплатным и max rarity.`, 'gold');
-      if (me[P.SHIELDMAX] > 0) addBadge(`AEGIS ${me[P.SHIELD]}/${me[P.SHIELDMAX]}`, `AEGIS PROCESS: shell-shield игрока. Каждый стак даёт +45 shield capacity.`, 'cyan');
+      if (me[P.SHIELDMAX] > 0) addBadge(`AEGIS`, `AEGIS PROCESS: shell-shield игрока. Ёмкость зависит только от стаков босса: ${me[P.SHIELDMAX]}.`, 'cyan');
       if (badges.length) {
         sigEl.classList.remove('hidden');
         sigEl.innerHTML = badges.map(b => `<span class="term ${esc(b.tone || '')}" data-explain-title="${esc(b.title)}" data-explain="${esc(b.body)}"${b.tone ? ` data-explain-tone="${esc(b.tone)}"` : ''}>${esc(locLabel(b.label))}</span>`).join('');
@@ -975,7 +989,8 @@ export class Hud {
     }
     const favorEl = $('hud-favor');
     if (favorEl) {
-      const active = room.contractFavors?.active || [];
+      const activeRaw = room.contractFavors?.active || [];
+      const active = activeRaw.slice().sort((a,b) => ((b.uses || 0) > 0 ? 1 : 0) - ((a.uses || 0) > 0 ? 1 : 0));
       const pending = room.contractFavors?.pending || [];
       const used = room.contractFavors?.used || [];
       const items = active.length ? active : pending;
@@ -1205,6 +1220,7 @@ export class Hud {
       case 'weapon_get': this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${f.w}`, 'c'); break;
       case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
+      case 'mirror_copy': if (f.id === myId || f.playerId === myId) this.feed(`${localText('КОПИРКА', 'MIRROR')}: ${f.ok ? localText('СКОПИРОВАНО', 'COPIED') : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}`, f.ok ? 'p' : 'r'); break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
       case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
@@ -1453,7 +1469,7 @@ export class Hud {
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the run more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
           `${(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), (room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
-          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('НА СЛЕДУЮЩУЮ КОМНАТУ', 'NEXT ROOM'), localText('Эти бонусы ждут следующую комнату.', 'These bonuses are waiting for the next room.'), 'gold')}>${esc(localText('СЛЕД. БОНУС', 'NEXT BONUS'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
+          `${(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
       `</div>`;
     const table = $('tab-table');
     let html = '<tr>' +
@@ -1552,6 +1568,28 @@ export class Hud {
     modal.classList.remove('hidden');
   }
 
+  mirrorChargesReady() {
+    const me = this.latestMe;
+    if (!me) return 0;
+    return Math.max(0, Number(me[P.MIRROR] || 0) || 0);
+  }
+  mirrorMetaForChoice(id, opt = null, context = '') {
+    if (this.mirrorChargesReady() <= 0) return null;
+    const bossStack = new Set(['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key']);
+    const ctx = String(context || '');
+    if (ctx === 'install') return null;
+    if (ctx === 'boss') return bossStack.has(String(id || '')) ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+    if (ctx === 'weapon') {
+      const k = String(opt?.kind || '');
+      return (k === 'weapon_upgrade' || k === 'stat') ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+    }
+    if (ctx === 'ability') {
+      const k = String(opt?.kind || '');
+      return (k === 'active_core_install' || k === 'active_core_replace' || k === 'active_upgrade_core' || k === 'ability_upgrade' || k === 'stat') ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+    }
+    return null;
+  }
+
   openInstall(choices, pending, offerId = 0, kind = '', expires = 0, total = 0) {
     const sig = String(kind || '') === 'boss_signature';
     const normalizedChoices = Array.isArray(choices) ? choices.slice(0, 3) : [];
@@ -1589,11 +1627,15 @@ export class Hud {
       const u = UPG[id];
       const d = document.createElement('div');
       d.className = 'choice' + (u?.cursed ? ' cursed' : '') + (sig ? ' boss-signature-choice' : '');
-      d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b></div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), optionDesc(u || { id }), sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
+      const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
+      const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
+      d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
+      const mirrorHint = m ? (m.works ? localText('MIRROR активна: этот выбор будет скопирован и даст дополнительный стак/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('MIRROR активна, но эта награда уникальна: charge будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
+      this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
     });
+    if (sig) this.appendFavorRerollButton(box, 'boss');
     this.appendSkinClaimCard(box);
     modal?.classList.remove('hidden');
   }
@@ -1681,17 +1723,17 @@ export class Hud {
   favorUiBody(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'Один раз обновляет варианты сундука в этой комнате.',
+      free_reroll: 'Один раз обновляет варианты WPN/ABL или призов босса. Хранится, пока не используешь.',
       clear_debt: 'Ослабляет следующий статик-шторм перед входом в комнату.',
       portal_insurance: 'Один раз в этой комнате смертельный удар оставит тебя живым и даст 50 HP.',
-      epic_reroll: 'Два раза обновляет варианты сундука в этой комнате.',
+      epic_reroll: 'Два раза обновляет варианты WPN/ABL или призов босса. Хранится, пока не используешь.',
       double_favor: 'Если контракт выполнен, после комнаты будет два приза.'
     };
     const en = {
-      free_reroll: 'Refreshes WPN/ABL choices once in this room.',
+      free_reroll: 'Refreshes WPN/ABL or boss choices once. Persists until used.',
       clear_debt: 'Weakens the next Static Storm before you enter the room.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
-      epic_reroll: 'Refreshes WPN/ABL choices twice in this room.',
+      epic_reroll: 'Refreshes WPN/ABL or boss choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'
     };
     return localText(ru[id] || 'Бонус контракта действует только в этой комнате.', en[id] || 'Contract bonus for this room only.');
@@ -1700,7 +1742,7 @@ export class Hud {
     const status = String(f.status || '').toLowerCase();
     const left = Math.max(0, f.uses || 0);
     if (status === 'used' || left <= 0) return localText('ИСПОЛЬЗОВАН', 'USED');
-    if (status === 'pending') return localText('БУДЕТ АКТИВЕН', 'PENDING');
+    if (status === 'pending') return localText('АКТИВЕН', 'ACTIVE');
     return localText('АКТИВЕН', 'ACTIVE');
   }
   activeRerollFavorUses() {
@@ -1715,11 +1757,13 @@ export class Hud {
     if (!box || uses <= 0) return;
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
-    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · только эта комната', 'CHOICE REROLL · this room only'))}</span>`;
-    this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого WPN/ABL выбора.', 'Refreshes the choices for this WPN/ABL pick.'), 'gold');
+    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · пока не используешь', 'CHOICE REROLL · persists until used'))}</span>`;
+    this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого выбора с анимацией. Новые варианты не повторяют текущие, если в пуле есть замена. Работает на WPN/ABL и призы босса.', 'Animates and refreshes this choice. New options avoid the current ones when the pool allows it. Works on WPN/ABL and boss prizes.'), 'gold');
     d.addEventListener('click', () => {
       if (d.dataset.locked === '1' || uses <= 0) return;
       this.playUiSound('contract');
+      const host = d.closest('#install-choices, #weapon-choices, #ability-choices');
+      if (host) { host.classList.remove('rerolling'); void host.offsetWidth; host.classList.add('rerolling'); setTimeout(() => host.classList.remove('rerolling'), 520); }
       d.dataset.locked = '1';
       d.classList.add('picked');
       this.localRerollSpent = Math.max(0, this.localRerollSpent || 0) + 1;
@@ -1790,14 +1834,16 @@ export class Hud {
       const upKey = String(opt.upgrade || opt.id || '');
       const elementClass = meta.element || (upKey === 'bullet_fire' ? 'fire' : upKey === 'bullet_freeze' ? 'freeze' : upKey === 'bullet_poison' ? 'poison' : upKey === 'drone_element_link' ? 'drone' : '');
       const elementTag = elementClass ? `<span class="wpn-tag element ${elementClass}">${esc(weaponElementLabel(elementClass))}</span>` : '';
+      const mirror = this.mirrorMetaForChoice(opt.id || opt.upgrade || opt.weapon || opt.label, opt, 'weapon');
+      const mirrorTag = mirror ? `<span class="wpn-tag mirror ${mirror.works ? 'works' : 'unique'}">${esc(mirror.label)}</span>` : '';
       const roleName = weaponRoleLabel(meta.role);
       const roleTag = `<span class="wpn-role ${meta.tone || 'utility'}">${esc(roleName)}</span>`;
       d.innerHTML = `
-        <div class="wpn-choice-top"><span><span class="key">[${i + 1}]</span>${esc(locLabel(opt.label || opt.id))}</span><span class="wpn-tags">${roleTag}${elementTag}</span>${locked}</div>
+        <div class="wpn-choice-top"><span><span class="key">[${i + 1}]</span>${esc(locLabel(opt.label || opt.id))}</span><span class="wpn-tags">${roleTag}${elementTag}${mirrorTag}</span>${locked}</div>
         <span class="wpn-choice-read">${esc(meta.summary)}</span>
         <span class="wpn-choice-change">${esc(meta.change)}</span>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} · ${roleName}`;
-      const body = `${weaponRoleHint(meta.role)} ${meta.summary} ${meta.change}. ${optionDesc(opt)} ${opt.disabled ? `${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : t('available')}`;
+      const body = `${weaponRoleHint(meta.role)} ${meta.summary} ${meta.change}. ${optionDesc(opt)} ${mirror ? (mirror.works ? localText('MIRROR активна: этот выбор будет скопирован.', 'MIRROR is active: this choice will be copied.') : localText('MIRROR активна, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : ''} ${opt.disabled ? `${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : t('available')}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : (meta.tone === 'dps' ? 'green' : 'cyan'));
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
@@ -1842,6 +1888,8 @@ export class Hud {
       d.className = 'choice ability-choice ability-card' + (opt.disabled ? ' disabled' : '') + ` tone-${tone} rarity-${rarity}`;
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       const role = opt.role ? `<span class="abl-role">${esc(locRole(opt.role))}</span>` : '';
+      const mirror = this.mirrorMetaForChoice(opt.id || opt.upgrade || opt.core || opt.label, opt, 'ability');
+      const mirrorTag = mirror ? `<span class="abl-role mirror ${mirror.works ? 'works' : 'unique'}">${esc(mirror.label)}</span>` : '';
       const action = opt.actionLabel ? `<div class="abl-action">${esc(locAction(opt.actionLabel))}</div>` : '';
       d.innerHTML = `
         <div class="abl-card-top">
@@ -1850,10 +1898,11 @@ export class Hud {
             <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
             ${action}
           </div>
-          <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${locked}</div>
+          <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${mirrorTag}${locked}</div>
         </div>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
-      const body = `${opt.actionLabel ? locAction(opt.actionLabel) + ': ' : ''}${optionDesc(opt)}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
+      const mirrorHint = mirror ? (mirror.works ? localText('MIRROR активна: этот выбор будет скопирован и даст дополнительный уровень/стак.', 'MIRROR is active: this choice will be copied for an extra level/stack.') : localText('MIRROR активна, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : '';
+      const body = `${opt.actionLabel ? locAction(opt.actionLabel) + ': ' : ''}${optionDesc(opt)}${mirrorHint ? '\n\n' + mirrorHint : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }

@@ -7455,3 +7455,91 @@ AudioBus.prototype.handleFx = function handleFxV2178RewindSound(f, info = {}) {
   }
   return out;
 };
+
+// v2.1.80 — YouTube mini controls + 8-bit mask overlay.
+// Browser/YouTube iframe audio cannot be routed through WebAudio cross-origin, so this is a synced in-game 8-bit mask layer over the YouTube player.
+AudioBus.prototype.youTubeNext = function youTubeNextV2180() {
+  try { this.ytMusic?.player?.nextVideo?.(); this.ytMusic.active = true; return true; } catch { return false; }
+};
+AudioBus.prototype.youTubePrev = function youTubePrevV2180() {
+  try { this.ytMusic?.player?.previousVideo?.(); this.ytMusic.active = true; return true; } catch { return false; }
+};
+AudioBus.prototype.youTubeVolumeDelta = function youTubeVolumeDeltaV2180(delta = 0) {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  const cur = Number.isFinite(Number(this.ytMusic.volume)) ? Number(this.ytMusic.volume) : Math.min(100, Math.round((this.musicVolume || 0.7) * 200));
+  const next = Math.max(0, Math.min(100, Math.round(cur + Number(delta || 0))));
+  this.ytMusic.volume = next;
+  try { this.ytMusic.player?.setVolume?.(next); } catch {}
+  localStorage.setItem('tc_youtube_volume', String(next));
+  return next;
+};
+AudioBus.prototype.youTubeVolume = function youTubeVolumeV2180() {
+  const saved = Number(localStorage.getItem('tc_youtube_volume'));
+  if (Number.isFinite(saved)) return Math.max(0, Math.min(100, saved));
+  return Math.min(100, Math.round((this.musicVolume || 0.7) * 200));
+};
+AudioBus.prototype.setYouTube8BitMask = function setYouTube8BitMaskV2180(on) {
+  this.yt8bitMaskEnabled = !!on;
+  localStorage.setItem('tc_youtube_8bit_mask', this.yt8bitMaskEnabled ? '1' : '0');
+  if (!this.yt8bitMaskEnabled && this.yt8bit) {
+    try { this.yt8bit.g.gain.setTargetAtTime(0.000001, this.ctx?.currentTime || 0, 0.12); } catch {}
+  }
+  return this.yt8bitMaskEnabled;
+};
+AudioBus.prototype.getYouTube8BitMask = function getYouTube8BitMaskV2180() {
+  if (typeof this.yt8bitMaskEnabled !== 'boolean') this.yt8bitMaskEnabled = localStorage.getItem('tc_youtube_8bit_mask') === '1';
+  return this.yt8bitMaskEnabled;
+};
+AudioBus.prototype.ensureYouTube8BitMask = function ensureYouTube8BitMaskV2180() {
+  this.unlock();
+  if (!this.ctx) return null;
+  if (this.yt8bit) return this.yt8bit;
+  const ctx = this.ctx;
+  const out = ctx.createGain(); out.gain.value = 0.000001;
+  const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1450; filter.Q.value = 1.1;
+  const osc = ctx.createOscillator(); osc.type = 'square'; osc.frequency.value = 92;
+  const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 184;
+  const g1 = ctx.createGain(); g1.gain.value = 0.22;
+  const g2 = ctx.createGain(); g2.gain.value = 0.08;
+  osc.connect(g1); osc2.connect(g2); g1.connect(filter); g2.connect(filter); filter.connect(out);
+  out.connect(this.master || ctx.destination);
+  osc.start(); osc2.start();
+  this.yt8bit = { g: out, f: filter, o1: osc, o2: osc2, t: 0 };
+  return this.yt8bit;
+};
+const updateMusicBeforeV2180YtMask = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2180YtMask(state, dt = 0.016) {
+  const out = updateMusicBeforeV2180YtMask.call(this, state, dt);
+  try {
+    const layer = this.ensureYouTube8BitMask?.();
+    if (layer && this.ctx) {
+      layer.t = (layer.t || 0) + dt;
+      const active = this.isYouTubeActive?.() && this.getYouTube8BitMask?.();
+      const vol = (this.youTubeVolume?.() ?? 70) / 100;
+      const now = this.ctx.currentTime;
+      const step = Math.floor(layer.t * 7.5) % 8;
+      const root = [73, 73, 92, 73, 110, 92, 73, 55][step] || 73;
+      layer.o1.frequency.setTargetAtTime(root, now, 0.025);
+      layer.o2.frequency.setTargetAtTime(root * 2, now, 0.025);
+      layer.f.frequency.setTargetAtTime(900 + step * 115, now, 0.08);
+      layer.g.gain.setTargetAtTime(active ? Math.max(0.000001, vol * 0.012) : 0.000001, now, 0.10);
+    }
+  } catch {}
+  return out;
+};
+const initYtBeforeV2180Vol = AudioBus.prototype.initYouTubeMusic;
+AudioBus.prototype.initYouTubeMusic = async function initYouTubeMusicV2180Vol(elId = 'youtube-player') {
+  const yt = await initYtBeforeV2180Vol.call(this, elId);
+  try { this.ytMusic.player?.setVolume?.(this.youTubeVolume?.() ?? 80); } catch {}
+  return yt;
+};
+
+const handleFxBeforeV2180ChoiceReroll = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2180ChoiceReroll(f, info = {}) {
+  const out = handleFxBeforeV2180ChoiceReroll.call(this, f, info);
+  if ((f?.t === 'choice_reroll' || f?.t === 'favor_used') && (f?.id === info?.myId || f?.playerId === info?.myId)) {
+    try { this.play('contract'); } catch {}
+    try { this.play('ui_click'); } catch {}
+  }
+  return out;
+};

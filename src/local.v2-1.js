@@ -174,7 +174,7 @@ export class LocalRoom {
       if (p.offer && (sent !== p.offer || resendDue)) {
         this.offersSent.set(pid, p.offer);
         this.offerSentAt.set(pid, now);
-        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) };
+        const msg = { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', rerollSeq: p.offer.rerollAnimSeq || 0, expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
@@ -190,7 +190,7 @@ export class LocalRoom {
       const sent = this.weaponOffersSent.get(pid);
       if (p.weaponChestOffer && sent !== p.weaponChestOffer) {
         this.weaponOffersSent.set(pid, p.weaponChestOffer);
-        const msg = { t: 'weapon_offer', choices: p.weaponChestOffer.choices, meta: { tier: p.weaponChestOffer.valueTier || 0, label: p.weaponChestOffer.valueLabel || '', labelRu: p.weaponChestOffer.valueLabelRu || '', slots: p.weaponChestOffer.slotCount || p.weaponChestOffer.choices?.length || 0, reason: p.weaponChestOffer.rarityReason || '', cost: p.weaponChestOffer.costPaid || 0, unit: p.weaponChestOffer.costUnit || 'GLD' } };
+        const msg = { t: 'weapon_offer', choices: p.weaponChestOffer.choices, meta: { tier: p.weaponChestOffer.valueTier || 0, label: p.weaponChestOffer.valueLabel || '', labelRu: p.weaponChestOffer.valueLabelRu || '', slots: p.weaponChestOffer.slotCount || p.weaponChestOffer.choices?.length || 0, reason: p.weaponChestOffer.rarityReason || '', cost: p.weaponChestOffer.costPaid || 0, unit: p.weaponChestOffer.costUnit || 'GLD', rerollSeq: p.weaponChestOffer.rerollAnimSeq || 0 } };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
@@ -202,7 +202,7 @@ export class LocalRoom {
       const sent = this.abilityOffersSent.get(pid);
       if (p.abilityChestOffer && sent !== p.abilityChestOffer) {
         this.abilityOffersSent.set(pid, p.abilityChestOffer);
-        const msg = { t: 'ability_offer', choices: p.abilityChestOffer.choices, meta: { tier: p.abilityChestOffer.valueTier || 0, label: p.abilityChestOffer.valueLabel || '', labelRu: p.abilityChestOffer.valueLabelRu || '', slots: p.abilityChestOffer.slotCount || p.abilityChestOffer.choices?.length || 0, reason: p.abilityChestOffer.rarityReason || '', cost: p.abilityChestOffer.costPaid || 0, unit: p.abilityChestOffer.costUnit || 'GLD' } };
+        const msg = { t: 'ability_offer', choices: p.abilityChestOffer.choices, meta: { tier: p.abilityChestOffer.valueTier || 0, label: p.abilityChestOffer.valueLabel || '', labelRu: p.abilityChestOffer.valueLabelRu || '', slots: p.abilityChestOffer.slotCount || p.abilityChestOffer.choices?.length || 0, reason: p.abilityChestOffer.rarityReason || '', cost: p.abilityChestOffer.costPaid || 0, unit: p.abilityChestOffer.costUnit || 'GLD', rerollSeq: p.abilityChestOffer.rerollAnimSeq || 0 } };
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }

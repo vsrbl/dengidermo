@@ -780,17 +780,17 @@ function contractChainPayout(depth = 0, chain = 0) {
 }
 
 const CONTRACT_FAVOR_DEFS = {
-  free_reroll: { id: 'free_reroll', label: 'CHEST REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL choice reroll in the next room.' },
-  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Removes one banked Static Storm level before the next room starts.' },
-  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once next room, lethal damage restores you to 50 HP.' },
-  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL choice rerolls in the next room.' },
-  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'If the next room contract succeeds, it grants two contract prizes.' }
+  free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL/boss choice reroll. Persists until used.' },
+  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Removes one banked Static Storm level when a storm debt exists. Persists until used.' },
+  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.' },
+  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.' },
+  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' }
 };
 function favorDef(id) { return CONTRACT_FAVOR_DEFS[String(id || '')] || null; }
 function favorLabel(f = {}) { return String((favorDef(f.id)?.label) || f.label || f.id || 'FAVOR'); }
 function makeContractFavor(id, sourceChain = 1) {
   const d = favorDef(id) || CONTRACT_FAVOR_DEFS.free_reroll;
-  return { id: d.id, label: d.label, labelRu: d.labelRu, tier: d.tier, uses: d.uses || 1, used: 0, sourceChain: Math.max(1, sourceChain | 0), nextRoomOnly: 1 };
+  return { id: d.id, label: d.label, labelRu: d.labelRu, tier: d.tier, uses: d.uses || 1, used: 0, sourceChain: Math.max(1, sourceChain | 0), nextRoomOnly: 0, persistent: 1 };
 }
 function activeContractFavors(run) {
   return Array.isArray(run?.contractFavorsActive) ? run.contractFavorsActive : [];
@@ -812,6 +812,8 @@ function consumeContractFavor(run, ids = []) {
     const left = Math.max(0, (f.uses || 0) - (f.used || 0));
     if (left <= 0) continue;
     f.used = (f.used || 0) + 1;
+    if (!Array.isArray(run.contractFavorsUsedThisRoom)) run.contractFavorsUsedThisRoom = [];
+    run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1 });
     return f;
   }
   return null;
@@ -835,16 +837,23 @@ function reduceOneStaticDebt(run) {
   return false;
 }
 function activatePendingContractFavors(run) {
-  const incoming = pendingContractFavors(run).map(f => ({ ...f, activeDepth: run.runDepth || 0, used: Math.max(0, f.used || 0) }));
+  const carry = activeContractFavors(run)
+    .filter(f => Math.max(0, (f.uses || 0) - (f.used || 0)) > 0)
+    .map(f => ({ ...f, activeDepth: f.activeDepth ?? (run.runDepth || 0) }));
+  const incoming = pendingContractFavors(run).map(f => ({ ...f, activeDepth: run.runDepth || 0, used: Math.max(0, f.used || 0), persistent: 1, nextRoomOnly: 0 }));
   run.contractFavorsPending = [];
-  run.contractFavorsActive = incoming;
   run.contractFavorsUsedThisRoom = [];
-  for (const f of incoming) {
-    if (f.id === 'clear_debt') {
+  run.contractFavorsActive = [...carry, ...incoming];
+  for (const f of run.contractFavorsActive) {
+    const left = Math.max(0, (f.uses || 0) - (f.used || 0));
+    if (left <= 0) continue;
+    if (f.id === 'clear_debt' && hasClearableUpcomingStatic(run)) {
       const ok = reduceOneStaticDebt(run);
-      f.used = f.uses || 1;
-      run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: ok ? 1 : 0 });
-      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: ok ? 'NEXT ROOM STATIC STORM CLEARED' : 'NO STATIC STORM TO CLEAR' });
+      if (ok) {
+        f.used = (f.used || 0) + 1;
+        run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1 });
+        run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: 'STATIC STORM CLEARED' });
+      }
     }
   }
   if (incoming.length) run.fx.push({ t: 'favor_active', favors: incoming.map(f => favorSnapshotItem(f, true)) });
@@ -897,7 +906,7 @@ function buildContractFavors(run, chain = 1, count = 1) {
 function favorSnapshotItem(f = {}, active = false) {
   const def = favorDef(f.id) || {};
   const left = active ? Math.max(0, (f.uses || 0) - (f.used || 0)) : Math.max(0, f.uses || 0);
-  return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', nextRoomOnly: 1 };
+  return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', nextRoomOnly: 0, persistent: 1 };
 }
 function grantContractFavors(run, chain = 1, count = 1) {
   const want = Math.max(1, Math.min(2, count | 0));
@@ -912,9 +921,12 @@ function grantContractFavors(run, chain = 1, count = 1) {
     used.add(extra.id);
     planned.push(extra);
   }
-  const favors = planned.slice(0, want);
-  run.contractFavorsPending = favors;
-  run.fx.push({ t: 'favor_earned', favors: favors.map(f => favorSnapshotItem(f, false)) });
+  const favors = planned.slice(0, want).map(f => ({ ...f, activeDepth: run.runDepth || 0, persistent: 1, nextRoomOnly: 0 }));
+  run.contractFavorsPending = [];
+  const live = activeContractFavors(run).filter(f => Math.max(0, (f.uses || 0) - (f.used || 0)) > 0);
+  run.contractFavorsActive = [...live, ...favors];
+  run.fx.push({ t: 'favor_earned', favors: favors.map(f => favorSnapshotItem(f, true)) });
+  run.fx.push({ t: 'favor_active', favors: favors.map(f => favorSnapshotItem(f, true)) });
   return favors;
 }
 function contractFavorSnapshot(run) {
@@ -3710,23 +3722,32 @@ function spendBossKey(run, p, o) {
   return true;
 }
 function bossRewardCanMirror(id) {
-  return ['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key'].includes(String(id || ''));
+  return ['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_mirror_payout','sig_null_revival','sig_boss_key'].includes(String(id || ''));
 }
 function upgradeCanMirror(id) {
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
   if (u.bossSig) return bossRewardCanMirror(id);
-  return true; // normal INSTALL upgrades are stackable by design.
+  return false; // MIRROR does not apply to ordinary INSTALL level-up choices.
 }
 function useMirrorIfPossible(run, p, label, canStack, applyFn) {
   if (!p || mirrorLeft(p) <= 0) return false;
   p.mirrorUsedLoop = Math.max(0, p.mirrorUsedLoop || 0) + 1;
+  const cleanLabel = String(label || '').trim();
   if (!canStack) {
+    run.fx.push({ t: 'mirror_copy', id: p.id, playerId: p.id, ok: 0, label: cleanLabel || 'UNIQUE' });
     run.fx.push({ t: 'active_mutation', label: 'MIRROR FAILED — UNIQUE', x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'purple', playerId: p.id });
     return false;
   }
-  try { applyFn?.(); } catch {}
-  run.fx.push({ t: 'active_mutation', label: `MIRRORED ${label || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
+  let ok = false;
+  try { ok = applyFn?.() !== false; } catch { ok = false; }
+  if (!ok) {
+    run.fx.push({ t: 'mirror_copy', id: p.id, playerId: p.id, ok: 0, label: cleanLabel || 'FAILED' });
+    run.fx.push({ t: 'active_mutation', label: 'MIRROR FAILED', x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'purple', playerId: p.id });
+    return false;
+  }
+  run.fx.push({ t: 'mirror_copy', id: p.id, playerId: p.id, ok: 1, label: cleanLabel });
+  run.fx.push({ t: 'active_mutation', label: `MIRRORED ${cleanLabel || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
   return true;
 }
 function resetLoopLimitedBossRewards(run, players) {
@@ -3807,14 +3828,12 @@ function doRActive(run, players, p) {
       for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, p.x, p.y) < (radius + 40) ** 2) b.life = -1;
       p.rewindT = 0; p.rewindMark = null; p.rActiveCd = 20; p.invuln = Math.max(p.invuln || 0, 0.5);
       run.fx.push({ t: 'rewind_return', id: p.id, x: Math.round(p.x), y: Math.round(p.y), r: Math.round(radius), hit });
-      run.fx.push({ t: 'active_mutation', label: `REWIND STUN x${hit}`, x: Math.round(p.x), y: Math.round(p.y), r: Math.round(radius), tone: 'purple', playerId: p.id });
       return true;
     }
     if ((p.rActiveCd || 0) > 0) return false;
     p.rewindT = rewindWindow(p);
     p.rewindMark = { x: p.x, y: p.y };
     run.fx.push({ t: 'rewind_mark', id: p.id, x: Math.round(p.x), y: Math.round(p.y), r: 110 });
-    run.fx.push({ t: 'active_mutation', label: 'REWIND MARK', x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
     return true;
   }
   if (id === 'kill_switch') {
@@ -3845,7 +3864,14 @@ function stepRActiveState(run, players, p, dt) {
   p.ghostT = Math.max(0, (p.ghostT || 0) - dt);
   p.targetLockT = Math.max(0, (p.targetLockT || 0) - dt);
   if ((p.targetLockT || 0) > 0) {
-    const e = run.enemies.find(x => x.id === p.targetLockTargetId && x.hp > 0 && (x.spawnDelay || 0) <= 0);
+    let e = run.enemies.find(x => x.id === p.targetLockTargetId && x.hp > 0 && (x.spawnDelay || 0) <= 0);
+    if (!e) {
+      e = enemyNearPoint(run, p.x, p.y, 980) || enemyNearPoint(run, p.aimX, p.aimY, 980);
+      if (e) {
+        p.targetLockTargetId = e.id;
+        run.fx.push({ t: 'active_mutation', label: `LOCK JUMP ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 74, tone: 'cyan', playerId: p.id, target: e.id });
+      }
+    }
     if (e) { p.aimX = e.x; p.aimY = e.y; }
     else { p.targetLockT = 0; p.targetLockTargetId = ''; }
   }
@@ -5782,6 +5808,14 @@ function makeAbilityChestChoices(p, rng = Math.random, count = 3, qualityTier = 
   return choices.slice(0, want);
 }
 
+function applyAbilityMirrorCopy(run, players, p, opt, label = '') {
+  const k = String(opt?.kind || '');
+  if (k === 'active_core_install' || k === 'active_core_replace') {
+    return applyAbilityChestOption(run, players, p, { kind: 'active_upgrade_core', core: p.active?.core, label: label || opt?.label || 'Q MIRROR LEVEL', _mirrorCopy: 1 });
+  }
+  return applyAbilityChestOption(run, players, p, { ...opt, _mirrorCopy: 1 });
+}
+
 function applyAbilityChestOption(run, players, p, opt) {
   if (!opt) return false;
   const a = ensureActive(p);
@@ -5836,8 +5870,8 @@ function applyAbilityChestOption(run, players, p, opt) {
     else if (opt.stat === 'dashflow') p.stats.dashRegenMul *= 1.2;
     else return false;
   } else return false;
-  const mirrorable = ['active_upgrade_core','ability_upgrade','stat'].includes(String(opt.kind || ''));
-  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, opt.label || label, mirrorable, () => applyAbilityChestOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  const mirrorable = ['active_core_install','active_core_replace','active_upgrade_core','ability_upgrade','stat'].includes(String(opt.kind || ''));
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, opt.label || label, mirrorable, () => applyAbilityMirrorCopy(run, players, p, opt, opt.label || label));
   ensureActive(p);
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
@@ -6014,26 +6048,53 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
 
 export { handleRoomWagerAccept };
 
+function choiceIdentity(c) { return String(c?.id || c?.upgrade || c?.weapon || c?.core || c?.mutation || c || ''); }
+function rerollChoicesDifferent(makeFn, oldChoices = [], count = 2, fallback = []) {
+  const oldIds = new Set((oldChoices || []).map(choiceIdentity).filter(Boolean));
+  let best = [];
+  for (let i = 0; i < 32; i++) {
+    const next = (makeFn() || []).filter(Boolean);
+    const fresh = next.filter(x => !oldIds.has(choiceIdentity(x)));
+    if (fresh.length >= Math.min(count, next.length)) return fresh.slice(0, count);
+    if (fresh.length > best.length) best = fresh;
+  }
+  if (best.length >= count) return best.slice(0, count);
+  const extra = (fallback || []).filter(x => !oldIds.has(choiceIdentity(x)) && !best.some(y => choiceIdentity(y) === choiceIdentity(x)));
+  return [...best, ...extra].slice(0, count);
+}
+
 export function handleRerollOffer(run, players, p, kind = '') {
   if (!p) return false;
   const k = String(kind || '').toLowerCase();
   if (k === 'weapon' && !p.weaponChestOffer) return false;
   if (k === 'ability' && !p.abilityChestOffer) return false;
+  if ((k === 'boss' || k === 'signature' || k === 'boss_signature') && !(p.offer && p.offer.kind === 'boss_signature')) return false;
   const favor = consumeContractFavor(run, ['free_reroll', 'epic_reroll']);
   if (!favor) {
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'NO FAVOR REROLL' });
     return false;
   }
   if (k === 'weapon') {
-    const old = p.weaponChestOffer;
-    const count = Math.max(1, Math.min(5, old.slotCount || old.choices?.length || 3));
-    p.weaponChestOffer = { ...old, choices: makeWeaponChestChoices(p, Math.random, count, old.valueTier || 0), chestId: old.chestId || 'favor', slotCount: count };
+    const prev = p.weaponChestOffer;
+    const count = Math.max(1, Math.min(5, prev.slotCount || prev.choices?.length || 3));
+    const choices = rerollChoicesDifferent(() => makeWeaponChestChoices(p, Math.random, count, prev.valueTier || 0), prev.choices, count, makeWeaponChestChoices(p, Math.random, 5, prev.valueTier || 0));
+    p.weaponChestOffer = { ...prev, choices, chestId: prev.chestId || 'favor', slotCount: count, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else if (k === 'ability') {
-    const old = p.abilityChestOffer;
-    const count = Math.max(1, Math.min(5, old.slotCount || old.choices?.length || 3));
-    p.abilityChestOffer = { ...old, choices: makeAbilityChestChoices(p, Math.random, count, old.valueTier || 0), chestId: old.chestId || 'favor', slotCount: count };
+    const prev = p.abilityChestOffer;
+    const count = Math.max(1, Math.min(5, prev.slotCount || prev.choices?.length || 3));
+    const choices = rerollChoicesDifferent(() => makeAbilityChestChoices(p, Math.random, count, prev.valueTier || 0), prev.choices, count, makeAbilityChestChoices(p, Math.random, 5, prev.valueTier || 0));
+    p.abilityChestOffer = { ...prev, choices, chestId: prev.chestId || 'favor', slotCount: count, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
+  } else if (k === 'boss' || k === 'signature' || k === 'boss_signature') {
+    const prev = p.offer;
+    const count = BOSS_SIGNATURE_CHOICE_COUNT;
+    const kindId = p.bossSignatureKind || run.lastBossKind || 'boss';
+    let choices = rerollChoicesDifferent(() => bossSignatureChoicesForKind(kindId, Math.random, p), prev.choices || [], count, BOSS_SIGNATURE_UPGRADE_IDS.filter(id => !bossRewardBlockedForPlayer(id, p)));
+    if (choices.length < count) choices = bossSignatureChoicesForKind(kindId, Math.random, p);
+    p.bossSignatureChoices = choices.slice(0, count);
+    p.offer = { ...prev, choices: p.bossSignatureChoices, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else return false;
   run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: k.toUpperCase() + ' REROLLED', playerId: p.id });
+  run.fx.push({ t: 'choice_reroll', id: p.id, kind: k, label: favorLabel(favor) });
   return true;
 }
 
@@ -6433,9 +6494,9 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
   const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
-  const canMirror = upgradeCanMirror(id);
+  const canMirror = wasBossSignature && upgradeCanMirror(id);
   u.apply(p.stats);
-  useMirrorIfPossible(run, p, u.label, canMirror, () => u.apply(p.stats));
+  if (wasBossSignature) useMirrorIfPossible(run, p, u.label, canMirror, () => { u.apply(p.stats); return true; });
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   if (wasBossSignature) {
