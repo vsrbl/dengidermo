@@ -4162,3 +4162,102 @@ button:hover,
   font-size: 11px;
   letter-spacing: .08em;
 }
+
+/* v2.1.81 — player/music controls placed over top-right dossier, feed realigned, casino lock in reels */
+body.yt-mini-visible #hud-objective {
+  margin-top: 38px !important;
+}
+#yt-mini-controls.yt-mini {
+  position: fixed !important;
+  top: var(--ui-center-inset-y) !important;
+  right: var(--ui-center-inset-x) !important;
+  z-index: 16 !important;
+  margin-top: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  width: auto !important;
+  max-width: min(420px, 44vw) !important;
+}
+#yt-mini-controls.hidden { display: none !important; }
+#yt-mini-controls button {
+  min-width: 34px !important;
+  height: 24px !important;
+  padding: 0 7px !important;
+  font-size: 10.5px !important;
+  letter-spacing: .08em !important;
+  white-space: nowrap !important;
+}
+#yt-playpause { min-width: 54px !important; }
+#yt-vol-label { min-width: 46px !important; }
+body.yt-mini-visible #feed {
+  top: calc(var(--ui-center-inset-y) + 128px) !important;
+}
+#feed {
+  left: var(--ui-center-inset-x) !important;
+}
+body.yt-8bit-on #youtube-player-wrap iframe,
+body.yt-8bit-on #youtube-player {
+  image-rendering: pixelated !important;
+  filter: contrast(1.35) saturate(.65) brightness(.86) sepia(.18) hue-rotate(135deg) !important;
+}
+body.yt-8bit-on #yt-bit {
+  border-color: rgba(255,211,77,.82) !important;
+  color: var(--gold) !important;
+  background: rgba(255,211,77,.12) !important;
+}
+.casino-lock-badge { display: none !important; }
+.reel.lock-fixed,
+.reel.lock-used-cell,
+.reel.lock-new-cell {
+  position: relative !important;
+  animation: lockCellPulseV2181 .72s steps(4,end) infinite !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 20px rgba(102,246,255,.20) !important;
+}
+.reel.lock-used-cell::before,
+.reel.lock-fixed::before,
+.reel.lock-new-cell::before {
+  content: 'LOCK';
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  font-size: 7px;
+  letter-spacing: .12em;
+  color: rgba(243,243,243,.62);
+}
+@keyframes lockCellPulseV2181 {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.45); }
+}
+#casino-result {
+  height: 96px !important;
+  min-height: 96px !important;
+  max-height: 96px !important;
+  overflow: hidden !important;
+  align-content: start !important;
+}
+#casino-result .casino-result-title {
+  font-size: 13px !important;
+  letter-spacing: .12em !important;
+  line-height: 1.05 !important;
+}
+#casino-result .casino-result-flow {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 3px 5px !important;
+  width: 100% !important;
+  max-height: 70px !important;
+  overflow: hidden !important;
+}
+#casino-result .casino-result-flow b {
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-size: 9.5px !important;
+  line-height: 1.05 !important;
+  padding: 2px 3px !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+.chest-offer-meta .chest-reason:empty,
+.chest-offer-meta .chest-reason:has(:empty) { display: none !important; }
