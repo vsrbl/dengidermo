@@ -1007,6 +1007,7 @@ export class AudioBus {
       case 'casino_tick': this.play(f.good ? 'casino_win' : 'casino_static'); break;
       case 'casino_overload': this.play('slot_overload'); this.play('casino_static'); break;
       case 'slot_mob_roll': this.play('casino_spin'); this.play('casino_reel_stop'); this.play('casino_result'); break;
+      case 'slot_mob_roll_tick': this.play('casino_spin'); break;
       case 'slot_mob_rebuild': this.play(f.spawn ? 'slot_overload' : 'casino_static'); this.play('casino_spin'); this.play('casino_reel_stop'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;

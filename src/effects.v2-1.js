@@ -432,32 +432,31 @@ export class Effects {
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 75, ttl: 0.32, color: f.good ? '#00ff66' : '#b45cff' });
         break;
       case 'casino_overload': {
-        const d = Math.max(0.85, Number(f.breakDelay || 1.18));
-        const g = Math.max(d + 0.95, Number(f.gatherDelay || (d + 1.35)));
-        // Terminal fails first while the BET window is closing; only after that the physical
-        // casino chest breaks in-world and its fragments become the slot-mob seed.
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 220, ttl: 0.82, color: '#ff3048' });
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.95, color: '#ffd34d', delay: d, heavy: 1, physical: 1 });
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 2.05, color: '#ffd34d', explode: 1, delay: d + 0.05, heavy: 1, physical: 1 });
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: 2.05, color: '#ffd34d', collapse: 1, delay: g, heavy: 1, physical: 1 });
+        const d = Math.max(3.0, Number(f.breakDelay || 4.18));
+        const hold = Math.max(4.2, Number(f.holdDelay || 5.0));
+        const g = Math.max(d + hold, Number(f.gatherDelay || (d + hold)));
+        // First the terminal only shakes/tears while inactive. The actual physical
+        // break happens after the BET window has closed, then exactly four chunks
+        // bounce, settle, magnetize one by one and become the slot-mob seed.
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + 3.4, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherAt: g, heavy: 1, physical: 1, spawn: 1 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
-        this.slam = 0.65; this.kick(16);
+        this.slam = 0.55; this.kick(10);
         break;
       }
       case 'slot_mob_roll':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.34, color: '#ffd34d' });
         this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
         break;
+      case 'slot_mob_roll_tick':
+        this.add({ kind: 'slotTick', x: f.x, y: f.y, ttl: 0.22, color: '#ffd34d' });
+        break;
       case 'slot_mob_rebuild': {
         const d = Math.max(0, Number(f.delay || 0));
-        if (f.scatter || f.spawn) {
-          this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: 1.55, color: '#ffd34d', delay: d, heavy: 1, physical: 1 });
-          this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.65, color: '#ffd34d', explode: 1, delay: d + 0.03, heavy: 1, physical: 1 });
-        }
-        this.add({ kind: 'slotScatter', x: f.x, y: f.y, ttl: 1.95, color: '#ffd34d', collapse: 1, delay: d + 0.62, heavy: 1, physical: 1 });
-        this.add({ kind: 'squareField', x: f.x, y: f.y, r: 112, ttl: 1.15, color: '#b45cff', tick: 1, delay: d + 0.76 });
+        const hold = Math.max(4.2, Number(f.holdDelay || 5.0));
+        const gatherAt = Math.max(0.9 + hold, Number(f.gatherDelay || (0.95 + hold)));
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: gatherAt + 3.2, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherAt, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0 });
         if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
-        this.kick(f.spawn ? 11 : 8);
+        this.kick(f.spawn ? 10 : 7);
         break;
       }
       case 'boss_burst':
@@ -598,40 +597,101 @@ export class Effects {
           ctx.stroke();
         }
       } else if (e.kind === 'slotBreakChunks') {
+        // Four physical casino plates. They shake before breaking, fly out, bounce/settle,
+        // rest for a few seconds, then magnetize back one-by-one into the mob core.
+        const pre = Math.max(0, Number(e.preBreak || 0));
+        const hold = Math.max(0, Number(e.hold || 5.0));
+        const gatherAt = Math.max(pre + hold, Number(e.gatherAt || (pre + hold)));
+        if (e.t < pre) {
+          const q = e.t / Math.max(0.01, pre);
+          const jx = Math.sin(e.t * 52) * (2 + q * 7);
+          const jy = Math.cos(e.t * 47) * (1.5 + q * 5);
+          ctx.save();
+          ctx.globalAlpha = 0.52 + Math.sin(e.t * 28) * 0.18;
+          ctx.strokeStyle = '#ff3048'; ctx.fillStyle = 'rgba(255,48,72,0.08)'; ctx.lineWidth = 3;
+          ctx.setLineDash([9, 5]);
+          const s = 58 + q * 18;
+          ctx.strokeRect(Math.round(e.x - s / 2 + jx), Math.round(e.y - s / 2 + jy), Math.round(s), Math.round(s));
+          ctx.fillRect(Math.round(e.x - s / 2 + jx), Math.round(e.y - s / 2 + jy), Math.round(s), Math.round(s));
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.34 + q * 0.22;
+          ctx.strokeStyle = e.color || '#ffd34d';
+          ctx.strokeRect(Math.round(e.x - s * 0.32 - jx), Math.round(e.y - s * 0.32 - jy), Math.round(s * 0.64), Math.round(s * 0.64));
+          ctx.restore();
+        } else {
         if (!e.parts) {
-          e.parts = Array.from({ length: 4 }, (_, i) => {
-            const a = Math.PI / 4 + i * Math.PI / 2 + ((e.x + e.y + i * 31) % 17) * 0.01;
-            const m = e.heavy ? 1.25 : 1;
-            return {
-              a,
-              vx: Math.cos(a) * (130 + i * 26) * m,
-              vy: Math.sin(a) * (112 + i * 22) * m - (120 + i * 18),
-              spin: (i % 2 ? -1 : 1) * (3.6 + i * 0.55),
-              sz: 30 - i * 2
-            };
-          });
+          const seeds = [0.64, 2.31, 3.82, 5.42];
+          e.parts = seeds.map((a, i) => ({
+            a,
+            vx: Math.cos(a) * (185 + i * 26),
+            vy: Math.sin(a) * (155 + i * 18) - (135 + i * 16),
+            spin: (i % 2 ? -1 : 1) * (4.1 + i * 0.42),
+            sz: 26 + (i % 2) * 4,
+            rest: null
+          }));
         }
+        const t = Math.max(0, e.t - pre);
+        const explodeT = Math.min(1.10, t);
+        const targetX = Number(e.x2 || e.x), targetY = Number(e.y2 || e.y);
+        const localMinX = e.x - 220, localMaxX = e.x + 220;
+        const groundY = e.y + 124;
         ctx.save();
         ctx.strokeStyle = e.color || '#ffd34d';
-        ctx.fillStyle = 'rgba(255,211,77,0.13)';
-        ctx.lineWidth = e.heavy ? 3.1 : 2.4;
-        for (const part of e.parts) {
-          const tt = Math.min(1.25, p * 1.38);
-          const x = e.x + part.vx * tt;
-          const y = e.y + part.vy * tt + 235 * tt * tt;
-          const sz = Math.max(10, part.sz * (1 - p * 0.22));
+        ctx.fillStyle = 'rgba(255,211,77,0.15)';
+        ctx.lineWidth = e.heavy ? 3.2 : 2.4;
+        for (let i = 0; i < e.parts.length; i++) {
+          const part = e.parts[i];
+          let x = e.x + part.vx * explodeT;
+          let y = e.y + part.vy * explodeT + 265 * explodeT * explodeT;
+          // cheap but readable wall/ground bounce in world-space around the slot.
+          if (x < localMinX) x = localMinX + (localMinX - x) * 0.55;
+          if (x > localMaxX) x = localMaxX - (x - localMaxX) * 0.55;
+          if (y > groundY) y = groundY - (y - groundY) * 0.38;
+          if (!part.rest && t >= 1.1) part.rest = { x, y };
+          if (part.rest) { x = part.rest.x; y = part.rest.y; }
+          const gatherStart = Math.max(gatherAt - pre, 0) + i * 0.36;
+          const gatherDur = 0.64;
+          let alpha = 1;
+          let rot = part.a + part.spin * Math.min(t, 1.1);
+          if (t >= gatherStart) {
+            const q = Math.max(0, Math.min(1, (t - gatherStart) / gatherDur));
+            const ease = q * q * (3 - 2 * q);
+            const vib = Math.sin((t - gatherStart) * 72 + i) * (1 - q) * 3.2;
+            const tx = targetX + Math.cos(i * Math.PI / 2) * (i === 3 ? 0 : 8 - q * 8);
+            const ty = targetY + Math.sin(i * Math.PI / 2) * (i === 3 ? 0 : 8 - q * 8);
+            x = part.rest.x + (tx - part.rest.x) * ease + vib;
+            y = part.rest.y + (ty - part.rest.y) * ease - Math.sin(q * Math.PI) * 34 + vib * 0.45;
+            rot += q * Math.PI * (i % 2 ? -1 : 1);
+            if (i === 3 && q > 0.82) {
+              ctx.globalAlpha = (q - 0.82) * 2.2;
+              ctx.strokeStyle = '#ff3048'; ctx.lineWidth = 2.5; ctx.setLineDash([7, 5]);
+              const boom = 78 + (q - 0.82) * 155;
+              ctx.strokeRect(Math.round(targetX - boom / 2), Math.round(targetY - boom / 2), Math.round(boom), Math.round(boom));
+              ctx.setLineDash([]); ctx.strokeStyle = e.color || '#ffd34d'; ctx.lineWidth = e.heavy ? 3.2 : 2.4;
+            }
+          }
+          const sz = Math.max(12, part.sz);
           ctx.save();
-          ctx.globalAlpha = Math.max(0, 1 - p * 0.62);
+          ctx.globalAlpha = alpha;
           ctx.translate(Math.round(x), Math.round(y));
-          ctx.rotate(part.a + part.spin * tt);
+          ctx.rotate(rot);
           ctx.strokeRect(-sz / 2, -sz / 2, sz, sz);
           ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
           ctx.beginPath();
-          ctx.moveTo(-sz * 0.38, 0); ctx.lineTo(sz * 0.38, 0);
-          ctx.moveTo(0, -sz * 0.38); ctx.lineTo(0, sz * 0.38);
+          ctx.moveTo(-sz * 0.36, 0); ctx.lineTo(sz * 0.36, 0);
+          ctx.moveTo(0, -sz * 0.36); ctx.lineTo(0, sz * 0.36);
           ctx.stroke();
           ctx.restore();
         }
+        ctx.restore();
+        }
+      } else if (e.kind === 'slotTick') {
+        ctx.save();
+        const p2 = Math.max(0, Math.min(1, e.t / (e.ttl || 0.22)));
+        ctx.globalAlpha = 1 - p2;
+        ctx.strokeStyle = e.color || '#ffd34d'; ctx.lineWidth = 2;
+        const s = 48 + p2 * 26;
+        ctx.strokeRect(Math.round(e.x - s / 2), Math.round(e.y - s / 2), Math.round(s), Math.round(s));
         ctx.restore();
       } else if (e.kind === 'slotScatter') {
         const syms = ['GLD','EXP','STC','WPN','ABL','BAD','JCK','RAR'];

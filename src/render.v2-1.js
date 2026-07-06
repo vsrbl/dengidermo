@@ -546,34 +546,25 @@ export class Renderer {
           this.label('ASSEMBLE', ex, ey + size / 2 + 17, COL.gold, 8);
           continue;
         }
-        if (isChargerWindup || isChargerCharge) {
+        if (isChargerWindup) {
           const dx = (dirX / 100) || 1, dy = (dirY / 100) || 0;
-          ctx.globalAlpha = isChargerCharge ? 0.78 : (0.52 + Math.sin(now * 24) * 0.28);
-          ctx.strokeStyle = COL.red;
-          ctx.lineWidth = isChargerCharge ? 4 : 2.4;
-          ctx.setLineDash(isChargerCharge ? [] : [8, 6]);
-          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + dx * 500, ey + dy * 500); ctx.stroke();
-          ctx.setLineDash([]);
-          if (isChargerCharge) {
-            ctx.globalAlpha = 0.24 + Math.sin(now * 38) * 0.08;
-            ctx.fillStyle = COL.red;
-            for (let i = 1; i <= 5; i++) {
-              const bx = ex - dx * i * 18, by = ey - dy * i * 18;
-              ctx.fillRect(Math.round(bx - size * 0.32), Math.round(by - size * 0.32), Math.round(size * 0.64), Math.round(size * 0.64));
-            }
-          }
-          ctx.globalAlpha = 1;
+          ctx.save();
+          ctx.globalAlpha = 0.5 + Math.sin(now * 20) * 0.4;
+          ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + dx * 320, ey + dy * 320); ctx.stroke();
+          ctx.restore();
         }
         if (isRebuild) ctx.globalAlpha = 0.62 + pulse * 0.25;
-        this.square(ex, ey, size, { stroke: frameCol, lw: 3.5, fill: 'rgba(255,211,77,0.055)' });
+        this.square(ex, ey, size * (isChargerWindup ? 0.85 : 1), { stroke: isChargerWindup ? COL.red : frameCol, lw: mode === 'charger' ? 3 : 3.5, fill: 'rgba(255,211,77,0.055)' });
         this.square(ex, ey, size * 0.70, { stroke: COL.fg, lw: 1.4, fill: 'rgba(0,0,0,0.28)' });
         const reelSyms = ['GLD','WPN','ABL','STC','BAD','RAR','JCK'];
-        const idx = Math.floor(now * (isRebuild ? 10 : 5) + ex * 0.01 + ey * 0.01) % reelSyms.length;
+        const fixedModeSym = { shooter: 'SHT', charger: 'CHG', runner: 'RUN', pulse: 'PLS' }[mode] || mode.toUpperCase().slice(0, 3);
+        const idx = Math.floor(now * (isRebuild ? 12 : 0) + ex * 0.01 + ey * 0.01) % reelSyms.length;
         ctx.fillStyle = frameCol;
         ctx.font = '700 10px var(--mono, monospace)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(isRebuild ? reelSyms[idx] : reelSyms[(idx + lives) % reelSyms.length], Math.round(ex), Math.round(ey));
+        ctx.fillText(isRebuild ? reelSyms[idx] : fixedModeSym, Math.round(ex), Math.round(ey));
         ctx.globalAlpha = 0.55;
         ctx.strokeStyle = frameCol;
         ctx.lineWidth = 1;
@@ -582,8 +573,8 @@ export class Renderer {
         ctx.setLineDash([]);
         ctx.restore();
         this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, frameCol, 9);
-        const modeLabel = isChargerWindup ? 'AIMING' : isChargerCharge ? 'CHARGE' : isChargerCool ? 'COOL' : mode.toUpperCase().slice(0, 7);
-        this.label(isRebuild ? 'ROLLING' : modeLabel, ex, ey + size / 2 + 17, frameCol, 8);
+        if (isRebuild) this.label('ROLLING', ex, ey + size / 2 + 17, frameCol, 8);
+        else if (mode !== 'charger') this.label(mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });
