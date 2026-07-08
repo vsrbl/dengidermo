@@ -469,6 +469,7 @@ function chestValueInfo(run, o = {}) {
   return { tier, label, labelRu, slots, slotCount: slots, choiceBonus: Math.max(0, slots - 3), costValueMul, slotCostMul, rawMul, reason };
 }
 function effectiveChestCost(run, o) {
+  if (o?.devFree) return 0;
   const def = CHESTS[o?.chest];
   if (!def || !def.cost) return 0;
   const info = chestValueInfo(run, o);
@@ -7623,9 +7624,67 @@ function applyDevBossReward(run, p, id) {
   return true;
 }
 
+
+function devRandomWeaponChestProfile(rng = Math.random) {
+  const r = rng();
+  const tier = r < 0.12 ? 3 : r < 0.36 ? 2 : r < 0.72 ? 1 : 0;
+  const slotCount = tier >= 3 ? 5 : tier >= 2 ? 3 : tier >= 1 ? (rng() < 0.72 ? 2 : 1) : (rng() < 0.62 ? 1 : 2);
+  const label = tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
+  return { tier, slotCount, label };
+}
+function devWeaponChestSpot(run, p) {
+  const walls = run?.plan?.walls || [];
+  const baseX = Number(p?.x) || (run?.plan?.w || 1600) / 2;
+  const baseY = Number(p?.y) || (run?.plan?.h || 1000) / 2;
+  const tries = [
+    [0, -96], [96, 0], [-96, 0], [0, 96], [92, -72], [-92, -72], [116, 82], [-116, 82], [0, -150], [150, 0], [-150, 0]
+  ];
+  for (const [dx, dy] of tries) {
+    const c = collideWalls(baseX + dx, baseY + dy, 34, walls, baseX, baseY);
+    if (wallPenalty(c.x, c.y, 34, walls) <= 0) return c;
+  }
+  return { x: baseX, y: baseY - 96 };
+}
+function spawnDevWeaponChest(run, p) {
+  if (!run?.plan) return null;
+  if (!Array.isArray(run.plan.interactables)) run.plan.interactables = [];
+  const prof = devRandomWeaponChestProfile(Math.random);
+  const pos = devWeaponChestSpot(run, p);
+  const id = `devwpn${(run.tick || 0)}_${Math.floor(Math.random() * 1e6)}`;
+  const chest = {
+    id,
+    type: 'chest',
+    chest: 'weapon_chest',
+    x: Math.round(pos.x),
+    y: Math.round(pos.y),
+    opened: false,
+    chestTier: prof.tier,
+    slotCount: prof.slotCount,
+    costMul: 0,
+    rarityReason: `DEV ${prof.label}`,
+    devFree: 1
+  };
+  run.plan.interactables.push(chest);
+  return chest;
+}
+
 export function handleDevCommand(run, players, p, cmd = {}) {
   if (!p || !cmd || typeof cmd !== 'object') return false;
   const action = String(cmd.action || '');
+  if (action === 'spawn_weapon_chest') {
+    const o = spawnDevWeaponChest(run, p);
+    if (!o) return false;
+    const value = chestValueInfo(run, o);
+    run.fx.push({ t: 'active_mutation', label: `DEV WPN CHEST ${value.label}`, x: Math.round(o.x), y: Math.round(o.y), r: 95, tone: 'cyan', playerId: p.id });
+    run.fx.push({ t: 'chest_spawn', chest: 'WPN', value: value.label, x: Math.round(o.x), y: Math.round(o.y), playerId: p.id });
+    return true;
+  }
+  if (action === 'luck_plus') {
+    if (!p.stats) p.stats = defaultStats();
+    p.stats.luck = Math.max(0, Number(p.stats.luck || 0)) + 1;
+    run.fx.push({ t: 'active_mutation', label: `DEV LUCK +1 (${Math.round(p.stats.luck)})`, x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'gold', playerId: p.id });
+    return true;
+  }
   if (action === 'set_active') {
     const core = String(cmd.core || '');
     if (!ACTIVE_CORES[core]) return false;

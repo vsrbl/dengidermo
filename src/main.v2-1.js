@@ -499,6 +499,8 @@ function ensureDevPanel() {
     <div class="dev-buttons dev-priority">
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
       <button id="dev-wpn-offer">WPN OFFER</button>
+      <button id="dev-wpn-chest">SPAWN WPN CHEST</button>
+      <button id="dev-luck-plus">LUCK +1</button>
       <button id="dev-sig-offer">BOSS SIG OFFER</button>
       <button id="dev-win-run">WIN RUN</button>
     </div>
@@ -562,6 +564,8 @@ function ensureDevPanel() {
   });
   devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed('DEV: PORTAL OPEN', 'c'); });
   devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed('DEV: WPN OFFER', 'c'); });
+  devPanel.querySelector('#dev-wpn-chest')?.addEventListener('click', () => { cmd('spawn_weapon_chest'); hud.feed('DEV: SPAWN WPN CHEST', 'c'); });
+  devPanel.querySelector('#dev-luck-plus')?.addEventListener('click', () => { cmd('luck_plus'); hud.feed('DEV: LUCK +1', 'c'); });
   devPanel.querySelector('#dev-sig-offer')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind }); hud.feed('DEV: BOSS SIG OFFER', 'c'); });
   devPanel.querySelector('#dev-give-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`DEV: ${id.replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase()}`, 'c'); });
   devPanel.querySelector('#dev-offer-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind, force: [id] }); hud.feed('DEV: FORCED BOSS OFFER', 'c'); });

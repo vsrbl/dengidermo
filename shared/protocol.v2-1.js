@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.131';
-export const BUILD_ID = 'living_casino_guard_lvc_autoplay_luck_room_hotfix';
+export const VERSION = 'v2.1.132';
+export const BUILD_ID = 'hero_selector_dev_wpn_luck_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

@@ -4977,3 +4977,30 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
     display: none !important;
   }
 }
+
+
+/* v2.1.132 — tighter hero selector vertical balance */
+#menu .hero-selector {
+  padding: 7px 9px !important;
+  gap: 7px !important;
+  margin: 7px 0 5px !important;
+}
+#menu #audio-settings + #hero-selector::before {
+  margin: -8px -9px 7px !important;
+}
+#menu .hero-head {
+  min-height: 15px !important;
+  line-height: 1 !important;
+  align-items: center !important;
+}
+#menu .hero-cards {
+  gap: 7px !important;
+}
+#menu .hero-card {
+  min-height: 56px !important;
+  padding: 7px 9px !important;
+  justify-content: center !important;
+  gap: 4px !important;
+}
+#menu .hero-card .hero-title { line-height: 1.08 !important; }
+#menu .hero-card .hero-desc { line-height: 1.08 !important; }
