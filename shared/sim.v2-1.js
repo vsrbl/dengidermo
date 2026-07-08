@@ -222,7 +222,7 @@ const activeSoftMul = v => 1 - (1 - v) * ACTIVE_BALANCE_SCALE;
 export const ENEMY_KINDS = Object.keys(ENEMIES); // index -> kind
 const KIND_IDX = Object.fromEntries(ENEMY_KINDS.map((k, i) => [k, i]));
 const SKIN_BY_ID = Object.fromEntries(SKIN_PRESETS.map(s => [s.id, s]));
-const ROOM_ARCHETYPES = ['panic_box','compact','standard','wide','long_lane','lounge','boss','ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','cashier_maze','machine_core'];
+const ROOM_ARCHETYPES = ['panic_box','compact','standard','wide','long_lane','lounge','boss','ripped_table','cross_terminal','ring_track','clamp_room','cashier_maze','machine_core'];
 function sanitizeDevRoomOverride(cmd = {}) {
   const category = ROOM_SEQUENCE.includes(cmd.category) || cmd.category === 'chill' ? String(cmd.category) : '';
   const specialRoomId = cmd.specialRoomId && SPECIAL_ROOMS[cmd.specialRoomId] ? String(cmd.specialRoomId) : '';
@@ -794,7 +794,7 @@ function roomDangerScore(plan = {}, staticLevel = 0) {
   else if (arch === 'long_lane') score += 0.5;
   else if (arch === 'wide') score += 0.45;
   else if (arch === 'cashier_maze') score += 1.65;
-  else if (['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) score += 0.55;
+  else if (['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) score += 0.55;
   if (special === 'signal_contract') score += 0.9;
   if (special === 'debt_node') score += 0.75;
   if (special === 'reward_pocket') score += 0.25;
@@ -824,7 +824,6 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   else if (arch === 'ripped_table') tags.push('NARROW BRIDGE');
   else if (arch === 'cross_terminal') tags.push('CROSS LANES');
   else if (arch === 'ring_track') tags.push('CHASE LOOP');
-  else if (arch === 'three_paylines') tags.push('PAYLINES');
   else if (arch === 'clamp_room') tags.push('SQUEEZE LANES');
   else if (arch === 'cashier_maze') { tags.push('LONG MAZE'); tags.push('BLACKOUT'); }
   else if (arch === 'machine_core') tags.push('CORE POCKETS');
@@ -858,7 +857,6 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (arch === 'ripped_table') return 'RIPPED TABLE: the bridge decides when fights spill between halves.';
   if (arch === 'cross_terminal') return 'CROSS TERMINAL: threats travel through four lanes into the center.';
   if (arch === 'ring_track') return 'RING TRACK: keep moving around the blocked core.';
-  if (arch === 'three_paylines') return 'THREE PAYLINES: lane gaps decide safe rotations.';
   if (arch === 'clamp_room') return 'CLAMP ROOM: space squeezes into readable bands.';
   if (arch === 'machine_core') return 'MACHINE CORE: clear pockets before the core area floods.';
   if (arch === 'panic_box') return 'PANIC BOX: use dash as a reset, not only as speed.';
@@ -893,7 +891,7 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', reward: 'FAVOR', goal: 'Kill every enemy and claim the cache.' };
   if (arch === 'cashier_maze') return { id: 'clean_signal', label: 'MAZE CLEANUP', reward: 'FAVOR', goal: 'Find the far exit and kill every enemy in the maze.' };
   if (arch === 'panic_box' || arch === 'compact') return { id: 'fast_clear', label: 'FAST CLEANUP', reward: 'FAVOR', goal: `Kill every enemy before ${fastClearTimeLimit({ plan })}s.` };
-  if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
+  if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
   return { id: 'clean_signal', label: 'FULL CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy in the room.' };
 }
 function shouldOfferRoomContract(plan = {}, depth = 0, seed = 1) {
@@ -1482,7 +1480,7 @@ function playableRectForArchetype(archetype) {
     panic_box: { w: 1120, h: 760 }, compact: { w: 1420, h: 960 }, standard: { w: 2200, h: 1500 },
     wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 },
     ripped_table: { w: 2200, h: 1500 }, cross_terminal: { w: 2200, h: 1500 }, ring_track: { w: 2200, h: 1500 },
-    three_paylines: { w: 2200, h: 1500 }, clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 }
+    clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 }
   };
   const d = defs[archetype] || defs.standard;
   const x = Math.round((2200 - d.w) / 2), y = Math.round((1500 - d.h) / 2);
@@ -2365,7 +2363,7 @@ function roomDirectorMinAge(run) {
   let t = 11.5 + Math.min(8, q * 0.34) + Math.min(4, loop * 0.7);
   if (arch === 'wide' || arch === 'long_lane') t += 3.0;
   if (arch === 'cashier_maze') t += 8.0;
-  if (['ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','machine_core'].includes(arch)) t += 1.4;
+  if (['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) t += 1.4;
   if (arch === 'panic_box' || arch === 'compact') t -= 1.2;
   return Math.max(10, Math.min(24, t));
 }
@@ -2771,7 +2769,8 @@ function setupLivingCasinoPlayer(p) {
     lastSector: '',
     lastPower: 1,
     copyPower: 0.55,
-    betLuck: 0
+    betLuck: 0,
+    autoLvc: 0
   };
   return p;
 }
@@ -2786,6 +2785,7 @@ function ensureLivingCasinoState(p) {
   lc.selected = Math.max(0, Math.min(lc.sectors.length - 1, Number(lc.selected || 0) | 0));
   lc.ringOpen = !!lc.ringOpen;
   lc.copyPower = Math.max(0.25, Math.min(0.95, Number(lc.copyPower || 0.55) || 0.55));
+  lc.autoLvc = lc.autoLvc ? 1 : 0;
   if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = ['living_casino'];
   if (!p.weapons.includes('living_casino')) p.weapons.unshift('living_casino');
   for (const sec of lc.sectors) {
@@ -2928,6 +2928,7 @@ function livingCasinoChoicePool(p, qualityTier = 0) {
     const next = (sec.level || 1) + 1;
     pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ', group: 'LIVE CASINO', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
   }
+  if (livingCasinoHasSector(p, 'dmg') && !lc.autoLvc) pool.push({ id: 'lc_lvc_auto_fire', kind: 'lc_lvc_auto_fire', sector: 'dmg', label: 'LVC AUTOPLAY', actionLabel: 'АВТО-ОГОНЬ', group: 'LIVE CASINO', role: 'LVC', desc: 'Если LVC выбрана, она сама запускается, когда полностью готова после перезарядки.', valueTier: qualityTier });
   if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'COPY POWER +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'LIVE CASINO', role: 'COPY', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
   if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'BET ODDS +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'LIVE CASINO', role: 'BET', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
@@ -3032,6 +3033,9 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
   } else if (opt.kind === 'lc_copy_power') {
     lc.copyPower = Math.min(0.95, (lc.copyPower || 0.55) + 0.10);
     label = `COPY POWER ${Math.round(lc.copyPower * 100)}%`;
+  } else if (opt.kind === 'lc_lvc_auto_fire') {
+    lc.autoLvc = 1;
+    label = 'LVC AUTOPLAY';
   } else if (opt.kind === 'lc_bet_luck') {
     lc.betLuck = Math.max(0, (lc.betLuck || 0) + 1);
     label = `BET ODDS +${lc.betLuck}`;
@@ -3118,19 +3122,28 @@ function activateLivingCasinoGuard(run, p, sec, power = 1) {
   p.livingCasinoGuardMax = Math.max(p.livingCasinoGuardMax || 0, cap);
   p.livingCasinoGuardT = Math.max(p.livingCasinoGuardT || 0, 5.2 + lvl * 0.45);
   p.aegisShield = Math.max(p.aegisShield || 0, Math.min(aegisCapacity(p), cap));
-  const r = Math.round(190 + lvl * 18);
+  const r = Math.round(205 + lvl * 20);
   let pushed = 0;
+  const hitFx = [];
   for (const e of run.enemies) {
     if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0) continue;
     if (dist2(e.x, e.y, p.x, p.y) > (r + e.size / 2) ** 2) continue;
     const n = norm(e.x - p.x, e.y - p.y);
-    const force = (ENEMIES[e.kind]?.boss ? 80 : 210 + lvl * 24) * power;
-    e.x += n.x * force; e.y += n.y * force;
-    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.26 + lvl * 0.04);
-    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.62);
+    const force = (ENEMIES[e.kind]?.boss ? 86 : 178 + lvl * 22) * power;
+    const ox = e.x, oy = e.y;
+    const c = run?.plan?.walls ? collideWalls(e.x + n.x * force, e.y + n.y * force, (e.size || 24) / 2, run.plan.walls, e.x, e.y) : { x: e.x + n.x * force, y: e.y + n.y * force };
+    e.x = c.x; e.y = c.y;
+    e.vx = (e.vx || 0) + n.x * (120 + lvl * 12);
+    e.vy = (e.vy || 0) + n.y * (120 + lvl * 12);
+    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.30 + lvl * 0.04);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.58);
+    e.stunT = Math.max(e.stunT || 0, ENEMIES[e.kind]?.boss ? 0 : Math.min(0.24, 0.10 + lvl * 0.015));
     pushed++;
+    if (hitFx.length < 10) hitFx.push({ x: Math.round((ox + e.x) / 2), y: Math.round((oy + e.y) / 2), r: Math.round((e.size || 24) + 34) });
   }
-  run.fx.push({ t: 'lc_guard', id: p.id, label: `GUARD ${roman(lvl)}${pushed ? ' / PUSH ' + pushed : ''}`, x: Math.round(p.x), y: Math.round(p.y), r, tone: 'cyan', playerId: p.id });
+  run.fx.push({ t: 'lc_guard', id: p.id, label: `GUARD ${roman(lvl)}${pushed ? ' / PUSH ' + pushed : ''}`, x: Math.round(p.x), y: Math.round(p.y), r, tone: 'cyan', playerId: p.id, pushed });
+  run.fx.push({ t: 'active_mutation', id: p.id, label: 'GUARD IMPACT', x: Math.round(p.x), y: Math.round(p.y), r: Math.round(r * 0.58), tone: 'cyan', squareBlast: 1, noFloat: 1, playerId: p.id });
+  for (const h of hitFx) run.fx.push({ t: 'lc_guard_hit', id: p.id, x: h.x, y: h.y, r: h.r, tone: 'cyan', playerId: p.id });
   return true;
 }
 function livingCasinoChainMax(sec) {
@@ -3274,6 +3287,10 @@ function stepLivingCasinoState(run, players, p, dt) {
         livingCasinoFireHoming(run, p, sec, 1);
       }
     }
+  }
+  if (lc.autoLvc && p.alive && run.phase === 'play' && !lc.ringOpen && (p.weapons?.[p.weaponIdx || 0] || '') === 'living_casino') {
+    const primary = lc.sectors[livingCasinoPrimaryIndex(lc)] || lc.sectors[0];
+    if (primary && String(primary.type || '') === 'dmg' && (primary.cd || 0) <= 0 && (primary.activeT || 0) <= 0) activateLivingCasinoSector(run, players, p, primary, { auto: 1 });
   }
   if (p.livingCasinoBetRoll) {
     p.livingCasinoBetRoll.t = Math.max(0, (p.livingCasinoBetRoll.t || 0) - dt);
@@ -3841,7 +3858,6 @@ function archetypeIntentMul(archetype, intent) {
     ripped_table: { swarm: 1.10, chaos: 1.08, ranged: 1.06, control: 1.04 },
     cross_terminal: { ranged: 1.16, control: 1.08, swarm: 1.04, chaos: 1.04 },
     ring_track: { swarm: 1.14, chaos: 1.10, ranged: 0.92, control: 1.04 },
-    three_paylines: { ranged: 1.24, control: 1.14, swarm: 0.92, chaos: 1.02 },
     clamp_room: { swarm: 1.10, chaos: 1.10, control: 1.08, ranged: 0.98 },
     cashier_maze: { swarm: 1.24, chaos: 1.18, support: 1.12, ranged: 0.82, director: 1.22 },
     machine_core: { support: 1.20, director: 1.14, ranged: 1.08, swarm: 0.94 },
@@ -3908,7 +3924,6 @@ const CROWD_FORM_WEIGHTS_BY_ARCHETYPE = {
   ripped_table: { pinch: 26, stream: 22, lane: 18, wall: 15, fan: 10, cloud: 7, ring: 5, nest: 5 },
   cross_terminal: { lane: 28, wall: 20, fan: 18, pinch: 14, stream: 12, nest: 8, ring: 6, cloud: 5 },
   ring_track: { stream: 28, ring: 22, pinch: 16, cloud: 12, fan: 10, lane: 8, wall: 6, nest: 5 },
-  three_paylines: { lane: 34, wall: 24, stream: 15, pinch: 12, fan: 8, nest: 6, ring: 4, cloud: 3 },
   clamp_room: { pinch: 28, wall: 22, stream: 18, fan: 10, lane: 9, cloud: 6, nest: 6, ring: 4 },
   cashier_maze: { stream: 30, nest: 22, pinch: 18, cloud: 14, fan: 10, wall: 8, lane: 5, ring: 4 },
   machine_core: { nest: 25, ring: 20, wall: 18, lane: 12, fan: 8, stream: 8, pinch: 7, cloud: 5 },
@@ -9089,7 +9104,8 @@ function livingCasinoHudSnapshot(p) {
     chainCharges: Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0),
     chainT: Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0),
     ghostActive: (p.ghostT || 0) > 0 ? 1 : 0,
-    betRolling: p.livingCasinoBetRoll ? 1 : 0
+    betRolling: p.livingCasinoBetRoll ? 1 : 0,
+    autoLvc: lc.autoLvc ? 1 : 0
   };
 }
 
@@ -9124,7 +9140,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p)
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0))
     ]);
   }
   const es = combatEnemies(run).map(e => [

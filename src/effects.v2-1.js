@@ -399,6 +399,10 @@ export class Effects {
         this.float(f.x, f.y - 52, f.label || 'GUARD', '#66f6ff', 13);
         break;
       }
+      case 'lc_guard_hit': {
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_guard_hit', x: f.x, y: f.y, r: f.r || 54, ttl: 0.18, color: '#66f6ff' });
+        break;
+      }
       case 'lc_bet_roll': {
         const spin = String(f.phase || '') === 'spin';
         if (mine) { this.slam = Math.max(this.slam, spin ? 0.05 : (f.win ? 0.09 : 0.04)); this.kick(spin ? 3 : (f.win ? 5 : 2)); }

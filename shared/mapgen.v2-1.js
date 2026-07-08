@@ -7,7 +7,7 @@ export const WALL_T = 40;       // gameplay safe border / portal offset
 const EDGE_T = 900;             // huge outer walls: no visible field behind borders
 const SAFE = 95;
 
-const EXTRA_ROOM_ARCHETYPES = ['ripped_table', 'cross_terminal', 'ring_track', 'three_paylines', 'clamp_room', 'cashier_maze', 'machine_core'];
+const EXTRA_ROOM_ARCHETYPES = ['ripped_table', 'cross_terminal', 'ring_track', 'clamp_room', 'cashier_maze', 'machine_core'];
 const ALL_ROOM_ARCHETYPES = ['panic_box','compact','standard','wide','long_lane','lounge','boss', ...EXTRA_ROOM_ARCHETYPES];
 
 
@@ -52,7 +52,6 @@ function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loo
       { id: 'ripped_table', w: 1.05 },
       { id: 'cross_terminal', w: 1.00 },
       { id: 'ring_track', w: 0.92 },
-      { id: 'three_paylines', w: 0.95 },
       { id: 'clamp_room', w: 0.78 },
       { id: 'machine_core', w: 0.90 }
     ];
@@ -92,7 +91,6 @@ function archetypeRect(archetype) {
     ripped_table: { w: 1860, h: 1220 },
     cross_terminal: { w: 1960, h: 1320 },
     ring_track: { w: 2040, h: 1280 },
-    three_paylines: { w: 2120, h: 1120 },
     clamp_room: { w: 1660, h: 1360 },
     cashier_maze: { w: WORLD_W, h: WORLD_H },
     machine_core: { w: 1780, h: 1220 }
@@ -132,7 +130,7 @@ function addProceduralRoomVariation(walls, archetype, rng) {
   const r = roomRect(archetype);
   const count = archetype === 'cashier_maze' ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 3);
   const portal = walls._portalHint || null;
-  const corridorBias = ['three_paylines', 'ring_track', 'cross_terminal'].includes(archetype);
+  const corridorBias = ['ring_track', 'cross_terminal'].includes(archetype);
   for (let i = 0; i < count; i++) {
     for (let tries = 0; tries < 24; tries++) {
       const wide = corridorBias ? rng() < 0.62 : rng() < 0.48;
@@ -234,34 +232,6 @@ function addRingTrackWalls(walls, rng) {
   if (rng() < 0.55) addBaseGateBlock(walls, cx - 75, r.y + 190, 150, 130);
   if (rng() < 0.55) addBaseGateBlock(walls, cx - 75, r.bottom - 320, 150, 130);
   walls._portalHint = rng() < 0.5 ? { x: r.x + 250, y: cy } : { x: r.right - 250, y: cy };
-}
-
-function addThreePaylinesWalls(walls, rng) {
-  const r = roomRect('three_paylines');
-  const laneW = r.w / 3;
-  const divW = 170;
-  // Base shape: a shortened casino board with three real lanes. The lane dividers are
-  // structural boundaries with alternating doors; later wall variation is not the room.
-  addBaseVoid(walls, r.x, r.y, 330, 260);
-  addBaseVoid(walls, r.right - 330, r.bottom - 260, 330, 260);
-  for (const [i, xBase] of [r.x + laneW, r.x + laneW * 2].entries()) {
-    const gapA = r.y + 315 + rng() * 65;
-    const gapB = r.bottom - 335 - rng() * 65;
-    addBaseGateBlock(walls, xBase - divW / 2, r.y + 55, divW, Math.max(160, gapA - r.y - 210));
-    addBaseGateBlock(walls, xBase - divW / 2, gapA + 190, divW, Math.max(150, gapB - gapA - 380));
-    addBaseGateBlock(walls, xBase - divW / 2, gapB + 190, divW, Math.max(160, r.bottom - gapB - 245));
-    const y = i === 0 ? r.bottom - 285 : r.y + 165;
-    addBaseGateBlock(walls, xBase - 335, y, 250, 140);
-    addBaseGateBlock(walls, xBase + 85, r.bottom + r.y - y - 140, 250, 140);
-  }
-  // One heavy lane anchor per lane, varied but not shaping the base by itself.
-  for (let lane = 0; lane < 3; lane++) {
-    const w = 260 + rng() * 70, h = 128 + rng() * 34;
-    const x = r.x + lane * laneW + laneW * 0.5 - w / 2 + (rng() - 0.5) * 70;
-    const y = lane % 2 ? r.y + 250 + rng() * 90 : r.bottom - 395 - rng() * 90;
-    addRandomBlock(rng, walls, x, y, w, h);
-  }
-  walls._portalHint = rng() < 0.5 ? { x: r.x + 270, y: r.y + 560 } : { x: r.right - 270, y: r.bottom - 560 };
 }
 
 function addClampRoomWalls(walls, rng) {
@@ -459,7 +429,6 @@ function genWalls(rng, category, loopIndex, archetype = 'standard') {
   if (archetype === 'ripped_table') { addRippedTableWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
   if (archetype === 'cross_terminal') { addCrossTerminalWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
   if (archetype === 'ring_track') { addRingTrackWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
-  if (archetype === 'three_paylines') { addThreePaylinesWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
   if (archetype === 'clamp_room') { addClampRoomWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
   if (archetype === 'cashier_maze') { addCashierMazeWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
   if (archetype === 'machine_core') { addMachineCoreWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }

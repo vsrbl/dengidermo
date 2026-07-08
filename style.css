@@ -4920,3 +4920,60 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 @media (max-width: 760px) {
   #room-wager-card.active { width: min(315px, 92vw) !important; max-width: min(315px, 92vw) !important; }
 }
+
+/* v2.1.131 — casino terminal luck side plate */
+#casino-luck-card {
+  position: fixed;
+  width: 250px;
+  box-sizing: border-box;
+  padding: 12px 13px 11px;
+  border: 1px solid rgba(255,211,77,.62);
+  background: linear-gradient(180deg, rgba(25,18,4,.94), rgba(5,5,5,.92));
+  color: rgba(243,243,243,.92);
+  box-shadow: 0 0 0 3px rgba(255,211,77,.055), 0 0 22px rgba(255,211,77,.14);
+  letter-spacing: .08em;
+  pointer-events: auto;
+  z-index: 2;
+}
+#casino-modal.hidden #casino-luck-card { display: none; }
+.casino-luck-title {
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: .18em;
+  margin-bottom: 8px;
+  text-align: left;
+}
+.casino-luck-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--fg);
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.casino-luck-value span { color: rgba(255,211,77,.78); font-size: 12px; }
+.casino-luck-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding-top: 3px;
+}
+.casino-luck-row b { color: rgba(102,246,255,.88); font-weight: 600; }
+.casino-luck-row span { color: rgba(0,255,102,.86); }
+.casino-luck-note {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255,211,77,.15);
+  color: rgba(243,243,243,.62);
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: .04em;
+}
+@media (max-width: 940px) {
+  #casino-luck-card {
+    display: none !important;
+  }
+}

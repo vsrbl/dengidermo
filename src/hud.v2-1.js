@@ -5,8 +5,8 @@ import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, acti
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(ROOM_MODS).map(m => [m.id, m.label]));
-const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR', ripped_table: 'RIPPED TABLE', cross_terminal: 'CROSS TERMINAL', ring_track: 'RING TRACK', three_paylines: 'THREE PAYLINES', clamp_room: 'CLAMP ROOM', cashier_maze: 'CASHIER MAZE', machine_core: 'MACHINE CORE' };
-const ARCH_LABELS_RU = { panic_box: 'ТЕСНАЯ КОРОБКА', compact: 'ТЕСНАЯ КОМНАТА', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КОМНАТА ОТДЫХА', boss: 'ЭТАЖ БОССА', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', three_paylines: 'ТРИ ЛИНИИ ВЫПЛАТЫ', clamp_room: 'КОМНАТА-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
+const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR', ripped_table: 'RIPPED TABLE', cross_terminal: 'CROSS TERMINAL', ring_track: 'RING TRACK', clamp_room: 'CLAMP ROOM', cashier_maze: 'CASHIER MAZE', machine_core: 'MACHINE CORE' };
+const ARCH_LABELS_RU = { panic_box: 'ТЕСНАЯ КОРОБКА', compact: 'ТЕСНАЯ КОМНАТА', standard: 'СТАНДАРТ', wide: 'ШИРОКОЕ ПОЛЕ', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КОМНАТА ОТДЫХА', boss: 'ЭТАЖ БОССА', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', clamp_room: 'КОМНАТА-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
 const MOD_LABELS_RU = {
   blackout: 'ТЕМНОТА', static_rain: 'СТАТИК-ШТОРМ', greed: 'ЗОЛОТАЯ ЛИХОРАДКА', debt_floor: 'СТАТИК-ПОЛ', hunter_contract: 'ВОЛНЫ ОХОТНИКОВ',
   casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНЫЙ ЗАЛ', moving_room: 'ДВИЖУЩИЕСЯ ЗОНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ОПЛАТА',
@@ -915,6 +915,7 @@ export class Hud {
     this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
     if (this.casino.open) {
       this.updateCasinoLockBadge('');
+      this.updateCasinoLuckCard(me);
       if (!this.casino.spinning) this.paintStoredCasinoLockCells(false);
     }
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
@@ -2320,6 +2321,52 @@ export class Hud {
     el.textContent = state;
   }
 
+  casinoLuckInfo(luckRaw = 0) {
+    const luck = Math.max(0, Number(luckRaw || 0) || 0);
+    const eff = Math.min(12, luck);
+    const pp = (v) => (Math.round(v * 10) / 10).toFixed(1).replace('.0', '');
+    return {
+      luck,
+      eff,
+      useful: pp(eff * 1.2),
+      jackpot: pp(eff * 0.066),
+      weapon: pp(eff * 0.114),
+      rare: pp(eff * 0.084),
+      lock: pp(eff * 0.084)
+    };
+  }
+
+  updateCasinoLuckCard(me = null) {
+    const card = $('casino-luck-card');
+    if (!card) return;
+    const luck = me ? Number(me[P.LUCK] || 0) : Number(this.latestMe?.[P.LUCK] || 0);
+    const info = this.casinoLuckInfo(luck);
+    const capped = info.luck > info.eff;
+    card.innerHTML = `
+      <div class="casino-luck-title">${esc(localText('УДАЧА В КАЗИНО', 'CASINO LUCK'))}</div>
+      <div class="casino-luck-value">LUCK +${Math.round(info.luck)} <span>${capped ? `${info.eff}/12` : `${info.eff}/12`}</span></div>
+      <div class="casino-luck-row"><b>JCK</b><span>+${info.jackpot} п.п.</span></div>
+      <div class="casino-luck-row"><b>WPN/ABL</b><span>+${info.weapon} п.п.</span></div>
+      <div class="casino-luck-row"><b>RAR/LOCK</b><span>+${info.rare} п.п.</span></div>
+      <div class="casino-luck-note">${esc(localText(`Удача повышает шанс полезных символов в каждой ячейке и делает BAD относительно реже. В терминале учитывается до LUCK 12.`, `Luck raises useful symbols per cell and makes BAD relatively rarer. Terminal luck is capped at 12.`))}</div>
+    `;
+    this.positionCasinoLuckCard();
+  }
+
+  positionCasinoLuckCard() {
+    const modal = $('casino-modal');
+    const card = $('casino-luck-card');
+    const panel = modal?.querySelector('.panel');
+    if (!modal || modal.classList.contains('hidden') || !card || !panel) return;
+    const r = panel.getBoundingClientRect();
+    const gap = 14;
+    const w = Math.max(220, Math.min(276, card.offsetWidth || 250));
+    let left = r.right + gap;
+    if (left + w > window.innerWidth - 12) left = Math.max(12, r.left - w - gap);
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(r.top)}px`;
+  }
+
   updateCasinoHelpLanguage() {
     const ru = localText('ru', 'en') === 'ru';
     document.querySelectorAll('#casino-help [data-ru]').forEach(el => { el.textContent = ru ? el.dataset.ru : (el.dataset.en || el.textContent); });
@@ -2351,6 +2398,7 @@ export class Hud {
     this.updateCasinoHelpLanguage();
     this.casinoLockSpinSymbol = '';
     this.updateCasinoLockBadge('');
+    this.updateCasinoLuckCard(this.latestMe);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('ВЫБЕРИ СТАВКУ', 'CHOOSE BET'))}</span>`;
     res.style.color = '';
@@ -2383,6 +2431,7 @@ export class Hud {
     this.setCasinoPanelState(localText('СТАВКА', 'BET'), stake === 'high' ? 'red' : stake === 'mid' ? 'gold' : 'green');
     this.casinoLockSpinSymbol = this.casinoLockSymbol;
     this.updateCasinoLockBadge('');
+    this.updateCasinoLuckCard(this.latestMe);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';

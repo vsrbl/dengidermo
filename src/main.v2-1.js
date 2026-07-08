@@ -479,10 +479,10 @@ function ensureDevPanel() {
   const specialOpts = [''].concat(Object.keys(SPECIAL_ROOMS)).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'NONE'}</option>`).join('');
   const roomArchLabels = {
     panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE', long_lane: 'LONG LANE', lounge: 'LOUNGE', boss: 'BOSS',
-    ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', three_paylines: 'ТРИ ЛИНИИ ВЫПЛАТЫ',
+    ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК',
     clamp_room: 'КОМНАТА-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА'
   };
-  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','three_paylines','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? (roomArchLabels[v] || v.toUpperCase()) : 'AUTO'}</option>`).join('');
+  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? (roomArchLabels[v] || v.toUpperCase()) : 'AUTO'}</option>`).join('');
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
   const bossRewardLabel = id => String(id || '').replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
   const bossRewardOpts = BOSS_SIGNATURE_UPGRADE_IDS.map(id => `<option value="${id}">${bossRewardLabel(id)}</option>`).join('');
