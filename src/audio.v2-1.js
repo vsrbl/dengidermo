@@ -1049,7 +1049,10 @@ export class AudioBus {
         break;
       case 'casino_tick': this.play(f.good ? 'casino_win' : 'casino_static'); break;
       case 'casino_overload': this.play('casino_static'); break;
-      case 'slot_mob_break': this.play('slot_overload'); this.play('blast'); this.play('casino_static'); break;
+      case 'slot_mob_break':
+        this.play('slot_overload'); this.play('blast'); this.play('casino_static');
+        if (f.death) { this.play('jackpot'); this.play('casino_win'); }
+        break;
       case 'slot_mob_piece_impact': this.play(f.final ? 'slot_overload' : 'casino_reel_stop'); this.play(f.final ? 'blast' : 'impact'); break;
       case 'slot_mob_assemble_burst': this.play('jackpot'); this.play('casino_result'); break;
       case 'slot_mob_roll': this.play('casino_spin'); this.play('casino_reel_stop'); this.play('casino_result'); break;
@@ -1090,7 +1093,16 @@ export class AudioBus {
       case 'bullet_stop': break;
       case 'herald_cast': this.play('casino_static'); break;
       case 'echo_shot': if (mine && !f.enemy) this.play('echo_shot'); break;
-      case 'split': case 'summon': case 'pulse_wave': case 'prism': case 'leech_link': break;
+      case 'kill':
+        if (f.kind === 'slot_mob') { this.play('jackpot'); this.play('casino_win'); this.play('slot_overload'); }
+        break;
+      case 'split':
+        if (f.boss || f.kind === 'hunter_chorus') { this.play('slot_overload'); this.play('blast'); this.play('casino_result'); }
+        break;
+      case 'summon':
+        if (f.kind === 'hunter_chorus_split') { this.play('casino_static'); this.play('portal'); }
+        break;
+      case 'pulse_wave': case 'prism': case 'leech_link': break;
       case 'boss_down': this.play('jackpot'); break;
       case 'skin_unlock': this.play(f.skinRarity === 'legendary' ? 'skin_legendary' : 'chest_rare'); break;
       case 'run_lost': this.play('run_death'); break;

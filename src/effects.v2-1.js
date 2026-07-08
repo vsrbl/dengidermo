@@ -1,5 +1,6 @@
 // terminal casino roguelike effects: dopamine layer — bursts, floats, shake, sweeps, vignette
 import { t, denyText, localText, locLabel } from './i18n.v2-1.js';
+import { P } from './state.v2-1.js';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 function fxAabbHit(x, y, half, w) { return x + half > w.x && x - half < w.x + w.w && y + half > w.y && y - half < w.y + w.h; }
 function fxHitsWalls(x, y, half, walls = []) { return walls.some(w => fxAabbHit(x, y, half, w)); }
@@ -46,6 +47,7 @@ export class Effects {
   kick(amount) { this.shake = Math.min(9, this.shake + amount); }
 
   update(dt, state = null) {
+    this.state = state || this.state || null;
     this.walls = Array.isArray(state?.walls) ? state.walls : (Array.isArray(state?.room?.walls) ? state.room.walls : (this.walls || []));
     this.world = state?.world || this.world || { w: 2200, h: 1500 };
     for (const e of this.list) e.t += dt;
@@ -402,10 +404,18 @@ export class Effects {
         if (mine) { this.slam = Math.max(this.slam, spin ? 0.05 : (f.win ? 0.09 : 0.04)); this.kick(spin ? 3 : (f.win ? 5 : 2)); }
         const col = spin ? '#ffd34d' : (f.win ? '#ffd34d' : '#ff3048');
         const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols : (spin ? ['?', '?', '?'] : [f.stake || 'BET', f.reward || 'PAY', f.win ? 'WIN' : 'LOSE']);
-        this.add({ kind: 'casinoRollBurst', activeKind: 'lc_bet_roll', x: f.x, y: f.y + 12, ttl: spin ? 1.05 : 0.72, color: col, symbols });
-        this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: spin ? (f.r || 120) + 18 : f.r || 120, ttl: spin ? 0.95 : 0.42, color: col, tick: 1 });
-        this.float(f.x, f.y - 108, spin ? `BET ROLL: ${f.stake || ''}-${f.paid || 0}` : `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 11);
-        this.float(f.x, f.y - 88, spin ? 'SLOTS SPIN...' : (f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE'), col, spin ? 13 : 16);
+        if (spin) {
+          // v2.1.123: the three reel cells follow the player during the spin.
+          this.add({ kind: 'casinoRollSlotsFollow', activeKind: 'lc_bet_roll', x: f.x, y: f.y, ttl: 1.16, color: col, symbols, playerId: f.playerId || f.id, stake: f.stake, paid: f.paid || 0 });
+          this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: (f.r || 120) + 18, ttl: 0.42, color: col, tick: 1 });
+          this.float(f.x, f.y - 108, `BET ROLL: ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 11);
+          this.float(f.x, f.y - 88, 'SLOTS SPIN...', col, 13);
+        } else {
+          this.add({ kind: 'casinoRollBurst', activeKind: 'lc_bet_roll', x: f.x, y: f.y + 12, ttl: 0.72, color: col, symbols });
+          this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: f.r || 120, ttl: 0.42, color: col, tick: 1 });
+          this.float(f.x, f.y - 108, `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 11);
+          this.float(f.x, f.y - 88, f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE', col, 16);
+        }
         break;
       }
       case 'lc_sector_ring': {
@@ -569,6 +579,16 @@ export class Effects {
         this.hitFlash = 1; this.kick(10);
         break;
     }
+  }
+
+
+  playerPosById(id) {
+    const players = this.state?.latest?.players || [];
+    const sid = String(id || '');
+    if (!sid || !Array.isArray(players)) return null;
+    const row = players.find(p => p && String(p[P.ID]) === sid);
+    if (!row) return null;
+    return { x: Number(row[P.X] || 0), y: Number(row[P.Y] || 0) };
   }
 
   // draw world-space effects (ctx already camera-transformed)
@@ -1386,6 +1406,37 @@ export class Effects {
         }
         ctx.font = `bold 10px 'Courier New', monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('HRD CALL', Math.round(e.x), Math.round(e.y - base * 0.95));
+        ctx.restore();
+      } else if (e.kind === 'casinoRollSlotsFollow') {
+        const fade = Math.max(0, 1 - p);
+        const pos = this.playerPosById(e.playerId) || { x: e.x, y: e.y };
+        const y = pos.y - 82;
+        const slots = e.symbols && e.symbols.length ? e.symbols : ['GLD','HP','EXP'];
+        const reel = ['GLD','HP','EXP','WIN','LOSE','777','PAY','BET','?'];
+        const w = 44, h = 28;
+        const lockAt = [0.34, 0.67, 0.96];
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(13 + 2 * fade)}px 'Courier New', monospace`;
+        for (let i = 0; i < 3; i++) {
+          const x = pos.x + (i - 1) * 52;
+          const locked = p >= lockAt[i];
+          const spinIdx = (Math.floor(e.t * (22 + i * 5)) + i * 3) % reel.length;
+          const sym = locked ? String(slots[i] || '?') : reel[spinIdx];
+          const pulse = locked ? 0 : Math.sin(e.t * (28 + i * 7)) * 2.5;
+          ctx.globalAlpha = fade * (locked ? 0.82 : 0.68);
+          ctx.strokeStyle = e.color || '#ffd34d';
+          ctx.lineWidth = locked ? 3 : 2.4;
+          ctx.setLineDash(locked ? [] : [8, 5]);
+          ctx.strokeRect(Math.round(x - w / 2), Math.round(y - h / 2 + pulse), w, h);
+          ctx.globalAlpha = fade * (locked ? 0.18 : 0.10);
+          ctx.fillStyle = e.color || '#ffd34d';
+          ctx.fillRect(Math.round(x - w / 2 + 2), Math.round(y - h / 2 + 2 + pulse), w - 4, h - 4);
+          ctx.globalAlpha = fade * (locked ? 0.92 : 0.58);
+          ctx.fillStyle = locked ? '#f3f3f3' : (e.color || '#ffd34d');
+          ctx.fillText(sym.slice(0, 4), Math.round(x), Math.round(y + 1 + pulse));
+        }
+        ctx.setLineDash([]);
         ctx.restore();
       } else if (e.kind === 'casinoRollBurst') {
         const fade = Math.max(0, 1 - p);

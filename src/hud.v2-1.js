@@ -1183,10 +1183,18 @@ export class Hud {
       if (lvc && lvc.label) {
         const cd = Math.max(0, Number(lvc.cd || 0));
         const at = Math.max(0, Number(lvc.activeT || 0));
-        const status = lvc.ringOpen ? localText('ВЫБОР ОТКРЫТ', 'SELECTING') : at > 0 ? `${localText('АКТИВНО', 'ACTIVE')} ${at.toFixed ? at.toFixed(1) : at}s` : cd > 0 ? `${localText('ПЕРЕЗАРЯДКА', 'COOLDOWN')} ${cd.toFixed ? cd.toFixed(1) : cd}s` : localText('ГОТОВО', 'READY');
+        const activeFill = Math.max(0, Math.min(1, Number(lvc.activeFill || 0)));
+        const cdFill = Math.max(0, Math.min(1, Number(lvc.cdFill || 0)));
+        const type = String(lvc.type || 'dmg');
+        const color = /^#[0-9a-fA-F]{6}$/.test(String(lvc.color || '')) ? String(lvc.color) : '#ffd34d';
+        const stateClass = lvc.ringOpen ? 'open' : activeFill > 0 ? 'active' : cd > 0 ? 'cooldown' : 'ready';
+        const fill01 = stateClass === 'ready' ? 1 : stateClass === 'active' ? activeFill : stateClass === 'cooldown' ? cdFill : 1;
+        const status = lvc.ringOpen ? localText('ВЫБОР ОТКРЫТ', 'SELECTING') : stateClass === 'active' ? localText('АКТИВНО', 'ACTIVE') : stateClass === 'cooldown' ? localText('ПЕРЕЗАРЯДКА', 'COOLDOWN') : localText('ГОТОВО', 'READY');
         const chain = lvc.chainCharges > 0 ? ` · CHAIN x${lvc.chainCharges}` : '';
-        lcHud.className = `lc-selected ${cd > 0 ? 'cooldown' : at > 0 ? 'active' : 'ready'} ${lvc.ringOpen ? 'open' : ''}`;
-        lcHud.innerHTML = `<b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
+        lcHud.className = `lc-selected ${stateClass} type-${type}`;
+        lcHud.style.setProperty('--lc-color', color);
+        lcHud.style.setProperty('--lc-fill', `${Math.round(fill01 * 100)}%`);
+        lcHud.innerHTML = `<i class="lc-fill" aria-hidden="true"></i><b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
         this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Когда выбрана пушка LVC, ПКМ открывает кольцо выбора. ЛКМ или ПКМ в кольце выбирает сектор и закрывает меню. GUARD, CHAIN и GHOST срабатывают сразу; LVC, BET и COPY активируются следующим ЛКМ.', 'When LVC is selected, RMB opens the sector ring. LMB or RMB inside the ring selects and closes it. GUARD, CHAIN, and GHOST trigger immediately; LVC, BET, and COPY trigger on the next LMB.'), 'gold');
       } else {
         lcHud.className = 'lc-selected hidden';

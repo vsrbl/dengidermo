@@ -4760,3 +4760,87 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 .hero-title { display:block; font-size: 13px; line-height: 1.15; letter-spacing: .11em; }
 .hero-desc { display:block; margin-top: 5px; color: var(--dim); font-size: 10px; letter-spacing: .10em; }
 .hero-card.selected .hero-desc { color: rgba(255,211,77,.68); }
+
+/* v2.1.123 — visually split HERO selector from YouTube/audio block */
+#menu .hero-selector {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 9px 0 6px !important;
+  border: 1px solid rgba(255,211,77,.52) !important;
+  border-top: 2px solid rgba(255,211,77,.72) !important;
+  background: linear-gradient(180deg, rgba(255,211,77,.060), rgba(0,0,0,.42)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,211,77,.08), 0 0 18px rgba(255,211,77,.06) !important;
+}
+#menu #audio-settings + #hero-selector::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin: -10px -9px 8px;
+  background: linear-gradient(90deg, transparent, rgba(255,211,77,.38), transparent);
+}
+#youtube-music.compact {
+  border-bottom-color: rgba(0,255,102,.50) !important;
+}
+
+/* v2.1.124 — Living Casino HUD fill states, no numeric cooldown text */
+.lc-selected {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--lc-color, #ffd34d) 74%, transparent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lc-color, #ffd34d) 18%, transparent), 0 0 18px color-mix(in srgb, var(--lc-color, #ffd34d) 12%, transparent) !important;
+  color: var(--lc-color, #ffd34d);
+}
+.lc-selected .lc-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--lc-fill, 100%);
+  background: color-mix(in srgb, var(--lc-color, #ffd34d) 28%, transparent);
+  opacity: .82;
+  pointer-events: none;
+  transition: width .12s linear, background .12s linear, opacity .12s linear;
+  z-index: 0;
+}
+.lc-selected b,
+.lc-selected span,
+.lc-selected em {
+  position: relative;
+  z-index: 1;
+}
+.lc-selected.ready .lc-fill {
+  background: color-mix(in srgb, var(--lc-color, #ffd34d) 26%, transparent);
+}
+.lc-selected.ready {
+  border-color: color-mix(in srgb, var(--lc-color, #ffd34d) 82%, transparent) !important;
+  color: var(--lc-color, #ffd34d) !important;
+}
+.lc-selected.active {
+  border-color: rgba(170, 170, 170, .80) !important;
+  color: #d8d8d8 !important;
+  box-shadow: 0 0 0 1px rgba(190,190,190,.16), 0 0 18px rgba(190,190,190,.10) !important;
+}
+.lc-selected.active .lc-fill {
+  background: rgba(170, 170, 170, .34);
+}
+.lc-selected.cooldown {
+  border-color: rgba(255, 48, 72, .80) !important;
+  color: #ff5268 !important;
+  box-shadow: 0 0 0 1px rgba(255,48,72,.18), 0 0 18px rgba(255,48,72,.12) !important;
+}
+.lc-selected.cooldown .lc-fill {
+  background: rgba(255, 48, 72, .30);
+}
+.lc-selected.open {
+  border-color: rgba(243, 243, 243, .82) !important;
+  color: #f3f3f3 !important;
+}
+.lc-selected.open .lc-fill {
+  background: color-mix(in srgb, var(--lc-color, #ffd34d) 22%, transparent);
+}
+.lc-selected.type-dmg { --lc-color: #ffd34d; }
+.lc-selected.type-guard { --lc-color: #66f6ff; }
+.lc-selected.type-chain { --lc-color: #b45cff; }
+.lc-selected.type-bet { --lc-color: #ff9f1a; }
+.lc-selected.type-copy { --lc-color: #00ff66; }
+.lc-selected.type-ghost { --lc-color: #7aa8ff; }

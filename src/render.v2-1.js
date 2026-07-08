@@ -888,7 +888,7 @@ export class Renderer {
             const lvl = Math.max(1, Number(c[11] || 1) | 0);
             const ringOpen = !!c[12];
             const chainCharges = Math.max(0, Number(c[13] || 0) | 0);
-            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? COL.gold : secType === 'copy' ? COL.green : secType === 'ghost' ? COL.cyan : COL.gold;
+            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? '#ff9f1a' : secType === 'copy' ? COL.green : secType === 'ghost' ? '#7aa8ff' : COL.gold;
             const rot = Number(c[3] || 0) * 0.7;
             ctx.save();
             // Connector line: these are UI panels attached to the player, not loose orbiting blocks.

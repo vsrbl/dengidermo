@@ -2744,7 +2744,8 @@ export function dashMax(p) { return 1 + p.stats.dashAdd; }
 const LIVING_CASINO_SKIN_ID = 'living_casino';
 const LC_SECTOR_TYPES = ['dmg', 'guard', 'chain', 'bet', 'copy', 'ghost'];
 const LC_SECTOR_LABEL = { dmg: 'LVC', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST' };
-const LC_SECTOR_TONE = { dmg: 'gold', guard: 'cyan', chain: 'purple', bet: 'gold', copy: 'green', ghost: 'cyan' };
+const LC_SECTOR_TONE = { dmg: 'gold', guard: 'cyan', chain: 'purple', bet: 'orange', copy: 'green', ghost: 'blue' };
+const LC_SECTOR_COLOR = { dmg: '#ffd34d', guard: '#66f6ff', chain: '#b45cff', bet: '#ff9f1a', copy: '#00ff66', ghost: '#7aa8ff' };
 
 function isLivingCasinoPlayer(p) { return p?.hero === 'living_casino' || p?.skin?.hero === 'living_casino'; }
 function livingCasinoSectorLabel(type) { return LC_SECTOR_LABEL[String(type || '')] || String(type || 'SEC').toUpperCase(); }
@@ -8870,14 +8871,39 @@ function livingCasinoHudSnapshot(p) {
   if (!lc) return null;
   const selected = Math.max(0, Math.min(lc.sectors.length - 1, Number(lc.selected || 0) | 0));
   const sec = lc.sectors[selected] || lc.sectors[0] || { type: 'dmg', level: 1, cd: 0, activeT: 0 };
+  const type = sec.type || 'dmg';
+  const lvl = Math.max(1, Number(sec.level || 1) | 0);
+  const activeMax = Math.max(0.01, livingCasinoSectorDuration(type, lvl, 1));
+  const reloadMax = Math.max(0.01, livingCasinoSectorReload(type, lvl));
+  let activeT = Math.max(0, Number(sec.activeT || 0) || 0);
+  let activeFill = activeMax > 0 ? Math.max(0, Math.min(1, activeT / activeMax)) : 0;
+  if (type === 'ghost' && (p.ghostT || 0) > 0) {
+    activeT = Math.max(activeT, Number(p.ghostT || 0) || 0);
+    activeFill = Math.max(activeFill, Math.max(0, Math.min(1, activeT / activeMax)));
+  }
+  if (type === 'chain') {
+    const maxCharges = Math.max(1, livingCasinoChainMax(sec));
+    const charges = Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0);
+    if (charges > 0) {
+      activeT = Math.max(activeT, 0.01);
+      activeFill = Math.max(activeFill, Math.max(0, Math.min(1, charges / maxCharges)));
+    }
+  }
+  const rawCd = Math.max(0, Number(sec.cd || 0) || 0);
+  const cdForReload = activeFill > 0 ? Math.max(0, rawCd - activeT) : rawCd;
+  const cdFill = Math.max(0, Math.min(1, cdForReload / reloadMax));
   return {
     selected,
     ringOpen: lc.ringOpen ? 1 : 0,
-    type: sec.type || 'dmg',
-    label: livingCasinoSectorLabel(sec.type),
-    cd: Math.ceil(Math.max(0, sec.cd || 0) * 10) / 10,
-    activeT: Math.ceil(Math.max(0, sec.activeT || 0) * 10) / 10,
-    level: Math.max(1, Number(sec.level || 1) | 0),
+    type,
+    label: livingCasinoSectorLabel(type),
+    color: LC_SECTOR_COLOR[type] || '#ffd34d',
+    cd: Math.ceil(rawCd * 10) / 10,
+    activeT: Math.ceil(activeT * 10) / 10,
+    activeFill: Math.round(activeFill * 1000) / 1000,
+    cdFill: Math.round(cdFill * 1000) / 1000,
+    fill: Math.round((activeFill > 0 ? activeFill : cdFill) * 1000) / 1000,
+    level: lvl,
     chainCharges: Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0),
     chainT: Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0),
     ghostActive: (p.ghostT || 0) > 0 ? 1 : 0,
