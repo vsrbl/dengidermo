@@ -1187,7 +1187,7 @@ export class Hud {
         const chain = lvc.chainCharges > 0 ? ` · CHAIN x${lvc.chainCharges}` : '';
         lcHud.className = `lc-selected ${cd > 0 ? 'cooldown' : at > 0 ? 'active' : 'ready'} ${lvc.ringOpen ? 'open' : ''}`;
         lcHud.innerHTML = `<b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
-        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('ПКМ открывает кольцо выбора. ЛКМ или ПКМ в открытом кольце только выбирает сектор и закрывает меню. Следующий ЛКМ после закрытия активирует выбранный сектор.', 'RMB opens the sector ring. LMB or RMB while it is open only selects a sector and closes the menu. The next LMB after closing activates the selected sector.'), 'gold');
+        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Когда выбрана пушка LVC, ПКМ открывает кольцо выбора. ЛКМ или ПКМ в кольце выбирает сектор и закрывает меню. GUARD, CHAIN и GHOST срабатывают сразу; LVC, BET и COPY активируются следующим ЛКМ.', 'When LVC is selected, RMB opens the sector ring. LMB or RMB inside the ring selects and closes it. GUARD, CHAIN, and GHOST trigger immediately; LVC, BET, and COPY trigger on the next LMB.'), 'gold');
       } else {
         lcHud.className = 'lc-selected hidden';
         lcHud.innerHTML = '';
@@ -1212,8 +1212,9 @@ export class Hud {
 
     // weapon slots
     const slots = $('weapon-slots');
+    if (slots) slots.classList.remove('hidden');
     const wKey = me[P.WEAPONS].join(',') + me[P.WIDX];
-    if (slots.dataset.v !== wKey) {
+    if (slots && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
       me[P.WEAPONS].forEach((w, i) => {

@@ -391,13 +391,21 @@ export class Effects {
         this.float(f.x, f.y - 50, f.label || 'CHAIN DASH', '#b45cff', 12);
         break;
       }
+      case 'lc_guard': {
+        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
+        this.add({ kind: 'squareField', activeKind: 'lc_guard', x: f.x, y: f.y, r: f.r || 190, ttl: 0.34, color: '#66f6ff', tick: 1 });
+        this.float(f.x, f.y - 52, f.label || 'GUARD', '#66f6ff', 13);
+        break;
+      }
       case 'lc_bet_roll': {
         const spin = String(f.phase || '') === 'spin';
         if (mine) { this.slam = Math.max(this.slam, spin ? 0.05 : (f.win ? 0.09 : 0.04)); this.kick(spin ? 3 : (f.win ? 5 : 2)); }
         const col = spin ? '#ffd34d' : (f.win ? '#ffd34d' : '#ff3048');
+        const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols : (spin ? ['?', '?', '?'] : [f.stake || 'BET', f.reward || 'PAY', f.win ? 'WIN' : 'LOSE']);
+        this.add({ kind: 'casinoRollBurst', activeKind: 'lc_bet_roll', x: f.x, y: f.y + 12, ttl: spin ? 1.05 : 0.72, color: col, symbols });
         this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: spin ? (f.r || 120) + 18 : f.r || 120, ttl: spin ? 0.95 : 0.42, color: col, tick: 1 });
-        this.float(f.x, f.y - 76, spin ? `BET ROLL: ${f.stake || ''}-${f.paid || 0}` : `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 10);
-        this.float(f.x, f.y - 56, spin ? 'ROLLING...' : (f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE'), col, spin ? 12 : 15);
+        this.float(f.x, f.y - 108, spin ? `BET ROLL: ${f.stake || ''}-${f.paid || 0}` : `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 11);
+        this.float(f.x, f.y - 88, spin ? 'SLOTS SPIN...' : (f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE'), col, spin ? 13 : 16);
         break;
       }
       case 'lc_sector_ring': {

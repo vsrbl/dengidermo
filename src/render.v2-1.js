@@ -775,7 +775,8 @@ export class Renderer {
     const meRow = view.players.find(p => p[P.ID] === state.myId);
     const myMeta = meRow ? skinMeta(meRow[P.SKINID], meRow[P.SKINFILL], meRow[P.SKINOUTLINE]) : skinMeta('terminal_mint', '#f3f3f3', COL.green);
     // REWIND MARK tether: visible return line from player to saved anchor point.
-    if (myPos && meRow && String(meRow[P.RLABEL] || '').includes('REWIND') && (meRow[P.RT] || 0) > 0 && Number.isFinite(Number(meRow[P.RMARKX])) && Number.isFinite(Number(meRow[P.RMARKY]))) {
+    const hasRewindAnchor = meRow && meRow[P.RMARKX] !== null && meRow[P.RMARKY] !== null && meRow[P.RMARKX] !== undefined && meRow[P.RMARKY] !== undefined && Number.isFinite(Number(meRow[P.RMARKX])) && Number.isFinite(Number(meRow[P.RMARKY]));
+    if (myPos && meRow && String(meRow[P.RLABEL] || '').includes('REWIND') && (meRow[P.RT] || 0) > 0 && hasRewindAnchor) {
       const rx = Number(meRow[P.RMARKX]), ry = Number(meRow[P.RMARKY]);
       const dx = rx - myPos.x, dy = ry - myPos.y;
       const d = Math.hypot(dx, dy) || 1;
@@ -900,21 +901,22 @@ export class Renderer {
             ctx.lineTo(cx, cy);
             ctx.stroke();
             ctx.setLineDash([]);
-            // Panel backplate.
-            const w = selected ? 82 : 72;
-            const h = selected ? 36 : 32;
-            ctx.globalAlpha = 0.84;
+            // Larger terminal UI plate. No inner icon: the label itself is the interaction target.
+            const w = selected ? 116 : 104;
+            const h = selected ? 46 : 40;
+            ctx.globalAlpha = 0.90;
             ctx.fillStyle = '#050505';
             ctx.fillRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
-            ctx.globalAlpha = active ? 0.95 : (ready ? 0.88 : 0.42);
+            ctx.globalAlpha = active ? 0.96 : (ready ? 0.90 : 0.46);
             ctx.strokeStyle = selected ? '#f3f3f3' : tone;
-            ctx.lineWidth = selected ? 2.4 : 1.5;
+            ctx.lineWidth = selected ? 2.6 : 1.6;
             ctx.strokeRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
-            // Inner square marker.
-            this.square(cx - w / 2 + 13, cy, 9 + Math.min(4, lvl), { stroke: tone, fill: active ? tone : undefined, lw: 1.5, rotate: rot, alpha: active ? 0.9 : (ready ? 0.65 : 0.30) });
+            ctx.globalAlpha = selected ? 0.22 : 0.10;
+            ctx.fillStyle = tone;
+            ctx.fillRect(Math.round(cx - w / 2 + 4), Math.round(cy - h / 2 + 4), Math.round(w - 8), 3);
             ctx.restore();
-            this.label(String(secType || '').toUpperCase().slice(0, 6), cx + 8, cy + 3, ready ? (selected ? '#f3f3f3' : tone) : '#777', 8);
-            if (selected && ringOpen) this.label('ЛКМ/ПКМ: SELECT', cx, cy - 30, '#f3f3f3', 6);
+            this.label(String(secType || '').toUpperCase().slice(0, 6), cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
+            if (selected && ringOpen) this.label('ВЫБРАТЬ', cx, cy - 34, '#f3f3f3', 9);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });
@@ -958,7 +960,7 @@ export class Renderer {
         ctx.restore();
         this.label(`CHAIN x${lvcChainCharges}`, px, py - 50, COL.purple, 8);
       }
-      const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') || skinId === 'living_casino') && Number(p[P.RT] || 0) > 0;
+      const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') && Number(p[P.RT] || 0) > 0) || !!(p[P.LVC] && Number(p[P.LVC].ghostActive || 0) > 0);
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
       if (ghostActive) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.38 + Math.sin(now * 16) * 0.12);
       const redlineActive = String(p[P.RLABEL] || '').includes('REDLINE') && Number(p[P.RT] || 0) > 0;

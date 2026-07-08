@@ -4670,3 +4670,44 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 #living-casino-selected.cooldown { border-color: rgba(255,48,72,.50); color: var(--red); box-shadow: 0 0 14px rgba(255,48,72,.10); }
 #living-casino-selected.active { border-color: rgba(102,246,255,.55); color: var(--cyan); box-shadow: 0 0 14px rgba(102,246,255,.12); }
 #living-casino-selected.open { border-color: rgba(255,255,255,.72); color: var(--fg); box-shadow: 0 0 18px rgba(255,255,255,.10); }
+
+/* v2.1.119 — Living Casino HUD polish */
+.lc-selected {
+  margin: 6px 0 0 auto;
+  padding: 7px 10px;
+  min-width: 150px;
+  max-width: 230px;
+  border: 1px solid rgba(255, 211, 77, 0.76);
+  background: rgba(5, 5, 5, 0.88);
+  box-shadow: 0 0 0 1px rgba(255, 211, 77, 0.14), 0 0 18px rgba(255, 211, 77, 0.08);
+  text-align: right;
+  font-family: 'Courier New', ui-monospace, monospace;
+  pointer-events: auto;
+}
+.lc-selected.hidden { display: none !important; }
+.lc-selected b {
+  display: block;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: .12em;
+  opacity: .72;
+  color: #ffd34d;
+}
+.lc-selected span {
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+  line-height: 1.05;
+  color: #f3f3f3;
+}
+.lc-selected em {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.05;
+  font-style: normal;
+  color: rgba(243, 243, 243, 0.72);
+}
+.lc-selected.cooldown { border-color: rgba(255, 48, 72, 0.66); }
+.lc-selected.active { border-color: rgba(0, 255, 102, 0.74); }
+.lc-selected.open { border-color: rgba(102, 246, 255, 0.80); }

@@ -146,6 +146,7 @@ export const BOSS_SIGNATURE_UPGRADE_IDS = UPGRADES.filter(u => u.bossSig).map(u 
 export const WEAPON_UPGRADE_IDS = UPGRADES.filter(u => WEAPON_BRANCHES.includes(u.branch)).map(u => u.id);
 
 export const WEAPON_CHEST_REWARDS = [
+  { id: 'weapon_shotgun', kind: 'weapon', weapon: 'shotgun', label: 'SHG WEAPON', desc: 'Открывает SHOTGUN: близкий дробовой протокол с зарядами.' },
   { id: 'weapon_seeker', kind: 'weapon', weapon: 'seeker', label: 'SEK WEAPON', desc: 'Открывает SEEKER: медленный самонаводящийся цифровой снаряд с ограниченной дальностью.' },
   { id: 'weapon_rocketgun', kind: 'weapon', weapon: 'rocketgun', label: 'RKT WEAPON', desc: 'Открывает ROCKETGUN: тяжёлая ракета с большим областьным взрывом.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'BULLET RICOCHET +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
