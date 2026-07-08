@@ -603,6 +603,9 @@ function placeNearInteractable(run, obj, p, radius = 94) {
   }
   return collideWalls(cx, cy + radius, 28, run.plan.walls || [], cx, cy);
 }
+function slotMobIsLockedOut(e) {
+  return !!(e && e.kind === 'slot_mob' && ((e.spawnDelay || 0) > 0 || (e.slotHiddenT || 0) > 0 || (e.rebuildT || 0) > 0));
+}
 function createSlotMobEntity(run, players, pending) {
   if (!run || !pending) return null;
   const pos = { x: Number(pending.x) || run.plan.w / 2, y: Number(pending.y) || run.plan.h / 2 };
@@ -652,6 +655,12 @@ function scheduleSlotMobAssembly(run, players, pos, opts = {}) {
   };
   if (breakDelay <= 0) pending.breakFxDone = 1;
   run.pendingSlotMobs.push(pending);
+  if (!first) {
+    // Intermediate slot-mob deaths use the same authoritative pending assembly as
+    // the first overload. This FX is only the four physical chunks; no hidden enemy
+    // exists while the pieces are lying, flying, or snapping back together.
+    run.fx.push({ t: 'slot_mob_rebuild', id: pending.id, x: pending.x, y: pending.y, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, lives: pending.lives, visualOnly: 1, mobSize: ENEMIES.slot_mob.size });
+  }
   return pending;
 }
 function spawnCasinoOverloadSlotMob(run, players, near, p) {
@@ -2102,9 +2111,9 @@ function resolveEnemyCrowd(run, walls, dt) {
   const maxPairs = n > 42 ? 3 : 5;
   for (let pass = 0; pass < maxPairs; pass++) {
     for (let i = 0; i < n; i++) {
-      const a = arr[i]; if (!a || (a.kind === 'slot_mob' && (a.slotHiddenT || 0) > 0)) continue;
+      const a = arr[i]; if (!a || slotMobIsLockedOut(a)) continue;
       for (let j = i + 1; j < n; j++) {
-        const b = arr[j]; if (!b || (b.kind === 'slot_mob' && (b.slotHiddenT || 0) > 0)) continue;
+        const b = arr[j]; if (!b || slotMobIsLockedOut(b)) continue;
         const minD = (a.size + b.size) / 2 + 5;
         let dx = b.x - a.x, dy = b.y - a.y;
         let d = Math.hypot(dx, dy);
@@ -2323,7 +2332,7 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
 }
 function resolveEnemyPlayerBodies(run, players, walls) {
   for (const e of run.enemies) {
-    if (e.kind === 'slot_mob' && (e.slotHiddenT || 0) > 0) continue;
+    if (slotMobIsLockedOut(e)) continue;
     for (const p of players.values()) resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 8 });
   }
 }
@@ -4641,7 +4650,7 @@ function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
 
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
   const def = ENEMIES[e.kind];
-  if (e.kind === 'slot_mob' && (e.rebuildT || 0) > 0) return;
+  if (slotMobIsLockedOut(e)) return;
   // Armor is a real shell class: it absorbs hits before HP.
   // Plain shell loses shell HP from shots. Linked shell loses nothing while its unarmored battery mob is alive nearby.
   const rawDmg = Math.max(1, Math.round(dmg));
@@ -5290,7 +5299,7 @@ function stepBullets(run, players, dt) {
     if (b.from === 'p') {
       for (const e of run.enemies) {
         if ((e.spawnDelay || 0) > 0) continue;
-        if (e.kind === 'slot_mob' && ((e.slotHiddenT || 0) > 0 || (e.rebuildT || 0) > 0)) continue;
+        if (slotMobIsLockedOut(e)) continue;
         if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
           if (b.aoe) { if ((b.kind === 'rocketgun' || b.mine) && b.from === 'p') rocketExplode(run, players, b, b.x, b.y, b.aoe, b.dmg); else explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, b.from === 'e', b.from === 'e' ? 'danger' : 'blast', b.elem || '', b.elemPower || 0); if (b.from === 'p') rocketAftermath(run, players, b); }
           else {

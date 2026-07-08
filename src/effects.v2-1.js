@@ -473,11 +473,21 @@ export class Effects {
         if (final) this.slam = Math.max(this.slam, 0.50);
         break;
       }
-      case 'slot_mob_assemble_burst':
+      case 'slot_mob_assemble_burst': {
+        // Server-authoritative final join. If a local physical-chunk effect is a few
+        // frames behind, kill it here so the mob never overlaps loose blocks or looks
+        // like it spawned before the four chunks became one body.
+        const ax = Number(f.x) || 0, ay = Number(f.y) || 0;
+        this.list = this.list.filter(e => {
+          if (e?.kind !== 'slotBreakChunks') return true;
+          const tx = Number(e.x2 || e.x) || 0, ty = Number(e.y2 || e.y) || 0;
+          return Math.hypot(tx - ax, ty - ay) > 96;
+        });
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 110, ttl: 0.34, color: '#ffd34d' });
         this.float(f.x, f.y - 62, 'SLOT MOB', '#ffd34d', 16);
         this.kick(14); this.slam = Math.max(this.slam, 0.40);
         break;
+      }
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
