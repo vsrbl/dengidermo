@@ -392,18 +392,31 @@ export class Effects {
         break;
       }
       case 'lc_bet_roll': {
-        if (mine) { this.slam = Math.max(this.slam, f.win ? 0.09 : 0.04); this.kick(f.win ? 5 : 2); }
-        const col = f.win ? '#ffd34d' : '#ff3048';
-        this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: f.r || 120, ttl: 0.42, color: col, tick: 1 });
-        this.float(f.x, f.y - 72, `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 10);
-        this.float(f.x, f.y - 52, f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE', col, 15);
+        const spin = String(f.phase || '') === 'spin';
+        if (mine) { this.slam = Math.max(this.slam, spin ? 0.05 : (f.win ? 0.09 : 0.04)); this.kick(spin ? 3 : (f.win ? 5 : 2)); }
+        const col = spin ? '#ffd34d' : (f.win ? '#ffd34d' : '#ff3048');
+        this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: spin ? (f.r || 120) + 18 : f.r || 120, ttl: spin ? 0.95 : 0.42, color: col, tick: 1 });
+        this.float(f.x, f.y - 76, spin ? `BET ROLL: ${f.stake || ''}-${f.paid || 0}` : `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 10);
+        this.float(f.x, f.y - 56, spin ? 'ROLLING...' : (f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE'), col, spin ? 12 : 15);
         break;
       }
       case 'lc_sector_ring': {
         const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
         if (mine) this.kick(f.mode === 'open' ? 2 : 1);
-        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: 86, ttl: 0.18, color: col, tick: 1 });
+        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: 96, ttl: 0.18, color: col, tick: 1 });
         if (f.label) this.float(f.x, f.y - 42, f.label, col, 9);
+        break;
+      }
+      case 'lc_copy': {
+        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
+        this.add({ kind: 'squareField', activeKind: 'lc_copy', x: f.x, y: f.y, r: f.r || 128, ttl: 0.28, color: '#00ff66', tick: 1 });
+        this.float(f.x, f.y - 48, f.label || 'COPY', '#00ff66', 11);
+        break;
+      }
+      case 'lc_ghost': {
+        if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
+        this.add({ kind: 'squareField', activeKind: 'lc_ghost', x: f.x, y: f.y, r: f.r || 150, ttl: 0.34, color: '#b45cff', tick: 1 });
+        this.float(f.x, f.y - 52, f.label || 'GHOST', '#b45cff', 12);
         break;
       }
       case 'rewind_mark':

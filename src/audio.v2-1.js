@@ -69,7 +69,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, lc_chain_ready: 0.16, lc_chain_dash: 0.055, lc_bet_roll: 0.18, lc_sector_ring: 0.06
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, lc_chain_ready: 0.16, lc_chain_dash: 0.055, lc_bet_roll: 0.18, lc_sector_ring: 0.06, lc_copy: 0.14, lc_ghost: 0.18
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -89,7 +89,7 @@ export class AudioBus {
       dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5, lc_chain_ready: 7, lc_chain_dash: 6, lc_bet_roll: 7, lc_sector_ring: 3
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5, lc_chain_ready: 7, lc_chain_dash: 6, lc_bet_roll: 7, lc_sector_ring: 3, lc_copy: 6, lc_ghost: 7
     };
     this.userGestureUnlocked = false;
     this._unlock = ev => {
@@ -335,6 +335,16 @@ export class AudioBus {
       case 'lc_sector_ring':
         this.tone(880, 0.018, 'square', 0.026, 0.28, 0.000);
         this.noise(0.006, 0.012, 4600, 8, 0.000);
+        break;
+      case 'lc_copy':
+        this.tone(392, 0.030, 'square', 0.036, 0.46, 0.000);
+        this.tone(784, 0.040, 'square', 0.030, 0.50, 0.028);
+        this.noise(0.010, 0.016, 5200, 10, 0.012);
+        break;
+      case 'lc_ghost':
+        this.noise(0.020, 0.030, 6400, 14, 0.000);
+        this.tone(176, 0.080, 'triangle', 0.046, 0.72, 0.000);
+        this.tone(704, 0.055, 'sine', 0.028, 0.68, 0.040);
         break;
       case 'dash_jackpot':
         // legendary JACKPOT WOUND dash: layered transient/body/tail — slot latch, coin bite, red wound cut.
@@ -995,6 +1005,8 @@ export class AudioBus {
       case 'lc_chain_dash': if (mine) this.play('lc_chain_dash'); break;
       case 'lc_bet_roll': if (mine) this.play('lc_bet_roll'); else this.play(f.win ? 'casino_win' : 'casino_static'); break;
       case 'lc_sector_ring': if (mine) this.play('lc_sector_ring'); break;
+      case 'lc_copy': if (mine) this.play('lc_copy'); break;
+      case 'lc_ghost': if (mine) this.play('lc_ghost'); break;
       case 'pick':
         if (f.type === 'GLD') this.play('gld');
         else if (f.type === 'EXP') this.play('exp');

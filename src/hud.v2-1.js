@@ -21,6 +21,7 @@ const TAG_RU = {
   'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ ВРАГОВ',
   'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН'
 };
+function roman(n) { const map = ['','I','II','III','IV','V','VI','VII','VIII','IX','X']; n = Math.max(1, Math.min(10, Number(n || 1) | 0)); return map[n] || String(n); }
 function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase()); }
 function locTag(v) {
   const s = String(v || '').trim();
@@ -1168,6 +1169,28 @@ export class Hud {
         if (isCharging) d.style.setProperty('--dash-charge', `${Math.round(dashCharge01 * 100)}%`);
         this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
         pips.appendChild(d);
+      }
+    }
+
+    let lcHud = $('living-casino-selected');
+    const lvc = me[P.LVC] || null;
+    if (!lcHud && $('hud-right')) {
+      lcHud = document.createElement('div');
+      lcHud.id = 'living-casino-selected';
+      $('hud-right').insertBefore(lcHud, $('weapon-slots') || null);
+    }
+    if (lcHud) {
+      if (lvc && lvc.label) {
+        const cd = Math.max(0, Number(lvc.cd || 0));
+        const at = Math.max(0, Number(lvc.activeT || 0));
+        const status = lvc.ringOpen ? localText('ВЫБОР ОТКРЫТ', 'SELECTING') : at > 0 ? `${localText('АКТИВНО', 'ACTIVE')} ${at.toFixed ? at.toFixed(1) : at}s` : cd > 0 ? `${localText('ПЕРЕЗАРЯДКА', 'COOLDOWN')} ${cd.toFixed ? cd.toFixed(1) : cd}s` : localText('ГОТОВО', 'READY');
+        const chain = lvc.chainCharges > 0 ? ` · CHAIN x${lvc.chainCharges}` : '';
+        lcHud.className = `lc-selected ${cd > 0 ? 'cooldown' : at > 0 ? 'active' : 'ready'} ${lvc.ringOpen ? 'open' : ''}`;
+        lcHud.innerHTML = `<b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
+        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('ПКМ открывает кольцо выбора. ЛКМ или ПКМ в открытом кольце только выбирает сектор и закрывает меню. Следующий ЛКМ после закрытия активирует выбранный сектор.', 'RMB opens the sector ring. LMB or RMB while it is open only selects a sector and closes the menu. The next LMB after closing activates the selected sector.'), 'gold');
+      } else {
+        lcHud.className = 'lc-selected hidden';
+        lcHud.innerHTML = '';
       }
     }
 

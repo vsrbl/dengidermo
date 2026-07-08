@@ -888,37 +888,22 @@ export class Renderer {
             const ringOpen = !!c[12];
             const chainCharges = Math.max(0, Number(c[13] || 0) | 0);
             const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? COL.gold : secType === 'copy' ? COL.green : secType === 'ghost' ? COL.cyan : COL.gold;
-            if (chainCharges > 0 && Number(c[3] || 0) === 0) {
-              const gp = 0.55 + Math.sin(now * 18) * 0.16;
-              ctx.save();
-              ctx.globalAlpha = 0.24 + gp * 0.14;
-              ctx.strokeStyle = COL.purple;
-              ctx.lineWidth = 2;
-              ctx.setLineDash([7, 5, 2, 5]);
-              const gr = 48 + Math.sin(now * 14) * 4;
-              ctx.strokeRect(px - gr / 2, py - gr / 2, gr, gr);
-              ctx.setLineDash([]);
-              ctx.globalAlpha = 0.34;
-              this.label(`CHAIN x${chainCharges}`, px, py - 50, COL.purple, 8);
-              ctx.restore();
-            }
-            const sz = selected ? (ringOpen ? 24 : 19) : 20;
-            const rot = (ringOpen ? 0 : now * 0.35) + Number(c[3] || 0) * 0.7;
+            const rot = Number(c[3] || 0) * 0.7;
             ctx.save();
             // Connector line: these are UI panels attached to the player, not loose orbiting blocks.
-            ctx.globalAlpha = ringOpen ? 0.50 : 0.24;
+            ctx.globalAlpha = 0.56;
             ctx.strokeStyle = selected ? '#f3f3f3' : tone;
-            ctx.lineWidth = selected ? 1.6 : 1;
-            ctx.setLineDash(selected ? [] : [5, 6]);
+            ctx.lineWidth = selected ? 1.8 : 1.1;
+            ctx.setLineDash(selected ? [] : [6, 7]);
             ctx.beginPath();
             ctx.moveTo(px, py);
             ctx.lineTo(cx, cy);
             ctx.stroke();
             ctx.setLineDash([]);
             // Panel backplate.
-            const w = selected ? 54 : 46;
-            const h = selected ? 30 : 26;
-            ctx.globalAlpha = ringOpen ? 0.82 : 0.62;
+            const w = selected ? 82 : 72;
+            const h = selected ? 36 : 32;
+            ctx.globalAlpha = 0.84;
             ctx.fillStyle = '#050505';
             ctx.fillRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
             ctx.globalAlpha = active ? 0.95 : (ready ? 0.88 : 0.42);
@@ -926,13 +911,10 @@ export class Renderer {
             ctx.lineWidth = selected ? 2.4 : 1.5;
             ctx.strokeRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
             // Inner square marker.
-            this.square(cx - w / 2 + 10, cy, 8 + Math.min(4, lvl), { stroke: tone, fill: active ? tone : undefined, lw: 1.5, rotate: rot, alpha: active ? 0.9 : (ready ? 0.65 : 0.30) });
+            this.square(cx - w / 2 + 13, cy, 9 + Math.min(4, lvl), { stroke: tone, fill: active ? tone : undefined, lw: 1.5, rotate: rot, alpha: active ? 0.9 : (ready ? 0.65 : 0.30) });
             ctx.restore();
-            this.label(String(secType || '').toUpperCase().slice(0, 5), cx + 6, cy - 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', 7);
-            if (!ready && !active) this.label(`${Math.ceil(cd)}s`, cx + 7, cy + 10, '#ff3048', 7);
-            else if (active) this.label('ACTIVE', cx + 7, cy + 10, tone, 6);
-            else if (selected && !ringOpen) this.label('READY', cx + 7, cy + 10, '#00ff66', 6);
-            if (selected && ringOpen) this.label('ПКМ: LOCK', cx, cy - 25, '#f3f3f3', 6);
+            this.label(String(secType || '').toUpperCase().slice(0, 6), cx + 8, cy + 3, ready ? (selected ? '#f3f3f3' : tone) : '#777', 8);
+            if (selected && ringOpen) this.label('ЛКМ/ПКМ: SELECT', cx, cy - 30, '#f3f3f3', 6);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });
@@ -961,6 +943,21 @@ export class Renderer {
         continue;
       }
       ctx.save();
+      const lvcHud = p[P.LVC] || null;
+      const lvcChainCharges = Math.max(0, Number(lvcHud?.chainCharges || 0) | 0);
+      if (lvcChainCharges > 0) {
+        const gp = 0.55 + Math.sin(now * 18) * 0.16;
+        ctx.save();
+        ctx.globalAlpha = 0.24 + gp * 0.16;
+        ctx.strokeStyle = COL.purple;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5, 2, 5]);
+        const gr = 52 + Math.sin(now * 14) * 4;
+        ctx.strokeRect(px - gr / 2, py - gr / 2, gr, gr);
+        ctx.setLineDash([]);
+        ctx.restore();
+        this.label(`CHAIN x${lvcChainCharges}`, px, py - 50, COL.purple, 8);
+      }
       const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') || skinId === 'living_casino') && Number(p[P.RT] || 0) > 0;
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
       if (ghostActive) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.38 + Math.sin(now * 16) * 0.12);
