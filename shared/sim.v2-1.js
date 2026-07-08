@@ -2742,10 +2742,12 @@ export function dashMax(p) { return 1 + p.stats.dashAdd; }
 
 // ---------------------------------------------------------------- Living Casino hero
 const LIVING_CASINO_SKIN_ID = 'living_casino';
-const LC_SECTOR_TYPES = ['dmg', 'guard', 'chain', 'bet', 'copy', 'ghost'];
-const LC_SECTOR_LABEL = { dmg: 'LVC', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST' };
-const LC_SECTOR_TONE = { dmg: 'gold', guard: 'cyan', chain: 'purple', bet: 'orange', copy: 'green', ghost: 'blue' };
-const LC_SECTOR_COLOR = { dmg: '#ffd34d', guard: '#66f6ff', chain: '#b45cff', bet: '#ff9f1a', copy: '#00ff66', ghost: '#7aa8ff' };
+const LC_SECTOR_TYPES = ['dmg', 'roulette', 'deck', 'guard', 'chain', 'bet', 'copy', 'ghost', 'jackpot', 'table'];
+const LC_WEAPON_SECTORS = new Set(['dmg', 'roulette', 'deck']);
+const LC_SECTOR_LABEL = { dmg: 'LVC', roulette: 'RLT', deck: 'CRD', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST', jackpot: 'JACKPOT', table: 'TABLE' };
+const LC_SECTOR_TONE = { dmg: 'gold', roulette: 'red', deck: 'cyan', guard: 'cyan', chain: 'purple', bet: 'orange', copy: 'green', ghost: 'blue', jackpot: 'gold', table: 'green' };
+const LC_SECTOR_COLOR = { dmg: '#ffd34d', roulette: '#ff3048', deck: '#66f6ff', guard: '#66f6ff', chain: '#b45cff', bet: '#ff9f1a', copy: '#00ff66', ghost: '#7aa8ff', jackpot: '#ffd34d', table: '#f3f3f3' };
+const LC_SECTOR_WEAPON_ID = { dmg: 'living_casino', roulette: 'roulette', deck: 'deck' };
 
 function isLivingCasinoPlayer(p) { return p?.hero === 'living_casino' || p?.skin?.hero === 'living_casino'; }
 function livingCasinoSectorLabel(type) { return LC_SECTOR_LABEL[String(type || '')] || String(type || 'SEC').toUpperCase(); }
@@ -2761,7 +2763,7 @@ function setupLivingCasinoPlayer(p) {
   p.shgCharges = WEAPONS.shotgun.charges;
   p.shgReload = 0;
   p.livingCasino = {
-    maxSectors: 1,
+    maxSectors: 6,
     sectors: [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }],
     selected: 0,
     ringOpen: false,
@@ -2777,7 +2779,7 @@ function ensureLivingCasinoState(p) {
   if (!isLivingCasinoPlayer(p)) return null;
   if (!p.livingCasino) setupLivingCasinoPlayer(p);
   const lc = p.livingCasino;
-  lc.maxSectors = Math.max(1, Math.min(6, Number(lc.maxSectors || 1) | 0));
+  lc.maxSectors = 6;
   lc.sectors = Array.isArray(lc.sectors) ? lc.sectors.map(normalizeLivingCasinoSector) : [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }];
   if (!lc.sectors.length) lc.sectors.push({ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 });
   lc.sectors = lc.sectors.slice(0, lc.maxSectors);
@@ -2786,6 +2788,10 @@ function ensureLivingCasinoState(p) {
   lc.copyPower = Math.max(0.25, Math.min(0.95, Number(lc.copyPower || 0.55) || 0.55));
   if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = ['living_casino'];
   if (!p.weapons.includes('living_casino')) p.weapons.unshift('living_casino');
+  for (const sec of lc.sectors) {
+    const wid = LC_SECTOR_WEAPON_ID[String(sec?.type || '')];
+    if (wid && !p.weapons.includes(wid)) p.weapons.push(wid);
+  }
   p.weapons = [...new Set(p.weapons.filter(w => WEAPONS[w]))];
   if (!p.weapons.length) p.weapons = ['living_casino'];
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
@@ -2806,9 +2812,8 @@ function livingCasinoSelectedIndex(p) {
 }
 function livingCasinoIsInstantSelect(type) {
   type = String(type || '');
-  // В кольце Живого казино только LVC-пушка (dmg) становится выбранной для будущего ЛКМ.
-  // Остальные сектора — это мгновенные действия: выбрал в кольце, сработало, меню закрылось.
-  return type !== 'dmg';
+  // В кольце Живого казино пушки выбираются для ЛКМ, а остальные ячейки — instant-действия.
+  return !LC_WEAPON_SECTORS.has(type);
 }
 function livingCasinoPrimaryIndex(lc) {
   if (!lc || !Array.isArray(lc.sectors) || !lc.sectors.length) return 0;
@@ -2826,8 +2831,11 @@ function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
     const ok = activateLivingCasinoSector(run, players || new Map(), p, sec, { instantSelect: 1 });
     if (!ok) run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${livingCasinoSectorLabel(sec?.type)} RELOAD`, chest: 'LVC' });
     lc.selected = livingCasinoPrimaryIndex(lc);
-  } else if (String(sec?.type || '') === 'dmg') {
-    // Only LVC itself can be selected and then fired later with LMB.
+  } else if (LC_WEAPON_SECTORS.has(String(sec?.type || ''))) {
+    // Weapon cells select the current Living Casino weapon; they do not fire immediately.
+    const wid = LC_SECTOR_WEAPON_ID[String(sec?.type || '')] || 'living_casino';
+    if (!p.weapons.includes(wid)) p.weapons.push(wid);
+    p.weaponIdx = Math.max(0, p.weapons.indexOf(wid));
     lc.selected = hoverIdx;
   } else {
     lc.selected = livingCasinoPrimaryIndex(lc);
@@ -2847,6 +2855,7 @@ function livingCasinoSectorDuration(type, lvl, power = 1) {
   if (type === 'dmg') return (10.0 + Math.min(6, (lvl - 1) * 1.2)) * power;
   if (type === 'chain') return (5.5 + Math.min(5, (lvl - 1) * 0.9)) * power;
   if (type === 'ghost') return (3.0 + Math.min(3.5, (lvl - 1) * 0.55)) * power;
+  if (type === 'table') return (5.0 + Math.min(3.0, (lvl - 1) * 0.45)) * power;
   return 0;
 }
 function livingCasinoSectorReload(type, lvl) {
@@ -2857,6 +2866,8 @@ function livingCasinoSectorReload(type, lvl) {
   if (type === 'bet') return Math.max(3.8, 7.5 - Math.min(2.5, (lvl - 1) * 0.35));
   if (type === 'copy') return Math.max(4.8, 9.0 - Math.min(2.2, (lvl - 1) * 0.3));
   if (type === 'ghost') return Math.max(6.4, 11.0 - Math.min(2.4, (lvl - 1) * 0.35));
+  if (type === 'jackpot') return Math.max(6.8, 12.0 - Math.min(2.6, (lvl - 1) * 0.35));
+  if (type === 'table') return Math.max(5.8, 10.0 - Math.min(2.4, (lvl - 1) * 0.35));
   return 8;
 }
 function livingCasinoCanAddSector(p, type) {
@@ -2871,15 +2882,19 @@ function livingCasinoSectorUpgradeLevel(p, type) {
   const lc = ensureLivingCasinoState(p); const s = lc?.sectors?.find(s => s.type === type); return Math.max(1, Number(s?.level || 1) | 0);
 }
 function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
-  // Живое казино стартует с LVC, но теперь может открыть обычные базовые пушки
-  // и их ветки. LVC-секторные улучшения живут отдельно и называются LIVE CASINO/LVC.
+  // Живое казино не получает SHG/SEK/RKT и их ветки из WPN.
+  // Оставляем только общие оружейные моды и статы, которые работают на LVC/RLT/CRD.
+  const blockedWeapons = new Set(['shotgun', 'seeker', 'rocketgun']);
+  const blockedBranches = new Set(['shotgun', 'seeker', 'rocketgun']);
   return WEAPON_CHEST_REWARDS
     .filter(opt => {
       if (!opt) return false;
       const kind = String(opt.kind || '');
-      if (kind === 'weapon') return !!opt.weapon && !p.weapons.includes(opt.weapon) && !!WEAPONS[opt.weapon];
+      if (kind === 'weapon') return false;
       if (kind === 'weapon_upgrade') {
+        if (opt.reqWeapon && blockedBranches.has(String(opt.reqWeapon))) return false;
         if (opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return false;
+        if (opt.weapon && blockedWeapons.has(String(opt.weapon))) return false;
         const id = opt.upgrade || opt.id;
         if (id === 'drone_element_link' && !(p?.stats?.drones > 0)) return false;
         if (id === 'drone_element_link' && !playerHasBulletElement(p)) return false;
@@ -2894,37 +2909,53 @@ function livingCasinoChoicePool(p, qualityTier = 0) {
   const lc = ensureLivingCasinoState(p); if (!lc) return [];
   const pool = [];
   const missing = LC_SECTOR_TYPES.filter(t => t !== 'dmg' && !livingCasinoHasSector(p, t));
-  if (lc.maxSectors < 6 && lc.sectors.length >= lc.maxSectors) {
-    for (const type of missing) pool.push({ id: `lc_expand_${type}_${lc.maxSectors + 1}`, kind: 'lc_sector_expand_add', sector: type, label: `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`, actionLabel: 'ДОБАВИТЬ ЯЧЕЙКУ', group: 'LIVE CASINO', role: livingCasinoSectorLabel(type), desc: `Добавляет новую ячейку и сразу ставит туда ${livingCasinoSectorLabel(type)}. Сейчас ${lc.maxSectors}/6. ${livingCasinoSectorDesc(type)}`, valueTier: qualityTier });
-  }
-  for (const type of missing) {
-    if (lc.sectors.length < lc.maxSectors) pool.push({ id: `lc_add_${type}`, kind: 'lc_sector_add', sector: type, label: `СЕКТОР: ${livingCasinoSectorLabel(type)}`, actionLabel: 'ДОБАВИТЬ СЕКТОР', group: 'LIVE CASINO', role: livingCasinoSectorLabel(type), desc: livingCasinoSectorDesc(type), valueTier: qualityTier });
+  // Новые пушки/instant-действия появляются только пока в кольце есть свободный слот.
+  if (lc.sectors.length < 6) {
+    for (const type of missing) {
+      const isWeapon = LC_WEAPON_SECTORS.has(type);
+      pool.push({
+        id: `lc_add_${type}`,
+        kind: 'lc_sector_add',
+        sector: type,
+        label: `${isWeapon ? 'ПУШКА' : 'ДЕЙСТВИЕ'}: ${livingCasinoSectorLabel(type)}`,
+        actionLabel: isWeapon ? 'ДОБАВИТЬ ПУШКУ' : 'ДОБАВИТЬ ДЕЙСТВИЕ',
+        group: 'LIVE CASINO', role: livingCasinoSectorLabel(type),
+        desc: livingCasinoSectorDesc(type), valueTier: qualityTier
+      });
+    }
   }
   for (const sec of lc.sectors) {
     const next = (sec.level || 1) + 1;
-    pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ СЕКТОР', group: 'LIVE CASINO', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
+    pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ', group: 'LIVE CASINO', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
   }
   if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'COPY POWER +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'LIVE CASINO', role: 'COPY', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
   if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'BET ODDS +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'LIVE CASINO', role: 'BET', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
-  // Живое казино не берёт новые пушки (SEK/RKT/SHG) и их ветки, но общие WPN-улучшения остаются.
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
   return pool;
 }
 function livingCasinoSectorDesc(type) {
+  if (type === 'roulette') return 'RLT-пушка: тяжёлый шар рулетки отскакивает от стен и иногда даёт ZERO-взрыв.';
+  if (type === 'deck') return 'CRD-пушка: быстрый веер карт по курсору.';
   if (type === 'guard') return 'Расталкивает угрозы и даёт временный щит, ёмкость которого постепенно тает.';
   if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного dash-запаса.';
   if (type === 'bet') return 'Ставит малую случайную цену: GLD, HP или EXP. Выплата тоже случайная.';
   if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
   if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
+  if (type === 'jackpot') return 'Мгновенный JACKPOT-импульс вокруг героя. Если задел 6+ угроз, выдаёт небольшой бонус.';
+  if (type === 'table') return 'Ставит перед героем карту-ловушку: первая угроза получает урон и короткий стоп.';
   return 'LVC-пушка Живого казино: запускает автосамонаводящиеся цифровые пули на несколько секунд.';
 }
 function livingCasinoSectorUpgradeDesc(type, next = 2) {
   if (type === 'dmg') return `LVC ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
+  if (type === 'roulette') return `RLT ${roman(next)}: сильнее шар, больше шанс ZERO и больше отскоков.`;
+  if (type === 'deck') return `CRD ${roman(next)}: больше карт/урона и лучше контроль веера.`;
   if (type === 'guard') return `GUARD ${roman(next)}: больше временный щит и сильнее отталкивание.`;
   if (type === 'chain') return `CHAIN ${roman(next)}: +1 быстрый фиолетовый рывок и длиннее окно.`;
   if (type === 'bet') return `BET ${roman(next)}: выше ставки и выплаты, лучше шанс сильного исхода.`;
   if (type === 'copy') return `COPY ${roman(next)}: меньше cooldown и сильнее повтор прошлого действия.`;
   if (type === 'ghost') return `GHOST ${roman(next)}: дольше скрытие и быстрее перезагрузка.`;
+  if (type === 'jackpot') return `JACKPOT ${roman(next)}: больше радиус, урон и бонус за 6+ угроз.`;
+  if (type === 'table') return `TABLE ${roman(next)}: дольше ловушка и сильнее первый удар.`;
   return `Сектор ${roman(next)}.`;
 }
 function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
@@ -2945,9 +2976,10 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
   let label = opt.label || 'LIVE CASINO';
   if (opt.lcGeneral || ['weapon','weapon_upgrade', 'stat'].includes(String(opt.kind || ''))) {
     if (opt.kind === 'weapon') {
+      // Legacy/stale choices from older builds must not add normal guns to Living Casino.
+      if (['shotgun', 'seeker', 'rocketgun'].includes(String(opt.weapon || ''))) return false;
       if (!WEAPONS[opt.weapon] || p.weapons.includes(opt.weapon)) return false;
       p.weapons.push(opt.weapon);
-      if (opt.weapon === 'shotgun') { p.shgCharges = WEAPONS.shotgun.charges; p.shgReload = 0; }
       label = opt.label || `WPN ${WEAPONS[opt.weapon]?.label || opt.weapon}`;
       run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[opt.weapon]?.label || opt.label });
     } else if (opt.kind === 'weapon_upgrade') {
@@ -2987,9 +3019,11 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
     }
   } else if (opt.kind === 'lc_sector_add') {
     const type = String(opt.sector || '');
-    if (!LC_SECTOR_TYPES.includes(type) || lc.sectors.length >= lc.maxSectors || lc.sectors.some(s => s.type === type)) return false;
+    if (!LC_SECTOR_TYPES.includes(type) || lc.sectors.length >= 6 || lc.sectors.some(s => s.type === type)) return false;
     lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
-    label = `СЕКТОР: ${livingCasinoSectorLabel(type)}`;
+    const wid = LC_SECTOR_WEAPON_ID[type];
+    if (wid && !p.weapons.includes(wid)) p.weapons.push(wid);
+    label = `${LC_WEAPON_SECTORS.has(type) ? 'ПУШКА' : 'ДЕЙСТВИЕ'}: ${livingCasinoSectorLabel(type)}`;
   } else if (opt.kind === 'lc_sector_upgrade') {
     const sec = lc.sectors.find(s => s.type === opt.sector);
     if (!sec) return false;
@@ -3041,6 +3075,40 @@ function livingCasinoFireHoming(run, p, sec, power = 1) {
     run.bullets.push({ id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg, from: 'p', owner: p.id, life: 1.75 + lvl * 0.08, size: 4, homing: 7.2 + lvl * 0.22, kind: 'live_casino', travelled: 0, maxDist: 680 + lvl * 42, bounces: 0, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0 });
   }
   run.fx.push({ t: 'shot', id: p.id, w: 'LIVE', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 28), my: Math.round(p.y + dir.y * 28), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
+  return true;
+}
+
+function activateLivingCasinoJackpot(run, players, p, sec, power = 1) {
+  const lvl = Math.max(1, sec.level || 1);
+  const r = Math.round(175 + lvl * 18);
+  let hits = 0;
+  const dmg = weaponDamageValue(p, 20 + lvl * 6, power);
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    if (dist2(e.x, e.y, p.x, p.y) > (r + e.size / 2) ** 2) continue;
+    hits++;
+    const n = norm(e.x - p.x, e.y - p.y);
+    e.x += n.x * (55 + lvl * 5);
+    e.y += n.y * (55 + lvl * 5);
+    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.20 + lvl * 0.03);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.70);
+    damageEnemy(run, players, e, dmg, p.id, 90 + lvl * 8, n.x, n.y, 'jackpot');
+  }
+  if (hits >= 6) {
+    const payout = Math.round((6 + lvl * 3 + Math.min(18, hits)) * loopEconomyMul(run));
+    grantPersonalEconomy(run, players, p, Math.random() < 0.5 ? 'GLD' : 'EXP', payout, 'JACKPOT IMPULSE', p.x, p.y);
+  }
+  run.fx.push({ t: 'lc_jackpot_impulse', id: p.id, label: hits >= 6 ? `JACKPOT x${hits}` : `IMPULSE x${hits}`, x: Math.round(p.x), y: Math.round(p.y), r, hits, playerId: p.id });
+  return true;
+}
+function activateLivingCasinoTable(run, p, sec, power = 1) {
+  const lvl = Math.max(1, sec.level || 1);
+  const dir = norm((p.aimX || p.x + 1) - p.x, (p.aimY || p.y) - p.y);
+  const x = p.x + dir.x * 104;
+  const y = p.y + dir.y * 104;
+  const ttl = livingCasinoSectorDuration('table', lvl, power);
+  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: 58 + lvl * 6, ttl, dmg: weaponDamageValue(p, 42 + lvl * 9, power), slow: 0.04, tickEvery: 0.18, lvl, sprung: 0 });
+  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: 74 + lvl * 6, playerId: p.id });
   return true;
 }
 function activateLivingCasinoGuard(run, p, sec, power = 1) {
@@ -3150,6 +3218,8 @@ function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
   else if (type === 'chain') ok = activateLivingCasinoChain(run, p, sec, power);
   else if (type === 'bet') ok = activateLivingCasinoBet(run, players, p, sec, power);
   else if (type === 'ghost') ok = activateLivingCasinoGhost(run, p, sec, power);
+  else if (type === 'jackpot') ok = activateLivingCasinoJackpot(run, players, p, sec, power);
+  else if (type === 'table') ok = activateLivingCasinoTable(run, p, sec, power);
   else if (type === 'copy') {
     const last = lc.lastSector && lc.lastSector !== 'copy' ? lc.lastSector : '';
     const source = last ? lc.sectors.find(s => s.type === last) : null;
@@ -5516,6 +5586,7 @@ function fireWeapon(run, players, p, dt) {
   const w = WEAPONS[p.weapons[p.weaponIdx]];
   if (!w) return;
   const tempFire = p.activeBuffT > 0 ? 1.65 + p.stats.activeOver * 0.20 : 1;
+  const lcWeaponLvl = isLivingCasinoPlayer(p) ? (w.id === 'roulette' ? livingCasinoSectorUpgradeLevel(p, 'roulette') : (w.id === 'deck' ? livingCasinoSectorUpgradeLevel(p, 'deck') : 1)) : 1;
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
   if (w.id === 'shotgun') {
     if (p.fireWasDown) return;
@@ -5529,9 +5600,9 @@ function fireWeapon(run, players, p, dt) {
   }
 
   const echoBase = p.stats.echoShot + (run.plan.modifierIds.includes('echo_walls') ? 0.50 : 0);
-  const echoMul = w.id === 'seeker' ? 0.38 : (w.id === 'rocketgun' ? 0.18 : 1);
+  const echoMul = w.id === 'seeker' ? 0.38 : (w.id === 'rocketgun' ? 0.18 : (w.id === 'roulette' ? 0.42 : 1));
   const shots = 1 + chanceStacks(echoBase * echoMul);
-  const pellets = w.pellets + (w.id === 'shotgun' ? p.stats.shgPellets : 0);
+  const pellets = w.pellets + (w.id === 'shotgun' ? p.stats.shgPellets : 0) + (w.id === 'deck' ? Math.max(0, p.stats.crdCards || 0) + Math.floor(Math.max(0, lcWeaponLvl - 1) / 2) : 0);
   const rangeMul = Math.max(0.25, p.stats.bulletRange || 1);
   const homing = (w.homing || 0) + (w.id === 'seeker' ? p.stats.sekChain * 0.7 : 0);
   const life = (w.life + (w.id === 'seeker' ? p.stats.sekChain * 0.10 : 0)) * rangeMul;
@@ -5550,10 +5621,10 @@ function fireWeapon(run, players, p, dt) {
       run.bullets.push({
         id: nid(), x: originX, y: originY,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
-        dmg: weaponDamageValue(p, w.dmg), from: 'p', owner: p.id,
-        life, delay, size: w.size, aoe: w.aoe || 0, homing,
+        dmg: weaponDamageValue(p, w.dmg + (w.id === 'roulette' ? (p.stats.rltDmg || 0) * 8 + Math.max(0, lcWeaponLvl - 1) * 5 : w.id === 'deck' ? (p.stats.crdDmg || 0) * 3 + Math.max(0, lcWeaponLvl - 1) * 2 : 0)), from: 'p', owner: p.id,
+        life, delay, size: w.size, aoe: w.aoe || (w.id === 'roulette' && Math.random() < Math.min(0.42, 0.12 + (p.stats.rltZero || 0) * 0.04 + Math.max(0, lcWeaponLvl - 1) * 0.015) ? 72 + (p.stats.rltDmg || 0) * 8 + Math.max(0, lcWeaponLvl - 1) * 5 : 0), homing,
         knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist, maxDist, rangeMul,
-        bounces: (p.stats.bulletBounce || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0),
+        bounces: (p.stats.bulletBounce || 0) + (w.bounces || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0) + (w.id === 'roulette' ? (p.stats.rltBounce || 0) + Math.floor(Math.max(0, lcWeaponLvl - 1) / 2) : 0) + (w.id === 'deck' ? (p.stats.crdBounce || 0) : 0),
         sekSplit: w.id === 'seeker' ? p.stats.sekSplit : 0,
         rktCluster: w.id === 'rocketgun' ? p.stats.rktCluster : 0,
         rktMines: w.id === 'rocketgun' ? p.stats.rktMines : 0,
@@ -5565,8 +5636,8 @@ function fireWeapon(run, players, p, dt) {
       });
     }
   }
-  const recoil = w.id === 'shotgun' ? 36 : (w.id === 'rocketgun' ? 54 : 18);
-  p.recoilT = Math.max(p.recoilT || 0, w.id === 'rocketgun' ? 0.16 : 0.09);
+  const recoil = w.id === 'shotgun' ? 36 : (w.id === 'rocketgun' ? 54 : (w.id === 'roulette' ? 42 : 18));
+  p.recoilT = Math.max(p.recoilT || 0, w.id === 'rocketgun' ? 0.16 : (w.id === 'roulette' ? 0.12 : 0.09));
   p.recoilX = -dir.x * recoil;
   p.recoilY = -dir.y * recoil;
   run.fx.push({
@@ -8582,6 +8653,21 @@ function stepActiveFields(run, players, dt) {
       }
       }
     }
+    if (f.kind === 'lc_table' && !f.sprung) {
+      for (const e of run.enemies) {
+        if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+        if (dist2(e.x, e.y, f.x, f.y) > ((f.r || 58) + e.size / 2) ** 2) continue;
+        f.sprung = 1;
+        const n = norm(e.x - f.x, e.y - f.y);
+        e.stunT = Math.max(e.stunT || 0, 0.45 + Math.max(1, f.lvl || 1) * 0.08);
+        e.activeSlowT = Math.max(e.activeSlowT || 0, 0.75);
+        e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.05);
+        damageEnemy(run, players, e, f.dmg || 42, f.owner, 75, n.x, n.y, 'table');
+        run.fx.push({ t: 'lc_card_table', id: f.owner, label: 'CARD HIT', x: Math.round(f.x), y: Math.round(f.y), r: Math.round((f.r || 58) + 24), hit: 1 });
+        f.ttl = Math.min(f.ttl, 0.20);
+        break;
+      }
+    }
     if (f.kind === 'snap_field') {
       // FIELD SNAP pull happens once on cast. The lingering field only slows, damages and damps bullets.
       for (const e of run.enemies) if (dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
@@ -8901,7 +8987,7 @@ function stepPlayers(run, players, dt) {
     if (p.wantRActive && run.phase === 'play') doRActive(run, players, p);
     p.wantRActive = false;
     if (p.wantSecondary && run.phase === 'play') {
-      if (isLivingCasinoPlayer(p) && (p.weapons?.[p.weaponIdx || 0] || '') === 'living_casino') {
+      if (isLivingCasinoPlayer(p)) {
         const lc = ensureLivingCasinoState(p);
         if (lc?.ringOpen) closeLivingCasinoRing(run, p, 'close', players);
         else toggleLivingCasinoRing(run, p);
@@ -8909,8 +8995,8 @@ function stepPlayers(run, players, dt) {
       else doSecondaryWeapon(run, players, p);
     }
     p.wantSecondary = false;
-    // weapon switch
-    if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) p.weaponIdx = p.wantWeapon;
+    // weapon switch: Living Casino changes weapons through its ring, not mouse wheel / number slots.
+    if (!isLivingCasinoPlayer(p) && p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) p.weaponIdx = p.wantWeapon;
     p.wantWeapon = -1;
     // interact
     if (p.wantInteract && run.phase === 'play') tryInteract(run, players, p);

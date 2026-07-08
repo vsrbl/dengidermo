@@ -188,10 +188,10 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range shotgun. Fires in bursts and recovers automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy rocket launcher. Explodes on impact or wall hit.'
+  SHG: 'Close-range shotgun. Fires in bursts and recovers automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy rocket launcher. Explodes on impact or wall hit.', LVC: 'Living Casino gun. Opens and fires casino sectors.', RLT: 'Roulette gun. Heavy bouncing ball with rare ZERO blast.', CRD: 'Deck gun. Fast card fan.'
 };
 const RU_WEAPON = {
-  SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании или столкновении со стеной.'
+  SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании или столкновении со стеной.', LVC: 'Пушка Живого казино. Открывает и запускает казино-секторы.', RLT: 'Пушка-рулетка. Тяжёлый шар отскакивает от стен и иногда даёт ZERO-взрыв.', CRD: 'Пушка-колода. Быстрый веер карт.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'house terminal signal', living_casino:'living casino vector core', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'

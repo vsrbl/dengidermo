@@ -1223,9 +1223,10 @@ export class Hud {
 
     // weapon slots
     const slots = $('weapon-slots');
-    if (slots) slots.classList.remove('hidden');
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX];
-    if (slots && slots.dataset.v !== wKey) {
+    const livingCasinoHero = !!(me[P.LVC]);
+    if (slots) slots.classList.toggle('hidden', livingCasinoHero);
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc-hide' : '');
+    if (slots && !livingCasinoHero && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
       me[P.WEAPONS].forEach((w, i) => {
@@ -1237,6 +1238,9 @@ export class Hud {
         this.setExplain(s, wd?.name || String(w).toUpperCase(), desc, 'cyan');
         slots.appendChild(s);
       });
+    } else if (slots && livingCasinoHero) {
+      slots.dataset.v = wKey;
+      slots.innerHTML = '';
     }
 
     // interact prompt

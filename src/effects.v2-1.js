@@ -429,6 +429,19 @@ export class Effects {
         this.float(f.x, f.y - 52, f.label || 'GHOST', '#b45cff', 12);
         break;
       }
+      case 'lc_jackpot_impulse': {
+        if (mine) { this.slam = Math.max(this.slam, (f.hits || 0) >= 6 ? 0.16 : 0.08); this.kick((f.hits || 0) >= 6 ? 7 : 4); }
+        this.add({ kind: 'squareField', activeKind: 'lc_jackpot_impulse', x: f.x, y: f.y, r: f.r || 190, ttl: 0.32, color: '#ffd34d', tick: 1 });
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_jackpot_impulse_core', x: f.x, y: f.y, r: Math.max(70, (f.r || 190) * 0.45), ttl: 0.24, color: '#f3f3f3' });
+        this.float(f.x, f.y - 58, f.label || 'JACKPOT', '#ffd34d', 13);
+        break;
+      }
+      case 'lc_card_table': {
+        if (mine || f.hit) this.kick(f.hit ? 4 : 2);
+        this.add({ kind: 'squareField', activeKind: 'lc_card_table', x: f.x, y: f.y, r: f.r || 74, ttl: f.hit ? 0.24 : 0.42, color: f.hit ? '#ff3048' : '#f3f3f3', tick: 1 });
+        this.float(f.x, f.y - 42, f.label || 'TABLE', f.hit ? '#ff3048' : '#f3f3f3', 11);
+        break;
+      }
       case 'rewind_mark':
         if (mine) { this.rewindPulse = 0.42; this.kick(3); }
         this.float(f.x, f.y - 42, 'REWIND MARK', '#b45cff', 10);

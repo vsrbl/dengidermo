@@ -16,9 +16,17 @@ export const WEAPONS = {
   living_casino: {
     id: 'living_casino', label: 'LVC', name: 'ЖИВОЕ КАЗИНО',
     cooldown: 0.45, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
+  },
+  roulette: {
+    id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
+    cooldown: 0.82, pellets: 1, spread: 0.018, dmg: 42, speed: 530, life: 1.65, maxDist: 860, size: 7, knock: 110, bounces: 3
+  },
+  deck: {
+    id: 'deck', label: 'CRD', name: 'КОЛОДА',
+    cooldown: 0.48, pellets: 3, spread: 0.30, dmg: 13, speed: 690, life: 0.82, maxDist: 610, size: 4, knock: 28, bounces: 0
   }
 };
-export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];
+export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun', 'living_casino', 'roulette', 'deck'];
 
 // ---- enemies ------------------------------------------------------------
 // kinds communicate mechanics: silhouette + behavior contract
@@ -265,7 +273,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, crdCards: 0, crdDmg: 0, crdBounce: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,

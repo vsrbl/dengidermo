@@ -888,7 +888,7 @@ export class Renderer {
             const lvl = Math.max(1, Number(c[11] || 1) | 0);
             const ringOpen = !!c[12];
             const chainCharges = Math.max(0, Number(c[13] || 0) | 0);
-            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? '#ff9f1a' : secType === 'copy' ? COL.green : secType === 'ghost' ? '#7aa8ff' : COL.gold;
+            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? '#ff9f1a' : secType === 'copy' ? COL.green : secType === 'ghost' ? '#7aa8ff' : secType === 'roulette' ? '#ff3048' : secType === 'deck' ? '#66f6ff' : secType === 'jackpot' ? COL.gold : secType === 'table' ? '#f3f3f3' : COL.gold;
             const rot = Number(c[3] || 0) * 0.7;
             ctx.save();
             // Connector line: these are UI panels attached to the player, not loose orbiting blocks.
@@ -915,7 +915,8 @@ export class Renderer {
             ctx.fillStyle = tone;
             ctx.fillRect(Math.round(cx - w / 2 + 4), Math.round(cy - h / 2 + 4), Math.round(w - 8), 3);
             ctx.restore();
-            this.label(String(secType || '').toUpperCase().slice(0, 6), cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
+            const secLabel = ({ dmg:'LVC', roulette:'RLT', deck:'CRD', guard:'GUARD', chain:'CHAIN', bet:'BET', copy:'COPY', ghost:'GHOST', jackpot:'JACK', table:'TABLE' })[secType] || String(secType || '').toUpperCase().slice(0, 6);
+            this.label(secLabel, cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });
