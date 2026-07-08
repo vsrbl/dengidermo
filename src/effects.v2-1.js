@@ -296,6 +296,13 @@ export class Effects {
         if (mine) this.kick(2);
         break;
       }
+      case 'lc_chain_dash': {
+        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
+        this.add({ kind: 'line', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, ttl: 0.18, color: '#b45cff', dash: false });
+        this.add({ kind: 'voidDashRift', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, w: 24, ttl: 0.16, color: '#b45cff' });
+        if (mine && Number(f.charges || 0) > 1) this.float((f.x1 + f.x2) / 2, (f.y1 + f.y2) / 2 - 30, `CHAIN x${Number(f.charges || 0) - 1}`, '#b45cff', 9);
+        break;
+      }
       case 'bullet_cut':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 50 + (f.count || 1) * 4, ttl: 0.18, color: '#66f6ff' });
         break;
@@ -376,6 +383,27 @@ export class Effects {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : f.tone === 'purple' ? '#b45cff' : '#66f6ff';
         this.add({ kind: f.squareBlast ? 'rocketBlast' : 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 95, ttl: f.squareBlast ? 0.22 : 0.24, color: col });
         if (f.label && !f.noFloat) this.float(f.x, f.y - 42, f.label, col, 10);
+        break;
+      }
+      case 'lc_chain_ready': {
+        if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
+        this.add({ kind: 'squareField', activeKind: 'lc_chain_ready', x: f.x, y: f.y, r: f.r || 155, ttl: 0.30, color: '#b45cff', tick: 1 });
+        this.float(f.x, f.y - 50, f.label || 'CHAIN DASH', '#b45cff', 12);
+        break;
+      }
+      case 'lc_bet_roll': {
+        if (mine) { this.slam = Math.max(this.slam, f.win ? 0.09 : 0.04); this.kick(f.win ? 5 : 2); }
+        const col = f.win ? '#ffd34d' : '#ff3048';
+        this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: f.r || 120, ttl: 0.42, color: col, tick: 1 });
+        this.float(f.x, f.y - 72, `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 10);
+        this.float(f.x, f.y - 52, f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE', col, 15);
+        break;
+      }
+      case 'lc_sector_ring': {
+        const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
+        if (mine) this.kick(f.mode === 'open' ? 2 : 1);
+        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: 86, ttl: 0.18, color: col, tick: 1 });
+        if (f.label) this.float(f.x, f.y - 42, f.label, col, 9);
         break;
       }
       case 'rewind_mark':
