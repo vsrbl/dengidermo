@@ -34,33 +34,6 @@ export class Effects {
   }
 
   add(e) { const delay = Math.max(0, Number(e?.delay || 0)); this.list.push({ ...e, t: -delay }); if (this.list.length > 220) this.list.shift(); }
-
-  slotAssemblyTimeLeftNear(x, y, radius = 190) {
-    const px = Number(x), py = Number(y);
-    if (!Number.isFinite(px) || !Number.isFinite(py)) return 0;
-    let left = 0;
-    for (const e of this.list) {
-      if (!e || e.kind !== 'slotBreakChunks') continue;
-      const tx = Number(e.x2 ?? e.x), ty = Number(e.y2 ?? e.y);
-      if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-      const dx = tx - px, dy = ty - py;
-      if (dx * dx + dy * dy > radius * radius) continue;
-      const pre = Math.max(0, Number(e.preBreak || 0));
-      const hold = Math.max(0, Number(e.hold || 3.0));
-      const step = Math.max(0.32, Number(e.gatherStep || 0.52));
-      const dur = Math.max(0.72, Number(e.gatherDur || 1.08));
-      const finalJoin = pre + hold + dur * 4 + step * 3;
-      const finalGone = finalJoin + 0.72;
-      // While the four quarters exist visually, the casino mob must not be drawn or roll.
-      // This covers delayed FX delivery / laggy frames where the authoritative snapshot
-      // can arrive before the visible assembly chain has finished on the client.
-      left = Math.max(left, finalGone - (Number(e.t) || 0));
-    }
-    return Math.max(0, left);
-  }
-
-  slotAssemblyActiveNear(x, y, radius = 190) { return this.slotAssemblyTimeLeftNear(x, y, radius) > 0.0001; }
-
   float(x, y, text, color = '#f3f3f3', size = 13) {
     this.floats.push({ x, y, text, color, size, t: 0, ttl: 0.9 });
     if (this.floats.length > 60) this.floats.shift();
@@ -472,12 +445,10 @@ export class Effects {
         break;
       }
       case 'slot_mob_roll':
-        if (this.slotAssemblyActiveNear(f.x, f.y, 210)) break;
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.34, color: '#ffd34d' });
         this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
         break;
       case 'slot_mob_roll_tick':
-        if (this.slotAssemblyActiveNear(f.x, f.y, 210)) break;
         this.add({ kind: 'slotTick', x: f.x, y: f.y, ttl: 0.22, color: '#ffd34d' });
         break;
       case 'slot_mob_rebuild': {
@@ -502,13 +473,11 @@ export class Effects {
         if (final) this.slam = Math.max(this.slam, 0.50);
         break;
       }
-      case 'slot_mob_assemble_burst': {
-        const wait = this.slotAssemblyTimeLeftNear(f.x, f.y, 220);
-        this.add({ kind: 'burst', x: f.x, y: f.y, r: 110, ttl: 0.34, delay: wait, color: '#ffd34d' });
-        if (wait <= 0.01) this.float(f.x, f.y - 62, 'SLOT MOB', '#ffd34d', 16);
-        this.kick(wait > 0.01 ? 0 : 14); this.slam = Math.max(this.slam, wait > 0.01 ? this.slam : 0.40);
+      case 'slot_mob_assemble_burst':
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: 110, ttl: 0.34, color: '#ffd34d' });
+        this.float(f.x, f.y - 62, 'SLOT MOB', '#ffd34d', 16);
+        this.kick(14); this.slam = Math.max(this.slam, 0.40);
         break;
-      }
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);

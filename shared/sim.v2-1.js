@@ -577,7 +577,7 @@ const SLOT_MOB_PIECES_HOLD_T = 3.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 1.08;
 const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.15;
-const SLOT_MOB_POST_BLOCK_SPAWN_T = 3.25;
+const SLOT_MOB_POST_BLOCK_SPAWN_T = 1.15;
 // Full sequential assembly time: pieces do not overlap. One block flies in,
 // snaps, impacts, then the next block starts. This is intentionally longer
 // than the visual fade so the enemy can never appear while blocks are lying or
@@ -607,20 +607,23 @@ function createSlotMobEntity(run, players, pending) {
   if (!run || !pending) return null;
   const pos = { x: Number(pending.x) || run.plan.w / 2, y: Number(pending.y) || run.plan.h / 2 };
   const e = spawnEnemy(run, players, 'slot_mob', false, pos, { noSpawnWarn: true, noArmor: true });
-  e.spawnDelay = 0;
+  // Authoritative post-assembly roll: the entity is created only after the fourth
+  // piece has snapped. While this timer runs it is visible in the snapshot as a
+  // slot-mob roll telegraph, but it has no AI, no collision damage and cannot fire.
+  e.spawnDelay = SLOT_MOB_ROLL_T;
   e.slotLives = Math.max(1, Number(pending.lives || 10) | 0);
   e.slotTotalLives = Math.max(e.slotLives, Number(pending.totalLives || 10) | 0);
   e.slotMode = 'rolling';
   e.slotModeT = 0;
   e.slotChargeState = 'move';
   e.slotRollSfxT = 0;
-  e.rebuildT = SLOT_MOB_REBUILD_T;
+  e.rebuildT = 0;
   e.slotHiddenT = 0;
   e.slotHiddenTotal = 0;
   e.slotPieceFxMask = 0;
   e.hp = e.maxHp = Math.max(300, Math.round((ENEMIES.slot_mob?.hp || 2300) * Math.max(0.85, difficulty(run).hp) * (1 + (10 - e.slotLives) * 0.025)));
   e.shellHp = e.shellMax = Math.max(1, Math.round(e.maxHp * 0.22));
-  e.fireCd = 0.80;
+  e.fireCd = Math.max(0.80, SLOT_MOB_ROLL_T + 0.25);
   syncSlotMobState(e);
   run.fx.push({ t: 'slot_mob_assemble_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y), born: 1 });
   return e;
@@ -4718,7 +4721,9 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     // create a fresh enemy only after the fourth block has snapped into place.
     run.enemies = run.enemies.filter(xe => xe.id !== e.id);
     run.fx.push({ t: 'slot_mob_break', id: e.id, x, y, death: 1 });
-    run.fx.push({ t: 'slot_mob_rebuild', id: e.id, x, y, lives: nextLives, left: nextLives, scatter: 1, assemble: 1, breakDelay: 0, holdDelay: SLOT_MOB_PIECES_HOLD_T, gatherStep: SLOT_MOB_PIECE_GATHER_STEP_T, gatherDur: SLOT_MOB_PIECE_GATHER_DUR_T, mobSize: ENEMIES.slot_mob.size });
+    // No rebuild ghost, no hidden mob and no client-only fake roll. The four blocks
+    // are the only pending state; a fresh slot_mob enemy is created by
+    // stepPendingSlotMobs only after piece 4 has snapped and vanished.
     scheduleSlotMobAssembly(run, players, { x, y }, { first: false, lives: nextLives, totalLives: e.slotTotalLives || 10 });
     registerComboEvent(run, killer, source, e, 1);
     return;
@@ -5468,9 +5473,25 @@ function stepEnemies(run, players, dt) {
   for (const e of [...run.enemies]) {
     const def = ENEMIES[e.kind];
     if ((e.spawnDelay || 0) > 0) {
+      const was = Math.max(0, e.spawnDelay || 0);
       e.spawnDelay = Math.max(0, (e.spawnDelay || 0) - dt);
       e.st = 0;
-      e.fireCd = Math.max(e.fireCd || 0, 0.16);
+      e.vx = 0; e.vy = 0;
+      e.fireCd = Math.max(e.fireCd || 0, e.kind === 'slot_mob' ? 0.55 : 0.16);
+      if (e.kind === 'slot_mob') {
+        e.slotMode = 'rolling';
+        e.slotRollSfxT = Math.max(0, Number(e.slotRollSfxT || 0) - dt);
+        if (e.slotRollSfxT <= 0) {
+          e.slotRollSfxT = 0.18;
+          run.fx.push({ t: 'slot_mob_roll_tick', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+        }
+        syncSlotMobState(e);
+        if (was > 0 && e.spawnDelay <= 0.0001) {
+          e.slotRollSfxT = 0;
+          rerollSlotMobMode(run, e, true);
+          e.fireCd = Math.max(e.fireCd || 0, 0.45);
+        }
+      }
       continue;
     }
     if (e.kind === 'slot_mob' && (e.slotHiddenT || 0) > 0) {
