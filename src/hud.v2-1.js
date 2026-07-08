@@ -982,9 +982,15 @@ export class Hud {
         if (room.objective.status === 'failed') contractCard.classList.add('failed');
         else if (room.objective.status === 'done' || room.objective.status === 'done_pending') contractCard.classList.add('done');
         contractCard.innerHTML = contractCardHtml(room.objective);
+        contractCard.dataset.explainTitle = localText('КОНТРАКТ КОМНАТЫ', 'ROOM CONTRACT');
+        contractCard.dataset.explain = objectiveExplain(room.objective);
+        contractCard.dataset.explainTone = room.objective.status === 'failed' ? 'red' : ((room.objective.status === 'done' || room.objective.status === 'done_pending') ? 'gold' : 'green');
       } else {
         contractCard.classList.add('hidden');
         contractCard.innerHTML = '';
+        delete contractCard.dataset.explainTitle;
+        delete contractCard.dataset.explain;
+        delete contractCard.dataset.explainTone;
       }
     }
 
@@ -2323,16 +2329,14 @@ export class Hud {
 
   casinoLuckInfo(luckRaw = 0) {
     const luck = Math.max(0, Number(luckRaw || 0) || 0);
-    const eff = Math.min(12, luck);
-    const pp = (v) => (Math.round(v * 10) / 10).toFixed(1).replace('.0', '');
+    const pct = (v) => (Math.round(v * 10) / 10).toFixed(1).replace('.0', '');
     return {
       luck,
-      eff,
-      useful: pp(eff * 1.2),
-      jackpot: pp(eff * 0.066),
-      weapon: pp(eff * 0.114),
-      rare: pp(eff * 0.084),
-      lock: pp(eff * 0.084)
+      useful: pct(luck * 4.4),
+      jackpot: pct(luck * 0.32),
+      weapon: pct(luck * 0.55),
+      rare: pct(luck * 0.45),
+      lock: pct(luck * 0.42)
     };
   }
 
@@ -2341,14 +2345,14 @@ export class Hud {
     if (!card) return;
     const luck = me ? Number(me[P.LUCK] || 0) : Number(this.latestMe?.[P.LUCK] || 0);
     const info = this.casinoLuckInfo(luck);
-    const capped = info.luck > info.eff;
     card.innerHTML = `
       <div class="casino-luck-title">${esc(localText('УДАЧА В КАЗИНО', 'CASINO LUCK'))}</div>
-      <div class="casino-luck-value">LUCK +${Math.round(info.luck)} <span>${capped ? `${info.eff}/12` : `${info.eff}/12`}</span></div>
-      <div class="casino-luck-row"><b>JCK</b><span>+${info.jackpot} п.п.</span></div>
-      <div class="casino-luck-row"><b>WPN/ABL</b><span>+${info.weapon} п.п.</span></div>
-      <div class="casino-luck-row"><b>RAR/LOCK</b><span>+${info.rare} п.п.</span></div>
-      <div class="casino-luck-note">${esc(localText(`Удача повышает шанс полезных символов в каждой ячейке и делает BAD относительно реже. В терминале учитывается до LUCK 12.`, `Luck raises useful symbols per cell and makes BAD relatively rarer. Terminal luck is capped at 12.`))}</div>
+      <div class="casino-luck-value">LUCK +${Math.round(info.luck)} <span>без лимита</span></div>
+      <div class="casino-luck-row"><b>JCK</b><span>+${info.jackpot}%</span></div>
+      <div class="casino-luck-row"><b>WPN/ABL</b><span>+${info.weapon}%</span></div>
+      <div class="casino-luck-row"><b>RAR</b><span>+${info.rare}%</span></div>
+      <div class="casino-luck-row"><b>LOCK</b><span>+${info.lock}%</span></div>
+      <div class="casino-luck-note">${esc(localText(`Каждый LUCK +1 напрямую усиливает полезные символы в каждой ячейке. Лимита нет: чем выше удача, тем реже BAD.`, `Each LUCK +1 directly boosts useful symbols in every cell. No cap: higher luck keeps pushing BAD down.`))}</div>
     `;
     this.positionCasinoLuckCard();
   }

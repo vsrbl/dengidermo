@@ -19,7 +19,7 @@ export const WEAPONS = {
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
-    cooldown: 0.82, pellets: 1, spread: 0.018, dmg: 42, speed: 530, life: 1.65, maxDist: 860, size: 7, knock: 110, bounces: 3
+    cooldown: 1.05, pellets: 1, spread: 0.006, dmg: 76, speed: 405, life: 2.25, maxDist: 980, size: 17, knock: 190, bounces: 4
   },
   deck: {
     id: 'deck', label: 'CRD', name: 'КОЛОДА',
@@ -321,7 +321,7 @@ export const DEFAULT_UNLOCKED_SKINS = SKIN_PRESETS.filter(s => s.rarity === 'bas
 
 export function rollCasinoSkin(rng, stakeKey = 'low', luck = 0, unlocked = []) {
   const known = new Set(Array.isArray(unlocked) ? unlocked : []);
-  const luckBoost = Math.min(luck, 12) * 0.18;
+  const luckBoost = Math.max(0, Number(luck || 0) || 0) * 0.45;
   const stakeBoost = stakeKey === 'high' ? 1.35 : stakeKey === 'mid' ? 0.6 : 0;
   const lockedPool = SKIN_PRESETS.filter(s => s.rarity !== 'basic' && !known.has(s.id));
   const weighted = lockedPool.map(s => {
@@ -364,7 +364,7 @@ export function rollRoomSkin(rng, depth = 0, mods = []) {
 export const BET_STAKES = { low: 20, mid: 55, high: 135 };
 export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const stake = BET_STAKES[stakeKey];
-  const l = Math.min(luck, 12) * 0.012;
+  const l = Math.max(0, Number(luck || 0) || 0);
   const known = new Set(Array.isArray(unlockedSkins) ? unlockedSkins : []);
   const hasLockedSkin = SKIN_PRESETS.some(s => s.rarity !== 'basic' && !known.has(s.id));
   const high = stakeKey === 'high';
@@ -392,16 +392,16 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const drawCell = () => {
     const r = rng();
     const odds = [
-      ['JCK', 0.0022 + (high ? 0.0058 : mid ? 0.0022 : 0) + l * 0.055],
-      ['RAR', (high ? 0.017 : mid ? 0.007 : 0.0025) + l * 0.070],
-      ['WPN', 0.010 + (high ? 0.010 : mid ? 0.006 : 0) + l * 0.095],
-      ['ABL', stakeKey === 'low' ? 0.0035 : (0.012 + (high ? 0.008 : 0) + l * 0.095)],
-      ['SKN', hasLockedSkin ? ((high ? 0.013 : mid ? 0.008 : 0.004) + l * 0.018) : 0],
-      ['LOCK', 0.035 + (mid ? 0.016 : high ? 0.024 : 0) + l * 0.070],
-      ['HEA', 0.045 + l * 0.075],
-      ['EXP', 0.055 + l * 0.080],
-      ['GLD', 0.065 + l * 0.090],
-      ['STC', 0.105 + (high ? 0.045 : mid ? 0.020 : 0)]
+      ['JCK', 0.0022 + (high ? 0.0058 : mid ? 0.0022 : 0) + l * 0.0032],
+      ['RAR', (high ? 0.017 : mid ? 0.007 : 0.0025) + l * 0.0045],
+      ['WPN', 0.010 + (high ? 0.010 : mid ? 0.006 : 0) + l * 0.0055],
+      ['ABL', (stakeKey === 'low' ? 0.0035 : (0.012 + (high ? 0.008 : 0))) + l * 0.0055],
+      ['SKN', hasLockedSkin ? ((high ? 0.013 : mid ? 0.008 : 0.004) + l * 0.0026) : 0],
+      ['LOCK', 0.035 + (mid ? 0.016 : high ? 0.024 : 0) + l * 0.0042],
+      ['HEA', 0.045 + l * 0.0042],
+      ['EXP', 0.055 + l * 0.0046],
+      ['GLD', 0.065 + l * 0.0050],
+      ['STC', Math.max(0.012, 0.105 + (high ? 0.045 : mid ? 0.020 : 0) - l * 0.0025)]
     ];
     let acc = 0;
     for (const [id, chance] of odds) { acc += chance; if (r < acc) return id; }

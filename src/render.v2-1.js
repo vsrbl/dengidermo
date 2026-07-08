@@ -307,6 +307,22 @@ export class Renderer {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
         ctx.globalAlpha = 0.35; ctx.fillRect(-size * 2.5, -size * 0.25, size * 1.2, size * 0.5);
+      } else if (kind === 'roulette') {
+        const s = Math.max(15, size);
+        ctx.globalAlpha = 0.98;
+        ctx.fillStyle = 'rgba(0,0,0,0.86)';
+        ctx.fillRect(-s * 1.18, -s * 0.82, s * 2.36, s * 1.64);
+        ctx.strokeStyle = COL.red; ctx.lineWidth = 2.7;
+        ctx.strokeRect(-s * 1.18, -s * 0.82, s * 2.36, s * 1.64);
+        ctx.globalAlpha = 0.82;
+        ctx.strokeStyle = COL.gold; ctx.lineWidth = 1.6;
+        ctx.strokeRect(-s * 0.62, -s * 0.46, s * 1.24, s * 0.92);
+        ctx.globalAlpha = 0.34;
+        ctx.fillStyle = COL.red;
+        ctx.fillRect(-s * 3.2, -s * 0.22, s * 1.55, Math.max(3, s * 0.44));
+        ctx.globalAlpha = 0.60;
+        ctx.fillStyle = COL.gold;
+        ctx.fillRect(-s * 0.18, -s * 0.18, s * 0.36, s * 0.36);
       } else {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);

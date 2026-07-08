@@ -237,8 +237,8 @@ export class Effects {
           this.add({ kind: 'rocketBlast', x: f.x, y: f.y, r: 42, ttl: 0.16, color: '#66f6ff' });
           this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.16, color: '#00ff66' });
         } else {
-          this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / n, dy: (f.dy || 0) / n, weapon: f.kind === 'seeker' ? 'seeker' : 'shotgun', ttl: 0.18, color: '#66f6ff' });
-          this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.14, color: '#00ff66' });
+          this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / n, dy: (f.dy || 0) / n, weapon: f.kind === 'seeker' ? 'seeker' : 'shotgun', ttl: f.kind === 'roulette' ? 0.28 : 0.18, color: f.kind === 'roulette' ? '#ff3048' : '#66f6ff' });
+          this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: f.kind === 'roulette' ? 0.20 : 0.14, color: f.kind === 'roulette' ? '#ffd34d' : '#00ff66' });
         }
         break;
       }

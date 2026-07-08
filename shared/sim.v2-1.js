@@ -2944,7 +2944,7 @@ function livingCasinoSectorDesc(type) {
   if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
   if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
   if (type === 'jackpot') return 'Мгновенный JACKPOT-импульс вокруг героя. Если задел 6+ угроз, выдаёт небольшой бонус.';
-  if (type === 'table') return 'Ставит перед героем карту-ловушку: первая угроза получает урон и короткий стоп.';
+  if (type === 'table') return 'Ставит карту-ловушку прямо под героем: первая угроза получает урон и короткий стоп.';
   return 'LVC-пушка Живого казино: запускает автосамонаводящиеся цифровые пули на несколько секунд.';
 }
 function livingCasinoSectorUpgradeDesc(type, next = 2) {
@@ -3108,12 +3108,12 @@ function activateLivingCasinoJackpot(run, players, p, sec, power = 1) {
 }
 function activateLivingCasinoTable(run, p, sec, power = 1) {
   const lvl = Math.max(1, sec.level || 1);
-  const dir = norm((p.aimX || p.x + 1) - p.x, (p.aimY || p.y) - p.y);
-  const x = p.x + dir.x * 104;
-  const y = p.y + dir.y * 104;
+  // TABLE is an instant trap under the hero, not a cursor-targeted cast.
+  const x = p.x;
+  const y = p.y;
   const ttl = livingCasinoSectorDuration('table', lvl, power);
-  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: 58 + lvl * 6, ttl, dmg: weaponDamageValue(p, 42 + lvl * 9, power), slow: 0.04, tickEvery: 0.18, lvl, sprung: 0 });
-  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: 74 + lvl * 6, playerId: p.id });
+  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: 60 + lvl * 6, ttl, dmg: weaponDamageValue(p, 42 + lvl * 9, power), slow: 0.04, tickEvery: 0.18, lvl, sprung: 0 });
+  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: 76 + lvl * 6, playerId: p.id });
   return true;
 }
 function activateLivingCasinoGuard(run, p, sec, power = 1) {
@@ -3187,8 +3187,8 @@ function activateLivingCasinoBet(run, players, p, sec, power = 1) {
   const { stake, base, paid } = livingCasinoPickStake(p, lvl);
   const kinds = ['GLD', 'HP', 'EXP'];
   const reward = kinds[Math.floor(Math.random() * kinds.length)];
-  const luck = Math.max(0, (lc?.betLuck || 0) + Math.max(0, p.stats?.luck || 0) * 0.25);
-  let roll = Math.random() + Math.min(0.22, luck * 0.025);
+  const luck = Math.max(0, (lc?.betLuck || 0) * 1.5 + Math.max(0, p.stats?.luck || 0) * 0.75);
+  let roll = Math.random() + luck * 0.035;
   let mult = 0, tag = 'ПРОИГРЫШ';
   if (roll >= 0.95) { mult = 5.0; tag = 'JACKPOT'; }
   else if (roll >= 0.70) { mult = 2.35; tag = 'HIGH PAYOUT'; }
@@ -5595,7 +5595,13 @@ function weaponDamageValue(p, base, scale = 1) {
   return Math.max(0, Number(base) || 0) * weaponDamageMul(p) * Math.max(0, Number(scale) || 0);
 }
 function fireWeapon(run, players, p, dt) {
-  if (isLivingCasinoPlayer(p) && (p.weapons?.[p.weaponIdx || 0] || '') === 'living_casino') { fireLivingCasinoSector(run, players, p, dt); return; }
+  if (isLivingCasinoPlayer(p)) {
+    const lc = ensureLivingCasinoState(p);
+    const currentWeapon = p.weapons?.[p.weaponIdx || 0] || '';
+    // While the Living Casino ring is open, LMB is a UI confirm just like RMB.
+    // It must never leak through as weapon fire, regardless of selected gun.
+    if (lc?.ringOpen || currentWeapon === 'living_casino') { fireLivingCasinoSector(run, players, p, dt); return; }
+  }
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
   if (!p.alive) return;
@@ -5637,8 +5643,8 @@ function fireWeapon(run, players, p, dt) {
       run.bullets.push({
         id: nid(), x: originX, y: originY,
         vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
-        dmg: weaponDamageValue(p, w.dmg + (w.id === 'roulette' ? (p.stats.rltDmg || 0) * 8 + Math.max(0, lcWeaponLvl - 1) * 5 : w.id === 'deck' ? (p.stats.crdDmg || 0) * 3 + Math.max(0, lcWeaponLvl - 1) * 2 : 0)), from: 'p', owner: p.id,
-        life, delay, size: w.size, aoe: w.aoe || (w.id === 'roulette' && Math.random() < Math.min(0.42, 0.12 + (p.stats.rltZero || 0) * 0.04 + Math.max(0, lcWeaponLvl - 1) * 0.015) ? 72 + (p.stats.rltDmg || 0) * 8 + Math.max(0, lcWeaponLvl - 1) * 5 : 0), homing,
+        dmg: weaponDamageValue(p, w.dmg + (w.id === 'roulette' ? (p.stats.rltDmg || 0) * 10 + Math.max(0, lcWeaponLvl - 1) * 7 : w.id === 'deck' ? (p.stats.crdDmg || 0) * 3 + Math.max(0, lcWeaponLvl - 1) * 2 : 0)), from: 'p', owner: p.id,
+        life, delay, size: w.size, aoe: w.aoe || (w.id === 'roulette' && Math.random() < Math.min(0.46, 0.14 + (p.stats.rltZero || 0) * 0.045 + Math.max(0, lcWeaponLvl - 1) * 0.018) ? 92 + (p.stats.rltDmg || 0) * 10 + Math.max(0, lcWeaponLvl - 1) * 7 : 0), homing,
         knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist, maxDist, rangeMul,
         bounces: (p.stats.bulletBounce || 0) + (w.bounces || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0) + (w.id === 'roulette' ? (p.stats.rltBounce || 0) + Math.floor(Math.max(0, lcWeaponLvl - 1) / 2) : 0) + (w.id === 'deck' ? (p.stats.crdBounce || 0) : 0),
         sekSplit: w.id === 'seeker' ? p.stats.sekSplit : 0,
@@ -9124,8 +9130,11 @@ export function step(run, players, dt, now) {
 function livingCasinoHudSnapshot(p) {
   const lc = ensureLivingCasinoState(p);
   if (!lc) return null;
-  // Bottom-right LVC HUD is only for the LVC gun, not for one-shot action sectors.
-  const selected = livingCasinoPrimaryIndex(lc);
+  // Bottom-right casino weapon HUD follows the selected casino gun: LVC / RLT / CRD.
+  const currentWeapon = String(p.weapons?.[p.weaponIdx || 0] || 'living_casino');
+  const currentType = Object.entries(LC_SECTOR_WEAPON_ID).find(([, wid]) => wid === currentWeapon)?.[0] || 'dmg';
+  let selected = lc.sectors.findIndex(s => String(s?.type || '') === currentType);
+  if (selected < 0) selected = livingCasinoPrimaryIndex(lc);
   const sec = lc.sectors[selected] || lc.sectors[0] || { type: 'dmg', level: 1, cd: 0, activeT: 0 };
   const type = sec.type || 'dmg';
   const lvl = Math.max(1, Number(sec.level || 1) | 0);

@@ -1006,7 +1006,8 @@ export class AudioBus {
     const mine = f.id === info.myId;
     switch (f.t) {
       case 'shot':
-        this.play(f.w === 'RKT' ? 'rocket_launch' : f.w === 'SEK' ? 'shot_sek' : f.w === 'SHG' ? 'shot_shg' : f.w === 'RLT' ? 'casino_reel_stop' : f.w === 'CRD' ? 'shot_sek' : 'shot');
+        if (f.w === 'RLT') { this.play('casino_spin'); this.play('blast'); }
+        else this.play(f.w === 'RKT' ? 'rocket_launch' : f.w === 'SEK' ? 'shot_sek' : f.w === 'SHG' ? 'shot_shg' : f.w === 'CRD' ? 'shot_sek' : 'shot');
         break;
       case 'blast': this.play(f.style === 'rocket' ? 'rocket_blast' : 'blast'); break;
       case 'dash':
@@ -1033,7 +1034,7 @@ export class AudioBus {
       case 'combo_drop': if (mine) this.play('combo_drop'); break;
       case 'combo_break': this.play('combo_break'); break;
       case 'impact': this.play('impact'); break;
-      case 'ricochet': this.play(f.rocket ? 'rocket_launch' : 'shot_sek'); break;
+      case 'ricochet': if (f.kind === 'roulette') { this.play('casino_reel_stop'); this.play('impact'); } else this.play(f.rocket ? 'rocket_launch' : 'shot_sek'); break;
       case 'phit': if (mine) this.play('phit'); break;
       case 'denied': if (mine) this.play('denied'); break;
       case 'active_denied': if (mine) this.play('active'); break;

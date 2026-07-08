@@ -5004,3 +5004,7 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 }
 #menu .hero-card .hero-title { line-height: 1.08 !important; }
 #menu .hero-card .hero-desc { line-height: 1.08 !important; }
+
+
+/* v2.1.133 — contract card can show its tooltip on hover */
+#hud-contract-card { pointer-events: auto !important; }
