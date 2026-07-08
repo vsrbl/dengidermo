@@ -552,7 +552,7 @@ export class Renderer {
           ctx.strokeRect(Math.round(ex - size * 0.55), Math.round(ey - size * 0.55), Math.round(size * 1.10), Math.round(size * 1.10));
           ctx.setLineDash([]);
           ctx.restore();
-          this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, COL.gold, 9);
+          this.label(`SLT ${lives}/3`, ex, ey - size / 2 - 10, COL.gold, 9);
           this.label('ASSEMBLE', ex, ey + size / 2 + 17, COL.gold, 8);
           continue;
         }
@@ -589,7 +589,7 @@ export class Renderer {
         ctx.strokeRect(Math.round(ex - size * 0.38), Math.round(ey - size * 0.15), Math.round(size * 0.76), Math.round(size * 0.30));
         ctx.setLineDash([]);
         ctx.restore();
-        this.label(`SLT ${lives}/10`, ex, ey - size / 2 - 10, frameCol, 9);
+        this.label(`SLT ${lives}/3`, ex, ey - size / 2 - 10, frameCol, 9);
         if (isRebuild) this.label('ROLLING', ex, ey + size / 2 + 17, frameCol, 8);
         else if (mode !== 'charger') this.label(mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
       } else if (kind === 'boss_croupier') {

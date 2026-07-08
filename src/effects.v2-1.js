@@ -1,6 +1,8 @@
 // terminal casino roguelike effects: dopamine layer — bursts, floats, shake, sweeps, vignette
 import { t, denyText, localText, locLabel } from './i18n.v2-1.js';
 const HEX = /^#[0-9a-fA-F]{6}$/;
+function fxAabbHit(x, y, half, w) { return x + half > w.x && x - half < w.x + w.w && y + half > w.y && y - half < w.y + w.h; }
+function fxHitsWalls(x, y, half, walls = []) { return walls.some(w => fxAabbHit(x, y, half, w)); }
 function safeCol(v, fallback) { const x = String(v || '').trim(); return HEX.test(x) ? x : fallback; }
 function fxLabel(v) {
   const s = String(v || '');
@@ -31,6 +33,8 @@ export class Effects {
     this.killSwitchFlash = 0;
     this.nullRevivalFlash = 0;
     this.rewindPulse = 0;
+    this.walls = [];
+    this.world = { w: 2200, h: 1500 };
   }
 
   add(e) { const delay = Math.max(0, Number(e?.delay || 0)); this.list.push({ ...e, t: -delay }); if (this.list.length > 220) this.list.shift(); }
@@ -42,6 +46,8 @@ export class Effects {
   kick(amount) { this.shake = Math.min(9, this.shake + amount); }
 
   update(dt, state = null) {
+    this.walls = Array.isArray(state?.walls) ? state.walls : (Array.isArray(state?.room?.walls) ? state.room.walls : (this.walls || []));
+    this.world = state?.world || this.world || { w: 2200, h: 1500 };
     for (const e of this.list) e.t += dt;
     this.list = this.list.filter(e => e.t < (e.ttl ?? 0.6));
     // v2.1.87: spawn-warning zones are only pre-spawn telegraphs.
@@ -432,10 +438,10 @@ export class Effects {
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 75, ttl: 0.32, color: f.good ? '#00ff66' : '#b45cff' });
         break;
       case 'casino_overload': {
-        const d = Math.max(3.0, Number(f.breakDelay || 4.18));
-        const hold = Math.max(3.0, Number(f.holdDelay || 3.0));
-        const step = Math.max(0.32, Number(f.gatherStep || 0.52));
-        const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
+        const d = Math.max(0.6, Number(f.breakDelay || 4.18));
+        const hold = Math.max(0.35, Number(f.holdDelay || 1.0));
+        const step = Math.max(0.18, Number(f.gatherStep || 0.52));
+        const dur = Math.max(0.48, Number(f.gatherDur || 0.72));
         // One authoritative visual chain: terminal shakes after the BET window closes,
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
         // The slot mob entity is not present in the snapshot until this chain has fully ended.
@@ -453,11 +459,11 @@ export class Effects {
         break;
       case 'slot_mob_rebuild': {
         const d = Math.max(0, Number(f.delay || 0));
-        const hold = Math.max(3.0, Number(f.holdDelay || 3.0));
-        const step = Math.max(0.32, Number(f.gatherStep || 0.52));
-        const dur = Math.max(0.72, Number(f.gatherDur || 1.08));
+        const hold = Math.max(0.35, Number(f.holdDelay || 1.0));
+        const step = Math.max(0.18, Number(f.gatherStep || 0.52));
+        const dur = Math.max(0.48, Number(f.gatherDur || 0.72));
         this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + dur * 4 + step * 3 + 0.92, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
-        if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/10`, '#ffd34d', 12);
+        if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/3`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
       }
@@ -630,9 +636,9 @@ export class Effects {
         // they bounce/settle, wait, then magnetize back one-by-one. The live mob is
         // rendered only after the server-side pending assembly resolves, so there is no separate ghost mob.
         const pre = Math.max(0, Number(e.preBreak || 0));
-        const hold = Math.max(0, Number(e.hold || 3.0));
-        const step = Math.max(0.32, Number(e.gatherStep || 0.52));
-        const dur = Math.max(0.72, Number(e.gatherDur || 1.08));
+        const hold = Math.max(0, Number(e.hold || 1.0));
+        const step = Math.max(0.18, Number(e.gatherStep || 0.52));
+        const dur = Math.max(0.48, Number(e.gatherDur || 0.72));
         const mobSize = Math.max(34, Number(e.mobSize || 44) || 44);
         const quarter = Math.max(14, mobSize / 2);
         if (e.t < pre) {
@@ -664,13 +670,13 @@ export class Effects {
             const order = [0, 1, 2, 3].sort((a, b) => rnd(a, 7) - rnd(b, 7));
             e.parts = order.map((quad, i) => {
               const a = (-Math.PI + rnd(i, 1) * Math.PI * 2);
-              const sp = 245 + rnd(i, 2) * 155;
+              const sp = 430 + rnd(i, 2) * 260;
               return {
                 quad, col: cols[quad % cols.length],
                 px: e.x + (rnd(i, 3) - 0.5) * 8,
                 py: e.y + (rnd(i, 4) - 0.5) * 8,
                 vx: Math.cos(a) * sp,
-                vy: Math.sin(a) * sp - (150 + rnd(i, 5) * 170),
+                vy: Math.sin(a) * sp - (240 + rnd(i, 5) * 260),
                 rot: (rnd(i, 6) - 0.5) * Math.PI,
                 spin: (rnd(i, 8) < 0.5 ? -1 : 1) * (4.4 + rnd(i, 9) * 5.2),
                 joined: false, gatherFrom: null
@@ -683,8 +689,10 @@ export class Effects {
           const dtp = Math.max(0, Math.min(0.05, t - (e.lastPhysT ?? t)));
           e.lastPhysT = t;
           const targetX = Number(e.x2 || e.x), targetY = Number(e.y2 || e.y);
-          const localMinX = Math.min(e.x, targetX) - 300, localMaxX = Math.max(e.x, targetX) + 300;
-          const localMinY = Math.min(e.y, targetY) - 230, localMaxY = Math.max(e.y, targetY) + 230;
+          const world = this.world || { w: 2200, h: 1500 };
+          const walls = Array.isArray(this.walls) ? this.walls : [];
+          const localMinX = 40, localMaxX = Math.max(80, Number(world.w || 2200) - 40);
+          const localMinY = 40, localMaxY = Math.max(80, Number(world.h || 1500) - 40);
           const groundY = Math.min(localMaxY, Math.max(e.y, targetY) + 142);
           const finalOffsetsByQuad = [
             [-quarter / 2, -quarter / 2],
@@ -701,28 +709,33 @@ export class Effects {
               // True visual physics while the piece is still free: gravity, damping,
               // and bounces against the local arena/wall box.
               if (dtp > 0) {
-                part.vy += 640 * dtp;
-                part.px += part.vx * dtp;
-                part.py += part.vy * dtp;
+                part.vy += 760 * dtp;
                 part.rot += part.spin * dtp;
-                const bounce = 0.58;
-                if (part.px < localMinX + quarter / 2) { part.px = localMinX + quarter / 2; part.vx = Math.abs(part.vx) * bounce; part.spin *= -0.78; }
-                if (part.px > localMaxX - quarter / 2) { part.px = localMaxX - quarter / 2; part.vx = -Math.abs(part.vx) * bounce; part.spin *= -0.78; }
-                if (part.py < localMinY + quarter / 2) { part.py = localMinY + quarter / 2; part.vy = Math.abs(part.vy) * bounce; part.spin *= -0.72; }
-                if (part.py > groundY - quarter / 2) {
-                  part.py = groundY - quarter / 2;
-                  part.vy = -Math.abs(part.vy) * 0.34;
-                  part.vx *= 0.78;
-                  part.spin *= 0.66;
-                  if (Math.abs(part.vy) < 38) part.vy = 0;
-                  if (Math.abs(part.vx) < 9) part.vx = 0;
+                const bounce = 0.66;
+                const half = quarter / 2;
+                let nx = part.px + part.vx * dtp;
+                if (nx < localMinX + half) { nx = localMinX + half; part.vx = Math.abs(part.vx) * bounce; part.spin *= -0.82; }
+                if (nx > localMaxX - half) { nx = localMaxX - half; part.vx = -Math.abs(part.vx) * bounce; part.spin *= -0.82; }
+                if (walls.length && fxHitsWalls(nx, part.py, half, walls)) { nx = part.px; part.vx *= -bounce; part.spin *= -0.82; }
+                part.px = nx;
+                let ny = part.py + part.vy * dtp;
+                if (ny < localMinY + half) { ny = localMinY + half; part.vy = Math.abs(part.vy) * bounce; part.spin *= -0.74; }
+                if (ny > groundY - half) {
+                  ny = groundY - half;
+                  part.vy = -Math.abs(part.vy) * 0.40;
+                  part.vx *= 0.86;
+                  part.spin *= 0.72;
                 }
+                if (walls.length && fxHitsWalls(part.px, ny, half, walls)) { ny = part.py; part.vy *= -bounce; part.vx *= 0.92; part.spin *= -0.74; }
+                part.py = ny;
+                if (Math.abs(part.vy) < 38 && part.py >= groundY - half - 1) part.vy = 0;
+                if (Math.abs(part.vx) < 9) part.vx = 0;
               }
             } else {
               if (!part.gatherFrom) part.gatherFrom = { x: part.px, y: part.py, rot: part.rot };
               const q = Math.max(0, Math.min(1, (t - gatherStart) / dur));
               // Magnet feel: very slow at first, then rapidly accelerates near the core.
-              const mag = Math.pow(q, 2.8);
+              const mag = Math.pow(q, 1.85);
               const final = finalOffsetsByQuad[part.quad] || [0, 0];
               const tx = targetX + final[0];
               const ty = targetY + final[1];

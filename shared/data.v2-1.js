@@ -27,7 +27,7 @@ export const ENEMIES = {
   bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'space pressure' },
   bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'movement pressure' },
   glitch:   { label: 'GLT', hp: 34,   spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2, role: 'backline disruptor', combo: 'ambush pressure' },
-  slot_mob: { label: 'SLT', hp: 6120, spd: 177, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 250, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
+  slot_mob: { label: 'SLT', hp: 6120, spd: 266, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 375, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
 
   // anomaly pack
   echo:     { label: 'ECH', hp: 48,   spd: 145, size: 26, dmg: 12, echo: true, mirrorFireCd: 1.15, xp: 18, gld: 12, score: 3, role: 'weapon mimic', combo: 'mirror pressure' },

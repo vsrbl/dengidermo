@@ -61,10 +61,10 @@ function contractRewardText(reward = '', obj = null) {
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 const STATIC_SOURCE_RU = {
-  room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', previous_room_hits: 'попадания прошлой комнаты', room_strikes: 'попадания прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус'
+  room_modifier: 'мод комнаты', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', previous_room_hits: 'попадания прошлой комнаты', room_strikes: 'попадания прошлой комнаты', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус', contract_wager: 'казино-бонус сектора'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', debt_engine: 'static core', casino_virus: 'casino virus'
+  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', debt_engine: 'static core', casino_virus: 'casino virus', contract_wager: 'sector casino bonus'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
@@ -1356,13 +1356,13 @@ export class Hud {
       case 'room_event_done': this.banner(locLabel(f.label || localText('СОБЫТИЕ', 'EVENT')), f.body ? cleanPlayerText(f.body) : localText('Завершено', 'Done'), 'green'); break;
       case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
       case 'contract_paid': this.banner(t('contractPaid'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
-      case 'contract_wager': if (f.id === myId) this.feed(`${localText('СТАВКА НА КОНТРАКТ', 'CONTRACT WAGER')}: -${f.stake || 0} · ${locLabel(f.label || '')}`, 'p'); break;
-      case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('КОНТРАКТНАЯ ВЫПЛАТА', 'CONTRACT PAYOUT')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
-      case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('КОНТРАКТНАЯ СТАВКА СГОРЕЛА', 'CONTRACT WAGER LOST')}: -${f.stake || 0}`, 'r'); break;
+      case 'contract_wager': break;
+      case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('БОНУС КАЗИНО ЗА СЕКТОР', 'SECTOR CASINO BONUS')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
+      case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('БОНУС КАЗИНО СГОРЕЛ', 'CASINO BONUS LOST')}: -${f.stake || 0}`, 'r'); break;
       case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), cleanPlayerText(f.body || ''), 'gold'); this.feed(`${localText('ROOM WAGER ПРИНЯТ', 'ROOM WAGER ACCEPTED')}: ${cleanPlayerText(f.body || '')}`, 'p'); } break;
       case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), cleanPlayerText(f.body || ''), 'green'); this.feed(`${localText('WAGER ВЫПОЛНЕН', 'WAGER PAID')}: ${cleanPlayerText(f.body || '')}`, 'g'); } break;
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), cleanPlayerText(f.body || ''), 'red'); this.feed(`${localText('WAGER ПРОВАЛЕН', 'WAGER LOST')}: ${cleanPlayerText(f.body || '')}`, 'r'); } break;
-      case 'favor_earned': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
+      case 'favor_earned': { this.localRerollSpent = 0; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая комната', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
       case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
@@ -1919,7 +1919,10 @@ export class Hud {
   activeRerollFavorUses() {
     const active = this.compactFavorItems(this.latestRoom?.contractFavors?.active || []);
     const serverLeft = active.reduce((n, f) => n + ((f.id === 'free_reroll' || f.id === 'epic_reroll') ? Math.max(0, f.uses || 0) : 0), 0);
-    return Math.max(0, serverLeft);
+    // New offers can arrive before the next room snapshot reflects a just-used
+    // contract reroll. Subtract the local optimistic spend so the button never
+    // reappears with a stale charge. Reset happens on the next room/favor earn.
+    return Math.max(0, serverLeft - Math.max(0, Number(this.localRerollSpent || 0) | 0));
   }
   appendFavorRerollButton(box, kind) {
     let uses = this.activeRerollFavorUses();
@@ -1936,6 +1939,7 @@ export class Hud {
       d.dataset.locked = '1';
       d.classList.add('picked');
       uses = Math.max(0, uses - 1);
+      this.localRerollSpent = Math.max(0, Number(this.localRerollSpent || 0) | 0) + 1;
       this.net.sendRerollOffer(kind);
       if (uses <= 0) d.remove();
       else {
@@ -2202,7 +2206,7 @@ export class Hud {
       LOSE: [localText('ПРОИГРЫШ', 'LOSS'), localText('Ставка потеряна. Награда не выдана.', 'Stake is lost. No reward is granted.'), 'red']
     };
     const [title, body, tone] = map[o] || [locLabel(o || 'BET'), localText('Результат ставки применён.', 'Bet result applied.'), 'green'];
-    const extra = payload?.contractStake ? ' ' + localText('Контрактная ставка комнаты тоже увеличена.', 'Room contract wager was also increased.') : '';
+    const extra = payload?.contractStake ? ' ' + localText('Ставка сектора усилена этой BET-ставкой.', 'Sector stake was boosted by this BET.') : '';
     return { title, body: body + extra, tone };
   }
 

@@ -36,17 +36,17 @@ function addRandomBlock(rng, walls, x, y, w, h) {
   if (!clearOfCenter(x, y, w, h)) return;
   pushWall(walls, x, y, w, h);
 }
-function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loopIndex = 0) {
+function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loopIndex = 0, runDepth = 0) {
   if (category === 'boss') return 'boss';
   if (specialRoomId === 'chill_room') return 'lounge';
-  if (modifierIds.includes('prism_grid')) return rng() < 0.62 ? 'long_lane' : 'wide';
-  if (modifierIds.includes('hunter_contract')) return 'wide';
-  if (modifierIds.includes('moving_room')) return rng() < 0.55 ? 'wide' : 'standard';
-  if (modifierIds.includes('blood_tax') || modifierIds.includes('casino_virus')) return rng() < 0.55 ? 'compact' : 'panic_box';
+  if (modifierIds.includes('prism_grid') && rng() < 0.45) return rng() < 0.62 ? 'long_lane' : 'wide';
+  if (modifierIds.includes('hunter_contract') && rng() < 0.55) return 'wide';
+  if (modifierIds.includes('moving_room') && rng() < 0.45) return rng() < 0.55 ? 'wide' : 'standard';
+  if ((modifierIds.includes('blood_tax') || modifierIds.includes('casino_virus')) && rng() < 0.45) return rng() < 0.55 ? 'compact' : 'panic_box';
 
   // v2.1.97: new sector shapes from the design notes.
   // Removed concepts are intentionally absent: double sector, pulsing square, split grid.
-  const extraChance = Math.min(0.34, 0.11 + loopIndex * 0.028);
+  const extraChance = Math.min(0.58, 0.18 + loopIndex * 0.055);
   if (rng() < extraChance) {
     const pool = [
       { id: 'ripped_table', w: 1.05 },
@@ -54,9 +54,14 @@ function chooseRoomArchetype(rng, category, specialRoomId, modifierIds = [], loo
       { id: 'ring_track', w: 0.92 },
       { id: 'three_paylines', w: 0.95 },
       { id: 'clamp_room', w: 0.78 },
-      { id: 'machine_core', w: 0.82 }
+      { id: 'machine_core', w: 0.90 }
     ];
-    if (loopIndex >= 1) pool.push({ id: 'cashier_maze', w: 0.62 + Math.min(0.38, loopIndex * 0.045) });
+    if (loopIndex >= 1) pool.push({ id: 'cashier_maze', w: 0.78 + Math.min(0.55, loopIndex * 0.065) });
+    // Depth-rotated bias prevents the new sectors from feeling like the same
+    // two templates happen to roll over and over on a run. RNG still picks, but
+    // each depth nudges a different new archetype.
+    const preferred = pool[Math.abs((Number(runDepth) || 0) + loopIndex * 3) % pool.length];
+    if (preferred) preferred.w += 0.62;
     let total = pool.reduce((a, b) => a + b.w, 0);
     let r = rng() * total;
     for (const it of pool) { r -= it.w; if (r <= 0) return it.id; }
@@ -110,7 +115,57 @@ function roomRect(archetype) { return archetypeRect(archetype); }
 function addBaseVoid(walls, x, y, w, h) { pushWall(walls, x, y, w, h); }
 function addBaseGateBlock(walls, x, y, w, h) { pushWall(walls, x, y, w, h); }
 
-function finishArchetypeWalls(walls, archetype) {
+function mirrorExtraWalls(walls, mirrorX = false, mirrorY = false) {
+  if (!mirrorX && !mirrorY) return;
+  for (const w of walls) {
+    if (mirrorX) w.x = Math.round(WORLD_W - (w.x + w.w));
+    if (mirrorY) w.y = Math.round(WORLD_H - (w.y + w.h));
+  }
+  if (walls._portalHint) {
+    if (mirrorX) walls._portalHint.x = Math.round(WORLD_W - walls._portalHint.x);
+    if (mirrorY) walls._portalHint.y = Math.round(WORLD_H - walls._portalHint.y);
+  }
+}
+
+function addProceduralRoomVariation(walls, archetype, rng) {
+  if (!EXTRA_ROOM_ARCHETYPES.includes(archetype) || !rng) return;
+  const r = roomRect(archetype);
+  const count = archetype === 'cashier_maze' ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 3);
+  const portal = walls._portalHint || null;
+  const corridorBias = ['three_paylines', 'ring_track', 'cross_terminal'].includes(archetype);
+  for (let i = 0; i < count; i++) {
+    for (let tries = 0; tries < 24; tries++) {
+      const wide = corridorBias ? rng() < 0.62 : rng() < 0.48;
+      const w = wide ? 150 + rng() * 210 : 70 + rng() * 110;
+      const h = wide ? 52 + rng() * 78 : 110 + rng() * 170;
+      const x = r.x + 105 + rng() * Math.max(120, r.w - 210 - w);
+      const y = r.y + 95 + rng() * Math.max(120, r.h - 190 - h);
+      if (!clearOfCenter(x, y, w, h, 420, 330)) continue;
+      if (portal && dist2ish(x + w / 2, y + h / 2, portal.x, portal.y) < 240 * 240) continue;
+      if (blockedByWalls(x + w / 2, y + h / 2, walls, Math.max(w, h) * 0.55)) continue;
+      pushWall(walls, x, y, w, h);
+      break;
+    }
+  }
+  // One more shape-level mutation: some rooms get a heavy side bite, so the same
+  // archetype does not read as the same template every time.
+  if (archetype !== 'cashier_maze' && rng() < 0.55) {
+    const side = Math.floor(rng() * 4);
+    const biteW = 170 + rng() * 220;
+    const biteH = 140 + rng() * 230;
+    if (side === 0) pushWall(walls, r.x + 160 + rng() * (r.w - biteW - 320), r.y, biteW, biteH);
+    else if (side === 1) pushWall(walls, r.x + 160 + rng() * (r.w - biteW - 320), r.bottom - biteH, biteW, biteH);
+    else if (side === 2) pushWall(walls, r.x, r.y + 130 + rng() * (r.h - biteH - 260), biteW, biteH);
+    else pushWall(walls, r.right - biteW, r.y + 130 + rng() * (r.h - biteH - 260), biteW, biteH);
+  }
+  walls._variantTag = `${archetype}-${Math.floor(rng() * 9999)}`;
+}
+
+function finishArchetypeWalls(walls, archetype, rng = null) {
+  if (EXTRA_ROOM_ARCHETYPES.includes(archetype) && rng) {
+    mirrorExtraWalls(walls, rng() < 0.50, rng() < 0.34);
+    addProceduralRoomVariation(walls, archetype, rng);
+  }
   applyRoomArchetypeWalls(walls, archetype);
   return walls;
 }
@@ -401,13 +456,13 @@ function genWalls(rng, category, loopIndex, archetype = 'standard') {
     return walls;
   }
 
-  if (archetype === 'ripped_table') { addRippedTableWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'cross_terminal') { addCrossTerminalWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'ring_track') { addRingTrackWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'three_paylines') { addThreePaylinesWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'clamp_room') { addClampRoomWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'cashier_maze') { addCashierMazeWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
-  if (archetype === 'machine_core') { addMachineCoreWalls(walls, rng); return finishArchetypeWalls(walls, archetype); }
+  if (archetype === 'ripped_table') { addRippedTableWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'cross_terminal') { addCrossTerminalWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'ring_track') { addRingTrackWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'three_paylines') { addThreePaylinesWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'clamp_room') { addClampRoomWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'cashier_maze') { addCashierMazeWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
+  if (archetype === 'machine_core') { addMachineCoreWalls(walls, rng); return finishArchetypeWalls(walls, archetype, rng); }
 
   const variant = Math.floor(rng() * 12);
   const extra = Math.min(7, loopIndex * 2);
@@ -737,7 +792,7 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
   const greed = modifierIds.includes('greed');
   let forcedArchetype = forced?.archetype && ALL_ROOM_ARCHETYPES.includes(forced.archetype) ? String(forced.archetype) : '';
   if (!forcedArchetype && modifierIds.includes('hunter_contract')) forcedArchetype = 'wide';
-  const roomArchetype = forcedArchetype || chooseRoomArchetype(rng, category, specialRoomId, modifierIds, loopIndex);
+  const roomArchetype = forcedArchetype || chooseRoomArchetype(rng, category, specialRoomId, modifierIds, loopIndex, runDepth);
   if (roomArchetype === 'cashier_maze') {
     const withoutBlackout = modifierIds.filter(m => m !== 'blackout');
     modifierIds.length = 0;
