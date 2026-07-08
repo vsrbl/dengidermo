@@ -2805,17 +2805,32 @@ function livingCasinoSelectedIndex(p) {
   return Math.max(0, Math.min(Math.max(0, lc.sectors.length - 1), Number(lc.selected || 0) | 0));
 }
 function livingCasinoIsInstantSelect(type) {
-  return ['guard', 'chain', 'ghost'].includes(String(type || ''));
+  type = String(type || '');
+  // В кольце Живого казино только LVC-пушка (dmg) становится выбранной для будущего ЛКМ.
+  // Остальные сектора — это мгновенные действия: выбрал в кольце, сработало, меню закрылось.
+  return type !== 'dmg';
+}
+function livingCasinoPrimaryIndex(lc) {
+  if (!lc || !Array.isArray(lc.sectors) || !lc.sectors.length) return 0;
+  const idx = lc.sectors.findIndex(s => String(s?.type || '') === 'dmg');
+  return idx >= 0 ? idx : 0;
 }
 function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
   const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  lc.selected = livingCasinoAimIndex(p, lc);
+  const hoverIdx = livingCasinoAimIndex(p, lc);
+  const sec = lc.sectors[hoverIdx] || lc.sectors[0];
   lc.ringOpen = false;
-  const sec = lc.sectors[lc.selected] || lc.sectors[0];
   run.fx.push({ t: 'lc_sector_ring', id: p.id, mode, label: livingCasinoSectorLabel(sec?.type), x: Math.round(p.x), y: Math.round(p.y), tone: LC_SECTOR_TONE[sec?.type] || 'gold' });
   if (mode !== 'open' && livingCasinoIsInstantSelect(sec?.type)) {
+    // Action sectors do not become the selected weapon. They only trigger once.
     const ok = activateLivingCasinoSector(run, players || new Map(), p, sec, { instantSelect: 1 });
     if (!ok) run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${livingCasinoSectorLabel(sec?.type)} RELOAD`, chest: 'LVC' });
+    lc.selected = livingCasinoPrimaryIndex(lc);
+  } else if (String(sec?.type || '') === 'dmg') {
+    // Only LVC itself can be selected and then fired later with LMB.
+    lc.selected = hoverIdx;
+  } else {
+    lc.selected = livingCasinoPrimaryIndex(lc);
   }
   return true;
 }
@@ -3168,7 +3183,9 @@ function fireLivingCasinoSector(run, players, p, dt) {
     closeLivingCasinoRing(run, p, 'select', players);
     return;
   }
-  const sec = lc.sectors[lc.selected] || lc.sectors[0];
+  const primaryIdx = livingCasinoPrimaryIndex(lc);
+  lc.selected = primaryIdx;
+  const sec = lc.sectors[primaryIdx] || lc.sectors[0];
   if (!activateLivingCasinoSector(run, players, p, sec)) {
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${livingCasinoSectorLabel(sec?.type)} RELOAD`, chest: 'LVC' });
   }
@@ -6039,30 +6056,97 @@ function stepEnemies(run, players, dt) {
     const spd = enemySpeed(e);
 
     if (e.kind === 'bouncer') {
+      const bnd = enemyArenaBounds(run, e, 2);
+      const bouncerSpd = Math.max(40, spd || def.spd || 220);
+      const idSeed = parseInt(String(e.id || '0'), 36) || 0;
+      const clearAt = (x, y) => Number.isFinite(x) && Number.isFinite(y)
+        && x >= bnd.left && x <= bnd.right && y >= bnd.top && y <= bnd.bottom
+        && !walls.some(w => aabbHit(x, y, half, w));
+      const seeded01 = (salt = 0) => {
+        const v = Math.sin((run.tick || 0) * 12.9898 + idSeed * 78.233 + salt * 37.719) * 43758.5453;
+        return v - Math.floor(v);
+      };
+      const setVector = (salt = 0, awayFromTarget = true) => {
+        let base = 0;
+        if (target && awayFromTarget) base = Math.atan2(e.y - target.y, e.x - target.x);
+        else base = Math.atan2((bnd.cy || e.y) - e.y, (bnd.cx || e.x) - e.x) + Math.PI;
+        if (!Number.isFinite(base)) base = seeded01(salt) * Math.PI * 2;
+        const turn = (seeded01(salt + 3) < 0.5 ? -1 : 1) * (0.72 + seeded01(salt + 9) * 1.15);
+        const a = base + turn;
+        e.vx = Math.cos(a) * bouncerSpd;
+        e.vy = Math.sin(a) * bouncerSpd;
+        e.bouncerStuckT = 0;
+      };
+      const rescueFromCorner = (salt = 0) => {
+        const base = target ? Math.atan2(e.y - target.y, e.x - target.x) : Math.atan2(e.y - bnd.cy, e.x - bnd.cx);
+        const offsets = [0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, Math.PI];
+        for (const r of [14, 24, 38, 56, 78, 104]) {
+          for (const off of offsets) {
+            const a = base + off + seeded01(salt + r) * 0.20;
+            const tx = clamp(e.x + Math.cos(a) * r, bnd.left, bnd.right);
+            const ty = clamp(e.y + Math.sin(a) * r, bnd.top, bnd.bottom);
+            if (clearAt(tx, ty)) { e.x = tx; e.y = ty; return true; }
+          }
+        }
+        for (const r of [28, 48, 72, 96, 128]) {
+          const a = Math.atan2(bnd.cy - e.y, bnd.cx - e.x) + seeded01(salt + r) * 0.7 - 0.35;
+          const tx = clamp(e.x + Math.cos(a) * r, bnd.left, bnd.right);
+          const ty = clamp(e.y + Math.sin(a) * r, bnd.top, bnd.bottom);
+          if (clearAt(tx, ty)) { e.x = tx; e.y = ty; return true; }
+        }
+        return false;
+      };
+
       let curSpd = Math.hypot(e.vx || 0, e.vy || 0);
-      if (curSpd < Math.max(20, def.spd * 0.35)) {
-        const seedA = target ? Math.atan2(e.y - target.y, e.x - target.x) : ((run.tick || 1) * 0.173 + (Number(e.id) || 0));
-        const a = seedA + 0.85 + (((run.tick || 0) % 7) * 0.19);
-        e.vx = Math.cos(a) * def.spd;
-        e.vy = Math.sin(a) * def.spd;
-        curSpd = def.spd;
-      } else if (Math.abs(curSpd - def.spd) > def.spd * 0.18) {
-        e.vx = (e.vx / curSpd) * def.spd;
-        e.vy = (e.vy / curSpd) * def.spd;
+      if (curSpd < Math.max(28, bouncerSpd * 0.45)) {
+        setVector(1);
+        curSpd = bouncerSpd;
+      } else if (Math.abs(curSpd - bouncerSpd) > bouncerSpd * 0.12) {
+        e.vx = (e.vx / curSpd) * bouncerSpd;
+        e.vy = (e.vy / curSpd) * bouncerSpd;
       }
+
+      const ox = e.x, oy = e.y;
       let nx = e.x + e.vx * dt, ny = e.y + e.vy * dt;
-      let bounced = false;
+      let hitX = false, hitY = false;
+      if (nx < bnd.left || nx > bnd.right) hitX = true;
+      if (ny < bnd.top || ny > bnd.bottom) hitY = true;
       for (const w of walls) {
-        if (aabbHit(nx, e.y, half, w)) { e.vx *= -1; nx = e.x + e.vx * dt; bounced = true; }
-        if (aabbHit(e.x, ny, half, w)) { e.vy *= -1; ny = e.y + e.vy * dt; bounced = true; }
+        if (aabbHit(nx, e.y, half, w)) hitX = true;
+        if (aabbHit(e.x, ny, half, w)) hitY = true;
       }
-      e.x = clamp(nx, WALL_T + half, run.plan.w - WALL_T - half);
-      e.y = clamp(ny, WALL_T + half, run.plan.h - WALL_T - half);
-      if (bounced && Math.hypot(e.vx || 0, e.vy || 0) < Math.max(20, def.spd * 0.35)) {
-        const a = Math.random() * Math.PI * 2;
-        e.vx = Math.cos(a) * def.spd;
-        e.vy = Math.sin(a) * def.spd;
+      if (hitX) { e.vx *= -1; nx = e.x + e.vx * dt; }
+      if (hitY) { e.vy *= -1; ny = e.y + e.vy * dt; }
+      nx = clamp(nx, bnd.left, bnd.right);
+      ny = clamp(ny, bnd.top, bnd.bottom);
+
+      let blocked = !clearAt(nx, ny);
+      if (blocked) {
+        const pushed = collideWalls(nx, ny, half, walls, ox, oy);
+        nx = clamp(pushed.x, bnd.left, bnd.right);
+        ny = clamp(pushed.y, bnd.top, bnd.bottom);
+        blocked = !clearAt(nx, ny);
       }
+      if (blocked) {
+        e.x = ox; e.y = oy;
+        rescueFromCorner(17);
+        setVector(23, false);
+      } else {
+        e.x = nx; e.y = ny;
+      }
+
+      const moved = Math.hypot((e.x || 0) - (ox || 0), (e.y || 0) - (oy || 0));
+      const expectedMove = bouncerSpd * dt;
+      if (moved < Math.max(0.75, expectedMove * 0.18)) e.bouncerStuckT = (e.bouncerStuckT || 0) + dt;
+      else e.bouncerStuckT = Math.max(0, (e.bouncerStuckT || 0) - dt * 2.5);
+      if ((hitX && hitY) || (e.bouncerStuckT || 0) > 0.22) {
+        if ((e.bouncerStuckT || 0) > 0.22) rescueFromCorner(31);
+        setVector(hitX && hitY ? 41 : 53, !(hitX && hitY));
+        const px = clamp(e.x + e.vx * dt * 1.8, bnd.left, bnd.right);
+        const py = clamp(e.y + e.vy * dt * 1.8, bnd.top, bnd.bottom);
+        if (clearAt(px, py)) { e.x = px; e.y = py; }
+      }
+
       if (!e.touchCds) e.touchCds = new Map();
       for (const [k, v] of e.touchCds) { const nv = v - dt; if (nv <= 0) e.touchCds.delete(k); else e.touchCds.set(k, nv); }
       for (const p of players.values()) {
@@ -6070,7 +6154,8 @@ function stepEnemies(run, players, dt) {
         const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: def.push * 0.10, fx: true });
         if (sep) {
           if (!e.touchCds.has(p.id)) { damagePlayer(run, p, enemyDamageValue(e), e.x, e.y); e.touchCds.set(p.id, TOUCH_CD * 0.55); }
-          e.vx = -sep.nx * def.spd; e.vy = -sep.ny * def.spd;
+          e.vx = -sep.nx * bouncerSpd; e.vy = -sep.ny * bouncerSpd;
+          e.bouncerStuckT = 0;
         }
       }
       continue;
@@ -6410,14 +6495,24 @@ function stepCompanions(run, players, dt, now) {
       p.droneCd -= dt;
       if (p.droneCd <= 0 && run.enemies.length && run.bullets.length < MAX_BULLETS) {
         p.droneCd = Math.max(0.18, 0.8 / Math.sqrt(p.stats.drones));
+        const di = Math.floor(Math.random() * p.stats.drones);
+        const dp = orbitalPos(p, di, Math.max(1, p.stats.drones), now + 100);
         let best = null, bd = 480 * 480;
         for (const e of run.enemies) {
-          const d = dist2(e.x, e.y, p.x, p.y);
+          if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+          // v2.1.125: drones fire only at threats they can actually see. This prevents
+          // drone bullets from selecting targets hidden behind arena walls.
+          const dx = e.x - dp.x, dy = e.y - dp.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const sx = dp.x + (dx / len) * 8;
+          const sy = dp.y + (dy / len) * 8;
+          const tx = e.x - (dx / len) * Math.max(8, (e.size || 28) * 0.42);
+          const ty = e.y - (dy / len) * Math.max(8, (e.size || 28) * 0.42);
+          if (segmentBlockedByWalls(sx, sy, tx, ty, run.plan?.walls || [], 12)) continue;
+          const d = dist2(e.x, e.y, dp.x, dp.y);
           if (d < bd) { bd = d; best = e; }
         }
         if (best) {
-          const di = Math.floor(Math.random() * p.stats.drones);
-          const dp = orbitalPos(p, di, Math.max(1, p.stats.drones), now + 100);
           const n = norm(best.x - dp.x, best.y - dp.y);
           const elem = bulletElementString(p, 'drone');
           const elemPower = bulletElementPower(p, 'drone');
@@ -8869,7 +8964,8 @@ export function step(run, players, dt, now) {
 function livingCasinoHudSnapshot(p) {
   const lc = ensureLivingCasinoState(p);
   if (!lc) return null;
-  const selected = Math.max(0, Math.min(lc.sectors.length - 1, Number(lc.selected || 0) | 0));
+  // Bottom-right LVC HUD is only for the LVC gun, not for one-shot action sectors.
+  const selected = livingCasinoPrimaryIndex(lc);
   const sec = lc.sectors[selected] || lc.sectors[0] || { type: 'dmg', level: 1, cd: 0, activeT: 0 };
   const type = sec.type || 'dmg';
   const lvl = Math.max(1, Number(sec.level || 1) | 0);

@@ -4742,14 +4742,21 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 #hero-status { color: var(--fg); }
 .hero-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hero-card {
-  min-height: 58px;
-  padding: 8px 9px;
-  text-align: left;
+  min-height: 66px;
+  padding: 9px 10px;
+  text-align: center;
   font-size: 12px;
-  letter-spacing: .12em;
+  letter-spacing: .10em;
+  line-height: 1.12;
   border-color: rgba(255,211,77,.30);
   background: rgba(0,0,0,.40);
   color: rgba(243,243,243,.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
 }
 .hero-card:hover { background: rgba(255,211,77,.11); color: var(--fg); }
 .hero-card.selected {
@@ -4757,8 +4764,8 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   color: #ffd34d;
   box-shadow: inset 0 0 0 1px rgba(255,211,77,.18), 0 0 14px rgba(255,211,77,.12);
 }
-.hero-title { display:block; font-size: 13px; line-height: 1.15; letter-spacing: .11em; }
-.hero-desc { display:block; margin-top: 5px; color: var(--dim); font-size: 10px; letter-spacing: .10em; }
+.hero-title { display:block; width: 100%; font-size: 12.5px; line-height: 1.15; letter-spacing: .095em; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+.hero-desc { display:block; width: 100%; margin-top: 0; color: var(--dim); font-size: 9.5px; line-height: 1.15; letter-spacing: .075em; text-align: center; white-space: normal; overflow-wrap: anywhere; }
 .hero-card.selected .hero-desc { color: rgba(255,211,77,.68); }
 
 /* v2.1.123 — visually split HERO selector from YouTube/audio block */
@@ -4780,6 +4787,21 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 }
 #youtube-music.compact {
   border-bottom-color: rgba(0,255,102,.50) !important;
+}
+
+/* v2.1.125 — hero selector text alignment polish */
+#menu .hero-cards {
+  align-items: stretch;
+}
+#menu .hero-card {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  border-radius: 0;
+}
+#menu .hero-card .hero-title,
+#menu .hero-card .hero-desc {
+  pointer-events: none;
 }
 
 /* v2.1.124 — Living Casino HUD fill states, no numeric cooldown text */
@@ -4844,3 +4866,57 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 .lc-selected.type-bet { --lc-color: #ff9f1a; }
 .lc-selected.type-copy { --lc-color: #00ff66; }
 .lc-selected.type-ghost { --lc-color: #7aa8ff; }
+
+/* v2.1.128 — active wager is HUD-level only; modal/chest/casino/install UI must stay above it. */
+#room-wager-card.active {
+  z-index: 24 !important;
+  pointer-events: none !important;
+}
+
+/* v2.1.128 — boss signature reward uses the same dark modal backdrop family as INSTALL, with a gold threat vignette. */
+#install-modal.boss-signature-modal {
+  background: radial-gradient(circle at 50% 42%, rgba(255,211,77,.075), rgba(5,5,5,.78) 40%, rgba(0,0,0,.92) 100%) !important;
+}
+#install-modal.boss-signature-modal::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,5,.18);
+  pointer-events: none;
+}
+#install-modal.boss-signature-modal .panel {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* v2.1.129 — active wager card compact: remove dead right-side space. */
+#room-wager-card.active {
+  width: min(390px, 34vw) !important;
+  max-width: min(390px, 34vw) !important;
+  min-width: 260px !important;
+  padding: 7px 8px !important;
+}
+#room-wager-card.active .wager-title {
+  margin-bottom: 5px !important;
+}
+#room-wager-card.active .wager-line {
+  grid-template-columns: 70px minmax(0, 1fr) !important;
+  gap: 6px !important;
+  margin-top: 2px !important;
+}
+#room-wager-card.active .wager-line span {
+  text-align: right !important;
+  justify-self: end !important;
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+}
+#room-wager-card.active .wager-progress {
+  margin-top: 6px !important;
+}
+@media (max-width: 960px) {
+  #room-wager-card.active { width: min(340px, 92vw) !important; max-width: min(340px, 92vw) !important; }
+}
+@media (max-width: 760px) {
+  #room-wager-card.active { width: min(315px, 92vw) !important; max-width: min(315px, 92vw) !important; }
+}

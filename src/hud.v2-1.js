@@ -836,9 +836,12 @@ export class Hud {
       wager.style.setProperty('top', `${nextTop}px`, 'important');
       wager.style.setProperty('bottom', 'auto', 'important');
       wager.style.setProperty('transform', 'none', 'important');
-      wager.style.setProperty('width', `min(${width}px, 44vw)`, 'important');
-      wager.style.setProperty('z-index', '520', 'important');
-      wager.style.setProperty('pointer-events', 'auto', 'important');
+      const wagerWidth = Math.min(390, Math.max(260, Math.round(Math.min(window.innerWidth * 0.34, 390))));
+      wager.style.setProperty('width', `min(${wagerWidth}px, 34vw)`, 'important');
+      wager.style.setProperty('max-width', `min(${wagerWidth}px, 34vw)`, 'important');
+      wager.style.setProperty('min-width', '260px', 'important');
+      wager.style.setProperty('z-index', '24', 'important');
+      wager.style.setProperty('pointer-events', 'none', 'important');
     }
   }
 
@@ -1195,7 +1198,7 @@ export class Hud {
         lcHud.style.setProperty('--lc-color', color);
         lcHud.style.setProperty('--lc-fill', `${Math.round(fill01 * 100)}%`);
         lcHud.innerHTML = `<i class="lc-fill" aria-hidden="true"></i><b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
-        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Когда выбрана пушка LVC, ПКМ открывает кольцо выбора. ЛКМ или ПКМ в кольце выбирает сектор и закрывает меню. GUARD, CHAIN и GHOST срабатывают сразу; LVC, BET и COPY активируются следующим ЛКМ.', 'When LVC is selected, RMB opens the sector ring. LMB or RMB inside the ring selects and closes it. GUARD, CHAIN, and GHOST trigger immediately; LVC, BET, and COPY trigger on the next LMB.'), 'gold');
+        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Когда выбрана пушка LVC, ПКМ открывает кольцо действий. LVC можно выбрать и затем стрелять ЛКМ. Остальные действия срабатывают сразу при выборе и не становятся выбранной пушкой.', 'When LVC is selected, RMB opens the action ring. LVC can be selected and then fired with LMB. Other actions trigger immediately on selection and do not become the selected weapon.'), 'gold');
       } else {
         lcHud.className = 'lc-selected hidden';
         lcHud.innerHTML = '';
