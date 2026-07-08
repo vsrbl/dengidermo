@@ -916,7 +916,6 @@ export class Renderer {
             ctx.fillRect(Math.round(cx - w / 2 + 4), Math.round(cy - h / 2 + 4), Math.round(w - 8), 3);
             ctx.restore();
             this.label(String(secType || '').toUpperCase().slice(0, 6), cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
-            if (selected && ringOpen) this.label('ВЫБРАТЬ', cx, cy - 34, '#f3f3f3', 9);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });

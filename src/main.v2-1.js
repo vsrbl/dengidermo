@@ -66,6 +66,13 @@ const skinSaveKey = 'nnc_skin_preset';
 const skinUnlockKey = 'nnc_skins_unlocked_v1';
 let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
+const heroSaveKey = 'tcr_selected_hero_v1';
+const HEROES = {
+  base: { id: 'base', labelRu: 'БАЗОВЫЙ', labelEn: 'BASE' },
+  living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' }
+};
+let selectedHeroId = (localStorage.getItem(heroSaveKey) || (localStorage.getItem(skinSaveKey) === 'living_casino' ? 'living_casino' : 'base'));
+if (!HEROES[selectedHeroId]) selectedHeroId = 'base';
 
 function hexTriplet(hex, fallback = '0,255,102') {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
@@ -120,14 +127,16 @@ function firstUnlockedSkinId() {
 }
 function readSkin() {
   const p = SKIN_BY_ID[selectedSkinId] && isSkinUnlocked(selectedSkinId) ? SKIN_BY_ID[selectedSkinId] : SKIN_BY_ID[firstUnlockedSkinId()];
-  return { id: p.id, fill: p.fill, outline: p.outline, barrel: p.barrel };
+  return { id: p.id, hero: selectedHeroId, fill: p.fill, outline: p.outline, barrel: p.barrel };
 }
 function saveSkin() {
   const browsed = SKIN_PRESETS[skinIndex] || SKIN_PRESETS[0];
   if (browsed && isSkinUnlocked(browsed.id)) selectedSkinId = browsed.id;
   const skin = readSkin();
   localStorage.setItem(skinSaveKey, skin.id);
+  localStorage.setItem(heroSaveKey, selectedHeroId);
   updateSkinPreview();
+  updateHeroSelector();
   return skin;
 }
 function updateSkinPreview() {
@@ -169,6 +178,24 @@ function setSkinIndex(next) {
   localStorage.setItem(skinSaveKey, selectedSkinId);
   updateSkinPreview();
 }
+
+function updateHeroSelector() {
+  const status = $('hero-status');
+  const ru = getLang() !== 'en';
+  if (status) status.textContent = ru ? HEROES[selectedHeroId].labelRu : HEROES[selectedHeroId].labelEn;
+  document.querySelectorAll('[data-hero]').forEach(btn => {
+    const on = btn.dataset.hero === selectedHeroId;
+    btn.classList.toggle('selected', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function setHero(id) {
+  selectedHeroId = HEROES[id] ? id : 'base';
+  localStorage.setItem(heroSaveKey, selectedHeroId);
+  updateHeroSelector();
+}
+document.querySelectorAll('[data-hero]').forEach(btn => btn.addEventListener('click', () => { uiClick('ui_click'); setHero(btn.dataset.hero); }));
+
 function loadSkin() {
   readUnlockedSkins();
   const savedId = localStorage.getItem(skinSaveKey);
@@ -234,6 +261,7 @@ function playerName() {
 }
 $('name-input').value = localStorage.getItem('nnc_name') || '';
 loadSkin();
+updateHeroSelector();
 applySkinTheme(selectedSkinId);
 $('skin-prev')?.addEventListener('click', () => { uiClick('ui_click'); setSkinIndex(skinIndex - 1); });
 $('skin-next')?.addEventListener('click', () => { uiClick('ui_click'); setSkinIndex(skinIndex + 1); });
@@ -337,6 +365,7 @@ function bindYouTubeMusicUi() {
 bindYouTubeMusicUi();
 onLangChange(() => {
   updateSkinPreview();
+  updateHeroSelector();
   if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');
   applyVisualFilter(false);
   setMenuVersion(net.connected ? true : null);

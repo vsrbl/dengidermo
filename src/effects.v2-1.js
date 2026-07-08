@@ -494,7 +494,7 @@ export class Effects {
         // One authoritative visual chain: terminal shakes after the BET window closes,
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
         // The slot mob entity is not present in the snapshot until this chain has fully ended.
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + dur * 4 + step * 3 + 0.92, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + dur * 4 + step * 3 + 2.35, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
         this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
         break;
@@ -511,7 +511,7 @@ export class Effects {
         const hold = Math.max(0.35, Number(f.holdDelay || 1.0));
         const step = Math.max(0.18, Number(f.gatherStep || 0.52));
         const dur = Math.max(0.48, Number(f.gatherDur || 0.72));
-        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + dur * 4 + step * 3 + 0.92, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
+        this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + dur * 4 + step * 3 + 2.35, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
         if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/3`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
@@ -813,7 +813,7 @@ export class Effects {
               }
             }
             const afterFinal = (typeof e.finalJoinT === 'number') ? Math.max(0, t - e.finalJoinT) : 0;
-            const finalFade = (typeof e.finalJoinT === 'number') ? Math.max(0, 1 - afterFinal / 0.52) : 1;
+            const finalFade = (typeof e.finalJoinT === 'number') ? Math.max(0, 1 - afterFinal / 2.35) : 1;
             if (finalFade <= 0.01) continue;
             ctx.save();
             ctx.translate(Math.round(part.px), Math.round(part.py));

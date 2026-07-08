@@ -576,8 +576,8 @@ const SLOT_MOB_ASSEMBLE_T = 0.18;
 const SLOT_MOB_PIECES_HOLD_T = 1.0;
 const SLOT_MOB_PIECE_GATHER_STEP_T = 0.52;
 const SLOT_MOB_PIECE_GATHER_DUR_T = 0.72;
-const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.15;
-const SLOT_MOB_POST_BLOCK_SPAWN_T = 0.55;
+const SLOT_MOB_PIECE_FINAL_BUFFER_T = 1.45;
+const SLOT_MOB_POST_BLOCK_SPAWN_T = 0.80;
 // Full sequential assembly time: pieces do not overlap. One block flies in,
 // snaps, impacts, then the next block starts. This is intentionally longer
 // than the visual fade so the enemy can never appear while blocks are lying or
@@ -2687,10 +2687,15 @@ function skinId(v) {
   const x = String(v || 'terminal_mint').trim().toLowerCase();
   return /^[a-z0-9_\-]{2,32}$/.test(x) ? x : 'terminal_mint';
 }
+function heroId(v) {
+  const x = String(v || 'base').trim().toLowerCase();
+  return x === 'living_casino' ? 'living_casino' : 'base';
+}
 export function sanitizeSkin(skin = {}) {
   skin = skin || {};
   return {
     id: skinId(skin.id),
+    hero: heroId(skin.hero || skin.loadout || skin.core),
     fill: skinPart(skin.fill, '#f3f3f3'),
     outline: skinPart(skin.outline, '#00ff66'),
     barrel: skinPart(skin.barrel, '#00ff66')
@@ -2701,7 +2706,7 @@ export function createPlayer(id, name, idx, skin = null) {
   const sp = spawnPoint(idx);
   const safeSkin = sanitizeSkin(skin);
   const p = {
-    id, name: String(name || 'p?').slice(0, 12), idx, skin: safeSkin,
+    id, name: String(name || 'p?').slice(0, 12), idx, skin: safeSkin, hero: safeSkin.hero || 'base',
     x: sp.x, y: sp.y, hp: PLAYER_HP, alive: true,
     aimX: sp.x, aimY: sp.y - 100,
     moveX: 0, moveY: 0, fire: false,
@@ -2724,7 +2729,7 @@ export function createPlayer(id, name, idx, skin = null) {
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
     connected: true
   };
-  if (safeSkin.id === LIVING_CASINO_SKIN_ID) setupLivingCasinoPlayer(p);
+  if (safeSkin.hero === 'living_casino') setupLivingCasinoPlayer(p);
   return p;
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
@@ -2741,7 +2746,7 @@ const LC_SECTOR_TYPES = ['dmg', 'guard', 'chain', 'bet', 'copy', 'ghost'];
 const LC_SECTOR_LABEL = { dmg: 'LVC', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST' };
 const LC_SECTOR_TONE = { dmg: 'gold', guard: 'cyan', chain: 'purple', bet: 'gold', copy: 'green', ghost: 'cyan' };
 
-function isLivingCasinoPlayer(p) { return String(p?.skin?.id || '') === LIVING_CASINO_SKIN_ID || p?.hero === 'living_casino'; }
+function isLivingCasinoPlayer(p) { return p?.hero === 'living_casino' || p?.skin?.hero === 'living_casino'; }
 function livingCasinoSectorLabel(type) { return LC_SECTOR_LABEL[String(type || '')] || String(type || 'SEC').toUpperCase(); }
 function normalizeLivingCasinoSector(x) {
   const type = LC_SECTOR_TYPES.includes(String(x?.type || '')) ? String(x.type) : 'dmg';
@@ -3418,7 +3423,7 @@ export function resetRun(run, players) {
     p.active = { core: null, level: 0, mutations: [] };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
     p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.rareChestOffer = null; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
-    if (p.skin?.id === LIVING_CASINO_SKIN_ID) setupLivingCasinoPlayer(p);
+    if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
   }
   startRoom(run, players);
 }
@@ -5908,7 +5913,7 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
       e.dirX = e.chargeAimX || e.dirX || toT.x; e.dirY = e.chargeAimY || e.dirY || toT.y;
       if (e.st >= Math.max(0.18, chg.windup * 0.5)) { e.slotChargeState = 'charge'; e.st = 0; run.fx.push({ t: 'dash', id: e.id, x: Math.round(e.x), y: Math.round(e.y), enemy: 1 }); }
     } else if (e.slotChargeState === 'charge') {
-      const c = collideWalls(e.x + (e.chargeAimX || e.dirX || toT.x) * chg.chargeSpd * 1.5 * dt, e.y + (e.chargeAimY || e.dirY || toT.y) * chg.chargeSpd * 1.5 * dt, e.size / 2, walls, e.x, e.y);
+      const c = collideWalls(e.x + (e.chargeAimX || e.dirX || toT.x) * chg.chargeSpd * 1.125 * dt, e.y + (e.chargeAimY || e.dirY || toT.y) * chg.chargeSpd * 1.125 * dt, e.size / 2, walls, e.x, e.y);
       const blocked = (c.x === e.x && c.y === e.y); e.x = c.x; e.y = c.y;
       for (const p of players.values()) if (p.alive) {
         const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 10, playerKick: 16, fx: true });
@@ -5925,7 +5930,7 @@ function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
     if (e.fireCd <= 0 && enemyCanShoot(run, e, target, 16) && run.bullets.length < MAX_BULLETS - 5) {
       e.fireCd = enemyFireCooldown(1.05, e);
       const nx = -toT.y, ny = toT.x;
-      const wspd = enemyBulletSpeed(540, e);
+      const wspd = enemyBulletSpeed(405, e);
       for (let i = -2; i <= 2; i++) run.bullets.push({ id: nid(), x: e.x + nx * i * 17, y: e.y + ny * i * 17, vx: toT.x * wspd, vy: toT.y * wspd, dmg: enemyDamageValue(e, 0.72), from: 'e', life: 1.35, size: 8, kind: 'slot_wave' });
       run.fx.push({ t: 'pulse_wave', id: e.id, x: Math.round(e.x), y: Math.round(e.y), dx: toT.x, dy: toT.y, slot: 1 });
     }
