@@ -12,6 +12,10 @@ export const WEAPONS = {
   rocketgun: {
     id: 'rocketgun', label: 'RKT', name: 'ROCKETGUN',
     cooldown: 1.38, pellets: 1, spread: 0.012, dmg: 124, speed: 455, life: 2.05, size: 7, aoe: 104, knock: 230, detonateDist: 620
+  },
+  living_casino: {
+    id: 'living_casino', label: 'LVC', name: 'ЖИВОЕ КАЗИНО',
+    cooldown: 0.45, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun'];
@@ -290,6 +294,7 @@ export const SKIN_RARITIES = {
 };
 export const SKIN_PRESETS = [
   { id: 'terminal_mint', name: 'HOUSE SIGNAL', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'базовый сигнал дома / чистый терминальный след' },
+  { id: 'living_casino', name: 'ЖИВОЕ КАЗИНО', rarity: 'basic', fill: '#120910', outline: '#ffd34d', barrel: '#b45cff', dash: '#b45cff', dashAlt: '#ffd34d', dashStyle: 'mirror', note: 'новое ядро: не стреляет напрямую, а активирует казино-секторы вокруг себя' },
   { id: 'debt_red', name: 'DEBT FRACTURE', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой разрыв / красный надлом сигнала' },
   { id: 'void_cyan', name: 'VOID CHANNEL', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодный канал пустоты / фазовый хвост' },
   { id: 'casino_gold', name: 'CASHIER GLEAM', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'свет кассы / золотой жетонный след' },

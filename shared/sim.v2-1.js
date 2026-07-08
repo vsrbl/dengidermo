@@ -2699,8 +2699,9 @@ export function sanitizeSkin(skin = {}) {
 
 export function createPlayer(id, name, idx, skin = null) {
   const sp = spawnPoint(idx);
-  return {
-    id, name: String(name || 'p?').slice(0, 12), idx, skin: sanitizeSkin(skin),
+  const safeSkin = sanitizeSkin(skin);
+  const p = {
+    id, name: String(name || 'p?').slice(0, 12), idx, skin: safeSkin,
     x: sp.x, y: sp.y, hp: PLAYER_HP, alive: true,
     aimX: sp.x, aimY: sp.y - 100,
     moveX: 0, moveY: 0, fire: false,
@@ -2723,6 +2724,8 @@ export function createPlayer(id, name, idx, skin = null) {
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
     connected: true
   };
+  if (safeSkin.id === LIVING_CASINO_SKIN_ID) setupLivingCasinoPlayer(p);
+  return p;
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
 export function speed(p) {
@@ -2730,6 +2733,336 @@ export function speed(p) {
   return PLAYER_SPEED * p.stats.spdMul * Math.max(0.05, Number(p.wagerSpeedMul || 1) || 1) * (1 + route) * ((p.redlineT || 0) > 0 ? redlineSpeedMul(p) : 1) * (p.slowT > 0 ? (p.slowMul || 0.6) : 1);
 }
 export function dashMax(p) { return 1 + p.stats.dashAdd; }
+
+
+// ---------------------------------------------------------------- Living Casino hero
+const LIVING_CASINO_SKIN_ID = 'living_casino';
+const LC_SECTOR_TYPES = ['dmg', 'guard', 'chain', 'bet', 'copy', 'ghost'];
+const LC_SECTOR_LABEL = { dmg: 'DMG', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST' };
+const LC_SECTOR_TONE = { dmg: 'gold', guard: 'cyan', chain: 'purple', bet: 'gold', copy: 'green', ghost: 'cyan' };
+
+function isLivingCasinoPlayer(p) { return String(p?.skin?.id || '') === LIVING_CASINO_SKIN_ID || p?.hero === 'living_casino'; }
+function livingCasinoSectorLabel(type) { return LC_SECTOR_LABEL[String(type || '')] || String(type || 'SEC').toUpperCase(); }
+function normalizeLivingCasinoSector(x) {
+  const type = LC_SECTOR_TYPES.includes(String(x?.type || '')) ? String(x.type) : 'dmg';
+  return { type, level: Math.max(1, Number(x?.level || 1) | 0), cd: Math.max(0, Number(x?.cd || 0) || 0), activeT: Math.max(0, Number(x?.activeT || 0) || 0), pulseT: Math.max(0, Number(x?.pulseT || 0) || 0) };
+}
+function setupLivingCasinoPlayer(p) {
+  if (!p) return p;
+  p.hero = 'living_casino';
+  p.weapons = ['living_casino'];
+  p.weaponIdx = 0;
+  p.shgCharges = 0;
+  p.shgReload = 0;
+  p.livingCasino = {
+    maxSectors: 1,
+    sectors: [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }],
+    selected: 0,
+    fireDown: false,
+    lastSector: '',
+    lastPower: 1,
+    copyPower: 0.55,
+    betLuck: 0
+  };
+  return p;
+}
+function ensureLivingCasinoState(p) {
+  if (!isLivingCasinoPlayer(p)) return null;
+  if (!p.livingCasino) setupLivingCasinoPlayer(p);
+  const lc = p.livingCasino;
+  lc.maxSectors = Math.max(1, Math.min(6, Number(lc.maxSectors || 1) | 0));
+  lc.sectors = Array.isArray(lc.sectors) ? lc.sectors.map(normalizeLivingCasinoSector) : [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }];
+  if (!lc.sectors.length) lc.sectors.push({ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 });
+  lc.sectors = lc.sectors.slice(0, lc.maxSectors);
+  lc.selected = Math.max(0, Math.min(lc.sectors.length - 1, Number(lc.selected || 0) | 0));
+  lc.copyPower = Math.max(0.25, Math.min(0.95, Number(lc.copyPower || 0.55) || 0.55));
+  if (!p.weapons || p.weapons[0] !== 'living_casino') { p.weapons = ['living_casino']; p.weaponIdx = 0; }
+  return lc;
+}
+function livingCasinoSelectedIndex(p) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return 0;
+  const n = Math.max(1, lc.sectors.length);
+  if (n <= 1) return 0;
+  const a = Math.atan2((p.aimY || p.y) - p.y, (p.aimX || p.x) - p.x);
+  const step = Math.PI * 2 / n;
+  return ((Math.round(a / step) % n) + n) % n;
+}
+function livingCasinoSectorDuration(type, lvl, power = 1) {
+  lvl = Math.max(1, lvl | 0); power = Math.max(0.2, Number(power) || 1);
+  if (type === 'dmg') return (10.0 + Math.min(6, (lvl - 1) * 1.2)) * power;
+  if (type === 'chain') return (5.5 + Math.min(5, (lvl - 1) * 0.9)) * power;
+  if (type === 'ghost') return (3.0 + Math.min(3.5, (lvl - 1) * 0.55)) * power;
+  return 0;
+}
+function livingCasinoSectorReload(type, lvl) {
+  lvl = Math.max(1, lvl | 0);
+  if (type === 'dmg') return Math.max(4.8, 8.0 - Math.min(2.6, (lvl - 1) * 0.35));
+  if (type === 'guard') return Math.max(5.2, 9.0 - Math.min(2.4, (lvl - 1) * 0.35));
+  if (type === 'chain') return Math.max(5.6, 10.5 - Math.min(2.8, (lvl - 1) * 0.4));
+  if (type === 'bet') return Math.max(3.8, 7.5 - Math.min(2.5, (lvl - 1) * 0.35));
+  if (type === 'copy') return Math.max(4.8, 9.0 - Math.min(2.2, (lvl - 1) * 0.3));
+  if (type === 'ghost') return Math.max(6.4, 11.0 - Math.min(2.4, (lvl - 1) * 0.35));
+  return 8;
+}
+function livingCasinoCanAddSector(p, type) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return false;
+  if (lc.sectors.length >= 6 || lc.sectors.length >= lc.maxSectors) return false;
+  return !lc.sectors.some(s => s.type === type);
+}
+function livingCasinoHasSector(p, type) {
+  const lc = ensureLivingCasinoState(p); return !!lc?.sectors?.some(s => s.type === type);
+}
+function livingCasinoSectorUpgradeLevel(p, type) {
+  const lc = ensureLivingCasinoState(p); const s = lc?.sectors?.find(s => s.type === type); return Math.max(1, Number(s?.level || 1) | 0);
+}
+function livingCasinoChoicePool(p, qualityTier = 0) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return [];
+  const pool = [];
+  const missing = LC_SECTOR_TYPES.filter(t => t !== 'dmg' && !livingCasinoHasSector(p, t));
+  if (lc.maxSectors < 6 && lc.sectors.length >= lc.maxSectors) {
+    for (const type of missing) pool.push({ id: `lc_expand_${type}_${lc.maxSectors + 1}`, kind: 'lc_sector_expand_add', sector: type, label: `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`, actionLabel: 'ДОБАВИТЬ ЯЧЕЙКУ', group: 'LIVE CASINO', role: livingCasinoSectorLabel(type), desc: `Добавляет новую ячейку и сразу ставит туда ${livingCasinoSectorLabel(type)}. Сейчас ${lc.maxSectors}/6. ${livingCasinoSectorDesc(type)}`, valueTier: qualityTier });
+  }
+  for (const type of missing) {
+    if (lc.sectors.length < lc.maxSectors) pool.push({ id: `lc_add_${type}`, kind: 'lc_sector_add', sector: type, label: `СЕКТОР: ${livingCasinoSectorLabel(type)}`, actionLabel: 'ДОБАВИТЬ СЕКТОР', group: 'LIVE CASINO', role: livingCasinoSectorLabel(type), desc: livingCasinoSectorDesc(type), valueTier: qualityTier });
+  }
+  for (const sec of lc.sectors) {
+    const next = (sec.level || 1) + 1;
+    pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ СЕКТОР', group: 'LIVE CASINO', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
+  }
+  if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'COPY POWER +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'LIVE CASINO', role: 'COPY', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'BET ODDS +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'LIVE CASINO', role: 'BET', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
+  return pool;
+}
+function livingCasinoSectorDesc(type) {
+  if (type === 'guard') return 'Расталкивает угрозы и даёт временный щит, ёмкость которого постепенно тает.';
+  if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного dash-запаса.';
+  if (type === 'bet') return 'Ставит малую случайную цену: GLD, HP или EXP. Выплата тоже случайная.';
+  if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
+  if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
+  return 'Запускает автосамонаводящиеся цифровые пули на несколько секунд.';
+}
+function livingCasinoSectorUpgradeDesc(type, next = 2) {
+  if (type === 'dmg') return `DMG ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
+  if (type === 'guard') return `GUARD ${roman(next)}: больше временный щит и сильнее отталкивание.`;
+  if (type === 'chain') return `CHAIN ${roman(next)}: +1 быстрый фиолетовый рывок и длиннее окно.`;
+  if (type === 'bet') return `BET ${roman(next)}: выше ставки и выплаты, лучше шанс сильного исхода.`;
+  if (type === 'copy') return `COPY ${roman(next)}: меньше cooldown и сильнее повтор прошлого действия.`;
+  if (type === 'ghost') return `GHOST ${roman(next)}: дольше скрытие и быстрее перезагрузка.`;
+  return `Сектор ${roman(next)}.`;
+}
+function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
+  const pool = livingCasinoChoicePool(p, qualityTier).map(x => ({ ...x, disabled: 0, disabledReason: '' }));
+  const choices = [];
+  const used = new Set();
+  const want = Math.max(1, Math.min(5, count | 0));
+  while (choices.length < want && pool.length) {
+    const candidates = pool.filter(x => !used.has(x.id));
+    if (!candidates.length) break;
+    const x = candidates[Math.floor(rng() * candidates.length)];
+    used.add(x.id); choices.push(x);
+  }
+  return choices;
+}
+function applyLivingCasinoWeaponOption(run, players, p, opt) {
+  const lc = ensureLivingCasinoState(p); if (!lc || !opt) return false;
+  let label = opt.label || 'LIVE CASINO';
+  if (opt.kind === 'lc_sector_expand_add') {
+    const type = String(opt.sector || '');
+    if (!LC_SECTOR_TYPES.includes(type) || lc.maxSectors >= 6 || lc.sectors.some(s => s.type === type)) return false;
+    lc.maxSectors = Math.min(6, lc.maxSectors + 1);
+    if (lc.sectors.length < lc.maxSectors) lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
+    label = `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`;
+  } else if (opt.kind === 'lc_sector_slot') {
+    if (lc.maxSectors >= 6) return false;
+    lc.maxSectors = Math.min(6, lc.maxSectors + 1);
+    const missing = LC_SECTOR_TYPES.filter(t => t !== 'dmg' && !lc.sectors.some(s => s.type === t));
+    if (missing.length && lc.sectors.length < lc.maxSectors) {
+      const type = missing[0];
+      lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
+      label = `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`;
+    }
+  } else if (opt.kind === 'lc_sector_add') {
+    const type = String(opt.sector || '');
+    if (!LC_SECTOR_TYPES.includes(type) || lc.sectors.length >= lc.maxSectors || lc.sectors.some(s => s.type === type)) return false;
+    lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
+    label = `СЕКТОР: ${livingCasinoSectorLabel(type)}`;
+  } else if (opt.kind === 'lc_sector_upgrade') {
+    const sec = lc.sectors.find(s => s.type === opt.sector);
+    if (!sec) return false;
+    sec.level = Math.max(1, sec.level || 1) + 1;
+    label = `${livingCasinoSectorLabel(sec.type)} ${roman(sec.level)}`;
+  } else if (opt.kind === 'lc_copy_power') {
+    lc.copyPower = Math.min(0.95, (lc.copyPower || 0.55) + 0.10);
+    label = `COPY POWER ${Math.round(lc.copyPower * 100)}%`;
+  } else if (opt.kind === 'lc_bet_luck') {
+    lc.betLuck = Math.max(0, (lc.betLuck || 0) + 1);
+    label = `BET ODDS +${lc.betLuck}`;
+  } else return false;
+  run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'LVC' });
+  run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
+  return true;
+}
+function nearestLivingCasinoTarget(run, p, range = 760) {
+  let best = null, bd = range * range;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    const d = dist2(e.x, e.y, p.x, p.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function livingCasinoFireHoming(run, p, sec, power = 1) {
+  if (!p?.alive || run.bullets.length >= MAX_BULLETS) return false;
+  const lvl = Math.max(1, Number(sec?.level || 1) | 0);
+  const target = nearestLivingCasinoTarget(run, p, 780 + lvl * 35);
+  const dir = target ? norm(target.x - p.x, target.y - p.y) : norm((p.aimX || p.x + 1) - p.x, (p.aimY || p.y) - p.y);
+  const shots = 1 + Math.floor((lvl - 1) / 3);
+  const dmg = weaponDamageValue(p, 14 + lvl * 4, power);
+  const speed = 390 + Math.min(150, lvl * 12);
+  for (let i = 0; i < shots && run.bullets.length < MAX_BULLETS; i++) {
+    const spread = shots > 1 ? (i - (shots - 1) / 2) * 0.12 : 0;
+    const a = Math.atan2(dir.y, dir.x) + spread;
+    run.bullets.push({ id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg, from: 'p', owner: p.id, life: 1.75 + lvl * 0.08, size: 4, homing: 7.2 + lvl * 0.22, kind: 'live_casino', travelled: 0, maxDist: 680 + lvl * 42, bounces: 0, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0 });
+  }
+  run.fx.push({ t: 'shot', id: p.id, w: 'LIVE', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 28), my: Math.round(p.y + dir.y * 28), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
+  return true;
+}
+function activateLivingCasinoGuard(run, p, sec, power = 1) {
+  const lvl = Math.max(1, sec.level || 1);
+  const cap = Math.round((34 + lvl * 14) * power);
+  p.livingCasinoGuardCap = Math.max(p.livingCasinoGuardCap || 0, cap);
+  p.livingCasinoGuardMax = Math.max(p.livingCasinoGuardMax || 0, cap);
+  p.livingCasinoGuardT = Math.max(p.livingCasinoGuardT || 0, 5.2 + lvl * 0.45);
+  p.aegisShield = Math.max(p.aegisShield || 0, Math.min(aegisCapacity(p), cap));
+  const r = Math.round(190 + lvl * 18);
+  let pushed = 0;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0) continue;
+    if (dist2(e.x, e.y, p.x, p.y) > (r + e.size / 2) ** 2) continue;
+    const n = norm(e.x - p.x, e.y - p.y);
+    const force = (ENEMIES[e.kind]?.boss ? 80 : 210 + lvl * 24) * power;
+    e.x += n.x * force; e.y += n.y * force;
+    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.26 + lvl * 0.04);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.62);
+    pushed++;
+  }
+  run.fx.push({ t: 'active_mutation', label: `GUARD ${roman(lvl)}${pushed ? ' / PUSH ' + pushed : ''}`, x: Math.round(p.x), y: Math.round(p.y), r, tone: 'cyan', playerId: p.id });
+  return true;
+}
+function activateLivingCasinoChain(run, p, sec, power = 1) {
+  const lvl = Math.max(1, sec.level || 1);
+  const add = Math.max(1, Math.round((lvl) * power));
+  p.livingCasinoChainT = Math.max(p.livingCasinoChainT || 0, livingCasinoSectorDuration('chain', lvl, power));
+  p.livingCasinoChainDashes = Math.max(p.livingCasinoChainDashes || 0, add);
+  run.fx.push({ t: 'active_mutation', label: `CHAIN DASH x${p.livingCasinoChainDashes}`, x: Math.round(p.x), y: Math.round(p.y), r: 150 + lvl * 18, tone: 'purple', playerId: p.id });
+  return true;
+}
+function activateLivingCasinoBet(run, players, p, sec, power = 1) {
+  const lc = ensureLivingCasinoState(p);
+  const lvl = Math.max(1, sec.level || 1);
+  const kinds = ['GLD', 'HP', 'EXP'];
+  let stake = kinds[Math.floor(Math.random() * kinds.length)];
+  for (let i = 0; i < 3; i++) {
+    if (stake === 'GLD' && (p.economy.money || 0) >= 6) break;
+    if (stake === 'HP' && (p.hp || 0) > Math.max(20, maxHp(p) * 0.28)) break;
+    if (stake === 'EXP' && (p.economy.xp || 0) >= 6) break;
+    stake = kinds[(kinds.indexOf(stake) + 1) % kinds.length];
+  }
+  const base = Math.round((stake === 'HP' ? 4 : stake === 'EXP' ? 9 : 7) + lvl * 2);
+  let paid = 0;
+  if (stake === 'GLD') { paid = Math.min(base, Math.max(0, Math.round(p.economy.money || 0))); p.economy.money -= paid; }
+  else if (stake === 'HP') { paid = Math.min(base, Math.max(0, Math.round((p.hp || 0) - 8))); p.hp = Math.max(1, (p.hp || 1) - paid); }
+  else { paid = Math.min(base, Math.max(0, Math.round(p.economy.xp || 0))); p.economy.xp -= paid; }
+  const luck = Math.max(0, (lc?.betLuck || 0) + Math.max(0, p.stats?.luck || 0) * 0.25);
+  let roll = Math.random();
+  roll += Math.min(0.22, luck * 0.025);
+  let mult = 0, tag = 'ПУСТОЙ СБОЙ';
+  if (roll >= 0.95) { mult = 5.0; tag = 'JACKPOT'; }
+  else if (roll >= 0.70) { mult = 2.35; tag = 'HIGH PAYOUT'; }
+  else if (roll >= 0.12) { mult = 1.35; tag = 'PAYOUT'; }
+  const reward = kinds[Math.floor(Math.random() * kinds.length)];
+  const val = Math.max(0, Math.round((paid || base) * mult * power));
+  if (val > 0) grantPersonalEconomy(run, players, p, reward, val, `LIVE BET ${tag}`, p.x, p.y);
+  run.fx.push({ t: 'active_mutation', label: `BET ${stake}-${paid || 0} → ${val ? reward + '+' + val : tag}`, x: Math.round(p.x), y: Math.round(p.y), r: 112 + lvl * 10, tone: val ? 'gold' : 'red', playerId: p.id });
+  return true;
+}
+function activateLivingCasinoGhost(run, p, sec, power = 1) {
+  const lvl = Math.max(1, sec.level || 1);
+  const dur = livingCasinoSectorDuration('ghost', lvl, power);
+  p.ghostT = Math.max(p.ghostT || 0, dur);
+  run.fx.push({ t: 'active_mutation', label: `GHOST VECTOR ${roman(lvl)}`, x: Math.round(p.x), y: Math.round(p.y), r: 170 + lvl * 14, tone: 'cyan', playerId: p.id });
+  return true;
+}
+function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
+  const lc = ensureLivingCasinoState(p); if (!lc || !sec) return false;
+  let type = String(sec.type || 'dmg');
+  const copied = !!opts.copy;
+  if (!copied) sec = lc.sectors.find(s => s.type === type) || sec;
+  type = String(sec.type || type || 'dmg');
+  const power = Math.max(0.2, Number(opts.power || 1) || 1);
+  if (!copied && ((sec.cd || 0) > 0 || (sec.activeT || 0) > 0)) return false;
+  let ok = false;
+  if (type === 'dmg') {
+    sec.activeT = livingCasinoSectorDuration(type, sec.level, power);
+    sec.pulseT = 0;
+    ok = true;
+    run.fx.push({ t: 'active_mutation', label: `DMG VECTOR ${roman(sec.level || 1)}`, x: Math.round(p.x), y: Math.round(p.y), r: 130 + (sec.level || 1) * 10, tone: 'gold', playerId: p.id });
+  } else if (type === 'guard') ok = activateLivingCasinoGuard(run, p, sec, power);
+  else if (type === 'chain') ok = activateLivingCasinoChain(run, p, sec, power);
+  else if (type === 'bet') ok = activateLivingCasinoBet(run, players, p, sec, power);
+  else if (type === 'ghost') ok = activateLivingCasinoGhost(run, p, sec, power);
+  else if (type === 'copy') {
+    const last = lc.lastSector && lc.lastSector !== 'copy' ? lc.lastSector : '';
+    const source = last ? lc.sectors.find(s => s.type === last) : null;
+    if (!source) { run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'НЕТ ПРОШЛОГО СЕКТОРА', chest: 'LVC' }); return false; }
+    const ghost = { ...source, cd: 0, activeT: 0, level: Math.max(1, source.level || 1) };
+    ok = activateLivingCasinoSector(run, players, p, ghost, { copy: 1, power: Math.min(0.95, lc.copyPower || 0.55) });
+  }
+  if (!ok) return false;
+  if (!copied) {
+    const reload = livingCasinoSectorReload(type, sec.level || 1);
+    sec.cd = Math.max(sec.cd || 0, (sec.activeT || 0) + reload);
+    if (type !== 'copy') { lc.lastSector = type; lc.lastPower = power; }
+  }
+  return true;
+}
+function fireLivingCasinoSector(run, players, p, dt) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return;
+  lc.selected = livingCasinoSelectedIndex(p);
+  if (!p.fire) { lc.fireDown = false; return; }
+  if (lc.fireDown || !p.alive) return;
+  lc.fireDown = true;
+  const sec = lc.sectors[lc.selected] || lc.sectors[0];
+  if (!activateLivingCasinoSector(run, players, p, sec)) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${livingCasinoSectorLabel(sec?.type)} RELOAD`, chest: 'LVC' });
+  }
+}
+function stepLivingCasinoState(run, players, p, dt) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return;
+  lc.selected = livingCasinoSelectedIndex(p);
+  for (const sec of lc.sectors) {
+    sec.cd = Math.max(0, (sec.cd || 0) - dt);
+    sec.activeT = Math.max(0, (sec.activeT || 0) - dt);
+    if (sec.type === 'dmg' && sec.activeT > 0) {
+      const lvl = Math.max(1, sec.level || 1);
+      sec.pulseT = Math.max(0, (sec.pulseT || 0) - dt);
+      if (sec.pulseT <= 0) {
+        sec.pulseT = Math.max(0.16, 0.38 - Math.min(0.16, (lvl - 1) * 0.025));
+        livingCasinoFireHoming(run, p, sec, 1);
+      }
+    }
+  }
+  p.livingCasinoChainT = Math.max(0, (p.livingCasinoChainT || 0) - dt);
+  if ((p.livingCasinoChainT || 0) <= 0) p.livingCasinoChainDashes = 0;
+  if ((p.livingCasinoGuardCap || 0) > 0) {
+    p.livingCasinoGuardT = Math.max(0, (p.livingCasinoGuardT || 0) - dt);
+    const decay = Math.max(5, (p.livingCasinoGuardMax || p.livingCasinoGuardCap || 0) / 4.8);
+    p.livingCasinoGuardCap = Math.max(0, (p.livingCasinoGuardCap || 0) - decay * dt);
+    if ((p.livingCasinoGuardT || 0) <= 0) p.livingCasinoGuardCap = 0;
+    const cap = aegisCapacity(p);
+    if ((p.aegisShield || 0) > cap) p.aegisShield = cap;
+  }
+}
 
 export function startRoom(run, players) {
   const seed = (run.seedBase + run.runDepth * 7919) >>> 0;
@@ -4211,7 +4544,7 @@ function redlineSpeedMul(p) { return 1 + (0.60 + Math.max(0, (p?.stats?.rActiveS
 function ghostDecoyDuration(p) { return Math.round((4.2 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1.4) * 10) / 10; }
 function rewindWindow(p) { return Math.round((6 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
 function rewindStun(p) { return Math.round((1.0 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.3) * 10) / 10; }
-function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45); }
+function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45, Number(p?.livingCasinoGuardCap || 0) || 0); }
 function mirrorCapacity(p) { return Math.max(0, p?.stats?.mirrorCapacity || 0); }
 function mirrorLeft(p) { return Math.max(0, mirrorCapacity(p) - Math.max(0, p?.mirrorUsedLoop || 0)); }
 function roomLoopIndex(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
@@ -5018,6 +5351,7 @@ function weaponDamageValue(p, base, scale = 1) {
   return Math.max(0, Number(base) || 0) * weaponDamageMul(p) * Math.max(0, Number(scale) || 0);
 }
 function fireWeapon(run, players, p, dt) {
+  if (isLivingCasinoPlayer(p)) { fireLivingCasinoSector(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
   if (!p.alive) return;
@@ -6414,6 +6748,7 @@ function tryInteract(run, players, p) {
 
 function weaponChoiceDisabled(p, opt) {
   if (!opt) return 'НЕТ ВАРИАНТА';
+  if (isLivingCasinoPlayer(p)) return '';
   if (opt.kind === 'weapon' && p.weapons.includes(opt.weapon)) return 'УЖЕ ЕСТЬ';
   if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return `НУЖЕН ${WEAPONS[opt.reqWeapon]?.label || opt.reqWeapon}`;
   if (opt.kind === 'weapon_upgrade') {
@@ -6445,6 +6780,7 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
   return weighted[0][0];
 }
 function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
+  if (isLivingCasinoPlayer(p)) return makeLivingCasinoWeaponChoices(p, rng, count, qualityTier);
   const pool = WEAPON_CHEST_REWARDS
     .filter(opt => weaponChoiceEligible(p, opt))
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier }));
@@ -6657,6 +6993,7 @@ function applyRandomCasinoAbility(run, players, p, pl = {}) {
 
 function applyWeaponChestOption(run, players, p, opt) {
   if (!opt) return false;
+  if (isLivingCasinoPlayer(p)) return applyLivingCasinoWeaponOption(run, players, p, opt);
   const disabledReason = weaponChoiceDisabled(p, opt);
   if (disabledReason) {
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, chest: 'WPN' });
@@ -8203,6 +8540,7 @@ function stepPlayers(run, players, dt) {
     p.spikePlaceCd = Math.max(0, (p.spikePlaceCd || 0) - dt);
     p.voidChainPlaceCd = Math.max(0, (p.voidChainPlaceCd || 0) - dt);
     stepRActiveState(run, players, p, dt);
+    stepLivingCasinoState(run, players, p, dt);
     if (p.active?.core === 'void_cut' && p.active.voidChain && p.active.voidChain.expires <= (run.now || 0)) delete p.active.voidChain;
     if (p.active?.core === 'signal_spike') {
       const a = ensureActive(p);
@@ -8250,13 +8588,16 @@ function stepPlayers(run, players, dt) {
       p.x = c.x; p.y = c.y;
     }
     // dash
-    if (p.wantDash && p.dashCharges > 0 && run.phase === 'play') {
+    const lcFastDash = isLivingCasinoPlayer(p) && (p.livingCasinoChainT || 0) > 0 && (p.livingCasinoChainDashes || 0) > 0;
+    if (p.wantDash && (p.dashCharges > 0 || lcFastDash) && run.phase === 'play') {
       let dx = mx, dy = my;
       if (Math.hypot(dx, dy) < 0.01) { const n = norm(p.aimX - p.x, p.aimY - p.y); dx = n.x; dy = n.y; }
       const n = norm(dx, dy);
-      const c = collideWalls(p.x + n.x * DASH_DIST, p.y + n.y * DASH_DIST, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
+      const dashDist = lcFastDash ? Math.round(DASH_DIST * 1.55) : DASH_DIST;
+      const c = collideWalls(p.x + n.x * dashDist, p.y + n.y * dashDist, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
       const ox = p.x, oy = p.y;
       dashFx(run, p, p.x, p.y, c.x, c.y);
+      if (lcFastDash) run.fx.push({ t: 'dash_void', id: p.id, x1: Math.round(p.x), y1: Math.round(p.y), x2: Math.round(c.x), y2: Math.round(c.y), w: 112, dmg: 0, count: 0, stacks: 1, liveCasino: 1 });
       if (p.stats.voidStep > 0) {
         const stacks = Math.max(1, p.stats.voidStep | 0);
         const riftW = 102 + Math.min(86, stacks * 14);
@@ -8290,11 +8631,12 @@ function stepPlayers(run, players, dt) {
         if (stunned) run.fx.push({ t: 'dash_stun', id: p.id, x: Math.round((ox + c.x) / 2), y: Math.round((oy + c.y) / 2), r: Math.round(stunR), dur: Math.round(stunDur * 10) / 10, count: stunned });
       }
       p.x = c.x; p.y = c.y;
-      p.dashCharges--;
+      if (lcFastDash) p.livingCasinoChainDashes = Math.max(0, (p.livingCasinoChainDashes || 0) - 1);
+      else p.dashCharges--;
       if (p.wagerStats) p.wagerStats.dash = (p.wagerStats.dash || 0) + 1;
       if (playerSigStack(p, 'sigRedOverdrive') > 0) p.redOverdriveShots = Math.max(p.redOverdriveShots || 0, 1);
       if (playerSigStack(p, 'sigAimGlitch') > 0) p.aimGlitchT = Math.max(p.aimGlitchT || 0, 1.15 + playerSigStack(p, 'sigAimGlitch') * 0.15);
-      p.invuln = Math.max(p.invuln, DASH_INVULN);
+      p.invuln = Math.max(p.invuln, lcFastDash ? Math.min(DASH_INVULN, 0.18) : DASH_INVULN);
     }
     p.wantDash = false;
     if (p.wantActive && run.phase === 'play') doActive(run, players, p);
@@ -8415,6 +8757,19 @@ export function buildSnapshot(run, players) {
   const cs = [];
   for (const p of players.values()) {
     if (!p.connected || !p.alive) continue;
+    const lc = ensureLivingCasinoState(p);
+    if (lc) {
+      const n = Math.max(1, lc.sectors.length);
+      const selected = livingCasinoSelectedIndex(p);
+      const r = 56 + Math.min(18, n * 2);
+      for (let i = 0; i < n; i++) {
+        const sec = lc.sectors[i];
+        const a = i * Math.PI * 2 / n;
+        const ready = ((sec.cd || 0) <= 0 && (sec.activeT || 0) <= 0) ? 1 : 0;
+        const active = (sec.activeT || 0) > 0 ? 1 : 0;
+        cs.push([`lvc:${p.id}:${i}`, p.id, 'lc_sector', i, Math.round(p.x + Math.cos(a) * r), Math.round(p.y + Math.sin(a) * r), sec.type, ready, active, selected === i ? 1 : 0, Math.ceil((sec.cd || 0) * 10) / 10, Math.max(1, sec.level || 1)]);
+      }
+    }
     const drones = Math.max(0, p.stats.drones | 0);
     for (let i = 0; i < drones; i++) {
       // Drones intentionally use the same phase offset as drone firing origins.

@@ -194,7 +194,7 @@ const RU_WEAPON = {
   SHG: 'Ближний дробовик. Стреляет залпами и сам восстанавливается.', SEK: 'Медленный самонаводящийся сигнальный снаряд.', RKT: 'Тяжёлая ракетница. Взрывается при попадании или столкновении со стеной.'
 };
 const EN_SKIN_NOTE = {
-  terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
+  terminal_mint:'house terminal signal', living_casino:'living casino vector core', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
 };
 
 export function getLang() {

@@ -880,6 +880,28 @@ export class Renderer {
             this.square(cx, cy, 13, { stroke: skinMetaLocal.outline || COL.cyan, lw: 1, alpha: 0.24, rotate: a + Math.PI / 4 });
             this.square(cx, cy, 9, { stroke: skinMetaLocal.outline || COL.cyan, lw: 2, rotate: a });
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
+          } else if (type === 'lc_sector') {
+            const secType = String(c[6] || 'dmg');
+            const ready = !!c[7], active = !!c[8], selected = !!c[9];
+            const lvl = Math.max(1, Number(c[11] || 1) | 0);
+            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? COL.gold : secType === 'copy' ? COL.green : secType === 'ghost' ? COL.cyan : COL.gold;
+            const sz = selected ? 17 : 13;
+            const rot = now * (active ? 4.5 : 1.4) + Number(c[3] || 0) * 0.7;
+            ctx.save();
+            ctx.globalAlpha = active ? 0.95 : (ready ? 0.78 : 0.30);
+            this.square(cx, cy, sz + Math.min(5, lvl), { stroke: selected ? '#f3f3f3' : tone, lw: selected ? 2.6 : 1.6, rotate: rot, alpha: active ? 0.95 : (ready ? 0.72 : 0.32) });
+            this.square(cx, cy, Math.max(7, sz - 5), { fill: active ? tone : (ready ? skinMetaLocal.outline || tone : '#222'), alpha: active ? 0.35 : (ready ? 0.25 : 0.16), rotate: -rot * 0.65 });
+            if (!ready && !active) {
+              ctx.globalAlpha = 0.45;
+              ctx.strokeStyle = tone;
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 3]);
+              ctx.strokeRect(Math.round(cx - sz / 2 - 3), Math.round(cy - sz / 2 - 3), Math.round(sz + 6), Math.round(sz + 6));
+              ctx.setLineDash([]);
+            }
+            ctx.restore();
+            if (selected || active) this.label(String(secType || '').toUpperCase().slice(0, 5), cx, cy - 20, selected ? '#f3f3f3' : tone, 7);
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
@@ -907,7 +929,7 @@ export class Renderer {
         continue;
       }
       ctx.save();
-      const ghostActive = String(p[P.RLABEL] || '').includes('GHOST') && Number(p[P.RT] || 0) > 0;
+      const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') || skinId === 'living_casino') && Number(p[P.RT] || 0) > 0;
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
       if (ghostActive) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.38 + Math.sin(now * 16) * 0.12);
       const redlineActive = String(p[P.RLABEL] || '').includes('REDLINE') && Number(p[P.RT] || 0) > 0;
