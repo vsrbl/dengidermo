@@ -4647,3 +4647,26 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   text-overflow: ellipsis !important;
   padding: 0 2px !important;
 }
+
+/* v2.1.117 — Living Casino selected-sector HUD */
+#living-casino-selected {
+  min-width: min(300px, 42vw);
+  max-width: min(360px, 46vw);
+  margin: 0 0 8px auto;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,211,77,.54);
+  background: rgba(5,5,5,.82);
+  box-shadow: 0 0 14px rgba(255,211,77,.12);
+  text-align: right;
+  letter-spacing: .10em;
+  color: var(--gold);
+  pointer-events: auto;
+}
+#living-casino-selected.hidden { display: none !important; }
+#living-casino-selected b { display:block; color: var(--dim); font-size: 9px; letter-spacing:.24em; margin-bottom:2px; }
+#living-casino-selected span { display:block; color: var(--fg); font-size: 15px; line-height:1.05; }
+#living-casino-selected em { display:block; font-style:normal; color: inherit; font-size: 10px; margin-top:3px; opacity:.90; }
+#living-casino-selected.ready { border-color: rgba(0,255,102,.52); color: var(--green); box-shadow: 0 0 14px rgba(0,255,102,.10); }
+#living-casino-selected.cooldown { border-color: rgba(255,48,72,.50); color: var(--red); box-shadow: 0 0 14px rgba(255,48,72,.10); }
+#living-casino-selected.active { border-color: rgba(102,246,255,.55); color: var(--cyan); box-shadow: 0 0 14px rgba(102,246,255,.12); }
+#living-casino-selected.open { border-color: rgba(255,255,255,.72); color: var(--fg); box-shadow: 0 0 18px rgba(255,255,255,.10); }
