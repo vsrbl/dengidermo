@@ -46,14 +46,33 @@ const NET_STATUS = {
   waking: ['СЕТЬ ПРОСЫПАЕТСЯ · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK WAKING · SINGLE PLAYER READY'],
   down: ['СЕТЬ НЕДОСТУПНА · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK UNAVAILABLE · SINGLE PLAYER READY'],
   update: ['НУЖНО ОБНОВИТЬ СТРАНИЦУ', 'UPDATE REQUIRED'],
-  code4: ['КОД СЕКТОРА: 4 СИМВОЛА', 'ROOM CODE MUST BE 4 SYMBOLS'],
-  roomNotFound: ['СЕКТОР НЕ НАЙДЕНА', 'ROOM NOT FOUND'],
-  roomFull: ['СЕКТОР ЗАПОЛНЕНА (4/4)', 'ROOM FULL (4/4)'],
+  code4: ['КОД СЕКТОРА: 4 СИМВОЛА', 'SECTOR CODE MUST BE 4 SYMBOLS'],
+  roomNotFound: ['СЕКТОР НЕ НАЙДЕН', 'SECTOR NOT FOUND'],
+  roomFull: ['СЕКТОР ЗАПОЛНЕН (4/4)', 'SECTOR FULL (4/4)'],
   lost: ['СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ', 'CONNECTION LOST — REFRESH PAGE'],
   error: ['СЕТЕВАЯ ОШИБКА', 'NETWORK ERROR']
 };
+let currentStatusKey = 'connecting';
+let currentStatusClass = '';
 function netStatus(key) { const v = NET_STATUS[key] || NET_STATUS.error; return getLang() === 'en' ? v[1] : v[0]; }
-function setStatus(text, cls = '') { status.textContent = Array.isArray(text) ? (getLang() === 'en' ? text[1] : text[0]) : text; status.className = cls; }
+function setStatusKey(key, cls = '') {
+  currentStatusKey = key || 'error';
+  currentStatusClass = cls || '';
+  status.textContent = netStatus(currentStatusKey);
+  status.className = currentStatusClass;
+}
+function setStatus(text, cls = '') {
+  currentStatusKey = '';
+  currentStatusClass = cls || '';
+  status.textContent = Array.isArray(text) ? (getLang() === 'en' ? text[1] : text[0]) : text;
+  status.className = currentStatusClass;
+}
+function refreshMenuStatusLanguage() {
+  if (currentStatusKey) {
+    status.textContent = netStatus(currentStatusKey);
+    status.className = currentStatusClass;
+  }
+}
 function setMenuVersion(server = null) {
   if (!menuVersion) return;
   // v2.1.75: keep this plate short and stable. Network status belongs to #menu-status.
@@ -68,9 +87,27 @@ let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
 const heroSaveKey = 'tcr_selected_hero_v1';
 const HEROES = {
-  base: { id: 'base', labelRu: 'БАЗОВЫЙ АНТИВИРУС', labelEn: 'BASE ANTIVIRUS' },
-  living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' },
-  process_controller: { id: 'process_controller', labelRu: 'КОНТРОЛЁР ПРОЦЕССОВ', labelEn: 'PROCESS CONTROLLER' }
+  base: {
+    id: 'base',
+    labelRu: 'БАЗОВЫЙ АНТИВИРУС', labelEn: 'BASE ANTIVIRUS',
+    descRu: 'прямой боевой протокол', descEn: 'direct combat protocol',
+    explainRu: 'Стартовое ядро: прямой бой и классические модули оружия.',
+    explainEn: 'Starter core: direct combat and classic weapon modules.'
+  },
+  living_casino: {
+    id: 'living_casino',
+    labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO',
+    descRu: 'казино-протокол', descEn: 'casino protocol',
+    explainRu: 'Казино-ядро: оружие и быстрые действия выбираются через кольцо.',
+    explainEn: 'Casino core: weapons and quick actions are picked through the wheel.'
+  },
+  process_controller: {
+    id: 'process_controller',
+    labelRu: 'КОНТРОЛЁР ПРОЦЕССОВ', labelEn: 'PROCESS CONTROLLER',
+    descRu: 'контроль процессов', descEn: 'process control',
+    explainRu: 'Ядро контроля: перехватывает процессы, отдаёт приказы и ставит карантинные якоря.',
+    explainEn: 'Control core: captures processes, issues orders, and deploys quarantine anchors.'
+  }
 };
 const savedHeroId = localStorage.getItem(heroSaveKey);
 let selectedHeroId = HEROES[savedHeroId] ? savedHeroId : 'base';
@@ -184,11 +221,26 @@ function setSkinIndex(next) {
 function updateHeroSelector() {
   const status = $('hero-status');
   const ru = getLang() !== 'en';
-  if (status) status.textContent = ru ? HEROES[selectedHeroId].labelRu : HEROES[selectedHeroId].labelEn;
+  const selected = HEROES[selectedHeroId] || HEROES.base;
+  const head = document.querySelector('#hero-selector .hero-head span:first-child');
+  if (head) head.textContent = ru ? 'АНТИВИРУС' : 'ANTIVIRUS';
+  if (status) status.textContent = ru ? selected.labelRu : selected.labelEn;
+  const selector = $('hero-selector');
+  if (selector) {
+    selector.dataset.explainTitle = ru ? 'АНТИВИРУС' : 'ANTIVIRUS';
+    selector.dataset.explain = ru ? 'Выбор антивирусного ядра для протокола.' : 'Choose the antivirus core for this protocol.';
+  }
   document.querySelectorAll('[data-hero]').forEach(btn => {
+    const h = HEROES[btn.dataset.hero] || HEROES.base;
     const on = btn.dataset.hero === selectedHeroId;
     btn.classList.toggle('selected', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const title = btn.querySelector('.hero-title');
+    const desc = btn.querySelector('.hero-desc');
+    if (title) title.textContent = ru ? h.labelRu : h.labelEn;
+    if (desc) desc.textContent = ru ? h.descRu : h.descEn;
+    btn.dataset.explainTitle = ru ? h.labelRu : h.labelEn;
+    btn.dataset.explain = ru ? h.explainRu : h.explainEn;
   });
 }
 function setHero(id) {
@@ -453,16 +505,17 @@ onLangChange(() => {
   if (skinToggle) skinToggle.textContent = $('skin-editor')?.classList.contains('collapsed') ? t('changeSkin') : t('hideSkins');
   applyVisualFilter(false);
   setMenuVersion(net.connected ? true : null);
+  refreshMenuStatusLanguage();
 });
 
 async function connect() {
-  setStatus(netStatus('connecting'));
+  setStatusKey('connecting');
   try {
     await net.connect(WS_URL, playerName(), saveSkin());
-    setStatus(netStatus('online'), 'ok');
+    setStatusKey('online', 'ok');
     return true;
   } catch (e) {
-    setStatus(netStatus('down'), 'err');
+    setStatusKey('down', 'err');
     return false;
   }
 }
@@ -485,7 +538,7 @@ $('btn-create').addEventListener('click', async () => {
 $('btn-join').addEventListener('click', async () => {
   uiClick('run_start');
   const code = $('room-input').value.trim().toUpperCase();
-  if (code.length !== 4) { setStatus(netStatus('code4'), 'err'); return; }
+  if (code.length !== 4) { setStatusKey('code4', 'err'); return; }
   $('btn-join').disabled = true;
   state.localMode = false;
   net._name = playerName();
@@ -503,12 +556,12 @@ fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '
     setMenuVersion(h);
     const serverProto = Number(h?.protocol ?? PROTOCOL);
     if (serverProto !== PROTOCOL) {
-      setStatus(netStatus('update'), 'err');
+      setStatusKey('update', 'err');
       return;
     }
-    setStatus(netStatus('ready'), 'ok');
+    setStatusKey('ready', 'ok');
   })
-  .catch(() => { setMenuVersion(); setStatus(netStatus('waking')); });
+  .catch(() => { setMenuVersion(); setStatusKey('waking'); });
 
 // ---------------------------------------------------------------- net handlers
 net.on('welcome', (m) => {
@@ -537,12 +590,12 @@ net.on('ability_offer_close', () => hud.closeAbilityChest());
 net.on('rare_offer', (m) => hud.openRareChest(m.choices, m.meta));
 net.on('rare_offer_close', () => hud.closeRareChest());
 net.on('casino_result', (m) => { if (m?.id === state.myId) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
-net.on('error', (m) => { if (!inGame) setStatus(m.error === 'room not found' ? netStatus('roomNotFound') : m.error === 'room full' ? netStatus('roomFull') : netStatus('error'), 'err'); });
+net.on('error', (m) => { if (!inGame) setStatusKey(m.error === 'room not found' ? 'roomNotFound' : m.error === 'room full' ? 'roomFull' : 'error', 'err'); });
 net.on('room_closed', () => location.reload());
 net.on('_closed', () => {
   if (inGame) {
     $('menu').classList.remove('hidden');
-    setStatus(netStatus('lost'), 'err');
+    setStatusKey('lost', 'err');
     inGame = false;
   }
 });

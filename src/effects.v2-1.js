@@ -445,19 +445,18 @@ export class Effects {
         break;
       }
       case 'lc_sector_ring': {
-        const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
         const open = f.mode === 'open';
-        if (mine) this.kick(open ? 2 : 2);
-        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: open ? 106 : 86, ttl: open ? 0.22 : 0.16, color: col, tick: 1 });
-        if (f.label && !open) this.float(f.x, f.y - 42, f.label, col, 9);
+        // v2.1.164: no world-area animation around the hero for the Living Casino ring.
+        // The ring itself is the UI; only a tiny tactile tick remains.
+        if (mine) this.kick(open ? 0.8 : 0.6);
         break;
       }
       case 'lc_sector_pick': {
         const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
-        if (mine) { this.slam = Math.max(this.slam, 0.045); this.kick(f.mode === 'action' ? 4 : 3); }
-        this.add({ kind: 'squareField', activeKind: 'lc_sector_pick', x: f.x, y: f.y, r: f.mode === 'action' ? 132 : 112, ttl: 0.30, color: col, tick: 1 });
-        this.add({ kind: 'squareField', activeKind: 'lc_sector_pick_inner', x: f.x, y: f.y, r: f.mode === 'action' ? 68 : 58, ttl: 0.22, color: col, tick: 1 });
-        this.float(f.x, f.y - 58, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${f.label || 'LVC'}`, col, 12);
+        if (mine) { this.slam = Math.max(this.slam, 0.035); this.kick(f.mode === 'action' ? 3.2 : 2.4); }
+        // x/y is the selected action plate position, not the player center.
+        this.add({ kind: 'lcPlateDissolve', activeKind: 'lc_sector_pick', x: f.x, y: f.y, w: f.mode === 'action' ? 116 : 108, h: f.mode === 'action' ? 46 : 42, ttl: 0.42, color: col, label: f.label || 'LVC', mode: f.mode || 'pick' });
+        this.float(f.x, f.y - 34, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${f.label || 'LVC'}`, col, 11);
         break;
       }
       case 'lc_copy': {
@@ -1337,6 +1336,43 @@ export class Effects {
           const b = 6 + (i % 2) * 3;
           ctx.fillRect(Math.round(e.x + Math.cos(a) * d - b / 2), Math.round(e.y + Math.sin(a) * d - b / 2), b, b);
         }
+      } else if (e.kind === 'lcPlateDissolve') {
+        const fade = Math.max(0, 1 - p);
+        const w = Math.max(62, Number(e.w || 112) || 112);
+        const h = Math.max(28, Number(e.h || 42) || 42);
+        const col = e.color || '#ffd34d';
+        const shatter = Math.max(0, p - 0.10) / 0.90;
+        ctx.save();
+        ctx.translate(Math.round(e.x), Math.round(e.y));
+        ctx.globalAlpha = fade * 0.82;
+        ctx.fillStyle = 'rgba(5,5,5,0.86)';
+        ctx.fillRect(Math.round(-w / 2), Math.round(-h / 2), Math.round(w), Math.round(h));
+        ctx.globalAlpha = fade * 0.95;
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.setLineDash([10, 4, 2, 4]);
+        ctx.strokeRect(Math.round(-w / 2), Math.round(-h / 2), Math.round(w), Math.round(h));
+        ctx.setLineDash([]);
+        ctx.globalAlpha = fade * 0.38;
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.round(-w / 2 + 5), Math.round(-h / 2 + 5), Math.round((w - 10) * Math.max(0, 1 - p * 0.85)), 3);
+        ctx.globalAlpha = fade * 0.70;
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(e.label || 'LVC').slice(0, 14).toUpperCase(), 0, 2);
+        ctx.globalAlpha = fade * 0.62;
+        for (let i = 0; i < 18; i++) {
+          const row = i % 3;
+          const colIdx = Math.floor(i / 3);
+          const baseX = -w / 2 + 10 + colIdx * Math.max(8, (w - 20) / 6);
+          const baseY = -h / 2 + 9 + row * Math.max(8, (h - 18) / 2);
+          const dir = (i % 2 ? 1 : -1);
+          const ox = dir * shatter * (8 + (i % 5) * 5);
+          const oy = (row - 1) * shatter * 9 + Math.sin(i * 2.1) * shatter * 4;
+          const sz = 3 + (i % 3);
+          ctx.fillRect(Math.round(baseX + ox - sz / 2), Math.round(baseY + oy - sz / 2), sz, sz);
+        }
+        ctx.restore();
       } else if (e.kind === 'blackBoxAura') {
         const s = e.r;
         const fade = Math.max(0, 1 - p);

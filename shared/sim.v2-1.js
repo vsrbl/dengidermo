@@ -3559,18 +3559,26 @@ function livingCasinoPrimaryIndex(lc) {
   const idx = lc.sectors.findIndex(s => String(s?.type || '') === 'dmg');
   return idx >= 0 ? idx : 0;
 }
+function livingCasinoSectorFxPoint(p, lc, idx) {
+  const n = Math.max(1, Array.isArray(lc?.sectors) ? lc.sectors.length : 1);
+  const r = (lc?.ringOpen ? 92 + Math.min(28, n * 4) : 50);
+  const i = ((Number(idx || 0) | 0) % n + n) % n;
+  const a = i * Math.PI * 2 / n;
+  return { x: Math.round((p?.x || 0) + Math.cos(a) * r), y: Math.round((p?.y || 0) + Math.sin(a) * r) };
+}
 function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
   const lc = ensureLivingCasinoState(p); if (!lc) return false;
   const hoverIdx = livingCasinoAimIndex(p, lc);
   const sec = lc.sectors[hoverIdx] || lc.sectors[0];
   const tone = LC_SECTOR_TONE[sec?.type] || 'gold';
   const label = livingCasinoSectorLabel(sec?.type);
+  const plateFx = livingCasinoSectorFxPoint(p, lc, hoverIdx);
   lc.ringOpen = false;
-  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode: 'close', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
+  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode: 'close', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '', sectorIndex: hoverIdx });
   if (mode !== 'open' && livingCasinoIsInstantSelect(sec?.type)) {
     // Action sectors do not become the selected weapon. They only trigger once.
     const ok = activateLivingCasinoSector(run, players || new Map(), p, sec, { instantSelect: 1 });
-    if (ok) run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'action', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
+    if (ok) run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'action', label, x: plateFx.x, y: plateFx.y, tone, sector: sec?.type || '', sectorIndex: hoverIdx });
     else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${label} RELOAD`, chest: 'LVC' });
     lc.selected = livingCasinoPrimaryIndex(lc);
   } else if (LC_WEAPON_SECTORS.has(String(sec?.type || ''))) {
@@ -3579,7 +3587,7 @@ function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
     if (!p.weapons.includes(wid)) p.weapons.push(wid);
     p.weaponIdx = Math.max(0, p.weapons.indexOf(wid));
     lc.selected = hoverIdx;
-    run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'weapon', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
+    run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'weapon', label, x: plateFx.x, y: plateFx.y, tone, sector: sec?.type || '', sectorIndex: hoverIdx });
   } else {
     lc.selected = livingCasinoPrimaryIndex(lc);
   }
@@ -3692,7 +3700,7 @@ function livingCasinoSectorDesc(type) {
   if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
   if (type === 'jackpot') return 'Мгновенный джекпот-импульс вокруг антивируса. Если задел 6+ угроз, выдаёт небольшой бонус.';
   if (type === 'table') return 'Ставит карту-ловушку прямо под героем: угроза получает урон и короткий стоп.';
-  return 'Казино-пушка: запускает самонаводящиеся цифровые пули на несколько секунд.';
+  return 'Казино-модуль: запускает самонаводящиеся цифровые пули на несколько секунд.';
 }
 function livingCasinoSectorUpgradeDesc(type, next = 2) {
   if (type === 'dmg') return `КАЗИНО ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
