@@ -10,7 +10,7 @@ export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
-  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47, RMARKX: 48, RMARKY: 49, BOSSKEYMAX: 50, LVC: 51, LUCK: 52, CTRL: 53
+  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47, RMARKX: 48, RMARKY: 49, BOSSKEYMAX: 50, LVC: 51, LUCK: 52, CTRL: 53, DASHDIST: 54
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -68,7 +68,8 @@ export class GameState {
           let dx = h.mx, dy = h.my;
           if (Math.hypot(dx, dy) < 0.01) { dx = h.adx; dy = h.ady; }
           const l = Math.hypot(dx, dy) || 1;
-          const c = collideWalls(px + (dx / l) * DASH_DIST, py + (dy / l) * DASH_DIST, PLAYER_SIZE / 2, this.walls, px, py);
+          const dd = Math.max(80, Number(h.dashDist || DASH_DIST) || DASH_DIST);
+          const c = collideWalls(px + (dx / l) * dd, py + (dy / l) * dd, PLAYER_SIZE / 2, this.walls, px, py);
           px = c.x; py = c.y;
         }
         if (h.mx || h.my) {
@@ -106,14 +107,15 @@ export class GameState {
         let dx = mv.x, dy = mv.y;
         if (Math.hypot(dx, dy) < 0.01) { dx = adir.x / al; dy = adir.y / al; }
         const l = Math.hypot(dx, dy) || 1;
-        const c = collideWalls(this.pred.x + (dx / l) * DASH_DIST, this.pred.y + (dy / l) * DASH_DIST, PLAYER_SIZE / 2, this.walls, this.pred.x, this.pred.y);
+        const dashDist = Math.max(80, Number(me?.[P.DASHDIST] || DASH_DIST) || DASH_DIST);
+        const c = collideWalls(this.pred.x + (dx / l) * dashDist, this.pred.y + (dy / l) * dashDist, PLAYER_SIZE / 2, this.walls, this.pred.x, this.pred.y);
         this.pred.x = c.x; this.pred.y = c.y;
       }
       if (mv.x || mv.y) {
         const c = collideWalls(this.pred.x + mv.x * this.mySpeed * dt, this.pred.y + mv.y * this.mySpeed * dt, PLAYER_SIZE / 2, this.walls, this.pred.x, this.pred.y);
         this.pred.x = c.x; this.pred.y = c.y;
       }
-      this.history.push({ seq: this.seq, mx: mv.x, my: mv.y, dt, dash, speed: this.mySpeed, adx: adir.x / al, ady: adir.y / al });
+      this.history.push({ seq: this.seq, mx: mv.x, my: mv.y, dt, dash, speed: this.mySpeed, dashDist: Math.max(80, Number(me?.[P.DASHDIST] || DASH_DIST) || DASH_DIST), adx: adir.x / al, ady: adir.y / al });
       if (this.history.length > 120) this.history.shift();
     }
     return {

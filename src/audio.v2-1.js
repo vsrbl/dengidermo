@@ -291,12 +291,12 @@ export class AudioBus {
         break;
       case 'ctrl_proc_fire':
         // Quiet subordinate-process shot: audible feedback without reusing the loud hero weapon beep.
-        this.tone(360, 0.022, 'square', 0.014, 0.46);
-        this.noise(0.014, 0.010, 3200, 8);
+        this.tone(360, 0.026, 'square', 0.032, 0.46);
+        this.noise(0.018, 0.024, 3200, 8);
         break;
       case 'ctrl_proc_hit':
-        this.noise(0.016, 0.012, 1800, 7);
-        this.tone(210, 0.018, 'square', 0.010, 0.28);
+        this.noise(0.020, 0.030, 1800, 7);
+        this.tone(210, 0.026, 'square', 0.024, 0.28);
         break;
       case 'ctrl_proc_expire':
         this.tone(145, 0.055, 'sawtooth', 0.026, 0.44);
@@ -8202,4 +8202,55 @@ AudioBus.prototype.playYouTube = async function playYouTubeV2156() {
     this.ytMusic.loading = false;
     return false;
   }
+};
+
+// v2.1.158 — YouTube playing-status hotfix.
+// Some browsers start audible iframe playback before/without the delayed UI check seeing
+// the PLAYING event. Poll the official player state and clear loading as soon as the
+// iframe reports PLAYING, PAUSED, CUED or ENDED.
+AudioBus.prototype.syncYouTubeState = function syncYouTubeStateV2158() {
+  this.ytMusic = this.ytMusic || { player: null, playlist: localStorage.getItem('tc_youtube_playlist') || '', active: false, playing: false, ready: false };
+  const p = this.ytMusic.player;
+  if (!p?.getPlayerState) return this.ytMusic;
+  try {
+    const Y = window.YT?.PlayerState || {};
+    const state = p.getPlayerState();
+    this.ytMusic.lastState = state;
+    const playing = state === Y.PLAYING || state === 1;
+    const buffering = state === Y.BUFFERING || state === 3;
+    const paused = state === Y.PAUSED || state === 2;
+    const ended = state === Y.ENDED || state === 0;
+    const cued = state === Y.CUED || state === 5;
+    if (playing) {
+      this.ytMusic.playing = true;
+      this.ytMusic.active = true;
+      this.ytMusic.loading = false;
+      this.ytMusic.error = null;
+    } else if (buffering) {
+      this.ytMusic.playing = false;
+      this.ytMusic.active = true;
+      this.ytMusic.loading = true;
+    } else if (paused || ended || cued) {
+      this.ytMusic.playing = false;
+      this.ytMusic.loading = false;
+      if (ended) this.ytMusic.active = false;
+    }
+  } catch {}
+  return this.ytMusic;
+};
+
+AudioBus.prototype.isYouTubeActive = function isYouTubeActiveV2158() {
+  try {
+    this.syncYouTubeState?.();
+    return !!(this.ytMusic && this.ytMusic.player && this.ytMusic.active && this.ytMusic.playing);
+  } catch { return false; }
+};
+
+const playYouTubeBeforeV2158 = AudioBus.prototype.playYouTube;
+AudioBus.prototype.playYouTube = async function playYouTubeV2158Status() {
+  const ok = await playYouTubeBeforeV2158.call(this);
+  if (ok) {
+    [120, 320, 700, 1200, 2200, 3600].forEach(ms => setTimeout(() => { try { this.syncYouTubeState?.(); } catch {} }, ms));
+  }
+  return ok;
 };

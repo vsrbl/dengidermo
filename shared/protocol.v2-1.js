@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.157';
-export const BUILD_ID = 'process_controller_friendly_fire_guard_hotfix';
+export const VERSION = 'v2.1.160';
+export const BUILD_ID = 'process_controller_hp_scaled_process_lifetime';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

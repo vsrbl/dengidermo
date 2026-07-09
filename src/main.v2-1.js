@@ -349,6 +349,42 @@ function bindYouTubeMusicUi() {
     if (c === '101' || c === '150') return 'YT ERR 150 · EMBED BLOCKED';
     return c ? `YT ERR ${c}` : 'YT ERR';
   };
+  const syncYtUi = () => {
+    try { audio.syncYouTubeState?.(); } catch {}
+    if (audio.isYouTubeActive?.()) {
+      setToggle('PAUSE');
+      setYtStatus('PLAYING · INTERNAL AMBIENT MUTED');
+      setBusy(false);
+      return true;
+    }
+    if (audio.ytMusic?.error) {
+      setToggle('PLAY');
+      setYtStatus(friendlyYtError(audio.ytMusic.error));
+      setBusy(false);
+      return true;
+    }
+    const state = audio.ytMusic?.lastState;
+    if (audio.ytMusic?.loading) {
+      setToggle('PAUSE');
+      setYtStatus(state === 3 ? 'BUFFERING...' : 'LOADING...');
+      return false;
+    }
+    return false;
+  };
+  const watchYtStart = (maxMs = 5200) => {
+    const started = performance.now();
+    syncYtUi();
+    const timer = setInterval(() => {
+      if (syncYtUi() || performance.now() - started > maxMs) {
+        clearInterval(timer);
+        if (!audio.isYouTubeActive?.() && !audio.ytMusic?.error) {
+          setToggle('PLAY');
+          setBusy(false);
+          setYtStatus(audio.ytMusic?.loading ? 'LOADING...' : 'CLICK PLAY ON VIDEO');
+        }
+      }
+    }, 260);
+  };
   const init = () => audio.initYouTubeMusic?.('youtube-player').catch?.(() => setYtStatus('API ERR'));
   if (load) load.addEventListener('click', async () => {
     uiClick('ui_click');
@@ -389,13 +425,7 @@ function bindYouTubeMusicUi() {
       const playing = await audio.playYouTube?.();
       setToggle(playing ? 'PAUSE' : 'PLAY');
       setYtStatus(playing ? 'BUFFERING...' : 'PLAYER BLOCKED');
-      if (playing) setTimeout(() => {
-        if (audio.isYouTubeActive?.()) { setToggle('PAUSE'); setYtStatus('PLAYING · INTERNAL AMBIENT MUTED'); }
-        else if (audio.ytMusic?.loading) { setToggle('PAUSE'); setYtStatus('LOADING...'); }
-        else if (audio.ytMusic?.error) { setToggle('PLAY'); setYtStatus(friendlyYtError(audio.ytMusic.error)); }
-        else { setToggle('PLAY'); setYtStatus('CLICK PLAY ON VIDEO'); }
-        setBusy(false);
-      }, 1100);
+      if (playing) watchYtStart();
       else setBusy(false);
     } catch {
       setToggle('PLAY');
@@ -406,6 +436,14 @@ function bindYouTubeMusicUi() {
   if (input) input.addEventListener('change', () => { if (input.value.trim()) localStorage.setItem('tc_youtube_playlist', input.value.trim()); });
   // v2.1.91: do not build the YouTube iframe on page load.
   // The iframe/API is initialized by LOAD/PLAY click so browser autoplay/origin warnings do not spam startup.
+  setInterval(() => {
+    const txt = String(status?.textContent || '');
+    if (/LOADING|BUFFERING|STARTING/.test(txt) && audio.isYouTubeActive?.()) {
+      setToggle('PAUSE');
+      setYtStatus('PLAYING · INTERNAL AMBIENT MUTED');
+      setBusy(false);
+    }
+  }, 900);
   if (saved) { setYtStatus('YOUTUBE SAVED · CLICK PLAY'); setToggle('PLAY'); }
 }
 bindYouTubeMusicUi();
