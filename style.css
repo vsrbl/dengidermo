@@ -5228,3 +5228,92 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   color: #f3f3f3 !important;
   box-shadow: inset 0 3px 0 rgba(102,246,255,.18) !important;
 }
+
+/* v2.1.152 — Process Controller hold-capture and fixed CTRL-only HUD stack */
+body.process-controller-mode #hud-right {
+  gap: 0 !important;
+}
+body.process-controller-mode #dash-pips {
+  order: 1 !important;
+  margin-bottom: 7px !important;
+}
+body.process-controller-mode #process-controller-rack.pc-process-rack {
+  order: 2 !important;
+  display: grid !important;
+  margin: 0 0 4px 0 !important;
+  width: min(350px, 42vw) !important;
+}
+body.process-controller-mode #process-controller-rack.pc-process-rack.empty {
+  opacity: 1 !important;
+}
+body.process-controller-mode #process-controller-rack .pc-rack-head {
+  min-height: 10px !important;
+  margin-bottom: 2px !important;
+  opacity: .78 !important;
+}
+body.process-controller-mode #process-controller-rack .pc-life-grid {
+  gap: 5px !important;
+}
+body.process-controller-mode #process-controller-rack .pc-life-chip {
+  height: 28px !important;
+  background: rgba(2,12,16,.78) !important;
+}
+body.process-controller-mode #process-controller-rack .pc-life-chip.empty {
+  opacity: .56 !important;
+  background: rgba(42,50,54,.34) !important;
+  border-color: rgba(120,140,145,.24) !important;
+}
+body.process-controller-mode #process-controller-selected.pc-selected.ctrl-main {
+  order: 3 !important;
+  margin: 0 !important;
+  border-bottom-width: 0 !important;
+  border-bottom-color: transparent !important;
+  background: rgba(2,12,16,.86) !important;
+  box-shadow: 0 0 0 1px rgba(102,246,255,.12), 0 0 16px rgba(102,246,255,.08) !important;
+}
+body.process-controller-mode #weapon-slots.ctrl-slots {
+  order: 4 !important;
+  margin-top: 0 !important;
+  background: rgba(2,12,16,.86) !important;
+  border: 1px solid rgba(102,246,255,.50) !important;
+  border-top-width: 0 !important;
+  box-shadow: 0 0 0 1px rgba(102,246,255,.08) !important;
+}
+body.process-controller-mode #weapon-slots.ctrl-slots .wslot {
+  flex: 1 1 0 !important;
+  background: rgba(2,12,16,.86) !important;
+  border-top-width: 0 !important;
+  border-bottom-width: 0 !important;
+  border-color: rgba(102,246,255,.24) !important;
+  color: rgba(102,246,255,.66) !important;
+  box-shadow: none !important;
+}
+body.process-controller-mode #weapon-slots.ctrl-slots .wslot:first-child { border-left-width: 0 !important; }
+body.process-controller-mode #weapon-slots.ctrl-slots .wslot:last-child { border-right-width: 0 !important; }
+body.process-controller-mode #weapon-slots.ctrl-slots .wslot.active {
+  background: rgba(2,12,16,.86) !important;
+  color: #f3f3f3 !important;
+  border-color: rgba(102,246,255,.32) !important;
+  box-shadow: inset 0 -3px 0 rgba(102,246,255,.34) !important;
+}
+body.process-controller-mode #process-controller-selected.pc-selected.ctrl-main.capturing {
+  border-color: rgba(255,48,72,.78) !important;
+  border-bottom-color: transparent !important;
+}
+body.process-controller-mode #process-controller-selected.pc-selected.ctrl-main.capturing .pc-fill {
+  background: rgba(255,48,72,.18) !important;
+}
+body.ctrl-capture-active #custom-cursor .cc {
+  left: -2px !important;
+  top: -2px !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-color: var(--red) !important;
+  background: linear-gradient(to top, rgba(255,48,72,.34) var(--ctrl-capture-pct, 0%), rgba(0,0,0,.42) var(--ctrl-capture-pct, 0%)) !important;
+  box-shadow: 0 0 0 1px rgba(255,48,72,.35), 0 0 16px rgba(255,48,72,.45) !important;
+}
+body.ctrl-capture-active #custom-cursor .cc::after {
+  left: 9px !important;
+  top: 9px !important;
+  background: var(--red) !important;
+}
