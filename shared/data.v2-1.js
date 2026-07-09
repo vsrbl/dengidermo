@@ -532,6 +532,9 @@ export const ROOM_MODS = {
   skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' }
 };
 
+// Backward-compatible alias for UI modules that use the setting name after the locale pass.
+export const SECTOR_MODS = ROOM_MODS;
+
 export const ROOM_SEQUENCE = ['grid', 'void', 'core', 'boss'];
 export const SPECIAL_ROOMS = {
   signal_contract: { id: 'signal_contract', label: 'SIGNAL CONTRACT' },

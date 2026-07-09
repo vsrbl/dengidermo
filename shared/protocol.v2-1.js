@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.137';
-export const BUILD_ID = 'first_boss_shield_hp_balance_hotfix';
+export const VERSION = 'v2.1.138';
+export const BUILD_ID = 'render_export_sector_mods_hotfix';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
