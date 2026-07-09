@@ -3073,14 +3073,87 @@ function expireControlledProcess(run, p, m, reason = 'ttl') {
     label: ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4)
   });
 }
+
+function forEachControlledProcess(players, fn) {
+  if (!players || typeof fn !== 'function') return 0;
+  let n = 0;
+  for (const owner of players.values()) {
+    if (!owner || !owner.alive || !isProcessControllerPlayer(owner)) continue;
+    const pc = ensureProcessControllerState(owner);
+    if (!pc || !Array.isArray(pc.controlled)) continue;
+    for (let i = 0; i < pc.controlled.length; i++) {
+      const m = pc.controlled[i];
+      if (!m || (m.ttl ?? 0) <= 0 || Number(m.hp ?? 1) <= 0) continue;
+      n++;
+      fn(owner, pc, m, i);
+    }
+  }
+  return n;
+}
+function damageControlledProcess(run, owner, m, dmg, srcX, srcY, source = 'danger') {
+  if (!run || !owner || !m || (m.ttl ?? 0) <= 0 || Number(m.hp ?? 1) <= 0) return false;
+  const def = ENEMIES[m.kind] || {};
+  m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 24));
+  const raw = Math.max(1, Math.round(Number(dmg) || 0));
+  m.hp = Math.max(0, Number(m.hp ?? m.maxHp) - raw);
+  m.hitT = Math.max(m.hitT || 0, 0.18);
+  m.pulse = Math.max(m.pulse || 0, 0.12);
+  const sx = Number.isFinite(srcX) ? srcX : m.x;
+  const sy = Number.isFinite(srcY) ? srcY : m.y;
+  const n = norm(m.x - sx, m.y - sy);
+  m.x += n.x * Math.min(9, raw * 0.10);
+  m.y += n.y * Math.min(9, raw * 0.10);
+  run.fx.push({ t: 'ctrl_proc_hit', id: m.id || '', owner: owner.id || '', dmg: raw, x: Math.round(m.x), y: Math.round(m.y), source });
+  if (m.hp <= 0 && !m.expiredFx) {
+    m.expiredFx = 1;
+    m.ttl = 0;
+    expireControlledProcess(run, owner, m, 'hp');
+  }
+  return true;
+}
+function damageControlledProcessesInRadius(run, players, x, y, r, dmg, source = 'danger') {
+  let hits = 0;
+  forEachControlledProcess(players, (owner, pc, m) => {
+    if (dist2(m.x, m.y, x, y) < (Math.max(0, r || 0) + (m.size || 24) / 2) ** 2) {
+      if (damageControlledProcess(run, owner, m, dmg, x, y, source)) hits++;
+    }
+  });
+  return hits;
+}
+function damageControlledProcessesOnSegment(run, players, x1, y1, x2, y2, width, dmg, source = 'danger') {
+  let hits = 0;
+  const w = Math.max(0, Number(width || 0));
+  forEachControlledProcess(players, (owner, pc, m) => {
+    if (distToSegment2(m.x, m.y, x1, y1, x2, y2) < (w + (m.size || 24) / 2) ** 2) {
+      if (damageControlledProcess(run, owner, m, dmg, (x1 + x2) / 2, (y1 + y2) / 2, source)) hits++;
+    }
+  });
+  return hits;
+}
+function damageControlledProcessFromEnemyBullet(run, players, b) {
+  if (!run || !b || b.from !== 'e') return false;
+  let best = null, bestOwner = null, bd = Infinity;
+  forEachControlledProcess(players, (owner, pc, m) => {
+    const d = dist2(m.x, m.y, b.x, b.y);
+    if (d < bd && d < (((m.size || 24) + (b.size || 5)) / 2 + 3) ** 2) { bd = d; best = m; bestOwner = owner; }
+  });
+  if (!best || !bestOwner) return false;
+  if (b.aoe) {
+    explode(run, players, b.x, b.y, b.aoe, b.dmg, null, true, b.kind === 'rocketgun' ? 'danger' : 'blast');
+  } else {
+    damageControlledProcess(run, bestOwner, best, b.dmg, b.x, b.y, 'enemy_bullet');
+  }
+  return true;
+}
 function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
   m.size = Math.max(8, Number(m.baseSize || m.size || def.size || 24));
   m.baseSize = m.size;
   m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 30));
-  m.hp = Math.max(1, Number(m.hp || m.maxHp));
+  m.hp = Number.isFinite(Number(m.hp)) ? Math.max(0, Number(m.hp)) : m.maxHp;
   m.maxT = Math.max(1, Number(m.maxT || processControllerLifeMax(p)) || processControllerLifeMax(p));
   m.ttl = Math.max(0, (m.ttl ?? m.maxT) - dt);
+  if (m.ttl <= 0 || m.hp <= 0) return;
   m.st = Math.max(0, Number(m.st || 0) + dt);
   const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
   const fireMul = 1 + Math.min(1.4, Math.max(0, p.stats?.ctrlFire || 0) * 0.18);
@@ -3179,8 +3252,8 @@ function stepProcessControllerState(run, players, p, dt) {
   }
   const survivors = [];
   for (const m of pc.controlled) {
-    if (m && m.ttl > 0 && (m.hp || 1) > 0) survivors.push(m);
-    else if (m) expireControlledProcess(run, p, m, m.ttl <= 0 ? 'ttl' : 'hp');
+    if (m && m.ttl > 0 && Number(m.hp ?? 1) > 0) survivors.push(m);
+    else if (m && !m.expiredFx) expireControlledProcess(run, p, m, m.ttl <= 0 ? 'ttl' : 'hp');
   }
   pc.controlled = survivors;
 }
@@ -3295,6 +3368,12 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   }
   if (!p.alive || p.cd > 0) return;
   if (id === 'command_pulse') {
+    if (pc.controlled.length >= processControllerMax(p)) {
+      if (pc.cmdTargetId) clearProcessControllerCmdLock(pc);
+      if (!p.fireWasDown) run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ СЛОТА', chest: 'CTRL' });
+      p.fireWasDown = true;
+      return;
+    }
     let target = pc.cmdTargetId ? (run.enemies || []).find(e => e && e.id === pc.cmdTargetId) : null;
     if (!processControllerTargetValid(run, p, target, w.maxDist || 520)) {
       target = processControllerFindTarget(run, p, w.maxDist || 520, 90);
@@ -3339,6 +3418,10 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   if (id === 'quarantine_anchor') {
     ok = placeProcessControllerAnchor(run, players, p);
   } else if (id === 'process_saw') {
+    if (pc.controlled.length >= processControllerMax(p)) {
+      run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'SAW: НЕТ СЛОТА', chest: 'CTRL' });
+      return;
+    }
     const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
     const ay = Number.isFinite(p.aimY) ? p.aimY : p.y;
     const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
@@ -5041,9 +5124,11 @@ function stepBossMarks(run, players, e, dt) {
     if (m.line) {
       run.fx.push({ t: 'active_line', kind: 'boss_line', x1: Math.round(m.x1), y1: Math.round(m.y1), x2: Math.round(m.x2), y2: Math.round(m.y2), width: m.w || 54, hitWidth: m.w || 54, tone: m.tone || 'red' });
       for (const p of players.values()) if (p.alive && distToSegment2(p.x, p.y, m.x1, m.y1, m.x2, m.y2) < ((m.w || 54) + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, m.dmg || 24, m.x2, m.y2);
+      damageControlledProcessesOnSegment(run, players, m.x1, m.y1, m.x2, m.y2, m.w || 54, m.dmg || 24, 'boss_line');
     } else {
       run.fx.push({ t: 'rain_hit', x: Math.round(m.x), y: Math.round(m.y), r: m.r || 90, stacks: 1 });
       for (const p of players.values()) if (p.alive && dist2(p.x, p.y, m.x, m.y) < ((m.r || 90) + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, m.dmg || 20, m.x, m.y);
+      damageControlledProcessesInRadius(run, players, m.x, m.y, m.r || 90, m.dmg || 20, 'boss_mark');
       if (m.adds && run.enemies.length < difficulty(run).addCap) {
         const pool = m.addPool || ['grunt', 'runner'];
         const count = Math.min(m.adds, Math.max(0, difficulty(run).addCap - run.enemies.length));
@@ -6378,6 +6463,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
       if (p.alive && dist2(p.x, p.y, x, y) < (r + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, dmg, x, y);
     }
   }
+  if (hurtPlayers || style === 'danger' || owner == null) damageControlledProcessesInRadius(run, players, x, y, r, dmg, style === 'danger' ? 'danger_blast' : 'blast');
 }
 
 function rocketControlOpts(b) {
@@ -6604,6 +6690,7 @@ function stepBullets(run, players, dt) {
         }
       }
     } else {
+      if (damageControlledProcessFromEnemyBullet(run, players, b)) { b.life = -1; continue; }
       for (const p of players.values()) {
         if (p.alive && dist2(p.x, p.y, b.x, b.y) < ((PLAYER_SIZE + b.size) / 2 + 2) ** 2) {
           if (b.aoe) explode(run, players, b.x, b.y, b.aoe, b.dmg, null, true, b.kind === 'rocketgun' ? 'danger' : 'blast');
@@ -7709,6 +7796,7 @@ function stepMods(run, players, dt) {
       run.pendingPrismLanes = run.pendingPrismLanes.filter(x => x !== lane);
       run.fx.push({ t: 'active_line_tick', kind: 'room_lane', x1: lane.x1, y1: lane.y1, x2: lane.x2, y2: lane.y2, width: lane.w, tone: 'cyan' });
       for (const p of players.values()) if (p.alive && distToSegment2(p.x, p.y, lane.x1, lane.y1, lane.x2, lane.y2) < (lane.w + PLAYER_SIZE / 2) ** 2) { if (run.roomStats) run.roomStats.prismHits = (run.roomStats.prismHits || 0) + 1; damagePlayer(run, p, lane.dmgP, (lane.x1 + lane.x2) / 2, (lane.y1 + lane.y2) / 2); }
+      damageControlledProcessesOnSegment(run, players, lane.x1, lane.y1, lane.x2, lane.y2, lane.w, lane.dmgP || lane.dmgE || 24, 'room_lane');
       for (const e of [...run.enemies]) if (distToSegment2(e.x, e.y, lane.x1, lane.y1, lane.x2, lane.y2) < (lane.w + e.size / 2) ** 2) damageEnemy(run, players, e, lane.dmgE, null, 0, 0, 0);
     }
   }
@@ -7719,6 +7807,7 @@ function stepMods(run, players, dt) {
       run.fx.push({ t: 'blood_tax_hit', x: Math.round(b.x), y: Math.round(b.y), r: b.r });
       if (run.roomStats) run.roomStats.bloodTaxes = (run.roomStats.bloodTaxes || 0) + 1;
       for (const p of players.values()) if (p.alive && dist2(p.x, p.y, b.x, b.y) < (b.r + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, b.dmgP, b.x, b.y);
+      damageControlledProcessesInRadius(run, players, b.x, b.y, b.r, b.dmgP || b.dmgE || 24, 'blood_tax');
       for (const e of [...run.enemies]) if (dist2(e.x, e.y, b.x, b.y) < (b.r + e.size / 2) ** 2) damageEnemy(run, players, e, b.dmgE, null, 0, 0, 0);
     }
   }
@@ -7763,6 +7852,7 @@ function stepMods(run, players, dt) {
           }
         }
         if (!s.virus && run.staticRainCanSeedNext && playerHits > 0) run.roomStaticRainFalls = (run.roomStaticRainFalls || 0) + playerHits;
+        damageControlledProcessesInRadius(run, players, s.x, s.y, s.r, s.dmgP || s.dmgE || 25, 'static_storm');
         for (const e of [...run.enemies]) {
           if (dist2(e.x, e.y, s.x, s.y) < (s.r + e.size / 2) ** 2) damageEnemy(run, players, e, s.dmgE || 60, null, 0, 0, 0);
         }
@@ -9651,9 +9741,11 @@ function stepActiveFields(run, players, dt) {
         if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
           const rr = f.width || f.r || 42;
           for (const e of [...run.enemies]) if (distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
+          damageControlledProcessesOnSegment(run, players, f.x1, f.y1, f.x2, f.y2, rr, f.dmg || 8, f.kind || 'active_line');
           run.fx.push({ t: 'active_line_tick', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || Math.max(2, Math.round(rr * 0.42)), hitWidth: rr, tone: 'purple' });
         } else {
           for (const e of [...activeTargets(run, f.x, f.y, f.r)]) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
+          damageControlledProcessesInRadius(run, players, f.x, f.y, f.r, f.dmg || 8, f.kind || 'active_field');
           run.fx.push({ t: 'active_tick', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: f.kind === 'red_static' ? 'purple' : fieldTone });
         }
         if (p && activeHasMutation(p, 'leech') && (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'signal_spike')) p.hp = Math.min(maxHp(p), p.hp + 1.2);

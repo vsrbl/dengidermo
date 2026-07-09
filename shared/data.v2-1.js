@@ -27,15 +27,15 @@ export const WEAPONS = {
   },
   command_pulse: {
     id: 'command_pulse', label: 'CMD', name: 'КОМАНДА ЗАХВАТА',
-    cooldown: 1.70, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 520, size: 0, knock: 0, control: 1, protocol: 1
+    cooldown: 6.00, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 520, size: 0, knock: 0, control: 1, protocol: 1
   },
   quarantine_anchor: {
     id: 'quarantine_anchor', label: 'QRN', name: 'КАРАНТИННЫЙ ЯКОРЬ',
-    cooldown: 1.12, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 680, size: 0, knock: 0, quarantine: 1, protocol: 1
+    cooldown: 8.00, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 680, size: 0, knock: 0, quarantine: 1, protocol: 1
   },
   process_saw: {
     id: 'process_saw', label: 'SAW', name: 'РАЗБОР ПРОЦЕССА',
-    cooldown: 1.85, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 560, size: 0, knock: 0, control: 1, protocol: 1
+    cooldown: 12.00, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 560, size: 0, knock: 0, control: 1, protocol: 1
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun', 'living_casino', 'roulette', 'deck'];

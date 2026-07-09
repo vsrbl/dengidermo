@@ -1066,6 +1066,7 @@ export class AudioBus {
       case 'ctrl_saw': if (mine) this.play('ctrl_saw'); break;
       case 'qrn_place': if (mine) this.play('qrn_place'); break;
       case 'ctrl_proc_fire': if (mine || f.owner === info.myId) this.play('ctrl_proc_fire'); break;
+      case 'ctrl_proc_hit': if (mine || f.owner === info.myId) this.play('ctrl_proc_hit'); break;
       case 'ctrl_proc_expire': if (mine || f.owner === info.myId) this.play('ctrl_proc_expire'); break;
       case 'weapon_chain_lock': this.play('qrn_chain'); break;
       case 'lc_sector_ring': if (mine) this.play('lc_sector_ring'); break;
