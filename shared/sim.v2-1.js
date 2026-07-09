@@ -1751,6 +1751,43 @@ function collideWalls(x, y, half, walls, ox, oy) {
   }
   return { x: nx, y: ny };
 }
+function bulletWallCollision(ox, oy, x, y, half, walls) {
+  const list = walls || [];
+  if (!list.length) return null;
+  half = Math.max(1, Number(half || 1));
+  const vx = x - ox, vy = y - oy;
+  const len = Math.hypot(vx, vy);
+  const steps = Math.max(1, Math.ceil(len / Math.max(4, half * 0.65)));
+  let px = ox, py = oy;
+  const resolveSide = (w, cx, cy, prevX, prevY) => {
+    let axis = '';
+    let nx = 0, ny = 0;
+    if (prevX + half <= w.x) { axis = 'x'; nx = -1; }
+    else if (prevX - half >= w.x + w.w) { axis = 'x'; nx = 1; }
+    else if (prevY + half <= w.y) { axis = 'y'; ny = -1; }
+    else if (prevY - half >= w.y + w.h) { axis = 'y'; ny = 1; }
+    else if (Math.abs(vx) >= Math.abs(vy)) { axis = 'x'; nx = (vx >= 0 ? -1 : 1); }
+    else { axis = 'y'; ny = (vy >= 0 ? -1 : 1); }
+    const safePad = half + 0.75;
+    return {
+      wall: w, axis,
+      nx, ny,
+      x: axis === 'x' ? (nx < 0 ? w.x - safePad : w.x + w.w + safePad) : prevX,
+      y: axis === 'y' ? (ny < 0 ? w.y - safePad : w.y + w.h + safePad) : prevY
+    };
+  };
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const cx = ox + vx * t;
+    const cy = oy + vy * t;
+    for (const w of list) {
+      if (!aabbHit(cx, cy, half, w)) continue;
+      return resolveSide(w, cx, cy, px, py);
+    }
+    px = cx; py = cy;
+  }
+  return null;
+}
 function dist2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
 function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d }; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -2775,6 +2812,10 @@ function setupLivingCasinoPlayer(p) {
     lastPower: 1,
     copyPower: 0.55,
     betLuck: 0,
+    betCd: 0,
+    tableRadius: 0,
+    tableTriggers: 0,
+    tableHold: 0,
     autoLvc: 0
   };
   return p;
@@ -2790,6 +2831,11 @@ function ensureLivingCasinoState(p) {
   lc.selected = Math.max(0, Math.min(lc.sectors.length - 1, Number(lc.selected || 0) | 0));
   lc.ringOpen = !!lc.ringOpen;
   lc.copyPower = Math.max(0.25, Math.min(0.95, Number(lc.copyPower || 0.55) || 0.55));
+  lc.betLuck = Math.max(0, Number(lc.betLuck || 0) | 0);
+  lc.betCd = Math.max(0, Number(lc.betCd || 0) || 0);
+  lc.tableRadius = Math.max(0, Number(lc.tableRadius || 0) | 0);
+  lc.tableTriggers = Math.max(0, Number(lc.tableTriggers || 0) | 0);
+  lc.tableHold = Math.max(0, Number(lc.tableHold || 0) | 0);
   lc.autoLvc = lc.autoLvc ? 1 : 0;
   if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = ['living_casino'];
   if (!p.weapons.includes('living_casino')) p.weapons.unshift('living_casino');
@@ -2935,7 +2981,12 @@ function livingCasinoChoicePool(p, qualityTier = 0) {
   }
   if (livingCasinoHasSector(p, 'dmg') && !lc.autoLvc) pool.push({ id: 'lc_lvc_auto_fire', kind: 'lc_lvc_auto_fire', sector: 'dmg', label: 'КАЗИНО: АВТО-ОГОНЬ', actionLabel: 'АВТО-ОГОНЬ', group: 'ЖИВОЕ КАЗИНО', role: 'КАЗИНО', desc: 'Если LVC выбрана, она сама запускается, когда полностью готова после перезарядки.', valueTier: qualityTier });
   if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'КОПИЯ: СИЛА +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'ЖИВОЕ КАЗИНО', role: 'КОПИЯ', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
-  if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'СТАВКА: ШАНС +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'ЖИВОЕ КАЗИНО', role: 'СТАВКА', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'СТАВКА: ШАНС +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'ЖИВОЕ КАЗИНО', role: 'СТАВКА', desc: 'Сектор ставок чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'table')) {
+    pool.push({ id: `lc_table_radius_${lc.tableRadius || 0}`, kind: 'lc_table_radius', label: 'КАРТА: РАДИУС +', actionLabel: 'РАСШИРИТЬ КАРТУ', group: 'ЖИВОЕ КАЗИНО', role: 'КАРТА', desc: 'Карта-ловушка накрывает больше пола и держится немного дольше.', valueTier: qualityTier });
+    pool.push({ id: `lc_table_triggers_${lc.tableTriggers || 0}`, kind: 'lc_table_triggers', label: 'КАРТА: МЕТКА +1', actionLabel: 'ДОБАВИТЬ МЕТКУ', group: 'ЖИВОЕ КАЗИНО', role: 'КАРТА', desc: 'Карта-ловушка может сработать ещё по одной угрозе перед распадом.', valueTier: qualityTier });
+    pool.push({ id: `lc_table_hold_${lc.tableHold || 0}`, kind: 'lc_table_hold', label: 'КАРТА: СТОП +', actionLabel: 'УСИЛИТЬ СТОП', group: 'ЖИВОЕ КАЗИНО', role: 'КАРТА', desc: 'Карта-ловушка дольше стопорит угрозу и наносит больше урона.', valueTier: qualityTier });
+  }
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
   return pool;
 }
@@ -2944,11 +2995,11 @@ function livingCasinoSectorDesc(type) {
   if (type === 'deck') return 'Пушка-колода: быстрый веер карт по курсору.';
   if (type === 'guard') return 'Расталкивает угрозы и даёт временный щит, ёмкость которого постепенно тает.';
   if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного запаса рывка.';
-  if (type === 'bet') return 'Ставит малую случайную цену: кредиты, здоровье или опыт. Выплата тоже случайная.';
+  if (type === 'bet') return 'Ставит малую случайную цену: кредиты, здоровье или опыт. Выплата тоже случайная, действие уходит на перезарядку.';
   if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
   if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
   if (type === 'jackpot') return 'Мгновенный джекпот-импульс вокруг антивируса. Если задел 6+ угроз, выдаёт небольшой бонус.';
-  if (type === 'table') return 'Ставит карту-ловушку прямо под героем: первая угроза получает урон и короткий стоп.';
+  if (type === 'table') return 'Ставит карту-ловушку прямо под героем: угроза получает урон и короткий стоп.';
   return 'Казино-пушка: запускает самонаводящиеся цифровые пули на несколько секунд.';
 }
 function livingCasinoSectorUpgradeDesc(type, next = 2) {
@@ -2961,7 +3012,7 @@ function livingCasinoSectorUpgradeDesc(type, next = 2) {
   if (type === 'copy') return `КОПИЯ ${roman(next)}: быстрее перезарядка и сильнее повтор прошлого действия.`;
   if (type === 'ghost') return `ПРИЗРАК ${roman(next)}: дольше скрытие и быстрее перезарядка.`;
   if (type === 'jackpot') return `ДЖЕКПОТ ${roman(next)}: больше радиус, урон и бонус за 6+ угроз.`;
-  if (type === 'table') return `КАРТА ${roman(next)}: дольше ловушка и сильнее первый удар.`;
+  if (type === 'table') return `КАРТА ${roman(next)}: дольше ловушка, шире зона и сильнее срабатывание.`;
   return `Сектор ${roman(next)}.`;
 }
 function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
@@ -3044,6 +3095,15 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
   } else if (opt.kind === 'lc_bet_luck') {
     lc.betLuck = Math.max(0, (lc.betLuck || 0) + 1);
     label = `СТАВКА: ШАНС +${lc.betLuck}`;
+  } else if (opt.kind === 'lc_table_radius') {
+    lc.tableRadius = Math.max(0, (lc.tableRadius || 0) + 1);
+    label = `КАРТА: РАДИУС +${lc.tableRadius}`;
+  } else if (opt.kind === 'lc_table_triggers') {
+    lc.tableTriggers = Math.max(0, (lc.tableTriggers || 0) + 1);
+    label = `КАРТА: МЕТОК ${1 + lc.tableTriggers}`;
+  } else if (opt.kind === 'lc_table_hold') {
+    lc.tableHold = Math.max(0, (lc.tableHold || 0) + 1);
+    label = `КАРТА: СТОП +${lc.tableHold}`;
   } else return false;
   run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'LVC' });
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
@@ -3112,12 +3172,18 @@ function activateLivingCasinoJackpot(run, players, p, sec, power = 1) {
 }
 function activateLivingCasinoTable(run, p, sec, power = 1) {
   const lvl = Math.max(1, sec.level || 1);
+  const lc = ensureLivingCasinoState(p);
+  const radiusBonus = Math.max(0, Number(lc?.tableRadius || 0) | 0);
+  const triggerBonus = Math.max(0, Number(lc?.tableTriggers || 0) | 0);
+  const holdBonus = Math.max(0, Number(lc?.tableHold || 0) | 0);
   // TABLE is an instant trap under the hero, not a cursor-targeted cast.
   const x = p.x;
   const y = p.y;
-  const ttl = livingCasinoSectorDuration('table', lvl, power);
-  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: 60 + lvl * 6, ttl, dmg: weaponDamageValue(p, 42 + lvl * 9, power), slow: 0.04, tickEvery: 0.18, lvl, sprung: 0 });
-  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: 76 + lvl * 6, playerId: p.id });
+  const radius = 60 + lvl * 6 + radiusBonus * 12;
+  const ttl = livingCasinoSectorDuration('table', lvl, power) + radiusBonus * 0.45;
+  const dmg = weaponDamageValue(p, 42 + lvl * 9 + holdBonus * 7, power);
+  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: radius, ttl, dmg, slow: 0.04, tickEvery: 0.18, lvl, sprung: 0, hitsLeft: 1 + triggerBonus, hold: holdBonus, hitIds: [] });
+  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: Math.round(radius + 16), playerId: p.id, hitsLeft: 1 + triggerBonus });
   return true;
 }
 function activateLivingCasinoGuard(run, p, sec, power = 1) {
@@ -3186,6 +3252,7 @@ function livingCasinoPickStake(p, lvl) {
 }
 function activateLivingCasinoBet(run, players, p, sec, power = 1) {
   const lc = ensureLivingCasinoState(p);
+  if ((lc?.betCd || 0) > 0) return false;
   if (p.livingCasinoBetRoll && (p.livingCasinoBetRoll.t || 0) > 0) return false;
   const lvl = Math.max(1, sec.level || 1);
   const { stake, base, paid } = livingCasinoPickStake(p, lvl);
@@ -3200,6 +3267,7 @@ function activateLivingCasinoBet(run, players, p, sec, power = 1) {
   const val = Math.max(0, Math.round((paid || base) * mult * power));
   const spinSymbols = ['GLD', 'HP', 'EXP'].sort(() => Math.random() - 0.5);
   p.livingCasinoBetRoll = { t: 1.15, total: 1.15, stake, paid: paid || 0, reward, val, result: tag, win: val > 0 ? 1 : 0, lvl, power, spinSymbols };
+  if (lc) lc.betCd = Math.max(lc.betCd || 0, livingCasinoSectorReload('bet', lvl));
   run.fx.push({ t: 'lc_bet_roll', phase: 'spin', id: p.id, label: 'ROLLING', symbols: spinSymbols, stake, paid: paid || 0, reward, val: 0, result: 'ROLL', win: 0, x: Math.round(p.x), y: Math.round(p.y), r: 112 + lvl * 10, playerId: p.id });
   return true;
 }
@@ -3263,6 +3331,7 @@ function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
 }
 function fireLivingCasinoSector(run, players, p, dt) {
   const lc = ensureLivingCasinoState(p); if (!lc) return;
+  lc.betCd = Math.max(0, (lc.betCd || 0) - dt);
   if (lc.ringOpen) lc.selected = livingCasinoAimIndex(p, lc);
   if (!p.fire) { lc.fireDown = false; return; }
   if (lc.fireDown || !p.alive) return;
@@ -4784,7 +4853,7 @@ function rActiveDesc(p) {
   if (id === 'ghost_decoy') return `Невидимость + призрак ${ghostDecoyDuration(p)}с · CD 22с`;
   if (id === 'rewind_mark') return `Метка возврата ${rewindWindow(p)}с · стан ${rewindStun(p)}с`;
   if (id === 'kill_switch') return p?.stats?.killSwitchCharge > 0 ? 'Один раз стирает угрозы на экране, включая главную угрозу.' : 'KILL SWITCH сгорел.';
-  return 'R-активка не выбрана.';
+  return 'R-протокол не выбран.';
 }
 function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
 function redlineDuration(p) { return Math.round((3 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1) * 10) / 10; }
@@ -5006,23 +5075,23 @@ const ROOM_WAGER_STAKES = [
   { id: 'hp_50', text: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
   { id: 'loop_dmg_down', text: '-30% урона до конца loop', loss: (run, p) => { p.wagerDmgMul = Math.min(p.wagerDmgMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd_down', text: '-30% скорости до конца loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_forever', text: 'R-активку навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
+  { id: 'r_forever', text: 'R-протокол навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
   { id: 'maxhp_forever', text: '-10 max HP навсегда', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
   { id: 'boss_key', text: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
   { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } }
 ];
 const ROOM_WAGER_CONDITIONS = [
   { id: 'dash15', text: 'сделать 15 dash', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
-  { id: 'no_damage', text: 'не получить урон всю комнату', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'no_damage', text: 'не получить урон всю сектор', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
   { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
   { id: 'q3', text: 'использовать Q 3 раза', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
   { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
   { id: 'kills10', text: 'удалить 10 угроз', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
-  { id: 'hp50', text: 'закончить комнату выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
+  { id: 'hp50', text: 'закончить сектор выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
   { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
 ];
 const ROOM_WAGER_PRIZES = [
-  { id: 'dmg100', text: 'урон x100 на всю следующую комнату', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
+  { id: 'dmg100', text: 'урон x100 на всю следующую сектор', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
   { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'aegis', text: '+1 ЭГИДА', prize: (run, p) => { p.stats.aegisStacks += 1; } },
@@ -5656,6 +5725,9 @@ function fireWeapon(run, players, p, dt) {
     // While the Living Casino ring is open, LMB is a UI confirm just like RMB.
     // It must never leak through as weapon fire, regardless of selected gun.
     if (lc?.ringOpen || currentWeapon === 'living_casino') { fireLivingCasinoSector(run, players, p, dt); return; }
+    // If LMB was held to pick RLT/CRD in the ring, wait for release before normal gun fire.
+    if (p.fire && lc?.fireDown) return;
+    if (!p.fire && lc) lc.fireDown = false;
   }
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
@@ -5807,7 +5879,12 @@ function applyDamperFieldsToBullet(run, b, dt) {
     }
     const after = Math.hypot(b.vx || 0, b.vy || 0);
     if (after < (def.stopSpd || 36) || before < (def.stopSpd || 36)) {
-      run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind || '' });
+      if (b.kind === 'roulette' && b.from === 'p') {
+        const n = norm(b.vx || 1, b.vy || 0);
+        splitRouletteSquare(run, b, n.x, n.y, 'damp');
+      } else {
+        run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind || '' });
+      }
       b.life = -1;
       return true;
     }
@@ -5912,49 +5989,22 @@ function stepBullets(run, players, dt) {
       else run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, range: 1, dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
       b.life = -1; continue;
     }
-    // walls
+    // walls: sweep between old/new positions so fast or wall-adjacent shots cannot tunnel
+    // through a wall and resolve on the far side.
     let hitWall = false, hitWallAxis = '', hitWallObj = null;
-    for (const w of walls) {
-      if (aabbHit(b.x, b.y, b.size / 2, w)) {
-        hitWall = true; hitWallObj = w;
-        const bh = (b.size || 4) / 2;
-        const overlapX = Math.min(b.x + bh - w.x, w.x + w.w - (b.x - bh));
-        const overlapY = Math.min(b.y + bh - w.y, w.y + w.h - (b.y - bh));
-        hitWallAxis = Math.abs(b.vx || 0) > Math.abs(b.vy || 0) * 1.25 ? 'x' : (Math.abs(b.vy || 0) > Math.abs(b.vx || 0) * 1.25 ? 'y' : (overlapX < overlapY ? 'x' : 'y'));
-        break;
-      }
+    const wallHit = bulletWallCollision(ox, oy, b.x, b.y, (b.size || 4) / 2, walls);
+    if (wallHit) {
+      hitWall = true; hitWallObj = wallHit.wall; hitWallAxis = wallHit.axis;
+      b.x = wallHit.x; b.y = wallHit.y;
     }
     if (hitWall) {
       if (b.kind === 'roulette' && b.from === 'p') {
-        const half = (b.size || 4) / 2 + 0.75;
-        let nx = 0, ny = 0;
-        if (hitWallAxis === 'x') {
-          const fromLeft = ox < hitWallObj.x || (ox <= hitWallObj.x + hitWallObj.w && b.vx > 0);
-          b.x = fromLeft ? hitWallObj.x - half : hitWallObj.x + hitWallObj.w + half;
-          b.y = oy;
-          nx = fromLeft ? -1 : 1;
-        } else {
-          const fromTop = oy < hitWallObj.y || (oy <= hitWallObj.y + hitWallObj.h && b.vy > 0);
-          b.y = fromTop ? hitWallObj.y - half : hitWallObj.y + hitWallObj.h + half;
-          b.x = ox;
-          ny = fromTop ? -1 : 1;
-        }
-        splitRouletteSquare(run, b, nx, ny, 'wall');
+        splitRouletteSquare(run, b, wallHit?.nx || 0, wallHit?.ny || 0, 'wall');
         b.life = -1; continue;
       }
       if (b.bounces > 0) {
-        const half = (b.size || 4) / 2 + 0.75;
-        if (hitWallAxis === 'x') {
-          const fromLeft = ox < hitWallObj.x || (ox <= hitWallObj.x + hitWallObj.w && b.vx > 0);
-          b.x = fromLeft ? hitWallObj.x - half : hitWallObj.x + hitWallObj.w + half;
-          b.y = oy;
-          b.vx *= -0.82;
-        } else {
-          const fromTop = oy < hitWallObj.y || (oy <= hitWallObj.y + hitWallObj.h && b.vy > 0);
-          b.y = fromTop ? hitWallObj.y - half : hitWallObj.y + hitWallObj.h + half;
-          b.x = ox;
-          b.vy *= -0.82;
-        }
+        if (hitWallAxis === 'x') b.vx *= -0.82;
+        else b.vy *= -0.82;
         b.bounces--; b.ricocheted = (b.ricocheted || 0) + 1; b.life *= 0.90;
         run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, rocket: b.kind === 'rocketgun' ? 1 : 0, left: b.bounces, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
         continue;
@@ -8235,7 +8285,7 @@ function activeCoreLabel(p) {
 function activeCoreDesc(p) {
   const a = ensureActive(p);
   const c = ACTIVE_CORES[a.core];
-  if (!c) return 'Q сейчас пустая. Открой ABL-сундук, чтобы выбрать активку.';
+  if (!c) return 'Q сейчас пустая. Открой сундук протоколов, чтобы выбрать активный модуль.';
   const muts = a.mutations.map(id => ACTIVE_MUTATIONS[id]).filter(Boolean);
   const chargeLine = a.core === 'signal_spike'
     ? `\nЗаряды: ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}. Улучшения дают больше зарядов, дольше поле и выше урон.`
@@ -8816,18 +8866,28 @@ function stepActiveFields(run, players, dt) {
       }
       }
     }
-    if (f.kind === 'lc_table' && !f.sprung) {
+    if (f.kind === 'lc_table' && (f.hitsLeft ?? (f.sprung ? 0 : 1)) > 0) {
+      if (!Array.isArray(f.hitIds)) f.hitIds = [];
       for (const e of run.enemies) {
         if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+        if (f.hitIds.includes(e.id)) continue;
         if (dist2(e.x, e.y, f.x, f.y) > ((f.r || 58) + e.size / 2) ** 2) continue;
-        f.sprung = 1;
+        f.hitsLeft = Math.max(0, Number(f.hitsLeft ?? (f.sprung ? 0 : 1)) | 0);
+        if (f.hitsLeft <= 0) break;
+        f.hitsLeft--;
+        f.sprung = f.hitsLeft <= 0 ? 1 : 0;
+        f.hitIds.push(e.id);
+        if (f.hitIds.length > 16) f.hitIds.shift();
+        const lvl = Math.max(1, f.lvl || 1);
+        const hold = Math.max(0, Number(f.hold || 0) | 0);
         const n = norm(e.x - f.x, e.y - f.y);
-        e.stunT = Math.max(e.stunT || 0, 0.45 + Math.max(1, f.lvl || 1) * 0.08);
-        e.activeSlowT = Math.max(e.activeSlowT || 0, 0.75);
+        e.stunT = Math.max(e.stunT || 0, 0.45 + lvl * 0.08 + hold * 0.12);
+        e.activeSlowT = Math.max(e.activeSlowT || 0, 0.75 + hold * 0.18);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.05);
-        damageEnemy(run, players, e, f.dmg || 42, f.owner, 75, n.x, n.y, 'table');
-        run.fx.push({ t: 'lc_card_table', id: f.owner, label: 'CARD HIT', x: Math.round(f.x), y: Math.round(f.y), r: Math.round((f.r || 58) + 24), hit: 1 });
-        f.ttl = Math.min(f.ttl, 0.20);
+        damageEnemy(run, players, e, f.dmg || 42, f.owner, 75 + hold * 8, n.x, n.y, 'table');
+        run.fx.push({ t: 'lc_card_table', id: f.owner, label: f.hitsLeft > 0 ? `CARD HIT / ${f.hitsLeft}` : 'CARD HIT', x: Math.round(f.x), y: Math.round(f.y), r: Math.round((f.r || 58) + 24), hit: 1, hitsLeft: f.hitsLeft });
+        if (f.hitsLeft <= 0) f.ttl = Math.min(f.ttl, 0.20);
+        else f.ttl = Math.max(f.ttl || 0, 0.24);
         break;
       }
     }

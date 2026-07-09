@@ -33,30 +33,30 @@ const RU = {
     exitTitle: 'ВЫХОД', exitBody: 'ESC закрывает казино, если ставка не рассчитывается.',
     menuSub: 'терминал-казино // до 4 игроков',
     musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Обработка изображения.', changeSkin: 'СМЕНИТЬ ОБЛИК', hideSkins: 'СКРЫТЬ ОБЛИКИ',
-    namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в комнате и панели. До 12 символов.',
+    namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в секторе и панели. До 12 символов.',
     solo: 'ОДИНОЧНАЯ ИГРА', soloBody: 'Запускает одиночный забег без сети.',
     create: 'СОЗДАТЬ СЕКТОР', createBody: 'Создаёт закрытый сектор для команды. Поделись четырёхсимвольным кодом.',
     codePlaceholder: 'КОД', codeTitle: 'КОД СЕКТОРА', codeBody: 'Четырёхсимвольный код сектора команды.',
-    join: 'ВОЙТИ', joinBody: 'Подключиться к комнате по коду.',
+    join: 'ВОЙТИ', joinBody: 'Подключиться к секторе по коду.',
     controlsTitle: 'УПРАВЛЕНИЕ', controlsBody: 'WASD/стрелки — движение · ЛКМ — огонь · ПКМ — доп. действие · Пробел — осмотр · Shift — рывок · E — взаимодействие · Q — протокол · Tab — панель',
-    movement: 'движение', fire: 'огонь', dash: 'рывок', interact: 'действие', qActive: 'активка', panel: 'панель', inspect: 'осмотр',
+    movement: 'движение', fire: 'огонь', dash: 'рывок', interact: 'действие', qActive: 'протокол', panel: 'панель', inspect: 'осмотр',
     skinTitle: 'ОБЛИК', skinBody: 'Готовые облики антивируса. Закрытые видны, но выбрать их нельзя до открытия.',
     prevSkinTitle: 'ПРЕДЫДУЩИЙ ОБЛИК', prevSkinBody: 'Листать назад.', nextSkinTitle: 'СЛЕДУЮЩИЙ ОБЛИК', nextSkinBody: 'Листать вперёд.',
     skinPreset: 'готовый облик', selected: 'ВЫБРАН', unlocked: 'ОТКРЫТ', locked: 'ЗАКРЫТ',
     statusConnecting: 'ПОДКЛЮЧЕНИЕ…', statusOnline: 'В СЕТИ', statusNetReady: 'СЕТЬ ГОТОВА', statusNetSleep: 'СЕТЬ ПРОСЫПАЕТСЯ · ОДИНОЧНАЯ ИГРА ГОТОВА', statusNetDown: 'СЕТЬ НЕДОСТУПНА · ОДИНОЧНАЯ ИГРА ГОТОВА',
     updateRequired: 'НУЖНО ОБНОВИТЬ СТРАНИЦУ', roomCode4: 'КОД СЕКТОРА: 4 СИМВОЛА', roomNotFound: 'СЕКТОР НЕ НАЙДЕН', roomFull: 'СЕКТОР ЗАПОЛНЕН (4/4)', lostConnection: 'СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ',
-    noActive: 'НЕТ АКТИВКИ', noActiveDesc: 'У тебя пока нет Q-протокола. Найди сундук протоколов и выбери активку.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ АКТИВКИ', qCd: 'Q ЗАРЯД', qOver: 'Q РАЗГОН', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
+    noActive: 'НЕТ ПРОТОКОЛА', noActiveDesc: 'У тебя пока нет активного Q-протокола. Найди сундук протоколов и выбери модуль.', qNoneShort: 'Q — НЕТ', qNoneLong: 'Q — НЕТ ПРОТОКОЛА', qCd: 'Q ЗАРЯД', qOver: 'Q РАЗГОН', activeQTitle: 'АКТИВНАЯ СПОСОБНОСТЬ Q', activeQUse: 'Нажми Q, чтобы активировать.',
     dashChargeTitle: 'ЗАРЯД РЫВКА', dashReady: 'Готовый заряд рывка. Shift — рывок.', dashEmpty: 'Пустой заряд рывка скоро восстановится.',
     portalTitle: 'ПОРТАЛ', portalOpenBody: 'Открытый переход: нажми E рядом, чтобы перейти дальше.', portalClosedBody: 'Портал закрыт. Выполни цель сектора.', portalPrompt: 'E — ВОЙТИ В ПОРТАЛ', portalOpen: 'ПОРТАЛ ОТКРЫТ', portalTake: 'E — забрать облик', portalNext: 'E — перейти дальше',
     chestTitle: 'СУНДУК', chestDefault: 'Сундук с наградой.', chestOpened: 'Уже открыт.', chestFree: 'Бесплатно.', chestNeed: 'Нужно {cost} кредитов.', price: 'Цена: {cost} кредитов.',
     betPrompt: 'E — ТЕРМИНАЛ СТАВОК', betInspect: 'Терминал ставок: E открывает ставку. Чем глубже сектор, тем дороже риск.',
-    gldLack: 'НЕДОСТАТОЧНО КРЕДИТОВ', denied: 'ОТКАЗ', noQ: 'НЕТ АКТИВКИ',
+    gldLack: 'НЕДОСТАТОЧНО КРЕДИТОВ', denied: 'ОТКАЗ', noQ: 'НЕТ ПРОТОКОЛА',
     installPhase: 'ФАЗА УЛУЧШЕНИЙ', installPhaseSub: 'выбор модулей', bossFloor: 'УЗЕЛ ГЛАВНОЙ УГРОЗЫ', killBoss: 'УНИЧТОЖИТЬ ГЛАВНУЮ УГРОЗУ', clear: 'ОЧИСТКА',
     playerJoined: 'ПОДКЛЮЧИЛСЯ', playerLeft: 'ВЫШЕЛ', you: 'ТЫ', down: 'ВЫБЫЛ', youDown: 'ТЫ ВЫБЫЛ', carry: 'союзники дотащат до портала',
     eventSignal: 'СИГНАЛ', wave: 'ВОЛНА', skinHidden: 'В СЕКТОРЕ СПРЯТАН ОБЛИК', skinReady: 'ОБЛИК В ОКНЕ УСТАНОВКИ', bossDown: 'ГЛАВНАЯ УГРОЗА УНИЧТОЖЕНА', loot: 'забирай приз',
     contract: 'КОНТРАКТ', contractBody: 'условие сектора активно', contractDone: 'КОНТРАКТ ВЫПОЛНЕН', contractDoneBody: 'условие выполнено; приз появится после сектора', contractPaid: 'ПРИЗ ПОЛУЧЕН', contractPaidBody: 'контракт выдал приз', contractFail: 'КОНТРАКТ ПРОВАЛЕН', contractFailBody: 'награды нет',
     runLost: 'ПРОТОКОЛ ПРОВАЛЕН', restart: 'перезапуск…', noResponse: 'НЕТ ОТВЕТА — СТАВКА НЕ ПОДТВЕРЖДЕНА', betFailed: 'СТАВКА НЕ ПРИНЯТА', invalidStake: 'НЕВЕРНАЯ СТАВКА', jackpot: 'ДЖЕКПОТ', lose: 'проигрыш', staticDebt: 'СТАТИК-ШТОРМ', skin: 'ОБЛИК', nextRoomDebt: 'СТАТИК-ШТОРМ → СЛЕД. СЕКТОР',
-    loop: 'ЦИКЛ', depth: 'ГЛУБИНА', room: 'СЕКТОР', code: 'КОД', goal: 'ЗАДАЧА', rules: 'ПРАВИЛА', player: 'ИГРОК', health: 'ЗДОРОВЬЕ', level: 'УРОВЕНЬ', money: 'КРЕДИТЫ', drones: 'СПУТНИКИ', orbitals: 'ОРБИТАЛИ', qAbility: 'АКТИВКА Q', eliminated: 'ВЫБЫЛ',
+    loop: 'ЦИКЛ', depth: 'ГЛУБИНА', room: 'СЕКТОР', code: 'КОД', goal: 'ЗАДАЧА', rules: 'ПРАВИЛА', player: 'ИГРОК', health: 'ЗДОРОВЬЕ', level: 'УРОВЕНЬ', money: 'КРЕДИТЫ', drones: 'СПУТНИКИ', orbitals: 'ОРБИТАЛИ', qAbility: 'Q-ПРОТОКОЛ', eliminated: 'ВЫБЫЛ',
     available: 'Можно выбрать.', unavailable: 'Недоступно', requiresOtherWeapon: 'нужен другой модуль оружия', upgradeFallback: 'Улучшение персонажа.', weaponRewardFallback: 'Модуль оружейного сундука.', abilityRewardFallback: 'Модуль сундука протоколов.'
   }
 };
@@ -134,7 +134,7 @@ const RU_UPGRADE_CLEAN = {
   voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', abl_voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', dashcut: 'Рывок оглушает угроз рядом с траекторией.', dashclone: 'После рывка в точке старта остаётся короткий ударный след.', abl_dashcut: 'Рывок оглушает угроз рядом с траекторией.', abl_dashclone: 'После рывка в точке старта остаётся короткий ударный след.',
   q_snap: 'Q стягивает угроз и наносит урон.', q_blood: 'Q тратит здоровье на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет стрельбу.',
   bullet_chain: 'Попадание оружием может связать урон с ближайшим угрозуом.', drone_element_link: 'Дроны переносят огонь, холод и яд оружия.', element_spread: 'Статусы с убитых угроз переходят на ближайшие цели.', bullet_ricochet: 'Снаряды получают дополнительный отскок от стен.', bullet_range: 'Снаряды летят дальше и живут дольше.', bullet_fire: 'Пули поджигают угроз.', bullet_freeze: 'Пули охлаждают угроз и могут коротко остановить их.', bullet_poison: 'Пули отравляют угроз.', element_amp: 'Огонь, холод и яд становятся сильнее.',
-  shg_teeth: 'Клиновой разряд получает больше осколков.', shg_longshot: 'Правая кнопка тратит заряды клинового разряда на один дальний тяжёлый выстрел.', sek_split: 'Убийства самонаводчиком выпускают фрагменты.', sek_chain: 'Самонаводчик лучше держит цель и летит дольше.', sek_swarm: 'Правая кнопка выпускает рой самонаводящихся пуль.', rkt_cluster: 'Разломный заряд добавляет малые взрывы вокруг детонации.', rkt_mines: 'Разломный заряд оставляет отложенные мины во время полёта.', rkt_stun: 'Разломные взрывы могут оглушать угрозы.', rkt_scatter: 'Разломные взрывы сильнее разбрасывают угрозы.', rkt_remote: 'Правая кнопка взрывает выпущенные разломные заряды по очереди.',
+  shg_teeth: 'Клиновой разряд получает больше осколков.', shg_longshot: 'Правая кнопка тратит заряды клинового разряда на один дальний тяжёлый выстрел.', sek_split: 'Удаление угроз искателем выпускает фрагменты.', sek_chain: 'Искатель лучше держит цель и летит дольше.', sek_swarm: 'Правая кнопка выпускает рой сигнальных снарядов.', rkt_cluster: 'Разломный заряд добавляет малые взрывы вокруг детонации.', rkt_mines: 'Разломный заряд оставляет отложенные мины во время полёта.', rkt_stun: 'Разломные взрывы могут оглушать угрозы.', rkt_scatter: 'Разломные взрывы сильнее разбрасывают угрозы.', rkt_remote: 'Правая кнопка взрывает выпущенные разломные заряды по очереди.',
   wpn_dmg: 'Повышает прямой урон всего оружия.', wpn_fire: 'Всё оружие стреляет чаще.', abl_dash: 'Добавляет один заряд рывка.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт кредиты.', combo_exp: 'Комбо при завершении выдаёт опыт.', combo_hp: 'Комбо при завершении лечит.',
   sig_quarantine_buffer: 'В начале каждого сектора включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком здоровье 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить кредиты или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть угроз получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные угрозы иногда оставляют небольшой лечебный обломок.', sig_insurance_process: 'При 10% здоровье угрозы разбрасываются в стороны. Один раз за сектор.',
@@ -169,14 +169,14 @@ const RU_MUT = {
 };
 const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'CHARGE BITE':'CHARGE BITE', 'GLITCH REPEAT':'GLITCH REPEAT' };
 const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'ОПАСНЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ИСКАЖЁННЫЙ ПОВТОР' };
-const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'SIDE UPGRADE':'SIDE UPGRADE' };
+const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'ДОБАВИТЬ ПУШКУ':'ADD GUN', 'ДОБАВИТЬ ДЕЙСТВИЕ':'ADD ACTION', 'УСИЛИТЬ':'UPGRADE', 'ПОДКРУТИТЬ СТАВКУ':'IMPROVE BET', 'РАСШИРИТЬ КАРТУ':'EXPAND TABLE', 'ДОБАВИТЬ МЕТКУ':'ADD MARK', 'УСИЛИТЬ СТОП':'STRONGER HOLD', 'УСИЛИТЬ КОПИЮ':'UPGRADE COPY', 'АВТО-ОГОНЬ':'AUTOFIRE', 'SIDE UPGRADE':'SIDE UPGRADE' };
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
 
 const EN_CHEST = {
-  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Weapon chest: choose a weapon, weapon mod, or weapon stat boost.', ABL: 'Ability chest: Q active, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
+  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Weapon chest: choose a weapon, weapon mod, or weapon stat boost.', ABL: 'Protocol chest: active Q protocol, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
 };
 const RU_CHEST = {
-  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук протоколов: активка Q, улучшение Q, мутация или мобильность.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
+  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук протоколов: активный Q-протокол, усиление Q, мутация или мобильность.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
 };
 const EN_PICKUP = { GLD: 'Credits for chests and bets. Shared by the team.', EXP: 'Experience toward the next level. Install choices appear between sectors.', HEA: 'Healing pickup. Restores health to the collector.' };
 const RU_PICKUP = { GLD: 'Кредиты для сундуков и ставок. Обычный подбор делится с командой.', EXP: 'Опыт для уровней. Улучшения появляются между секторами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
@@ -221,8 +221,8 @@ export function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&':
 
 export function cleanPlayerText(text) {
   let s = String(text || '');
-  s = s.replace(/сервер-связной/g, 'сеть').replace(/связной/g, 'сеть').replace(/хост/g, 'комната').replace(/Хост/g, 'Комната');
-  s = s.replace(/браузер ведёт симуляцию[^.]*\.?/gi, 'Ты создаёшь комнату для друзей.');
+  s = s.replace(/сервер-связной/g, 'сеть').replace(/связной/g, 'сеть').replace(/хост/g, 'сектор').replace(/Хост/g, 'Сектор');
+  s = s.replace(/браузер ведёт симуляцию[^.]*\.?/gi, 'Ты создаёшь сектор для друзей.');
   s = s.replace(/депло[яй][^.]*/gi, 'обновления').replace(/кэш[а-я]*/gi, 'обновление');
   s = s.replace(/Render|GitHub|protocol|snapshot|client|server|sim/gi, '');
   if (!langIsEn()) {
@@ -311,7 +311,7 @@ export function cleanPlayerText(text) {
       .replace(/duplicate was not granted/gi, 'коллекция уже полная')
       .replace(/numeric room target/gi, 'цель зачистки')
       .replace(/NET/gi, 'ИТОГ')
-      .replace(/WPN/gi, 'ОРУЖИЕ').replace(/ABL/gi, 'ПРОТОКОЛ').replace(/SHOTGUN/gi, 'дробовик').replace(/SEEKER/gi, 'самонаводчик').replace(/ROCKETGUN/gi, 'ракетница').replace(/ZERO/gi, 'ноль').replace(/GUARD/gi, 'защита').replace(/CHAIN/gi, 'цепь').replace(/COPY/gi, 'копия').replace(/GHOST/gi, 'призрак').replace(/TABLE/gi, 'карта').replace(/enemy/gi, 'угроза').replace(/boss/gi, 'главная угроза').replace(/skin/gi, 'облик');
+      .replace(/WPN/gi, 'ОРУЖИЕ').replace(/ABL/gi, 'ПРОТОКОЛ').replace(/SHOTGUN/gi, 'клиновой разряд').replace(/SEEKER/gi, 'искатель').replace(/ROCKETGUN/gi, 'разломный заряд').replace(/ZERO/gi, 'ноль').replace(/GUARD/gi, 'защита').replace(/CHAIN/gi, 'цепь').replace(/COPY/gi, 'копия').replace(/GHOST/gi, 'призрак').replace(/TABLE/gi, 'карта').replace(/enemy/gi, 'угроза').replace(/boss/gi, 'главная угроза').replace(/skin/gi, 'облик');
   }
   s = s.replace(/\s{2,}/g, ' ').replace(/\s+([.,:;])/g, '$1').trim();
   if (langIsEn() && /[А-Яа-яЁё]/.test(s)) return 'This explains the current game effect.';
@@ -356,8 +356,8 @@ export function rarityLabel(meta) { return meta?.label || String(meta || '').toU
 export function activeNoneLabel() { return t('noActive'); }
 export function activeNoneDesc() { return t('noActiveDesc'); }
 export function activeShort(label) { return label === t('noActive') || label === 'НЕТ АКТИВКИ' || label === 'NO ACTIVE' ? t('qNoneShort') : String(label || '').replace(/^Q:\s*/, 'Q '); }
-export function locAction(a) { return langIsEn() ? (EN_ACTION[a] || a) : (RU_ACTION[a] || a); }
-export function locRole(r) { return langIsEn() ? (EN_ROLE[r] || r) : (RU_ROLE[r] || r); }
+export function locAction(a) { const raw = String(a || ''); if (langIsEn()) { const out = EN_ACTION[raw] || locLabel(raw); return /[А-Яа-яЁё]/.test(out) ? 'CHOOSE' : out; } return RU_ACTION[raw] || raw; }
+export function locRole(r) { const raw = String(r || ''); if (langIsEn()) { const out = EN_ROLE[raw] || locLabel(raw); return /[А-Яа-яЁё]/.test(out) ? 'ROLE' : out; } return RU_ROLE[raw] || raw; }
 export function chestDesc(label) { return (langIsEn() ? EN_CHEST : RU_CHEST)[label] || t('chestDefault'); }
 export function pickupDesc(type) { return (langIsEn() ? EN_PICKUP : RU_PICKUP)[type] || localText('Подбираемая награда.', 'Pickup reward.'); }
 export function enemyDesc(kind) { return (langIsEn() ? EN_ENEMY : RU_ENEMY)[kind] || localText('Угроза.', 'Threat.'); }
@@ -392,6 +392,9 @@ export function optionDesc(opt = {}) {
     if (kind === 'lc_lvc_auto_fire') return localText('Если казино-пушка выбрана, она сама стреляет после перезарядки.', 'If the casino gun is selected, it fires automatically after reload.');
     if (kind === 'lc_copy_power') return localText('Копия повторяет последнее действие сильнее.', 'Copy repeats the last action with more power.');
     if (kind === 'lc_bet_luck') return localText('Ставка чаще выдаёт сильную выплату и реже сбой.', 'Bet rolls stronger payouts more often and blanks less often.');
+    if (kind === 'lc_table_radius') return localText('Карта-ловушка накрывает больше пола и держится немного дольше.', 'Table trap covers more floor and lasts slightly longer.');
+    if (kind === 'lc_table_triggers') return localText('Карта-ловушка может сработать ещё по одной угрозе перед распадом.', 'Table trap can trigger on one more threat before breaking.');
+    if (kind === 'lc_table_hold') return localText('Карта-ловушка дольше стопорит угрозу и наносит больше урона.', 'Table trap holds the threat longer and deals more damage.');
     if (kind === 'lc_sector_upgrade') return localText(ru[sector] || cleanPlayerText(opt.desc || ''), en[sector] || cleanPlayerText(opt.desc || ''));
     if (kind === 'lc_sector_add') return localText(ru[sector] || cleanPlayerText(opt.desc || ''), en[sector] || cleanPlayerText(opt.desc || ''));
   }
@@ -441,7 +444,8 @@ const RU_LABEL = {
 const EN_LABEL = Object.fromEntries(Object.entries(RU_LABEL).map(([en, ru]) => [ru, en]));
 Object.assign(EN_LABEL, {
   'СТАТИК-ЯДРО': 'STATIC CORE', 'СТАТИК-УЗЕЛ': 'STATIC NODE', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%',
-  'РЫВОК: РУЧНОЙ ВЗРЫВ': 'RKT REMOTE DETONATOR', 'СТАТИК Q': 'STATIC CORE', 'STATIC Q': 'STATIC CORE'
+  'РЫВОК: РУЧНОЙ ВЗРЫВ': 'RKT REMOTE DETONATOR', 'СТАТИК Q': 'STATIC CORE', 'STATIC Q': 'STATIC CORE',
+  'РЕД': 'RAR', 'ДЖК': 'JCK', 'ФИКС': 'LOCK', 'НЕТ ПРОТОКОЛА': 'NO PROTOCOL', 'Q — НЕТ ПРОТОКОЛА': 'Q — NO PROTOCOL'
 });
 
 const RU_DYNAMIC_LABEL = {
@@ -485,7 +489,8 @@ function dynamicEnLabel(s) {
   out = out.replace(/ГЛАВНАЯ УГРОЗА/g, 'CORE THREAT').replace(/УГРОЗЫ/g, 'THREATS').replace(/УГРОЗА/g, 'THREAT').replace(/ОБЛИК/g, 'SHELL').replace(/СЕКТОР/g, 'SECTOR')
     .replace(/ПУШКА/g, 'GUN').replace(/ДЕЙСТВИЕ/g, 'ACTION').replace(/ЗАЩИТА/g, 'GUARD').replace(/ЦЕПЬ/g, 'CHAIN').replace(/СТАВКА/g, 'BET').replace(/КОПИЯ/g, 'COPY').replace(/ПРИЗРАК/g, 'GHOST').replace(/КАРТА/g, 'TABLE')
     .replace(/КЛИНОВОЙ РАЗРЯД/g, 'SPREAD CANNON').replace(/ИСКАТЕЛЬ/g, 'SEEKER').replace(/РАЗЛОМНЫЙ ЗАРЯД/g, 'BREACH CHARGE').replace(/ОРУЖИЕ/g, 'WEAPON').replace(/ПРОТОКОЛ/g, 'PROTOCOL')
-    .replace(/СУНДУК/g, 'CHEST').replace(/ВЫБОР/g, 'PICK').replace(/УДАЧА/g, 'LUCK');
+    .replace(/КАЗИНО/g, 'CASINO').replace(/РАДИУС/g, 'RADIUS').replace(/МЕТОК/g, 'MARKS').replace(/МЕТКА/g, 'MARK').replace(/СТОП/g, 'HOLD').replace(/СИЛА/g, 'POWER').replace(/ШАНС/g, 'ODDS')
+    .replace(/СУНДУК/g, 'CHEST').replace(/ВЫБОР/g, 'PICK').replace(/УДАЧА/g, 'LUCK').replace(/ДОБАВИТЬ/g, 'ADD').replace(/УСИЛИТЬ/g, 'UPGRADE');
   return out;
 }
 

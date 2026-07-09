@@ -46,9 +46,9 @@ const NET_STATUS = {
   waking: ['СЕТЬ ПРОСЫПАЕТСЯ · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK WAKING · SINGLE PLAYER READY'],
   down: ['СЕТЬ НЕДОСТУПНА · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK UNAVAILABLE · SINGLE PLAYER READY'],
   update: ['НУЖНО ОБНОВИТЬ СТРАНИЦУ', 'UPDATE REQUIRED'],
-  code4: ['КОД КОМНАТЫ: 4 СИМВОЛА', 'ROOM CODE MUST BE 4 SYMBOLS'],
-  roomNotFound: ['КОМНАТА НЕ НАЙДЕНА', 'ROOM NOT FOUND'],
-  roomFull: ['КОМНАТА ЗАПОЛНЕНА (4/4)', 'ROOM FULL (4/4)'],
+  code4: ['КОД СЕКТОРА: 4 СИМВОЛА', 'ROOM CODE MUST BE 4 SYMBOLS'],
+  roomNotFound: ['СЕКТОР НЕ НАЙДЕНА', 'ROOM NOT FOUND'],
+  roomFull: ['СЕКТОР ЗАПОЛНЕНА (4/4)', 'ROOM FULL (4/4)'],
   lost: ['СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ', 'CONNECTION LOST — REFRESH PAGE'],
   error: ['СЕТЕВАЯ ОШИБКА', 'NETWORK ERROR']
 };
@@ -480,7 +480,7 @@ function ensureDevPanel() {
   const roomArchLabels = {
     panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE', long_lane: 'LONG LANE', lounge: 'LOUNGE', boss: 'BOSS',
     ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК',
-    clamp_room: 'КОМНАТА-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА'
+    clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА'
   };
   const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? (roomArchLabels[v] || v.toUpperCase()) : 'AUTO'}</option>`).join('');
   const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');

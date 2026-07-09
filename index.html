@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminal Casino Roguelike</title>
-<link rel="stylesheet" href="style.css?v=2.1.139">
+<link rel="stylesheet" href="style.css?v=2.1.140">
 </head>
 <body>
 <svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
@@ -44,9 +44,9 @@
       <span class="sep">|</span>
       <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.132</span>
       <span class="sep">|</span>
-      <span id="hud-room" data-explain-title="КОМНАТА" data-explain="Код сетевой комнаты и текущая игровая локация внутри забега.">----</span>
+      <span id="hud-room" data-explain-title="СЕКТОР" data-explain="Код сетевой сектора и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
-      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько комнат пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и угрозы.">ЦИКЛ 0 / ГЛУБИНА 0</span>
+      <span id="hud-loop" data-explain-title="ЦИКЛ / ГЛУБИНА" data-explain="ГЛУБИНА — сколько секторов пройдено. ЦИКЛ — полный оборот маршрута; чем выше цикл, тем жёстче правила и угрозы.">ЦИКЛ 0 / ГЛУБИНА 0</span>
       <span id="hud-mods" data-explain-title="ПРАВИЛА СЕКТОРА" data-explain="Наведи на подчёркнутое правило, чтобы увидеть, как сектор меняет бой."></span>
       <span id="hud-ping"></span>
       <span id="hud-inspect" class="hidden term" data-explain-title="РЕЖИМ ОСМОТРА" data-explain="Пробел включает режим осмотра. В нём подсказки появляются у объектов мира: сундуков, портала, угроз, подборов и терминала ставок.">ОСМОТР</span>
@@ -56,7 +56,7 @@
         <button id="yt-prev" type="button">‹</button><button id="yt-playpause" type="button">PLAY</button><button id="yt-next" type="button">›</button><button id="yt-vol-down" type="button">−</button><span id="yt-vol-label">YT 0</span><button id="yt-vol-up" type="button">+</button><button id="yt-bit" type="button">8BIT</button>
       </div>
     </div>
-    <div id="hud-objective" data-explain-title="ЗАДАЧА" data-explain="Текущая задача комнаты: зачистка, главная угроза, контракт или переход через портал."></div>
+    <div id="hud-objective" data-explain-title="ЗАДАЧА" data-explain="Текущая задача сектора: зачистка, главная угроза, контракт или переход через портал."></div>
   </div>
   <div id="hud-contract-card" class="hidden" aria-hidden="true"></div>
   <div id="hud-combo" class="hidden" aria-hidden="true"></div>
@@ -64,8 +64,8 @@
     <div id="hud-left">
       <div id="hud-signatures" class="hidden" aria-hidden="true"></div>
       <div id="shield-wrap" class="bar-wrap shield hidden"><div id="shield-bar" class="bar"></div><span id="shield-text" class="bar-text">0 / 0</span></div>
-      <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="ЗДОРОВЬЕ" data-explain="Здоровье игрока. При падении до 0 ты выбываешь до следующей комнаты или перезапуска.">100 / 100</span></div>
-      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт повышает уровень. Новый уровень не прерывает бой, а добавляет выбор улучшения между комнатами.">0 / 40</span></div>
+      <div class="bar-wrap"><div id="hp-bar" class="bar"></div><span id="hp-text" class="bar-text" data-explain-title="ЗДОРОВЬЕ" data-explain="Здоровье игрока. При падении до 0 ты выбываешь до следующей сектора или перезапуска.">100 / 100</span></div>
+      <div class="bar-wrap xp"><div id="xp-bar" class="bar"></div><span id="xp-text" class="bar-text" data-explain-title="ОПЫТ" data-explain="Опыт повышает уровень. Новый уровень не прерывает бой, а добавляет выбор улучшения между секторми.">0 / 40</span></div>
       <div id="hud-stats-line">
         <span id="hud-gld" data-explain-title="GLD" data-explain="Деньги для сундуков и терминала ставок. Подбор GLD делится между живыми игроками.">GLD 0</span>
         <span id="hud-lvl" data-explain-title="УРОВЕНЬ / Q" data-explain="Текущий уровень и статус активной способности Q: готова, перезаряжается или работает усиление.">УРОВЕНЬ 0</span>
@@ -86,7 +86,7 @@
 <!-- TAB stats panel -->
 <div id="tab-panel" class="overlay hidden">
   <div class="panel">
-    <div class="panel-title" data-explain-title="ВСПОМОГАТЕЛЬНАЯ ПАНЕЛЬ" data-explain="Панель забега: цикл, глубина, правила комнаты, союзники и текущие ресурсы. TAB открывает и закрывает её.">RUN STATUS</div>
+    <div class="panel-title" data-explain-title="ВСПОМОГАТЕЛЬНАЯ ПАНЕЛЬ" data-explain="Панель забега: цикл, глубина, правила сектора, союзники и текущие ресурсы. TAB открывает и закрывает её.">RUN STATUS</div>
     <div id="tab-run"></div>
     <table id="tab-table"></table>
   </div>
@@ -115,7 +115,7 @@
 <!-- ability chest picker -->
 <div id="ability-modal" class="overlay hidden">
   <div class="panel cyan-edge">
-    <div class="panel-title cyan" data-explain-title="СУНДУК ПРОТОКОЛОВ" data-explain="Выбери одну награду из сундука способностей: рывок, ветку рывка, Q-активку или мобильность. Это не оружейные усиления.">СУНДУК ПРОТОКОЛОВ <span class="subtle">ВЫБОР 1/3</span></div>
+    <div class="panel-title cyan" data-explain-title="СУНДУК ПРОТОКОЛОВ" data-explain="Выбери одну награду из сундука способностей: рывок, ветку рывка, активный Q-протокол или мобильность. Это не оружейные усиления.">СУНДУК ПРОТОКОЛОВ <span class="subtle">ВЫБОР 1/3</span></div>
     <div id="ability-choices"></div>
     <div class="hint"><span class="term" data-explain-title="ВЫБОР ПРОТОКОЛА" data-explain="Клавиши 1, 2 и 3 выбирают один доступный вариант из сундука способностей.">1 / 2 / 3</span> — выбрать вариант</div>
   </div>
@@ -153,17 +153,17 @@
   <div class="menu-box">
     <div id="logo"><span>Terminal Casino</span><span>Roguelike</span></div>
     <div id="menu-sub">terminal casino // до 4 игроков</div>
-    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в комнате и TAB-панели. Ограничено 12 символами.">
+    <input id="name-input" maxlength="12" placeholder="ИМЯ" autocomplete="off" data-explain-title="ИМЯ" data-explain="Имя игрока в секторе и TAB-панели. Ограничено 12 символами.">
     <div id="lang-row" class="lang-row" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></div>
 
     <button id="btn-solo" data-explain-title="ОДИНОЧНАЯ ИГРА" data-explain="Запускает одиночный забег без сети.">ОДИНОЧНАЯ ИГРА</button>
-    <button id="btn-create" data-explain-title="СОЗДАТЬ КОМНАТУ" data-explain="Создаёт комнату для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ КОМНАТУ</button>
+    <button id="btn-create" data-explain-title="СОЗДАТЬ СЕКТОР" data-explain="Создаёт сектор для друзей. Поделись четырёхсимвольным кодом.">СОЗДАТЬ СЕКТОР</button>
     <div id="join-row">
-      <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД КОМНАТЫ" data-explain="Четырёхсимвольный код комнаты друга.">
-      <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к комнате по коду.">ВОЙТИ</button>
+      <input id="room-input" maxlength="4" placeholder="КОД" autocomplete="off" data-explain-title="КОД СЕКТОРА" data-explain="Четырёхсимвольный код сектора друга.">
+      <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к секторе по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.139</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.140</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>
@@ -180,7 +180,7 @@
         <button type="button" class="hero-card" data-hero="living_casino" data-explain-title="ЖИВОЕ КАЗИНО" data-explain="Казино-ядро: оружие и быстрые действия выбираются через кольцо."><span class="hero-title">ЖИВОЕ КАЗИНО</span><span class="hero-desc">казино-протокол</span></button>
       </div>
     </div>
-    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — вторичный огонь оружия · Пробел — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши стреляет активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, терминал ставок и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — активка · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="Пробел включает или выключает подсказки по объектам мира.">SPACE</span> — осмотр · <span class="term" data-explain-title="ВТОРИЧНЫЙ ОГОНЬ" data-explain="ПКМ использует вторичный огонь текущего оружия: SHG LONGSHOT, SEK SWARM или RKT REMOTE DETONATOR.">ПКМ</span> — ALT</div>
+    <div id="menu-controls" data-explain-title="УПРАВЛЕНИЕ" data-explain="WASD/стрелки — движение · ЛКМ — огонь · Shift — рывок · E — взаимодействие · Q — активная способность · TAB — панель · ПКМ — вторичный огонь оружия · Пробел — осмотр мира"><span class="term" data-explain-title="ДВИЖЕНИЕ" data-explain="WASD или стрелки двигают игрока.">WASD</span> — движение · <span class="term" data-explain-title="ОГОНЬ" data-explain="Левая кнопка мыши стреляет активным оружием.">ЛКМ</span> — огонь · <span class="term" data-explain-title="РЫВОК" data-explain="Shift тратит заряд рывка и даёт короткую неуязвимость.">SHIFT</span> — рывок · <span class="term" data-explain-title="ВЗАИМОДЕЙСТВИЕ" data-explain="E открывает сундуки, терминал ставок и портал.">E</span> — взаимодействие · <span class="term" data-explain-title="АКТИВНАЯ СПОСОБНОСТЬ" data-explain="Q использует активную способность, если она установлена.">Q</span> — протокол · <span class="term" data-explain-title="ПАНЕЛЬ" data-explain="TAB включает или выключает вспомогательную панель.">TAB</span> — панель · <span class="term" data-explain-title="ОСМОТР" data-explain="Пробел включает или выключает подсказки по объектам мира.">SPACE</span> — осмотр · <span class="term" data-explain-title="ВТОРИЧНЫЙ ОГОНЬ" data-explain="ПКМ использует вторичный огонь текущего оружия: SHG LONGSHOT, SEK SWARM или RKT REMOTE DETONATOR.">ПКМ</span> — ALT</div>
     <button id="btn-skin-toggle" type="button" data-explain-title="СМЕНИТЬ ОБЛИК" data-explain="Открывает выбор уже найденных обликов. Закрытые облики видны только внутри выбора.">СМЕНИТЬ ОБЛИК</button>
     <div id="skin-editor" class="collapsed" data-explain-title="ОБЛИК" data-explain="Готовые пресеты обликов. Закрытые облики видны, но выбрать их нельзя до открытия.">
       <button id="skin-prev" class="skin-arrow" type="button" aria-label="Previous shell" data-explain-title="ПРЕДЫДУЩИЙ ОБЛИК" data-explain="Листать назад. Закрытые облики видны, но помечены ЗАКРЫТ.">◀</button>
@@ -195,7 +195,7 @@
 </div>
 
 <div id="global-digital-filter" aria-hidden="true"></div>
-<script src="config.js?v=2.1.139"></script>
-<script type="module" src="src/main.v2-1.js?v=2.1.139"></script>
+<script src="config.js?v=2.1.140"></script>
+<script type="module" src="src/main.v2-1.js?v=2.1.140"></script>
 </body>
 </html>
