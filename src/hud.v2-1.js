@@ -464,12 +464,23 @@ function weaponReadability(opt = {}) {
     }
     return { role, tone, summary: localText(ru, en), change: localText(changeRu, changeEn) };
   }
+  if (opt.pcOnly) {
+    const pc = {
+      ctrl_process_slot: { role: 'CONTROL', tone: 'control', ru: 'Добавляет место для ещё одного подконтрольного процесса.', en: 'Adds room for one more controlled process.', changeRu: '+1 процесс под контролем', changeEn: '+1 controlled process' },
+      ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее копят нестабильность контроля.', en: 'Commands build control instability faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
+      ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы чаще выполняют атакующие приказы.', en: 'Controlled processes execute attack orders more often.', changeRu: 'выше темп процессов', changeEn: 'faster process tempo' },
+      qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Карантинный якорь держит более широкую зону у стены.', en: 'Quarantine anchor covers a wider wall zone.', changeRu: 'шире карантин', changeEn: 'wider quarantine' },
+      qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Карантинный якорь дольше держит и сильнее тянет угрозы.', en: 'Quarantine anchor holds longer and pulls harder.', changeRu: 'сильнее удержание', changeEn: 'stronger hold' }
+    };
+    const out = pc[key] || { role: 'CONTROL', tone: 'control', ru: cleanPlayerText(opt.desc || 'Усиление команды контроля.'), en: cleanPlayerText(opt.desc || 'Control command upgrade.'), changeRu: 'усиление контроля', changeEn: 'control upgrade' };
+    return { ...out, summary: localText(out.ru, out.en), change: localText(out.changeRu, out.changeEn) };
+  }
   const out = m[key] || {
     role: opt.kind === 'weapon' ? 'NEW' : opt.kind === 'stat' ? 'DPS' : 'UTILITY', tone: opt.kind === 'weapon' ? 'new' : 'utility',
-    ru: cleanPlayerText(opt.desc || opt.preview || 'Оружейное усиление.'),
-    en: cleanPlayerText(opt.desc || opt.preview || 'Weapon upgrade.'),
-    changeRu: req ? `нужно ${req}` : 'усиление оружия',
-    changeEn: req ? `needs ${req}` : 'weapon upgrade'
+    ru: cleanPlayerText(opt.desc || opt.preview || 'Усиление выбранного ядра.'),
+    en: cleanPlayerText(opt.desc || opt.preview || 'Core upgrade.'),
+    changeRu: req ? `нужно ${req}` : 'усиление ядра',
+    changeEn: req ? `needs ${req}` : 'core upgrade'
   };
   if (req) {
     out.changeRu = `${out.changeRu} · нужно ${req}`;
@@ -481,12 +492,12 @@ function weaponReadability(opt = {}) {
 function weaponRoleHint(role = '') {
   const r = String(role || '').toUpperCase();
   const ru = {
-    NEW: 'Новое оружие для твоего слота.', DPS: 'Больше урона или темпа стрельбы.', RANGE: 'Снаряды работают на большей дистанции.', STATUS: 'Огонь, холод, яд и их перенос.', CONTROL: 'Замедление, захват, зоны или цепи.', SYNERGY: 'Лучше работает с уже собранным оружием.', ECONOMY: 'Больше ресурсов.'
+    NEW: 'Новый слот для выбранного ядра.', DPS: 'Больше урона, темпа или давления.', RANGE: 'Снаряды или зоны работают дальше.', STATUS: 'Огонь, холод, яд и их перенос.', CONTROL: 'Замедление, захват, зоны или цепи.', SYNERGY: 'Лучше работает с уже собранным ядром.', ECONOMY: 'Больше ресурсов.'
   };
   const en = {
-    NEW: 'New weapon for your slot.', DPS: 'More damage or firing tempo.', RANGE: 'Projectiles work at longer range.', STATUS: 'Burn, chill, poison, and spread.', CONTROL: 'Slow, lock, zones, or chains.', SYNERGY: 'Works better with what you already have.', ECONOMY: 'More resources.'
+    NEW: 'New slot for your core.', DPS: 'More damage, tempo, or pressure.', RANGE: 'Projectiles or zones work farther.', STATUS: 'Burn, chill, poison, and spread.', CONTROL: 'Slow, lock, zones, or chains.', SYNERGY: 'Works better with your current core.', ECONOMY: 'More resources.'
   };
-  return localText(ru[r] || 'Категория оружейного выбора.', en[r] || 'Weapon choice category.');
+  return localText(ru[r] || 'Категория выбора ядра.', en[r] || 'Core choice category.');
 }
 function weaponRoleLabel(role) {
   const r = String(role || '').toUpperCase();
@@ -1268,6 +1279,31 @@ export class Hud {
       } else {
         lcHud.className = 'lc-selected hidden';
         lcHud.innerHTML = '';
+      }
+    }
+
+
+    let pcHud = $('process-controller-selected');
+    const pc = me[P.CTRL] || null;
+    if (!pcHud && $('hud-right')) {
+      pcHud = document.createElement('div');
+      pcHud.id = 'process-controller-selected';
+      $('hud-right').insertBefore(pcHud, $('weapon-slots') || null);
+    }
+    if (pcHud) {
+      if (pc && pc.hero === 'process_controller') {
+        const controlled = Math.max(0, Number(pc.controlled || 0) | 0);
+        const max = Math.max(1, Number(pc.max || 1) | 0);
+        const cmd = Math.max(0, Number(pc.commandT || 0) || 0);
+        const cap = Math.max(0, Number(pc.captureT || 0) || 0);
+        const status = cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : controlled > 0 ? localText('ПРОЦЕССЫ ГОТОВЫ', 'PROCESSES READY') : localText('НЕТ ЗАХВАТА', 'NO CAPTURE');
+        pcHud.className = `pc-selected ${cmd > 0 ? 'command' : cap > 0 ? 'capture' : controlled > 0 ? 'ready' : 'empty'}`;
+        pcHud.style.setProperty('--pc-fill', `${Math.round((controlled / max) * 100)}%`);
+        pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><b>CTRL</b><span>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))} ${controlled}/${max}</span><em>${escHtml(status)}</em>`;
+        this.setExplain(pcHud, localText('КОНТРОЛЁР ПРОЦЕССОВ', 'PROCESS CONTROLLER'), localText('ЛКМ использует одну из трёх команд контроля. ПКМ отдаёт приказ захваченным процессам в точку курсора. QRN ставит карантинный якорь на стену.', 'LMB uses one of three control commands. RMB orders captured processes to the cursor. QRN places a quarantine anchor on a wall.'), 'cyan');
+      } else {
+        pcHud.className = 'pc-selected hidden';
+        pcHud.innerHTML = '';
       }
     }
 
@@ -2089,12 +2125,13 @@ export class Hud {
       const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const pickText = picksTotal > 1 ? ` · ${esc(localText(`ВЫБЕРИ ${picksRemaining}/${picksTotal}`, `PICK ${picksRemaining}/${picksTotal}`))}` : '';
-      const chestName = kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'));
+      const pcCommandChest = kind === 'weapon' && Array.isArray(choices) && choices.length && choices.every(x => x && x.pcOnly);
+      const chestName = kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : (pcCommandChest ? localText('ЯЩИК КОМАНД', 'COMMAND CACHE') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST')));
       title.innerHTML = `${esc(chestName)} <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = chestName;
       title.dataset.explain = kind === 'rare'
         ? localText('Редкий сундук выдаёт приз сразу после открытия.', 'Rare chest grants its prize immediately when opened.')
-        : (picksTotal > 1 ? localText('Это ценный 5-слотовый сундук: можно выбрать два улучшения из предложенных пяти.', 'This is a valuable 5-slot chest: pick two upgrades from the five offered.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.'));
+        : (picksTotal > 1 ? (pcCommandChest ? localText('Это ценный ящик команд: можно выбрать два усиления контроля из предложенных пяти.', 'This is a valuable command cache: pick two control upgrades from the five offered.') : localText('Это ценный 5-слотовый сундук: можно выбрать два улучшения из предложенных пяти.', 'This is a valuable 5-slot chest: pick two upgrades from the five offered.')) : (pcCommandChest ? localText('Редкость ящика влияет на цену и количество командных вариантов.', 'Cache rarity changes its price and number of command choices.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.')));
     }
     let metaEl = modal.querySelector('.chest-offer-meta');
     if (!metaEl && title) {

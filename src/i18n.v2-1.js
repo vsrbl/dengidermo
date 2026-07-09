@@ -38,8 +38,8 @@ const RU = {
     create: 'СОЗДАТЬ СЕКТОР', createBody: 'Создаёт закрытый сектор для команды. Поделись четырёхсимвольным кодом.',
     codePlaceholder: 'КОД', codeTitle: 'КОД СЕКТОРА', codeBody: 'Четырёхсимвольный код сектора команды.',
     join: 'ВОЙТИ', joinBody: 'Подключиться к секторе по коду.',
-    controlsTitle: 'УПРАВЛЕНИЕ', controlsBody: 'WASD/стрелки — движение · ЛКМ — огонь · ПКМ — доп. действие · Пробел — осмотр · Shift — рывок · E — взаимодействие · Q — протокол · Tab — панель',
-    movement: 'движение', fire: 'огонь', dash: 'рывок', interact: 'действие', qActive: 'протокол', panel: 'панель', inspect: 'осмотр',
+    controlsTitle: 'УПРАВЛЕНИЕ', controlsBody: 'WASD/стрелки — движение · ЛКМ — оружие/команда · ПКМ — доп. действие · Пробел — осмотр · Shift — рывок · E — взаимодействие · Q — протокол · Tab — панель',
+    movement: 'движение', fire: 'оружие/команда', dash: 'рывок', interact: 'действие', qActive: 'протокол', panel: 'панель', inspect: 'осмотр',
     skinTitle: 'ОБЛИК', skinBody: 'Готовые облики антивируса. Закрытые видны, но выбрать их нельзя до открытия.',
     prevSkinTitle: 'ПРЕДЫДУЩИЙ ОБЛИК', prevSkinBody: 'Листать назад.', nextSkinTitle: 'СЛЕДУЮЩИЙ ОБЛИК', nextSkinBody: 'Листать вперёд.',
     skinPreset: 'готовый облик', selected: 'ВЫБРАН', unlocked: 'ОТКРЫТ', locked: 'ЗАКРЫТ',
@@ -95,8 +95,8 @@ const EN = {
     create: 'CREATE ROOM', createBody: 'Creates a co-op room for friends. Share the four-symbol code.',
     codePlaceholder: 'CODE', codeTitle: 'ROOM CODE', codeBody: 'Four-symbol room code from a friend.',
     join: 'JOIN', joinBody: 'Join a room by code.',
-    controlsTitle: 'CONTROLS', controlsBody: 'WASD/arrows — move · LMB — fire · RMB — weapon secondary fire · Space — inspect · Shift — dash · E — interact · Q — active · TAB — panel',
-    movement: 'move', fire: 'fire', dash: 'dash', interact: 'interact', qActive: 'active', panel: 'panel', inspect: 'inspect',
+    controlsTitle: 'CONTROLS', controlsBody: 'WASD/arrows — move · LMB — weapon/command · RMB — hero action · Space — inspect · Shift — dash · E — interact · Q — active · TAB — panel',
+    movement: 'move', fire: 'weapon/command', dash: 'dash', interact: 'interact', qActive: 'active', panel: 'panel', inspect: 'inspect',
     skinTitle: 'SHELL', skinBody: 'Antivirus shells. Locked shells are visible, but cannot be selected until unlocked.',
     prevSkinTitle: 'PREVIOUS SHELL', prevSkinBody: 'Browse backward.', nextSkinTitle: 'NEXT SHELL', nextSkinBody: 'Browse forward.',
     skinPreset: 'preset shell', selected: 'SELECTED', unlocked: 'UNLOCKED', locked: 'LOCKED',
@@ -173,10 +173,10 @@ const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ C
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
 
 const EN_CHEST = {
-  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Weapon chest: choose a weapon, weapon mod, or weapon stat boost.', ABL: 'Protocol chest: active Q protocol, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
+  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Core cache: adapts to your core with weapon modules, casino sectors, or control commands.', ABL: 'Protocol chest: active Q protocol, Q upgrade, Q mutation, or mobility.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
 };
 const RU_CHEST = {
-  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Оружейный сундук: оружие, мод или усиление оружия.', ABL: 'Сундук протоколов: активный Q-протокол, усиление Q, мутация или мобильность.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
+  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Ящик ядра: подстраивается под выбранное ядро — модули оружия, сектора казино или команды контроля.', ABL: 'Сундук протоколов: активный Q-протокол, усиление Q, мутация или мобильность.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
 };
 const EN_PICKUP = { GLD: 'Credits for chests and bets. Shared by the team.', EXP: 'Experience toward the next level. Install choices appear between sectors.', HEA: 'Healing pickup. Restores health to the collector.' };
 const RU_PICKUP = { GLD: 'Кредиты для сундуков и ставок. Обычный подбор делится с командой.', EXP: 'Опыт для уровней. Улучшения появляются между секторами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
@@ -188,13 +188,13 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Living Casino gun. Opens and fires casino sectors.', RLT: 'Roulette gun. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck gun. Fast card fan.'
+  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Casino core. Opens and triggers casino sectors.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Builds control instability and captures exposed infected processes.', QRN: 'Quarantine anchor. Sticks to walls and leashes nearby threats.', SAW: 'Process dismantle command. Sweeps a control line and accelerates capture.'
 };
 const RU_WEAPON = {
-  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Казино-пушка. Запускает сектор Живого казино.', RLT: 'Пушка-рулетка. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Пушка-колода. Быстрый веер карт.'
+  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Казино-ядро. Запускает сектор казино.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Копит нестабильность контроля и перехватывает раскрытые процессы.', QRN: 'Карантинный якорь. Цепляется за стены и удерживает угрозы рядом.', SAW: 'Команда разбора процесса. Проводит линию контроля и ускоряет перехват.'
 };
 const EN_SKIN_NOTE = {
-  terminal_mint:'house terminal signal', living_casino:'living casino vector core', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
+  terminal_mint:'house terminal signal', living_casino:'living casino vector core', process_controller:'process controller core', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
 };
 
 export function getLang() {
@@ -450,7 +450,7 @@ Object.assign(EN_LABEL, {
 
 const RU_DYNAMIC_LABEL = {
   SHOTGUN: 'КЛИНОВОЙ РАЗРЯД', SEEKER: 'ИСКАТЕЛЬ', ROCKETGUN: 'РАЗЛОМНЫЙ ЗАРЯД',
-  WPN: 'ОРУЖИЕ', ABL: 'ПРОТОКОЛ', RAR: 'РЕДКИЙ', LUCK: 'УДАЧА',
+  WPN: 'ЯДРО', ABL: 'ПРОТОКОЛ', RAR: 'РЕДКИЙ', LUCK: 'УДАЧА',
   GUARD: 'ЗАЩИТА', CHAIN: 'ЦЕПЬ', BET: 'СТАВКА', COPY: 'КОПИЯ', GHOST: 'ПРИЗРАК',
   JACKPOT: 'ДЖЕКПОТ', TABLE: 'КАРТА', ZERO: 'НОЛЬ', AUTOPLAY: 'АВТО-ОГОНЬ',
   POWER: 'СИЛА', ODDS: 'ШАНС', SECTOR: 'СЕКТОР', ACTION: 'ДЕЙСТВИЕ', GUN: 'ПУШКА',
@@ -536,6 +536,7 @@ function setHTML(id, html) { const el = document.getElementById(id); if (el) el.
 function setPlaceholder(id, text) { const el = document.getElementById(id); if (el) el.placeholder = text; }
 function setExplainSel(sel, title, body, tone = '') { const el = document.querySelector(sel); if (!el) return; el.dataset.explainTitle = title; el.dataset.explain = body; if (tone) el.dataset.explainTone = tone; else delete el.dataset.explainTone; }
 function setExplainId(id, title, body, tone = '') { setExplainSel(`#${id}`, title, body, tone); }
+function clearExplainId(id) { const el = document.getElementById(id); if (!el) return; delete el.dataset.explainTitle; delete el.dataset.explain; delete el.dataset.explainTone; el.removeAttribute('title'); }
 
 export function applyStaticI18n() {
   const l = getLang(); document.documentElement.lang = l;
@@ -545,7 +546,7 @@ export function applyStaticI18n() {
   setText('btn-join', t('join'));
   setPlaceholder('name-input', t('namePlaceholder'));
   setPlaceholder('room-input', t('codePlaceholder'));
-  setHTML('menu-controls', localText(`<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">ЛКМ</span> — ${t('fire')} · <span class="term">ПКМ</span> — второй огонь · <span class="term">Пробел</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`, `<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">LMB</span> — ${t('fire')} · <span class="term">RMB</span> — secondary fire · <span class="term">Space</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`));
+  setHTML('menu-controls', localText(`<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">ЛКМ</span> — ${t('fire')} · <span class="term">ПКМ</span> — доп. действие · <span class="term">Пробел</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`, `<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">LMB</span> — ${t('fire')} · <span class="term">RMB</span> — hero action · <span class="term">Space</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`));
   setExplainId('hud-version', t('versionTitle'), t('versionBody'));
   setExplainId('hud-room', t('roomTitle'), t('roomBody'));
   setExplainId('hud-loop', t('loopTitle'), t('loopBody'));
@@ -597,10 +598,7 @@ export function applyStaticI18n() {
   const skinToggle = document.getElementById('btn-skin-toggle');
   const skinEditor = document.getElementById('skin-editor');
   if (skinToggle) skinToggle.textContent = skinEditor && !skinEditor.classList.contains('collapsed') ? t('hideSkins') : t('changeSkin');
-  setExplainId('btn-skin-toggle', t('changeSkin'), t('skinBody'));
-  setExplainId('skin-editor', t('skinTitle'), t('skinBody'));
-  setExplainId('skin-prev', t('prevSkinTitle'), t('prevSkinBody'));
-  setExplainId('skin-next', t('nextSkinTitle'), t('nextSkinBody'));
+  ['btn-skin-toggle', 'skin-editor', 'skin-prev', 'skin-next', 'skin-preview', 'skin-name', 'skin-note'].forEach(clearExplainId);
   setExplainId('lang-row', t('langTitle'), t('langBody'));
   document.querySelectorAll('[data-lang-btn]').forEach(b => b.classList.toggle('active', b.dataset.langBtn === l));
 }

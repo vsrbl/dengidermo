@@ -80,10 +80,16 @@ export class Effects {
   handleFx(f, info) {
     const mine = f.id === info.myId;
     switch (f.t) {
-      case 'ehit':
+      case 'ehit': {
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18 });
         if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), '#f3f3f3', Math.min(34, 15 + f.dmg * 0.26));
+        const myHit = f.owner && f.owner === info.myId;
+        if (myHit && Number(f.dmg || 0) >= 55) {
+          this.kick(Math.min(7.5, 1.8 + Number(f.dmg || 0) * 0.035));
+          this.zoomKick = Math.max(this.zoomKick, Math.min(0.18, 0.06 + Number(f.dmg || 0) * 0.0009));
+        }
         break;
+      }
       case 'phit':
         if (mine) { this.hitFlash = Math.min(0.65, 0.24 + f.dmg * 0.012); this.kick(Math.min(3.2, 0.7 + f.dmg * 0.045)); }
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.15 });
@@ -108,6 +114,7 @@ export class Effects {
       }
       case 'impact':
         this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 0) / 100, dy: (f.dy || 0) / 100, ttl: f.wall ? 0.18 : 0.14, weapon: f.kind || '', color: f.kind === 'seeker' ? '#66f6ff' : '#f3f3f3' });
+        if (f.id === info.myId && f.wall) this.kick(f.kind === 'rocketgun' ? 4.2 : 2.6);
         break;
       case 'kill':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: f.size * 1.6, ttl: 0.35, color: f.elite ? '#ff3048' : '#f3f3f3' });
@@ -240,11 +247,13 @@ export class Effects {
           this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / n, dy: (f.dy || 0) / n, weapon: f.kind === 'seeker' ? 'seeker' : 'shotgun', ttl: f.kind === 'roulette' ? 0.28 : 0.18, color: f.kind === 'roulette' ? '#ff3048' : '#66f6ff' });
           this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: f.kind === 'roulette' ? 0.20 : 0.14, color: f.kind === 'roulette' ? '#ffd34d' : '#00ff66' });
         }
+        if (f.id === info.myId) { this.kick(f.rocket ? 4.4 : (f.kind === 'roulette' ? 4.0 : 2.9)); this.zoomKick = Math.max(this.zoomKick, 0.07); }
         break;
       }
       case 'roulette_split':
         this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), dy: (f.dy || 0) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), weapon: 'roulette', ttl: 0.16, color: '#ffd34d' });
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.16, color: '#ffd34d' });
+        if (f.id === info.myId && f.reason === 'wall') { this.kick(4.6); this.zoomKick = Math.max(this.zoomKick, 0.08); }
         break;
       case 'mine':
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: '#ff3048' });
@@ -467,6 +476,16 @@ export class Effects {
         this.add({ kind: 'squareField', activeKind: 'null_revival_screen', x: f.x, y: f.y, r: 560, ttl: 0.70, color: '#b45cff' });
         this.float(f.x, f.y - 68, f.label || 'NULL REVIVAL', '#b45cff', 16);
         break;
+      case 'combo_tick': {
+        const mult = Number(f.mult || 1);
+        const tier = Math.max(0, Number(f.tier || 0));
+        if (mine && (mult >= 3 || tier >= 2)) {
+          this.kick(Math.min(7.8, 2.4 + tier * 1.25 + Math.max(0, mult - 3) * 0.35));
+          this.slam = Math.max(this.slam, Math.min(0.16, 0.045 + tier * 0.025));
+          this.zoomKick = Math.max(this.zoomKick, Math.min(0.18, 0.07 + tier * 0.02));
+        }
+        break;
+      }
       case 'enemy_combo':
         // Hidden: synergy labels around mobs were too noisy for normal play.
         break;

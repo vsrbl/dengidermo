@@ -7,7 +7,7 @@ import { Renderer } from './render.v2-1.js';
 import { Hud } from './hud.v2-1.js';
 import { AudioBus } from './audio.v2-1.js';
 import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, HERO_UPGRADES, WEAPON_CHEST_REWARDS, BOSS_SIGNATURE_UPGRADE_IDS } from '../shared/data.v2-1.js';
-import { setupLanguageButtons, onLangChange, t, skinNote, labelStatus, getLang, locRole, locAction, localText } from './i18n.v2-1.js';
+import { setupLanguageButtons, onLangChange, t, labelStatus, getLang, locRole, locAction, localText } from './i18n.v2-1.js';
 
 const $ = id => document.getElementById(id);
 const cfg = window.NNCCKKRR_CONFIG || {};
@@ -69,7 +69,8 @@ let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'termin
 const heroSaveKey = 'tcr_selected_hero_v1';
 const HEROES = {
   base: { id: 'base', labelRu: 'БАЗОВЫЙ АНТИВИРУС', labelEn: 'BASE ANTIVIRUS' },
-  living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' }
+  living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' },
+  process_controller: { id: 'process_controller', labelRu: 'КОНТРОЛЁР ПРОЦЕССОВ', labelEn: 'PROCESS CONTROLLER' }
 };
 let selectedHeroId = (localStorage.getItem(heroSaveKey) || (localStorage.getItem(skinSaveKey) === 'living_casino' ? 'living_casino' : 'base'));
 if (!HEROES[selectedHeroId]) selectedHeroId = 'base';
@@ -167,7 +168,7 @@ function updateSkinPreview() {
   if (note) {
     const status = selected ? 'SELECTED' : (unlocked ? 'UNLOCKED' : 'LOCKED');
     note.textContent = `${rarity.label} · ${labelStatus(status)}`;
-    note.title = skinNote(p);
+    note.removeAttribute('title');
   }
   applySkinTheme(selectedSkinId);
 }

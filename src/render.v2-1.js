@@ -54,6 +54,32 @@ export class Renderer {
     ctx.fillText(text, x, y);
   }
 
+  bossHpBar(x, y, size, hp01, color = COL.red) {
+    const ctx = this.ctx;
+    const pct = Math.max(0, Math.min(100, Number(hp01) || 0));
+    const bw = Math.max(82, size * 1.55);
+    const bx = Math.round(x - bw / 2);
+    const by = Math.round(y - size / 2 - 33);
+    ctx.save();
+    ctx.globalAlpha = 0.94;
+    ctx.fillStyle = 'rgba(0,0,0,0.74)';
+    ctx.fillRect(bx - 2, by - 2, bw + 4, 14);
+    ctx.strokeStyle = '#f3f3f3';
+    ctx.globalAlpha = 0.34;
+    ctx.strokeRect(bx - 2, by - 2, bw + 4, 14);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#202020';
+    ctx.fillRect(bx, by, bw, 6);
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, bw * pct / 100, 6);
+    ctx.fillStyle = '#f3f3f3';
+    ctx.font = `700 9px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${Math.round(pct)}%`, Math.round(x), by + 6);
+    ctx.restore();
+  }
+
   square(x, y, size, { fill, stroke, lw = 2, alpha = 1, rotate = 0 } = {}) {
     const ctx = this.ctx;
     ctx.save();
@@ -307,6 +333,32 @@ export class Renderer {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
         ctx.globalAlpha = 0.35; ctx.fillRect(-size * 2.5, -size * 0.25, size * 1.2, size * 0.5);
+      } else if (kind === 'command_pulse') {
+        const s = Math.max(5, size);
+        ctx.fillStyle = 'rgba(0,0,0,0.82)';
+        ctx.fillRect(-s * 1.35, -s * 0.75, s * 2.7, s * 1.5);
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.7;
+        ctx.strokeRect(-s * 1.35, -s * 0.75, s * 2.7, s * 1.5);
+        ctx.globalAlpha = 0.78; ctx.fillStyle = COL.cyan;
+        ctx.fillRect(-s * 0.45, -1, s * 0.9, 2);
+      } else if (kind === 'quarantine_anchor') {
+        const s = Math.max(7, size);
+        ctx.rotate(now * 1.4);
+        ctx.fillStyle = 'rgba(0,0,0,0.86)';
+        ctx.fillRect(-s, -s, s * 2, s * 2);
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 2;
+        ctx.strokeRect(-s, -s, s * 2, s * 2);
+        ctx.globalAlpha = 0.76; ctx.strokeStyle = COL.purple; ctx.lineWidth = 1.2;
+        ctx.strokeRect(-s * 0.52, -s * 0.52, s * 1.04, s * 1.04);
+      } else if (kind === 'process_saw') {
+        const s = Math.max(8, size);
+        ctx.rotate(now * 9.0);
+        ctx.fillStyle = 'rgba(102,246,255,0.16)';
+        ctx.fillRect(-s * 1.15, -s * 1.15, s * 2.3, s * 2.3);
+        ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.8;
+        ctx.strokeRect(-s * 1.15, -s * 1.15, s * 2.3, s * 2.3);
+        ctx.strokeStyle = COL.fg; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-s, 0); ctx.lineTo(s, 0); ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.stroke();
       } else if (kind === 'roulette') {
         // RLT v2.1.139: one clean rotating square. No tails, inner glyphs, reels, or extra ornaments.
         const s = Math.max(7, size);
@@ -344,25 +396,49 @@ export class Renderer {
       if (fromP && elem) {
         const es = String(elem);
         ctx.globalAlpha = 0.92;
-        if (es.includes('fire')) {
-          ctx.globalAlpha = 0.95;
-          ctx.strokeStyle = COL.red; ctx.lineWidth = 1.7;
-          ctx.strokeRect(-size * 1.45, -size * 0.95, size * 2.9, size * 1.9);
-          ctx.fillStyle = 'rgba(255,48,72,0.55)'; ctx.fillRect(-size * 2.2, -2, size * 0.9, 4);
-        }
-        if (es.includes('freeze')) {
-          ctx.globalAlpha = 0.95;
-          ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.35; ctx.setLineDash([2, 3]);
-          ctx.strokeRect(-size * 1.72, -size * 1.12, size * 3.44, size * 2.24);
+        if (kind === 'roulette') {
+          // RLT elemental overlay stays square-only. No tails, side fins, needles, or protrusions.
+          const rs = Math.max(7, size);
           ctx.setLineDash([]);
-          ctx.fillStyle = 'rgba(102,246,255,0.42)'; ctx.fillRect(-size * 2.75, -1.5, size * 0.78, 3);
-        }
-        if (es.includes('poison')) {
-          ctx.globalAlpha = 0.95;
-          ctx.strokeStyle = COL.green; ctx.lineWidth = 1.35;
-          ctx.strokeRect(-size * 1.15, -size * 1.25, size * 2.3, size * 0.35);
-          ctx.strokeRect(-size * 1.15, size * 0.90, size * 2.3, size * 0.35);
-          ctx.fillStyle = 'rgba(0,255,102,0.40)'; ctx.fillRect(-size * 3.15, 1.5, size * 0.65, 3);
+          if (es.includes('fire')) {
+            ctx.globalAlpha = 0.82;
+            ctx.strokeStyle = COL.red; ctx.lineWidth = Math.max(1.2, Math.min(2.4, rs * 0.08));
+            ctx.strokeRect(-rs * 0.76, -rs * 0.76, rs * 1.52, rs * 1.52);
+          }
+          if (es.includes('freeze')) {
+            ctx.globalAlpha = 0.80;
+            ctx.strokeStyle = COL.cyan; ctx.lineWidth = Math.max(1.1, Math.min(2.2, rs * 0.07));
+            ctx.strokeRect(-rs * 0.56, -rs * 0.56, rs * 1.12, rs * 1.12);
+          }
+          if (es.includes('poison')) {
+            ctx.globalAlpha = 0.78;
+            ctx.fillStyle = 'rgba(0,255,102,0.18)';
+            ctx.fillRect(-rs * 0.70, -rs * 0.70, rs * 1.40, rs * 1.40);
+            ctx.globalAlpha = 0.96;
+            ctx.strokeStyle = COL.green; ctx.lineWidth = Math.max(1.4, Math.min(2.6, rs * 0.09));
+            ctx.strokeRect(-rs * 0.86, -rs * 0.86, rs * 1.72, rs * 1.72);
+          }
+        } else {
+          if (es.includes('fire')) {
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = COL.red; ctx.lineWidth = 1.7;
+            ctx.strokeRect(-size * 1.45, -size * 0.95, size * 2.9, size * 1.9);
+            ctx.fillStyle = 'rgba(255,48,72,0.55)'; ctx.fillRect(-size * 2.2, -2, size * 0.9, 4);
+          }
+          if (es.includes('freeze')) {
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.35; ctx.setLineDash([2, 3]);
+            ctx.strokeRect(-size * 1.72, -size * 1.12, size * 3.44, size * 2.24);
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(102,246,255,0.42)'; ctx.fillRect(-size * 2.75, -1.5, size * 0.78, 3);
+          }
+          if (es.includes('poison')) {
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = COL.green; ctx.lineWidth = 1.35;
+            ctx.strokeRect(-size * 1.15, -size * 1.25, size * 2.3, size * 0.35);
+            ctx.strokeRect(-size * 1.15, size * 0.90, size * 2.3, size * 0.35);
+            ctx.fillStyle = 'rgba(0,255,102,0.40)'; ctx.fillRect(-size * 3.15, 1.5, size * 0.65, 3);
+          }
         }
       }
       ctx.restore();
@@ -462,8 +538,14 @@ export class Renderer {
         this.square(ex, ey, size * (winding ? 0.85 : 1), {
           stroke: winding ? COL.red : stroke, lw: kind === 'charger' ? 3 : 4, fill: 'rgba(255,255,255,0.05)'
         });
-        if (kind === 'boss_q_revisor') this.label('RUSH', ex, ey - size / 2 - 12, winding ? COL.red : COL.cyan, 12);
-        else if (kind === 'boss_hunter_duelist') this.label('HNT-I', ex, ey - size / 2 - 10, COL.red, 10);
+        if (kind === 'boss_q_revisor') {
+          this.label('RUSH', ex, ey - size / 2 - 14, winding ? COL.red : COL.cyan, 12);
+          this.bossHpBar(ex, ey, size, hp01, COL.cyan);
+        }
+        else if (kind === 'boss_hunter_duelist') {
+          this.label('HNT-I', ex, ey - size / 2 - 12, COL.red, 10);
+          this.bossHpBar(ex, ey, size, hp01, COL.red);
+        }
       } else if (kind === 'bomber') {
         const fusing = st === 'fuse';
         const blink = fusing ? (Math.sin(now * 24) > 0) : false;
@@ -636,8 +718,8 @@ export class Renderer {
         this.square(ex, ey, size, { stroke: COL.cyan, lw: 5, fill: 'rgba(102,246,255,0.05)' });
         this.square(ex, ey, size * 0.68, { stroke: COL.purple, lw: 2, rotate: now * 0.55 });
         this.square(ex, ey, size * 0.36, { stroke: COL.fg, lw: 1.4 });
-        this.label('RUSH', ex, ey - size / 2 - 12, COL.cyan, 12);
-        const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.cyan; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+        this.label('RUSH', ex, ey - size / 2 - 14, COL.cyan, 12);
+        this.bossHpBar(ex, ey, size, hp01, COL.cyan);
       } else if (kind === 'boss') {
         this.square(ex, ey, size, { stroke, lw: 6, fill: 'rgba(255,255,255,0.05)' });
         this.square(ex, ey, size * 0.55, { stroke: COL.red, lw: 2, rotate: now * 1.2 });
@@ -930,6 +1012,24 @@ export class Renderer {
             ctx.restore();
             const secLabel = ({ dmg:'LVC', roulette:'RLT', deck:'CRD', guard:'GUARD', chain:'CHAIN', bet:'BET', copy:'COPY', ghost:'GHOST', jackpot:'JACK', table:'TABLE' })[secType] || String(secType || '').toUpperCase().slice(0, 6);
             this.label(secLabel, cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
+          } else if (type === 'ctrl_proc') {
+            const procKind = String(c[6] || 'PRC');
+            const cmd = !!c[7];
+            const prev = this.companionTrail.get(id);
+            if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 120) {
+              ctx.save();
+              ctx.globalAlpha = cmd ? 0.36 : 0.20;
+              ctx.strokeStyle = cmd ? COL.green : COL.cyan;
+              ctx.lineWidth = cmd ? 1.8 : 1;
+              ctx.setLineDash(cmd ? [] : [5, 6]);
+              ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(cx, cy); ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.restore();
+            }
+            this.square(cx, cy, 16, { stroke: cmd ? COL.green : COL.cyan, lw: 2, fill: 'rgba(0,0,0,.62)', rotate: now * 0.8 });
+            this.square(cx, cy, 8, { fill: cmd ? COL.green : (skinMetaLocal.outline || COL.cyan), rotate: Math.PI / 4 });
+            this.label(procKind, cx, cy - 19, cmd ? COL.green : COL.cyan, 8);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });

@@ -2527,7 +2527,7 @@ function applyComboReelOutcome(run, players, owner, outcome, kills = 0, mult = 1
   else if (outcome === 'EXP') { val = Math.round(base * 0.45 * econ); addXp(run, owner, val); label = `EXP +${val}`; }
   else if (outcome === 'HEA') { val = Math.max(1, Math.round(base * 0.08)); owner.hp = Math.min(maxHp(owner), owner.hp + val); label = `HP +${val}`; }
   else if (outcome === 'DASH') { owner.dashCharges = Math.min(dashMax(owner), owner.dashCharges + 1); label = 'DASH CHARGE'; }
-  else if (outcome === 'WPN') { const unowned = WEAPON_ORDER.filter(w => !owner.weapons.includes(w)); if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; owner.weapons.push(w); label = `WPN ${WEAPONS[w].label}`; } else { owner.stats.weaponDmgMul = Math.max(0.05, Number(owner.stats.weaponDmgMul) || 1) * 1.10; label = 'WPN DMG +10%'; } }
+  else if (outcome === 'WPN') { const unowned = allowedWeaponOrderForPlayer(owner).filter(w => !owner.weapons.includes(w)); if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; owner.weapons.push(w); label = `WPN ${WEAPONS[w].label}`; } else { owner.stats.weaponDmgMul = Math.max(0.05, Number(owner.stats.weaponDmgMul) || 1) * 1.10; label = 'WPN DMG +10%'; } }
   else if (outcome === 'JCK') { val = Math.round(base * 1.6 * econ); owner.economy.money += val; label = `JACKPOT GLD +${val}`; }
   else if (outcome === 'STC') { addStaticDebt(run, 1, 'combo_reel'); label = 'STATIC STORM BANKED'; }
   run.fx.push({ t: 'combo_reel', id: owner.id, name: owner.name || '', personal: 1, outcome, label, symbols, kills, mult: Math.round(mult * 10) / 10 });
@@ -2729,7 +2729,9 @@ function skinId(v) {
 }
 function heroId(v) {
   const x = String(v || 'base').trim().toLowerCase();
-  return x === 'living_casino' ? 'living_casino' : 'base';
+  if (x === 'living_casino') return 'living_casino';
+  if (x === 'process_controller') return 'process_controller';
+  return 'base';
 }
 export function sanitizeSkin(skin = {}) {
   skin = skin || {};
@@ -2770,6 +2772,7 @@ export function createPlayer(id, name, idx, skin = null) {
     connected: true
   };
   if (safeSkin.hero === 'living_casino') setupLivingCasinoPlayer(p);
+  else if (safeSkin.hero === 'process_controller') setupProcessControllerPlayer(p);
   return p;
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
@@ -2800,7 +2803,7 @@ function setupLivingCasinoPlayer(p) {
   p.hero = 'living_casino';
   p.weapons = ['living_casino'];
   p.weaponIdx = 0;
-  p.shgCharges = WEAPONS.shotgun.charges;
+  p.shgCharges = 0;
   p.shgReload = 0;
   p.livingCasino = {
     maxSectors: 6,
@@ -2813,6 +2816,7 @@ function setupLivingCasinoPlayer(p) {
     copyPower: 0.55,
     betLuck: 0,
     betCd: 0,
+    tableCd: 0,
     tableRadius: 0,
     tableTriggers: 0,
     tableHold: 0,
@@ -2833,6 +2837,7 @@ function ensureLivingCasinoState(p) {
   lc.copyPower = Math.max(0.25, Math.min(0.95, Number(lc.copyPower || 0.55) || 0.55));
   lc.betLuck = Math.max(0, Number(lc.betLuck || 0) | 0);
   lc.betCd = Math.max(0, Number(lc.betCd || 0) || 0);
+  lc.tableCd = Math.max(0, Number(lc.tableCd || 0) || 0);
   lc.tableRadius = Math.max(0, Number(lc.tableRadius || 0) | 0);
   lc.tableTriggers = Math.max(0, Number(lc.tableTriggers || 0) | 0);
   lc.tableHold = Math.max(0, Number(lc.tableHold || 0) | 0);
@@ -2848,6 +2853,253 @@ function ensureLivingCasinoState(p) {
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
   return lc;
 }
+
+// ---------------------------------------------------------------- Process Controller hero
+const PROCESS_CONTROLLER_SKIN_ID = 'process_controller';
+const PROCESS_CONTROLLER_COMMANDS = ['command_pulse', 'quarantine_anchor', 'process_saw'];
+const PROCESS_CONTROLLER_WEAPON_SET = new Set(PROCESS_CONTROLLER_COMMANDS);
+function allowedWeaponOrderForPlayer(p) {
+  if (isLivingCasinoPlayer(p)) return ['living_casino', 'roulette', 'deck'];
+  if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
+  return ['shotgun', 'seeker', 'rocketgun'];
+}
+function isProcessControllerPlayer(p) { return p?.hero === 'process_controller' || p?.skin?.hero === 'process_controller'; }
+function processControllerMax(p) { return Math.max(1, 2 + Math.max(0, Number(p?.stats?.ctrlMax || 0) | 0)); }
+function setupProcessControllerPlayer(p) {
+  if (!p) return p;
+  p.hero = 'process_controller';
+  p.weapons = [...PROCESS_CONTROLLER_COMMANDS];
+  p.weaponIdx = 0;
+  p.shgCharges = 0;
+  p.shgReload = 0;
+  p.processController = {
+    controlled: [],
+    commandX: p.aimX || p.x,
+    commandY: p.aimY || p.y,
+    commandT: 0,
+    pulseT: 0,
+    captureT: 0,
+    lastCapture: ''
+  };
+  return p;
+}
+function ensureProcessControllerState(p) {
+  if (!isProcessControllerPlayer(p)) return null;
+  if (!p.processController) setupProcessControllerPlayer(p);
+  const pc = p.processController;
+  if (!Array.isArray(pc.controlled)) pc.controlled = [];
+  pc.controlled = pc.controlled.filter(m => m && (m.ttl ?? 999) > 0).slice(0, processControllerMax(p));
+  pc.commandX = Number.isFinite(pc.commandX) ? pc.commandX : (p.aimX || p.x);
+  pc.commandY = Number.isFinite(pc.commandY) ? pc.commandY : (p.aimY || p.y);
+  pc.commandT = Math.max(0, Number(pc.commandT || 0) || 0);
+  pc.pulseT = Math.max(0, Number(pc.pulseT || 0) || 0);
+  pc.captureT = Math.max(0, Number(pc.captureT || 0) || 0);
+  if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = [...PROCESS_CONTROLLER_COMMANDS];
+  for (const wid of PROCESS_CONTROLLER_COMMANDS) if (!p.weapons.includes(wid)) p.weapons.push(wid);
+  p.weapons = [...new Set(p.weapons.filter(w => PROCESS_CONTROLLER_WEAPON_SET.has(String(w || '')) && WEAPONS[w]))];
+  for (const wid of PROCESS_CONTROLLER_COMMANDS) if (!p.weapons.includes(wid)) p.weapons.push(wid);
+  p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
+  return pc;
+}
+function processControllerHudSnapshot(p) {
+  const pc = ensureProcessControllerState(p);
+  if (!pc) return null;
+  const max = processControllerMax(p);
+  const n = Math.max(0, pc.controlled?.length || 0);
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  return {
+    hero: 'process_controller',
+    label: 'CTRL',
+    controlled: n,
+    max,
+    commandT: Math.ceil((pc.commandT || 0) * 10) / 10,
+    captureT: Math.ceil((pc.captureT || 0) * 10) / 10,
+    power,
+    last: pc.lastCapture || ''
+  };
+}
+function commandProcessController(run, p) {
+  const pc = ensureProcessControllerState(p); if (!pc) return false;
+  pc.commandX = p.aimX || p.x;
+  pc.commandY = p.aimY || p.y;
+  pc.commandT = 5.0 + Math.min(2.5, Math.max(0, p.stats?.ctrlPower || 0) * 0.35);
+  pc.pulseT = 0.32;
+  for (const m of pc.controlled) { m.tx = pc.commandX; m.ty = pc.commandY; m.cmdT = pc.commandT; m.pulse = 0.25; }
+  run.fx.push({ t: 'active_mutation', label: `ПРИКАЗ CTRL x${pc.controlled.length || 0}`, x: Math.round(pc.commandX), y: Math.round(pc.commandY), r: 96 + (pc.controlled.length || 0) * 14, tone: 'cyan', owner: p.id });
+  return true;
+}
+function captureEnemyAsProcess(run, players, p, e, source = 'command') {
+  const pc = ensureProcessControllerState(p);
+  if (!pc || !e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) return false;
+  const def = ENEMIES[e.kind] || {};
+  if (def.boss || e.bossFragment || e.kind === 'slot_mob') return false;
+  if (pc.controlled.length >= processControllerMax(p)) return false;
+  const x = e.x, y = e.y, kind = e.kind;
+  pc.controlled.push({ id: nid(), kind, x, y, hp: Math.max(18, Math.round((e.maxHp || 40) * 0.38)), ttl: 999, atkCd: 0.22, tx: pc.commandX || p.x, ty: pc.commandY || p.y, cmdT: Math.max(0.6, pc.commandT || 0) });
+  pc.lastCapture = ENEMIES[kind]?.label || String(kind).toUpperCase();
+  pc.captureT = 0.70;
+  e.hp = 0;
+  killEnemy(run, players, e, p, 'control_capture');
+  run.fx.push({ t: 'active_mutation', label: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${pc.lastCapture}`, x: Math.round(x), y: Math.round(y), r: 92, tone: 'cyan', owner: p.id });
+  return true;
+}
+function tryControlCapture(run, players, p, e, source = 'command') {
+  const pc = ensureProcessControllerState(p);
+  if (!pc || !e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) return false;
+  const def = ENEMIES[e.kind] || {};
+  if (def.boss || e.bossFragment || e.kind === 'slot_mob') return false;
+  if (pc.controlled.length >= processControllerMax(p)) return false;
+  const hpPct = e.hp / Math.max(1, e.maxHp || e.hp || 1);
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  const threshold = source === 'command' ? (0.48 + power * 0.035) : (0.34 + power * 0.025);
+  const forced = hpPct <= threshold;
+  const chance = Math.min(0.70, (source === 'command' ? 0.18 : 0.10) + power * 0.035 + (1 - hpPct) * 0.22);
+  if (!forced && Math.random() > chance) return false;
+  return captureEnemyAsProcess(run, players, p, e, source);
+}
+function stepProcessControllerState(run, players, p, dt) {
+  const pc = ensureProcessControllerState(p); if (!pc) return;
+  pc.commandT = Math.max(0, (pc.commandT || 0) - dt);
+  pc.pulseT = Math.max(0, (pc.pulseT || 0) - dt);
+  pc.captureT = Math.max(0, (pc.captureT || 0) - dt);
+  const max = processControllerMax(p);
+  if (pc.controlled.length > max) pc.controlled = pc.controlled.slice(pc.controlled.length - max);
+  const walls = run.plan?.walls || [];
+  const fireMul = 1 + Math.min(1.2, Math.max(0, p.stats?.ctrlFire || 0) * 0.16);
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  for (let i = 0; i < pc.controlled.length; i++) {
+    const m = pc.controlled[i];
+    m.ttl = Math.max(0, (m.ttl ?? 999) - dt * 0.02);
+    const hasCmd = (pc.commandT || 0) > 0;
+    const orbitA = (run.now || 0) * 1.1 + i * Math.PI * 2 / Math.max(1, pc.controlled.length);
+    const restX = hasCmd ? pc.commandX : p.x + Math.cos(orbitA) * (74 + i * 8);
+    const restY = hasCmd ? pc.commandY : p.y + Math.sin(orbitA) * (74 + i * 8);
+    let best = null, bd = Infinity;
+    const leash = hasCmd ? 440 : 330;
+    for (const e of run.enemies) {
+      if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+      const d = dist2(e.x, e.y, hasCmd ? pc.commandX : m.x, hasCmd ? pc.commandY : m.y);
+      if (d < bd && d <= leash * leash) { bd = d; best = e; }
+    }
+    const targetX = best ? best.x : restX;
+    const targetY = best ? best.y : restY;
+    const n = norm(targetX - m.x, targetY - m.y);
+    const desired = best ? 135 : 0;
+    const dcur = Math.hypot(targetX - m.x, targetY - m.y);
+    const spd = best ? (180 + power * 10) : (230 + power * 8);
+    if (dcur > desired + 18) {
+      const c = collideWalls(m.x + n.x * spd * dt, m.y + n.y * spd * dt, 12, walls, m.x, m.y);
+      m.x = c.x; m.y = c.y;
+    }
+    m.atkCd = Math.max(0, (m.atkCd || 0) - dt * fireMul);
+    if (best && m.atkCd <= 0 && run.bullets.length < MAX_BULLETS - 1 && !segmentBlockedByWalls(m.x, m.y, best.x, best.y, run.plan?.walls || [], 12)) {
+      m.atkCd = Math.max(0.28, 0.88 - Math.min(0.34, power * 0.04));
+      const to = norm(best.x - m.x, best.y - m.y);
+      run.bullets.push({ id: nid(), x: m.x + to.x * 10, y: m.y + to.y * 10, vx: to.x * 460, vy: to.y * 460, dmg: weaponDamageValue(p, 8 + power * 2.2), from: 'p', owner: p.id, life: 0.82, size: 4, kind: 'ctrl_proc', travelled: 0, maxDist: 360, knock: 20 + power * 2, bornTick: run.tick || 0 });
+      run.fx.push({ t: 'shot', id: p.id, w: 'CTRL', kind: 'ctrl_proc', x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(best.x), my: Math.round(best.y) });
+    }
+  }
+  pc.controlled = pc.controlled.filter(m => m.ttl > 0);
+}
+function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
+  const owner = b?.owner ? players.get(b.owner) : null;
+  const pwr = owner ? Math.max(0, Number(owner.stats?.qrHold || 0) | 0) : 0;
+  const rad = 138 + (owner ? Math.max(0, Number(owner.stats?.qrRadius || 0) | 0) * 22 : 0);
+  const ttl = 4.6 + pwr * 0.55;
+  if (!run.activeFields) run.activeFields = [];
+  run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, r: rad, ttl, maxT: ttl, age: 0, tickT: 0.12, tickEvery: 0.32, fxT: 0.01, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, 2.6 + pwr * 0.55), pull: 160 + pwr * 22, slow: 0.34, damp: 0.33 });
+  run.fx.push({ t: 'active_mutation', label: 'QUARANTINE ANCHOR', x: Math.round(x), y: Math.round(y), r: Math.round(rad), tone: 'cyan', owner: b.owner || '' });
+}
+
+function processControllerFindTarget(run, p, range = 540, cursorRadius = 78) {
+  if (!run || !p) return null;
+  const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
+  const ay = Number.isFinite(p.aimY) ? p.aimY : p.y;
+  let best = null, bd = cursorRadius * cursorRadius;
+  for (const e of run.enemies || []) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    const def = ENEMIES[e.kind] || {};
+    if (def.boss || e.bossFragment || e.kind === 'slot_mob') continue;
+    if (dist2(p.x, p.y, e.x, e.y) > range * range) continue;
+    if (segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13)) continue;
+    const d = dist2(ax, ay, e.x, e.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function processControllerInstabilityNeed(e) {
+  const mh = Math.max(1, Number(e?.maxHp || e?.hp || 1));
+  return Math.max(22, Math.min(150, mh * 0.62));
+}
+function applyProcessControllerInstability(run, players, p, e, amount = 35, source = 'command') {
+  const pc = ensureProcessControllerState(p);
+  if (!pc || !e || e.hp <= 0) return false;
+  const def = ENEMIES[e.kind] || {};
+  if (def.boss || e.bossFragment || e.kind === 'slot_mob') return false;
+  const ownerId = p.id || 'p';
+  if (!e.ctrlInstability || typeof e.ctrlInstability !== 'object') e.ctrlInstability = {};
+  const hpPct = e.hp / Math.max(1, e.maxHp || e.hp || 1);
+  const weakBonus = hpPct < 0.55 ? (0.55 - hpPct) * 48 : 0;
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  const add = Math.max(1, amount + power * 9 + weakBonus);
+  e.ctrlInstability[ownerId] = Math.max(0, Number(e.ctrlInstability[ownerId] || 0)) + add;
+  const need = processControllerInstabilityNeed(e);
+  run.fx.push({ t: 'active_mutation', label: `CTRL ${Math.min(100, Math.round((e.ctrlInstability[ownerId] / need) * 100))}%`, x: Math.round(e.x), y: Math.round(e.y), r: 44 + Math.min(62, (e.ctrlInstability[ownerId] / need) * 52), tone: 'cyan', owner: p.id });
+  if (e.ctrlInstability[ownerId] >= need) return captureEnemyAsProcess(run, players, p, e, source);
+  e.activeSlowT = Math.max(e.activeSlowT || 0, 0.22);
+  e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.60);
+  e.fireCd = Math.max(e.fireCd || 0, 0.10);
+  return true;
+}
+function placeProcessControllerAnchor(run, players, p) {
+  const dir = norm((p.aimX ?? p.x + 1) - p.x, (p.aimY ?? p.y) - p.y);
+  const range = WEAPONS.quarantine_anchor.maxDist || 680;
+  const hit = bulletWallCollision(p.x, p.y, p.x + dir.x * range, p.y + dir.y * range, 8, run.plan?.walls || []);
+  if (!hit) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'QRN: НУЖНА СТЕНА', chest: 'CTRL' });
+    return false;
+  }
+  spawnQuarantineAnchorField(run, players, { owner: p.id }, Math.round(hit.x), Math.round(hit.y), hit.nx || 0, hit.ny || 0);
+  return true;
+}
+function fireProcessControllerProtocol(run, players, p, dt) {
+  const pc = ensureProcessControllerState(p);
+  if (!pc) return;
+  p.cd = Math.max(0, (p.cd || 0) - dt);
+  if (!p.fire) { p.fireWasDown = false; return; }
+  if (!p.alive || p.fireWasDown || p.cd > 0) return;
+  p.fireWasDown = true;
+  const id = p.weapons[p.weaponIdx] || 'command_pulse';
+  const w = WEAPONS[id] || WEAPONS.command_pulse;
+  const tempFire = p.activeBuffT > 0 ? 1.35 + p.stats.activeOver * 0.12 : 1;
+  p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire));
+  let ok = false;
+  if (id === 'quarantine_anchor') {
+    ok = placeProcessControllerAnchor(run, players, p);
+  } else if (id === 'process_saw') {
+    const dir = norm((p.aimX ?? p.x + 1) - p.x, (p.aimY ?? p.y) - p.y);
+    const endX = p.x + dir.x * (w.maxDist || 430);
+    const endY = p.y + dir.y * (w.maxDist || 430);
+    let hit = 0;
+    for (const e of run.enemies || []) {
+      if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+      if (distToSegment2(e.x, e.y, p.x, p.y, endX, endY) > Math.pow((e.size || 24) * 0.55 + 34, 2)) continue;
+      if (segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13)) continue;
+      if (applyProcessControllerInstability(run, players, p, e, 52, 'saw')) hit++;
+    }
+    run.fx.push({ t: 'active_mutation', label: `SAW ${hit}`, x: Math.round(p.x + dir.x * 120), y: Math.round(p.y + dir.y * 120), r: 86, tone: 'purple', owner: p.id });
+    ok = hit > 0;
+  } else {
+    const target = processControllerFindTarget(run, p, w.maxDist || 520, 86);
+    if (target) ok = applyProcessControllerInstability(run, players, p, target, 36, 'command');
+    else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ ЦЕЛИ', chest: 'CTRL' });
+  }
+  if (ok) {
+    p.recoilT = Math.max(p.recoilT || 0, 0.035);
+    run.fx.push({ t: 'active_mutation', label: w.label || 'CTRL', x: Math.round(p.x), y: Math.round(p.y), r: 44, tone: id === 'process_saw' ? 'purple' : 'cyan', owner: p.id });
+  }
+}
+
 function livingCasinoAimIndex(p, lc = null) {
   lc = lc || ensureLivingCasinoState(p); if (!lc) return 0;
   const n = Math.max(1, lc.sectors.length);
@@ -3170,9 +3422,10 @@ function activateLivingCasinoJackpot(run, players, p, sec, power = 1) {
   run.fx.push({ t: 'lc_jackpot_impulse', id: p.id, label: hits >= 6 ? `JACKPOT x${hits}` : `IMPULSE x${hits}`, x: Math.round(p.x), y: Math.round(p.y), r, hits, playerId: p.id });
   return true;
 }
-function activateLivingCasinoTable(run, p, sec, power = 1) {
+function activateLivingCasinoTable(run, p, sec, power = 1, copied = false) {
   const lvl = Math.max(1, sec.level || 1);
   const lc = ensureLivingCasinoState(p);
+  if (!copied && (lc?.tableCd || 0) > 0) return false;
   const radiusBonus = Math.max(0, Number(lc?.tableRadius || 0) | 0);
   const triggerBonus = Math.max(0, Number(lc?.tableTriggers || 0) | 0);
   const holdBonus = Math.max(0, Number(lc?.tableHold || 0) | 0);
@@ -3181,6 +3434,7 @@ function activateLivingCasinoTable(run, p, sec, power = 1) {
   const y = p.y;
   const radius = 60 + lvl * 6 + radiusBonus * 12;
   const ttl = livingCasinoSectorDuration('table', lvl, power) + radiusBonus * 0.45;
+  sec.activeT = Math.max(sec.activeT || 0, Math.min(ttl, 1.15));
   const dmg = weaponDamageValue(p, 42 + lvl * 9 + holdBonus * 7, power);
   activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: radius, ttl, dmg, slow: 0.04, tickEvery: 0.18, lvl, sprung: 0, hitsLeft: 1 + triggerBonus, hold: holdBonus, hitIds: [] });
   run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: Math.round(radius + 16), playerId: p.id, hitsLeft: 1 + triggerBonus });
@@ -3305,7 +3559,7 @@ function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
   else if (type === 'bet') ok = activateLivingCasinoBet(run, players, p, sec, power);
   else if (type === 'ghost') ok = activateLivingCasinoGhost(run, p, sec, power);
   else if (type === 'jackpot') ok = activateLivingCasinoJackpot(run, players, p, sec, power);
-  else if (type === 'table') ok = activateLivingCasinoTable(run, p, sec, power);
+  else if (type === 'table') ok = activateLivingCasinoTable(run, p, sec, power, copied);
   else if (type === 'copy') {
     const last = lc.lastSector && lc.lastSector !== 'copy' ? lc.lastSector : '';
     const source = last ? lc.sectors.find(s => s.type === last) : null;
@@ -3325,13 +3579,13 @@ function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
   if (!copied) {
     const reload = livingCasinoSectorReload(type, sec.level || 1);
     sec.cd = Math.max(sec.cd || 0, (sec.activeT || 0) + reload);
+    if (type === 'table') lc.tableCd = Math.max(lc.tableCd || 0, sec.cd || reload);
     if (type !== 'copy') { lc.lastSector = type; lc.lastPower = power; }
   }
   return true;
 }
 function fireLivingCasinoSector(run, players, p, dt) {
   const lc = ensureLivingCasinoState(p); if (!lc) return;
-  lc.betCd = Math.max(0, (lc.betCd || 0) - dt);
   if (lc.ringOpen) lc.selected = livingCasinoAimIndex(p, lc);
   if (!p.fire) { lc.fireDown = false; return; }
   if (lc.fireDown || !p.alive) return;
@@ -3349,6 +3603,8 @@ function fireLivingCasinoSector(run, players, p, dt) {
 }
 function stepLivingCasinoState(run, players, p, dt) {
   const lc = ensureLivingCasinoState(p); if (!lc) return;
+  lc.betCd = Math.max(0, (lc.betCd || 0) - dt);
+  lc.tableCd = Math.max(0, (lc.tableCd || 0) - dt);
   if (lc.ringOpen) lc.selected = livingCasinoAimIndex(p, lc);
   for (const sec of lc.sectors) {
     sec.cd = Math.max(0, (sec.cd || 0) - dt);
@@ -3362,6 +3618,12 @@ function stepLivingCasinoState(run, players, p, dt) {
       }
     }
   }
+  const tableSec = lc.sectors.find(s => s.type === 'table');
+  if (tableSec) {
+    const sharedTableCd = Math.max(Number(tableSec.cd || 0) || 0, Number(lc.tableCd || 0) || 0);
+    tableSec.cd = sharedTableCd;
+    lc.tableCd = sharedTableCd;
+  } else lc.tableCd = 0;
   if (lc.autoLvc && p.alive && run.phase === 'play' && !lc.ringOpen && (p.weapons?.[p.weaponIdx || 0] || '') === 'living_casino') {
     const primary = lc.sectors[livingCasinoPrimaryIndex(lc)] || lc.sectors[0];
     if (primary && String(primary.type || '') === 'dmg' && (primary.cd || 0) <= 0 && (primary.activeT || 0) <= 0) activateLivingCasinoSector(run, players, p, primary, { auto: 1 });
@@ -3603,6 +3865,7 @@ export function resetRun(run, players) {
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
     p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.rareChestOffer = null; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
+    else if ((p.skin?.hero || p.hero) === 'process_controller') setupProcessControllerPlayer(p);
   }
   startRoom(run, players);
 }
@@ -4693,12 +4956,14 @@ function stepHunterTrapperBoss(run, players, e, def, target, toT, dT, spd, dt) {
 }
 function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls) {
   // Reworked from ability mimic into a readable dash boss: charger-like windup, faster dash, radial shots.
+  // Radial shots are restricted to a single readable ring. No background volley during windup/charge/cool.
   if (!e.state) e.state = 'move';
   e.bossVolleyCd = Math.max(0, (e.bossVolleyCd || 0.9) - dt);
-  if (e.bossVolleyCd <= 0 && e.state !== 'charge') {
-    bossRadial(run, e, 8 + Math.min(4, difficulty(run).loop), def.bulletSpd || 245, enemyDamageValue(e, 0.30), 6, 2.15, e.bossPhase || 0);
-    e.bossPhase = (e.bossPhase || 0) + 0.36;
-    e.bossVolleyCd = e.state === 'windup' ? 1.20 : 1.55;
+  if (e.bossVolleyCd <= 0 && e.state === 'move') {
+    const loop = difficulty(run).loop;
+    bossRadial(run, e, 6 + Math.min(2, loop), def.bulletSpd || 245, enemyDamageValue(e, 0.28), 6, 2.05, e.bossPhase || 0);
+    e.bossPhase = (e.bossPhase || 0) + 0.42;
+    e.bossVolleyCd = 1.75;
   }
   e.bossDashCd = Math.max(0, (e.bossDashCd || 0) - dt);
   if (e.state === 'move') {
@@ -4719,7 +4984,11 @@ function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
       const sep = resolveEnemyPlayerOverlap(run, e, p, walls || [], { pad: 14, playerKick: 28, fx: true });
       if (sep) { damagePlayer(run, p, enemyDamageValue(e, 1.05), e.x, e.y); e.state = 'cool'; e.st = 0; }
     }
-    if (e.st >= (def.chargeTime || 0.52) || blocked) { e.state = 'cool'; e.st = 0; bossRadial(run, e, 10, def.bulletSpd || 245, enemyDamageValue(e, 0.26), 6, 1.75, e.bossPhase || 0); }
+    if (e.st >= (def.chargeTime || 0.52) || blocked) {
+      e.state = 'cool'; e.st = 0;
+      bossRadial(run, e, 6, def.bulletSpd || 245, enemyDamageValue(e, 0.24), 6, 1.65, e.bossPhase || 0);
+      e.bossVolleyCd = Math.max(e.bossVolleyCd || 0, 1.15);
+    }
   } else if (e.state === 'cool') {
     bossMoveKeep(run, e, target, toT, dT, spd * 0.72, dt, 500, 0.18);
     if (e.st >= (def.chargeCd || 1.05)) { e.state = 'move'; e.st = 0; e.bossDashCd = 0.75; }
@@ -5337,7 +5606,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
   }
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
-  run.fx.push({ t: 'ehit', id: e.id, dmg, x: Math.round(e.x), y: Math.round(e.y) });
+  run.fx.push({ t: 'ehit', id: e.id, owner: owner || '', dmg, x: Math.round(e.x), y: Math.round(e.y) });
   if (knock && !def.boss && e.kind !== 'bouncer' && !def.immobile) {
     e.x += kx * knock * 0.02; e.y += ky * knock * 0.02;
   }
@@ -5729,6 +5998,7 @@ function fireWeapon(run, players, p, dt) {
     if (p.fire && lc?.fireDown) return;
     if (!p.fire && lc) lc.fireDown = false;
   }
+  if (isProcessControllerPlayer(p)) { fireProcessControllerProtocol(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
   if (!p.alive) return;
@@ -5986,7 +6256,7 @@ function stepBullets(run, players, dt) {
     if (b.maxDist && b.travelled >= b.maxDist) {
       const n = norm(b.vx || 1, b.vy || 0);
       if (b.kind === 'roulette' && b.from === 'p') splitRouletteSquare(run, b, n.x, n.y, 'expire');
-      else run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, range: 1, dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
+      else run.fx.push({ t: 'impact', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, range: 1, dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
       b.life = -1; continue;
     }
     // walls: sweep between old/new positions so fast or wall-adjacent shots cannot tunnel
@@ -5998,6 +6268,10 @@ function stepBullets(run, players, dt) {
       b.x = wallHit.x; b.y = wallHit.y;
     }
     if (hitWall) {
+      if (b.kind === 'quarantine_anchor' && b.from === 'p') {
+        spawnQuarantineAnchorField(run, players, b, Math.round(b.x), Math.round(b.y), wallHit?.nx || 0, wallHit?.ny || 0);
+        b.life = -1; continue;
+      }
       if (b.kind === 'roulette' && b.from === 'p') {
         splitRouletteSquare(run, b, wallHit?.nx || 0, wallHit?.ny || 0, 'wall');
         b.life = -1; continue;
@@ -6006,10 +6280,10 @@ function stepBullets(run, players, dt) {
         if (hitWallAxis === 'x') b.vx *= -0.82;
         else b.vy *= -0.82;
         b.bounces--; b.ricocheted = (b.ricocheted || 0) + 1; b.life *= 0.90;
-        run.fx.push({ t: 'ricochet', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, rocket: b.kind === 'rocketgun' ? 1 : 0, left: b.bounces, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
+        run.fx.push({ t: 'ricochet', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, rocket: b.kind === 'rocketgun' ? 1 : 0, left: b.bounces, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
         continue;
       }
-      run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, wall: 1, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
+      run.fx.push({ t: 'impact', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, wall: 1, dx: Math.round((b.vx || 0) / 10), dy: Math.round((b.vy || 0) / 10) });
       if (b.aoe) { if ((b.kind === 'rocketgun' || b.mine) && b.from === 'p') rocketExplode(run, players, b, b.x, b.y, b.aoe, b.dmg); else explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, b.from === 'e', b.from === 'e' ? 'danger' : 'blast', b.elem || '', b.elemPower || 0); if (b.from === 'p') rocketAftermath(run, players, b); }
       b.life = -1; continue;
     }
@@ -6021,7 +6295,7 @@ function stepBullets(run, players, dt) {
           if (b.aoe) { if ((b.kind === 'rocketgun' || b.mine) && b.from === 'p') rocketExplode(run, players, b, b.x, b.y, b.aoe, b.dmg); else explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, b.from === 'e', b.from === 'e' ? 'danger' : 'blast', b.elem || '', b.elemPower || 0); if (b.from === 'p') rocketAftermath(run, players, b); }
           else {
             const n = norm(b.vx, b.vy);
-            run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
+            run.fx.push({ t: 'impact', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
             applyBulletElements(run, players, e, b, 1);
             let hitDmg = b.dmg;
             const redOwner = b.owner ? players.get(b.owner) : null;
@@ -6031,6 +6305,10 @@ function stepBullets(run, players, dt) {
               run.fx.push({ t: 'active_mutation', label: 'RED OVERDRIVE', x: Math.round(b.x), y: Math.round(b.y), r: 84, tone: 'red', owner: redOwner.id });
             }
             damageEnemy(run, players, e, hitDmg, b.owner, b.knock, n.x, n.y, comboSourceFromBullet(b));
+            if ((b.kind === 'command_pulse' || b.kind === 'process_saw') && b.owner) {
+              const ctrlOwner = players.get(b.owner);
+              if (ctrlOwner) tryControlCapture(run, players, ctrlOwner, e, b.kind === 'command_pulse' ? 'command' : 'saw');
+            }
             applyWeaponChain(run, players, e, b);
             if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48, { rangeMul: b.rangeMul || 1, bounces: b.bounces || 0, elem: b.elem || '', elemPower: b.elemPower || 0 });
             const blasts = chanceStacks(b.proc || 0);
@@ -7229,6 +7507,13 @@ function tryInteract(run, players, p) {
 function weaponChoiceDisabled(p, opt) {
   if (!opt) return 'НЕТ ВАРИАНТА';
   if (isLivingCasinoPlayer(p)) return '';
+  if (isProcessControllerPlayer(p)) {
+    if (opt.kind === 'weapon') return 'ЯДРО УЖЕ ИМЕЕТ 3 ПУШКИ';
+    if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
+  } else {
+    if (opt.kind === 'weapon' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
+    if (opt.kind === 'weapon_upgrade' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
+  }
   if (opt.kind === 'weapon' && p.weapons.includes(opt.weapon)) return 'УЖЕ ЕСТЬ';
   if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return `НУЖЕН ${WEAPONS[opt.reqWeapon]?.label || opt.reqWeapon}`;
   if (opt.kind === 'weapon_upgrade') {
@@ -7259,8 +7544,30 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
   for (const [x,w] of weighted) { r -= w; if (r <= 0) return x; }
   return weighted[0][0];
 }
+function processControllerChoicePool(p, qualityTier = 0) {
+  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'qrn_radius', 'qrn_hold']);
+  return WEAPON_CHEST_REWARDS
+    .filter(opt => opt && opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id)))
+    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL', actionLabel: 'УСИЛИТЬ КОНТРОЛЬ' }));
+}
+function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
+  // У контролёра WPN-ящик — это ящик команд контроля, не оружейный пул.
+  // Никакие SHG/SEK/RKT/LVC/RLT/CRD и снарядные статусы сюда не попадают.
+  const pool = processControllerChoicePool(p, qualityTier);
+  const choices = [];
+  const used = new Set();
+  const want = Math.max(1, Math.min(5, count | 0));
+  while (choices.length < want && pool.length) {
+    const opt = weightedPickOption(rng, pool, x => weaponChoiceWeight(p, x, qualityTier), used);
+    if (!opt) break;
+    used.add(opt.id); choices.push(opt);
+  }
+  return choices;
+}
+
 function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   if (isLivingCasinoPlayer(p)) return makeLivingCasinoWeaponChoices(p, rng, count, qualityTier);
+  if (isProcessControllerPlayer(p)) return makeProcessControllerWeaponChoices(p, rng, count, qualityTier);
   const pool = WEAPON_CHEST_REWARDS
     .filter(opt => weaponChoiceEligible(p, opt))
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier }));
@@ -7471,9 +7778,24 @@ function applyRandomCasinoAbility(run, players, p, pl = {}) {
   return ok;
 }
 
+function applyProcessControllerWeaponOption(run, players, p, opt) {
+  if (!opt) return false;
+  if (opt.kind !== 'weapon_upgrade' || !opt.pcOnly) return false;
+  const u = UPGRADES.find(x => x.id === opt.upgrade);
+  if (!u) return false;
+  u.apply(p.stats);
+  const label = u.label || opt.label || 'CTRL';
+  run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  p.hp = Math.min(p.hp, maxHp(p));
+  p.dashCharges = Math.min(dashMax(p), p.dashCharges);
+  run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'CTRL', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
+  return true;
+}
 function applyWeaponChestOption(run, players, p, opt) {
   if (!opt) return false;
   if (isLivingCasinoPlayer(p)) return applyLivingCasinoWeaponOption(run, players, p, opt);
+  if (isProcessControllerPlayer(p)) return applyProcessControllerWeaponOption(run, players, p, opt);
   const disabledReason = weaponChoiceDisabled(p, opt);
   if (disabledReason) {
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, chest: 'WPN' });
@@ -8078,7 +8400,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   if (weaponCount) {
     pl.weaponLabels = [];
     for (let i = 0; i < weaponCount; i++) {
-      const unowned = WEAPON_ORDER.filter(w => !p.weapons.includes(w));
+      const unowned = allowedWeaponOrderForPlayer(p).filter(w => !p.weapons.includes(w));
       if (unowned.length) {
         const w = unowned[Math.floor(Math.random() * unowned.length)];
         p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
@@ -8819,7 +9141,7 @@ function stepActiveFields(run, players, dt) {
         run.fx.push({ t: 'active_mutation', label: charge > 0.1 ? `DIGITAL BITE ${Math.round(biteDmg)}` : 'DIGITAL BITE', x: Math.round(f.x), y: Math.round(f.y), r: biteR, tone: 'red', squareBlast: 1 });
       }
     }
-    if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
+    if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
         const rr = (f.width || f.r || 42);
         for (const e of run.enemies) if (!f.bulletsOnly && distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) {
@@ -8856,7 +9178,7 @@ function stepActiveFields(run, players, dt) {
       for (const e of run.enemies) if (!f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.22);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
-        if (f.kind === 'signal_spike' || f.kind === 'anchor_field') { const n = norm(f.x - e.x, f.y - e.y); e.x += n.x * (f.pull || 65) * dt; e.y += n.y * (f.pull || 65) * dt; }
+        if (f.kind === 'signal_spike' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') { const n = norm(f.x - e.x, f.y - e.y); const d = Math.hypot(f.x - e.x, f.y - e.y); const leashBoost = f.kind === 'quarantine_anchor' && d > (f.r || 120) * 0.58 ? 1.85 : 1; e.x += n.x * (f.pull || 65) * leashBoost * dt; e.y += n.y * (f.pull || 65) * leashBoost * dt; if (f.kind === 'quarantine_anchor') { e.stunT = Math.max(e.stunT || 0, 0.045); e.fireCd = Math.max(e.fireCd || 0, 0.08); } }
       }
       for (const b of run.bullets) if (dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
         const damp = Math.pow(activeSoftMul(f.damp || 0.45), dt * (f.kind === 'freeze_aura' ? 5.2 : 3.0));
@@ -8901,7 +9223,7 @@ function stepActiveFields(run, players, dt) {
     }
     if (f.tickT <= 0) {
       f.tickT = f.tickEvery || 0.35;
-      if (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'snap_field' || f.kind === 'signal_spike' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
+      if (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'snap_field' || f.kind === 'signal_spike' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') {
         const p = players.get(f.owner);
         if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
           const rr = f.width || f.r || 42;
@@ -9104,6 +9426,7 @@ function stepPlayers(run, players, dt) {
     p.voidChainPlaceCd = Math.max(0, (p.voidChainPlaceCd || 0) - dt);
     stepRActiveState(run, players, p, dt);
     stepLivingCasinoState(run, players, p, dt);
+    stepProcessControllerState(run, players, p, dt);
     if (p.active?.core === 'void_cut' && p.active.voidChain && p.active.voidChain.expires <= (run.now || 0)) delete p.active.voidChain;
     if (p.active?.core === 'signal_spike') {
       const a = ensureActive(p);
@@ -9215,6 +9538,7 @@ function stepPlayers(run, players, dt) {
         if (lc?.ringOpen) closeLivingCasinoRing(run, p, 'close', players);
         else toggleLivingCasinoRing(run, p);
       }
+      else if (isProcessControllerPlayer(p)) commandProcessController(run, p);
       else doSecondaryWeapon(run, players, p);
     }
     p.wantSecondary = false;
@@ -9351,7 +9675,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0))
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p)
     ]);
   }
   const es = combatEnemies(run).map(e => [
@@ -9395,6 +9719,14 @@ export function buildSnapshot(run, players) {
         const visible = lc.ringOpen;
         if (!visible) continue;
         cs.push([`lvc:${p.id}:${i}`, p.id, 'lc_sector', i, Math.round(p.x + Math.cos(a) * r), Math.round(p.y + Math.sin(a) * r), sec.type, ready, active, selected === i ? 1 : 0, Math.ceil((sec.cd || 0) * 10) / 10, Math.max(1, sec.level || 1), lc.ringOpen ? 1 : 0, Math.max(0, p.livingCasinoChainDashes || 0), Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0)]);
+      }
+    }
+    const pc = ensureProcessControllerState(p);
+    if (pc && Array.isArray(pc.controlled)) {
+      for (let i = 0; i < pc.controlled.length; i++) {
+        const m = pc.controlled[i];
+        if (!m) continue;
+        cs.push([`ctrl:${p.id}:${m.id || i}`, p.id, 'ctrl_proc', i, Math.round(m.x || p.x), Math.round(m.y || p.y), ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4), (pc.commandT || 0) > 0 ? 1 : 0, Math.ceil((m.atkCd || 0) * 10) / 10]);
       }
     }
     const drones = Math.max(0, p.stats.drones | 0);

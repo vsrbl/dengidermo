@@ -19,11 +19,23 @@ export const WEAPONS = {
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
-    cooldown: 1.08, pellets: 1, spread: 0.004, dmg: 78, speed: 335, life: 2.25, maxDist: 980, size: 22, knock: 210, bounces: 0
+    cooldown: 1.08, pellets: 1, spread: 0.004, dmg: 39, speed: 335, life: 1.50, maxDist: 653, size: 22, knock: 210, bounces: 0
   },
   deck: {
     id: 'deck', label: 'CRD', name: 'КОЛОДА',
-    cooldown: 0.48, pellets: 3, spread: 0.30, dmg: 13, speed: 690, life: 0.82, maxDist: 610, size: 4, knock: 28, bounces: 0
+    cooldown: 0.48, pellets: 2, spread: 0.30, dmg: 13, speed: 690, life: 0.41, maxDist: 305, size: 4, knock: 28, bounces: 0
+  },
+  command_pulse: {
+    id: 'command_pulse', label: 'CMD', name: 'КОМАНДА ЗАХВАТА',
+    cooldown: 0.42, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 520, size: 0, knock: 0, control: 1, protocol: 1
+  },
+  quarantine_anchor: {
+    id: 'quarantine_anchor', label: 'QRN', name: 'КАРАНТИННЫЙ ЯКОРЬ',
+    cooldown: 1.12, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 680, size: 0, knock: 0, quarantine: 1, protocol: 1
+  },
+  process_saw: {
+    id: 'process_saw', label: 'SAW', name: 'РАЗБОР ПРОЦЕССА',
+    cooldown: 0.74, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 430, size: 0, knock: 0, control: 1, protocol: 1
   }
 };
 export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun', 'living_casino', 'roulette', 'deck'];
@@ -146,7 +158,13 @@ export const UPGRADES = [
   { id: 'rlt_fragment_count', label: 'RLT: ОСКОЛКИ +', branch: 'RLT', tier: 1, desc: 'При дроблении появляется больше малых квадратов.', apply: s => { s.rltFrag += 1; } },
   { id: 'rlt_split_depth', label: 'RLT: ДРОБЛЕНИЕ +', branch: 'RLT', tier: 1, desc: 'Осколки могут дробиться ещё один раз.', apply: s => { s.rltDepth += 1; } },
   { id: 'rlt_wall_charge', label: 'RLT: ОТСКОК +', branch: 'RLT', tier: 1, desc: 'Удар о стену сильнее заряжает следующие квадраты.', apply: s => { s.rltWallBuff += 1; } },
-  { id: 'rlt_square_speed', label: 'RLT: СКОРОСТЬ +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки летят быстрее.', apply: s => { s.rltSpeed += 1; } }
+  { id: 'rlt_square_speed', label: 'RLT: СКОРОСТЬ +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки летят быстрее.', apply: s => { s.rltSpeed += 1; } },
+  { id: 'crd_card_count', label: 'CRD: КАРТЫ +1', branch: 'CRD', tier: 1, desc: 'Колода выпускает на одну карту больше в каждом веере.', apply: s => { s.crdCards += 1; } },
+  { id: 'ctrl_process_slot', label: 'CTRL: ПРОЦЕСС +1', branch: 'CTRL', tier: 1, desc: 'Контролёр держит ещё один подконтрольный процесс.', apply: s => { s.ctrlMax += 1; } },
+  { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее доводят угрозы до перехвата; процессы сильнее атакуют.', apply: s => { s.ctrlPower += 1; } },
+  { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП ПРИКАЗОВ +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.', apply: s => { s.ctrlFire += 1; } },
+  { id: 'qrn_radius', label: 'QRN: ЗОНА +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь держит более широкую зону у стены.', apply: s => { s.qrRadius += 1; } },
+  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь держит дольше и тянет сильнее.', apply: s => { s.qrHold += 1; } }
 ];
 
 export const UPGRADE_LABELS = Object.fromEntries(UPGRADES.map(u => [u.id, u.label]));
@@ -188,6 +206,12 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'rlt_split_life', kind: 'weapon_upgrade', upgrade: 'rlt_split_depth', reqWeapon: 'roulette', label: 'RLT: ДРОБЛЕНИЕ +', desc: 'Рулетка: осколки дробятся дальше.' },
   { id: 'rlt_wall_charge', kind: 'weapon_upgrade', upgrade: 'rlt_wall_charge', reqWeapon: 'roulette', label: 'RLT: ОТСКОК +', desc: 'Рулетка: удар о стену сильнее заряжает следующий распад.' },
   { id: 'rlt_speed', kind: 'weapon_upgrade', upgrade: 'rlt_square_speed', reqWeapon: 'roulette', label: 'RLT: СКОРОСТЬ +', desc: 'Рулетка: квадраты летят быстрее.' },
+  { id: 'crd_card_count', kind: 'weapon_upgrade', upgrade: 'crd_card_count', reqWeapon: 'deck', label: 'CRD: КАРТЫ +1', desc: 'Колода выпускает на одну карту больше в каждом веере.' },
+  { id: 'ctrl_process_slot', kind: 'weapon_upgrade', upgrade: 'ctrl_process_slot', reqWeapon: 'command_pulse', label: 'CTRL: ПРОЦЕСС +1', desc: 'Контролёр может держать ещё один подконтрольный процесс.' },
+  { id: 'ctrl_process_power', kind: 'weapon_upgrade', upgrade: 'ctrl_process_power', reqWeapon: 'command_pulse', label: 'CTRL: КОНТРОЛЬ +', desc: 'Команды быстрее доводят угрозы до перехвата; процессы сильнее атакуют.' },
+  { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП ПРИКАЗОВ +', desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.' },
+  { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗОНА +', desc: 'Карантинный якорь держит угрозы в более широкой зоне у стены.' },
+  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Карантинный якорь дольше удерживает и сильнее тянет угрозы.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия.' },
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ТЕМП ОРУЖИЯ +14%', desc: 'Оружие стреляет чаще.' }
 ];
@@ -285,7 +309,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlFire: 0, qrRadius: 0, qrHold: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
@@ -316,6 +340,7 @@ export const SKIN_RARITIES = {
 export const SKIN_PRESETS = [
   { id: 'terminal_mint', name: 'HOUSE SIGNAL', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'базовый сигнал дома / чистый терминальный след' },
   { id: 'living_casino', name: 'ЖИВОЕ КАЗИНО', rarity: 'basic', fill: '#120910', outline: '#ffd34d', barrel: '#b45cff', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'coin', note: 'новое ядро: не стреляет напрямую, а активирует казино-секторы вокруг себя' },
+  { id: 'process_controller', name: 'КОНТРОЛЁР ПРОЦЕССОВ', rarity: 'basic', fill: '#061216', outline: '#66f6ff', barrel: '#b45cff', dash: '#66f6ff', dashAlt: '#00ff66', dashStyle: 'terminal', note: 'ядро контроля: командует захваченными процессами и ставит карантинные якоря у стен' },
   { id: 'debt_red', name: 'DEBT FRACTURE', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой разрыв / красный надлом сигнала' },
   { id: 'void_cyan', name: 'VOID CHANNEL', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодный канал пустоты / фазовый хвост' },
   { id: 'casino_gold', name: 'CASHIER GLEAM', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'свет кассы / золотой жетонный след' },
