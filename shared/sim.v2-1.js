@@ -2933,9 +2933,18 @@ function processControllerHudSnapshot(p) {
     };
   });
   const lifePct = processes.length ? Math.round(Math.min(...processes.map(x => x.life))) : 0;
+  const currentId = (p.weapons && p.weapons[p.weaponIdx || 0]) || 'command_pulse';
+  const current = WEAPONS[currentId] || WEAPONS.command_pulse;
+  const cd = Math.max(0, Number(p.cd || 0) || 0);
+  const cdMax = Math.max(0.1, Number(p.ctrlCdMax || current?.cooldown || 0.5) || 0.5);
   return {
     hero: 'process_controller',
     label: 'CTRL',
+    selected: current?.label || 'CMD',
+    selectedName: current?.name || current?.label || 'CMD',
+    cd: Math.ceil(cd * 10) / 10,
+    cdMax: Math.ceil(cdMax * 10) / 10,
+    cdPct: Math.round(Math.max(0, Math.min(1, cd / cdMax)) * 100),
     controlled: n,
     max,
     commandT: Math.ceil((pc.commandT || 0) * 10) / 10,
@@ -3020,7 +3029,10 @@ function controlledFireBullet(run, p, m, target, baseDmg, speed, life, size, kin
     const off = count === 1 ? 0 : (i - (count - 1) / 2) * spread;
     run.bullets.push({ id: nid(), x: m.x, y: m.y, vx: Math.cos(base + off) * speed, vy: Math.sin(base + off) * speed, dmg: weaponDamageValue(p, baseDmg + power * 1.7), from: 'p', owner: p.id, life, size, kind, source: 'control', travelled: 0, maxDist: Math.round(speed * life * 0.74), knock: 16 + power * 2, bornTick: run.tick || 0 });
   }
-  run.fx.push({ t: 'shot', id: p.id, w: 'CTRL', kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y) });
+  // Controlled processes fire from their own bodies. Do not emit the normal player 'shot' FX:
+  // it plays the player's weapon sound and relocates the muzzle flash to the hero on the client.
+  // The actual bullets are already visible; a silent controller-only marker is kept for future VFX.
+  run.fx.push({ t: 'ctrl_proc_fire', id: m.id || '', owner: p.id, kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y) });
   return true;
 }
 function controlledContact(run, players, p, m, target, dt, mult = 1) {
@@ -3220,6 +3232,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   const w = WEAPONS[id] || WEAPONS.command_pulse;
   const tempFire = p.activeBuffT > 0 ? 1.35 + p.stats.activeOver * 0.12 : 1;
   p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire));
+  p.ctrlCdMax = p.cd;
   let ok = false;
   if (id === 'quarantine_anchor') {
     ok = placeProcessControllerAnchor(run, players, p);
@@ -5770,7 +5783,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
   }
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg;
-  run.fx.push({ t: 'ehit', id: e.id, owner: owner || '', dmg, x: Math.round(e.x), y: Math.round(e.y) });
+  run.fx.push({ t: 'ehit', id: e.id, owner: owner || '', dmg, x: Math.round(e.x), y: Math.round(e.y), source });
   if (knock && !def.boss && e.kind !== 'bouncer' && !def.immobile) {
     e.x += kx * knock * 0.02; e.y += ky * knock * 0.02;
   }
@@ -10013,7 +10026,7 @@ export function buildSnapshot(run, players) {
       for (let i = 0; i < pc.controlled.length; i++) {
         const m = pc.controlled[i];
         if (!m) continue;
-        cs.push([`ctrl:${p.id}:${m.id || i}`, p.id, 'ctrl_proc', i, Math.round(m.x || p.x), Math.round(m.y || p.y), ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4), (pc.commandT || 0) > 0 ? 1 : 0, Math.ceil((m.atkCd || 0) * 10) / 10, String(m.kind || 'grunt'), Math.round(m.size || ENEMIES[m.kind]?.size || 24), m.maxHp ? Math.round(((m.hp || 0) / Math.max(1, m.maxHp || 1)) * 100) : 100]);
+        cs.push([`ctrl:${p.id}:${m.id || i}`, p.id, 'ctrl_proc', i, Math.round(m.x || p.x), Math.round(m.y || p.y), ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4), (pc.commandT || 0) > 0 ? 1 : 0, Math.ceil((m.atkCd || 0) * 10) / 10, String(m.kind || 'grunt'), Math.round(m.size || ENEMIES[m.kind]?.size || 24), m.maxHp ? Math.round(((m.hp || 0) / Math.max(1, m.maxHp || 1)) * 100) : 100, Math.round((m.dirX || 1) * 100), Math.round((m.dirY || 0) * 100), m.maxT ? Math.round(Math.max(0, Math.min(1, (m.ttl || 0) / Math.max(1, m.maxT))) * 100) : 100]);
       }
     }
     const drones = Math.max(0, p.stats.drones | 0);

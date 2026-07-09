@@ -1288,38 +1288,54 @@ export class Hud {
     }
 
 
+    let pcRack = $('process-controller-rack');
     let pcHud = $('process-controller-selected');
     const pc = me[P.CTRL] || null;
+    if (!pcRack && $('hud-right')) {
+      pcRack = document.createElement('div');
+      pcRack.id = 'process-controller-rack';
+      $('hud-right').insertBefore(pcRack, $('dash-pips') || $('weapon-slots') || null);
+    }
     if (!pcHud && $('hud-right')) {
       pcHud = document.createElement('div');
       pcHud.id = 'process-controller-selected';
       $('hud-right').insertBefore(pcHud, $('weapon-slots') || null);
     }
-    if (pcHud) {
+    if (pcHud || pcRack) {
       if (pc && pc.hero === 'process_controller') {
         const controlled = Math.max(0, Number(pc.controlled || 0) | 0);
         const max = Math.max(1, Number(pc.max || 1) | 0);
         const cmd = Math.max(0, Number(pc.commandT || 0) || 0);
         const cap = Math.max(0, Number(pc.captureT || 0) || 0);
-        const life = Math.max(0, Math.min(100, Number(pc.lifePct || 0) || 0));
+        const cd = Math.max(0, Number(pc.cd || 0) || 0);
+        const cdPct = Math.max(0, Math.min(100, Number(pc.cdPct || 0) || 0));
         const persist = !!pc.persist;
-        const status = cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : controlled > 0 ? localText(`СРОКИ${persist ? ' · ПЕРЕНОС' : ''}`, `TIMERS${persist ? ' · CARRY' : ''}`) : localText('НЕТ ЗАХВАТА', 'NO CAPTURE');
+        const selected = String(pc.selected || 'CMD').toUpperCase();
+        const selectedName = String(pc.selectedName || selected).toUpperCase();
+        const status = cd > 0 ? localText(`ПЕРЕЗАРЯДКА ${cd.toFixed(1)}`, `COOLDOWN ${cd.toFixed(1)}`) : cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : cap > 0 ? localText('ЗАХВАТ', 'CAPTURE') : localText('ГОТОВО', 'READY');
         const procs = Array.isArray(pc.processes) ? pc.processes.slice(0, Math.min(10, max)) : [];
         const chips = [];
         for (let i = 0; i < Math.min(10, max); i++) {
           const pr = procs[i] || null;
           const l = pr ? Math.max(0, Math.min(100, Number(pr.life || 0) || 0)) : 0;
           const h = pr ? Math.max(0, Math.min(100, Number(pr.hp || 0) || 0)) : 0;
-          const label = pr ? String(pr.label || 'PRC').slice(0, 3).toUpperCase() : '---';
+          const label = pr ? String(pr.label || 'PRC').slice(0, 3).toUpperCase() : String(i + 1).padStart(2, '0');
           chips.push(`<i class="pc-life-chip ${pr ? 'filled' : 'empty'}" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`);
         }
-        pcHud.className = `pc-selected ${cmd > 0 ? 'command' : cap > 0 ? 'capture' : controlled > 0 ? 'ready' : 'empty'}`;
-        pcHud.style.setProperty('--pc-fill', `${controlled > 0 ? life : Math.round((controlled / max) * 100)}%`);
-        pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><div class="pc-title"><b>CTRL</b><span>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))} ${controlled}/${max}</span><em>${escHtml(status)}</em></div><div class="pc-life-grid">${chips.join('')}</div>`;
-        this.setExplain(pcHud, localText('КОНТРОЛЁР ПРОЦЕССОВ', 'PROCESS CONTROLLER'), localText('ЛКМ использует выбранную команду контроля. На старте доступен только CMD; QRN и SAW открываются в ящике команд. ПКМ отдаёт приказ захваченным процессам.', 'LMB uses the selected control command. Only CMD is available at start; QRN and SAW are unlocked in command chests. RMB orders captured processes.'), 'cyan');
+        if (pcRack) {
+          pcRack.className = `pc-process-rack ${controlled > 0 ? 'has-processes' : 'hidden'}`;
+          pcRack.innerHTML = controlled > 0 ? `<div class="pc-rack-head"><b>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))}</b><span>${controlled}/${max}${persist ? escHtml(localText(' · ПЕРЕНОС', ' · CARRY')) : ''}</span></div><div class="pc-life-grid">${chips.join('')}</div>` : '';
+          if (controlled > 0) this.setExplain(pcRack, localText('ПОДКОНТРОЛЬНЫЕ ПРОЦЕССЫ', 'CONTROLLED PROCESSES'), localText('Каждая плашка — отдельный процесс: верхнее заполнение показывает срок контроля, нижняя полоска — HP.', 'Each plate is one process: the main fill is control lifetime, the bottom strip is HP.'), 'cyan');
+        }
+        if (pcHud) {
+          pcHud.className = `pc-selected ctrl-main type-${selected.toLowerCase()} ${cd > 0 ? 'cooldown' : cmd > 0 ? 'command' : cap > 0 ? 'capture' : 'ready'}`;
+          pcHud.style.setProperty('--pc-fill', `${cd > 0 ? 100 - cdPct : 100}%`);
+          pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><div class="pc-title"><b>${escHtml(selected)}</b><span>${escHtml(selectedName)}</span><em>${escHtml(status)}</em></div>`;
+          this.setExplain(pcHud, localText('КОМАНДА КОНТРОЛЁРА', 'CONTROLLER COMMAND'), localText('Это активная команда ЛКМ. Заполнение показывает готовность/перезарядку команды. Сроки отдельных процессов вынесены выше отдельными плашками.', 'This is the active LMB command. The fill shows command readiness/cooldown. Individual process lifetimes are shown above in separate plates.'), 'cyan');
+        }
       } else {
-        pcHud.className = 'pc-selected hidden';
-        pcHud.innerHTML = '';
+        if (pcRack) { pcRack.className = 'pc-process-rack hidden'; pcRack.innerHTML = ''; }
+        if (pcHud) { pcHud.className = 'pc-selected hidden'; pcHud.innerHTML = ''; }
       }
     }
 
@@ -1342,8 +1358,12 @@ export class Hud {
     // weapon slots
     const slots = $('weapon-slots');
     const livingCasinoHero = !!(me[P.LVC]);
-    if (slots) slots.classList.toggle('hidden', livingCasinoHero);
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc-hide' : '');
+    const processControllerHero = !!(me[P.CTRL] && me[P.CTRL].hero === 'process_controller');
+    if (slots) {
+      slots.classList.toggle('hidden', livingCasinoHero);
+      slots.classList.toggle('ctrl-slots', processControllerHero && !livingCasinoHero);
+    }
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc-hide' : '') + (processControllerHero ? ':ctrl' : '');
     if (slots && !livingCasinoHero && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';

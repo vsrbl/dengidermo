@@ -1019,6 +1019,8 @@ export class Renderer {
             const procKind = String(c[9] || '').toLowerCase();
             const size = Math.max(14, Number(c[10] || 24) || 24);
             const hp = Math.max(0, Math.min(100, Number(c[11] || 100) || 100));
+            const faceX = (Number(c[12] || 100) || 100) / 100;
+            const faceY = (Number(c[13] || 0) || 0) / 100;
             const prev = this.companionTrail.get(id);
             if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 140) {
               ctx.save();
@@ -1041,7 +1043,9 @@ export class Renderer {
               this.square(cx, cy, size * 0.58, { stroke: COL.fg, lw: 1.2 });
             } else if (procKind === 'shooter') {
               this.square(cx, cy, size, { stroke, lw: 2.2, fill });
-              ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(now * 2) * size * 0.75, cy + Math.sin(now * 2) * size * 0.75); ctx.stroke();
+              const fl = Math.hypot(faceX, faceY) || 1;
+              const fx = faceX / fl, fy = faceY / fl;
+              ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + fx * size * 0.75, cy + fy * size * 0.75); ctx.stroke();
             } else if (procKind === 'charger') {
               this.square(cx, cy, size, { stroke, lw: 3, fill });
               ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.beginPath(); ctx.moveTo(cx - size * 0.35, cy); ctx.lineTo(cx + size * 0.55, cy); ctx.stroke(); ctx.setLineDash([]);

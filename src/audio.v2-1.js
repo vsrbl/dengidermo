@@ -1063,11 +1063,15 @@ export class AudioBus {
         else if (f.type === 'HEA') this.play('hea');
         else this.play('pickup');
         break;
-      case 'ehit': this.play('hit'); break;
+      case 'ehit':
+        if (!String(f.source || '').startsWith('ctrl_')) this.play('hit');
+        break;
       case 'combo_tick': if (mine) this.play('combo_tick'); break;
       case 'combo_drop': if (mine) this.play('combo_drop'); break;
       case 'combo_break': this.play('combo_break'); break;
-      case 'impact': this.play('impact'); break;
+      case 'impact':
+        if (!String(f.kind || '').startsWith('ctrl_')) this.play('impact');
+        break;
       case 'roulette_split': this.play('casino_reel_stop'); this.play('impact'); if ((f.count || 0) >= 4 || (f.size || 0) >= 24) this.play('casino_spin'); break;
       case 'ricochet': if (f.kind === 'roulette') { this.play('casino_reel_stop'); this.play('impact'); } else this.play(f.rocket ? 'rocket_launch' : 'shot_sek'); break;
       case 'phit': if (mine) this.play('phit'); break;
