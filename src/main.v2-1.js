@@ -68,7 +68,7 @@ let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
 const heroSaveKey = 'tcr_selected_hero_v1';
 const HEROES = {
-  base: { id: 'base', labelRu: 'БАЗОВЫЙ', labelEn: 'BASE' },
+  base: { id: 'base', labelRu: 'БАЗОВЫЙ АНТИВИРУС', labelEn: 'BASE ANTIVIRUS' },
   living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' }
 };
 let selectedHeroId = (localStorage.getItem(heroSaveKey) || (localStorage.getItem(skinSaveKey) === 'living_casino' ? 'living_casino' : 'base'));
@@ -225,8 +225,8 @@ function handleSkinUnlock(id, source = 'casino') {
     const alt = fallbackLockedSkin(skin?.rarity || '');
     if (!alt) {
       try {
-        hud.feed(`${getLang() !== 'en' ? 'ВСЕ СКИНЫ ОТКРЫТЫ' : 'ALL SKINS UNLOCKED'}: ${skin.rarity?.toUpperCase?.() || 'SKIN'}`, 'g');
-        hud.openSkinClaim?.({ allOwned: 1, name: getLang() !== 'en' ? 'ВСЕ СКИНЫ ОТКРЫТЫ' : 'ALL SKINS UNLOCKED', rarity: 'complete', source });
+        hud.feed(`${getLang() !== 'en' ? 'ВСЕ ОБЛИКИ ОТКРЫТЫ' : 'ALL SHELLS UNLOCKED'}: ${skin.rarity?.toUpperCase?.() || 'SHELL'}`, 'g');
+        hud.openSkinClaim?.({ allOwned: 1, name: getLang() !== 'en' ? 'ВСЕ ОБЛИКИ ОТКРЫТЫ' : 'ALL SHELLS UNLOCKED', rarity: 'complete', source });
       } catch {}
       return;
     }
@@ -240,7 +240,7 @@ function handleSkinUnlock(id, source = 'casino') {
     updateSkinPreview();
     applySkinTheme(selectedSkinId);
     const ru = getLang() !== 'en';
-    const prefix = source === 'room' ? (ru ? 'СКИН ИЗ КОМНАТЫ' : 'ROOM SKIN') : (ru ? 'СКИН ОТКРЫТ' : 'SKIN UNLOCKED');
+    const prefix = source === 'room' ? (ru ? 'ОБЛИК ИЗ СЕКТОРА' : 'SECTOR SHELL') : (ru ? 'ОБЛИК ОТКРЫТ' : 'SHELL UNLOCKED');
     const suffix = fallback ? (ru ? ' / БЕЗ ДУБЛЯ' : ' / NO DUPLICATE') : '';
     try {
       hud.feed(`${prefix}: ${skin.name}${suffix}`, skin.rarity === 'legendary' || skin.rarity === 'superrare' ? 'p' : 'g');
@@ -498,9 +498,9 @@ function ensureDevPanel() {
     <div class="dev-note">SINGLE PLAYER/HOST only · full test lab · F2</div>
     <div class="dev-buttons dev-priority">
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
-      <button id="dev-wpn-offer">WPN OFFER</button>
-      <button id="dev-wpn-chest">SPAWN WPN CHEST</button>
-      <button id="dev-luck-plus">LUCK +1</button>
+      <button id="dev-wpn-offer">ОРУЖЕЙНЫЙ ВЫБОР</button>
+      <button id="dev-wpn-chest">ОРУЖЕЙНЫЙ СУНДУК</button>
+      <button id="dev-luck-plus">УДАЧА +1</button>
       <button id="dev-sig-offer">BOSS SIG OFFER</button>
       <button id="dev-win-run">WIN RUN</button>
     </div>

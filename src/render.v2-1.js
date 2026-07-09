@@ -256,7 +256,7 @@ export class Renderer {
 
     // bullets — each weapon gets distinct signal language
     for (const b of view.bullets) {
-      const [, rawBx, rawBy, vx, vy, size, fromP, rocket, kind, elem = '', echoProc = 0, longshot = 0, ownerId = ''] = b;
+      const [bulletId, rawBx, rawBy, vx, vy, size, fromP, rocket, kind, elem = '', echoProc = 0, longshot = 0, ownerId = ''] = b;
       let bx = rawBx, by = rawBy;
       if (fromP && ownerId && ownerId === state.myId && !state.localMode && myPos) {
         const meAuth = state.me?.();
@@ -308,21 +308,22 @@ export class Renderer {
         ctx.fillRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
         ctx.globalAlpha = 0.35; ctx.fillRect(-size * 2.5, -size * 0.25, size * 1.2, size * 0.5);
       } else if (kind === 'roulette') {
-        const s = Math.max(15, size);
+        const s = Math.max(7, size);
+        let spinSeed = 0;
+        const sid = String(bulletId || '');
+        for (let si = 0; si < sid.length; si++) spinSeed = (spinSeed + sid.charCodeAt(si) * (si + 1)) % 628;
+        ctx.rotate(now * 6.4 + spinSeed * 0.01);
         ctx.globalAlpha = 0.98;
-        ctx.fillStyle = 'rgba(0,0,0,0.86)';
-        ctx.fillRect(-s * 1.18, -s * 0.82, s * 2.36, s * 1.64);
-        ctx.strokeStyle = COL.red; ctx.lineWidth = 2.7;
-        ctx.strokeRect(-s * 1.18, -s * 0.82, s * 2.36, s * 1.64);
+        ctx.fillStyle = 'rgba(0,0,0,0.88)';
+        ctx.fillRect(-s, -s, s * 2, s * 2);
+        ctx.strokeStyle = COL.red; ctx.lineWidth = Math.max(1.6, Math.min(3.4, s * 0.13));
+        ctx.strokeRect(-s, -s, s * 2, s * 2);
         ctx.globalAlpha = 0.82;
-        ctx.strokeStyle = COL.gold; ctx.lineWidth = 1.6;
-        ctx.strokeRect(-s * 0.62, -s * 0.46, s * 1.24, s * 0.92);
-        ctx.globalAlpha = 0.34;
+        ctx.strokeStyle = COL.gold; ctx.lineWidth = Math.max(1, Math.min(2.0, s * 0.07));
+        ctx.strokeRect(-s * 0.55, -s * 0.55, s * 1.1, s * 1.1);
+        ctx.globalAlpha = 0.72;
         ctx.fillStyle = COL.red;
-        ctx.fillRect(-s * 3.2, -s * 0.22, s * 1.55, Math.max(3, s * 0.44));
-        ctx.globalAlpha = 0.60;
-        ctx.fillStyle = COL.gold;
-        ctx.fillRect(-s * 0.18, -s * 0.18, s * 0.36, s * 0.36);
+        ctx.fillRect(-s * 0.22, -s * 0.22, s * 0.44, s * 0.44);
       } else {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);

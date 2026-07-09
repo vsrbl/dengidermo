@@ -847,7 +847,7 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (special === 'chill_room') return 'SAFE ROOM: buy, BET, then leave when ready.';
   if (roomPlanCategory(plan) === 'boss') return 'BOSS FLOOR: hold space, clear adds, watch burst windows.';
   if (mods.includes('static_rain')) return String(staticMode).startsWith('paid') ? (staticMode === 'paid+seed' ? 'STATIC STACK: banked storm is spent here; natural room strikes still seed the next level.' : 'STATIC PAYOFF: survive the level; strikes here do not seed another storm.') : 'STATIC SEED: each real strike raises the next eligible room level.';
-  if (mods.includes('hunter_contract')) return 'HUNTER WAVES: portal stays locked until every wave is dead.';
+  if (mods.includes('hunter_contract')) return 'ВОЛНЫ ОХОТНИКОВ: portal stays locked until every wave is dead.';
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
@@ -884,7 +884,7 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   const cat = roomPlanCategory(plan);
   if (cat === 'boss') return { id: 'boss_cut', label: 'BOSS CUT', reward: 'FAVOR', goal: 'Kill the boss.' };
   if (special === 'chill_room') return { id: 'lounge_cashout', label: 'SAFE CASHOUT', reward: 'SHOP', goal: 'Leave when ready.' };
-  if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'HUNTER WAVES', reward: 'FAVOR', goal: 'Survive every locked hunter wave.' };
+  if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'ВОЛНЫ ОХОТНИКОВ', reward: 'FAVOR', goal: 'Survive every locked hunter wave.' };
   if (mods.includes('casino_virus')) return { id: 'virus_clean', label: 'VIRUS CLEANUP', reward: 'FAVOR', goal: 'Survive 3 virus spins, then kill every enemy.' };
   if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'PRISM CLEANUP', reward: 'FAVOR', goal: 'Clear the room while the prism cells slow the fight.' };
   if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Spend HP if you dare, then clear the room.' };
@@ -2920,44 +2920,44 @@ function livingCasinoChoicePool(p, qualityTier = 0) {
         sector: type,
         label: `${isWeapon ? 'ПУШКА' : 'ДЕЙСТВИЕ'}: ${livingCasinoSectorLabel(type)}`,
         actionLabel: isWeapon ? 'ДОБАВИТЬ ПУШКУ' : 'ДОБАВИТЬ ДЕЙСТВИЕ',
-        group: 'LIVE CASINO', role: livingCasinoSectorLabel(type),
+        group: 'ЖИВОЕ КАЗИНО', role: livingCasinoSectorLabel(type),
         desc: livingCasinoSectorDesc(type), valueTier: qualityTier
       });
     }
   }
   for (const sec of lc.sectors) {
     const next = (sec.level || 1) + 1;
-    pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ', group: 'LIVE CASINO', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
+    pool.push({ id: `lc_up_${sec.type}_${next}`, kind: 'lc_sector_upgrade', sector: sec.type, label: `${livingCasinoSectorLabel(sec.type)} ${roman(next)}`, actionLabel: 'УСИЛИТЬ', group: 'ЖИВОЕ КАЗИНО', role: livingCasinoSectorLabel(sec.type), desc: livingCasinoSectorUpgradeDesc(sec.type, next), valueTier: qualityTier });
   }
-  if (livingCasinoHasSector(p, 'dmg') && !lc.autoLvc) pool.push({ id: 'lc_lvc_auto_fire', kind: 'lc_lvc_auto_fire', sector: 'dmg', label: 'LVC AUTOPLAY', actionLabel: 'АВТО-ОГОНЬ', group: 'LIVE CASINO', role: 'LVC', desc: 'Если LVC выбрана, она сама запускается, когда полностью готова после перезарядки.', valueTier: qualityTier });
-  if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'COPY POWER +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'LIVE CASINO', role: 'COPY', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
-  if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'BET ODDS +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'LIVE CASINO', role: 'BET', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'dmg') && !lc.autoLvc) pool.push({ id: 'lc_lvc_auto_fire', kind: 'lc_lvc_auto_fire', sector: 'dmg', label: 'КАЗИНО: АВТО-ОГОНЬ', actionLabel: 'АВТО-ОГОНЬ', group: 'ЖИВОЕ КАЗИНО', role: 'КАЗИНО', desc: 'Если LVC выбрана, она сама запускается, когда полностью готова после перезарядки.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'copy')) pool.push({ id: `lc_copy_power_${Math.round((lc.copyPower || 0.55) * 100)}`, kind: 'lc_copy_power', label: 'КОПИЯ: СИЛА +10%', actionLabel: 'УСИЛИТЬ КОПИЮ', group: 'ЖИВОЕ КАЗИНО', role: 'КОПИЯ', desc: 'Сектор COPY повторяет последнее действие сильнее.', valueTier: qualityTier });
+  if (livingCasinoHasSector(p, 'bet')) pool.push({ id: `lc_bet_luck_${lc.betLuck || 0}`, kind: 'lc_bet_luck', label: 'СТАВКА: ШАНС +1', actionLabel: 'ПОДКРУТИТЬ СТАВКУ', group: 'ЖИВОЕ КАЗИНО', role: 'СТАВКА', desc: 'BET-сектор чаще выдаёт сильную выплату и реже пустой сбой.', valueTier: qualityTier });
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
   return pool;
 }
 function livingCasinoSectorDesc(type) {
-  if (type === 'roulette') return 'RLT-пушка: тяжёлый шар рулетки отскакивает от стен и иногда даёт ZERO-взрыв.';
-  if (type === 'deck') return 'CRD-пушка: быстрый веер карт по курсору.';
+  if (type === 'roulette') return 'Пушка-рулетка: выпускает вращающийся квадрат. При ударе о стену или угрозу он дробится на меньшие квадраты.';
+  if (type === 'deck') return 'Пушка-колода: быстрый веер карт по курсору.';
   if (type === 'guard') return 'Расталкивает угрозы и даёт временный щит, ёмкость которого постепенно тает.';
-  if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного dash-запаса.';
-  if (type === 'bet') return 'Ставит малую случайную цену: GLD, HP или EXP. Выплата тоже случайная.';
+  if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного запаса рывка.';
+  if (type === 'bet') return 'Ставит малую случайную цену: кредиты, здоровье или опыт. Выплата тоже случайная.';
   if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
   if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
-  if (type === 'jackpot') return 'Мгновенный JACKPOT-импульс вокруг героя. Если задел 6+ угроз, выдаёт небольшой бонус.';
+  if (type === 'jackpot') return 'Мгновенный джекпот-импульс вокруг антивируса. Если задел 6+ угроз, выдаёт небольшой бонус.';
   if (type === 'table') return 'Ставит карту-ловушку прямо под героем: первая угроза получает урон и короткий стоп.';
-  return 'LVC-пушка Живого казино: запускает автосамонаводящиеся цифровые пули на несколько секунд.';
+  return 'Казино-пушка: запускает самонаводящиеся цифровые пули на несколько секунд.';
 }
 function livingCasinoSectorUpgradeDesc(type, next = 2) {
-  if (type === 'dmg') return `LVC ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
-  if (type === 'roulette') return `RLT ${roman(next)}: сильнее шар, больше шанс ZERO и больше отскоков.`;
-  if (type === 'deck') return `CRD ${roman(next)}: больше карт/урона и лучше контроль веера.`;
-  if (type === 'guard') return `GUARD ${roman(next)}: больше временный щит и сильнее отталкивание.`;
-  if (type === 'chain') return `CHAIN ${roman(next)}: +1 быстрый фиолетовый рывок и длиннее окно.`;
-  if (type === 'bet') return `BET ${roman(next)}: выше ставки и выплаты, лучше шанс сильного исхода.`;
-  if (type === 'copy') return `COPY ${roman(next)}: меньше cooldown и сильнее повтор прошлого действия.`;
-  if (type === 'ghost') return `GHOST ${roman(next)}: дольше скрытие и быстрее перезагрузка.`;
-  if (type === 'jackpot') return `JACKPOT ${roman(next)}: больше радиус, урон и бонус за 6+ угроз.`;
-  if (type === 'table') return `TABLE ${roman(next)}: дольше ловушка и сильнее первый удар.`;
+  if (type === 'dmg') return `КАЗИНО ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
+  if (type === 'roulette') return `РУЛЕТКА ${roman(next)}: крупнее стартовый квадрат, больше урон, больше осколков и глубже дробление.`;
+  if (type === 'deck') return `КОЛОДА ${roman(next)}: больше карт, урона и лучше контроль веера.`;
+  if (type === 'guard') return `ЗАЩИТА ${roman(next)}: больше временный щит и сильнее отталкивание.`;
+  if (type === 'chain') return `ЦЕПЬ ${roman(next)}: +1 быстрый фиолетовый рывок и длиннее окно.`;
+  if (type === 'bet') return `СТАВКА ${roman(next)}: выше ставки и выплаты, лучше шанс сильного исхода.`;
+  if (type === 'copy') return `КОПИЯ ${roman(next)}: быстрее перезарядка и сильнее повтор прошлого действия.`;
+  if (type === 'ghost') return `ПРИЗРАК ${roman(next)}: дольше скрытие и быстрее перезарядка.`;
+  if (type === 'jackpot') return `ДЖЕКПОТ ${roman(next)}: больше радиус, урон и бонус за 6+ угроз.`;
+  if (type === 'table') return `КАРТА ${roman(next)}: дольше ловушка и сильнее первый удар.`;
   return `Сектор ${roman(next)}.`;
 }
 function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
@@ -3033,13 +3033,13 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
     label = `${livingCasinoSectorLabel(sec.type)} ${roman(sec.level)}`;
   } else if (opt.kind === 'lc_copy_power') {
     lc.copyPower = Math.min(0.95, (lc.copyPower || 0.55) + 0.10);
-    label = `COPY POWER ${Math.round(lc.copyPower * 100)}%`;
+    label = `КОПИЯ: СИЛА ${Math.round(lc.copyPower * 100)}%`; 
   } else if (opt.kind === 'lc_lvc_auto_fire') {
     lc.autoLvc = 1;
-    label = 'LVC AUTOPLAY';
+    label = 'КАЗИНО: АВТО-ОГОНЬ';
   } else if (opt.kind === 'lc_bet_luck') {
     lc.betLuck = Math.max(0, (lc.betLuck || 0) + 1);
-    label = `BET ODDS +${lc.betLuck}`;
+    label = `СТАВКА: ШАНС +${lc.betLuck}`;
   } else return false;
   run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'LVC' });
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
@@ -3465,7 +3465,7 @@ export function startRoom(run, players) {
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
     p.tempDmgMulRoom = 0;
-    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER DMG x100 ROOM', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
+    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     ensureBossKeyCharges(run, p);
     p.offer = null;
@@ -3476,7 +3476,7 @@ export function startRoom(run, players) {
   if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
     const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
     run.director.pauseT = Math.max(run.director.pauseT || 0, 1.1 + Math.min(4.5, stacks * 0.75));
-    run.fx.push({ t: 'active_mutation', label: `SPAWN HOLD x${stacks}`, x: run.plan.w / 2, y: run.plan.h / 2, r: 150, tone: 'cyan' });
+    run.fx.push({ t: 'active_mutation', label: `ЗАДЕРЖКА ПОЯВЛЕНИЯ x${stacks}`, x: run.plan.w / 2, y: run.plan.h / 2, r: 150, tone: 'cyan' });
   }
   if (run.plan.specialRoomId === 'chill_room') {
     run.director = null;
@@ -3490,10 +3490,10 @@ export function startRoom(run, players) {
     run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
   }
   else if (run.plan.modifierIds.includes('hunter_contract')) {
-    run.fx.push({ t: 'room_event', label: 'HUNTER WAVES', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED` });
+    run.fx.push({ t: 'room_event', label: 'ВОЛНЫ ОХОТНИКОВ', body: `0/${run.hunterWave?.total || 2} ВОЛНЫ · ПОРТАЛ ЗАКРЫТ` });
   }
   if (run.plan.specialRoomId === 'reward_pocket') {
-    for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18), { personal: 1, label: 'REWARD POCKET' });
+    for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18), { personal: 1, label: 'ПРИЗОВОЙ КАРМАН' });
   }
   const entryIntel = roomIntel(run.plan, run.staticRainStacks || 0, staticRainCurrentMode(run));
   run.fx.push({ t: 'room', roomId: run.plan.roomId, loop: loopIndex, depth: run.runDepth, mods: run.plan.modifierIds, cat: run.plan.category, special: run.plan.specialRoomId, archetype: run.plan.roomArchetype || 'standard', director: run.director?.label || '', skinRarity: run.skinRoomReward?.rarity || '', danger: entryIntel.danger, dangerLabel: entryIntel.dangerLabel, threatTags: entryIntel.threatTags, rewardTags: entryIntel.rewardTags, tip: entryIntel.tip });
@@ -4747,7 +4747,7 @@ function teamSigStack(players, key) {
 }
 
 const SIGNATURE_LABEL_BY_STAT = {
-  spawnHoldStacks: 'SPAWN HOLD', aegisStacks: 'AEGIS PROCESS', mirrorCapacity: 'MIRROR PAYOUT', nullRevives: 'NULL REVIVAL', roomWagerUnlocked: 'ROOM WAGER', bossKeys: 'BOSS KEY'
+  spawnHoldStacks: 'ЗАДЕРЖКА ПОЯВЛЕНИЯ', aegisStacks: 'AEGIS PROCESS', mirrorCapacity: 'MIRROR PAYOUT', nullRevives: 'NULL REVIVAL', roomWagerUnlocked: 'ROOM WAGER', bossKeys: 'BOSS KEY'
 };
 const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'REDLINE BOOST', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
 function activeBossSignatureLabels(players) {
@@ -5594,6 +5594,57 @@ function weaponDamageMul(p) {
 function weaponDamageValue(p, base, scale = 1) {
   return Math.max(0, Number(base) || 0) * weaponDamageMul(p) * Math.max(0, Number(scale) || 0);
 }
+function rouletteSquareStats(p, lvl = 1) {
+  const st = p?.stats || {};
+  const l = Math.max(1, Number(lvl || 1) | 0);
+  const up = Math.max(0, l - 1);
+  return {
+    size: 22 + up * 3 + Math.max(0, st.rltSize || 0) * 4,
+    dmgAdd: up * 9 + Math.max(0, st.rltDmg || 0) * 12,
+    speedMul: 1 + up * 0.025 + Math.max(0, st.rltSpeed || 0) * 0.10,
+    fragments: Math.min(14, 3 + Math.floor(up / 2) + Math.max(0, st.rltFrag || 0)),
+    depth: Math.min(6, 1 + Math.floor(up / 2) + Math.max(0, st.rltDepth || 0)),
+    wallBuff: 0.18 + up * 0.018 + Math.max(0, st.rltWallBuff || 0) * 0.075
+  };
+}
+function splitRouletteSquare(run, b, nx = 0, ny = 0, reason = 'hit') {
+  if (!run || !b || b.kind !== 'roulette') return 0;
+  const depth = Math.max(0, Number(b.rltDepth || 0) | 0);
+  const currentSize = Math.max(4, Number(b.size || 8));
+  const count = Math.max(2, Math.min(14, Number(b.rltFrags || 3) | 0));
+  const n = Math.hypot(nx || 0, ny || 0) || 1;
+  nx = (nx || 0) / n; ny = (ny || 0) / n;
+  const sp = Math.max(160, Math.hypot(b.vx || 0, b.vy || 0));
+  const baseVx = reason === 'wall' ? ((b.vx || 0) - 2 * (((b.vx || 0) * nx) + ((b.vy || 0) * ny)) * nx) : (b.vx || 1);
+  const baseVy = reason === 'wall' ? ((b.vy || 0) - 2 * (((b.vx || 0) * nx) + ((b.vy || 0) * ny)) * ny) : (b.vy || 0);
+  const baseAng = Math.atan2(baseVy || 0, baseVx || 1);
+  const spread = reason === 'wall' ? 1.16 : 1.82;
+  const nextSize = Math.max(5, currentSize * 0.62);
+  const wallStacks = Math.max(0, Number(b.rltWallStacks || 0) | 0) + (reason === 'wall' ? 1 : 0);
+  const wallMul = reason === 'wall' ? (1 + Math.max(0, b.rltWallBuff || 0) * wallStacks) : 1;
+  const nextDepth = depth - 1;
+  let made = 0;
+  if (depth > 0 && currentSize > 6 && run.bullets.length < MAX_BULLETS - 2) {
+    for (let i = 0; i < count && run.bullets.length < MAX_BULLETS; i++) {
+      const t = count <= 1 ? 0 : (i / (count - 1) - 0.5);
+      const jitter = (Math.random() - 0.5) * 0.18;
+      const a = baseAng + t * spread + jitter;
+      const childSp = sp * (reason === 'wall' ? 1.03 : 0.86) * (0.92 + Math.random() * 0.20);
+      run.bullets.push({
+        id: nid(), x: b.x + Math.cos(a) * Math.max(6, nextSize * 0.45), y: b.y + Math.sin(a) * Math.max(6, nextSize * 0.45),
+        vx: Math.cos(a) * childSp, vy: Math.sin(a) * childSp,
+        dmg: Math.max(1, (b.dmg || 1) * 0.58 * wallMul), from: 'p', owner: b.owner, life: Math.max(0.38, (b.life || 0.8) * 0.74), delay: 0,
+        size: nextSize, aoe: 0, homing: 0, knock: Math.max(30, (b.knock || 110) * 0.62), proc: b.proc || 0, kind: 'roulette',
+        travelled: 0, maxDist: Math.max(120, Math.round((b.maxDist || 540) * 0.58)), rangeMul: b.rangeMul || 1, bounces: 0,
+        rltDepth: nextDepth, rltFrags: Math.max(2, Math.min(14, count - (nextDepth <= 0 ? 1 : 0))), rltWallBuff: b.rltWallBuff || 0, rltWallStacks: wallStacks,
+        elem: b.elem || '', elemPower: b.elemPower || 0, bornTick: run.tick || 0
+      });
+      made++;
+    }
+  }
+  run.fx.push({ t: 'roulette_split', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), reason, count: made, size: Math.round(currentSize), dx: Math.round((baseVx || 0) / 10), dy: Math.round((baseVy || 0) / 10) });
+  return made;
+}
 function fireWeapon(run, players, p, dt) {
   if (isLivingCasinoPlayer(p)) {
     const lc = ensureLivingCasinoState(p);
@@ -5640,13 +5691,15 @@ function fireWeapon(run, players, p, dt) {
       if (run.bullets.length >= MAX_BULLETS) break;
       const spreadKick = w.id === 'shotgun' ? (Math.random() - 0.5) * w.spread : (Math.random() - 0.5) * w.spread;
       const ang = Math.atan2(dir.y, dir.x) + spreadKick;
+      const rlt = w.id === 'roulette' ? rouletteSquareStats(p, lcWeaponLvl) : null;
       run.bullets.push({
         id: nid(), x: originX, y: originY,
-        vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed,
-        dmg: weaponDamageValue(p, w.dmg + (w.id === 'roulette' ? (p.stats.rltDmg || 0) * 10 + Math.max(0, lcWeaponLvl - 1) * 7 : w.id === 'deck' ? (p.stats.crdDmg || 0) * 3 + Math.max(0, lcWeaponLvl - 1) * 2 : 0)), from: 'p', owner: p.id,
-        life, delay, size: w.size, aoe: w.aoe || (w.id === 'roulette' && Math.random() < Math.min(0.46, 0.14 + (p.stats.rltZero || 0) * 0.045 + Math.max(0, lcWeaponLvl - 1) * 0.018) ? 92 + (p.stats.rltDmg || 0) * 10 + Math.max(0, lcWeaponLvl - 1) * 7 : 0), homing,
-        knock: w.knock || 0, proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist, maxDist, rangeMul,
-        bounces: (p.stats.bulletBounce || 0) + (w.bounces || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0) + (w.id === 'roulette' ? (p.stats.rltBounce || 0) + Math.floor(Math.max(0, lcWeaponLvl - 1) / 2) : 0) + (w.id === 'deck' ? (p.stats.crdBounce || 0) : 0),
+        vx: Math.cos(ang) * (rlt ? w.speed * rlt.speedMul : w.speed), vy: Math.sin(ang) * (rlt ? w.speed * rlt.speedMul : w.speed),
+        dmg: weaponDamageValue(p, w.dmg + (w.id === 'roulette' ? rlt.dmgAdd : w.id === 'deck' ? (p.stats.crdDmg || 0) * 3 + Math.max(0, lcWeaponLvl - 1) * 2 : 0)), from: 'p', owner: p.id,
+        life, delay, size: rlt ? rlt.size : w.size, aoe: w.id === 'roulette' ? 0 : (w.aoe || 0), homing,
+        knock: w.id === 'roulette' ? Math.max(w.knock || 0, 210 + Math.max(0, lcWeaponLvl - 1) * 12 + (p.stats.rltDmg || 0) * 8) : (w.knock || 0), proc: p.stats.procBlast, kind: w.id, travelled: 0, detonateDist, maxDist, rangeMul,
+        bounces: w.id === 'roulette' ? 0 : ((p.stats.bulletBounce || 0) + (w.bounces || 0) + (w.id === 'shotgun' ? (p.stats.shgBounce || 0) : 0) + (w.id === 'deck' ? (p.stats.crdBounce || 0) : 0)),
+        rltDepth: rlt ? rlt.depth : 0, rltFrags: rlt ? rlt.fragments : 0, rltWallBuff: rlt ? rlt.wallBuff : 0, rltWallStacks: 0,
         sekSplit: w.id === 'seeker' ? p.stats.sekSplit : 0,
         rktCluster: w.id === 'rocketgun' ? p.stats.rktCluster : 0,
         rktMines: w.id === 'rocketgun' ? p.stats.rktMines : 0,
@@ -5860,6 +5913,23 @@ function stepBullets(run, players, dt) {
       }
     }
     if (hitWall) {
+      if (b.kind === 'roulette' && b.from === 'p') {
+        const half = (b.size || 4) / 2 + 0.75;
+        let nx = 0, ny = 0;
+        if (hitWallAxis === 'x') {
+          const fromLeft = ox < hitWallObj.x || (ox <= hitWallObj.x + hitWallObj.w && b.vx > 0);
+          b.x = fromLeft ? hitWallObj.x - half : hitWallObj.x + hitWallObj.w + half;
+          b.y = oy;
+          nx = fromLeft ? -1 : 1;
+        } else {
+          const fromTop = oy < hitWallObj.y || (oy <= hitWallObj.y + hitWallObj.h && b.vy > 0);
+          b.y = fromTop ? hitWallObj.y - half : hitWallObj.y + hitWallObj.h + half;
+          b.x = ox;
+          ny = fromTop ? -1 : 1;
+        }
+        splitRouletteSquare(run, b, nx, ny, 'wall');
+        b.life = -1; continue;
+      }
       if (b.bounces > 0) {
         const half = (b.size || 4) / 2 + 0.75;
         if (hitWallAxis === 'x') {
@@ -5903,6 +5973,7 @@ function stepBullets(run, players, dt) {
             if (b.sekSplit > 0) spawnSeekerFragments(run, b.owner, b.x, b.y, b.sekSplit, b.dmg * 0.48, { rangeMul: b.rangeMul || 1, bounces: b.bounces || 0, elem: b.elem || '', elemPower: b.elemPower || 0 });
             const blasts = chanceStacks(b.proc || 0);
             for (let bi = 0; bi < blasts; bi++) explode(run, players, b.x, b.y, 70, b.dmg * 0.8, b.owner, false, 'proc');
+            if (b.kind === 'roulette') { const rn = norm(b.x - e.x, b.y - e.y); splitRouletteSquare(run, b, rn.x, rn.y, 'hit'); }
           }
           b.life = -1; break;
         }
@@ -6697,7 +6768,7 @@ function stepHunterWaves(run, players, dt) {
   if (run.enemies.length <= 0) {
     if (hw.index >= hw.total) {
       hw.done = true;
-      run.fx.push({ t: 'room_event_done', label: 'HUNTER WAVES', body: 'ALL WAVES CLEAR' });
+      run.fx.push({ t: 'room_event_done', label: 'ВОЛНЫ ОХОТНИКОВ', body: 'ALL WAVES CLEAR' });
       openPortal(run);
       return;
     }
@@ -6922,7 +6993,7 @@ function stepMods(run, players, dt) {
   stepHunterWaves(run, players, dt);
   stepCasinoVirus(run, players, dt);
   // Casino Virus static now stacks into the single Static Storm system; no separate rain loop.
-  // HUNTER WAVES are handled by stepHunterWaves(); no priority-target escalation.
+  // ВОЛНЫ ОХОТНИКОВ are handled by stepHunterWaves(); no priority-target escalation.
 
   if (hasMod(run, 'anchor_gravity') && run.roomSockets?.length) {
     for (const s of run.roomSockets) {
@@ -7995,7 +8066,7 @@ function beginTransition(run, players) {
   if (fast) tapes.push('FAST CLEAN');
   if (run.plan?.modifierIds?.includes('prism_grid')) tapes.push('PRISM SLOW CLEARED');
   if (run.plan?.modifierIds?.includes('blood_tax') && (st.bloodTaxes || 0) > 0) tapes.push('BLOOD TAX PAID');
-  if (run.plan?.modifierIds?.includes('hunter_contract') && run.hunterWave?.done) tapes.push('HUNTER WAVES CLEARED');
+  if (run.plan?.modifierIds?.includes('hunter_contract') && run.hunterWave?.done) tapes.push('ВОЛНЫ ОХОТНИКОВ CLEARED');
   if (run.plan?.modifierIds?.includes('casino_virus') && run.casinoVirus?.done) tapes.push('VIRUS SPINS CLEARED');
   const bonusGld = noHit ? 10 + Math.floor((run.runDepth || 0) * 1.5) : 0;
   const bonusExp = fast ? 8 + Math.floor((run.runDepth || 0) * 1.2) : 0;
@@ -8780,13 +8851,13 @@ function stepActiveFields(run, players, dt) {
 function doActive(run, players, p) {
   if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
   const a = ensureActive(p);
-  if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'NO ACTIVE', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
+  if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ АКТИВКИ', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
   if (a.core === 'signal_spike') {
     if ((p.spikePlaceCd || 0) > 0) return;
     const max = signalSpikeMaxCharges(p);
     const charges = ensureSignalSpikeCharges(p);
     if (charges <= 0) {
-      run.fx.push({ t: 'active_denied', id: p.id, reason: 'NO SPIKE CHARGES', label: `SPIKE RECHARGE ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, x: Math.round(p.x), y: Math.round(p.y) });
+      run.fx.push({ t: 'active_denied', id: p.id, reason: 'НЕТ ЗАРЯДОВ ШИПА', label: `ПЕРЕЗАРЯДКА ШИПА ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, x: Math.round(p.x), y: Math.round(p.y) });
       return;
     }
     a.spikeCharges = charges - 1;
