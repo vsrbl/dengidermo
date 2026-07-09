@@ -1014,12 +1014,15 @@ export class Renderer {
             this.label(secLabel, cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else if (type === 'ctrl_proc') {
-            const procKind = String(c[6] || 'PRC');
+            const procLabel = String(c[6] || 'PRC');
             const cmd = !!c[7];
+            const procKind = String(c[9] || '').toLowerCase();
+            const size = Math.max(14, Number(c[10] || 24) || 24);
+            const hp = Math.max(0, Math.min(100, Number(c[11] || 100) || 100));
             const prev = this.companionTrail.get(id);
-            if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 120) {
+            if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 140) {
               ctx.save();
-              ctx.globalAlpha = cmd ? 0.36 : 0.20;
+              ctx.globalAlpha = cmd ? 0.34 : 0.18;
               ctx.strokeStyle = cmd ? COL.green : COL.cyan;
               ctx.lineWidth = cmd ? 1.8 : 1;
               ctx.setLineDash(cmd ? [] : [5, 6]);
@@ -1027,9 +1030,47 @@ export class Renderer {
               ctx.setLineDash([]);
               ctx.restore();
             }
-            this.square(cx, cy, 16, { stroke: cmd ? COL.green : COL.cyan, lw: 2, fill: 'rgba(0,0,0,.62)', rotate: now * 0.8 });
-            this.square(cx, cy, 8, { fill: cmd ? COL.green : (skinMetaLocal.outline || COL.cyan), rotate: Math.PI / 4 });
-            this.label(procKind, cx, cy - 19, cmd ? COL.green : COL.cyan, 8);
+            const stroke = cmd ? COL.green : COL.cyan;
+            ctx.save();
+            ctx.globalAlpha = 0.92;
+            const fill = 'rgba(0,0,0,.56)';
+            if (procKind === 'runner') {
+              this.square(cx, cy, size * 0.78, { stroke, lw: 1.8, fill, rotate: now * 1.2 });
+            } else if (procKind === 'tank') {
+              this.square(cx, cy, size, { stroke, lw: 4, fill });
+              this.square(cx, cy, size * 0.58, { stroke: COL.fg, lw: 1.2 });
+            } else if (procKind === 'shooter') {
+              this.square(cx, cy, size, { stroke, lw: 2.2, fill });
+              ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(now * 2) * size * 0.75, cy + Math.sin(now * 2) * size * 0.75); ctx.stroke();
+            } else if (procKind === 'charger') {
+              this.square(cx, cy, size, { stroke, lw: 3, fill });
+              ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.beginPath(); ctx.moveTo(cx - size * 0.35, cy); ctx.lineTo(cx + size * 0.55, cy); ctx.stroke(); ctx.setLineDash([]);
+            } else if (procKind === 'bomber') {
+              this.square(cx, cy, size, { stroke: COL.red, lw: 2.4, fill: 'rgba(255,48,72,0.10)' });
+              this.square(cx, cy, size * 0.52, { stroke, lw: 1.4, rotate: Math.PI / 4 });
+            } else if (procKind === 'anchor') {
+              this.square(cx, cy, size, { stroke: COL.purple, lw: 4, fill: 'rgba(180,92,255,0.08)' });
+              this.square(cx, cy, size * 0.55, { stroke, lw: 2, rotate: Math.PI / 4 });
+            } else if (procKind === 'prism') {
+              this.square(cx, cy, size, { stroke, lw: 2, rotate: Math.PI / 4, fill });
+              ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - size/2, cy); ctx.lineTo(cx + size/2, cy); ctx.moveTo(cx, cy - size/2); ctx.lineTo(cx, cy + size/2); ctx.stroke();
+            } else if (procKind === 'pulse') {
+              this.square(cx, cy, size, { stroke: COL.red, lw: 2.2, fill: 'rgba(255,48,72,0.06)' });
+              ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(cx - size * 0.55, cy); ctx.lineTo(cx + size * 0.55, cy); ctx.stroke(); ctx.setLineDash([]);
+            } else if (procKind === 'leech') {
+              this.square(cx, cy, size, { stroke: COL.green, lw: 2, fill: 'rgba(0,255,102,0.07)' });
+              ctx.strokeStyle = COL.green; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - size*0.35, cy); ctx.lineTo(cx + size*0.35, cy); ctx.moveTo(cx, cy - size*0.35); ctx.lineTo(cx, cy + size*0.35); ctx.stroke();
+            } else {
+              this.square(cx, cy, size, { stroke, lw: procKind === 'grunt' ? 2.5 : 2, fill });
+            }
+            ctx.globalAlpha = 0.62;
+            this.square(cx, cy, Math.max(8, size * 0.42), { stroke: cmd ? COL.green : COL.cyan, lw: 1, rotate: Math.PI / 4 });
+            ctx.restore();
+            if (hp < 100) {
+              ctx.fillStyle = '#111'; ctx.fillRect(cx - size/2, cy + size/2 + 5, size, 3);
+              ctx.fillStyle = stroke; ctx.fillRect(cx - size/2, cy + size/2 + 5, size * hp / 100, 3);
+            }
+            this.label(procLabel, cx, cy - size / 2 - 10, stroke, 8);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else {
             this.square(cx, cy, 8, { fill: skinMetaLocal.outline || COL.cyan });

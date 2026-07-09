@@ -72,7 +72,8 @@ const HEROES = {
   living_casino: { id: 'living_casino', labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO' },
   process_controller: { id: 'process_controller', labelRu: 'КОНТРОЛЁР ПРОЦЕССОВ', labelEn: 'PROCESS CONTROLLER' }
 };
-let selectedHeroId = (localStorage.getItem(heroSaveKey) || (localStorage.getItem(skinSaveKey) === 'living_casino' ? 'living_casino' : 'base'));
+const savedHeroId = localStorage.getItem(heroSaveKey);
+let selectedHeroId = HEROES[savedHeroId] ? savedHeroId : 'base';
 if (!HEROES[selectedHeroId]) selectedHeroId = 'base';
 
 function hexTriplet(hex, fallback = '0,255,102') {

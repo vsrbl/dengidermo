@@ -469,8 +469,11 @@ function weaponReadability(opt = {}) {
       ctrl_process_slot: { role: 'CONTROL', tone: 'control', ru: 'Добавляет место для ещё одного подконтрольного процесса.', en: 'Adds room for one more controlled process.', changeRu: '+1 процесс под контролем', changeEn: '+1 controlled process' },
       ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее копят нестабильность контроля.', en: 'Commands build control instability faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы чаще выполняют атакующие приказы.', en: 'Controlled processes execute attack orders more often.', changeRu: 'выше темп процессов', changeEn: 'faster process tempo' },
-      qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Карантинный якорь держит более широкую зону у стены.', en: 'Quarantine anchor covers a wider wall zone.', changeRu: 'шире карантин', changeEn: 'wider quarantine' },
-      qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Карантинный якорь дольше держит и сильнее тянет угрозы.', en: 'Quarantine anchor holds longer and pulls harder.', changeRu: 'сильнее удержание', changeEn: 'stronger hold' }
+      qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от настенного маркера.', en: 'The anchor can chain threats farther from the wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
+      qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Карантинные цепи держатся дольше.', en: 'Quarantine chains last longer.', changeRu: 'дольше удержание', changeEn: 'longer hold' },
+      qrn_links: { role: 'CONTROL', tone: 'control', ru: 'Один якорь может держать ещё одну угрозу.', en: 'One anchor can leash one more threat.', changeRu: '+1 цепь', changeEn: '+1 chain' },
+      qrn_damage: { role: 'DPS', tone: 'dps', ru: 'Цепи якоря периодически наносят урон.', en: 'Anchor chains periodically deal damage.', changeRu: 'урон цепей', changeEn: 'chain damage' },
+      qrn_gap: { role: 'CONTROL', tone: 'control', ru: 'Зацепленные угрозы лучше расходятся и не сбиваются в кучу.', en: 'Leashed threats keep more spacing instead of clumping.', changeRu: 'зазор между целями', changeEn: 'target spacing' }
     };
     const out = pc[key] || { role: 'CONTROL', tone: 'control', ru: cleanPlayerText(opt.desc || 'Усиление команды контроля.'), en: cleanPlayerText(opt.desc || 'Control command upgrade.'), changeRu: 'усиление контроля', changeEn: 'control upgrade' };
     return { ...out, summary: localText(out.ru, out.en), change: localText(out.changeRu, out.changeEn) };

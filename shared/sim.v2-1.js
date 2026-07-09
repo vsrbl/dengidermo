@@ -2735,9 +2735,13 @@ function heroId(v) {
 }
 export function sanitizeSkin(skin = {}) {
   skin = skin || {};
+  const id = skinId(skin.id);
+  // Appearance never selects a hero. Heroes are chosen only through the hero selector
+  // and must arrive through the explicit hero/loadout/core field.
+  const hero = heroId(skin.hero || skin.loadout || skin.core);
   return {
-    id: skinId(skin.id),
-    hero: heroId(skin.hero || skin.loadout || skin.core),
+    id,
+    hero,
     fill: skinPart(skin.fill, '#f3f3f3'),
     outline: skinPart(skin.outline, '#00ff66'),
     barrel: skinPart(skin.barrel, '#00ff66')
@@ -2901,6 +2905,13 @@ function ensureProcessControllerState(p) {
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
   return pc;
 }
+function ensureHeroRuntimeState(p) {
+  if (!p) return p;
+  if (isLivingCasinoPlayer(p)) ensureLivingCasinoState(p);
+  else if (isProcessControllerPlayer(p)) ensureProcessControllerState(p);
+  return p;
+}
+
 function processControllerHudSnapshot(p) {
   const pc = ensureProcessControllerState(p);
   if (!pc) return null;
@@ -2935,12 +2946,22 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
   if (def.boss || e.bossFragment || e.kind === 'slot_mob') return false;
   if (pc.controlled.length >= processControllerMax(p)) return false;
   const x = e.x, y = e.y, kind = e.kind;
-  pc.controlled.push({ id: nid(), kind, x, y, hp: Math.max(18, Math.round((e.maxHp || 40) * 0.38)), ttl: 999, atkCd: 0.22, tx: pc.commandX || p.x, ty: pc.commandY || p.y, cmdT: Math.max(0.6, pc.commandT || 0) });
+  const maxH = Math.max(1, Number(e.maxHp || def.hp || e.hp || 1));
+  pc.controlled.push({
+    id: nid(), kind, x, y,
+    size: Math.max(8, Number(e.size || def.size || 24)),
+    hp: Math.max(8, Math.round(Math.max(e.hp || 1, maxH * 0.42))), maxHp: maxH,
+    ttl: 999, atkCd: 0.18, touchCd: 0, state: 'move', st: 0,
+    tx: pc.commandX || p.x, ty: pc.commandY || p.y, cmdT: Math.max(0.6, pc.commandT || 0),
+    dirX: e.dirX || 1, dirY: e.dirY || 0,
+    slotMode: e.slotMode || '', slotLives: e.slotLives || 0,
+    chargeAimX: e.chargeAimX || 0, chargeAimY: e.chargeAimY || 0
+  });
   pc.lastCapture = ENEMIES[kind]?.label || String(kind).toUpperCase();
   pc.captureT = 0.70;
   e.hp = 0;
   killEnemy(run, players, e, p, 'control_capture');
-  run.fx.push({ t: 'active_mutation', label: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${pc.lastCapture}`, x: Math.round(x), y: Math.round(y), r: 92, tone: 'cyan', owner: p.id });
+  run.fx.push({ t: 'active_mutation', label: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${pc.lastCapture}`, x: Math.round(x), y: Math.round(y), r: Math.round((def.size || 24) + 70), tone: 'cyan', owner: p.id });
   return true;
 }
 function tryControlCapture(run, players, p, e, source = 'command') {
@@ -2957,6 +2978,120 @@ function tryControlCapture(run, players, p, e, source = 'command') {
   if (!forced && Math.random() > chance) return false;
   return captureEnemyAsProcess(run, players, p, e, source);
 }
+function controlledProcessTarget(run, m, pc) {
+  let best = null, bd = Infinity;
+  const cx = (pc.commandT || 0) > 0 ? pc.commandX : m.x;
+  const cy = (pc.commandT || 0) > 0 ? pc.commandY : m.y;
+  const leash = (pc.commandT || 0) > 0 ? 620 : 430;
+  for (const e of run.enemies || []) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    const d = dist2(e.x, e.y, cx, cy);
+    if (d < bd && d <= leash * leash) { bd = d; best = e; }
+  }
+  return best;
+}
+function controlledFireBullet(run, p, m, target, baseDmg, speed, life, size, kind = 'ctrl_proc', spread = 0, count = 1) {
+  if (!target || run.bullets.length >= MAX_BULLETS - count) return false;
+  const base = Math.atan2(target.y - m.y, target.x - m.x);
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  for (let i = 0; i < count; i++) {
+    const off = count === 1 ? 0 : (i - (count - 1) / 2) * spread;
+    run.bullets.push({ id: nid(), x: m.x, y: m.y, vx: Math.cos(base + off) * speed, vy: Math.sin(base + off) * speed, dmg: weaponDamageValue(p, baseDmg + power * 1.7), from: 'p', owner: p.id, life, size, kind, source: 'control', travelled: 0, maxDist: Math.round(speed * life * 0.74), knock: 16 + power * 2, bornTick: run.tick || 0 });
+  }
+  run.fx.push({ t: 'shot', id: p.id, w: 'CTRL', kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y) });
+  return true;
+}
+function controlledContact(run, players, p, m, target, dt, mult = 1) {
+  if (!target || target.hp <= 0) return false;
+  const r = (m.size || 24) / 2 + (target.size || 24) / 2 + 4;
+  if (dist2(m.x, m.y, target.x, target.y) > r * r) return false;
+  m.touchCd = Math.max(0, (m.touchCd || 0) - dt);
+  if (m.touchCd <= 0) {
+    const n = norm(target.x - m.x, target.y - m.y);
+    const def = ENEMIES[m.kind] || {};
+    damageEnemy(run, players, target, weaponDamageValue(p, (def.dmg || 9) * mult), p.id, 80 + (def.push || 0) * 0.25, n.x, n.y, `ctrl_${m.kind}`);
+    m.touchCd = 0.42;
+    run.fx.push({ t: 'impact', id: p.id, x: Math.round(target.x), y: Math.round(target.y), kind: 'ctrl_bite', dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
+  }
+  return true;
+}
+function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
+  const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
+  m.size = Math.max(8, Number(m.size || def.size || 24));
+  m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 30));
+  m.hp = Math.max(1, Number(m.hp || m.maxHp));
+  m.ttl = Math.max(0, (m.ttl ?? 999) - dt * 0.01);
+  m.st = Math.max(0, Number(m.st || 0) + dt);
+  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  const fireMul = 1 + Math.min(1.4, Math.max(0, p.stats?.ctrlFire || 0) * 0.18);
+  m.atkCd = Math.max(0, (m.atkCd || 0) - dt * fireMul);
+  const hasCmd = (pc.commandT || 0) > 0;
+  const orbitA = (run.now || 0) * 0.85 + i * Math.PI * 2 / Math.max(1, pc.controlled.length);
+  const restX = hasCmd ? pc.commandX : p.x + Math.cos(orbitA) * (82 + i * 13);
+  const restY = hasCmd ? pc.commandY : p.y + Math.sin(orbitA) * (82 + i * 13);
+  const target = controlledProcessTarget(run, m, pc);
+  const toTarget = target ? norm(target.x - m.x, target.y - m.y) : norm(restX - m.x, restY - m.y);
+  const dT = target ? Math.hypot(target.x - m.x, target.y - m.y) : Math.hypot(restX - m.x, restY - m.y);
+  const spd = Math.max(35, (def.spd || 95) * (target ? 1.05 : 1.18) + power * 5);
+  const keep = def.ranged || m.kind === 'shooter' || m.kind === 'prism' || m.kind === 'pulse' || m.kind === 'orbiter' ? (def.keep || 300) : 0;
+  if (target && m.kind === 'charger') {
+    const state = String(m.state || 'move');
+    if (state === 'move') {
+      if (dT < 360) { m.state = 'windup'; m.st = 0; m.chargeAimX = toTarget.x; m.chargeAimY = toTarget.y; }
+      else steerMove(run, m, toTarget, spd, dt, { target });
+    } else if (state === 'windup') {
+      if (m.st >= Math.max(0.22, (def.windup || 0.65) * 0.55)) { m.state = 'charge'; m.st = 0; run.fx.push({ t: 'dash', id: m.id, x: Math.round(m.x), y: Math.round(m.y), enemy: 0 }); }
+    } else if (state === 'charge') {
+      const c = collideWalls(m.x + (m.chargeAimX || toTarget.x) * (def.chargeSpd || 520) * dt, m.y + (m.chargeAimY || toTarget.y) * (def.chargeSpd || 520) * dt, m.size / 2, walls, m.x, m.y);
+      const blocked = c.x === m.x && c.y === m.y; m.x = c.x; m.y = c.y;
+      controlledContact(run, players, p, m, target, dt, 1.55);
+      if (m.st >= (def.chargeTime || 0.5) || blocked) { m.state = 'cool'; m.st = 0; }
+    } else if (m.st >= Math.max(0.40, (def.chargeCd || 2.0) * 0.36)) { m.state = 'move'; m.st = 0; }
+  } else if (target && m.kind === 'bomber') {
+    if (dT > (m.size || 22) + (target.size || 24) + 34) steerMove(run, m, toTarget, spd * 1.15, dt, { target });
+    else {
+      explode(run, players, m.x, m.y, def.blast || 95, weaponDamageValue(p, def.dmg || 28), p.id, false, 'ctrl_bomb');
+      m.ttl = 0;
+    }
+  } else {
+    let mv = toTarget;
+    if (target && keep > 0) {
+      if (dT > keep + 45) mv = toTarget;
+      else if (dT < keep - 70) mv = { x: -toTarget.x, y: -toTarget.y };
+      else mv = { x: -toTarget.y * 0.25, y: toTarget.x * 0.25 };
+    }
+    if (!target && dT < 18) mv = { x: 0, y: 0 };
+    if (Math.abs(mv.x) + Math.abs(mv.y) > 0.01) steerMove(run, m, mv, spd, dt, { target: target || { x: restX, y: restY } });
+    if (target) controlledContact(run, players, p, m, target, dt, m.kind === 'tank' ? 1.35 : 1);
+  }
+  if (target && m.atkCd <= 0 && !segmentBlockedByWalls(m.x, m.y, target.x, target.y, walls, Math.max(10, m.size * 0.35))) {
+    if (m.kind === 'shooter' || def.ranged) {
+      m.atkCd = Math.max(0.32, (def.fireCd || 1.25) * 0.68);
+      controlledFireBullet(run, p, m, target, def.dmg || 8, def.bulletSpd || 275, 1.65, 5, 'ctrl_shot', 0.11, m.kind === 'shooter' ? 2 : 1);
+    } else if (m.kind === 'prism') {
+      m.atkCd = Math.max(0.45, (def.fireCd || 1.7) * 0.68);
+      controlledFireBullet(run, p, m, target, def.dmg || 9, def.beamSpd || 310, 1.8, 5, 'ctrl_prism', 0.30, 3);
+    } else if (m.kind === 'pulse') {
+      m.atkCd = Math.max(0.52, (def.fireCd || 1.8) * 0.70);
+      controlledFireBullet(run, p, m, target, def.dmg || 10, def.waveSpd || 360, 1.2, 8, 'ctrl_wave', 0.0, 1);
+    } else if (m.kind === 'orbiter' || m.kind === 'echo') {
+      m.atkCd = Math.max(0.42, (def.fireCd || def.mirrorFireCd || 1.2) * 0.72);
+      controlledFireBullet(run, p, m, target, def.dmg || 9, def.bulletSpd || 285, 1.55, 5, 'ctrl_echo', 0.22, 2);
+    } else if (m.kind === 'anchor') {
+      m.atkCd = 0.42;
+      for (const e of run.enemies || []) {
+        if (!e || e.hp <= 0 || dist2(e.x, e.y, m.x, m.y) > Math.pow((def.fieldR || 240) * 0.55 + (e.size || 24) / 2, 2)) continue;
+        const n = norm(m.x - e.x, m.y - e.y);
+        e.activeSlowT = Math.max(e.activeSlowT || 0, 0.18);
+        e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.72);
+        e.x += n.x * (def.pull || 70) * 0.32 * dt; e.y += n.y * (def.pull || 70) * 0.32 * dt;
+      }
+      run.fx.push({ t: 'weapon_chain_link', x1: Math.round(m.x), y1: Math.round(m.y), x2: Math.round(target.x), y2: Math.round(target.y), jump: 1 });
+    }
+  }
+  m.dirX = target ? toTarget.x : norm(restX - m.x, restY - m.y).x;
+  m.dirY = target ? toTarget.y : norm(restX - m.x, restY - m.y).y;
+}
 function stepProcessControllerState(run, players, p, dt) {
   const pc = ensureProcessControllerState(p); if (!pc) return;
   pc.commandT = Math.max(0, (pc.commandT || 0) - dt);
@@ -2965,51 +3100,38 @@ function stepProcessControllerState(run, players, p, dt) {
   const max = processControllerMax(p);
   if (pc.controlled.length > max) pc.controlled = pc.controlled.slice(pc.controlled.length - max);
   const walls = run.plan?.walls || [];
-  const fireMul = 1 + Math.min(1.2, Math.max(0, p.stats?.ctrlFire || 0) * 0.16);
-  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
   for (let i = 0; i < pc.controlled.length; i++) {
     const m = pc.controlled[i];
-    m.ttl = Math.max(0, (m.ttl ?? 999) - dt * 0.02);
-    const hasCmd = (pc.commandT || 0) > 0;
-    const orbitA = (run.now || 0) * 1.1 + i * Math.PI * 2 / Math.max(1, pc.controlled.length);
-    const restX = hasCmd ? pc.commandX : p.x + Math.cos(orbitA) * (74 + i * 8);
-    const restY = hasCmd ? pc.commandY : p.y + Math.sin(orbitA) * (74 + i * 8);
-    let best = null, bd = Infinity;
-    const leash = hasCmd ? 440 : 330;
-    for (const e of run.enemies) {
-      if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-      const d = dist2(e.x, e.y, hasCmd ? pc.commandX : m.x, hasCmd ? pc.commandY : m.y);
-      if (d < bd && d <= leash * leash) { bd = d; best = e; }
-    }
-    const targetX = best ? best.x : restX;
-    const targetY = best ? best.y : restY;
-    const n = norm(targetX - m.x, targetY - m.y);
-    const desired = best ? 135 : 0;
-    const dcur = Math.hypot(targetX - m.x, targetY - m.y);
-    const spd = best ? (180 + power * 10) : (230 + power * 8);
-    if (dcur > desired + 18) {
-      const c = collideWalls(m.x + n.x * spd * dt, m.y + n.y * spd * dt, 12, walls, m.x, m.y);
-      m.x = c.x; m.y = c.y;
-    }
-    m.atkCd = Math.max(0, (m.atkCd || 0) - dt * fireMul);
-    if (best && m.atkCd <= 0 && run.bullets.length < MAX_BULLETS - 1 && !segmentBlockedByWalls(m.x, m.y, best.x, best.y, run.plan?.walls || [], 12)) {
-      m.atkCd = Math.max(0.28, 0.88 - Math.min(0.34, power * 0.04));
-      const to = norm(best.x - m.x, best.y - m.y);
-      run.bullets.push({ id: nid(), x: m.x + to.x * 10, y: m.y + to.y * 10, vx: to.x * 460, vy: to.y * 460, dmg: weaponDamageValue(p, 8 + power * 2.2), from: 'p', owner: p.id, life: 0.82, size: 4, kind: 'ctrl_proc', travelled: 0, maxDist: 360, knock: 20 + power * 2, bornTick: run.tick || 0 });
-      run.fx.push({ t: 'shot', id: p.id, w: 'CTRL', kind: 'ctrl_proc', x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(best.x), my: Math.round(best.y) });
+    if (!m) continue;
+    stepControlledProcess(run, players, p, pc, m, i, dt, walls);
+  }
+  // Friendly controlled processes keep a small spacing so large captures remain readable.
+  for (let a = 0; a < pc.controlled.length; a++) for (let b = a + 1; b < pc.controlled.length; b++) {
+    const A = pc.controlled[a], B = pc.controlled[b];
+    const minD = (A.size || 24) / 2 + (B.size || 24) / 2 + 10;
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const d = Math.hypot(dx, dy) || 1;
+    if (d < minD) {
+      const push = (minD - d) * 0.5;
+      const nx = dx / d, ny = dy / d;
+      A.x -= nx * push; A.y -= ny * push; B.x += nx * push; B.y += ny * push;
     }
   }
-  pc.controlled = pc.controlled.filter(m => m.ttl > 0);
+  pc.controlled = pc.controlled.filter(m => m && m.ttl > 0 && (m.hp || 1) > 0);
 }
 function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
   const owner = b?.owner ? players.get(b.owner) : null;
-  const pwr = owner ? Math.max(0, Number(owner.stats?.qrHold || 0) | 0) : 0;
-  const rad = 138 + (owner ? Math.max(0, Number(owner.stats?.qrRadius || 0) | 0) * 22 : 0);
-  const ttl = 4.6 + pwr * 0.55;
+  const hold = owner ? Math.max(0, Number(owner.stats?.qrHold || 0) | 0) : 0;
+  const radius = 210 + (owner ? Math.max(0, Number(owner.stats?.qrRadius || 0) | 0) * 28 : 0);
+  const links = 2 + (owner ? Math.max(0, Number(owner.stats?.qrLinks || 0) | 0) : 0);
+  const damage = owner ? Math.max(0, Number(owner.stats?.qrDamage || 0) | 0) : 0;
+  const gap = owner ? Math.max(0, Number(owner.stats?.qrGap || 0) | 0) : 0;
+  const ttl = 4.8 + hold * 0.75;
   if (!run.activeFields) run.activeFields = [];
-  run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, r: rad, ttl, maxT: ttl, age: 0, tickT: 0.12, tickEvery: 0.32, fxT: 0.01, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, 2.6 + pwr * 0.55), pull: 160 + pwr * 22, slow: 0.34, damp: 0.33 });
-  run.fx.push({ t: 'active_mutation', label: 'QUARANTINE ANCHOR', x: Math.round(x), y: Math.round(y), r: Math.round(rad), tone: 'cyan', owner: b.owner || '' });
+  run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, r: radius, linkCap: links, leash: 118 + hold * 8, ttl, maxT: ttl, age: 0, tickT: 0.18, tickEvery: 0.40, fxT: 0.01, chainT: 0.03, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, damage > 0 ? 3.2 + damage * 1.4 : 0), gap: 9 + gap * 4, leashes: [] });
+  run.fx.push({ t: 'active_mutation', label: 'QRN WALL ANCHOR', x: Math.round(x), y: Math.round(y), r: 62, tone: 'cyan', owner: b.owner || '' });
 }
+
 
 function processControllerFindTarget(run, p, range = 540, cursorRadius = 78) {
   if (!run || !p) return null;
@@ -3085,13 +3207,13 @@ function fireProcessControllerProtocol(run, players, p, dt) {
       if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
       if (distToSegment2(e.x, e.y, p.x, p.y, endX, endY) > Math.pow((e.size || 24) * 0.55 + 34, 2)) continue;
       if (segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13)) continue;
-      if (applyProcessControllerInstability(run, players, p, e, 52, 'saw')) hit++;
+      if (applyProcessControllerInstability(run, players, p, e, 28, 'saw')) { hit++; if (!pc.lastSawTarget) pc.lastSawTarget = e.id; pc.commandX = e.x; pc.commandY = e.y; pc.commandT = Math.max(pc.commandT || 0, 2.2); }
     }
-    run.fx.push({ t: 'active_mutation', label: `SAW ${hit}`, x: Math.round(p.x + dir.x * 120), y: Math.round(p.y + dir.y * 120), r: 86, tone: 'purple', owner: p.id });
+    run.fx.push({ t: 'active_mutation', label: `SAW SCAN ${hit}`, x: Math.round(p.x + dir.x * 120), y: Math.round(p.y + dir.y * 120), r: 86, tone: 'purple', owner: p.id });
     ok = hit > 0;
   } else {
     const target = processControllerFindTarget(run, p, w.maxDist || 520, 86);
-    if (target) ok = applyProcessControllerInstability(run, players, p, target, 36, 'command');
+    if (target) ok = applyProcessControllerInstability(run, players, p, target, 50, 'command');
     else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ ЦЕЛИ', chest: 'CTRL' });
   }
   if (ok) {
@@ -7545,7 +7667,7 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
   return weighted[0][0];
 }
 function processControllerChoicePool(p, qualityTier = 0) {
-  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'qrn_radius', 'qrn_hold']);
+  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage', 'qrn_gap']);
   return WEAPON_CHEST_REWARDS
     .filter(opt => opt && opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id)))
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL', actionLabel: 'УСИЛИТЬ КОНТРОЛЬ' }));
@@ -9080,6 +9202,74 @@ function castActiveCore(run, players, p, opts = {}) {
   }
   return ctx;
 }
+function stepQuarantineAnchorField(run, players, f, dt) {
+  if (!Array.isArray(f.leashes)) f.leashes = [];
+  const live = new Map((run.enemies || []).filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)).map(e => [e.id, e]));
+  f.leashes = f.leashes.filter(l => live.has(l.id));
+  const cap = Math.max(1, Number(f.linkCap || 2) | 0);
+  if (f.leashes.length < cap) {
+    const chained = new Set(f.leashes.map(l => l.id));
+    const candidates = [...live.values()]
+      .filter(e => !chained.has(e.id) && dist2(e.x, e.y, f.x, f.y) <= Math.pow((f.r || 210) + (e.size || 24) / 2, 2))
+      .sort((a, b) => dist2(a.x, a.y, f.x, f.y) - dist2(b.x, b.y, f.x, f.y));
+    for (const e of candidates) {
+      if (f.leashes.length >= cap) break;
+      const d = Math.hypot(e.x - f.x, e.y - f.y);
+      const leash = Math.max(62, Math.min(Math.max(82, f.r || 210), Math.max(f.leash || 118, d * 0.72)));
+      f.leashes.push({ id: e.id, leash });
+      e.qrnT = Math.max(e.qrnT || 0, 0.26);
+      run.fx.push({ t: 'weapon_chain_lock', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 14), tone: 'cyan' });
+    }
+  }
+  for (const l of f.leashes) {
+    const e = live.get(l.id); if (!e) continue;
+    const d = Math.hypot(e.x - f.x, e.y - f.y) || 1;
+    const maxD = Math.max(54, Number(l.leash || f.leash || 118));
+    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.14);
+    e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(0.78));
+    e.qrnT = Math.max(e.qrnT || 0, 0.20);
+    if (d > maxD) {
+      const over = d - maxD;
+      const nx = (f.x - e.x) / d, ny = (f.y - e.y) / d;
+      const step = Math.min(over, 240 * dt + over * 0.48);
+      const c = collideWalls(e.x + nx * step, e.y + ny * step, (e.size || 24) / 2, run.plan?.walls || [], e.x, e.y);
+      e.x = c.x; e.y = c.y;
+    }
+  }
+  // Keep chained threats separated; QRN is a leash cluster, not a blender.
+  const gap = Math.max(6, Number(f.gap || 9));
+  for (let i = 0; i < f.leashes.length; i++) for (let j = i + 1; j < f.leashes.length; j++) {
+    const a = live.get(f.leashes[i].id), b = live.get(f.leashes[j].id);
+    if (!a || !b) continue;
+    const minD = (a.size || 24) / 2 + (b.size || 24) / 2 + gap;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1;
+    if (d < minD) {
+      const nx = dx / d, ny = dy / d, push = (minD - d) * 0.5;
+      a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+    }
+  }
+  f.chainT = Math.max(0, Number(f.chainT || 0) - dt);
+  if (f.chainT <= 0) {
+    f.chainT = 0.11;
+    run.fx.push({ t: 'qrn_anchor', id: f.owner || '', x: Math.round(f.x), y: Math.round(f.y), r: Math.round(f.r || 210), links: f.leashes.length, cap, nx: f.nx || 0, ny: f.ny || 0 });
+    for (const l of f.leashes) {
+      const e = live.get(l.id); if (!e) continue;
+      run.fx.push({ t: 'weapon_chain_link', kind: 'qrn_chain', x1: Math.round(f.x), y1: Math.round(f.y), x2: Math.round(e.x), y2: Math.round(e.y), jump: 1, tone: 'cyan' });
+    }
+  }
+  if (f.tickT <= 0) {
+    f.tickT = f.tickEvery || 0.40;
+    if ((f.dmg || 0) > 0) {
+      for (const l of f.leashes) {
+        const e = live.get(l.id); if (!e) continue;
+        activeDamageEnemy(run, players, e, f.dmg || 0, f.owner);
+      }
+      run.fx.push({ t: 'active_tick', kind: 'quarantine_anchor', x: Math.round(f.x), y: Math.round(f.y), r: Math.round(36 + f.leashes.length * 8), tone: 'cyan' });
+    }
+  }
+}
+
 function stepActiveFields(run, players, dt) {
   if (!run.activeFields) run.activeFields = [];
   if (!run.pendingActives) run.pendingActives = [];
@@ -9115,6 +9305,10 @@ function stepActiveFields(run, players, dt) {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) run.fx.push({ t: 'active_line', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || f.width || f.r || 42, hitWidth: f.width || f.r || 42, tone: fieldTone });
       else run.fx.push({ t: 'active_field', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: fieldTone });
     }
+    if (f.kind === 'quarantine_anchor') {
+      stepQuarantineAnchorField(run, players, f, dt);
+      continue;
+    }
     if (f.kind === 'hunger_charge') {
       const targets = activeHungerTargets(run, f.x, f.y, f.r || 120);
       if (targets.length) {
@@ -9141,7 +9335,7 @@ function stepActiveFields(run, players, dt) {
         run.fx.push({ t: 'active_mutation', label: charge > 0.1 ? `DIGITAL BITE ${Math.round(biteDmg)}` : 'DIGITAL BITE', x: Math.round(f.x), y: Math.round(f.y), r: biteR, tone: 'red', squareBlast: 1 });
       }
     }
-    if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') {
+    if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
         const rr = (f.width || f.r || 42);
         for (const e of run.enemies) if (!f.bulletsOnly && distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) {
@@ -9178,7 +9372,7 @@ function stepActiveFields(run, players, dt) {
       for (const e of run.enemies) if (!f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.22);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
-        if (f.kind === 'signal_spike' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') { const n = norm(f.x - e.x, f.y - e.y); const d = Math.hypot(f.x - e.x, f.y - e.y); const leashBoost = f.kind === 'quarantine_anchor' && d > (f.r || 120) * 0.58 ? 1.85 : 1; e.x += n.x * (f.pull || 65) * leashBoost * dt; e.y += n.y * (f.pull || 65) * leashBoost * dt; if (f.kind === 'quarantine_anchor') { e.stunT = Math.max(e.stunT || 0, 0.045); e.fireCd = Math.max(e.fireCd || 0, 0.08); } }
+        if (f.kind === 'signal_spike' || f.kind === 'anchor_field') { const n = norm(f.x - e.x, f.y - e.y); e.x += n.x * (f.pull || 65) * dt; e.y += n.y * (f.pull || 65) * dt; }
       }
       for (const b of run.bullets) if (dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
         const damp = Math.pow(activeSoftMul(f.damp || 0.45), dt * (f.kind === 'freeze_aura' ? 5.2 : 3.0));
@@ -9223,7 +9417,7 @@ function stepActiveFields(run, players, dt) {
     }
     if (f.tickT <= 0) {
       f.tickT = f.tickEvery || 0.35;
-      if (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'snap_field' || f.kind === 'signal_spike' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field' || f.kind === 'quarantine_anchor') {
+      if (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'snap_field' || f.kind === 'signal_spike' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
         const p = players.get(f.owner);
         if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
           const rr = f.width || f.r || 42;
@@ -9418,6 +9612,7 @@ function detonateOldestRemoteRocket(run, players, p) {
 function stepPlayers(run, players, dt) {
   for (const p of players.values()) {
     if (!p.connected) continue;
+    ensureHeroRuntimeState(p);
     p.invuln = Math.max(0, p.invuln - dt);
     p.activeCd = Math.max(0, (p.activeCd || 0) - dt);
     p.sekSwarmCd = Math.max(0, (p.sekSwarmCd || 0) - dt);
@@ -9656,6 +9851,7 @@ export function buildSnapshot(run, players) {
   const ps = [];
   for (const p of players.values()) {
     if (!p.connected) continue;
+    ensureHeroRuntimeState(p);
     ps.push([
       p.id, Math.round(p.x), Math.round(p.y), Math.round(p.hp), maxHp(p),
       p.alive ? 1 : 0, Math.round(p.aimX), Math.round(p.aimY),
@@ -9726,7 +9922,7 @@ export function buildSnapshot(run, players) {
       for (let i = 0; i < pc.controlled.length; i++) {
         const m = pc.controlled[i];
         if (!m) continue;
-        cs.push([`ctrl:${p.id}:${m.id || i}`, p.id, 'ctrl_proc', i, Math.round(m.x || p.x), Math.round(m.y || p.y), ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4), (pc.commandT || 0) > 0 ? 1 : 0, Math.ceil((m.atkCd || 0) * 10) / 10]);
+        cs.push([`ctrl:${p.id}:${m.id || i}`, p.id, 'ctrl_proc', i, Math.round(m.x || p.x), Math.round(m.y || p.y), ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4), (pc.commandT || 0) > 0 ? 1 : 0, Math.ceil((m.atkCd || 0) * 10) / 10, String(m.kind || 'grunt'), Math.round(m.size || ENEMIES[m.kind]?.size || 24), m.maxHp ? Math.round(((m.hp || 0) / Math.max(1, m.maxHp || 1)) * 100) : 100]);
       }
     }
     const drones = Math.max(0, p.stats.drones | 0);

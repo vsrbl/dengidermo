@@ -356,7 +356,11 @@ export class Effects {
         else this.add({ kind: 'voidLine', tick: 1, x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, w: f.width || 44, ttl: 0.14, color: '#b45cff' });
         break;
       case 'weapon_chain_link':
-        this.add({ kind: 'weaponChainLine', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, ttl: 0.22, color: '#66f6ff', jump: f.jump || 1 });
+        this.add({ kind: 'weaponChainLine', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, ttl: f.kind === 'qrn_chain' ? 0.16 : 0.22, color: '#66f6ff', jump: f.jump || 1 });
+        break;
+      case 'qrn_anchor':
+        this.add({ kind: 'chainLock', x: f.x, y: f.y, r: 34 + Math.min(18, (f.links || 0) * 4), ttl: 0.18, color: '#66f6ff' });
+        this.add({ kind: 'squareField', activeKind: 'qrn_anchor_marker', x: f.x, y: f.y, r: 44, ttl: 0.12, color: '#66f6ff', tick: 1 });
         break;
       case 'weapon_chain_lock':
         this.add({ kind: 'chainLock', x: f.x, y: f.y, r: f.r || 30, ttl: 0.30, color: '#66f6ff' });
@@ -369,7 +373,8 @@ export class Effects {
       }
       case 'active_field': {
         const col = f.tone === 'red' ? '#ff3048' : (f.tone === 'purple' ? '#b45cff' : '#66f6ff');
-        this.add({ kind: f.kind === 'black_box' ? 'blackBoxAura' : 'squareField', activeKind: String(f.kind || ''), x: f.x, y: f.y, r: f.r || 130, ttl: f.kind === 'black_box' ? 0.34 : 0.30, color: col });
+        if (f.kind === 'quarantine_anchor') this.add({ kind: 'chainLock', activeKind: 'quarantine_anchor', x: f.x, y: f.y, r: 38, ttl: 0.22, color: col });
+        else this.add({ kind: f.kind === 'black_box' ? 'blackBoxAura' : 'squareField', activeKind: String(f.kind || ''), x: f.x, y: f.y, r: f.r || 130, ttl: f.kind === 'black_box' ? 0.34 : 0.30, color: col });
         break;
       }
       case 'active_tick':

@@ -163,8 +163,11 @@ export const UPGRADES = [
   { id: 'ctrl_process_slot', label: 'CTRL: ПРОЦЕСС +1', branch: 'CTRL', tier: 1, desc: 'Контролёр держит ещё один подконтрольный процесс.', apply: s => { s.ctrlMax += 1; } },
   { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее доводят угрозы до перехвата; процессы сильнее атакуют.', apply: s => { s.ctrlPower += 1; } },
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП ПРИКАЗОВ +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.', apply: s => { s.ctrlFire += 1; } },
-  { id: 'qrn_radius', label: 'QRN: ЗОНА +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь держит более широкую зону у стены.', apply: s => { s.qrRadius += 1; } },
-  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь держит дольше и тянет сильнее.', apply: s => { s.qrHold += 1; } }
+  { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
+  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Карантинные цепи держат дольше.', apply: s => { s.qrHold += 1; } },
+  { id: 'qrn_links', label: 'QRN: ЦЕПЬ +1', branch: 'QRN', tier: 1, desc: 'Один якорь может держать ещё один процесс.', apply: s => { s.qrLinks += 1; } },
+  { id: 'qrn_damage', label: 'QRN: РАЗРЯД +', branch: 'QRN', tier: 1, desc: 'Цепи якоря периодически обжигают зацепленные процессы.', apply: s => { s.qrDamage += 1; } },
+  { id: 'qrn_gap', label: 'QRN: ЗАЗОР +', branch: 'QRN', tier: 1, desc: 'Зацепленные процессы сильнее расходятся и не сбиваются в кашу.', apply: s => { s.qrGap += 1; } }
 ];
 
 export const UPGRADE_LABELS = Object.fromEntries(UPGRADES.map(u => [u.id, u.label]));
@@ -210,8 +213,11 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_slot', kind: 'weapon_upgrade', upgrade: 'ctrl_process_slot', reqWeapon: 'command_pulse', label: 'CTRL: ПРОЦЕСС +1', desc: 'Контролёр может держать ещё один подконтрольный процесс.' },
   { id: 'ctrl_process_power', kind: 'weapon_upgrade', upgrade: 'ctrl_process_power', reqWeapon: 'command_pulse', label: 'CTRL: КОНТРОЛЬ +', desc: 'Команды быстрее доводят угрозы до перехвата; процессы сильнее атакуют.' },
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП ПРИКАЗОВ +', desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.' },
-  { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗОНА +', desc: 'Карантинный якорь держит угрозы в более широкой зоне у стены.' },
-  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Карантинный якорь дольше удерживает и сильнее тянет угрозы.' },
+  { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
+  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Карантинные цепи держатся дольше.' },
+  { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЦЕПЬ +1', desc: 'Один якорь может держать ещё одну угрозу.' },
+  { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Цепи якоря периодически наносят урон.' },
+  { id: 'qrn_gap', kind: 'weapon_upgrade', upgrade: 'qrn_gap', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАЗОР +', desc: 'Зацепленные угрозы лучше расходятся и не сбиваются в кучу.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия.' },
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ТЕМП ОРУЖИЯ +14%', desc: 'Оружие стреляет чаще.' }
 ];
@@ -309,7 +315,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlFire: 0, qrRadius: 0, qrHold: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlFire: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0, qrGap: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
@@ -339,8 +345,6 @@ export const SKIN_RARITIES = {
 };
 export const SKIN_PRESETS = [
   { id: 'terminal_mint', name: 'HOUSE SIGNAL', rarity: 'basic', fill: '#f3f3f3', outline: '#00ff66', barrel: '#00ff66', dash: '#00ff66', dashAlt: '#f3f3f3', dashStyle: 'terminal', note: 'базовый сигнал дома / чистый терминальный след' },
-  { id: 'living_casino', name: 'ЖИВОЕ КАЗИНО', rarity: 'basic', fill: '#120910', outline: '#ffd34d', barrel: '#b45cff', dash: '#ffd34d', dashAlt: '#f3f3f3', dashStyle: 'coin', note: 'новое ядро: не стреляет напрямую, а активирует казино-секторы вокруг себя' },
-  { id: 'process_controller', name: 'КОНТРОЛЁР ПРОЦЕССОВ', rarity: 'basic', fill: '#061216', outline: '#66f6ff', barrel: '#b45cff', dash: '#66f6ff', dashAlt: '#00ff66', dashStyle: 'terminal', note: 'ядро контроля: командует захваченными процессами и ставит карантинные якоря у стен' },
   { id: 'debt_red', name: 'DEBT FRACTURE', rarity: 'basic', fill: '#120406', outline: '#ff3048', barrel: '#ff3048', dash: '#ff3048', dashAlt: '#f3f3f3', dashStyle: 'debt', note: 'долговой разрыв / красный надлом сигнала' },
   { id: 'void_cyan', name: 'VOID CHANNEL', rarity: 'uncommon', fill: '#061114', outline: '#66f6ff', barrel: '#f3f3f3', dash: '#66f6ff', dashAlt: '#b45cff', dashStyle: 'phase', note: 'холодный канал пустоты / фазовый хвост' },
   { id: 'casino_gold', name: 'CASHIER GLEAM', rarity: 'uncommon', fill: '#171104', outline: '#ffd34d', barrel: '#00ff66', dash: '#ffd34d', dashAlt: '#00ff66', dashStyle: 'coin', note: 'свет кассы / золотой жетонный след' },
