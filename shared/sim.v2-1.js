@@ -2003,6 +2003,10 @@ const ARMOR_CLASS_BIAS = {
 function hasShellArmor(e) {
   return !!(e && ((e.shellMax || 0) > 0 || (e.shellHp || 0) > 0 || e.shellType));
 }
+function shellRegenHitDelay(e, base = 4.2) {
+  // v2.1.137: the first major threat (croupier) gets a longer shell recovery pause.
+  return e?.kind === 'boss_croupier' ? base * 2 : base;
+}
 function shellChance(run, kind, def, elite, type) {
   const df = difficulty(run);
   if (def?.boss) return type === 'plain' ? 1 : 0;
@@ -5239,7 +5243,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
       run.fx.push({ t: 'armor_shell', locked: 1, shellType: e.shellType || 'linked', id: e.id, link: e.armorLinkId, dmg: rawDmg, x: Math.round(e.x), y: Math.round(e.y) });
       return;
     }
-    e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, 4.2);
+    e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, shellRegenHitDelay(e, 4.2));
     e.shellHp = Math.max(0, (e.shellHp || 0) - rawDmg);
     run.fx.push({ t: 'armor_shell', id: e.id, shellType: e.shellType || 'plain', dmg: rawDmg, left: Math.round(e.shellHp || 0), x: Math.round(e.x), y: Math.round(e.y) });
     if (e.shellHp <= 0) {
@@ -8324,7 +8328,7 @@ function activeCrackShell(run, e, dmg, forceBreakLink = false) {
   if ((e.shellHp || 0) <= 0) return 0;
   const d = Math.max(1, Math.round(activeScale(dmg)));
   if (forceBreakLink) { e.armorLockT = 0; e.armorLinkId = ''; }
-  e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, 5.8);
+  e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, shellRegenHitDelay(e, 5.8));
   e.shellHp = Math.max(0, (e.shellHp || 0) - d);
   run.fx.push({ t: 'armor_shell', id: e.id, shellType: e.shellType || 'plain', dmg: d, left: Math.round(e.shellHp || 0), x: Math.round(e.x), y: Math.round(e.y), active: 1 });
   if (e.shellHp <= 0) { run.fx.push({ t: 'armor_break', id: e.id, shellType: e.shellType || 'plain', x: Math.round(e.x), y: Math.round(e.y), active: 1 }); rewardShellMarket(run, e.x, e.y); }

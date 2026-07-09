@@ -56,7 +56,7 @@ export const ENEMIES = {
   boss:     { label: 'BOS', hp: 1300, spd: 60,  size: 72, dmg: 26, boss: true, armor: 0.25, fireCd: 2.6, bulletSpd: 230, xp: 140, gld: 120, score: 20 },
 
   // boss rotation v2.1.19
-  boss_croupier: { label: 'CRP', hp: 1420, spd: 52, size: 78, dmg: 24, boss: true, armor: 0.24, fireCd: 2.35, bulletSpd: 245, xp: 150, gld: 132, score: 22, bossRole: 'casino rules' },
+  boss_croupier: { label: 'CRP', hp: 1207, spd: 52, size: 78, dmg: 24, boss: true, armor: 0.24, fireCd: 2.35, bulletSpd: 245, xp: 150, gld: 132, score: 22, bossRole: 'casino rules' },
   boss_anchor_cashier: { label: 'ANC+', hp: 1520, spd: 42, size: 82, dmg: 25, boss: true, armor: 0.30, fireCd: 2.60, bulletSpd: 215, fieldR: 430, pull: 190, xp: 154, gld: 136, score: 23, bossRole: 'gravity control' },
   boss_hunter_chorus: { label: 'HNT', hp: 1360, spd: 74, size: 74, dmg: 24, boss: true, armor: 0.20, fireCd: 2.15, bulletSpd: 270, xp: 152, gld: 128, score: 22, bossRole: 'hunter shell' },
   boss_hunter_duelist: { label: 'HNT-I', hp: 520, spd: 92, size: 54, dmg: 20, boss: true, bossFragment: true, armor: 0.12, fireCd: 1.65, bulletSpd: 245, xp: 58, gld: 50, score: 9, bossRole: 'hunter fragment' },
