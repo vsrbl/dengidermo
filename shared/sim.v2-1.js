@@ -3090,8 +3090,10 @@ function forEachControlledProcess(players, fn) {
   }
   return n;
 }
-function damageControlledProcess(run, owner, m, dmg, srcX, srcY, source = 'danger') {
+function damageControlledProcess(run, owner, m, dmg, srcX, srcY, source = 'danger', sourceOwner = '') {
   if (!run || !owner || !m || (m.ttl ?? 0) <= 0 || Number(m.hp ?? 1) <= 0) return false;
+  // v2.1.157 — controlled processes are allies: their owner's own shots, actives, fields and blasts must never hurt or debuff them.
+  if (sourceOwner && owner?.id && String(sourceOwner) === String(owner.id)) return false;
   const def = ENEMIES[m.kind] || {};
   m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 24));
   const raw = Math.max(1, Math.round(Number(dmg) || 0));
@@ -3111,21 +3113,23 @@ function damageControlledProcess(run, owner, m, dmg, srcX, srcY, source = 'dange
   }
   return true;
 }
-function damageControlledProcessesInRadius(run, players, x, y, r, dmg, source = 'danger') {
+function damageControlledProcessesInRadius(run, players, x, y, r, dmg, source = 'danger', sourceOwner = '') {
   let hits = 0;
   forEachControlledProcess(players, (owner, pc, m) => {
+    if (sourceOwner && owner?.id && String(sourceOwner) === String(owner.id)) return;
     if (dist2(m.x, m.y, x, y) < (Math.max(0, r || 0) + (m.size || 24) / 2) ** 2) {
-      if (damageControlledProcess(run, owner, m, dmg, x, y, source)) hits++;
+      if (damageControlledProcess(run, owner, m, dmg, x, y, source, sourceOwner)) hits++;
     }
   });
   return hits;
 }
-function damageControlledProcessesOnSegment(run, players, x1, y1, x2, y2, width, dmg, source = 'danger') {
+function damageControlledProcessesOnSegment(run, players, x1, y1, x2, y2, width, dmg, source = 'danger', sourceOwner = '') {
   let hits = 0;
   const w = Math.max(0, Number(width || 0));
   forEachControlledProcess(players, (owner, pc, m) => {
+    if (sourceOwner && owner?.id && String(sourceOwner) === String(owner.id)) return;
     if (distToSegment2(m.x, m.y, x1, y1, x2, y2) < (w + (m.size || 24) / 2) ** 2) {
-      if (damageControlledProcess(run, owner, m, dmg, (x1 + x2) / 2, (y1 + y2) / 2, source)) hits++;
+      if (damageControlledProcess(run, owner, m, dmg, (x1 + x2) / 2, (y1 + y2) / 2, source, sourceOwner)) hits++;
     }
   });
   return hits;
@@ -3141,7 +3145,7 @@ function damageControlledProcessFromEnemyBullet(run, players, b) {
   if (b.aoe) {
     explode(run, players, b.x, b.y, b.aoe, b.dmg, null, true, b.kind === 'rocketgun' ? 'danger' : 'blast');
   } else {
-    damageControlledProcess(run, bestOwner, best, b.dmg, b.x, b.y, 'enemy_bullet');
+    damageControlledProcess(run, bestOwner, best, b.dmg, b.x, b.y, 'enemy_bullet', '');
   }
   return true;
 }
@@ -6463,7 +6467,7 @@ function explode(run, players, x, y, r, dmg, owner, hurtPlayers = false, style =
       if (p.alive && dist2(p.x, p.y, x, y) < (r + PLAYER_SIZE / 2) ** 2) damagePlayer(run, p, dmg, x, y);
     }
   }
-  if (hurtPlayers || style === 'danger' || owner == null) damageControlledProcessesInRadius(run, players, x, y, r, dmg, style === 'danger' ? 'danger_blast' : 'blast');
+  if (hurtPlayers || style === 'danger' || owner == null) damageControlledProcessesInRadius(run, players, x, y, r, dmg, style === 'danger' ? 'danger_blast' : 'blast', owner || '');
 }
 
 function rocketControlOpts(b) {
@@ -9741,11 +9745,11 @@ function stepActiveFields(run, players, dt) {
         if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
           const rr = f.width || f.r || 42;
           for (const e of [...run.enemies]) if (distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
-          damageControlledProcessesOnSegment(run, players, f.x1, f.y1, f.x2, f.y2, rr, f.dmg || 8, f.kind || 'active_line');
+          damageControlledProcessesOnSegment(run, players, f.x1, f.y1, f.x2, f.y2, rr, f.dmg || 8, f.kind || 'active_line', f.owner || '');
           run.fx.push({ t: 'active_line_tick', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || Math.max(2, Math.round(rr * 0.42)), hitWidth: rr, tone: 'purple' });
         } else {
           for (const e of [...activeTargets(run, f.x, f.y, f.r)]) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
-          damageControlledProcessesInRadius(run, players, f.x, f.y, f.r, f.dmg || 8, f.kind || 'active_field');
+          damageControlledProcessesInRadius(run, players, f.x, f.y, f.r, f.dmg || 8, f.kind || 'active_field', f.owner || '');
           run.fx.push({ t: 'active_tick', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: f.kind === 'red_static' ? 'purple' : fieldTone });
         }
         if (p && activeHasMutation(p, 'leech') && (f.kind === 'blood_ring' || f.kind === 'red_static' || f.kind === 'signal_spike')) p.hp = Math.min(maxHp(p), p.hp + 1.2);
