@@ -467,7 +467,7 @@ function weaponReadability(opt = {}) {
   if (opt.pcOnly) {
     const pc = {
       ctrl_process_slot: { role: 'CONTROL', tone: 'control', ru: 'Добавляет место для ещё одного подконтрольного процесса.', en: 'Adds room for one more controlled process.', changeRu: '+1 процесс под контролем', changeEn: '+1 controlled process' },
-      ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее копят нестабильность контроля.', en: 'Commands build control instability faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
+      ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее заполняют шкалу захвата цели.', en: 'Commands fill the capture bar faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы чаще выполняют атакующие приказы.', en: 'Controlled processes execute attack orders more often.', changeRu: 'выше темп процессов', changeEn: 'faster process tempo' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы живут дольше. Каждый процесс получает отдельный срок контроля.', en: 'Controlled processes last longer. Every process gets its own control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
@@ -1312,7 +1312,9 @@ export class Hud {
         const persist = !!pc.persist;
         const selected = String(pc.selected || 'CMD').toUpperCase();
         const selectedName = String(pc.selectedName || selected).toUpperCase();
-        const status = cd > 0 ? localText(`ПЕРЕЗАРЯДКА ${cd.toFixed(1)}`, `COOLDOWN ${cd.toFixed(1)}`) : cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : cap > 0 ? localText('ЗАХВАТ', 'CAPTURE') : localText('ГОТОВО', 'READY');
+        const capPct = Math.max(0, Math.min(100, Number(pc.capturePct || 0) || 0));
+        const capLabel = String(pc.captureLabel || '').trim();
+        const status = cd > 0 ? localText(`ПЕРЕЗАРЯДКА ${cd.toFixed(1)}`, `COOLDOWN ${cd.toFixed(1)}`) : pc.captureActive ? localText(`ЗАХВАТ ${capPct}%${capLabel ? ' · ' + capLabel : ''}`, `CAPTURE ${capPct}%${capLabel ? ' · ' + capLabel : ''}`) : cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : cap > 0 ? localText('ПЕРЕХВАТ', 'CAPTURED') : localText('ГОТОВО', 'READY');
         const procs = Array.isArray(pc.processes) ? pc.processes.slice(0, Math.min(10, max)) : [];
         const chips = [];
         for (let i = 0; i < Math.min(10, max); i++) {
@@ -1323,12 +1325,12 @@ export class Hud {
           chips.push(`<i class="pc-life-chip ${pr ? 'filled' : 'empty'}" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`);
         }
         if (pcRack) {
-          pcRack.className = `pc-process-rack ${controlled > 0 ? 'has-processes' : 'hidden'}`;
-          pcRack.innerHTML = controlled > 0 ? `<div class="pc-rack-head"><b>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))}</b><span>${controlled}/${max}${persist ? escHtml(localText(' · ПЕРЕНОС', ' · CARRY')) : ''}</span></div><div class="pc-life-grid">${chips.join('')}</div>` : '';
-          if (controlled > 0) this.setExplain(pcRack, localText('ПОДКОНТРОЛЬНЫЕ ПРОЦЕССЫ', 'CONTROLLED PROCESSES'), localText('Каждая плашка — отдельный процесс: верхнее заполнение показывает срок контроля, нижняя полоска — HP.', 'Each plate is one process: the main fill is control lifetime, the bottom strip is HP.'), 'cyan');
+          pcRack.className = `pc-process-rack ${controlled > 0 ? 'has-processes' : 'empty'}`;
+          pcRack.innerHTML = `<div class="pc-rack-head"><b>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))}</b><span>${controlled}/${max}${persist ? escHtml(localText(' · ПЕРЕНОС', ' · CARRY')) : ''}</span></div><div class="pc-life-grid">${chips.join('')}</div>`;
+          this.setExplain(pcRack, localText('ПОДКОНТРОЛЬНЫЕ ПРОЦЕССЫ', 'CONTROLLED PROCESSES'), localText('Каждая плашка — отдельный процесс: верхнее заполнение показывает срок контроля, нижняя полоска — HP. Пустые серые ячейки показывают свободные места.', 'Each plate is one process: the main fill is control lifetime, the bottom strip is HP. Empty gray cells show free slots.'), 'cyan');
         }
         if (pcHud) {
-          pcHud.className = `pc-selected ctrl-main type-${selected.toLowerCase()} ${cd > 0 ? 'cooldown' : cmd > 0 ? 'command' : cap > 0 ? 'capture' : 'ready'}`;
+          pcHud.className = `pc-selected ctrl-main type-${selected.toLowerCase()} ${cd > 0 ? 'cooldown' : pc.captureActive ? 'capturing' : cmd > 0 ? 'command' : cap > 0 ? 'capture' : 'ready'}`;
           pcHud.style.setProperty('--pc-fill', `${cd > 0 ? 100 - cdPct : 100}%`);
           pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><div class="pc-title"><b>${escHtml(selected)}</b><span>${escHtml(selectedName)}</span><em>${escHtml(status)}</em></div>`;
           this.setExplain(pcHud, localText('КОМАНДА КОНТРОЛЁРА', 'CONTROLLER COMMAND'), localText('Это активная команда ЛКМ. Заполнение показывает готовность/перезарядку команды. Сроки отдельных процессов вынесены выше отдельными плашками.', 'This is the active LMB command. The fill shows command readiness/cooldown. Individual process lifetimes are shown above in separate plates.'), 'cyan');
@@ -1359,6 +1361,11 @@ export class Hud {
     const slots = $('weapon-slots');
     const livingCasinoHero = !!(me[P.LVC]);
     const processControllerHero = !!(me[P.CTRL] && me[P.CTRL].hero === 'process_controller');
+    document.body?.classList?.toggle('process-controller-mode', processControllerHero && !livingCasinoHero);
+    const ctrlCapPct = processControllerHero ? Math.max(0, Math.min(100, Number(me[P.CTRL]?.capturePct || 0) || 0)) : 0;
+    const ctrlCapActive = processControllerHero && !!me[P.CTRL]?.captureActive;
+    document.body?.classList?.toggle('ctrl-capture-active', ctrlCapActive);
+    document.documentElement?.style?.setProperty('--ctrl-capture-pct', `${ctrlCapPct}%`);
     if (slots) {
       slots.classList.toggle('hidden', livingCasinoHero);
       slots.classList.toggle('ctrl-slots', processControllerHero && !livingCasinoHero);

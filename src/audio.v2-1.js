@@ -289,6 +289,20 @@ export class AudioBus {
         this.tone(720, 0.030, 'square', 0.024, 0.50);
         this.noise(0.016, 0.018, 6800, 16);
         break;
+      case 'ctrl_proc_fire':
+        // Quiet subordinate-process shot: audible feedback without reusing the loud hero weapon beep.
+        this.tone(360, 0.022, 'square', 0.014, 0.46);
+        this.noise(0.014, 0.010, 3200, 8);
+        break;
+      case 'ctrl_proc_hit':
+        this.noise(0.016, 0.012, 1800, 7);
+        this.tone(210, 0.018, 'square', 0.010, 0.28);
+        break;
+      case 'ctrl_proc_expire':
+        this.tone(145, 0.055, 'sawtooth', 0.026, 0.44);
+        this.tone(72, 0.075, 'square', 0.018, 0.34, 0.018);
+        this.noise(0.028, 0.014, 900, 3.5);
+        break;
       case 'rocket_launch':
         this.tone(72, 0.18, 'sawtooth', 0.13, 1.25);
         this.noise(0.10, 0.065, 320, 1.8);
@@ -1051,6 +1065,8 @@ export class AudioBus {
       case 'ctrl_order': if (mine) this.play('ctrl_order'); break;
       case 'ctrl_saw': if (mine) this.play('ctrl_saw'); break;
       case 'qrn_place': if (mine) this.play('qrn_place'); break;
+      case 'ctrl_proc_fire': if (mine || f.owner === info.myId) this.play('ctrl_proc_fire'); break;
+      case 'ctrl_proc_expire': if (mine || f.owner === info.myId) this.play('ctrl_proc_expire'); break;
       case 'weapon_chain_lock': this.play('qrn_chain'); break;
       case 'lc_sector_ring': if (mine) this.play('lc_sector_ring'); break;
       case 'lc_copy': if (mine) this.play('lc_copy'); break;
@@ -1064,13 +1080,15 @@ export class AudioBus {
         else this.play('pickup');
         break;
       case 'ehit':
-        if (!String(f.source || '').startsWith('ctrl_')) this.play('hit');
+        if (String(f.source || '').startsWith('ctrl_')) { if (f.owner === info.myId) this.play('ctrl_proc_hit'); }
+        else this.play('hit');
         break;
       case 'combo_tick': if (mine) this.play('combo_tick'); break;
       case 'combo_drop': if (mine) this.play('combo_drop'); break;
       case 'combo_break': this.play('combo_break'); break;
       case 'impact':
-        if (!String(f.kind || '').startsWith('ctrl_')) this.play('impact');
+        if (String(f.kind || '').startsWith('ctrl_')) { if (mine || f.owner === info.myId) this.play('ctrl_proc_hit'); }
+        else this.play('impact');
         break;
       case 'roulette_split': this.play('casino_reel_stop'); this.play('impact'); if ((f.count || 0) >= 4 || (f.size || 0) >= 24) this.play('casino_spin'); break;
       case 'ricochet': if (f.kind === 'roulette') { this.play('casino_reel_stop'); this.play('impact'); } else this.play(f.rocket ? 'rocket_launch' : 'shot_sek'); break;

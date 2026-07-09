@@ -465,7 +465,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -856,6 +856,23 @@ export class Renderer {
         ctx.restore();
         if (shellLock) this.label('ARMOR LOCK', ex, ey + size / 2 + 20, COL.red, 8);
         else if (shellType === 'linked') this.label('LINK SHELL', ex, ey + size / 2 + 20, COL.purple, 8);
+      }
+      if (ctrlLock) {
+        const pct = Math.max(0, Math.min(100, Number(ctrlPct || 0) || 0));
+        const r = Math.max(30, size + 22);
+        ctx.save();
+        ctx.globalAlpha = 0.72 + Math.sin(now * 14) * 0.14;
+        ctx.strokeStyle = COL.red;
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([8, 4, 2, 4]);
+        ctx.strokeRect(Math.round(ex - r / 2), Math.round(ey - r / 2), Math.round(r), Math.round(r));
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.88;
+        ctx.fillStyle = 'rgba(0,0,0,0.72)';
+        ctx.fillRect(Math.round(ex - r / 2), Math.round(ey - r / 2 - 8), Math.round(r), 5);
+        ctx.fillStyle = COL.red;
+        ctx.fillRect(Math.round(ex - r / 2 + 1), Math.round(ey - r / 2 - 7), Math.round((r - 2) * pct / 100), 3);
+        ctx.restore();
       }
       // hp tick under damaged regular enemies only. Bosses already have their own readable top bar.
       if (!isBossKind && hp01 < 100) {

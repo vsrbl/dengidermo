@@ -362,6 +362,18 @@ export class Effects {
         this.add({ kind: 'chainLock', x: f.x, y: f.y, r: 34 + Math.min(18, (f.links || 0) * 4), ttl: 0.18, color: '#66f6ff' });
         this.add({ kind: 'squareField', activeKind: 'qrn_anchor_marker', x: f.x, y: f.y, r: 44, ttl: 0.12, color: '#66f6ff', tick: 1 });
         break;
+      case 'ctrl_proc_fire':
+        this.add({ kind: 'voidLine', x: f.x, y: f.y, x2: f.mx || f.x, y2: f.my || f.y, w: 1.8, ttl: 0.055, color: '#66f6ff' });
+        this.add({ kind: 'squareField', activeKind: 'ctrl_proc_fire', x: f.x, y: f.y, r: 18, ttl: 0.10, color: '#66f6ff', tick: 1 });
+        break;
+      case 'ctrl_proc_expire': {
+        const col = f.reason === 'hp' ? '#ff3048' : '#66f6ff';
+        const r = Math.max(36, Number(f.size || 24) + 32);
+        this.add({ kind: 'chainLock', activeKind: 'ctrl_proc_expire', x: f.x, y: f.y, r, ttl: 0.32, color: col });
+        this.add({ kind: 'squareField', activeKind: 'ctrl_proc_expire_core', x: f.x, y: f.y, r: Math.max(26, r * 0.55), ttl: 0.28, color: col, tick: 1 });
+        if (f.label) this.float(f.x, f.y - Math.max(34, Number(f.size || 24)), `PROC END ${f.label || ''}`.trim(), col, 9);
+        break;
+      }
       case 'weapon_chain_lock':
         this.add({ kind: 'chainLock', x: f.x, y: f.y, r: f.r || 30, ttl: 0.30, color: '#66f6ff' });
         break;

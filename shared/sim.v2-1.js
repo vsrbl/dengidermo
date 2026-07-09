@@ -2885,7 +2885,11 @@ function setupProcessControllerPlayer(p) {
     commandT: 0,
     pulseT: 0,
     captureT: 0,
-    lastCapture: ''
+    lastCapture: '',
+    cmdTargetId: '',
+    cmdHold: 0,
+    cmdNeed: 0,
+    cmdTargetLabel: ''
   };
   return p;
 }
@@ -2900,6 +2904,10 @@ function ensureProcessControllerState(p) {
   pc.commandT = Math.max(0, Number(pc.commandT || 0) || 0);
   pc.pulseT = Math.max(0, Number(pc.pulseT || 0) || 0);
   pc.captureT = Math.max(0, Number(pc.captureT || 0) || 0);
+  pc.cmdTargetId = String(pc.cmdTargetId || '');
+  pc.cmdHold = Math.max(0, Number(pc.cmdHold || 0) || 0);
+  pc.cmdNeed = Math.max(0, Number(pc.cmdNeed || 0) || 0);
+  pc.cmdTargetLabel = String(pc.cmdTargetLabel || '');
   if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = ['command_pulse'];
   p.weapons = [...new Set(p.weapons.filter(w => PROCESS_CONTROLLER_WEAPON_SET.has(String(w || '')) && WEAPONS[w]))];
   if (!p.weapons.includes('command_pulse')) p.weapons.unshift('command_pulse');
@@ -2933,6 +2941,7 @@ function processControllerHudSnapshot(p) {
     };
   });
   const lifePct = processes.length ? Math.round(Math.min(...processes.map(x => x.life))) : 0;
+  const capturePct = pc.cmdNeed > 0 ? Math.round(Math.max(0, Math.min(1, (pc.cmdHold || 0) / Math.max(0.001, pc.cmdNeed || 1))) * 100) : 0;
   const currentId = (p.weapons && p.weapons[p.weaponIdx || 0]) || 'command_pulse';
   const current = WEAPONS[currentId] || WEAPONS.command_pulse;
   const cd = Math.max(0, Number(p.cd || 0) || 0);
@@ -2949,6 +2958,12 @@ function processControllerHudSnapshot(p) {
     max,
     commandT: Math.ceil((pc.commandT || 0) * 10) / 10,
     captureT: Math.ceil((pc.captureT || 0) * 10) / 10,
+    captureActive: pc.cmdTargetId ? 1 : 0,
+    captureTargetId: pc.cmdTargetId || '',
+    captureLabel: pc.cmdTargetLabel || '',
+    capturePct,
+    captureNeed: Math.ceil((pc.cmdNeed || 0) * 10) / 10,
+    captureHold: Math.ceil((pc.cmdHold || 0) * 10) / 10,
     lifePct,
     processes,
     persist: processControllerCanPersist(p) ? 1 : 0,
@@ -2989,6 +3004,7 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
   });
   pc.lastCapture = ENEMIES[kind]?.label || String(kind).toUpperCase();
   pc.captureT = 0.70;
+  if (pc.cmdTargetId === e.id) clearProcessControllerCmdLock(pc);
   e.hp = 0;
   killEnemy(run, players, e, p, 'control_capture');
   run.fx.push({ t: 'ctrl_capture', id: p.id, x: Math.round(x), y: Math.round(y), kind });
@@ -3048,6 +3064,14 @@ function controlledContact(run, players, p, m, target, dt, mult = 1) {
     run.fx.push({ t: 'impact', id: p.id, x: Math.round(target.x), y: Math.round(target.y), kind: 'ctrl_bite', dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
   }
   return true;
+}
+function expireControlledProcess(run, p, m, reason = 'ttl') {
+  if (!run || !p || !m) return;
+  run.fx.push({
+    t: 'ctrl_proc_expire', id: p.id, owner: p.id, procId: m.id || '', reason, kind: m.kind || 'process',
+    x: Math.round(m.x || p.x), y: Math.round(m.y || p.y), size: Math.round(m.size || m.baseSize || 24),
+    label: ENEMIES[m.kind]?.label || String(m.kind || 'PRC').toUpperCase().slice(0, 4)
+  });
 }
 function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
@@ -3153,7 +3177,12 @@ function stepProcessControllerState(run, players, p, dt) {
       A.x -= nx * push; A.y -= ny * push; B.x += nx * push; B.y += ny * push;
     }
   }
-  pc.controlled = pc.controlled.filter(m => m && m.ttl > 0 && (m.hp || 1) > 0);
+  const survivors = [];
+  for (const m of pc.controlled) {
+    if (m && m.ttl > 0 && (m.hp || 1) > 0) survivors.push(m);
+    else if (m) expireControlledProcess(run, p, m, m.ttl <= 0 ? 'ttl' : 'hp');
+  }
+  pc.controlled = survivors;
 }
 function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
   const owner = b?.owner ? players.get(b.owner) : null;
@@ -3170,6 +3199,38 @@ function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
 }
 
 
+
+function clearProcessControllerCmdLock(pc) {
+  if (!pc) return;
+  pc.cmdTargetId = '';
+  pc.cmdHold = 0;
+  pc.cmdNeed = 0;
+  pc.cmdTargetLabel = '';
+}
+function processControllerCaptureSeconds(p, e, source = 'command') {
+  const def = ENEMIES[e?.kind] || {};
+  const size = Math.max(12, Number(e?.size || def.size || 24) || 24);
+  const mh = Math.max(1, Number(e?.maxHp || def.hp || e?.hp || 1));
+  const hpPct = Math.max(0.05, Math.min(1, Number(e?.hp || mh) / mh));
+  const elite = e?.elite ? 0.38 : 0;
+  const mass = Math.min(1.6, Math.max(0, (mh - 35) / 110)) * 0.55 + Math.min(1.2, Math.max(0, (size - 24) / 34)) * 0.35;
+  const weakHelp = Math.max(0, 0.65 - hpPct) * 0.55;
+  const base = source === 'saw' ? 0.72 : 0.98;
+  const need = base + mass + elite - weakHelp;
+  return Math.max(source === 'saw' ? 0.42 : 0.58, Math.min(3.4, need));
+}
+function processControllerCaptureRate(p, source = 'command') {
+  const power = Math.max(0, Number(p?.stats?.ctrlPower || 0) | 0);
+  return (source === 'saw' ? 1.20 : 1.0) + Math.min(1.8, power * 0.22);
+}
+function processControllerTargetValid(run, p, e, range = 540) {
+  if (!run || !p || !e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) return false;
+  const def = ENEMIES[e.kind] || {};
+  if (def.boss || e.bossFragment || e.kind === 'slot_mob') return false;
+  if (dist2(p.x, p.y, e.x, e.y) > range * range) return false;
+  if (segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13)) return false;
+  return true;
+}
 function processControllerFindTarget(run, p, range = 540, cursorRadius = 78) {
   if (!run || !p) return null;
   const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
@@ -3225,14 +3286,55 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   const pc = ensureProcessControllerState(p);
   if (!pc) return;
   p.cd = Math.max(0, (p.cd || 0) - dt);
-  if (!p.fire) { p.fireWasDown = false; return; }
-  if (!p.alive || p.fireWasDown || p.cd > 0) return;
-  p.fireWasDown = true;
   const id = p.weapons[p.weaponIdx] || 'command_pulse';
   const w = WEAPONS[id] || WEAPONS.command_pulse;
+  if (!p.fire) {
+    p.fireWasDown = false;
+    if (id === 'command_pulse' && pc.cmdTargetId) clearProcessControllerCmdLock(pc);
+    return;
+  }
+  if (!p.alive || p.cd > 0) return;
+  if (id === 'command_pulse') {
+    let target = pc.cmdTargetId ? (run.enemies || []).find(e => e && e.id === pc.cmdTargetId) : null;
+    if (!processControllerTargetValid(run, p, target, w.maxDist || 520)) {
+      target = processControllerFindTarget(run, p, w.maxDist || 520, 90);
+      if (target) {
+        pc.cmdTargetId = target.id;
+        pc.cmdTargetLabel = ENEMIES[target.kind]?.label || String(target.kind || 'PRC').toUpperCase();
+        pc.cmdHold = 0;
+        pc.cmdNeed = processControllerCaptureSeconds(p, target, 'command');
+        run.fx.push({ t: 'ctrl_cmd', id: p.id, x: Math.round(target.x), y: Math.round(target.y), lock: 1 });
+      }
+    }
+    if (!target) {
+      if (!p.fireWasDown) run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ ЦЕЛИ', chest: 'CTRL' });
+      p.fireWasDown = true;
+      return;
+    }
+    p.fireWasDown = true;
+    pc.cmdNeed = Math.max(0.2, Number(pc.cmdNeed || processControllerCaptureSeconds(p, target, 'command')) || 1);
+    pc.cmdHold = Math.min(pc.cmdNeed, (pc.cmdHold || 0) + dt * processControllerCaptureRate(p, 'command'));
+    target.activeSlowT = Math.max(target.activeSlowT || 0, 0.16);
+    target.activeSlowMul = Math.min(target.activeSlowMul || 1, 0.68);
+    target.fireCd = Math.max(target.fireCd || 0, 0.06);
+    pc.captureT = 0.18;
+    if ((run.tick || 0) % 14 === 0) {
+      const pct = Math.round(Math.max(0, Math.min(1, pc.cmdHold / Math.max(0.01, pc.cmdNeed))) * 100);
+      run.fx.push({ t: 'active_mutation', label: `CMD ${pct}%`, x: Math.round(target.x), y: Math.round(target.y), r: 44 + pct * 0.38, tone: 'red', owner: p.id });
+    }
+    if (pc.cmdHold >= pc.cmdNeed) {
+      const ok = captureEnemyAsProcess(run, players, p, target, 'command');
+      const tempFire = p.activeBuffT > 0 ? 1.18 + p.stats.activeOver * 0.07 : 1;
+      p.cd = Math.max(0.55, (w.cooldown || 1.7) / Math.max(0.35, (p.stats.fireMul || 1) * tempFire));
+      p.ctrlCdMax = p.cd;
+      p.recoilT = Math.max(p.recoilT || 0, 0.035);
+      if (ok) run.fx.push({ t: 'active_mutation', label: w.label || 'CMD', x: Math.round(p.x), y: Math.round(p.y), r: 44, tone: 'cyan', owner: p.id });
+    }
+    return;
+  }
+  if (p.fireWasDown) return;
+  p.fireWasDown = true;
   const tempFire = p.activeBuffT > 0 ? 1.35 + p.stats.activeOver * 0.12 : 1;
-  p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire));
-  p.ctrlCdMax = p.cd;
   let ok = false;
   if (id === 'quarantine_anchor') {
     ok = placeProcessControllerAnchor(run, players, p);
@@ -3251,11 +3353,18 @@ function fireProcessControllerProtocol(run, players, p, dt) {
       .filter(e => dist2(ax, ay, e.x, e.y) <= Math.pow(radius + (e.size || 24) / 2, 2))
       .filter(e => !segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13))
       .sort((a, b) => dist2(a.x, a.y, ax, ay) - dist2(b.x, b.y, ax, ay));
-    const amount = 78 + power * 15;
+    const rate = processControllerCaptureRate(p, 'saw');
     for (const e of candidates) {
       if (pc.controlled.length >= processControllerMax(p)) break;
+      hit++;
+      const need = processControllerCaptureSeconds(p, e, 'saw');
       const n0 = pc.controlled.length;
-      if (applyProcessControllerInstability(run, players, p, e, amount, 'saw')) hit++;
+      if (rate >= need * 0.95 || (e.hp / Math.max(1, e.maxHp || e.hp || 1)) < 0.38) captureEnemyAsProcess(run, players, p, e, 'saw');
+      else {
+        if (!e.ctrlInstability || typeof e.ctrlInstability !== 'object') e.ctrlInstability = {};
+        e.ctrlInstability[p.id || 'p'] = Math.max(0, Number(e.ctrlInstability[p.id || 'p'] || 0)) + 42 + power * 12;
+        if (e.ctrlInstability[p.id || 'p'] >= processControllerInstabilityNeed(e) * 0.72) captureEnemyAsProcess(run, players, p, e, 'saw');
+      }
       if (pc.controlled.length > n0) captured += pc.controlled.length - n0;
     }
     if (captured > 0 || hit > 0) {
@@ -3265,16 +3374,15 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     run.fx.push({ t: 'ctrl_saw', id: p.id, x: Math.round(ax), y: Math.round(ay), hit, captured, r: Math.round(radius), mass: 1 });
     run.fx.push({ t: 'active_mutation', label: `SAW MASS ${captured || hit}`, x: Math.round(ax), y: Math.round(ay), r: Math.round(radius), tone: 'purple', owner: p.id });
     ok = hit > 0 || captured > 0;
-  } else {
-    const target = processControllerFindTarget(run, p, w.maxDist || 520, 86);
-    if (target) { run.fx.push({ t: 'ctrl_cmd', id: p.id, x: Math.round(target.x), y: Math.round(target.y) }); ok = applyProcessControllerInstability(run, players, p, target, 50, 'command'); }
-    else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ ЦЕЛИ', chest: 'CTRL' });
   }
   if (ok) {
+    p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire));
+    p.ctrlCdMax = p.cd;
     p.recoilT = Math.max(p.recoilT || 0, 0.035);
     run.fx.push({ t: 'active_mutation', label: w.label || 'CTRL', x: Math.round(p.x), y: Math.round(p.y), r: 44, tone: id === 'process_saw' ? 'purple' : 'cyan', owner: p.id });
   }
 }
+
 
 function livingCasinoAimIndex(p, lc = null) {
   lc = lc || ensureLivingCasinoState(p); if (!lc) return 0;
@@ -7728,9 +7836,20 @@ function processControllerChoicePool(p, qualityTier = 0) {
       if (!opt) return false;
       if (opt.kind === 'weapon') return PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || '')) && !p.weapons.includes(opt.weapon);
       if (opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id))) return weaponChoiceEligible(p, opt);
+      if (opt.kind === 'stat' && opt.stat === 'dmg') return true;
       return false;
     })
-    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL', actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : 'УСИЛИТЬ КОНТРОЛЬ' }));
+    .map(opt => {
+      const isDmgStat = opt.kind === 'stat' && opt.stat === 'dmg';
+      return {
+        ...opt,
+        id: isDmgStat ? 'ctrl_proc_dmg_stat' : opt.id,
+        label: isDmgStat ? 'CTRL: УРОН ПРОЦЕССОВ +18%' : opt.label,
+        desc: isDmgStat ? 'Подконтрольные процессы сильнее кусают, стреляют и наносят урон своими действиями.' : opt.desc,
+        disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL',
+        actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : 'УСИЛИТЬ КОНТРОЛЬ'
+      };
+    });
 }
 function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   // У контролёра WPN-ящик — это ящик команд контроля, не оружейный пул.
@@ -7976,6 +8095,12 @@ function applyProcessControllerWeaponOption(run, players, p, opt) {
     if (!u) return false;
     u.apply(p.stats);
     label = u.label || opt.label || 'CTRL';
+    run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
+    if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  } else if (opt.kind === 'stat') {
+    if (opt.stat !== 'dmg') return false;
+    p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
+    label = opt.label || 'CTRL: УРОН ПРОЦЕССОВ +18%';
     run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
     if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   } else return false;
@@ -9978,6 +10103,15 @@ export function buildSnapshot(run, players) {
       p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p)
     ]);
   }
+  const ctrlLocks = new Map();
+  for (const p of players.values()) {
+    if (!p.connected || !p.alive) continue;
+    const pc = ensureProcessControllerState(p);
+    if (pc?.cmdTargetId) {
+      const pct = pc.cmdNeed > 0 ? Math.round(Math.max(0, Math.min(1, (pc.cmdHold || 0) / Math.max(0.001, pc.cmdNeed))) * 100) : 0;
+      ctrlLocks.set(pc.cmdTargetId, Math.max(pct, ctrlLocks.get(pc.cmdTargetId) || 0));
+    }
+  }
   const es = combatEnemies(run).map(e => [
     e.id, KIND_IDX[e.kind], Math.round(e.x), Math.round(e.y),
     Math.round((e.hp / e.maxHp) * 100), e.size, e.state, e.elite ? 1 : 0,
@@ -9993,7 +10127,9 @@ export function buildSnapshot(run, players) {
     (e.chillT || 0) > 0 ? 1 : 0,
     (e.stunT || 0) > 0 ? 1 : 0,
     ((e.shellMax || 0) > 0 && (e.shellHp || 0) > 0 && (e.shellHp || 0) < (e.shellMax || 0) && (e.shellRegenDelay || 0) <= 0) ? 1 : 0,
-    Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10
+    Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10,
+    ctrlLocks.has(e.id) ? 1 : 0,
+    ctrlLocks.get(e.id) || 0
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn
