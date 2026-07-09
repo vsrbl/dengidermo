@@ -5317,3 +5317,18 @@ body.ctrl-capture-active #custom-cursor .cc::after {
   top: 9px !important;
   background: var(--red) !important;
 }
+
+/* v2.1.156 — visible YouTube loading state */
+#youtube-music.yt-loading #youtube-status {
+  animation: ytStatusPulseV2156 0.72s steps(2, end) infinite;
+  text-shadow: 0 0 10px currentColor;
+}
+#youtube-load:disabled,
+#youtube-toggle:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+@keyframes ytStatusPulseV2156 {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
