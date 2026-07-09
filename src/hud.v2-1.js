@@ -469,6 +469,8 @@ function weaponReadability(opt = {}) {
       ctrl_process_slot: { role: 'CONTROL', tone: 'control', ru: 'Добавляет место для ещё одного подконтрольного процесса.', en: 'Adds room for one more controlled process.', changeRu: '+1 процесс под контролем', changeEn: '+1 controlled process' },
       ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее копят нестабильность контроля.', en: 'Commands build control instability faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы чаще выполняют атакующие приказы.', en: 'Controlled processes execute attack orders more often.', changeRu: 'выше темп процессов', changeEn: 'faster process tempo' },
+      ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы живут дольше. Каждый процесс получает отдельный срок контроля.', en: 'Controlled processes last longer. Every process gets its own control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
+      ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от настенного маркера.', en: 'The anchor can chain threats farther from the wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
       qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Карантинные цепи держатся дольше.', en: 'Quarantine chains last longer.', changeRu: 'дольше удержание', changeEn: 'longer hold' },
       qrn_links: { role: 'CONTROL', tone: 'control', ru: 'Один якорь может держать ещё одну угрозу.', en: 'One anchor can leash one more threat.', changeRu: '+1 цепь', changeEn: '+1 chain' },
@@ -1299,11 +1301,22 @@ export class Hud {
         const max = Math.max(1, Number(pc.max || 1) | 0);
         const cmd = Math.max(0, Number(pc.commandT || 0) || 0);
         const cap = Math.max(0, Number(pc.captureT || 0) || 0);
-        const status = cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : controlled > 0 ? localText('ПРОЦЕССЫ ГОТОВЫ', 'PROCESSES READY') : localText('НЕТ ЗАХВАТА', 'NO CAPTURE');
+        const life = Math.max(0, Math.min(100, Number(pc.lifePct || 0) || 0));
+        const persist = !!pc.persist;
+        const status = cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : controlled > 0 ? localText(`СРОКИ${persist ? ' · ПЕРЕНОС' : ''}`, `TIMERS${persist ? ' · CARRY' : ''}`) : localText('НЕТ ЗАХВАТА', 'NO CAPTURE');
+        const procs = Array.isArray(pc.processes) ? pc.processes.slice(0, Math.min(10, max)) : [];
+        const chips = [];
+        for (let i = 0; i < Math.min(10, max); i++) {
+          const pr = procs[i] || null;
+          const l = pr ? Math.max(0, Math.min(100, Number(pr.life || 0) || 0)) : 0;
+          const h = pr ? Math.max(0, Math.min(100, Number(pr.hp || 0) || 0)) : 0;
+          const label = pr ? String(pr.label || 'PRC').slice(0, 3).toUpperCase() : '---';
+          chips.push(`<i class="pc-life-chip ${pr ? 'filled' : 'empty'}" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`);
+        }
         pcHud.className = `pc-selected ${cmd > 0 ? 'command' : cap > 0 ? 'capture' : controlled > 0 ? 'ready' : 'empty'}`;
-        pcHud.style.setProperty('--pc-fill', `${Math.round((controlled / max) * 100)}%`);
-        pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><b>CTRL</b><span>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))} ${controlled}/${max}</span><em>${escHtml(status)}</em>`;
-        this.setExplain(pcHud, localText('КОНТРОЛЁР ПРОЦЕССОВ', 'PROCESS CONTROLLER'), localText('ЛКМ использует одну из трёх команд контроля. ПКМ отдаёт приказ захваченным процессам в точку курсора. QRN ставит карантинный якорь на стену.', 'LMB uses one of three control commands. RMB orders captured processes to the cursor. QRN places a quarantine anchor on a wall.'), 'cyan');
+        pcHud.style.setProperty('--pc-fill', `${controlled > 0 ? life : Math.round((controlled / max) * 100)}%`);
+        pcHud.innerHTML = `<i class="pc-fill" aria-hidden="true"></i><div class="pc-title"><b>CTRL</b><span>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))} ${controlled}/${max}</span><em>${escHtml(status)}</em></div><div class="pc-life-grid">${chips.join('')}</div>`;
+        this.setExplain(pcHud, localText('КОНТРОЛЁР ПРОЦЕССОВ', 'PROCESS CONTROLLER'), localText('ЛКМ использует выбранную команду контроля. На старте доступен только CMD; QRN и SAW открываются в ящике команд. ПКМ отдаёт приказ захваченным процессам.', 'LMB uses the selected control command. Only CMD is available at start; QRN and SAW are unlocked in command chests. RMB orders captured processes.'), 'cyan');
       } else {
         pcHud.className = 'pc-selected hidden';
         pcHud.innerHTML = '';

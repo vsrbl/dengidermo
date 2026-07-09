@@ -2868,11 +2868,13 @@ function allowedWeaponOrderForPlayer(p) {
   return ['shotgun', 'seeker', 'rocketgun'];
 }
 function isProcessControllerPlayer(p) { return p?.hero === 'process_controller' || p?.skin?.hero === 'process_controller'; }
-function processControllerMax(p) { return Math.max(1, 2 + Math.max(0, Number(p?.stats?.ctrlMax || 0) | 0)); }
+function processControllerMax(p) { return Math.max(1, Math.min(10, 2 + Math.max(0, Number(p?.stats?.ctrlMax || 0) | 0))); }
+function processControllerLifeMax(p) { return Math.max(6, 22 + Math.max(0, Number(p?.stats?.ctrlLife || 0) | 0) * 6); }
+function processControllerCanPersist(p) { return Math.max(0, Number(p?.stats?.ctrlPersist || 0) | 0) > 0; }
 function setupProcessControllerPlayer(p) {
   if (!p) return p;
   p.hero = 'process_controller';
-  p.weapons = [...PROCESS_CONTROLLER_COMMANDS];
+  p.weapons = ['command_pulse'];
   p.weaponIdx = 0;
   p.shgCharges = 0;
   p.shgReload = 0;
@@ -2898,10 +2900,9 @@ function ensureProcessControllerState(p) {
   pc.commandT = Math.max(0, Number(pc.commandT || 0) || 0);
   pc.pulseT = Math.max(0, Number(pc.pulseT || 0) || 0);
   pc.captureT = Math.max(0, Number(pc.captureT || 0) || 0);
-  if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = [...PROCESS_CONTROLLER_COMMANDS];
-  for (const wid of PROCESS_CONTROLLER_COMMANDS) if (!p.weapons.includes(wid)) p.weapons.push(wid);
+  if (!Array.isArray(p.weapons) || !p.weapons.length) p.weapons = ['command_pulse'];
   p.weapons = [...new Set(p.weapons.filter(w => PROCESS_CONTROLLER_WEAPON_SET.has(String(w || '')) && WEAPONS[w]))];
-  for (const wid of PROCESS_CONTROLLER_COMMANDS) if (!p.weapons.includes(wid)) p.weapons.push(wid);
+  if (!p.weapons.includes('command_pulse')) p.weapons.unshift('command_pulse');
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
   return pc;
 }
@@ -2918,6 +2919,20 @@ function processControllerHudSnapshot(p) {
   const max = processControllerMax(p);
   const n = Math.max(0, pc.controlled?.length || 0);
   const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+  const lifeMax = processControllerLifeMax(p);
+  const processes = (pc.controlled || []).slice(0, max).map((m, i) => {
+    const mt = Math.max(1, Number(m?.maxT || lifeMax) || lifeMax);
+    const tt = Math.max(0, Number(m?.ttl ?? mt) || 0);
+    const hpMax = Math.max(1, Number(m?.maxHp || 1) || 1);
+    return {
+      i,
+      kind: String(m?.kind || 'process'),
+      label: ENEMIES[m?.kind]?.label || String(m?.kind || 'PRC').toUpperCase().slice(0, 3),
+      life: Math.round(Math.max(0, Math.min(1, tt / mt)) * 100),
+      hp: Math.round(Math.max(0, Math.min(1, Number(m?.hp || hpMax) / hpMax)) * 100)
+    };
+  });
+  const lifePct = processes.length ? Math.round(Math.min(...processes.map(x => x.life))) : 0;
   return {
     hero: 'process_controller',
     label: 'CTRL',
@@ -2925,6 +2940,9 @@ function processControllerHudSnapshot(p) {
     max,
     commandT: Math.ceil((pc.commandT || 0) * 10) / 10,
     captureT: Math.ceil((pc.captureT || 0) * 10) / 10,
+    lifePct,
+    processes,
+    persist: processControllerCanPersist(p) ? 1 : 0,
     power,
     last: pc.lastCapture || ''
   };
@@ -2936,6 +2954,7 @@ function commandProcessController(run, p) {
   pc.commandT = 5.0 + Math.min(2.5, Math.max(0, p.stats?.ctrlPower || 0) * 0.35);
   pc.pulseT = 0.32;
   for (const m of pc.controlled) { m.tx = pc.commandX; m.ty = pc.commandY; m.cmdT = pc.commandT; m.pulse = 0.25; }
+  run.fx.push({ t: 'ctrl_order', id: p.id, x: Math.round(pc.commandX), y: Math.round(pc.commandY), count: pc.controlled.length || 0 });
   run.fx.push({ t: 'active_mutation', label: `ПРИКАЗ CTRL x${pc.controlled.length || 0}`, x: Math.round(pc.commandX), y: Math.round(pc.commandY), r: 96 + (pc.controlled.length || 0) * 14, tone: 'cyan', owner: p.id });
   return true;
 }
@@ -2947,11 +2966,13 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
   if (pc.controlled.length >= processControllerMax(p)) return false;
   const x = e.x, y = e.y, kind = e.kind;
   const maxH = Math.max(1, Number(e.maxHp || def.hp || e.hp || 1));
+  const lifeMax = processControllerLifeMax(p);
   pc.controlled.push({
     id: nid(), kind, x, y,
     size: Math.max(8, Number(e.size || def.size || 24)),
-    hp: Math.max(8, Math.round(Math.max(e.hp || 1, maxH * 0.42))), maxHp: maxH,
-    ttl: 999, atkCd: 0.18, touchCd: 0, state: 'move', st: 0,
+    baseSize: Math.max(8, Number(e.size || def.size || 24)),
+    hp: maxH, maxHp: maxH,
+    ttl: lifeMax, maxT: lifeMax, born: run.tick || 0, atkCd: 0.18, touchCd: 0, state: 'move', st: 0,
     tx: pc.commandX || p.x, ty: pc.commandY || p.y, cmdT: Math.max(0.6, pc.commandT || 0),
     dirX: e.dirX || 1, dirY: e.dirY || 0,
     slotMode: e.slotMode || '', slotLives: e.slotLives || 0,
@@ -2961,6 +2982,7 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
   pc.captureT = 0.70;
   e.hp = 0;
   killEnemy(run, players, e, p, 'control_capture');
+  run.fx.push({ t: 'ctrl_capture', id: p.id, x: Math.round(x), y: Math.round(y), kind });
   run.fx.push({ t: 'active_mutation', label: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${pc.lastCapture}`, x: Math.round(x), y: Math.round(y), r: Math.round((def.size || 24) + 70), tone: 'cyan', owner: p.id });
   return true;
 }
@@ -3017,10 +3039,12 @@ function controlledContact(run, players, p, m, target, dt, mult = 1) {
 }
 function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
-  m.size = Math.max(8, Number(m.size || def.size || 24));
+  m.size = Math.max(8, Number(m.baseSize || m.size || def.size || 24));
+  m.baseSize = m.size;
   m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 30));
   m.hp = Math.max(1, Number(m.hp || m.maxHp));
-  m.ttl = Math.max(0, (m.ttl ?? 999) - dt * 0.01);
+  m.maxT = Math.max(1, Number(m.maxT || processControllerLifeMax(p)) || processControllerLifeMax(p));
+  m.ttl = Math.max(0, (m.ttl ?? m.maxT) - dt);
   m.st = Math.max(0, Number(m.st || 0) + dt);
   const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
   const fireMul = 1 + Math.min(1.4, Math.max(0, p.stats?.ctrlFire || 0) * 0.18);
@@ -3129,6 +3153,7 @@ function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
   const ttl = 4.8 + hold * 0.75;
   if (!run.activeFields) run.activeFields = [];
   run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, r: radius, linkCap: links, leash: 118 + hold * 8, ttl, maxT: ttl, age: 0, tickT: 0.18, tickEvery: 0.40, fxT: 0.01, chainT: 0.03, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, damage > 0 ? 3.2 + damage * 1.4 : 0), gap: 9 + gap * 4, leashes: [] });
+  run.fx.push({ t: 'qrn_place', id: b.owner || '', x: Math.round(x), y: Math.round(y) });
   run.fx.push({ t: 'active_mutation', label: 'QRN WALL ANCHOR', x: Math.round(x), y: Math.round(y), r: 62, tone: 'cyan', owner: b.owner || '' });
 }
 
@@ -3199,21 +3224,37 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   if (id === 'quarantine_anchor') {
     ok = placeProcessControllerAnchor(run, players, p);
   } else if (id === 'process_saw') {
-    const dir = norm((p.aimX ?? p.x + 1) - p.x, (p.aimY ?? p.y) - p.y);
-    const endX = p.x + dir.x * (w.maxDist || 430);
-    const endY = p.y + dir.y * (w.maxDist || 430);
-    let hit = 0;
-    for (const e of run.enemies || []) {
-      if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-      if (distToSegment2(e.x, e.y, p.x, p.y, endX, endY) > Math.pow((e.size || 24) * 0.55 + 34, 2)) continue;
-      if (segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13)) continue;
-      if (applyProcessControllerInstability(run, players, p, e, 28, 'saw')) { hit++; if (!pc.lastSawTarget) pc.lastSawTarget = e.id; pc.commandX = e.x; pc.commandY = e.y; pc.commandT = Math.max(pc.commandT || 0, 2.2); }
+    const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
+    const ay = Number.isFinite(p.aimY) ? p.aimY : p.y;
+    const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
+    const range = w.maxDist || 560;
+    const radius = 158 + Math.min(92, power * 13);
+    let hit = 0, captured = 0;
+    const before = pc.controlled.length;
+    const candidates = (run.enemies || [])
+      .filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e))
+      .filter(e => !(ENEMIES[e.kind]?.boss) && !e.bossFragment && e.kind !== 'slot_mob')
+      .filter(e => dist2(p.x, p.y, e.x, e.y) <= range * range)
+      .filter(e => dist2(ax, ay, e.x, e.y) <= Math.pow(radius + (e.size || 24) / 2, 2))
+      .filter(e => !segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13))
+      .sort((a, b) => dist2(a.x, a.y, ax, ay) - dist2(b.x, b.y, ax, ay));
+    const amount = 78 + power * 15;
+    for (const e of candidates) {
+      if (pc.controlled.length >= processControllerMax(p)) break;
+      const n0 = pc.controlled.length;
+      if (applyProcessControllerInstability(run, players, p, e, amount, 'saw')) hit++;
+      if (pc.controlled.length > n0) captured += pc.controlled.length - n0;
     }
-    run.fx.push({ t: 'active_mutation', label: `SAW SCAN ${hit}`, x: Math.round(p.x + dir.x * 120), y: Math.round(p.y + dir.y * 120), r: 86, tone: 'purple', owner: p.id });
-    ok = hit > 0;
+    if (captured > 0 || hit > 0) {
+      pc.commandX = ax; pc.commandY = ay; pc.commandT = Math.max(pc.commandT || 0, 2.8 + Math.min(1.4, power * 0.15));
+      for (const m of pc.controlled.slice(before)) { if (m) { m.tx = ax; m.ty = ay; m.cmdT = pc.commandT; m.pulse = 0.35; } }
+    }
+    run.fx.push({ t: 'ctrl_saw', id: p.id, x: Math.round(ax), y: Math.round(ay), hit, captured, r: Math.round(radius), mass: 1 });
+    run.fx.push({ t: 'active_mutation', label: `SAW MASS ${captured || hit}`, x: Math.round(ax), y: Math.round(ay), r: Math.round(radius), tone: 'purple', owner: p.id });
+    ok = hit > 0 || captured > 0;
   } else {
     const target = processControllerFindTarget(run, p, w.maxDist || 520, 86);
-    if (target) ok = applyProcessControllerInstability(run, players, p, target, 50, 'command');
+    if (target) { run.fx.push({ t: 'ctrl_cmd', id: p.id, x: Math.round(target.x), y: Math.round(target.y) }); ok = applyProcessControllerInstability(run, players, p, target, 50, 'command'); }
     else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'CMD: НЕТ ЦЕЛИ', chest: 'CTRL' });
   }
   if (ok) {
@@ -3929,6 +3970,7 @@ export function startRoom(run, players) {
     p.weaponChestOffer = null;
     p.abilityChestOffer = null;
     p.rareChestOffer = null;
+    restoreProcessControllerAfterRoomStart(p, i);
   }
   if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
     const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
@@ -7630,7 +7672,7 @@ function weaponChoiceDisabled(p, opt) {
   if (!opt) return 'НЕТ ВАРИАНТА';
   if (isLivingCasinoPlayer(p)) return '';
   if (isProcessControllerPlayer(p)) {
-    if (opt.kind === 'weapon') return 'ЯДРО УЖЕ ИМЕЕТ 3 ПУШКИ';
+    if (opt.kind === 'weapon' && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
     if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
   } else {
     if (opt.kind === 'weapon' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
@@ -7667,10 +7709,15 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
   return weighted[0][0];
 }
 function processControllerChoicePool(p, qualityTier = 0) {
-  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage', 'qrn_gap']);
+  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'ctrl_process_life', 'ctrl_process_persist', 'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage', 'qrn_gap']);
   return WEAPON_CHEST_REWARDS
-    .filter(opt => opt && opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id)))
-    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL', actionLabel: 'УСИЛИТЬ КОНТРОЛЬ' }));
+    .filter(opt => {
+      if (!opt) return false;
+      if (opt.kind === 'weapon') return PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || '')) && !p.weapons.includes(opt.weapon);
+      if (opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id))) return weaponChoiceEligible(p, opt);
+      return false;
+    })
+    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL', actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : 'УСИЛИТЬ КОНТРОЛЬ' }));
 }
 function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   // У контролёра WPN-ящик — это ящик команд контроля, не оружейный пул.
@@ -7902,13 +7949,23 @@ function applyRandomCasinoAbility(run, players, p, pl = {}) {
 
 function applyProcessControllerWeaponOption(run, players, p, opt) {
   if (!opt) return false;
-  if (opt.kind !== 'weapon_upgrade' || !opt.pcOnly) return false;
-  const u = UPGRADES.find(x => x.id === opt.upgrade);
-  if (!u) return false;
-  u.apply(p.stats);
-  const label = u.label || opt.label || 'CTRL';
-  run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
-  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  if (!opt.pcOnly) return false;
+  let label = opt.label || 'CTRL';
+  if (opt.kind === 'weapon') {
+    if (!PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return false;
+    if (!p.weapons.includes(opt.weapon)) p.weapons.push(opt.weapon);
+    p.weapons = [...new Set(p.weapons.filter(w => PROCESS_CONTROLLER_WEAPON_SET.has(String(w || '')) && WEAPONS[w]))];
+    if (!p.weapons.includes('command_pulse')) p.weapons.unshift('command_pulse');
+    run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[opt.weapon]?.label || label });
+    run.fx.push({ t: opt.weapon === 'quarantine_anchor' ? 'qrn_place' : opt.weapon === 'process_saw' ? 'ctrl_saw' : 'ctrl_cmd', id: p.id, x: Math.round(p.x), y: Math.round(p.y), unlock: 1 });
+  } else if (opt.kind === 'weapon_upgrade') {
+    const u = UPGRADES.find(x => x.id === opt.upgrade);
+    if (!u) return false;
+    u.apply(p.stats);
+    label = u.label || opt.label || 'CTRL';
+    run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
+    if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  } else return false;
   p.hp = Math.min(p.hp, maxHp(p));
   p.dashCharges = Math.min(dashMax(p), p.dashCharges);
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'CTRL', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
@@ -8548,6 +8605,39 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
 
 
 // ---------------------------------------------------------------- transition
+
+function prepareProcessControllerTransition(p) {
+  const pc = ensureProcessControllerState(p);
+  if (!pc) return;
+  if (processControllerCanPersist(p) && Array.isArray(pc.controlled) && pc.controlled.length) {
+    pc.pendingControlled = pc.controlled
+      .filter(m => m && (m.ttl || 0) > 0 && (m.hp || 0) > 0)
+      .slice(0, processControllerMax(p))
+      .map(m => ({ ...m, ttl: Math.max(1.5, Math.min(Number(m.ttl || 0), Number(m.maxT || processControllerLifeMax(p)))), maxT: Math.max(1, Number(m.maxT || processControllerLifeMax(p))), state: 'move', st: 0, atkCd: Math.max(0.24, m.atkCd || 0.24) }));
+    pc.lastCapture = pc.pendingControlled.length ? `ПЕРЕНОС x${pc.pendingControlled.length}` : pc.lastCapture;
+  } else {
+    pc.pendingControlled = [];
+  }
+  pc.controlled = [];
+  pc.commandT = 0;
+  pc.pulseT = 0;
+}
+function restoreProcessControllerAfterRoomStart(p, index = 0) {
+  const pc = ensureProcessControllerState(p);
+  if (!pc) return;
+  const carry = Array.isArray(pc.pendingControlled) ? pc.pendingControlled.splice(0) : [];
+  if (!carry.length) return;
+  const lifeMax = processControllerLifeMax(p);
+  pc.controlled = carry.slice(0, processControllerMax(p)).map((m, i) => {
+    const a = (i / Math.max(1, carry.length)) * Math.PI * 2 + index * 0.7;
+    const r = 80 + i * 12;
+    const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
+    const maxT = Math.max(1, Number(m.maxT || lifeMax) || lifeMax);
+    const ttl = Math.max(1.0, Math.min(maxT, Number(m.ttl || maxT) || maxT));
+    return { ...m, x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, size: Math.max(8, Number(m.baseSize || m.size || def.size || 24)), baseSize: Math.max(8, Number(m.baseSize || m.size || def.size || 24)), ttl, maxT, hp: Math.max(1, Number(m.hp || m.maxHp || def.hp || 1)), maxHp: Math.max(1, Number(m.maxHp || def.hp || 1)), state: 'move', st: 0, tx: p.x, ty: p.y, cmdT: 0 };
+  });
+}
+
 function beginTransition(run, players) {
   if (run.phase !== 'play') return;
   if (run.plan?.modifierIds?.includes('static_rain')) {
@@ -8639,6 +8729,7 @@ function beginTransition(run, players) {
   awardAllComboPayouts(run, players, 'room_transition');
   run.combo = createComboState();
   run.playerCombos = {};
+  for (const pp of players.values()) if (pp.connected) prepareProcessControllerTransition(pp);
   run.phase = 'install';
   run.phaseT = 0;
   run.enemies = []; run.bullets = [];

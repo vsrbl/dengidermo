@@ -261,6 +261,34 @@ export class AudioBus {
         this.tone(520, 0.045, 'square', 0.055, 0.72);
         this.noise(0.035, 0.035, 2600, 8);
         break;
+      case 'ctrl_cmd':
+        this.tone(390, 0.040, 'square', 0.045, 0.62);
+        this.tone(780, 0.030, 'square', 0.026, 0.50, 0.010);
+        this.noise(0.018, 0.026, 3600, 9);
+        break;
+      case 'ctrl_capture':
+        this.tone(180, 0.085, 'square', 0.065, 0.55);
+        this.tone(540, 0.055, 'sawtooth', 0.040, 0.44, 0.012);
+        this.noise(0.045, 0.052, 2100, 6);
+        break;
+      case 'ctrl_order':
+        this.tone(260, 0.050, 'square', 0.044, 0.58);
+        this.tone(1040, 0.030, 'square', 0.020, 0.42, 0.012);
+        break;
+      case 'ctrl_saw':
+        this.tone(620, 0.055, 'sawtooth', 0.034, 0.58);
+        this.tone(930, 0.045, 'square', 0.026, 0.48, 0.010);
+        this.noise(0.026, 0.045, 5200, 12);
+        break;
+      case 'qrn_place':
+        this.tone(92, 0.095, 'square', 0.070, 0.48);
+        this.tone(330, 0.080, 'sawtooth', 0.044, 0.52, 0.008);
+        this.noise(0.040, 0.055, 1100, 3.2);
+        break;
+      case 'qrn_chain':
+        this.tone(720, 0.030, 'square', 0.024, 0.50);
+        this.noise(0.016, 0.018, 6800, 16);
+        break;
       case 'rocket_launch':
         this.tone(72, 0.18, 'sawtooth', 0.13, 1.25);
         this.noise(0.10, 0.065, 320, 1.8);
@@ -1018,6 +1046,12 @@ export class AudioBus {
       case 'lc_guard': if (mine) { this.play('lc_guard'); this.play('shield'); } else this.play('shield'); break;
       case 'lc_guard_hit': if (mine) this.play('lc_guard_hit'); break;
       case 'lc_bet_roll': if (mine) this.play('lc_bet_roll'); else this.play(f.win ? 'casino_win' : 'casino_static'); break;
+      case 'ctrl_cmd': if (mine) this.play('ctrl_cmd'); break;
+      case 'ctrl_capture': if (mine) this.play('ctrl_capture'); break;
+      case 'ctrl_order': if (mine) this.play('ctrl_order'); break;
+      case 'ctrl_saw': if (mine) this.play('ctrl_saw'); break;
+      case 'qrn_place': if (mine) this.play('qrn_place'); break;
+      case 'weapon_chain_lock': this.play('qrn_chain'); break;
       case 'lc_sector_ring': if (mine) this.play('lc_sector_ring'); break;
       case 'lc_copy': if (mine) this.play('lc_copy'); break;
       case 'lc_ghost': if (mine) this.play('lc_ghost'); break;

@@ -1035,7 +1035,7 @@ export class Renderer {
             ctx.globalAlpha = 0.92;
             const fill = 'rgba(0,0,0,.56)';
             if (procKind === 'runner') {
-              this.square(cx, cy, size * 0.78, { stroke, lw: 1.8, fill, rotate: now * 1.2 });
+              this.square(cx, cy, size, { stroke, lw: 1.8, fill, rotate: now * 1.2 });
             } else if (procKind === 'tank') {
               this.square(cx, cy, size, { stroke, lw: 4, fill });
               this.square(cx, cy, size * 0.58, { stroke: COL.fg, lw: 1.2 });
