@@ -4740,7 +4740,7 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   letter-spacing: .18em;
 }
 #hero-status { color: var(--fg); }
-.hero-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hero-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .hero-card {
   min-height: 66px;
   padding: 9px 10px;
@@ -5008,3 +5008,42 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 
 /* v2.1.133 — contract card can show its tooltip on hover */
 #hud-contract-card { pointer-events: auto !important; }
+
+/* v2.1.145 — third antivirus card fits three-core selector */
+@media (max-width: 760px) {
+  #menu .hero-cards { grid-template-columns: 1fr !important; }
+}
+
+/* v2.1.145 — Process Controller HUD */
+.pc-selected {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(102,246,255,.70);
+  background: rgba(2, 12, 16, .72);
+  color: #66f6ff;
+  min-width: 170px;
+  padding: 7px 9px;
+  display: grid;
+  gap: 2px;
+  box-shadow: 0 0 0 1px rgba(102,246,255,.15), 0 0 16px rgba(102,246,255,.09);
+  letter-spacing: .075em;
+}
+.pc-selected.hidden { display: none !important; }
+.pc-selected .pc-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--pc-fill, 0%);
+  background: rgba(102,246,255,.18);
+  pointer-events: none;
+  z-index: 0;
+}
+.pc-selected b,
+.pc-selected span,
+.pc-selected em { position: relative; z-index: 1; }
+.pc-selected b { font-size: 10px; color: rgba(102,246,255,.72); }
+.pc-selected span { font-size: 12px; color: #f3f3f3; }
+.pc-selected em { font-size: 10px; font-style: normal; color: rgba(102,246,255,.86); }
+.pc-selected.command { border-color: rgba(0,255,102,.78); color: #00ff66; box-shadow: 0 0 0 1px rgba(0,255,102,.16), 0 0 18px rgba(0,255,102,.11); }
+.pc-selected.command .pc-fill { background: rgba(0,255,102,.20); }
+.pc-selected.capture { border-color: rgba(180,92,255,.78); color: #b45cff; }
+.pc-selected.empty { border-color: rgba(90,110,120,.55); color: rgba(102,246,255,.62); }
