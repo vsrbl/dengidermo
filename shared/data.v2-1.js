@@ -89,16 +89,16 @@ export const SPAWN_POOLS = [
 // All stackable. No caps. Balatro rules.
 export const UPGRADES = [
   { id: 'dmg',      label: 'DMG +15%',             tier: 0, desc: 'Весь исходящий урон растёт, включая подконтрольные процессы Контролёра.', apply: s => { s.dmgMul *= 1.15; } },
-  { id: 'fire',     label: 'FIRE RATE +12%',       tier: 0, desc: 'Перезарядка оружия становится короче.', apply: s => { s.fireMul *= 1.12; } },
+  { id: 'fire',     label: 'FIRE RATE +12%',       tier: 0, desc: 'Оружие перезаряжается быстрее.', apply: s => { s.fireMul *= 1.12; } },
   { id: 'spd',      label: 'SPD +8%',              tier: 0, desc: 'Скорость движения растёт.', apply: s => { s.spdMul *= 1.08; } },
   { id: 'maxhp',    label: 'HP +20',               tier: 0, desc: 'Максимальное здоровье растёт.', apply: s => { s.maxHpAdd += 20; } },
-  { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Радиус притяжения подборов растёт.', apply: s => { s.magnetMul *= 1.4; } },
+  { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Подборы притягиваются дальше.', apply: s => { s.magnetMul *= 1.4; } },
   { id: 'dash',     label: 'DASH +1',              tier: 1, desc: 'Больше зарядов рывка.', apply: s => { s.dashAdd += 1; } },
-  { id: 'dash_length', label: 'DASH LENGTH +18%', tier: 1, desc: 'Рывок проходит дальше. Повторные выборы заметно увеличивают дистанцию рывка.', apply: s => { s.dashDistMul *= 1.18; } },
-  { id: 'drone',    label: 'DRONE +1',             tier: 1, desc: 'Добавляет спутника, который стреляет автоматически.', apply: s => { s.drones += 1; } },
-  { id: 'luck',     label: 'LUCK +1',              tier: 1, desc: 'Лучше броски апгрейдов и казино.', apply: s => { s.luck += 1; } },
+  { id: 'dash_length', label: 'DASH LENGTH +18%', tier: 1, desc: 'Рывок проходит дальше.', apply: s => { s.dashDistMul *= 1.18; } },
+  { id: 'drone',    label: 'DRONE +1',             tier: 1, desc: 'Добавляет автостреляющего спутника.', apply: s => { s.drones += 1; } },
+  { id: 'luck',     label: 'LUCK +1',              tier: 1, desc: 'Лучше исходы улучшений и казино.', apply: s => { s.luck += 1; } },
   { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль могут создавать маленький взрыв.', apply: s => { s.procBlast += 0.10; } },
-  { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Иногда оружие выпускает дополнительный выстрел. Повторные выборы делают это чаще.', apply: s => { s.echoShot += 0.12; } },
+  { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Иногда появляется дополнительный выстрел.', apply: s => { s.echoShot += 0.12; } },
   { id: 'leech',    label: 'LIFESTEAL 2%',         tier: 1, desc: 'Лечение от нанесённого урона.', apply: s => { s.lifesteal += 0.02; } },
   { id: 'goldgun',  label: 'GLD ON KILL +40%',     tier: 1, desc: 'Больше кредитов за удаление угроз.', apply: s => { s.goldMul *= 1.4; } },
   { id: 'combo_gld', label: 'COMBO PAYS GLD', tier: 0, desc: 'Комбо при завершении выдаёт GLD: убийства × множитель.', apply: s => { s.comboPrize = 'gld'; } },
@@ -272,30 +272,30 @@ export const ACTIVE_CORES = {
 };
 
 export const ACTIVE_MUTATIONS = {
-  static: { id: 'static', label: 'STATIC', tone: 'cyan', role: 'FIELD', desc: 'После Q остаётся область, которая замедляет угрозы и пули.' },
-  blood: { id: 'blood', label: 'BLOOD', tone: 'red', role: 'DAMAGE', desc: 'Добавляет кровавый урон. Сильнее по плотным группам; иногда стоит HP.' },
-  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', desc: 'Повторяет часть Q через короткую паузу: слабее, но шире покрывает бой.' },
-  shrapnel: { id: 'shrapnel', label: 'SHRAPNEL', tone: 'cyan', role: 'BULLETS', desc: 'Q выпускает дополнительные снаряды из точки эффекта.' },
-  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После каждого Q запускается маленькая казино-проверка: награда, повтор Q или опасность.' },
-  void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', desc: 'После Q ты получаешь короткое окно неуязвимости и пустотный всплеск.' },
-  leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания активным протоколом возвращают здоровье или кредиты.' },
-  armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту угроз и лучше раскрывает бронированные цели.' },
-  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Оставляет тяжёлую якорную область: угрозы тянет к центру, пули теряют скорость, зона держится дольше.' },
-  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'CHARGE BITE', desc: 'Q создаёт зону голода. Чем больше угроз внутри, тем сильнее финальный укус.' },
-  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Битая плёнка повторяет Q два раза слабее.' }
+  static: { id: 'static', label: 'STATIC', tone: 'cyan', role: 'FIELD', desc: 'Q оставляет замедляющее статик-поле.' },
+  blood: { id: 'blood', label: 'BLOOD', tone: 'red', role: 'DAMAGE', desc: 'Q получает кровавый урон; часть применений стоит здоровье.' },
+  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', desc: 'Q повторяется слабее после короткой паузы.' },
+  shrapnel: { id: 'shrapnel', label: 'SHRAPNEL', tone: 'cyan', role: 'BULLETS', desc: 'Q выпускает дополнительные снаряды.' },
+  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После Q может сработать казино-проверка.' },
+  void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', desc: 'Q даёт короткое окно неуязвимости.' },
+  leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания Q могут вернуть здоровье или кредиты.' },
+  armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту угроз.' },
+  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Q оставляет область, которая тянет угроз и тормозит пули.' },
+  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'CHARGE BITE', desc: 'Q создаёт зону голода с финальным укусом.' },
+  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Q повторяется двумя слабыми сбоями.' }
 };
 
 export const ACTIVE_MUTATION_SLOTS = 3;
 
 // Legacy ABL list is kept for dash/mobility side rewards. Q rewards are generated dynamically in sim.
 export const ABILITY_CHEST_REWARDS = [
-  { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Даёт дополнительный заряд рывка. Простая, всегда полезная мобильность.' },
-  { id: 'abl_dash_length', kind: 'ability_upgrade', upgrade: 'dash_length', label: 'DASH LENGTH +18%', desc: 'Увеличивает дистанцию рывка. Хорошо работает с DASH-постройками и контролем пространства.' },
-  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Весь путь рывка становится разрезом пустоты: угрозы вдоль траектории получают урон.' },
-  { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает угрозы рядом с траекторией. Усиление увеличивает радиус и длительность.' },
-  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка в точке старта остаётся короткий ударный след.' },
-  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Увеличивает скорость движения. ' },
-  { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Ускоряет восстановление рывка на 20%.' }
+  { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Добавляет один заряд рывка.' },
+  { id: 'abl_dash_length', kind: 'ability_upgrade', upgrade: 'dash_length', label: 'DASH LENGTH +18%', desc: 'Рывок проходит дальше.' },
+  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Рывок оставляет разрез пустоты.' },
+  { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает угроз рядом с траекторией.' },
+  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка остаётся ударный след.' },
+  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Скорость движения растёт.' },
+  { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Заряды рывка восстанавливаются быстрее.' }
 ];
 
 export function rollUpgradeChoices(rng, luck, count = 3) {

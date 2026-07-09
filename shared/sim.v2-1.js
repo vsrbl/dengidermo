@@ -3563,12 +3563,15 @@ function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
   const lc = ensureLivingCasinoState(p); if (!lc) return false;
   const hoverIdx = livingCasinoAimIndex(p, lc);
   const sec = lc.sectors[hoverIdx] || lc.sectors[0];
+  const tone = LC_SECTOR_TONE[sec?.type] || 'gold';
+  const label = livingCasinoSectorLabel(sec?.type);
   lc.ringOpen = false;
-  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode, label: livingCasinoSectorLabel(sec?.type), x: Math.round(p.x), y: Math.round(p.y), tone: LC_SECTOR_TONE[sec?.type] || 'gold' });
+  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode: 'close', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
   if (mode !== 'open' && livingCasinoIsInstantSelect(sec?.type)) {
     // Action sectors do not become the selected weapon. They only trigger once.
     const ok = activateLivingCasinoSector(run, players || new Map(), p, sec, { instantSelect: 1 });
-    if (!ok) run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${livingCasinoSectorLabel(sec?.type)} RELOAD`, chest: 'LVC' });
+    if (ok) run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'action', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
+    else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${label} RELOAD`, chest: 'LVC' });
     lc.selected = livingCasinoPrimaryIndex(lc);
   } else if (LC_WEAPON_SECTORS.has(String(sec?.type || ''))) {
     // Weapon cells select the current Living Casino weapon; they do not fire immediately.
@@ -3576,6 +3579,7 @@ function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
     if (!p.weapons.includes(wid)) p.weapons.push(wid);
     p.weaponIdx = Math.max(0, p.weapons.indexOf(wid));
     lc.selected = hoverIdx;
+    run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'weapon', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '' });
   } else {
     lc.selected = livingCasinoPrimaryIndex(lc);
   }
@@ -9109,7 +9113,7 @@ function stepInstall(run, players, dt) {
 function activeCoreLabel(p) {
   const a = ensureActive(p);
   const c = ACTIVE_CORES[a.core];
-  if (!c) return 'НЕТ АКТИВКИ';
+  if (!c) return 'НЕТ ПРОТОКОЛА';
   const muts = activeMutationLabels(p);
   const chargeTag = a.core === 'signal_spike' ? ` [${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}]` : (a.core === 'void_cut' ? ` [LINK ${roman(voidLaserMaxSegments(p))}]` : '');
   return `Q: ${c.label} ${roman(a.level || 1)}${chargeTag}${muts.length ? ' +' + muts.join('+') : ''}`;
@@ -9829,7 +9833,7 @@ function stepActiveFields(run, players, dt) {
 function doActive(run, players, p) {
   if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
   const a = ensureActive(p);
-  if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ АКТИВКИ', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
+  if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ ПРОТОКОЛА', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
   if (a.core === 'signal_spike') {
     if ((p.spikePlaceCd || 0) > 0) return;
     const max = signalSpikeMaxCharges(p);

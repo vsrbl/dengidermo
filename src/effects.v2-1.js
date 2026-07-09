@@ -446,9 +446,18 @@ export class Effects {
       }
       case 'lc_sector_ring': {
         const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
-        if (mine) this.kick(f.mode === 'open' ? 2 : 1);
-        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: 96, ttl: 0.18, color: col, tick: 1 });
-        if (f.label) this.float(f.x, f.y - 42, f.label, col, 9);
+        const open = f.mode === 'open';
+        if (mine) this.kick(open ? 2 : 2);
+        this.add({ kind: 'squareField', activeKind: 'lc_sector_ring', x: f.x, y: f.y, r: open ? 106 : 86, ttl: open ? 0.22 : 0.16, color: col, tick: 1 });
+        if (f.label && !open) this.float(f.x, f.y - 42, f.label, col, 9);
+        break;
+      }
+      case 'lc_sector_pick': {
+        const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
+        if (mine) { this.slam = Math.max(this.slam, 0.045); this.kick(f.mode === 'action' ? 4 : 3); }
+        this.add({ kind: 'squareField', activeKind: 'lc_sector_pick', x: f.x, y: f.y, r: f.mode === 'action' ? 132 : 112, ttl: 0.30, color: col, tick: 1 });
+        this.add({ kind: 'squareField', activeKind: 'lc_sector_pick_inner', x: f.x, y: f.y, r: f.mode === 'action' ? 68 : 58, ttl: 0.22, color: col, tick: 1 });
+        this.float(f.x, f.y - 58, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${f.label || 'LVC'}`, col, 12);
         break;
       }
       case 'lc_copy': {

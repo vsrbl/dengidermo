@@ -301,7 +301,7 @@ function weaponReadability(opt = {}) {
     bullet_ricochet: {
       role: 'RANGE', tone: 'range',
       ru: 'Все снаряды получают дополнительный отскок.', en: 'All projectiles gain one extra wall bounce.',
-      changeRu: '+1 отскок · лучше в узких секторх', changeEn: '+1 bounce · better in tight rooms'
+      changeRu: '+1 отскок · лучше в узких секторах', changeEn: '+1 bounce · better in tight rooms'
     },
     bullet_range: {
       role: 'RANGE', tone: 'range',
@@ -828,7 +828,7 @@ export class Hud {
       const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
       if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт сектора, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${valueLabel}. `, `РЕДITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`УСЛОВИЕ: ${reason}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${locLabel(valueLabel)}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`ИСТОЧНИК: ${locLabel(reason)}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
@@ -1903,15 +1903,15 @@ export class Hud {
     if (ctx === 'install') return null;
     if (ctx === 'boss') {
       if (String(id || '') === 'sig_mirror_payout') return null;
-      return bossStack.has(String(id || '')) ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+      return bossStack.has(String(id || '')) ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
     }
     if (ctx === 'weapon') {
       const k = String(opt?.kind || '');
-      return (k === 'weapon_upgrade' || k === 'stat') ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+      return (k === 'weapon_upgrade' || k === 'stat') ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
     }
     if (ctx === 'ability') {
       const k = String(opt?.kind || '');
-      return (k === 'active_core_install' || k === 'active_core_replace' || k === 'active_upgrade_core' || k === 'ability_upgrade' || k === 'stat') ? { label: 'MIRROR x2', tone: 'purple', works: 1 } : { label: 'UNIQUE', tone: 'red', works: 0 };
+      return (k === 'active_core_install' || k === 'active_core_replace' || k === 'active_upgrade_core' || k === 'ability_upgrade' || k === 'stat') ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
     }
     return null;
   }
@@ -1956,7 +1956,7 @@ export class Hud {
       const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
       const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
       d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: charge будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
+      const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: заряд будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
@@ -2161,8 +2161,7 @@ export class Hud {
     const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
     const tier = Math.max(0, Math.min(3, Number(meta.tier || 0) | 0));
     const label = this.chestOfferLabel(meta);
-    const code = kind === 'rare' ? 'РЕД' : (kind === 'ability' ? 'ABL' : 'WPN');
-    if (title) {
+        if (title) {
       const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
       const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
@@ -2172,8 +2171,8 @@ export class Hud {
       title.innerHTML = `${esc(chestName)} <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = chestName;
       title.dataset.explain = kind === 'rare'
-        ? localText('Редкий сундук выдаёт приз сразу после открытия.', 'Rare chest grants its prize immediately when opened.')
-        : (picksTotal > 1 ? (pcCommandChest ? localText('Это ценный ящик команд: можно выбрать два усиления контроля из предложенных пяти.', 'This is a valuable command cache: pick two control upgrades from the five offered.') : localText('Это ценный 5-слотовый сундук: можно выбрать два улучшения из предложенных пяти.', 'This is a valuable 5-slot chest: pick two upgrades from the five offered.')) : (pcCommandChest ? localText('Редкость ящика влияет на цену и количество командных вариантов.', 'Cache rarity changes its price and number of command choices.') : localText('Редкость сундука влияет на цену и количество вариантов.', 'Chest rarity changes its price and number of choices.')));
+        ? localText('Выбери один редкий приз.', 'Choose one rare prize.')
+        : (picksTotal > 1 ? (pcCommandChest ? localText('Выбери усиления контроля.', 'Choose control upgrades.') : localText('Выбери два улучшения.', 'Choose two upgrades.')) : (pcCommandChest ? localText('Выбери командный модуль.', 'Choose a command module.') : localText('Выбери один модуль.', 'Choose one module.')));
     }
     let metaEl = modal.querySelector('.chest-offer-meta');
     if (!metaEl && title) {
@@ -2190,13 +2189,13 @@ export class Hud {
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const picks = picksTotal > 1 ? `<span>${esc(localText('ВЫБОРЫ', 'PICKS'))}: <b>${picksRemaining}/${picksTotal}</b></span>` : '';
       const picked = Array.isArray(meta.pickedLabels) && meta.pickedLabels.length ? `<span class="chest-reason">${esc(localText('ВЗЯТО', 'TAKEN'))}: ${esc(meta.pickedLabels.map(locLabel).join(' + '))}</span>` : '';
-      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'РЕДITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}${picked}`;
+      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(locLabel(reason))}</span>` : ''}${picked}`;
     }
     const hintTerm = modal.querySelector('.hint .term');
     if (hintTerm) {
       hintTerm.textContent = Array.from({ length: Math.min(5, slots) }, (_, i) => String(i + 1)).join(' / ');
       hintTerm.dataset.explainTitle = localText('БЫСТРЫЙ ВЫБОР', 'QUICK PICK');
-      hintTerm.dataset.explain = localText('Клавиши выбирают доступный слот сундука.', 'Number keys pick an available chest slot.');
+      hintTerm.dataset.explain = localText('Клавиши выбирают слот сундука.', 'Number keys pick a chest slot.');
     }
   }
 
@@ -2225,7 +2224,7 @@ export class Hud {
         <span class="wpn-choice-read">${esc(meta.summary)}</span>
         <span class="wpn-choice-change">${esc(meta.change)}</span>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} · ${roleName}`;
-      const body = `${weaponRoleHint(meta.role)} ${meta.summary} ${meta.change}. ${optionDesc(opt)} ${mirror ? (mirror.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован.', 'MIRROR is active: this choice will be copied.') : localText('ЗЕРКАЛО активно, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : ''} ${opt.disabled ? `${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : t('available')}`;
+      const body = `${optionDesc(opt)}${meta.change ? `\n${meta.change}.` : ''}${mirror ? '\n\n' + (mirror.works ? localText('ЗЕРКАЛО: выбор будет скопирован.', 'MIRROR: this choice will be copied.') : localText('ЗЕРКАЛО: уникальный выбор, копии не будет.', 'MIRROR: unique choice, no copy.')) : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : (meta.tone === 'dps' ? 'green' : 'cyan'));
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
@@ -2284,8 +2283,8 @@ export class Hud {
           <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${mirrorTag}${locked}</div>
         </div>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
-      const mirrorHint = mirror ? (mirror.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/уровень.', 'MIRROR is active: this choice will be copied for an extra level/stack.') : localText('ЗЕРКАЛО активно, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : '';
-      const body = `${opt.actionLabel ? locAction(opt.actionLabel) + ': ' : ''}${optionDesc(opt)}${mirrorHint ? '\n\n' + mirrorHint : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
+      const mirrorHint = mirror ? (mirror.works ? localText('ЗЕРКАЛО: выбор будет скопирован.', 'MIRROR: this choice will be copied.') : localText('ЗЕРКАЛО: уникальный выбор, копии не будет.', 'MIRROR: unique choice, no copy.')) : '';
+      const body = `${optionDesc(opt)}${mirrorHint ? '\n\n' + mirrorHint : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
@@ -2340,7 +2339,7 @@ export class Hud {
           </div>
           <div class="abl-tags"><span class="rarity-tag">РЕД</span>${locked}</div>
         </div>`;
-      const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('К выбранному варианту добавится золото сундука.', 'Chest gold bonus is added to the selected option.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
+      const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('Бонус сундука добавится к выбору.', 'Chest bonus is added to the pick.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, `${locLabel(opt.label || opt.id)} / РЕД`, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
