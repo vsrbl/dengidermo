@@ -308,27 +308,23 @@ export class Renderer {
         ctx.fillRect(-size * 0.8, -size * 0.8, size * 1.6, size * 1.6);
         ctx.globalAlpha = 0.35; ctx.fillRect(-size * 2.5, -size * 0.25, size * 1.2, size * 0.5);
       } else if (kind === 'roulette') {
+        // RLT v2.1.139: one clean rotating square. No tails, inner glyphs, reels, or extra ornaments.
         const s = Math.max(7, size);
         let spinSeed = 0;
         const sid = String(bulletId || '');
         for (let si = 0; si < sid.length; si++) spinSeed = (spinSeed + sid.charCodeAt(si) * (si + 1)) % 628;
-        ctx.rotate(now * 6.4 + spinSeed * 0.01);
-        ctx.globalAlpha = 0.98;
-        ctx.fillStyle = 'rgba(0,0,0,0.88)';
+        ctx.rotate(now * 7.4 + spinSeed * 0.01);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = fromP ? '#ffd34d' : '#ff3048';
         ctx.fillRect(-s, -s, s * 2, s * 2);
-        ctx.strokeStyle = COL.red; ctx.lineWidth = Math.max(1.6, Math.min(3.4, s * 0.13));
+        ctx.strokeStyle = '#050505';
+        ctx.lineWidth = Math.max(1.5, Math.min(3, s * 0.10));
         ctx.strokeRect(-s, -s, s * 2, s * 2);
-        ctx.globalAlpha = 0.82;
-        ctx.strokeStyle = COL.gold; ctx.lineWidth = Math.max(1, Math.min(2.0, s * 0.07));
-        ctx.strokeRect(-s * 0.55, -s * 0.55, s * 1.1, s * 1.1);
-        ctx.globalAlpha = 0.72;
-        ctx.fillStyle = COL.red;
-        ctx.fillRect(-s * 0.22, -s * 0.22, s * 0.44, s * 0.44);
       } else {
         ctx.fillStyle = fromP ? COL.fg : COL.red;
         ctx.fillRect(-size, -size / 2.4, size * 2, size / 1.2);
       }
-      if (fromP && echoProc) {
+      if (fromP && echoProc && kind !== 'roulette') {
         ctx.globalAlpha = 0.82;
         ctx.strokeStyle = COL.purple; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
         const esz = Math.max(8, size * (kind === 'shotgun_slug' ? 3.0 : 2.5));

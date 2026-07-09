@@ -243,7 +243,7 @@ export class Effects {
         break;
       }
       case 'roulette_split':
-        this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), dy: (f.dy || 0) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), weapon: 'shotgun', ttl: 0.18, color: '#ff3048' });
+        this.add({ kind: 'impact', x: f.x, y: f.y, dx: (f.dx || 1) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), dy: (f.dy || 0) / (Math.hypot(f.dx || 0, f.dy || 0) || 1), weapon: 'roulette', ttl: 0.16, color: '#ffd34d' });
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.16, color: '#ffd34d' });
         break;
       case 'mine':

@@ -4753,7 +4753,7 @@ function teamSigStack(players, key) {
 const SIGNATURE_LABEL_BY_STAT = {
   spawnHoldStacks: 'ЗАДЕРЖКА ПОЯВЛЕНИЯ', aegisStacks: 'AEGIS PROCESS', mirrorCapacity: 'MIRROR PAYOUT', nullRevives: 'NULL REVIVAL', roomWagerUnlocked: 'ROOM WAGER', bossKeys: 'BOSS KEY'
 };
-const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'REDLINE BOOST', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
+const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'КРАСНАЯ ЛИНИЯ', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
 function activeBossSignatureLabels(players) {
   const out = [];
   const seen = new Set();
@@ -4783,7 +4783,7 @@ function rActiveDesc(p) {
   if (id === 'redline_boost') return `Скорость +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)}с · CD 14с`;
   if (id === 'ghost_decoy') return `Невидимость + призрак ${ghostDecoyDuration(p)}с · CD 22с`;
   if (id === 'rewind_mark') return `Метка возврата ${rewindWindow(p)}с · стан ${rewindStun(p)}с`;
-  if (id === 'kill_switch') return p?.stats?.killSwitchCharge > 0 ? 'Один раз стирает всех врагов на экране, включая босса.' : 'KILL SWITCH сгорел.';
+  if (id === 'kill_switch') return p?.stats?.killSwitchCharge > 0 ? 'Один раз стирает угрозы на экране, включая главную угрозу.' : 'KILL SWITCH сгорел.';
   return 'R-активка не выбрана.';
 }
 function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
@@ -4914,7 +4914,7 @@ function doRActive(run, players, p) {
     p.redlineT = dur;
     p.rActiveCd = 14;
     run.fx.push({ t: 'redline_boost', id: p.id, playerId: p.id, stack: stacks, dur, mul: redlineSpeedMul(p), x: Math.round(p.x), y: Math.round(p.y), r: 135 + stacks * 18 });
-    run.fx.push({ t: 'active_mutation', label: `REDLINE BOOST x${stacks}`, x: Math.round(p.x), y: Math.round(p.y), r: 115 + stacks * 16, tone: 'red', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: `КРАСНАЯ ЛИНИЯ x${stacks}`, x: Math.round(p.x), y: Math.round(p.y), r: 115 + stacks * 16, tone: 'red', playerId: p.id });
     return true;
   }
   if (id === 'ghost_decoy') {
@@ -5017,7 +5017,7 @@ const ROOM_WAGER_CONDITIONS = [
   { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
   { id: 'q3', text: 'использовать Q 3 раза', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
   { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
-  { id: 'kills10', text: 'убить 10 врагов', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
+  { id: 'kills10', text: 'удалить 10 угроз', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
   { id: 'hp50', text: 'закончить комнату выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
   { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
 ];
@@ -5025,12 +5025,12 @@ const ROOM_WAGER_PRIZES = [
   { id: 'dmg100', text: 'урон x100 на всю следующую комнату', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
   { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'aegis', text: '+1 AEGIS stack', prize: (run, p) => { p.stats.aegisStacks += 1; } },
+  { id: 'aegis', text: '+1 ЭГИДА', prize: (run, p) => { p.stats.aegisStacks += 1; } },
   { id: 'boss_key', text: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
   { id: 'null_revive', text: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
   { id: 'mirror', text: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
-  { id: 'q_loop', text: 'Q cooldown -30% до конца loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_stack', text: '+1 постоянный стак R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } }
+  { id: 'q_loop', text: 'Q быстрее до конца цикла', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_stack', text: '+1 уровень R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } }
 ];
 function pickRoomWagerItem(list, p) {
   const pool = list.filter(x => !x.needs || x.needs(p));
@@ -5828,6 +5828,13 @@ function stepBullets(run, players, dt) {
       continue;
     }
     b.life -= dt;
+    if (b.life <= 0) {
+      if (b.kind === 'roulette' && b.from === 'p') {
+        const n = norm(b.vx || 1, b.vy || 0);
+        splitRouletteSquare(run, b, n.x, n.y, 'expire');
+      }
+      continue;
+    }
     if (run.plan?.modifierIds?.includes('echo_walls') && b.from === 'e' && !b.echoChecked && !b.echoProc && b.life > 0 && run.bullets.length < MAX_BULLETS && Math.random() < 0.50) {
       const sp = Math.hypot(b.vx || 0, b.vy || 0) || 260;
       const a = Math.atan2(b.vy || 0, b.vx || 1) + (Math.random() - 0.5) * 0.32;
@@ -5901,7 +5908,8 @@ function stepBullets(run, players, dt) {
     }
     if (b.maxDist && b.travelled >= b.maxDist) {
       const n = norm(b.vx || 1, b.vy || 0);
-      run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, range: 1, dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
+      if (b.kind === 'roulette' && b.from === 'p') splitRouletteSquare(run, b, n.x, n.y, 'expire');
+      else run.fx.push({ t: 'impact', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, range: 1, dx: Math.round(n.x * 80), dy: Math.round(n.y * 80) });
       b.life = -1; continue;
     }
     // walls
@@ -6803,19 +6811,19 @@ function buildCasinoVirusEvent(run, players) {
 
   if (loop <= 0) {
     if (roll < 0.46) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
-    if (roll < 0.72) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: 1 };
+    if (roll < 0.72) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 1 };
     if (roll < 0.90) return { kind: 'elite_pack', label: 'VIRUS GUARD PACK', center, n: 2 + Math.floor(Math.random() * 2), pool: elitePool };
     return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 5 };
   }
   if (loop === 1) {
     if (roll < 0.34) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
-    if (roll < 0.58) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: 2 };
+    if (roll < 0.58) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 2 };
     if (roll < 0.82) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 2 + Math.floor(Math.random() * 3), pool: elitePool };
     return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 };
   }
   if (roll < 0.26) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN + Math.min(3, loop), pool: mobPool };
-  if (roll < 0.48) return { kind: 'static', label: 'VIRUS STATIC STORM', center, stacks: Math.min(3, 2 + Math.floor(loop / 4)) };
-  if (roll < 0.66) return { kind: 'big_static', label: 'BIG STATIC STORM', center, stacks: Math.min(STATIC_RAIN_MAX_LEVEL, 4 + Math.floor(loop / 2)) };
+  if (roll < 0.48) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: Math.min(3, 2 + Math.floor(loop / 4)) };
+  if (roll < 0.66) return { kind: 'big_static', label: 'БОЛЬШОЙ СТАТИК-ШТОРМ', center, stacks: Math.min(STATIC_RAIN_MAX_LEVEL, 4 + Math.floor(loop / 2)) };
   if (roll < 0.84) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 3 + Math.floor(Math.random() * 3) + Math.min(2, df.late), pool: elitePool };
   if (roll < 0.94 && loop >= 3) return { kind: 'mini_boss', label: 'VIRUS MINI BOSS', center };
   return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 + Math.min(4, loop) };
@@ -7700,8 +7708,8 @@ function applyDevBossReward(run, p, id) {
   }
   if (id === 'sig_room_wager') p.roomWagerOffer = makeRoomWagerOffer(run, p);
   const label = u.label || String(id).replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
-  run.fx.push({ t: 'boss_signature', label: `DEV ${label}`, kind: 'dev', choices: [id], playerId: p.id });
-  run.fx.push({ t: 'active_mutation', label: `DEV ${label}`, x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: id === 'sig_kill_switch' ? 'red' : id === 'sig_mirror_payout' ? 'purple' : id === 'sig_boss_key' || id === 'sig_room_wager' ? 'gold' : 'cyan', playerId: p.id });
+  run.fx.push({ t: 'boss_signature', label: `${label}`, kind: 'dev', choices: [id], playerId: p.id });
+  run.fx.push({ t: 'active_mutation', label: `${label}`, x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: id === 'sig_kill_switch' ? 'red' : id === 'sig_mirror_payout' ? 'purple' : id === 'sig_boss_key' || id === 'sig_room_wager' ? 'gold' : 'cyan', playerId: p.id });
   return true;
 }
 
@@ -7742,7 +7750,7 @@ function spawnDevWeaponChest(run, p) {
     chestTier: prof.tier,
     slotCount: prof.slotCount,
     costMul: 0,
-    rarityReason: `DEV ${prof.label}`,
+    rarityReason: `${prof.label}`,
     devFree: 1
   };
   run.plan.interactables.push(chest);
@@ -7756,14 +7764,14 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     const o = spawnDevWeaponChest(run, p);
     if (!o) return false;
     const value = chestValueInfo(run, o);
-    run.fx.push({ t: 'active_mutation', label: `DEV WPN CHEST ${value.label}`, x: Math.round(o.x), y: Math.round(o.y), r: 95, tone: 'cyan', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: `WPN CHEST ${value.label}`, x: Math.round(o.x), y: Math.round(o.y), r: 95, tone: 'cyan', playerId: p.id });
     run.fx.push({ t: 'chest_spawn', chest: 'WPN', value: value.label, x: Math.round(o.x), y: Math.round(o.y), playerId: p.id });
     return true;
   }
   if (action === 'luck_plus') {
     if (!p.stats) p.stats = defaultStats();
     p.stats.luck = Math.max(0, Number(p.stats.luck || 0)) + 1;
-    run.fx.push({ t: 'active_mutation', label: `DEV LUCK +1 (${Math.round(p.stats.luck)})`, x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'gold', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: `УДАЧА +1 (${Math.round(p.stats.luck)})`, x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'gold', playerId: p.id });
     return true;
   }
   if (action === 'set_active') {
@@ -7776,18 +7784,18 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     if (core === 'signal_spike') p.active.spikeCharges = signalSpikeMaxCharges(p);
     if (core === 'void_cut') delete p.active.voidChain;
     p.activeCd = 0;
-    run.fx.push({ t: 'active_mutation', label: `DEV Q: ${ACTIVE_CORES[core].label} ${roman(p.active.level)}`, x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: ACTIVE_CORES[core].tone || 'cyan' });
+    run.fx.push({ t: 'active_mutation', label: `Q: ${ACTIVE_CORES[core].label} ${roman(p.active.level)}`, x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: ACTIVE_CORES[core].tone || 'cyan' });
     return true;
   }
   if (action === 'reset_cd') {
     p.activeCd = 0; p.dashCharges = dashMax(p); p.hp = maxHp(p);
-    run.fx.push({ t: 'active_mutation', label: 'DEV READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'green' });
+    run.fx.push({ t: 'active_mutation', label: 'READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'green' });
     return true;
   }
   if (action === 'r_ready') {
     p.rActiveCd = 0;
     if (p.stats?.rActiveId === 'kill_switch' && !p.stats.killSwitchCharge && p.stats.killSwitchTaken) p.stats.killSwitchCharge = 1;
-    run.fx.push({ t: 'active_mutation', label: 'DEV R READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'cyan', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: 'R READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'cyan', playerId: p.id });
     return true;
   }
   if (action === 'give_boss_reward') {
@@ -7799,19 +7807,19 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     p.roomWagerActive = null;
     p.roomWagerOffer = makeRoomWagerOffer(run, p);
     if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
-    run.fx.push({ t: 'active_mutation', label: 'DEV ROOM WAGER OFFER', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'gold', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER OFFER', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'gold', playerId: p.id });
     return true;
   }
   if (action === 'reset_kill_switch_flag') {
     p.stats.killSwitchTaken = 0;
     p.stats.killSwitchCharge = 0;
     if (p.stats.rActiveId === 'kill_switch') { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; }
-    run.fx.push({ t: 'active_mutation', label: 'DEV KILL SWITCH RESET', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'red', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH RESET', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'red', playerId: p.id });
     return true;
   }
   if (action === 'open_portal') {
     openPortal(run);
-    run.fx.push({ t: 'active_mutation', label: 'DEV PORTAL OPEN', x: Math.round(run.portal.x), y: Math.round(run.portal.y), r: 150, tone: 'green' });
+    run.fx.push({ t: 'active_mutation', label: 'PORTAL OPEN', x: Math.round(run.portal.x), y: Math.round(run.portal.y), r: 150, tone: 'green' });
     return true;
   }
   if (action === 'weapon_offer') {
@@ -7829,19 +7837,19 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     if (!override) return false;
     run.devNextRoomOverride = override;
     run.nextRoomPreview = makeNextRoomPreview(run);
-    run.fx.push({ t: 'active_mutation', label: `DEV NEXT: ${devOverrideLabel(override)}`, x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan' });
+    run.fx.push({ t: 'active_mutation', label: `NEXT: ${devOverrideLabel(override)}`, x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan' });
     return true;
   }
   if (action === 'clear_next_room') {
     run.devNextRoomOverride = null;
     run.nextRoomPreview = makeNextRoomPreview(run);
-    run.fx.push({ t: 'active_mutation', label: 'DEV NEXT: AUTO', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'purple' });
+    run.fx.push({ t: 'active_mutation', label: 'NEXT: AUTO', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'purple' });
     return true;
   }
   if (action === 'give_all_weapons') {
     p.weapons = [...new Set([...p.weapons, ...WEAPON_ORDER])];
     p.weaponIdx = Math.min(p.weaponIdx || 0, p.weapons.length - 1);
-    run.fx.push({ t: 'weapon_mod', id: p.id, label: 'DEV ALL WPN', w: 'ALL' });
+    run.fx.push({ t: 'weapon_mod', id: p.id, label: 'ALL WPN', w: 'ALL' });
     return true;
   }
   if (action === 'money_xp') {
@@ -7857,21 +7865,21 @@ export function handleDevCommand(run, players, p, cmd = {}) {
       for (const e of batch) if (run.enemies.includes(e)) killEnemy(run, players, e, p, 'dev');
     }
     run.bullets = run.bullets.filter(b => b.from === 'p');
-    run.fx.push({ t: 'active_mutation', label: 'DEV KILL ALL', x: Math.round(p.x), y: Math.round(p.y), r: 180, tone: 'purple' });
+    run.fx.push({ t: 'active_mutation', label: 'KILL ALL', x: Math.round(p.x), y: Math.round(p.y), r: 180, tone: 'purple' });
     tryCleanupPortal(run);
     return true;
   }
   if (action === 'spawn_pack') {
     const kinds = ['grunt','runner','shooter','tank','charger','bouncer','glitch','damper'];
     for (let i = 0; i < 8 && run.enemies.length < MAX_ENEMIES; i++) spawnEnemy(run, players, kinds[i % kinds.length], i > 4);
-    run.fx.push({ t: 'director_wave', label: 'DEV PACK', x: Math.round(p.x), y: Math.round(p.y), count: 8, intent: 'swarm' });
+    run.fx.push({ t: 'director_wave', label: 'PACK', x: Math.round(p.x), y: Math.round(p.y), count: 8, intent: 'swarm' });
     return true;
   }
   if (action === 'god') {
     p.devGod = !!cmd.enabled;
     p.hp = maxHp(p);
     p.invuln = p.devGod ? 999999 : 0;
-    run.fx.push({ t: 'active_mutation', label: p.devGod ? 'DEV GOD ON' : 'DEV GOD OFF', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: p.devGod ? 'green' : 'red' });
+    run.fx.push({ t: 'active_mutation', label: p.devGod ? 'GOD ON' : 'GOD OFF', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: p.devGod ? 'green' : 'red' });
     return true;
   }
 
@@ -7883,7 +7891,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     p.stats.orbitals = 0; p.stats.orbSpeed = 0; p.stats.orbRange = 0; p.stats.orbReflect = 0;
     p.hp = Math.min(maxHp(p), Math.max(p.hp, maxHp(p)));
     p.dashCharges = dashMax(p);
-    run.fx.push({ t: 'active_mutation', label: 'DEV ALL INSTALLS', x: Math.round(p.x), y: Math.round(p.y), r: 150, tone: 'green' });
+    run.fx.push({ t: 'active_mutation', label: 'ALL INSTALLS', x: Math.round(p.x), y: Math.round(p.y), r: 150, tone: 'green' });
     return true;
   }
   if (action === 'give_all_weapon_mods') {
@@ -7895,12 +7903,12 @@ export function handleDevCommand(run, players, p, cmd = {}) {
       if (u) { try { u.apply(p.stats); } catch {} }
     }
     p.stats.orbitals = 0; p.stats.orbSpeed = 0; p.stats.orbRange = 0; p.stats.orbReflect = 0;
-    run.fx.push({ t: 'weapon_mod', id: p.id, label: 'DEV ALL WPN MODS', w: 'ALL' });
+    run.fx.push({ t: 'weapon_mod', id: p.id, label: 'ALL WPN MODS', w: 'ALL' });
     return true;
   }
   if (action === 'give_all_signatures') {
     for (const id of BOSS_SIGNATURE_UPGRADE_IDS) applyDevBossReward(run, p, id);
-    run.fx.push({ t: 'boss_signature', label: 'DEV ALL BOSS REWARDS', kind: 'dev', choices: BOSS_SIGNATURE_UPGRADE_IDS.slice(0, BOSS_SIGNATURE_CHOICE_COUNT) });
+    run.fx.push({ t: 'boss_signature', label: 'ALL BOSS REWARDS', kind: 'dev', choices: BOSS_SIGNATURE_UPGRADE_IDS.slice(0, BOSS_SIGNATURE_CHOICE_COUNT) });
     return true;
   }
   if (action === 'boss_signature_offer') {
@@ -7911,7 +7919,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     p.bossSignatureChoices = [...forced, ...rolled.filter(id => !forced.includes(id))].slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
     p.offer = makeBossSignatureOffer(run, p);
     if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
-    run.fx.push({ t: 'boss_signature', label: forced.length ? 'DEV FORCED SIGNATURE OFFER' : 'DEV SIGNATURE OFFER', kind: p.bossSignatureKind, choices: p.bossSignatureChoices });
+    run.fx.push({ t: 'boss_signature', label: forced.length ? 'FORCED SIGNATURE OFFER' : 'SIGNATURE OFFER', kind: p.bossSignatureKind, choices: p.bossSignatureChoices });
     return true;
   }
   if (action === 'spawn_boss') {
@@ -7925,7 +7933,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
   }
   if (action === 'set_final_room') {
     run.runDepth = FINAL_BOSS_DEPTH;
-    run.fx.push({ t: 'active_mutation', label: 'DEV FINAL DEPTH READY', x: Math.round(p.x), y: Math.round(p.y), r: 130, tone: 'purple' });
+    run.fx.push({ t: 'active_mutation', label: 'FINAL DEPTH READY', x: Math.round(p.x), y: Math.round(p.y), r: 130, tone: 'purple' });
     return true;
   }
   if (action === 'win_run') {

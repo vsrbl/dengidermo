@@ -17,7 +17,7 @@ const TAG_RU = {
   'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЗОЛОТО', ARMOR: 'БРОНЯ',
   'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'GLD↑', 'BET↑': 'BET↑',
   'SHELL GLD': 'GLD ЗА ЩИТЫ', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'ОБЛИК', 'SKN CACHE': 'ОБЛИК-ТАЙНИК',
-  'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'ПОКУПКИ', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
+  'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'ПОКУПКИ', 'ФИКСED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
   '3 VIRUS SPINS': '3 БРОСКА ВИРУСА', 'DANGER ZONES': 'ОПАСНЫЕ ЗОНЫ', 'PRISM SLOW': 'ПРИЗМ-ЗАМЕДЛЕНИЕ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ УЗЛЫ',
   'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ УГРОЗ',
   'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН'
@@ -261,7 +261,7 @@ function contractCardHtml(obj = {}) {
   const title = `${locLabel(obj.label)} · ${status}${fail}`;
   return `<div class="contract-kicker">${esc(localText('КОНТРАКТ КОМНАТЫ', 'SECTOR CONTRACT'))}</div><div class="contract-title">${esc(title)}</div><div class="contract-sub">${esc(prog)}</div><div class="contract-reward">${esc(reward)}</div>`;
 }
-const rarityText = r => { const k = String(r || 'skin').toLowerCase(); const en = { basic:'BASIC', uncommon:'UNCOMMON', rare:'RARE', superrare:'SUPER RARE', legendary:'LEGENDARY', skin:'SKIN' }; const ru = { basic:'ОБЫЧНЫЙ', uncommon:'НЕОБЫЧНЫЙ', rare:'РЕДКИЙ', superrare:'СВЕРХРЕДКИЙ', legendary:'ЛЕГЕНДАРНЫЙ', skin:'ОБЛИК' }; return localText(ru[k] || String(r || '').toUpperCase(), en[k] || String(r || '').replace('superrare', 'SUPER RARE').toUpperCase()); };
+const rarityText = r => { const k = String(r || 'skin').toLowerCase(); const en = { basic:'BASIC', uncommon:'UNCOMMON', rare:'РЕДE', superrare:'SUPER РЕДE', legendary:'LEGENDARY', skin:'SKIN' }; const ru = { basic:'ОБЫЧНЫЙ', uncommon:'НЕОБЫЧНЫЙ', rare:'РЕДКИЙ', superrare:'СВЕРХРЕДКИЙ', legendary:'ЛЕГЕНДАРНЫЙ', skin:'ОБЛИК' }; return localText(ru[k] || String(r || '').toUpperCase(), en[k] || String(r || '').replace('superrare', 'SUPER РЕДE').toUpperCase()); };
 const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
 const WEAPON_BY_LABEL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
 const CHEST_BY_LABEL = Object.fromEntries(Object.entries(CHESTS).map(([id, c]) => [c.label, { id, ...c }]));
@@ -269,7 +269,7 @@ const CHEST_DESC = {
   BSC: 'Бесплатный базовый сундук: GLD/EXP и редкий HEA. Хорошая безопасная награда.',
   WPN: 'Оружейный сундук: пушки, усиления пушек или общий прирост силы.',
   ABL: 'Сундук протоколов: активные протоколы, мутации и мобильность.',
-  RAR: 'Редкий сундук: сильное усиление протокола.',
+  РЕД: 'Редкий сундук: сильное усиление протокола.',
   CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
 };
 const PICKUP_DESC = {
@@ -345,22 +345,22 @@ function weaponReadability(opt = {}) {
     },
     shg_teeth: {
       role: 'DPS', tone: 'dps',
-      ru: 'дробовик получает больше дробин в каждом залпе.', en: 'дробовик fires more pellets per shot.',
+      ru: 'Клиновой разряд получает больше осколков в каждом залпе.', en: 'SHG fires more shards per shot.',
       changeRu: '+2 дробины · сильнее вблизи', changeEn: '+2 pellets · stronger up close'
     },
     shg_longshot: {
       role: 'RANGE', tone: 'range',
-      ru: 'правая кнопка тратит все заряды дробовик на один дальний тяжёлый выстрел.', en: 'RMB spends all дробовик charges on one heavy long shot.',
+      ru: 'Правая кнопка тратит все заряды клинового разряда на один дальний тяжёлый выстрел.', en: 'RMB spends all SHG charges on one heavy long shot.',
       changeRu: 'правая кнопка дальний тяжёлый выстрел', changeEn: 'RMB heavy long shot'
     },
     sek_split: {
       role: 'DPS', tone: 'dps',
-      ru: 'Убийства самонаводчик выпускают самонаводящиеся фрагменты.', en: 'самонаводчик kills release homing fragments.',
+      ru: 'Искатель выпускает фрагменты после удаления цели.', en: 'SEK kills release homing fragments.',
       changeRu: 'фрагменты при убийстве', changeEn: 'fragments on kill'
     },
     sek_chain: {
       role: 'CONTROL', tone: 'control',
-      ru: 'самонаводчик лучше держит цель и живёт дольше.', en: 'самонаводчик locks on harder and lives longer.',
+      ru: 'Искатель лучше держит цель и живёт дольше.', en: 'SEK locks on harder and lives longer.',
       changeRu: 'лучше держит цель', changeEn: 'stronger lock-on'
     },
     sek_swarm: {
@@ -370,27 +370,27 @@ function weaponReadability(opt = {}) {
     },
     rkt_cluster: {
       role: 'DPS', tone: 'dps',
-      ru: 'ракетница добавляет мини-взрывы вокруг детонации.', en: 'ракетница adds mini-blasts around detonation.',
+      ru: 'Разломный заряд добавляет мини-взрывы вокруг детонации.', en: 'RKT adds mini-blasts around detonation.',
       changeRu: 'дополнительные мини-взрывы', changeEn: 'extra mini-blasts'
     },
     rkt_mines: {
       role: 'CONTROL', tone: 'control',
-      ru: 'ракетница оставляет отложенные областьные мины.', en: 'ракетница leaves delayed square mines.',
+      ru: 'Разломный заряд оставляет отложенные мины.', en: 'RKT leaves delayed square mines.',
       changeRu: 'мины во время полёта', changeEn: 'mines during flight'
     },
     rkt_stun: {
       role: 'CONTROL', tone: 'control',
-      ru: 'Все взрывы ракетница могут оглушать угроз.', en: 'All ракетница explosions can stun enemies.',
+      ru: 'Разломные взрывы могут оглушать угрозы.', en: 'All RKT explosions can stun enemies.',
       changeRu: 'оглушение взрывом', changeEn: 'stun on blast'
     },
     rkt_scatter: {
       role: 'CONTROL', tone: 'control',
-      ru: 'Все взрывы ракетница разбрасывают угроз сильнее.', en: 'All ракетница explosions scatter enemies harder.',
+      ru: 'Разломные взрывы сильнее разбрасывают угрозы.', en: 'All RKT explosions scatter enemies harder.',
       changeRu: 'отбрасывание взрывом', changeEn: 'knockback on blast'
     },
     rkt_remote: {
       role: 'CONTROL', tone: 'control',
-      ru: 'правая кнопка взрывает выпущенные ракеты по одной, начиная со старой.', en: 'RMB detonates launched rockets one by one, oldest first.',
+      ru: 'Правая кнопка взрывает выпущенные разломные заряды по очереди.', en: 'RMB detonates launched rockets one by one, oldest first.',
       changeRu: 'ручная детонация по очереди', changeEn: 'remote detonation one by one'
     },
     wpn_dmg: {
@@ -478,12 +478,12 @@ const activeDesc = p => activeDescFrom(activeLabel(p), p?.[P.ACTIVEDESC] || acti
 const activeShort = p => locActiveShort(activeLabel(p));
 
 const BOSS_REWARD_HINTS = {
-  'TARGET LOCK': [localText('МЕТКА ЦЕЛИ', 'TARGET LOCK'), localText('Наводка усиливает точность и давление по отмеченным угрозам.', 'Marking improves accuracy and pressure against tagged threats.')],
+  'TARGET ФИКС': [localText('МЕТКА ЦЕЛИ', 'TARGET ФИКС'), localText('Наводка усиливает точность и давление по отмеченным угрозам.', 'Marking improves accuracy and pressure against tagged threats.')],
   'GHOST DECOY': [localText('ПРИЗРАЧНАЯ ПРИМАНКА', 'GHOST DECOY'), localText('Создаёт обманный сигнал, который отвлекает угрозы и даёт время на позицию.', 'Creates a false signal that distracts threats and buys positioning time.')],
   'REDLINE BOOST': [localText('КРАСНАЯ ЛИНИЯ', 'REDLINE BOOST'), localText('Рывок ускоряет антивирус. Повторы увеличивают силу и длительность.', 'The dash accelerates the antivirus. Stacks improve force and duration.')],
   'SPAWN HOLD': [localText('ЗАМОРОЗКА СПАВНА', 'SPAWN HOLD'), localText('На старте сектора угрозы задерживаются, чтобы антивирус успел занять позицию.', 'Threats are delayed at sector start so the antivirus can take position.')],
   'KILL SWITCH': [localText('АВАРИЙНАЯ ОЧИСТКА', 'KILL SWITCH'), localText('Один раз за протокол очищает экран от угроз, включая главную угрозу.', 'Once per protocol, clears the screen of threats, including the core threat.')],
-  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий стакаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
+  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий уровеньаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
   'AEGIS PROCESS': [localText('ЭГИДА', 'AEGIS PROCESS'), localText('Даёт защитный слой оболочки. Повторы увеличивают запас защиты.', 'Adds a shell shield layer. Stacks increase its capacity.')],
   'NULL REVIVAL': [localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), localText('Один раз возвращает антивирус после сбоя.', 'Restores the antivirus once after a crash.')],
   'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук бесплатно и повышает качество награды.', 'Makes the next chest free and upgrades its reward quality.')]
@@ -505,8 +505,8 @@ function casinoCellTone(symbol = '') {
   const x = String(symbol || '').toUpperCase().trim();
   if (!x || x === '—') return '';
   if (x === 'STC' || x === 'BAD' || x === 'LOSE' || x === 'NO' || x === 'ОТК') return 'lose';
-  if (x === 'LOCK' || x === 'NEXT' || x === 'CELL') return 'lock';
-  if (x === 'JCK') return 'jackpot';
+  if (x === 'ФИКС' || x === 'NEXT' || x === 'CELL') return 'lock';
+  if (x === 'ДЖК') return 'jackpot';
   return 'win';
 }
 function casinoCellClass(symbol = '') {
@@ -522,7 +522,7 @@ function casinoIsBadCell(symbol = '') { return casinoCellTone(symbol) === 'lose'
 function casinoNormalizeSlotLocks(locks = []) {
   const clean = s => {
     const x = String(s || '').toUpperCase().replace(/\s+X\d+$/i, '').trim();
-    return ['JCK','WPN','ABL','RAR','SKN','GLD','EXP','HEA','STC','BAD'].includes(x) ? x : '';
+    return ['ДЖК','WPN','ABL','РЕД','SKN','GLD','EXP','HEA','STC','BAD'].includes(x) ? x : '';
   };
   return [0, 1, 2].map(i => clean(Array.isArray(locks) ? locks[i] : ''));
 }
@@ -530,8 +530,8 @@ function casinoCellLine(c = {}) {
   const slot = Math.max(1, (Number(c.slot || 0) | 0) + 1);
   const raw = String(c.raw || '').toUpperCase();
   const sym = String(c.symbol || '').toUpperCase();
-  if (c.lockCreated || raw === 'LOCK') return `S${slot}: LOCK→${sym || '—'}`;
-  if (c.locked) return `S${slot}: ${sym || raw || '—'} LOCK`;
+  if (c.lockCreated || raw === 'ФИКС') return `S${slot}: ФИКС→${sym || '—'}`;
+  if (c.locked) return `S${slot}: ${sym || raw || '—'} ФИКС`;
   return `S${slot}: ${sym || raw || '—'}`;
 }
 
@@ -753,7 +753,7 @@ export class Hud {
       const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
       if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт комнаты, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${valueLabel}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`УСЛОВИЕ: ${reason}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${valueLabel}. `, `РЕДITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`УСЛОВИЕ: ${reason}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${label}${valueLabel ? ' ' + valueLabel : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
@@ -911,7 +911,7 @@ export class Hud {
         this.clearExplain(btn);
       });
     }
-    this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
+    this.casinoLockSymbol = String(me[P.CASINOФИКС] || '').toUpperCase();
     if (this.casino.open) {
       this.updateCasinoLockBadge('');
       this.updateCasinoLuckCard(me);
@@ -1104,7 +1104,7 @@ export class Hud {
         if (explicit.has(ux)) continue;
         addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
       }
-      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Копирует следующий стакаемый приз с выбором. Заряд возвращается после главной угрозы.', 'Copies the next stackable choice prize. Charge returns after the core threat.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
+      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Копирует следующий уровеньаемый приз с выбором. Заряд возвращается после главной угрозы.', 'Copies the next stackable choice prize. Charge returns after the core threat.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
       const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
       const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
@@ -1710,7 +1710,7 @@ export class Hud {
     if (meWaiting) {
       return `<b>${esc(localText('ВЫБЕРИ УЛУЧШЕНИЕ', 'CHOOSE AN INSTALL'))}</b><br>${esc(localText(`ОЖИДАЕТСЯ ВЫБОР · ${Math.max(0, count)}/${Math.max(1, total)}`, `WAITING FOR PICKS · ${Math.max(0, count)}/${Math.max(1, total)}`))}${names ? `<span class="wait-names">${esc(names)}</span>` : ''}`;
     }
-    return `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b><br>${esc(localText(`ЖДЁМ ОСТАЛЬНЫХ · ${Math.max(0, count)}/${Math.max(1, total)}`, `WAITING FOR OTHERS · ${Math.max(0, count)}/${Math.max(1, total)}`))}${names ? `<span class="wait-names">${esc(names)}</span>` : ''}`;
+    return `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK ФИКСED'))}</b><br>${esc(localText(`ЖДЁМ ОСТАЛЬНЫХ · ${Math.max(0, count)}/${Math.max(1, total)}`, `WAITING FOR OTHERS · ${Math.max(0, count)}/${Math.max(1, total)}`))}${names ? `<span class="wait-names">${esc(names)}</span>` : ''}`;
   }
 
   showInstallWaiting(wait = null, myId = '') {
@@ -1818,7 +1818,7 @@ export class Hud {
       const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
       const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
       d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный стак/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: charge будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
+      const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: charge будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i));
       box.appendChild(d);
@@ -1839,7 +1839,7 @@ export class Hud {
     if (waitEl) {
       waitEl.className = 'install-wait done' + (this.install.bossSignature ? ' boss' : '');
       const solo = this.net?.mode === 'solo';
-      waitEl.innerHTML = solo ? `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b>` : `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b><br>${esc(localText('ЖДЁМ ОСТАЛЬНЫХ', 'WAITING FOR OTHERS'))}`;
+      waitEl.innerHTML = solo ? `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK ФИКСED'))}</b>` : `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK ФИКСED'))}</b><br>${esc(localText('ЖДЁМ ОСТАЛЬНЫХ', 'WAITING FOR OTHERS'))}`;
     }
     this.net.sendPick(i, this.install.offerId || 0);
   }
@@ -1886,7 +1886,7 @@ export class Hud {
     const d = document.createElement('div');
     d.className = `choice skin-claim-card rarity-${String(skin.rarity || (skin.allOwned ? 'complete' : '')).replace(/[^a-z0-9_-]/gi, '')}`;
     if (skin.allOwned) {
-      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ВСЕ ОБЛИКЫ ОТКРЫТЫ', 'ALL SKINS UNLOCKED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Коллекция уже полная.', 'Collection already complete.'))}</span>`;
+      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ВСЕ ОБЛИКЫ ОТКРЫТЫ', 'ALL SKINS UNФИКСED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Коллекция уже полная.', 'Collection already complete.'))}</span>`;
       this.setExplain(d, localText('КОЛЛЕКЦИЯ ЗАВЕРШЕНА', 'COLLECTION COMPLETE'), localText('Все доступные облики уже открыты.', 'Every available look is already unlocked.'), 'gold');
     } else {
       d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ ОБЛИК', 'CLAIM SKIN'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || 'SKIN')}</span>`;
@@ -1932,17 +1932,17 @@ export class Hud {
   favorUiBody(f = {}) {
     const id = String(f.id || '');
     const ru = {
-      free_reroll: 'Один раз обновляет варианты WPN/ABL или призов босса. Хранится, пока не используешь.',
+      free_reroll: 'Один раз обновляет варианты ОРЖ/ПРТ или призов босса. Хранится, пока не используешь.',
       clear_debt: 'Ослабляет следующий статик-шторм перед входом в комнату.',
       portal_insurance: 'Один раз в этой комнате смертельный удар оставит тебя живым и даст 50 HP.',
-      epic_reroll: 'Два раза обновляет варианты WPN/ABL или призов босса. Хранится, пока не используешь.',
+      epic_reroll: 'Два раза обновляет варианты ОРЖ/ПРТ или призов босса. Хранится, пока не используешь.',
       double_favor: 'Если контракт выполнен, после комнаты будет два приза.'
     };
     const en = {
-      free_reroll: 'Refreshes WPN/ABL or boss choices once. Persists until used.',
+      free_reroll: 'Refreshes ОРЖ/ПРТ or boss choices once. Persists until used.',
       clear_debt: 'Weakens the next Static Storm before you enter the room.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
-      epic_reroll: 'Refreshes WPN/ABL or boss choices twice. Persists until used.',
+      epic_reroll: 'Refreshes ОРЖ/ПРТ or boss choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'
     };
     return localText(ru[id] || 'Бонус контракта действует только в этой комнате.', en[id] || 'Contract bonus for this room only.');
@@ -1982,7 +1982,7 @@ export class Hud {
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
     d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · пока не используешь', 'CHOICE REROLL · persists until used'))}</span>`;
-    this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого выбора с анимацией. Новые варианты не повторяют текущие, если в пуле есть замена. Работает на WPN/ABL и призы босса.', 'Animates and refreshes this choice. New options avoid the current ones when the pool allows it. Works on WPN/ABL and boss prizes.'), 'gold');
+    this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого выбора с анимацией. Новые варианты не повторяют текущие, если в пуле есть замена. Работает на ОРЖ/ПРТ и призы босса.', 'Animates and refreshes this choice. New options avoid the current ones when the pool allows it. Works on ОРЖ/ПРТ and boss prizes.'), 'gold');
     d.addEventListener('click', () => {
       if (d.dataset.locked === '1' || uses <= 0) return;
       this.playUiSound('contract');
@@ -2013,7 +2013,7 @@ export class Hud {
   chestOfferLabel(meta = {}) {
     const label = String(meta.label || '').toUpperCase();
     const ru = String(meta.labelRu || '').trim();
-    const outRu = ru || ({ SIMPLE: 'ПРОСТОЙ', GOOD: 'ХОРОШИЙ', VALUABLE: 'ЦЕННЫЙ', RARE: 'РЕДКИЙ' }[label] || label || 'СУНДУК');
+    const outRu = ru || ({ SIMPLE: 'ПРОСТОЙ', GOOD: 'ХОРОШИЙ', VALUABLE: 'ЦЕННЫЙ', РЕДE: 'РЕДКИЙ' }[label] || label || 'СУНДУК');
     return localText(outRu, label || 'CHEST');
   }
   setChestOfferHeader(kind = 'weapon', choices = [], meta = {}) {
@@ -2023,13 +2023,13 @@ export class Hud {
     const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
     const tier = Math.max(0, Math.min(3, Number(meta.tier || 0) | 0));
     const label = this.chestOfferLabel(meta);
-    const code = kind === 'rare' ? 'RAR' : (kind === 'ability' ? 'ABL' : 'WPN');
+    const code = kind === 'rare' ? 'РЕД' : (kind === 'ability' ? 'ABL' : 'WPN');
     if (title) {
       const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
       const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const pickText = picksTotal > 1 ? ` · ${esc(localText(`ВЫБЕРИ ${picksRemaining}/${picksTotal}`, `PICK ${picksRemaining}/${picksTotal}`))}` : '';
-      const chestName = kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'));
+      const chestName = kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'РЕДE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'));
       title.innerHTML = `${esc(chestName)} <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = chestName;
       title.dataset.explain = kind === 'rare'
@@ -2051,7 +2051,7 @@ export class Hud {
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const picks = picksTotal > 1 ? `<span>${esc(localText('ВЫБОРЫ', 'PICKS'))}: <b>${picksRemaining}/${picksTotal}</b></span>` : '';
       const picked = Array.isArray(meta.pickedLabels) && meta.pickedLabels.length ? `<span class="chest-reason">${esc(localText('ВЗЯТО', 'TAKEN'))}: ${esc(meta.pickedLabels.map(locLabel).join(' + '))}</span>` : '';
-      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}${picked}`;
+      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'РЕДITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(reason)}</span>` : ''}${picked}`;
     }
     const hintTerm = modal.querySelector('.hint .term');
     if (hintTerm) {
@@ -2145,7 +2145,7 @@ export class Hud {
           <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${mirrorTag}${locked}</div>
         </div>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
-      const mirrorHint = mirror ? (mirror.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/стак.', 'MIRROR is active: this choice will be copied for an extra level/stack.') : localText('ЗЕРКАЛО активно, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : '';
+      const mirrorHint = mirror ? (mirror.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/уровень.', 'MIRROR is active: this choice will be copied for an extra level/stack.') : localText('ЗЕРКАЛО активно, но это UNIQUE: charge будет потрачен без копии.', 'MIRROR is active, but this is UNIQUE: charge will be spent without a copy.')) : '';
       const body = `${opt.actionLabel ? locAction(opt.actionLabel) + ': ' : ''}${optionDesc(opt)}${mirrorHint ? '\n\n' + mirrorHint : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
@@ -2177,7 +2177,7 @@ export class Hud {
   closeAbilityChest() { this.ability.open = false; this.ability.locked = false; $('ability-modal').classList.add('hidden'); this.hideTip(); }
 
 
-  // ------------------------------------------------- RAR chest modal
+  // ------------------------------------------------- РЕД chest modal
   openRareChest(choices = [], meta = {}) {
     this.rare = { open: true, choices, locked: false, meta };
     this.ability.open = false;
@@ -2199,10 +2199,10 @@ export class Hud {
             <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
             ${bonusLine}
           </div>
-          <div class="abl-tags"><span class="rarity-tag">RAR</span>${locked}</div>
+          <div class="abl-tags"><span class="rarity-tag">РЕД</span>${locked}</div>
         </div>`;
       const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('К выбранному варианту добавится золото сундука.', 'Chest gold bonus is added to the selected option.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : '\n\n' + t('available')}`;
-      this.setExplain(d, `${locLabel(opt.label || opt.id)} / RAR`, body, opt.disabled ? 'red' : tone);
+      this.setExplain(d, `${locLabel(opt.label || opt.id)} / РЕД`, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
         this.pickRare(i);
@@ -2244,18 +2244,18 @@ export class Hud {
   casinoOutcomeInfo(outcome = '', payload = {}) {
     const o = String(outcome || '').toUpperCase();
     const map = {
-      JCK: [localText('ДЖЕКПОТ', 'JACKPOT'), localText('Крупная выплата GLD/EXP. Редкий лучший исход ставки.', 'Large GLD/EXP payout. Rare best result.'), 'gold'],
+      ДЖК: [localText('ДЖЕКПОТ', 'JACKPOT'), localText('Крупная выплата GLD/EXP. Редкий лучший исход ставки.', 'Large GLD/EXP payout. Rare best result.'), 'gold'],
       GLD: [localText('ВЫПЛАТА GLD', 'GLD PAYOUT'), localText('Возвращает деньги. В GOLD FEVER выплата выше.', 'Pays money back. In Gold Fever, payout is higher.'), 'green'],
       EXP: [localText('ВЫПЛАТА EXP', 'EXP PAYOUT'), localText('Даёт опыт для следующего INSTALL-выбора.', 'Gives EXP toward the next INSTALL choice.'), 'cyan'],
       HEA: [localText('ЛЕЧЕНИЕ', 'HEAL'), localText('Восстанавливает HP сразу после расчёта ставки.', 'Restores HP immediately after the bet resolves.'), 'green'],
       WPN: [localText('ОРУЖЕЙНЫЙ ПРИЗ', 'WEAPON PRIZE'), localText('Даёт новое оружие или усиление текущего оружия.', 'Grants a new weapon or upgrades current weapon power.'), 'cyan'],
       ABL: [localText('ПРИЗ СПОСОБНОСТИ', 'ABILITY PRIZE'), localText('Даёт активку/Q-модуль, рывок или полезную мобильность.', 'Grants a Q/ability module, dash, or mobility.'), 'cyan'],
-      RAR: [localText('РЕДКИЙ ПРИЗ', 'RARE PRIZE'), localText('Выдаёт усиленный редкий результат казино.', 'Grants a stronger rare casino result.'), 'gold'],
+      РЕД: [localText('РЕДКИЙ ПРИЗ', 'РЕДE PRIZE'), localText('Выдаёт усиленный редкий результат казино.', 'Grants a stronger rare casino result.'), 'gold'],
       SKN: [localText('ОБЛИК', 'SKIN'), localText('Открывает косметический облик, если есть закрытые обликы.', 'Unlocks a cosmetic skin if any are still locked.'), 'gold'],
-      LOCK: [localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText('LOCK внутри слота превращается в случайный блок и фиксирует этот слот до закрытия терминала.', 'A LOCK inside a slot morphs into a random block and fixes that slot until the terminal closes.'), 'cyan'],
+      ФИКС: [localText('ФИКС-ЯЧЕЙКА', 'ФИКС CELL'), localText('ФИКС внутри слота превращается в случайный блок и фиксирует этот слот до закрытия терминала.', 'A ФИКС inside a slot morphs into a random block and fixes that slot until the terminal closes.'), 'cyan'],
       MIX: [localText('СМЕШАННЫЙ ИТОГ', 'MIXED RESULT'), localText('Несколько слотов дали разные призы или штрафы.', 'Several slots produced different rewards or penalties.'), 'green'],
       STC: [localText('СТАТИК-ДОЛГ', 'STATIC DEBT'), localText('Награды нет, следующий маршрут получает статик-шторм.', 'No reward; the next route receives static storm debt.'), 'purple'],
-      OVERLOAD: [localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD'), localText('Терминал сломался от abuse полного LOCK и выпустил slot-mob.', 'The terminal broke from full-LOCK abuse and released a slot-mob.'), 'red'],
+      OVERLOAD: [localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD'), localText('Терминал сломался от abuse полного ФИКС и выпустил slot-mob.', 'The terminal broke from full-ФИКС abuse and released a slot-mob.'), 'red'],
       LOSE: [localText('ПРОИГРЫШ', 'LOSS'), localText('Ставка потеряна. Награда не выдана.', 'Stake is lost. No reward is granted.'), 'red']
     };
     const [title, body, tone] = map[o] || [locLabel(o || 'BET'), localText('Результат ставки применён.', 'Bet result applied.'), 'green'];
@@ -2271,12 +2271,12 @@ export class Hud {
       HEA: [localText('HEA', 'HEA'), localText('Лечение.', 'Heal.'), 'green'],
       WPN: [localText('WPN', 'WPN'), localText('Оружейный приз.', 'Weapon prize.'), 'cyan'],
       ABL: [localText('ABL', 'ABL'), localText('Приз способности.', 'Ability prize.'), 'cyan'],
-      RAR: [localText('RAR', 'RAR'), localText('Редкий приз.', 'Rare prize.'), 'gold'],
+      РЕД: [localText('РЕД', 'РЕД'), localText('Редкий приз.', 'Rare prize.'), 'gold'],
       SKN: [localText('SKN', 'SKN'), localText('Облик.', 'Skin.'), 'gold'],
-      JCK: [localText('JCK', 'JCK'), localText('Джекпот.', 'Jackpot.'), 'gold'],
+      ДЖК: [localText('ДЖК', 'ДЖК'), localText('Джекпот.', 'Jackpot.'), 'gold'],
       STC: [localText('STC', 'STC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
       BAD: [localText('BAD', 'BAD'), localText('Пустой / проигрышный блок.', 'Empty / losing block.'), 'red'],
-      LOCK: [localText('LOCK', 'LOCK'), localText('Следующая ставка получает фиксированную ячейку.', 'Next bet gets a fixed cell.'), 'cyan'],
+      ФИКС: [localText('ФИКС', 'ФИКС'), localText('Следующая ставка получает фиксированную ячейку.', 'Next bet gets a fixed cell.'), 'cyan'],
       NEXT: [localText('NEXT', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
       COMBO: [localText('COMBO', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
     };
@@ -2292,8 +2292,8 @@ export class Hud {
   }
 
   updateCasinoLockBadge(symbol = '', used = false) {
-    // v2.1.81: the separate right-side LOCK badge was removed.
-    // LOCK is now represented directly inside the casino cells.
+    // v2.1.81: the separate right-side ФИКС badge was removed.
+    // ФИКС is now represented directly inside the casino cells.
     const el = $('casino-lock-badge');
     if (!el) return;
     el.classList.add('hidden');
@@ -2317,7 +2317,7 @@ export class Hud {
       r.dataset.final = s;
       r.className = `reel locked lock-ready ${casinoCellClass(s)}`.trim();
       const info = this.casinoSymbolInfo(s);
-      this.setExplain(r, localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText(`Этот слот зафиксирован до закрытия терминала: ${s}.`, `This slot is fixed until the terminal closes: ${s}.`), info.tone || 'cyan');
+      this.setExplain(r, localText('ФИКС-ЯЧЕЙКА', 'ФИКС CELL'), localText(`Этот слот зафиксирован до закрытия терминала: ${s}.`, `This slot is fixed until the terminal closes: ${s}.`), info.tone || 'cyan');
     });
   }
 
@@ -2354,12 +2354,12 @@ export class Hud {
     const info = this.casinoLuckInfo(luck);
     card.innerHTML = `
       <div class="casino-luck-title">${esc(localText('УДАЧА В КАЗИНО', 'CASINO LUCK'))}</div>
-      <div class="casino-luck-value">LUCK +${Math.round(info.luck)} <span>без лимита</span></div>
-      <div class="casino-luck-row"><b>JCK</b><span>+${info.jackpot}%</span></div>
-      <div class="casino-luck-row"><b>WPN/ABL</b><span>+${info.weapon}%</span></div>
-      <div class="casino-luck-row"><b>RAR</b><span>+${info.rare}%</span></div>
-      <div class="casino-luck-row"><b>LOCK</b><span>+${info.lock}%</span></div>
-      <div class="casino-luck-note">${esc(localText(`Каждый LUCK +1 напрямую усиливает полезные символы в каждой ячейке. Лимита нет: чем выше удача, тем реже BAD.`, `Each LUCK +1 directly boosts useful symbols in every cell. No cap: higher luck keeps pushing BAD down.`))}</div>
+      <div class="casino-luck-value">УДАЧА +${Math.round(info.luck)}</div>
+      <div class="casino-luck-row"><b>${esc(localText('ДЖЕКПОТ', 'JACKPOT'))}</b><span>+${info.jackpot}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('ОРУЖИЕ', 'WEAPON'))}</b><span>+${info.weapon}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('РЕДКИЙ', 'RARE'))}</b><span>+${info.rare}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('ФИКСАЦИЯ', 'LOCK'))}</b><span>+${info.lock}%</span></div>
+      <div class="casino-luck-note">${esc(localText(`Каждая удача усиливает ценные символы и снижает шанс сбоя.`, `Each luck point raises valuable symbols and lowers blank outcomes.`))}</div>
     `;
     this.positionCasinoLuckCard();
   }
@@ -2446,7 +2446,7 @@ export class Hud {
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
-    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'RAR', 'BAD'];
+    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'ДЖК', 'ФИКС', 'РЕД', 'BAD'];
     const locks = casinoNormalizeSlotLocks(this.casinoSlotLocks || []);
     document.querySelectorAll('.reel').forEach((r, i) => {
       if (r._iv) clearInterval(r._iv);
@@ -2457,7 +2457,7 @@ export class Hud {
         r.textContent = fixed;
         r.dataset.final = fixed;
         const info = this.casinoSymbolInfo(fixed);
-        this.setExplain(r, localText('LOCK-ЯЧЕЙКА', 'LOCK CELL'), localText(`Слот ${i + 1} зафиксирован до закрытия терминала: ${fixed}.`, `Slot ${i + 1} is fixed until the terminal closes: ${fixed}.`), info.tone || 'cyan');
+        this.setExplain(r, localText('ФИКС-ЯЧЕЙКА', 'ФИКС CELL'), localText(`Слот ${i + 1} зафиксирован до закрытия терминала: ${fixed}.`, `Slot ${i + 1} is fixed until the terminal closes: ${fixed}.`), info.tone || 'cyan');
         return;
       }
       r.className = 'reel spin';
@@ -2489,7 +2489,7 @@ export class Hud {
     const bySlot = new Map(cells.map(c => [Number(c.slot || 0) | 0, c]));
     const nextLocks = casinoNormalizeSlotLocks(f?.lockSlots || payload.lockSlots || this.casinoSlotLocks || []);
     if (f) this.casinoSlotLocks = nextLocks;
-    const spinSyms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'RAR', 'BAD'];
+    const spinSyms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'ДЖК', 'РЕД', 'BAD'];
     const settleCell = (r, sym, c = {}, lockedClass = false) => {
       const finalSymbol = String(sym || '—').toUpperCase();
       r.textContent = finalSymbol;
@@ -2515,12 +2515,12 @@ export class Hud {
           const c = bySlot.get(i) || { slot: i, raw: f.symbols?.[i] || '—', symbol: f.symbols?.[i] || '—' };
           const raw = String(c.raw || '').toUpperCase();
           const finalSymbol = String(c.symbol || f.symbols?.[i] || '—').toUpperCase();
-          const created = !!c.lockCreated || raw === 'LOCK';
+          const created = !!c.lockCreated || raw === 'ФИКС';
           if (created) {
-            r.textContent = 'LOCK';
-            r.dataset.final = 'LOCK';
+            r.textContent = 'ФИКС';
+            r.dataset.final = 'ФИКС';
             r.className = 'reel locked lock-vanish win lock-cell';
-            this.setExplain(r, 'LOCK', localText('LOCK растворяется и превращается в фиксированный слот до закрытия терминала.', 'LOCK dissolves into a fixed slot until the terminal closes.'), 'cyan');
+            this.setExplain(r, 'ФИКС', localText('ФИКС растворяется и превращается в фиксированный слот до закрытия терминала.', 'ФИКС dissolves into a fixed slot until the terminal closes.'), 'cyan');
             this.playUiSound('casino_reel_stop');
             const morphSpin = setTimeout(() => {
               r.className = 'reel spin lock-morph';
@@ -2551,7 +2551,7 @@ export class Hud {
           const done = setTimeout(() => {
             this.casino.spinning = false;
             this.setCasinoButtons(false);
-            this.setCasinoPanelState(localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : f?.outcome === 'STC' ? 'purple' : f?.outcome === 'JCK' ? 'gold' : 'green');
+            this.setCasinoPanelState(localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : f?.outcome === 'STC' ? 'purple' : f?.outcome === 'ДЖК' ? 'gold' : 'green');
           }, 620);
           this.casino.reelTimers.push(done);
         }
@@ -2609,7 +2609,7 @@ export class Hud {
     if (pl.dash) add('DASH +1');
     for (const x of weaponLabels) add(this.casinoPrizeLineForResult({ outcome: 'WPN' }, {}, paid, paidUnit, [], [x], []));
     for (const x of abilityLabels) add(this.casinoPrizeLineForResult({ outcome: 'ABL' }, {}, paid, paidUnit, [x], [], []));
-    for (const x of rareLabels) add(this.casinoPrizeLineForResult({ outcome: 'RAR' }, {}, paid, paidUnit, [], [], [x]));
+    for (const x of rareLabels) add(this.casinoPrizeLineForResult({ outcome: 'РЕД' }, {}, paid, paidUnit, [], [], [x]));
     if (pl.skinLabel) add(`${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
     if (pl.static || pl.staticCount) add(`${localText('статик-долг', 'static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
     if (pl.tripleMatch) add(`${localText('три одинаковых', 'three of a kind')}: ${String(pl.paySymbol || '').toUpperCase()}`);
@@ -2621,7 +2621,7 @@ export class Hud {
   casinoResult(f, myId) {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const RES = { JCK: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: 'LOCK', RAR: 'RAR', OVERLOAD: localText('ПЕРЕГРУЗКА', 'OVERLOAD') };
+      const RES = { ДЖК: t('jackpot'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), ФИКС: 'ФИКС', РЕД: 'РЕД', OVERLOAD: localText('ПЕРЕГРУЗКА', 'OVERLOAD') };
       this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
@@ -2643,7 +2643,7 @@ export class Hud {
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
       modal.classList.remove('bet-protocolning', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
-      modal.classList.add(f.outcome === 'JCK' ? 'bet-jackpot' : (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
+      modal.classList.add(f.outcome === 'ДЖК' ? 'bet-jackpot' : (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       const resultLine = this.casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
@@ -2664,7 +2664,7 @@ export class Hud {
       this.casinoLockSpinSymbol = '';
       this.updateCasinoLockBadge('');
       const positive = (pl.gld || pl.xp || pl.heal || pl.weapon || pl.ability || pl.rare || pl.skin || pl.jackpotCount);
-      this.playUiSound(f.outcome === 'OVERLOAD' ? 'slot_overload' : ((pl.jackpotCount || 0) >= 3 || f.outcome === 'JCK' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win'))));
+      this.playUiSound(f.outcome === 'OVERLOAD' ? 'slot_overload' : ((pl.jackpotCount || 0) >= 3 || f.outcome === 'ДЖК' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win'))));
       if (f.outcome === 'OVERLOAD') {
         const closeTimer = setTimeout(() => {
           if (resultToken === this.casino.spinToken) {
