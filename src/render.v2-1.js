@@ -996,21 +996,21 @@ export class Renderer {
           } else if (type === 'lc_gun') {
             const gun = String(c[6] || 'base');
             const angle = (Number(c[7] || 0) || 0) / 1000;
-            const selectedGun = !!c[9];
+            const hasTarget = !!String(c[8] || '');
             const tone = gun === 'sparks' ? '#66f6ff' : '#ffd34d';
             const dx = cx - px, dy = cy - py;
             const len = Math.hypot(dx, dy) || 1;
             const ux = dx / len, uy = dy / len;
             ctx.save();
-            ctx.globalAlpha = selectedGun ? 0.72 : 0.44;
             ctx.strokeStyle = tone;
-            ctx.lineWidth = selectedGun ? 1.7 : 1.15;
-            ctx.setLineDash(gun === 'sparks' ? [3, 7] : [10, 7]);
-            ctx.beginPath();
-            ctx.moveTo(px + ux * 24, py + uy * 24);
-            ctx.lineTo(cx, cy);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            if (hasTarget) {
+              ctx.globalAlpha = 0.62;
+              ctx.lineWidth = 1.35;
+              ctx.beginPath();
+              ctx.moveTo(px + ux * 24, py + uy * 24);
+              ctx.lineTo(cx, cy);
+              ctx.stroke();
+            }
             const bx = px + Math.cos(angle) * 22;
             const by = py + Math.sin(angle) * 22;
             ctx.globalAlpha = 0.96;
@@ -1019,29 +1019,30 @@ export class Renderer {
             ctx.moveTo(px + Math.cos(angle) * 8, py + Math.sin(angle) * 8);
             ctx.lineTo(bx, by);
             ctx.stroke();
-            ctx.globalAlpha = selectedGun ? 0.90 : 0.62;
+            ctx.globalAlpha = hasTarget ? 0.92 : 0.58;
             ctx.strokeRect(Math.round(bx - 4), Math.round(by - 4), 8, 8);
             ctx.restore();
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else if (type === 'lc_target') {
             const gun = String(c[6] || 'base');
             const size = Math.max(18, Number(c[7] || 24) || 24);
-            const active = !!c[9];
-            const tone = gun === 'sparks' ? '#66f6ff' : '#ffd34d';
-            const r = size * 0.72 + (active ? 13 : 9);
-            const pulse = active ? 1 + Math.sin(now * 12 + Number(c[3] || 0)) * 0.08 : 1;
+            const mode = Math.max(1, Number(c[9] || 1) | 0);
+            const manual = mode >= 2;
+            const active = mode === 3 || mode === 1;
+            const tone = manual ? '#b45cff' : (gun === 'sparks' ? '#66f6ff' : '#ffd34d');
+            const stack = Math.max(1, Number(c[3] || 1) | 0);
+            const r = size * 0.72 + (active ? 12 : 9);
+            const pulse = active ? 1 + Math.sin(now * 12 + stack) * 0.06 : 1;
             ctx.save();
-            ctx.globalAlpha = active ? 0.94 : 0.62;
+            ctx.globalAlpha = manual ? 0.98 : 0.78;
             ctx.strokeStyle = tone;
-            ctx.lineWidth = active ? 2.4 : 1.5;
-            ctx.setLineDash(active ? [] : [7, 5]);
+            ctx.lineWidth = manual ? 2.5 : 1.8;
             ctx.strokeRect(Math.round(cx - r * pulse), Math.round(cy - r * pulse), Math.round(r * 2 * pulse), Math.round(r * 2 * pulse));
-            ctx.setLineDash([]);
-            ctx.globalAlpha = active ? 0.46 : 0.26;
+            ctx.globalAlpha = manual ? 0.44 : 0.24;
             ctx.lineWidth = 1;
             ctx.strokeRect(Math.round(cx - r + 5), Math.round(cy - r + 5), Math.round((r - 5) * 2), Math.round((r - 5) * 2));
             ctx.restore();
-            this.label(gun === 'sparks' ? 'SPK' : 'LVC', cx, cy - r - 9, tone, 7);
+            if (manual) this.label(stack > 1 ? `LOCK ×${stack}` : 'LOCK', cx, cy - r - 9, tone, 7);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else if (type === 'lc_spark') {
             const life = Math.max(0, Math.min(1, (Number(c[6] || 0) || 0) / 1000));
@@ -1092,6 +1093,7 @@ export class Renderer {
             const hp = Math.max(0, Math.min(100, Number(c[11] || 100) || 100));
             const faceX = (Number(c[12] || 100) || 100) / 100;
             const faceY = (Number(c[13] || 0) || 0) / 100;
+            const elite = !!c[15];
             const prev = this.companionTrail.get(id);
             if (prev && Math.hypot(cx - prev.x, cy - prev.y) < 140) {
               ctx.save();
@@ -1121,22 +1123,26 @@ export class Renderer {
               this.square(cx, cy, size, { stroke, lw: 3, fill });
               ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.beginPath(); ctx.moveTo(cx - size * 0.35, cy); ctx.lineTo(cx + size * 0.55, cy); ctx.stroke(); ctx.setLineDash([]);
             } else if (procKind === 'bomber') {
-              this.square(cx, cy, size, { stroke: COL.red, lw: 2.4, fill: 'rgba(255,48,72,0.10)' });
+              this.square(cx, cy, size, { stroke: cmd ? stroke : COL.red, lw: 2.4, fill: cmd ? 'rgba(0,255,102,0.08)' : 'rgba(255,48,72,0.10)' });
               this.square(cx, cy, size * 0.52, { stroke, lw: 1.4, rotate: Math.PI / 4 });
             } else if (procKind === 'anchor') {
-              this.square(cx, cy, size, { stroke: COL.purple, lw: 4, fill: 'rgba(180,92,255,0.08)' });
+              this.square(cx, cy, size, { stroke: cmd ? stroke : COL.purple, lw: 4, fill: cmd ? 'rgba(0,255,102,0.08)' : 'rgba(180,92,255,0.08)' });
               this.square(cx, cy, size * 0.55, { stroke, lw: 2, rotate: Math.PI / 4 });
             } else if (procKind === 'prism') {
               this.square(cx, cy, size, { stroke, lw: 2, rotate: Math.PI / 4, fill });
               ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - size/2, cy); ctx.lineTo(cx + size/2, cy); ctx.moveTo(cx, cy - size/2); ctx.lineTo(cx, cy + size/2); ctx.stroke();
             } else if (procKind === 'pulse') {
-              this.square(cx, cy, size, { stroke: COL.red, lw: 2.2, fill: 'rgba(255,48,72,0.06)' });
+              this.square(cx, cy, size, { stroke: cmd ? stroke : COL.red, lw: 2.2, fill: cmd ? 'rgba(0,255,102,0.07)' : 'rgba(255,48,72,0.06)' });
               ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(cx - size * 0.55, cy); ctx.lineTo(cx + size * 0.55, cy); ctx.stroke(); ctx.setLineDash([]);
             } else if (procKind === 'leech') {
               this.square(cx, cy, size, { stroke: COL.green, lw: 2, fill: 'rgba(0,255,102,0.07)' });
               ctx.strokeStyle = COL.green; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - size*0.35, cy); ctx.lineTo(cx + size*0.35, cy); ctx.moveTo(cx, cy - size*0.35); ctx.lineTo(cx, cy + size*0.35); ctx.stroke();
             } else {
               this.square(cx, cy, size, { stroke, lw: procKind === 'grunt' ? 2.5 : 2, fill });
+            }
+            if (elite) {
+              ctx.globalAlpha = 0.78;
+              this.square(cx, cy, size + 8, { stroke: cmd ? COL.green : COL.purple, lw: 1.4, rotate: Math.PI / 4 });
             }
             ctx.globalAlpha = 0.62;
             this.square(cx, cy, Math.max(8, size * 0.42), { stroke: cmd ? COL.green : COL.cyan, lw: 1, rotate: Math.PI / 4 });

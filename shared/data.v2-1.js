@@ -171,9 +171,9 @@ export const UPGRADES = [
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
   { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
-  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Карантинные цепи держат дольше.', apply: s => { s.qrHold += 1; } },
-  { id: 'qrn_links', label: 'QRN: ЦЕПЬ +1', branch: 'QRN', tier: 1, desc: 'Один якорь может держать ещё один процесс.', apply: s => { s.qrLinks += 1; } },
-  { id: 'qrn_damage', label: 'QRN: РАЗРЯД +', branch: 'QRN', tier: 1, desc: 'Цепи якоря периодически обжигают зацепленные процессы.', apply: s => { s.qrDamage += 1; } },
+  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Каждый уровень заметно увеличивает срок работы якоря.', apply: s => { s.qrHold += 1; } },
+  { id: 'qrn_links', label: 'QRN: ЗАХВАТ +', branch: 'QRN', tier: 1, desc: 'Лимита цепей нет. Якорь быстрее подхватывает новые угрозы: +2, затем +3, +4.', apply: s => { s.qrLinks += 1; } },
+  { id: 'qrn_damage', label: 'QRN: РАЗРЯД +', branch: 'QRN', tier: 1, desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.', apply: s => { s.qrDamage += 1; } },
 ];
 
 export const UPGRADE_LABELS = Object.fromEntries(UPGRADES.map(u => [u.id, u.label]));
@@ -225,9 +225,9 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
   { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
-  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Карантинные цепи держатся дольше.' },
-  { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЦЕПЬ +1', desc: 'Один якорь может держать ещё одну угрозу.' },
-  { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Цепи якоря периодически наносят урон.' },
+  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Каждый уровень заметно увеличивает срок работы якоря.' },
+  { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +', desc: 'Лимита цепей нет. Якорь быстрее подхватывает новые угрозы: +2, затем +3, +4.' },
+  { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия. У Контролёра усиливает урон подконтрольных процессов.' },
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ТЕМП ОРУЖИЯ +14%', desc: 'Оружие стреляет чаще.' }
 ];
@@ -424,133 +424,129 @@ function casinoCleanSymbol(s = '') {
   return CASINO_SYMBOLS.includes(x) ? x : '';
 }
 
+// Stakes differ by intent, not by hidden guarantees:
+// LOW is mostly economy, MID develops a build, HIGH exposes premium rewards
+// but also carries more BAD/STC pressure.
 function casinoStakeProfile(stakeKey = 'low') {
   if (stakeKey === 'high') return {
-    bad: 0.24, stc: 0.075, lock: 0.070, gld: 0.120, exp: 0.090, hea: 0.060,
-    wpn: 0.105, abl: 0.085, rar: 0.042, skn: 0.021, jck: 0.012,
-    premiumFloor: 0.27
+    bad: 0.27, stc: 0.085, lock: 0.075, gld: 0.130, exp: 0.090, hea: 0.055,
+    wpn: 0.110, abl: 0.090, rar: 0.045, skn: 0.020, jck: 0.010
   };
   if (stakeKey === 'mid') return {
-    bad: 0.30, stc: 0.060, lock: 0.075, gld: 0.175, exp: 0.120, hea: 0.085,
-    wpn: 0.075, abl: 0.060, rar: 0.025, skn: 0.012, jck: 0.004,
-    premiumFloor: 0
+    bad: 0.33, stc: 0.060, lock: 0.070, gld: 0.180, exp: 0.115, hea: 0.075,
+    wpn: 0.070, abl: 0.050, rar: 0.020, skn: 0.009, jck: 0.003
   };
   return {
-    bad: 0.36, stc: 0.035, lock: 0.070, gld: 0.245, exp: 0.145, hea: 0.105,
-    wpn: 0.030, abl: 0.006, rar: 0.0025, skn: 0.0015, jck: 0.0008,
-    premiumFloor: 0
+    bad: 0.42, stc: 0.035, lock: 0.060, gld: 0.235, exp: 0.130, hea: 0.080,
+    wpn: 0.022, abl: 0.006, rar: 0.0025, skn: 0.0015, jck: 0.0007
   };
 }
 
-function casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, mode = 'normal') {
+function casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin) {
   const l = Math.max(0, Number(luck || 0) || 0);
   const pr = casinoStakeProfile(stakeKey);
-  const premium = mode === 'premium';
-  const useful = mode === 'useful';
-  let rows;
-  if (premium) {
-    rows = [
-      ['WPN', 0.38 + l * 0.015], ['ABL', 0.30 + l * 0.014], ['RAR', 0.18 + l * 0.010],
-      ['SKN', hasLockedSkin ? 0.085 + l * 0.005 : 0], ['JCK', 0.055 + l * 0.004]
-    ];
-  } else if (useful) {
-    rows = [
-      ['GLD', 0.34], ['EXP', 0.22], ['HEA', 0.17], ['WPN', stakeKey === 'low' ? 0.09 : 0.13],
-      ['ABL', stakeKey === 'low' ? 0.035 : 0.08], ['RAR', stakeKey === 'high' ? 0.045 : 0.018],
-      ['SKN', hasLockedSkin ? 0.012 : 0], ['JCK', stakeKey === 'high' ? 0.007 : 0.002]
-    ];
-  } else {
-    const luckGood = Math.min(0.15, l * 0.0044);
-    rows = [
-      ['JCK', pr.jck + l * 0.0032],
-      ['RAR', pr.rar + l * 0.0045],
-      ['WPN', pr.wpn + l * 0.0055],
-      ['ABL', pr.abl + l * 0.0055],
-      ['SKN', hasLockedSkin ? (pr.skn + l * 0.0026) : 0],
-      ['LOCK', pr.lock + l * 0.0042],
-      ['HEA', pr.hea + l * 0.0042],
-      ['EXP', pr.exp + l * 0.0046],
-      ['GLD', pr.gld + l * 0.0050],
-      ['STC', Math.max(0.01, pr.stc - l * 0.0025)],
-      ['BAD', Math.max(0.06, pr.bad - luckGood)]
-    ];
-  }
+  const luckGood = Math.min(0.14, l * 0.0042);
+  const rows = [
+    ['JCK', pr.jck + l * 0.0030],
+    ['RAR', pr.rar + l * 0.0042],
+    ['WPN', pr.wpn + l * 0.0050],
+    ['ABL', pr.abl + l * 0.0050],
+    ['SKN', hasLockedSkin ? (pr.skn + l * 0.0024) : 0],
+    ['LOCK', pr.lock + l * 0.0038],
+    ['HEA', pr.hea + l * 0.0038],
+    ['EXP', pr.exp + l * 0.0042],
+    ['GLD', pr.gld + l * 0.0046],
+    ['STC', Math.max(0.01, pr.stc - l * 0.0022)],
+    ['BAD', Math.max(0.08, pr.bad - luckGood)]
+  ];
   const total = rows.reduce((n, [,w]) => n + Math.max(0, w), 0) || 1;
   let r = rng() * total;
   for (const [id, w0] of rows) {
     r -= Math.max(0, w0);
     if (r <= 0) return id;
   }
-  return rows[rows.length - 1]?.[0] || 'BAD';
+  return 'BAD';
+}
+
+function casinoLockPrize(rng, stakeKey, hasLockedSkin) {
+  const pool = stakeKey === 'high'
+    ? ['JCK','RAR','WPN','ABL','SKN','GLD','EXP','HEA']
+    : stakeKey === 'mid'
+      ? ['RAR','WPN','ABL','GLD','EXP','HEA']
+      : ['WPN','GLD','EXP','HEA'];
+  const filtered = pool.filter(x => x !== 'SKN' || hasLockedSkin);
+  return filtered[Math.floor(rng() * filtered.length)] || 'GLD';
 }
 
 function casinoPairInfo(symbols = []) {
   const clean = symbols.map(casinoCleanSymbol);
   const counts = new Map();
-  clean.forEach((s, i) => {
-    if (!CASINO_PAIRABLE.has(s)) return;
-    const row = counts.get(s) || { symbol: s, slots: [] };
-    row.slots.push(i); counts.set(s, row);
+  clean.forEach((symbol, slot) => {
+    if (!CASINO_PAIRABLE.has(symbol)) return;
+    const row = counts.get(symbol) || { symbol, slots: [] };
+    row.slots.push(slot);
+    counts.set(symbol, row);
   });
   const triple = [...counts.values()].find(x => x.slots.length >= 3) || null;
   const pair = triple || [...counts.values()].find(x => x.slots.length === 2) || null;
-  const oddSlot = pair && pair.slots.length === 2 ? [0,1,2].find(i => !pair.slots.includes(i)) : -1;
-  return { triple, pair, oddSlot: Number.isFinite(oddSlot) ? oddSlot : -1 };
+  return { triple, pair };
 }
 
 function casinoAdd(payload, key, value = 1) {
   payload[key] = Math.max(0, Number(payload[key] || 0)) + value;
 }
 
+// One symbol gives a small, direct effect. A pair is the normal strong result;
+// a triple is the premium result. No follow-up decision is required.
 function casinoApplySymbolReward(payload, symbol, count, stake, rng) {
   const n = Math.max(1, count | 0);
   switch (symbol) {
     case 'GLD': {
-      const mul = n >= 3 ? (2.05 + rng() * 0.35) : n === 2 ? (0.95 + rng() * 0.16) : (0.24 + rng() * 0.10);
-      casinoAdd(payload, 'gld', Math.round(stake * mul)); casinoAdd(payload, 'gldCount', n); break;
+      const mul = n >= 3 ? (1.75 + rng() * 0.25) : n === 2 ? (0.72 + rng() * 0.12) : (0.20 + rng() * 0.07);
+      casinoAdd(payload, 'gld', Math.round(stake * mul)); break;
     }
     case 'EXP': {
-      const mul = n >= 3 ? 1.45 : n === 2 ? 0.68 : 0.20;
-      casinoAdd(payload, 'xp', Math.round(stake * mul)); casinoAdd(payload, 'xpCount', n); if (n >= 3) payload.forceInstall = 1; break;
+      const mul = n >= 3 ? 1.05 : n === 2 ? 0.48 : 0.16;
+      casinoAdd(payload, 'xp', Math.round(stake * mul));
+      if (n >= 3) payload.forceInstall = 1;
+      break;
     }
     case 'HEA': {
-      casinoAdd(payload, 'heal', n >= 3 ? 36 : n === 2 ? 20 : 11); casinoAdd(payload, 'healCount', n);
-      if (n >= 2) payload.fullHeal = 1;
-      if (n >= 3) payload.healShield = 1;
+      casinoAdd(payload, 'heal', n >= 3 ? 34 : n === 2 ? 22 : 9);
+      if (n >= 3) { payload.fullHeal = 1; payload.healShield = 1; }
       break;
     }
     case 'WPN': {
-      if (n >= 2) casinoAdd(payload, 'weaponCount', n >= 3 ? 1 : 1);
-      casinoAdd(payload, 'weaponBoost', n >= 3 ? 2 : n === 2 ? 1 : 1);
-      payload.weapon = n >= 2; break;
+      if (n >= 2) { payload.weapon = true; casinoAdd(payload, 'weaponCount', 1); }
+      else casinoAdd(payload, 'weaponBoost', 1);
+      if (n >= 3) casinoAdd(payload, 'weaponBoost', 1);
+      break;
     }
     case 'ABL': {
-      if (n >= 2) casinoAdd(payload, 'abilityCount', 1);
-      casinoAdd(payload, 'activeCdReduce', n >= 3 ? 14 : n === 2 ? 7 : 3);
-      payload.ability = n >= 2; break;
+      if (n >= 2) { payload.ability = true; casinoAdd(payload, 'abilityCount', 1); }
+      else casinoAdd(payload, 'activeCdReduce', 3);
+      if (n >= 3) casinoAdd(payload, 'activeCdReduce', 6);
+      break;
     }
     case 'RAR': {
-      if (n >= 2) casinoAdd(payload, 'rareCount', n >= 3 ? 2 : 1);
+      if (n >= 2) { payload.rare = true; casinoAdd(payload, 'rareCount', n >= 3 ? 2 : 1); }
       else casinoAdd(payload, 'rareProgress', 1);
-      payload.rare = n >= 2; break;
+      break;
     }
     case 'SKN': {
-      if (n >= 2) casinoAdd(payload, 'skinCount', 1);
+      if (n >= 2) { payload.skin = true; casinoAdd(payload, 'skinCount', 1); }
       else casinoAdd(payload, 'skinProgress', 1);
-      payload.skin = n >= 2;
       if (n >= 3) payload.skinChoice = 1;
       break;
     }
     case 'JCK': {
       casinoAdd(payload, 'jackpotCount', n);
-      const mul = n >= 3 ? 4.6 : n === 2 ? 1.75 : 0.48;
-      casinoAdd(payload, 'gld', Math.round(stake * mul));
-      casinoAdd(payload, 'xp', Math.round(stake * (n >= 3 ? 1.20 : n === 2 ? 0.48 : 0.12)));
+      casinoAdd(payload, 'gld', Math.round(stake * (n >= 3 ? 4.0 : n === 2 ? 1.45 : 0.38)));
+      casinoAdd(payload, 'xp', Math.round(stake * (n >= 3 ? 0.95 : n === 2 ? 0.36 : 0.10)));
       break;
     }
     case 'STC': payload.static = true; casinoAdd(payload, 'staticCount', n); break;
     case 'BAD': casinoAdd(payload, 'missCount', n); break;
-    case 'LOCK': casinoAdd(payload, 'lockCredits', n); break;
   }
 }
 
@@ -561,33 +557,12 @@ function evaluateCasinoSymbols(rng, stakeKey, symbols, stake, unlockedSkins = []
   clean.forEach(s => counts.set(s, (counts.get(s) || 0) + 1));
   for (const [symbol, count] of counts.entries()) casinoApplySymbolReward(payload, symbol, count, stake, rng);
 
-  const { triple, pair, oddSlot } = casinoPairInfo(clean);
+  const { triple, pair } = casinoPairInfo(clean);
   payload.tripleMatch = triple ? 1 : 0;
   payload.pairMatch = !triple && pair ? 1 : 0;
   payload.paySymbol = triple?.symbol || pair?.symbol || '';
   payload.pairSymbol = pair?.symbol || '';
-  payload.pairSlots = pair?.slots || [];
-  payload.oddSlot = oddSlot;
 
-  const positiveKinds = clean.filter(s => CASINO_POSITIVE.has(s));
-  const distinctPositive = new Set(positiveKinds);
-  if (!triple && !pair && distinctPositive.size >= 3) {
-    payload.mixedBonus = 1;
-    casinoAdd(payload, 'gld', Math.round(stake * 0.12));
-    casinoAdd(payload, 'xp', Math.round(stake * 0.08));
-    // The premium WPN + ABL + RAR trio becomes a real player choice instead
-    // of silently applying three small, unfocused bonuses.
-    if (['WPN','ABL','RAR'].every(x => distinctPositive.has(x))) {
-      payload.mixedChoicePending = 1;
-      payload.mixedChoiceOptions = ['WPN','ABL','RAR'];
-      delete payload.weapon; delete payload.weaponCount; delete payload.weaponBoost;
-      delete payload.ability; delete payload.abilityCount; delete payload.activeCdReduce;
-      delete payload.rare; delete payload.rareCount; delete payload.rareProgress;
-    }
-  }
-
-  // A pair grants a random locked skin. A triple lets the player choose
-  // between up to three still-locked skins.
   const skinCount = Math.max(0, Number(payload.skinCount || 0) | 0);
   if (skinCount > 0) {
     if (payload.skinChoice) {
@@ -602,107 +577,98 @@ function evaluateCasinoSymbols(rng, stakeKey, symbols, stake, unlockedSkins = []
         options.push({ id: skin.id, name: skin.name, rarity: skin.rarity });
       }
       if (options.length) {
-        payload.skin = true;
         payload.skinOptions = options;
         payload.skinChoicePending = 1;
       } else {
         const skin = rollCasinoSkin(rng, stakeKey, opts.luck || 0, unlockedSkins);
-        payload.skin = true; payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity;
-        delete payload.skinChoice;
+        payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity;
       }
     } else {
       const skin = rollCasinoSkin(rng, stakeKey, opts.luck || 0, unlockedSkins);
-      payload.skin = true; payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity;
+      payload.skinId = skin.id; payload.skinLabel = skin.name; payload.skinRarity = skin.rarity;
     }
   }
 
-  const positive = !!(payload.gld || payload.xp || payload.heal || payload.weaponCount || payload.weaponBoost || payload.abilityCount || payload.activeCdReduce || payload.rareCount || payload.rareProgress || payload.skinCount || payload.skinProgress || payload.jackpotCount);
-  payload.positive = positive ? 1 : 0;
+  const rewarded = casinoPayloadHasReward(payload);
+  payload.positive = rewarded ? 1 : 0;
   payload.noMatch = (!triple && !pair) ? 1 : 0;
 
   let outcome = 'LOSE';
-  if (payload.pairMatch && opts.allowPairDecision !== false) outcome = 'PAIR';
-  else if (triple?.symbol === 'JCK') outcome = 'JCK';
+  if (triple?.symbol === 'JCK') outcome = 'JCK';
   else if (triple && CASINO_POSITIVE.has(triple.symbol)) outcome = triple.symbol;
-  else if (positive && distinctPositive.size > 1) outcome = 'MIX';
-  else if (positive) outcome = positiveKinds[0] || 'MIX';
-  else if (payload.staticCount) outcome = 'STC';
-  else if (payload.lockCredits) outcome = 'LOCK';
+  else if (payload.pairMatch) outcome = 'PAIR';
+  else if (rewarded) {
+    const positive = clean.filter(s => CASINO_POSITIVE.has(s));
+    outcome = new Set(positive).size > 1 ? 'MIX' : (positive[0] || 'MIX');
+  } else if (payload.staticCount) outcome = 'STC';
   return { symbols: clean, outcome, payload, stake };
 }
 
 export function casinoPayloadHasReward(payload = {}) {
-  return !!(payload.gld || payload.xp || payload.heal || payload.mixedChoicePending || payload.weaponCount || payload.weaponBoost || payload.abilityCount || payload.activeCdReduce || payload.rareCount || payload.rareProgress || payload.skinCount || payload.skinProgress || payload.jackpotCount);
+  return !!(payload.gld || payload.xp || payload.heal || payload.weaponCount || payload.weaponBoost || payload.abilityCount || payload.activeCdReduce || payload.rareCount || payload.rareProgress || payload.skinCount || payload.skinProgress || payload.jackpotCount || payload.skinChoicePending);
 }
 
 export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const stake = BET_STAKES[stakeKey];
   const known = new Set(Array.isArray(unlockedSkins) ? unlockedSkins : []);
   const hasLockedSkin = SKIN_PRESETS.some(s => s.rarity !== 'basic' && !known.has(s.id));
-  const slotLocks = Array.isArray(opts.slotLocks) ? opts.slotLocks.slice(0, 3).map(casinoCleanSymbol) : [];
+  const slotLocks = Array.isArray(opts.slotLocks) ? opts.slotLocks.slice(0, 3).map(s => { const x = casinoCleanSymbol(s); return CASINO_POSITIVE.has(x) ? x : ''; }) : [];
   while (slotLocks.length < 3) slotLocks.push('');
+
   const symbols = ['', '', ''];
+  const nextLocks = slotLocks.slice();
   const cells = [];
-  for (let i = 0; i < 3; i++) {
-    if (slotLocks[i]) {
-      symbols[i] = slotLocks[i];
-      cells.push({ slot: i, raw: slotLocks[i], symbol: slotLocks[i], locked: 1 });
+  let lockAnchor = slotLocks.find(Boolean) || '';
+  let createdLock = false;
+
+  for (let slot = 0; slot < 3; slot++) {
+    const locked = casinoCleanSymbol(slotLocks[slot]);
+    if (locked) {
+      const symbol = locked === 'SKN' && !hasLockedSkin ? 'RAR' : locked;
+      symbols[slot] = symbol;
+      nextLocks[slot] = symbol;
+      if (!lockAnchor) lockAnchor = symbol;
+      cells.push({ slot, raw: symbol, symbol, locked: 1 });
+      continue;
+    }
+
+    const raw = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin);
+    if (raw === 'LOCK') {
+      const symbol0 = lockAnchor || casinoLockPrize(rng, stakeKey, hasLockedSkin);
+      const symbol = symbol0 === 'SKN' && !hasLockedSkin ? 'RAR' : symbol0;
+      lockAnchor = symbol;
+      symbols[slot] = symbol;
+      nextLocks[slot] = symbol;
+      createdLock = true;
+      cells.push({ slot, raw: 'LOCK', symbol, lockCreated: 1 });
+    } else {
+      const symbol = raw === 'SKN' && !hasLockedSkin ? 'RAR' : raw;
+      symbols[slot] = symbol;
+      nextLocks[slot] = '';
+      cells.push({ slot, raw, symbol });
     }
   }
-  const free = [0,1,2].filter(i => !symbols[i]);
-  const pity = Math.max(0, Number(opts.pity || 0) | 0);
 
-  // HIGH always exposes at least one real reward symbol. Around a quarter of
-  // high rolls receive a premium WPN/ABL/RAR/SKN/JCK cell.
-  if (stakeKey === 'high' && free.length && !symbols.some(s => CASINO_POSITIVE.has(s))) {
-    const slot = free.splice(Math.floor(rng() * free.length), 1)[0];
-    const mode = rng() < casinoStakeProfile('high').premiumFloor ? 'premium' : 'useful';
-    symbols[slot] = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, mode);
-    cells.push({ slot, raw: symbols[slot], symbol: symbols[slot], guaranteed: 1 });
-  }
-  if (pity >= 4 && free.length >= 2) {
-    const pairSym = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, stakeKey === 'high' ? 'premium' : 'useful');
-    const a = free.splice(Math.floor(rng() * free.length), 1)[0];
-    const b = free.splice(Math.floor(rng() * free.length), 1)[0];
-    symbols[a] = pairSym; symbols[b] = pairSym;
-    cells.push({ slot: a, raw: pairSym, symbol: pairSym, pity: 4 }, { slot: b, raw: pairSym, symbol: pairSym, pity: 4 });
-  } else if (pity >= 2 && free.length && !symbols.some(s => CASINO_POSITIVE.has(s))) {
-    const slot = free.splice(Math.floor(rng() * free.length), 1)[0];
-    symbols[slot] = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, 'useful');
-    cells.push({ slot, raw: symbols[slot], symbol: symbols[slot], pity: 2 });
-  }
-  for (const slot of free) {
-    const symbol = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, 'normal');
-    symbols[slot] = symbol;
-    cells.push({ slot, raw: symbol, symbol });
-  }
-  cells.sort((a,b) => a.slot - b.slot);
-  const result = evaluateCasinoSymbols(rng, stakeKey, symbols, stake, unlockedSkins, cells, { slotLocks, luck, allowPairDecision: opts.allowPairDecision !== false });
+  const result = evaluateCasinoSymbols(rng, stakeKey, symbols, stake, unlockedSkins, cells, { slotLocks: nextLocks, luck });
   result.usedLock = slotLocks.some(Boolean);
   result.lockSymbol = slotLocks.filter(Boolean).join('+');
-  result.lockSlots = slotLocks.slice(0, 3);
-  result.payload.lockSlots = result.lockSlots;
+  result.lockSlots = nextLocks;
+  result.payload.lockSlots = nextLocks;
+  if (createdLock) {
+    result.payload.lock = 1;
+    result.payload.lockCreated = 1;
+    result.payload.lockLabel = nextLocks.filter(Boolean).join(' + ');
+    if (result.outcome === 'LOSE') result.outcome = 'LOCK';
+  }
   return result;
 }
 
+// Kept as a compatibility export for older clients. Pair results now resolve
+// immediately, so this simply evaluates the supplied cells without a decision.
 export function rerollCasinoPair(rng, stakeKey, luck, unlockedSkins = [], pending = {}) {
   const symbols = Array.isArray(pending.symbols) ? pending.symbols.slice(0, 3).map(casinoCleanSymbol) : ['BAD','BAD','BAD'];
   while (symbols.length < 3) symbols.push('BAD');
-  const oddSlot = Math.max(0, Math.min(2, Number(pending.oddSlot || 0) | 0));
-  const known = new Set(Array.isArray(unlockedSkins) ? unlockedSkins : []);
-  const hasLockedSkin = SKIN_PRESETS.some(s => s.rarity !== 'basic' && !known.has(s.id));
-  const raw = casinoWeightedDraw(rng, stakeKey, luck, hasLockedSkin, stakeKey === 'high' && rng() < 0.18 ? 'premium' : 'normal');
-  symbols[oddSlot] = raw;
-  const slotLocks = Array.isArray(pending.slotLocks) ? pending.slotLocks.slice(0, 3).map(casinoCleanSymbol) : ['', '', ''];
-  const cells = symbols.map((symbol, slot) => ({ slot, raw: symbol, symbol, locked: slotLocks[slot] ? 1 : 0, rerolled: slot === oddSlot ? 1 : 0 }));
-  const result = evaluateCasinoSymbols(rng, stakeKey, symbols, pending.stake || BET_STAKES[stakeKey], unlockedSkins, cells, { slotLocks, luck, allowPairDecision: false });
-  result.usedLock = slotLocks.some(Boolean);
-  result.lockSymbol = slotLocks.filter(Boolean).join('+');
-  result.lockSlots = slotLocks;
-  result.payload.lockSlots = slotLocks;
-  result.payload.rerolled = 1;
-  result.payload.rerollSlot = oddSlot;
-  return result;
+  return evaluateCasinoSymbols(rng, stakeKey, symbols, pending.stake || BET_STAKES[stakeKey], unlockedSkins, symbols.map((symbol, slot) => ({ slot, raw: symbol, symbol })), { slotLocks: pending.slotLocks || ['', '', ''], luck });
 }
 
 // ---- room modifiers (rule events, not stat tweaks) ----------------------

@@ -209,7 +209,7 @@ Object.assign(EN_UPGRADE, {
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
   qrn_radius: 'QRN chains reach farther from the wall anchor.',
   qrn_hold: 'QRN chains hold threats longer.',
-  qrn_links: 'One QRN anchor can chain one more threat.',
+  qrn_links: 'One QRN anchor has no target cap. Each level acquires more threats per scan: +2, then +3, +4.',
   qrn_damage: 'QRN chains periodically discharge damage.',
   blood_ring: 'Follows you as a red square ring. Threats inside take repeated blood damage.',
   field_snap: 'Pulls threats and pickups inward, then leaves a slowing field.',
@@ -279,10 +279,10 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB marks targets; shots cycle through the marked queue.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release. They deal no damage until upgraded.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
+  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB assigns priority targets. Its channels fire together in a short stagger.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release. They deal no damage until upgraded.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
 };
 const RU_WEAPON = {
-  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ отмечает цели; выстрелы идут по очереди.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают. Без усиления урона не наносят.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
+  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ задаёт приоритетные цели. Каналы стреляют коротким залпом.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают. Без усиления урона не наносят.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
@@ -441,7 +441,20 @@ export function denyText(f = {}) {
     'missing': t('qNoneLong'),
     'charges': localText('НЕТ ЗАРЯДОВ Q', 'NO Q CHARGES'),
     'NO SPIKE CHARGES': localText('НЕТ ЗАРЯДОВ SPIKE', 'NO SPIKE CHARGES'),
-    'cooldown': localText('ЖДИ', 'WAIT')
+    'cooldown': localText('ЖДИ', 'WAIT'),
+    'CTRL_NO_TARGET': localText('CMD: ЦЕЛЬ НЕ ВЫБРАНА', 'CMD: NO TARGET SELECTED'),
+    'CTRL_TARGET_GONE': localText('CMD: ЦЕЛЬ УЖЕ УДАЛЕНА', 'CMD: TARGET ALREADY DELETED'),
+    'CTRL_TARGET_UNSTABLE': localText('CMD: СИГНАЛ ЕЩЁ НЕ СТАБИЛЕН', 'CMD: SIGNAL NOT STABLE YET'),
+    'CTRL_TARGET_PROTECTED': localText('CMD: ПРОЦЕСС ЗАЩИЩЁН', 'CMD: PROCESS PROTECTED'),
+    'CTRL_BREAK_SHELL': localText('CMD: СНАЧАЛА РАЗРУШЬ ОБОЛОЧКУ', 'CMD: BREAK THE SHELL FIRST'),
+    'CTRL_NEED_ASSIM_1': localText('CMD: НУЖНА АССИМИЛЯЦИЯ I', 'CMD: NEED ASSIMILATION I'),
+    'CTRL_NEED_ASSIM_2': localText('CMD: НУЖНА АССИМИЛЯЦИЯ II', 'CMD: NEED ASSIMILATION II'),
+    'CTRL_NEED_ASSIM_3': localText('CMD: НУЖНА АССИМИЛЯЦИЯ III', 'CMD: NEED ASSIMILATION III'),
+    'CTRL_NEED_ASSIM_4': localText('CMD: НУЖНА АССИМИЛЯЦИЯ IV', 'CMD: NEED ASSIMILATION IV'),
+    'CTRL_OUT_OF_RANGE': localText('CMD: ЦЕЛЬ ВНЕ ДАЛЬНОСТИ', 'CMD: TARGET OUT OF RANGE'),
+    'CTRL_SIGNAL_BLOCKED': localText('CMD: СИГНАЛ ПЕРЕКРЫТ СТЕНОЙ', 'CMD: SIGNAL BLOCKED BY WALL'),
+    'CTRL_NO_SLOT': localText('CMD: НЕТ СВОБОДНОГО СЛОТА', 'CMD: NO FREE PROCESS SLOT'),
+    'SAW_NO_SLOT': localText('SAW: НЕТ СВОБОДНОГО СЛОТА', 'SAW: NO FREE PROCESS SLOT')
   };
   return map[reason] || String(f?.label || reason || t('denied'));
 }
@@ -476,7 +489,7 @@ export function optionDesc(opt = {}) {
   if (kind.startsWith('lc_')) {
     const desc = {
       lc_spark_unlock: localText('Открывает модуль искр контроля и вторую линию наведения.', 'Unlocks the control-spark module and its second targeting line.'),
-      lc_target_slot: localText('Добавляет ещё одну цель в очередь казино-модуля.', 'Adds one more target to the casino module queue.'),
+      lc_target_slot: localText('Добавляет канал LVC: ещё один выстрел в залпе.', 'Adds an LVC channel: one more shot in each volley.'),
       lc_spark_count: localText('Добавляет заряд искры и ещё одно указание цели.', 'Adds one control spark charge and one target instruction.'),
       lc_spark_damage: localText('Даёт искрам урон во время связи. Без этого усиления они только контролируют угрозу.', 'Gives sparks damage while linked. Without this upgrade they only control the threat.'),
       lc_spark_hold: localText('Искры дольше удерживают угрозу перед отталкиванием.', 'Control sparks hold threats longer before release.'),
@@ -567,7 +580,7 @@ Object.assign(EN_LABEL, {
   'SAW: РАЗБОР': 'SAW MASS CAPTURE',
   'QRN: ДАЛЬНОСТЬ +': 'QRN RANGE +',
   'QRN: УДЕРЖАНИЕ +': 'QRN HOLD +',
-  'QRN: ЦЕПЬ +1': 'QRN CHAIN +1',
+  'QRN: ЗАХВАТ +': 'QRN ACQUIRE +',
   'QRN: РАЗРЯД +': 'QRN DISCHARGE +',
   'ТЕМП ОРУЖИЯ +14%': 'WEAPON RATE +14%',
   'СРОК КОНТРОЛЯ +': 'CONTROL TIMER +',
@@ -736,7 +749,6 @@ export function applyStaticI18n() {
   setText('btn-join', t('join'));
   setPlaceholder('name-input', t('namePlaceholder'));
   setPlaceholder('room-input', t('codePlaceholder'));
-  setHTML('menu-controls', localText(`<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">ЛКМ</span> — ${t('fire')} · <span class="term">ПКМ</span> — доп. действие · <span class="term">Пробел</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`, `<span class="term" data-explain-title="${t('controlsTitle')}" data-explain="${t('controlsBody')}">WASD</span> — ${t('movement')} · <span class="term">LMB</span> — ${t('fire')} · <span class="term">RMB</span> — hero action · <span class="term">Space</span> — ${t('inspect')} · <span class="term">Shift</span> — ${t('dash')} · <span class="term">E</span> — ${t('interact')} · <span class="term">Q</span> — ${t('qActive')} · <span class="term">Tab</span> — ${t('panel')}`));
   setText('casino-state', localText('ГОТОВ', 'READY'));
   const installTitle = document.querySelector('#install-modal .panel-title');
   if (installTitle) installTitle.innerHTML = `${t('installTitle')} <span id="install-pending"></span>`;
@@ -789,7 +801,6 @@ export function applyStaticI18n() {
   setExplainId('btn-create', t('create'), t('createBody'));
   setExplainId('room-input', t('codeTitle'), t('codeBody'));
   setExplainId('btn-join', t('join'), t('joinBody'));
-  setExplainId('menu-controls', t('controlsTitle'), t('controlsBody'));
   const audioLabels = document.querySelectorAll('#audio-settings label span');
   if (audioLabels[0]) audioLabels[0].textContent = t('musicLabel');
   if (audioLabels[1]) audioLabels[1].textContent = t('sfxLabel');

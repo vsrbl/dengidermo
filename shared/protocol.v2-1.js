@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.172';
-export const BUILD_ID = 'casino_terminal_rework';
+export const VERSION = 'v2.1.175';
+export const BUILD_ID = 'enemy_pathfinding_controller_capture_anchor_rework';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
