@@ -636,7 +636,10 @@ net.on('ability_offer', (m) => hud.openAbilityChest(m.choices, m.meta));
 net.on('ability_offer_close', () => hud.closeAbilityChest());
 net.on('rare_offer', (m) => hud.openRareChest(m.choices, m.meta));
 net.on('rare_offer_close', () => hud.closeRareChest());
-net.on('casino_result', (m) => { if (m?.id === state.myId) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
+net.on('casino_result', (m) => { if (m?.id === state.myId && !m?.payload?.decisionPending) handleCasinoSkinReward(m.payload || {}); hud.casinoResult(m, state.myId); });
+net.on('casino_lock_result', (m) => hud.casinoLockResult(m, state.myId));
+net.on('casino_skin_result', (m) => { if (m?.ok && m?.id === state.myId && m.skinId) handleSkinUnlock(m.skinId, 'casino'); hud.casinoSkinResult(m, state.myId); });
+net.on('casino_prize_result', (m) => hud.casinoPrizeResult(m, state.myId));
 net.on('error', (m) => { if (!inGame) setStatusKey(m.error === 'room not found' ? 'roomNotFound' : m.error === 'room full' ? 'roomFull' : 'error', 'err'); });
 net.on('room_closed', () => location.reload());
 net.on('_closed', () => {

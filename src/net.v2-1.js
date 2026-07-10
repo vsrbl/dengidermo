@@ -212,6 +212,10 @@ export class Net {
   sendInput(i) { this._game({ t: 'input', ...i }, false); }
   sendCasino(stake) { this._game({ t: 'casino', stake, skins: Array.isArray(this._skinUnlocks) ? this._skinUnlocks : [] }, true); }
   sendCasinoClose() { this._game({ t: 'casino_close' }, true); }
+  sendCasinoDecision(action) { this._game({ t: 'casino_decision', action: String(action || ''), skins: Array.isArray(this._skinUnlocks) ? this._skinUnlocks : [] }, true); }
+  sendCasinoLock(slot) { this._game({ t: 'casino_lock', slot: Number(slot) | 0 }, true); }
+  sendCasinoSkinPick(choice) { this._game({ t: 'casino_skin_pick', choice: Number(choice) | 0 }, true); }
+  sendCasinoPrizePick(choice) { this._game({ t: 'casino_prize_pick', choice: Number(choice) | 0 }, true); }
   sendPick(choice, offerId = 0) { this._game({ t: 'pick', choice, offerId }, true); }
   sendWeaponPick(choice) { this._game({ t: 'weapon_pick', choice }, true); }
   sendAbilityPick(choice) { this._game({ t: 'ability_pick', choice }, true); }

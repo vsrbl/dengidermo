@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
+  handleCasino, handleCasinoClose, handleCasinoDecision, handleCasinoLock, handleCasinoSkinPick, handleCasinoPrizePick, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -101,6 +101,26 @@ export class LocalRoom {
       const p = this.players.get(playerId);
       if (!p) return;
       handleCasinoClose(this.run, this.players, p);
+    } else if (m.t === 'casino_decision') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const result = handleCasinoDecision(this.run, this.players, p, String(m.action || ''), Array.isArray(m.skins) ? m.skins : []);
+      this.sendTo(playerId, { ...(result || { ok: false, error: 'CASINO DECISION FAILED' }), t: 'casino_result' }, true);
+    } else if (m.t === 'casino_lock') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const result = handleCasinoLock(this.run, this.players, p, Number(m.slot));
+      this.sendTo(playerId, { ...(result || { ok: false, error: 'CASINO LOCK FAILED' }), t: 'casino_lock_result' }, true);
+    } else if (m.t === 'casino_skin_pick') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const result = handleCasinoSkinPick(this.run, this.players, p, Number(m.choice));
+      this.sendTo(playerId, { ...(result || { ok: false, error: 'CASINO SKIN FAILED' }), t: 'casino_skin_result' }, true);
+    } else if (m.t === 'casino_prize_pick') {
+      const p = this.players.get(playerId);
+      if (!p) return;
+      const result = handleCasinoPrizePick(this.run, this.players, p, Number(m.choice));
+      this.sendTo(playerId, { ...(result || { ok: false, error: 'CASINO PRIZE FAILED' }), t: 'casino_prize_result' }, true);
     } else if (m.t === 'pick') {
       const p = this.players.get(playerId);
       if (!p) return;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminal Casino Roguelike</title>
-<link rel="stylesheet" href="style.css?v=2.1.171">
+<link rel="stylesheet" href="style.css?v=2.1.172">
 </head>
 <body>
 <svg id="tcr-render-filters" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
@@ -42,7 +42,7 @@
       <div id="hud-meta">
       <span class="lang-mini" id="hud-lang" data-explain-title="LANGUAGE" data-explain="Switch UI language."><button type="button" data-lang-btn="ru">RU</button><button type="button" data-lang-btn="en">ENG</button></span>
       <span class="sep">|</span>
-      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.171</span>
+      <span id="hud-version" data-explain-title="ВЕРСИЯ" data-explain="Текущая версия игры.">v2.1.172</span>
       <span class="sep">|</span>
       <span id="hud-room" data-explain-title="СЕКТОР" data-explain="Код сетевой сектора и текущая игровая локация внутри забега.">----</span>
       <span class="sep">|</span>
@@ -132,13 +132,21 @@
     </div>
     <div id="casino-lock-badge" class="casino-lock-badge hidden" aria-hidden="true"></div>
     <div id="casino-result" class="casino-result-card"></div>
-    <div id="casino-help" class="casino-help hidden" aria-hidden="true"></div>
+    <div id="casino-status" class="casino-status" aria-live="polite">
+      <span id="casino-pity">ПЕРЕВЕС 0/4</span><span id="casino-heat">НАГРЕВ 0/3</span><span id="casino-locks">ФИКС 0</span>
+    </div>
+    <div id="casino-actions" class="casino-actions hidden" aria-hidden="true">
+      <button type="button" data-casino-action="take">ЗАБРАТЬ</button>
+      <button type="button" data-casino-action="reroll">ДОКРУТИТЬ</button>
+    </div>
+    <div id="casino-skin-actions" class="casino-skin-actions hidden" aria-hidden="true"></div>
+    <div id="casino-help" class="casino-help" aria-hidden="false">Полезные символы платят сразу. Пары можно забрать или докрутить.</div>
     <div id="casino-stakes">
       <button type="button" data-stake="low">LOW<br>20</button>
-      <button type="button" data-stake="mid">MID<br>50</button>
-      <button type="button" data-stake="high">HIGH<br>120</button>
+      <button type="button" data-stake="mid">MID<br>55</button>
+      <button type="button" data-stake="high">HIGH<br>135</button>
     </div>
-    <div class="hint">1 / 2 / 3 — ставка · ESC — выйти</div>
+    <div id="casino-hint" class="hint">1 / 2 / 3 — ставка · ФИКС: нажми на нужный барабан · ESC — выйти</div>
   </div>
   <div id="casino-luck-card" class="casino-luck-card" aria-live="polite"></div>
 </div>
@@ -163,7 +171,7 @@
       <button id="btn-join" data-explain-title="ВОЙТИ" data-explain="Подключиться к секторе по коду.">ВОЙТИ</button>
     </div>
     <div id="menu-status">CONNECTING…</div>
-    <div id="menu-version" class="menu-version">VERSION v2.1.171</div>
+    <div id="menu-version" class="menu-version">VERSION v2.1.172</div>
     <div id="audio-settings" class="audio-settings" data-explain-title="ЗВУК" data-explain="Раздельная громкость музыки и игровых звуков. Сохраняется на этом устройстве.">
       <label><span>МУЗЫКА</span><input id="music-volume" type="range" min="0" max="100" value="62"></label>
       <label><span>ЗВУКИ</span><input id="sfx-volume" type="range" min="0" max="100" value="85"></label>
@@ -177,7 +185,7 @@
       <div class="hero-head"><span>АНТИВИРУС</span><span id="hero-status">БАЗОВЫЙ</span></div>
       <div class="hero-cards">
         <button type="button" class="hero-card selected" data-hero="base" data-explain-title="БАЗОВЫЙ АНТИВИРУС" data-explain="Стартовый антивирус: прямой бой и обычные модули оружия."><span class="hero-title">БАЗОВЫЙ АНТИВИРУС</span><span class="hero-desc">прямой боевой протокол</span></button>
-        <button type="button" class="hero-card" data-hero="living_casino" data-explain-title="ЖИВОЕ КАЗИНО" data-explain="Две автономные пушки. ЛКМ и ПКМ отмечают цели для каждой линии огня."><span class="hero-title">ЖИВОЕ КАЗИНО</span><span class="hero-desc">казино-протокол</span></button>
+        <button type="button" class="hero-card" data-hero="living_casino" data-explain-title="ЖИВОЕ КАЗИНО" data-explain="Автономная пушка сама ведёт огонь. Искры контроля открываются во время забега."><span class="hero-title">ЖИВОЕ КАЗИНО</span><span class="hero-desc">казино-протокол</span></button>
         <button type="button" class="hero-card" data-hero="process_controller" data-explain-title="КОНТРОЛЁР ПРОЦЕССОВ" data-explain="Ядро контроля: захватывает процессы, отдаёт команды ПКМ и ставит карантинные якоря у стен."><span class="hero-title">КОНТРОЛЁР ПРОЦЕССОВ</span><span class="hero-desc">контроль процессов</span></button>
       </div>
     </div>
@@ -196,7 +204,7 @@
 </div>
 
 <div id="global-digital-filter" aria-hidden="true"></div>
-<script src="config.js?v=2.1.171"></script>
-<script type="module" src="src/main.v2-1.js?v=2.1.171"></script>
+<script src="config.js?v=2.1.172"></script>
+<script type="module" src="src/main.v2-1.js?v=2.1.172"></script>
 </body>
 </html>

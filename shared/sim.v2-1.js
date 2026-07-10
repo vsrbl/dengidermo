@@ -2,7 +2,7 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS, ACTIVE_MUTATION_SLOTS,
-  rollUpgradeChoices, defaultStats, spinCasino, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
+  rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
 } from './data.v2-1.js';
 import { generateRoom, spawnPoint, enemySpawnPoint, portalSpot, mulberry32, WALL_T } from './mapgen.v2-1.js';
 
@@ -568,12 +568,38 @@ function casinoSlotLocksSetForPlayer(p, locks = []) {
   p.casinoLockSymbol = casinoSlotLockDisplayForPlayer(p);
   return p.casinoSlotLocks;
 }
+function ensureCasinoSession(p) {
+  if (!p) return null;
+  if (!p.casinoSession || typeof p.casinoSession !== 'object') p.casinoSession = {};
+  const c = p.casinoSession;
+  c.heat = Math.max(0, Math.min(3, Number(c.heat || 0) | 0));
+  c.pity = Math.max(0, Math.min(4, Number(c.pity || 0) | 0));
+  c.lockCredits = Math.max(0, Math.min(9, Number(c.lockCredits || 0) | 0));
+  c.rareProgress = Math.max(0, Math.min(2, Number(c.rareProgress || 0) | 0));
+  c.skinProgress = Math.max(0, Math.min(2, Number(c.skinProgress || 0) | 0));
+  c.lastSymbols = Array.isArray(c.lastSymbols) ? c.lastSymbols.slice(0, 3).map(casinoCleanSlotLockSymbol) : ['', '', ''];
+  while (c.lastSymbols.length < 3) c.lastSymbols.push('');
+  c.pendingPair = c.pendingPair && typeof c.pendingPair === 'object' ? c.pendingPair : null;
+  c.pendingSkin = c.pendingSkin && typeof c.pendingSkin === 'object' ? c.pendingSkin : null;
+  c.pendingPrize = c.pendingPrize && typeof c.pendingPrize === 'object' ? c.pendingPrize : null;
+  return c;
+}
+function casinoSessionSnapshot(p) {
+  const c = ensureCasinoSession(p);
+  return c ? { heat: c.heat, pity: c.pity, lockCredits: c.lockCredits, rareProgress: c.rareProgress, skinProgress: c.skinProgress, pendingPair: c.pendingPair ? 1 : 0, pendingSkin: c.pendingSkin ? 1 : 0, pendingPrize: c.pendingPrize ? 1 : 0, lockSlots: casinoSlotLocksForPlayer(p).slice(0, 3) } : null;
+}
 export function handleCasinoClose(run, players, p) {
   if (!p) return false;
+  const c = ensureCasinoSession(p);
   p.casinoSlotLocks = ['', '', ''];
   p.casinoLockStack = [];
   p.casinoLockSymbol = '';
   p.casinoFullLockSpins = 0;
+  c.lockCredits = 0;
+  c.lastSymbols = ['', '', ''];
+  c.pendingPair = null;
+  c.pendingSkin = null;
+  c.pendingPrize = null;
   return true;
 }
 function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
@@ -4376,6 +4402,10 @@ export function startRoom(run, players) {
     p.weaponChestOffer = null;
     p.abilityChestOffer = null;
     p.rareChestOffer = null;
+    p.casinoSlotLocks = ['', '', ''];
+    p.casinoLockStack = [];
+    p.casinoLockSymbol = '';
+    p.casinoSession = { heat: 0, pity: 0, lockCredits: 0, rareProgress: 0, skinProgress: 0, lastSymbols: ['', '', ''], pendingPair: null, pendingSkin: null, pendingPrize: null };
     restoreProcessControllerAfterRoomStart(p, i);
     if (p.nextRoomSparkDrain && isLivingCasinoPlayer(p)) {
       const lc = ensureLivingCasinoState(p);
@@ -9032,110 +9062,400 @@ export function handleDevCommand(run, players, p, cmd = {}) {
   return false;
 }
 
+function casinoFinalOutcome(res = {}) {
+  const pl = res.payload || {};
+  const sym = String(pl.paySymbol || pl.pairSymbol || '').toUpperCase();
+  if (pl.tripleMatch && sym === 'JCK') return 'JCK';
+  if (pl.tripleMatch && ['GLD','EXP','HEA','WPN','ABL','RAR','SKN'].includes(sym)) return sym;
+  if (pl.pairMatch && ['GLD','EXP','HEA','WPN','ABL','RAR','SKN','JCK'].includes(sym)) return sym === 'JCK' ? 'JCK' : sym;
+  if (casinoPayloadHasReward(pl)) {
+    const rewardKinds = ['gld','xp','heal','weaponCount','weaponBoost','abilityCount','activeCdReduce','rareCount','rareProgress','skinCount','skinProgress','jackpotCount'].filter(k => Number(pl[k] || 0) > 0);
+    return rewardKinds.length > 1 || pl.mixedBonus ? 'MIX' : (res.outcome === 'PAIR' ? (sym || 'MIX') : (res.outcome || 'MIX'));
+  }
+  if (pl.staticCount || pl.static) return 'STC';
+  if (pl.lockCredits) return 'LOCK';
+  return 'LOSE';
+}
+
+function casinoCharge(run, p, amount, near, bloodTax = false) {
+  const cost = Math.max(0, Math.round(amount || 0));
+  if (!cost) return true;
+  if (bloodTax) {
+    const hpCost = bloodTaxHpCost(cost);
+    if (!canPayBloodCost(p, hpCost)) {
+      run.fx.push({ t: 'denied', id: p.id, obj: near?.id || '', hpCost: 1, cost: hpCost, have: Math.round(p.hp), reason: 'NO HP' });
+      return false;
+    }
+    payBloodCost(run, p, hpCost, near?.x || p.x, near?.y || p.y, 54);
+    return !!p.alive;
+  }
+  if (p.economy.money < cost) {
+    run.fx.push({ t: 'denied', id: p.id, obj: near?.id || '' });
+    return false;
+  }
+  p.economy.money -= cost;
+  return true;
+}
+
+function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
+  const c = ensureCasinoSession(p);
+  const pl = res.payload || (res.payload = {});
+  const stakeKey = ctx.stakeKey || 'low';
+  const baseStake = Math.max(1, Number(ctx.baseStake || BET_STAKES[stakeKey] || 1));
+  const stake = Math.max(1, Number(ctx.stake || res.stake || baseStake));
+  const totalPaid = Math.max(stake, Number(ctx.totalPaid || stake));
+  const knownUnlockedSkins = Array.isArray(ctx.knownUnlockedSkins) ? ctx.knownUnlockedSkins : [];
+  const priorSlotLocks = Array.isArray(ctx.priorSlotLocks) ? ctx.priorSlotLocks.slice(0, 3) : casinoSlotLocksForPlayer(p).slice(0, 3);
+  const near = ctx.near || null;
+  const bloodTax = !!ctx.bloodTax;
+  const stakeScale = Math.max(1, stake / baseStake);
+  const greedGoldBonus = isGreedRoom(run) && pl.gld ? 1.35 : 1;
+
+  if (pl.gld) pl.gld = Math.round(pl.gld * stakeScale * greedGoldBonus);
+  if (pl.xp) pl.xp = Math.round(pl.xp * Math.min(4, Math.sqrt(stakeScale)));
+
+  c.rareProgress += Math.max(0, Number(pl.rareProgress || 0) | 0);
+  while (c.rareProgress >= 3) {
+    c.rareProgress -= 3;
+    pl.rareCount = Math.max(0, Number(pl.rareCount || 0) | 0) + 1;
+    pl.rare = true;
+  }
+  c.skinProgress += Math.max(0, Number(pl.skinProgress || 0) | 0);
+  while (c.skinProgress >= 3) {
+    c.skinProgress -= 3;
+    const skin = rollCasinoSkin(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins);
+    pl.skin = true; pl.skinCount = Math.max(1, Number(pl.skinCount || 0) | 0);
+    pl.skinId = skin.id; pl.skinLabel = skin.name; pl.skinRarity = skin.rarity;
+  }
+
+  if (pl.gld) p.economy.money += pl.gld;
+  if (pl.xp) addXp(run, p, pl.xp);
+  if (pl.forceInstall) {
+    p.economy.pending = Math.max(0, Number(p.economy.pending || 0) | 0) + 1;
+    if (!p.offer && (run.phase === 'play' || run.phase === 'clear')) {
+      p.offer = makeInstallOffer(run, p);
+      if (p.offer) p.offer.kind = 'casino_install';
+    }
+  }
+  if (pl.fullHeal) p.hp = maxHp(p);
+  else if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
+  if (pl.healShield) p.invuln = Math.max(p.invuln || 0, 1.25);
+
+  if (pl.skinChoicePending && Array.isArray(pl.skinOptions) && pl.skinOptions.length) {
+    c.pendingSkin = {
+      options: pl.skinOptions.slice(0, 3).map(x => ({ id: String(x.id || ''), name: String(x.name || ''), rarity: String(x.rarity || 'uncommon') })).filter(x => x.id),
+      overloadAfterWin: 0
+    };
+    if (!c.pendingSkin.options.length) c.pendingSkin = null;
+  }
+
+  p.casinoComboLink = 0;
+  if (pl.comboLink) delete pl.comboLink;
+
+  const weaponBoost = Math.max(0, Number(pl.weaponBoost || 0) | 0);
+  if (weaponBoost) {
+    p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * Math.pow(1.04, weaponBoost);
+    pl.weaponBoostLabel = `WEAPON DMG +${weaponBoost * 4}%`;
+  }
+  const casinoOfferTier = Math.max(0, Math.min(2, (stakeKey === 'high' ? 2 : stakeKey === 'mid' ? 1 : 0) + (pl.tripleMatch ? 1 : 0)));
+  const casinoOfferBase = {
+    chestId: 'casino', valueTier: casinoOfferTier, valueLabel: stakeKey === 'high' ? 'PREMIUM' : stakeKey === 'mid' ? 'GOOD' : 'STANDARD',
+    valueLabelRu: stakeKey === 'high' ? 'ПРЕМИУМ' : stakeKey === 'mid' ? 'ХОРОШИЙ' : 'СТАНДАРТ',
+    rarityReason: 'BET TERMINAL', costPaid: 0, costUnit: 'GLD', picksTotal: 1, picksRemaining: 1, pickedLabels: []
+  };
+
+  if (pl.mixedChoicePending && Array.isArray(pl.mixedChoiceOptions) && pl.mixedChoiceOptions.length) {
+    c.pendingPrize = { options: pl.mixedChoiceOptions.slice(0, 3).map(x => String(x || '').toUpperCase()).filter(x => ['WPN','ABL','RAR'].includes(x)), qualityTier: casinoOfferTier, stakeKey, overloadAfterWin: 0 };
+    if (!c.pendingPrize.options.length) c.pendingPrize = null;
+  }
+
+  const rareCount = Math.max(0, Number(pl.rareCount || (pl.rare ? 1 : 0)) | 0);
+  if (rareCount) {
+    if (!p.rareChestOffer) {
+      const choices = makeRareChestChoices(p, Math.random, 2, casinoOfferTier);
+      if (choices.length) {
+        p.rareChestOffer = { ...casinoOfferBase, choices, slotCount: choices.length, bonusGld: rareCount >= 2 ? Math.round(baseStake * 0.35) : 0 };
+        pl.rareChoice = 1;
+        pl.rareLabel = rareCount >= 2 ? 'ENHANCED RAR CHOICE' : 'RAR CHOICE';
+      }
+    }
+    if (!pl.rareChoice) {
+      pl.rareLabels = [];
+      for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
+      pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
+    }
+  }
+  if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+
+  const activeCdReduce = Math.max(0, Number(pl.activeCdReduce || 0));
+  if (activeCdReduce) {
+    p.activeCd = Math.max(0, Number(p.activeCd || 0) - activeCdReduce);
+    p.rActiveCd = Math.max(0, Number(p.rActiveCd || 0) - activeCdReduce * 0.5);
+  }
+  const abilityCount = Math.max(0, Number(pl.abilityCount || (pl.ability ? 1 : 0)) | 0);
+  if (abilityCount) {
+    if (!p.abilityChestOffer) {
+      const choices = makeAbilityChestChoices(p, Math.random, 3, casinoOfferTier);
+      if (choices.length) {
+        p.abilityChestOffer = { ...casinoOfferBase, choices, slotCount: choices.length };
+        pl.abilityChoice = 1;
+        pl.abilityLabel = 'PROTOCOL CHOICE';
+      }
+    }
+    if (!pl.abilityChoice) {
+      pl.abilityLabels = [];
+      for (let i = 0; i < abilityCount; i++) {
+        const tmp = {};
+        if (!applyRandomCasinoAbility(run, players, p, tmp)) {
+          p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1';
+          p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+        }
+        pl.abilityLabels.push(tmp.abilityLabel || 'ABL');
+      }
+      pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
+    }
+  }
+
+  const weaponCount = Math.max(0, Number(pl.weaponCount || (pl.weapon ? 1 : 0)) | 0);
+  if (weaponCount) {
+    if (!p.weaponChestOffer) {
+      const choices = makeWeaponChestChoices(p, Math.random, 3, casinoOfferTier);
+      if (choices.length) {
+        p.weaponChestOffer = { ...casinoOfferBase, choices, slotCount: choices.length };
+        pl.weaponChoice = 1;
+        pl.weaponLabel = 'WEAPON CHOICE';
+      }
+    }
+    if (!pl.weaponChoice) {
+      pl.weaponLabels = [];
+      for (let i = 0; i < weaponCount; i++) {
+        const unowned = allowedWeaponOrderForPlayer(p).filter(w => !p.weapons.includes(w));
+        if (unowned.length) {
+          const w = unowned[Math.floor(Math.random() * unowned.length)];
+          p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
+        } else {
+          p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15;
+          pl.weaponLabels.push('WEAPON DMG +15%');
+        }
+      }
+      pl.weaponLabel = pl.weaponLabels.join(' + ');
+    }
+  }
+
+  const staticCount = Math.max(0, Number(pl.staticCount || (pl.static ? 1 : 0)) | 0);
+  for (let i = 0; i < staticCount; i++) addStaticDebt(run, 1, 'casino_bet');
+
+  c.lockCredits = Math.min(9, c.lockCredits + Math.max(0, Number(pl.lockCredits || 0) | 0));
+  c.lastSymbols = (res.symbols || []).slice(0, 3).map(casinoCleanSlotLockSymbol);
+  while (c.lastSymbols.length < 3) c.lastSymbols.push('');
+
+  const rewarded = casinoPayloadHasReward(pl);
+  const heatBefore = c.heat;
+  let overloadAfterWin = false;
+  if (rewarded) {
+    if (heatBefore >= 3) {
+      overloadAfterWin = true;
+      c.heat = 0;
+    } else c.heat = Math.min(3, heatBefore + (stakeKey === 'high' ? 2 : 1));
+    c.pity = 0;
+  } else {
+    c.heat = 0;
+    c.pity = Math.min(4, c.pity + 1);
+  }
+
+  if (run.roomObjective && run.roomObjective.id && run.roomObjective.id !== 'lounge_cashout') {
+    if (!run.roomContractStakes || typeof run.roomContractStakes !== 'object') run.roomContractStakes = {};
+    run.roomContractStakes[p.id] = Math.max(0, (run.roomContractStakes[p.id] || 0)) + Math.max(0, totalPaid | 0);
+    pl.contractStake = run.roomContractStakes[p.id];
+  }
+
+  res.outcome = casinoFinalOutcome(res);
+  pl.positive = rewarded ? 1 : 0;
+  pl.heat = c.heat; pl.pity = c.pity; pl.lockCreditsLeft = c.lockCredits;
+  pl.rareProgressTotal = c.rareProgress; pl.skinProgressTotal = c.skinProgress;
+  pl.totalPaid = totalPaid;
+
+  if (overloadAfterWin) {
+    pl.overloadAfterWin = 1;
+    if (c.pendingSkin) c.pendingSkin.overloadAfterWin = 1;
+    if (c.pendingPrize) c.pendingPrize.overloadAfterWin = 1;
+    spawnCasinoOverloadSlotMob(run, players, near || { x: p.x, y: p.y }, p);
+    if (near?.id) run.plan.interactables = (run.plan.interactables || []).filter(o => o && o.id !== near.id);
+    casinoSlotLocksSetForPlayer(p, ['', '', '']);
+    c.lockCredits = 0; c.lastSymbols = ['', '', '']; c.pity = 0;
+    pl.lockCreditsLeft = 0; pl.heat = 0;
+  }
+
+  const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
+  const fx = {
+    ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq,
+    symbols: res.symbols, outcome: res.outcome, payload: pl, stake,
+    lockUsed: priorSlotLocks.some(Boolean) ? 1 : 0,
+    lockSymbol: priorSlotLocks.filter(Boolean).join('+'),
+    lockLeft: casinoSlotLockDisplayForPlayer(p), lockSlots: casinoSlotLocksForPlayer(p).slice(0, 3),
+    hpStake: bloodTax ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: bloodTax ? 1 : 0,
+    casino: casinoSessionSnapshot(p), overloadAfterWin: overloadAfterWin ? 1 : 0
+  };
+  run.fx.push(fx);
+  return fx;
+}
+
+export function handleCasinoLock(run, players, p, slot) {
+  const fail = error => ({ ok: false, error, id: p?.id || '' });
+  if (!p) return fail('NO PLAYER');
+  const c = ensureCasinoSession(p);
+  if (c.pendingPair) return fail('PAIR DECISION');
+  if (c.pendingSkin) return fail('SKIN DECISION');
+  if (c.pendingPrize) return fail('PRIZE DECISION');
+  const i = Number(slot) | 0;
+  if (i < 0 || i > 2) return fail('INVALID SLOT');
+  if (c.lockCredits <= 0) return fail('NO LOCK');
+  const locks = casinoSlotLocksForPlayer(p).slice(0, 3);
+  if (locks[i]) return fail('SLOT LOCKED');
+  if (locks.filter(Boolean).length >= 2) return fail('LOCK LIMIT');
+  const symbol = casinoCleanSlotLockSymbol(c.lastSymbols[i]);
+  if (!['JCK','RAR','WPN','ABL','SKN','GLD','EXP','HEA'].includes(symbol)) return fail('INVALID LOCK TARGET');
+  locks[i] = symbol;
+  casinoSlotLocksSetForPlayer(p, locks);
+  c.lockCredits = Math.max(0, c.lockCredits - 1);
+  const result = { ok: true, id: p.id, slot: i, symbol, lockSlots: locks, lockCredits: c.lockCredits, casino: casinoSessionSnapshot(p) };
+  run.fx.push({ t: 'casino_lock', id: p.id, personal: 1, slot: i, symbol, lockSlots: locks, lockCredits: c.lockCredits });
+  return result;
+}
+
+export function handleCasinoPrizePick(run, players, p, choiceIdx) {
+  const fail = error => ({ ok: false, error, id: p?.id || '' });
+  if (!p) return fail('NO PLAYER');
+  const c = ensureCasinoSession(p);
+  const pending = c.pendingPrize;
+  if (!pending || !Array.isArray(pending.options) || !pending.options.length) return fail('NO PRIZE CHOICE');
+  const idx = Number(choiceIdx) | 0;
+  if (idx < 0 || idx >= pending.options.length) return fail('INVALID PRIZE');
+  const choice = pending.options[idx];
+  const qualityTier = Math.max(0, Math.min(2, Number(pending.qualityTier || 0) | 0));
+  const offerBase = {
+    chestId: 'casino', valueTier: qualityTier, valueLabel: qualityTier >= 2 ? 'PREMIUM' : qualityTier >= 1 ? 'GOOD' : 'STANDARD',
+    valueLabelRu: qualityTier >= 2 ? 'ПРЕМИУМ' : qualityTier >= 1 ? 'ХОРОШИЙ' : 'СТАНДАРТ',
+    rarityReason: 'BET TERMINAL', costPaid: 0, costUnit: 'GLD', picksTotal: 1, picksRemaining: 1, pickedLabels: []
+  };
+  if (choice === 'WPN') {
+    if (p.weaponChestOffer) return fail('WPN CHOICE BUSY');
+    const choices = makeWeaponChestChoices(p, Math.random, 3, qualityTier);
+    if (!choices.length) return fail('NO WPN CHOICE');
+    p.weaponChestOffer = { ...offerBase, choices, slotCount: choices.length };
+  } else if (choice === 'ABL') {
+    if (p.abilityChestOffer) return fail('ABL CHOICE BUSY');
+    const choices = makeAbilityChestChoices(p, Math.random, 3, qualityTier);
+    if (!choices.length) return fail('NO ABL CHOICE');
+    p.abilityChestOffer = { ...offerBase, choices, slotCount: choices.length };
+  } else if (choice === 'RAR') {
+    if (p.rareChestOffer) return fail('RAR CHOICE BUSY');
+    const choices = makeRareChestChoices(p, Math.random, 2, qualityTier);
+    if (!choices.length) return fail('NO RAR CHOICE');
+    p.rareChestOffer = { ...offerBase, choices, slotCount: choices.length, bonusGld: qualityTier >= 2 ? Math.round(BET_STAKES.high * 0.25) : 0 };
+  } else return fail('INVALID PRIZE');
+  const overloadAfterWin = pending.overloadAfterWin ? 1 : 0;
+  c.pendingPrize = null;
+  const result = { ok: true, id: p.id, choice, overloadAfterWin, casino: casinoSessionSnapshot(p) };
+  run.fx.push({ t: 'casino_prize_choice', id: p.id, personal: 1, choice });
+  return result;
+}
+
+export function handleCasinoSkinPick(run, players, p, choiceIdx) {
+  const fail = error => ({ ok: false, error, id: p?.id || '' });
+  if (!p) return fail('NO PLAYER');
+  const c = ensureCasinoSession(p);
+  const pending = c.pendingSkin;
+  if (!pending || !Array.isArray(pending.options) || !pending.options.length) return fail('NO SKIN CHOICE');
+  const idx = Number(choiceIdx) | 0;
+  if (idx < 0 || idx >= pending.options.length) return fail('INVALID SKIN');
+  const skin = pending.options[idx];
+  const overloadAfterWin = pending.overloadAfterWin ? 1 : 0;
+  c.pendingSkin = null;
+  const result = {
+    ok: true, id: p.id, skinId: skin.id, skinLabel: skin.name, skinRarity: skin.rarity,
+    overloadAfterWin, casino: casinoSessionSnapshot(p)
+  };
+  run.fx.push({ t: 'casino_skin', id: p.id, personal: 1, skinId: skin.id, skinLabel: skin.name, skinRarity: skin.rarity });
+  return result;
+}
+
+export function handleCasinoDecision(run, players, p, action, knownUnlockedSkins = []) {
+  const fail = error => ({ ok: false, error, id: p?.id || '' });
+  if (!p) return fail('NO PLAYER');
+  const c = ensureCasinoSession(p);
+  const pending = c.pendingPair;
+  if (!pending) return fail('NO PAIR');
+  const near = (run.plan.interactables || []).find(o => o && o.id === pending.nearId) || { id: pending.nearId, x: pending.nearX, y: pending.nearY };
+  const mode = String(action || '').toLowerCase();
+  if (mode !== 'take' && mode !== 'reroll') return fail('INVALID DECISION');
+
+  let res = pending.res;
+  let rerollCost = 0;
+  if (mode === 'reroll') {
+    rerollCost = roundCost(pending.stake * 0.40);
+    if (!casinoCharge(run, p, rerollCost, near, pending.bloodTax)) return fail(pending.bloodTax ? 'НЕДОСТАТОЧНО HP' : 'НЕДОСТАТОЧНО GLD');
+    res = rerollCasinoPair(Math.random, pending.stakeKey, p.stats.luck, knownUnlockedSkins, {
+      symbols: pending.res.symbols, oddSlot: pending.res.payload?.oddSlot, slotLocks: pending.priorSlotLocks, stake: pending.baseStake
+    });
+    res.payload.rerollCost = rerollCost;
+  } else {
+    res.payload.pairTaken = 1;
+    res.outcome = casinoFinalOutcome(res);
+  }
+  c.pendingPair = null;
+  return applyCasinoResolvedResult(run, players, p, res, {
+    stakeKey: pending.stakeKey, baseStake: pending.baseStake, stake: pending.stake,
+    totalPaid: pending.stake + rerollCost, knownUnlockedSkins, priorSlotLocks: pending.priorSlotLocks,
+    near, bloodTax: pending.bloodTax
+  });
+}
+
 export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = []) {
-  const fail = (error) => ({ ok: false, error, stakeKey });
-  if (!p.alive) return fail('ИГРОК DOWN');
+  const fail = (error) => ({ ok: false, error, stakeKey, id: p?.id || '' });
+  if (!p?.alive) return fail('ИГРОК DOWN');
   if (run.phase !== 'play' && run.phase !== 'clear') return fail('BET НЕДОСТУПЕН');
+  const c = ensureCasinoSession(p);
+  if (c.pendingPair) return fail('PAIR DECISION');
+  if (c.pendingSkin) return fail('SKIN DECISION');
+  if (c.pendingPrize) return fail('PRIZE DECISION');
   const baseStake = BET_STAKES[stakeKey];
   const stake = casinoStakeCost(run, stakeKey);
   if (!baseStake || !stake) return fail('НЕВЕРНАЯ СТАВКА');
   const near = run.plan.interactables.find(o => o.type === 'bet' && dist2(p.x, p.y, o.x, o.y) < (INTERACT_DIST + 30) ** 2);
   if (!near) return fail('ПОДОЙДИ К BET TERMINAL');
-  if (isBloodTaxRoom(run)) {
-    const hpCost = bloodTaxHpCost(stake);
-    if (!canPayBloodCost(p, hpCost)) {
-      run.fx.push({ t: 'denied', id: p.id, obj: near.id, hpCost: 1, cost: hpCost, have: Math.round(p.hp), reason: 'NO HP' });
-      return fail('НЕДОСТАТОЧНО HP');
-    }
-    payBloodCost(run, p, hpCost, near.x, near.y, 54);
-    if (!p.alive) return fail('HP PAID');
-  } else {
-    if (p.economy.money < stake) {
-      run.fx.push({ t: 'denied', id: p.id, obj: near.id });
-      return fail('НЕДОСТАТОЧНО GLD');
-    }
-    p.economy.money -= stake;
-  }
+  const bloodTax = isBloodTaxRoom(run);
+  if (!casinoCharge(run, p, stake, near, bloodTax)) return fail(bloodTax ? 'НЕДОСТАТОЧНО HP' : 'НЕДОСТАТОЧНО GLD');
+
   const priorSlotLocks = casinoSlotLocksForPlayer(p).slice(0, 3);
-  const fullLockedBeforeSpin = priorSlotLocks.every(Boolean);
-  if (fullLockedBeforeSpin) {
-    p.casinoFullLockSpins = Math.max(0, Number(p.casinoFullLockSpins || 0) | 0) + 1;
-    if (p.casinoFullLockSpins > 10) {
-      const lockedText = priorSlotLocks.join(' ');
-      casinoSlotLocksSetForPlayer(p, ['', '', '']);
-      p.casinoFullLockSpins = 0;
-      spawnCasinoOverloadSlotMob(run, players, near, p);
-      run.plan.interactables = (run.plan.interactables || []).filter(o => o && o.id !== near.id);
-      const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
-      const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: priorSlotLocks.slice(0, 3), outcome: 'OVERLOAD', payload: { overload: 1, paySymbol: '', noMatch: 1, lockedText }, stake, lockUsed: 1, lockSymbol: lockedText, lockLeft: '', lockSlots: ['', '', ''], hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
-      run.fx.push(fx);
-      return fx;
-    }
-  } else {
-    p.casinoFullLockSpins = 0;
-  }
-  let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { slotLocks: priorSlotLocks });
+  let res = spinCasino(Math.random, stakeKey, p.stats.luck, knownUnlockedSkins, { slotLocks: priorSlotLocks, pity: c.pity });
   res.stake = stake;
-  const pl = res.payload;
-  casinoSlotLocksSetForPlayer(p, res.lockSlots || pl.lockSlots || []);
-  if (!casinoSlotLocksForPlayer(p).every(Boolean)) p.casinoFullLockSpins = 0;
-  const stakeScale = Math.max(1, stake / Math.max(1, baseStake));
-  const greedGoldBonus = isGreedRoom(run) && pl.gld ? 1.35 : 1;
-  if (pl.gld) pl.gld = Math.round(pl.gld * stakeScale * greedGoldBonus);
-  if (pl.xp) pl.xp = Math.round(pl.xp * Math.min(4, Math.sqrt(stakeScale)));
-  if (pl.gld) p.economy.money += pl.gld;
-  if (pl.xp) addXp(run, p, pl.xp);
-  if (pl.heal) p.hp = Math.min(maxHp(p), p.hp + pl.heal);
-  // v2.1.77: casino LINK / COMBO PAY removed. Ignore old payloads/saves.
-  p.casinoComboLink = 0;
-  if (pl.comboLink) delete pl.comboLink;
-  const rareCount = Math.max(0, Number(pl.rareCount || (pl.rare ? 1 : 0)) | 0);
-  if (rareCount) {
-    pl.rareLabels = [];
-    for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
-    pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
+  const pl = res.payload || {};
+  pl.heat = c.heat; pl.pity = c.pity; pl.lockCreditsLeft = c.lockCredits;
+  pl.rareProgressTotal = c.rareProgress; pl.skinProgressTotal = c.skinProgress;
+
+  if (pl.pairMatch && !pl.tripleMatch) {
+    const rerollCost = roundCost(stake * 0.40);
+    c.pendingPair = {
+      stakeKey, baseStake, stake, res, priorSlotLocks, nearId: near.id, nearX: near.x, nearY: near.y,
+      bloodTax, rerollCost
+    };
+    const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
+    const fx = {
+      ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq,
+      symbols: res.symbols, outcome: 'PAIR', payload: { ...pl, decisionPending: 1, rerollCost }, stake,
+      lockUsed: priorSlotLocks.some(Boolean) ? 1 : 0, lockSymbol: priorSlotLocks.filter(Boolean).join('+'),
+      lockLeft: casinoSlotLockDisplayForPlayer(p), lockSlots: priorSlotLocks.slice(0, 3),
+      hpStake: bloodTax ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: bloodTax ? 1 : 0,
+      decision: { type: 'pair', rerollCost, rerollHpCost: bloodTax ? bloodTaxHpCost(rerollCost) : 0, oddSlot: pl.oddSlot, symbol: pl.pairSymbol }, casino: casinoSessionSnapshot(p)
+    };
+    run.fx.push(fx);
+    return fx;
   }
-  if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
-  const abilityCount = Math.max(0, Number(pl.abilityCount || (pl.ability ? 1 : 0)) | 0);
-  if (abilityCount) {
-    pl.abilityLabels = [];
-    for (let i = 0; i < abilityCount; i++) {
-      const before = pl.abilityLabel || '';
-      const tmp = {};
-      if (!applyRandomCasinoAbility(run, players, p, tmp)) {
-        p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1';
-        p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
-      }
-      pl.abilityLabels.push(tmp.abilityLabel || before || 'ABL');
-    }
-    pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
-  }
-  const weaponCount = Math.max(0, Number(pl.weaponCount || (pl.weapon ? 1 : 0)) | 0);
-  if (weaponCount) {
-    pl.weaponLabels = [];
-    for (let i = 0; i < weaponCount; i++) {
-      const unowned = allowedWeaponOrderForPlayer(p).filter(w => !p.weapons.includes(w));
-      if (unowned.length) {
-        const w = unowned[Math.floor(Math.random() * unowned.length)];
-        p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
-      } else {
-        p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15;
-        pl.weaponLabels.push('WEAPON DMG +15%');
-      }
-    }
-    pl.weaponLabel = pl.weaponLabels.join(' + ');
-  }
-  const staticCount = Math.max(0, Number(pl.staticCount || (pl.static ? 1 : 0)) | 0);
-  for (let i = 0; i < staticCount; i++) addStaticDebt(run, 1, 'casino_bet');
-  if (run.roomObjective && run.roomObjective.id && run.roomObjective.id !== 'lounge_cashout') {
-    if (!run.roomContractStakes || typeof run.roomContractStakes !== 'object') run.roomContractStakes = {};
-    run.roomContractStakes[p.id] = Math.max(0, (run.roomContractStakes[p.id] || 0)) + Math.max(0, stake | 0);
-    pl.contractStake = run.roomContractStakes[p.id];
-  }
-  const seq = (p.casinoSeq = (p.casinoSeq || 0) + 1);
-  const fx = { ok: true, t: 'casino', id: p.id, name: p.name || '', personal: 1, seq, symbols: res.symbols, outcome: res.outcome, payload: res.payload, stake, lockUsed: res.usedLock ? 1 : 0, lockSymbol: res.lockSymbol || priorSlotLocks.filter(Boolean).join('+') || '', lockLeft: casinoSlotLockDisplayForPlayer(p), lockSlots: casinoSlotLocksForPlayer(p).slice(0, 3), hpStake: isBloodTaxRoom(run) ? bloodTaxHpCost(stake) : 0, greed: isGreedRoom(run) ? 1 : 0, bloodTax: isBloodTaxRoom(run) ? 1 : 0 };
-  run.fx.push(fx);
-  return fx;
+
+  return applyCasinoResolvedResult(run, players, p, res, {
+    stakeKey, baseStake, stake, totalPaid: stake, knownUnlockedSkins, priorSlotLocks, near, bloodTax
+  });
 }
 
 
@@ -9284,7 +9604,8 @@ function beginTransition(run, players) {
 }
 
 export function handlePick(run, players, p, choiceIdx, offerId = 0) {
-  if (run.phase !== 'install' || !p.offer) return false;
+  const casinoInstall = !!p.offer && p.offer.kind === 'casino_install' && (run.phase === 'play' || run.phase === 'clear');
+  if ((!casinoInstall && run.phase !== 'install') || !p.offer) return false;
   const expectedOfferId = Math.max(0, p.offer.id | 0);
   const incomingOfferId = Math.max(0, offerId | 0);
   if (incomingOfferId && expectedOfferId && incomingOfferId !== expectedOfferId) return false;
@@ -9308,8 +9629,8 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   } else {
     p.economy.pending = Math.max(0, p.economy.pending - 1);
   }
-  run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed, bossSignature: wasBossSignature ? 1 : 0 });
-  p.offer = p.bossSignaturePending ? makeBossSignatureOffer(run, p) : (p.economy.pending > 0 ? makeInstallOffer(run, p) : null);
+  run.fx.push({ t: 'install', id: p.id, label: u.label, cursed: !!u.cursed, bossSignature: wasBossSignature ? 1 : 0, casino: casinoInstall ? 1 : 0 });
+  p.offer = casinoInstall ? null : (p.bossSignaturePending ? makeBossSignatureOffer(run, p) : (p.economy.pending > 0 ? makeInstallOffer(run, p) : null));
   return true;
 }
 
@@ -10447,7 +10768,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p)
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p)
     ]);
   }
   const ctrlLocks = new Map();
