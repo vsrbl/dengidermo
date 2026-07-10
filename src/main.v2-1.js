@@ -100,8 +100,8 @@ const HEROES = {
     id: 'living_casino',
     labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO',
     descRu: 'казино-протокол', descEn: 'casino protocol',
-    explainRu: 'Две автономные пушки. ЛКМ и ПКМ передают каждой линии отдельные цели.',
-    explainEn: 'Two autonomous guns. LMB and RMB assign targets to each firing line.',
+    explainRu: 'Автономная пушка сама ведёт огонь. Второй модуль — искры контроля — открывается во время забега.',
+    explainEn: 'An autonomous gun fires on its own. The second module, Control Sparks, is unlocked during the run.',
     unlockRu: 'Удалить скрытый казино-вирус.', unlockEn: 'Delete the Hidden Casino Virus.'
   },
   process_controller: {

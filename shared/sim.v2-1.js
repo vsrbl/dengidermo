@@ -2820,9 +2820,14 @@ export function dashDistance(p) {
 const LIVING_CASINO_SKIN_ID = 'living_casino';
 const LC_BASE_COLOR = '#ffd34d';
 const LC_SPARK_COLOR = '#66f6ff';
-const LC_BASE_RANGE = 820;
-const LC_BASE_TURN_SPEED = 4.8;
-const LC_SPARK_TURN_SPEED = 3.9;
+const LC_BASE_RANGE = 320;
+const LC_BASE_IDLE_LENGTH = 72;
+const LC_SPARK_IDLE_LENGTH = 64;
+const LC_IDLE_TURN_SPEED = 0.42;
+const LC_BASE_TURN_SPEED = 2.25;
+const LC_SPARK_TURN_SPEED = 1.95;
+const LC_BASE_COOLDOWN = 0.95;
+const LC_BASE_DAMAGE = 7;
 const LC_TARGET_CAP = 6;
 const LC_SPARK_CAP = 6;
 
@@ -2835,18 +2840,18 @@ function lcRotateTowards(from, to, maxStep) {
 function lcFreshState(p) {
   const a = Math.atan2((p?.aimY || p?.y || 0) - (p?.y || 0), (p?.aimX || (p?.x || 0) + 1) - (p?.x || 0));
   return {
-    version: 2,
+    version: 3,
     base: { angle: Number.isFinite(a) ? a : 0, cd: 0, targetIds: [], shotCursor: 0, aimTargetId: '' },
-    sparks: { angle: Number.isFinite(a) ? a : 0, targetIds: [], aimTargetId: '', active: [], charges: 1, recovering: 0, rechargeT: 0, rechargeMax: 3.8 },
-    upgrades: { targets: 0, sparkCount: 0, sparkDamage: 0, sparkHold: 0, sparkRange: 0 },
+    sparks: { angle: Number.isFinite(a) ? a : 0, targetIds: [], aimTargetId: '', active: [], charges: 0, recovering: 0, rechargeT: 0, rechargeMax: 3.8 },
+    upgrades: { targets: 0, sparksUnlocked: false, sparkCount: 0, sparkDamage: 0, sparkHold: 0, sparkRange: 0 },
     leftDown: false
   };
 }
 function setupLivingCasinoPlayer(p) {
   if (!p) return p;
   p.hero = 'living_casino';
-  p.weapons = ['living_casino', 'control_sparks'];
-  p.weaponIdx = Math.max(0, Math.min(1, Number(p.weaponIdx || 0) | 0));
+  p.weapons = ['living_casino'];
+  p.weaponIdx = 0;
   p.shgCharges = 0;
   p.shgReload = 0;
   p.livingCasino = lcFreshState(p);
@@ -2860,13 +2865,14 @@ function setupLivingCasinoPlayer(p) {
 }
 function ensureLivingCasinoState(p) {
   if (!isLivingCasinoPlayer(p)) return null;
-  if (!p.livingCasino || Number(p.livingCasino.version || 0) !== 2) p.livingCasino = lcFreshState(p);
+  if (!p.livingCasino || typeof p.livingCasino !== 'object') p.livingCasino = lcFreshState(p);
   const lc = p.livingCasino;
-  lc.version = 2;
+  lc.version = 3;
   lc.base = lc.base && typeof lc.base === 'object' ? lc.base : {};
   lc.sparks = lc.sparks && typeof lc.sparks === 'object' ? lc.sparks : {};
   lc.upgrades = lc.upgrades && typeof lc.upgrades === 'object' ? lc.upgrades : {};
   lc.upgrades.targets = Math.max(0, Math.min(LC_TARGET_CAP - 1, Number(lc.upgrades.targets || 0) | 0));
+  lc.upgrades.sparksUnlocked = !!lc.upgrades.sparksUnlocked || (Array.isArray(p.weapons) && p.weapons.includes('control_sparks'));
   lc.upgrades.sparkCount = Math.max(0, Math.min(LC_SPARK_CAP - 1, Number(lc.upgrades.sparkCount || 0) | 0));
   lc.upgrades.sparkDamage = Math.max(0, Number(lc.upgrades.sparkDamage || 0) | 0);
   lc.upgrades.sparkHold = Math.max(0, Number(lc.upgrades.sparkHold || 0) | 0);
@@ -2883,16 +2889,24 @@ function ensureLivingCasinoState(p) {
     id: String(x.id || nid()), targetId: String(x.targetId || ''), t: Math.max(0, Number(x.t || 0) || 0),
     maxT: Math.max(0.1, Number(x.maxT || 0.1) || 0.1), tickT: Math.max(0, Number(x.tickT || 0) || 0), slot: Math.max(0, Number(x.slot || 0) | 0)
   })) : [];
-  const maxSparks = 1 + lc.upgrades.sparkCount;
+  const maxSparks = lc.upgrades.sparksUnlocked ? 1 + lc.upgrades.sparkCount : 0;
   if (lc.sparks.active.length > maxSparks) lc.sparks.active.length = maxSparks;
   lc.sparks.recovering = Math.max(0, Math.min(maxSparks, Number(lc.sparks.recovering || 0) | 0));
-  lc.sparks.charges = Math.max(0, Math.min(maxSparks - lc.sparks.active.length - lc.sparks.recovering, Number(lc.sparks.charges ?? maxSparks) | 0));
+  lc.sparks.charges = Math.max(0, Math.min(Math.max(0, maxSparks - lc.sparks.active.length - lc.sparks.recovering), Number(lc.sparks.charges ?? maxSparks) | 0));
   const accounted = lc.sparks.active.length + lc.sparks.recovering + lc.sparks.charges;
   if (accounted < maxSparks) lc.sparks.charges += maxSparks - accounted;
+  if (!lc.upgrades.sparksUnlocked) {
+    lc.sparks.targetIds = [];
+    lc.sparks.aimTargetId = '';
+    lc.sparks.active = [];
+    lc.sparks.charges = 0;
+    lc.sparks.recovering = 0;
+    lc.sparks.rechargeT = 0;
+  }
   lc.sparks.rechargeMax = Math.max(1.15, Number(lc.sparks.rechargeMax || 3.8) || 3.8);
   lc.sparks.rechargeT = Math.max(0, Number(lc.sparks.rechargeT || 0) || 0);
   lc.leftDown = !!lc.leftDown;
-  p.weapons = ['living_casino', 'control_sparks'];
+  p.weapons = lc.upgrades.sparksUnlocked ? ['living_casino', 'control_sparks'] : ['living_casino'];
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
   p.livingCasinoChainDashes = 0;
   p.livingCasinoChainT = 0;
@@ -3880,10 +3894,12 @@ function fireProcessControllerProtocol(run, players, p, dt) {
 
 
 function livingCasinoBaseTargetMax(lc) { return Math.max(1, Math.min(LC_TARGET_CAP, 1 + Math.max(0, Number(lc?.upgrades?.targets || 0) | 0))); }
-function livingCasinoSparkMax(lc) { return Math.max(1, Math.min(LC_SPARK_CAP, 1 + Math.max(0, Number(lc?.upgrades?.sparkCount || 0) | 0))); }
-function livingCasinoSparkRange(lc) { return 430 + Math.max(0, Number(lc?.upgrades?.sparkRange || 0) | 0) * 70; }
+function livingCasinoSparksUnlocked(lc) { return !!lc?.upgrades?.sparksUnlocked; }
+function livingCasinoBaseRange(p) { return Math.max(220, Math.min(900, LC_BASE_RANGE * Math.max(0.55, Number(p?.stats?.bulletRange || 1) || 1))); }
+function livingCasinoSparkMax(lc) { return livingCasinoSparksUnlocked(lc) ? Math.max(1, Math.min(LC_SPARK_CAP, 1 + Math.max(0, Number(lc?.upgrades?.sparkCount || 0) | 0))) : 0; }
+function livingCasinoSparkRange(lc) { return livingCasinoSparksUnlocked(lc) ? 250 + Math.max(0, Number(lc?.upgrades?.sparkRange || 0) | 0) * 55 : 0; }
 function livingCasinoSparkHold(lc) { return 2.45 + Math.max(0, Number(lc?.upgrades?.sparkHold || 0) | 0) * 0.55; }
-function livingCasinoSparkDamage(lc) { return 10 + Math.max(0, Number(lc?.upgrades?.sparkDamage || 0) | 0) * 4.5; }
+function livingCasinoSparkDamage(lc) { const level = Math.max(0, Number(lc?.upgrades?.sparkDamage || 0) | 0); return level > 0 ? 6 + (level - 1) * 4 : 0; }
 function livingCasinoSparkRecharge(p, lc) { return Math.max(1.15, 3.8 / Math.max(0.35, Number(p?.stats?.fireMul || 1) || 1)); }
 function livingCasinoEnemyById(run, id) {
   if (!id) return null;
@@ -3932,7 +3948,8 @@ function livingCasinoCleanTargets(run, ids, max) {
 }
 function livingCasinoAssignTarget(run, p, gun) {
   const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  const target = livingCasinoEnemyAtCursor(run, p, gun === 'sparks' ? livingCasinoSparkRange(lc) + 180 : 1200);
+  if (gun === 'sparks' && !livingCasinoSparksUnlocked(lc)) return false;
+  const target = livingCasinoEnemyAtCursor(run, p, gun === 'sparks' ? livingCasinoSparkRange(lc) + 80 : livingCasinoBaseRange(p) + 80);
   if (!target) {
     run.fx.push({ t: 'lc_target_miss', id: p.id, gun, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y) });
     return false;
@@ -3955,32 +3972,38 @@ function livingCasinoAssignTarget(run, p, gun) {
 }
 function livingCasinoPickBaseTarget(run, p, lc) {
   lc.base.targetIds = livingCasinoCleanTargets(run, lc.base.targetIds, livingCasinoBaseTargetMax(lc));
+  const range = livingCasinoBaseRange(p);
   if (lc.base.targetIds.length) {
-    const i = lc.base.shotCursor % lc.base.targetIds.length;
-    const e = livingCasinoEnemyById(run, lc.base.targetIds[i]);
-    lc.base.shotCursor = (i + 1) % Math.max(1, lc.base.targetIds.length);
-    if (e) return e;
+    for (let n = 0; n < lc.base.targetIds.length; n++) {
+      const i = lc.base.shotCursor % lc.base.targetIds.length;
+      const e = livingCasinoEnemyById(run, lc.base.targetIds[i]);
+      lc.base.shotCursor = (i + 1) % Math.max(1, lc.base.targetIds.length);
+      if (e && dist2(e.x, e.y, p.x, p.y) <= (range + (e.size || 24) / 2) ** 2 && livingCasinoHasTargetLine(run, p, e)) return e;
+    }
   }
-  return nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
+  return nearestLivingCasinoTarget(run, p, range);
 }
+
 function livingCasinoPickSparkTarget(run, p, lc) {
+  if (!livingCasinoSparksUnlocked(lc)) return null;
   lc.sparks.targetIds = livingCasinoCleanTargets(run, lc.sparks.targetIds, livingCasinoSparkMax(lc));
   const used = new Set(lc.sparks.active.map(x => x.targetId));
   for (const id of lc.sparks.targetIds) {
     const e = livingCasinoEnemyById(run, id);
-    if (e && !used.has(e.id) && dist2(e.x, e.y, p.x, p.y) <= (livingCasinoSparkRange(lc) + (e.size || 24) / 2) ** 2) return e;
+    if (e && !used.has(e.id) && dist2(e.x, e.y, p.x, p.y) <= (livingCasinoSparkRange(lc) + (e.size || 24) / 2) ** 2 && livingCasinoHasTargetLine(run, p, e)) return e;
   }
   return nearestLivingCasinoTarget(run, p, livingCasinoSparkRange(lc), used);
 }
 function livingCasinoFireHoming(run, p, target) {
   if (!p?.alive || !target || run.bullets.length >= MAX_BULLETS) return false;
   const dir = norm(target.x - p.x, target.y - p.y);
-  const dmg = weaponDamageValue(p, 18, 1);
-  const speed = 410;
+  const dmg = weaponDamageValue(p, LC_BASE_DAMAGE, 1);
+  const speed = 360;
+  const maxDist = Math.round(livingCasinoBaseRange(p));
   run.bullets.push({
     id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: dir.x * speed, vy: dir.y * speed,
-    dmg, from: 'p', owner: p.id, life: 1.95, size: 4, homing: 8.2, targetId: target.id, strictTarget: 1,
-    kind: 'live_casino', travelled: 0, maxDist: 760, bounces: 0, elem: bulletElementString(p, 'weapon'),
+    dmg, from: 'p', owner: p.id, life: Math.max(0.55, maxDist / speed + 0.18), size: 4, homing: 7.2, targetId: target.id, strictTarget: 1,
+    kind: 'live_casino', travelled: 0, maxDist, bounces: 0, elem: bulletElementString(p, 'weapon'),
     elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0
   });
   run.fx.push({ t: 'shot', id: p.id, w: 'LIVE', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 28), my: Math.round(p.y + dir.y * 28), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
@@ -4004,6 +4027,7 @@ function livingCasinoReleaseSpark(run, players, p, lc, spark, target, expired = 
   }
 }
 function livingCasinoAttachSpark(run, p, lc, target) {
+  if (!livingCasinoSparksUnlocked(lc)) return false;
   if (!target || (lc.sparks.charges || 0) <= 0 || lc.sparks.active.some(x => x.targetId === target.id)) return false;
   const hold = livingCasinoSparkHold(lc);
   lc.sparks.charges = Math.max(0, (lc.sparks.charges || 0) - 1);
@@ -4024,6 +4048,7 @@ function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
         if (opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return false;
         if (opt.weapon && blockedWeapons.has(String(opt.weapon))) return false;
         const id = opt.upgrade || opt.id;
+        if (id === 'bullet_ricochet') return false;
         if (id === 'drone_element_link' && !(p?.stats?.drones > 0)) return false;
         if (id === 'drone_element_link' && !playerHasBulletElement(p)) return false;
         if ((id === 'element_amp' || id === 'element_spread') && !playerHasBulletElement(p)) return false;
@@ -4036,11 +4061,15 @@ function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
 function livingCasinoChoicePool(p, qualityTier = 0) {
   const lc = ensureLivingCasinoState(p); if (!lc) return [];
   const pool = [];
-  if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'LVC: TARGET +1', actionLabel: 'ADD TARGET', group: 'LIVING CASINO', role: 'TARGETING', desc: 'LVC cycles one more marked threat.', valueTier: qualityTier });
-  if (livingCasinoSparkMax(lc) < LC_SPARK_CAP) pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'CONTROL SPARK +1', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds one simultaneous control spark and one target mark.', valueTier: qualityTier });
-  pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'SPARK DAMAGE +', actionLabel: 'AMPLIFY', group: 'LIVING CASINO', role: 'DPS', desc: 'Control sparks deal more damage while connected.', valueTier: qualityTier });
-  pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'SPARK HOLD +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks remain connected longer.', valueTier: qualityTier });
-  pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'SPARK RANGE +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', valueTier: qualityTier });
+  if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'ЦЕЛЬ LVC +1', actionLabel: 'ADD TARGET', group: 'LIVING CASINO', role: 'TARGETING', desc: 'LVC cycles one more marked threat.', valueTier: qualityTier });
+  if (!livingCasinoSparksUnlocked(lc)) {
+    pool.push({ id: 'lc_spark_unlock', kind: 'lc_spark_unlock', label: 'ИСКРЫ КОНТРОЛЯ', actionLabel: 'UNLOCK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Unlocks the SPK control module.', valueTier: qualityTier });
+  } else {
+    if (livingCasinoSparkMax(lc) < LC_SPARK_CAP) pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'ИСКРА КОНТРОЛЯ +1', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds one simultaneous control spark and one target mark.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'УРОН ИСКР +', actionLabel: 'AMPLIFY', group: 'LIVING CASINO', role: 'DPS', desc: 'Gives control sparks damage while connected.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'ДЛИТЕЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks remain connected longer.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'ДАЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', valueTier: qualityTier });
+  }
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
   return pool;
 }
@@ -4071,17 +4100,24 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
       else if (opt.stat === 'fire') p.stats.fireMul *= 1.14;
       else return false;
     } else return false;
+  } else if (opt.kind === 'lc_spark_unlock') {
+    if (livingCasinoSparksUnlocked(lc)) return false;
+    lc.upgrades.sparksUnlocked = true;
+    lc.sparks.charges = 1;
+    p.weapons = ['living_casino', 'control_sparks'];
+    label = 'ИСКРЫ КОНТРОЛЯ';
+    run.fx.push({ t: 'weapon_get', id: p.id, w: 'SPK' });
   } else if (opt.kind === 'lc_target_slot') {
     if (livingCasinoBaseTargetMax(lc) >= LC_TARGET_CAP) return false;
-    lc.upgrades.targets++; label = 'LVC: TARGET +1';
+    lc.upgrades.targets++; label = 'ЦЕЛЬ LVC +1';
   } else if (opt.kind === 'lc_spark_count') {
     if (livingCasinoSparkMax(lc) >= LC_SPARK_CAP) return false;
-    lc.upgrades.sparkCount++; lc.sparks.charges++; label = 'CONTROL SPARK +1';
-  } else if (opt.kind === 'lc_spark_damage') { lc.upgrades.sparkDamage++; label = 'SPARK DAMAGE +'; }
-  else if (opt.kind === 'lc_spark_hold') { lc.upgrades.sparkHold++; label = 'SPARK HOLD +'; }
-  else if (opt.kind === 'lc_spark_range') { lc.upgrades.sparkRange++; label = 'SPARK RANGE +'; }
+    lc.upgrades.sparkCount++; lc.sparks.charges++; label = 'ИСКРА КОНТРОЛЯ +1';
+  } else if (opt.kind === 'lc_spark_damage') { lc.upgrades.sparkDamage++; label = 'УРОН ИСКР +'; }
+  else if (opt.kind === 'lc_spark_hold') { lc.upgrades.sparkHold++; label = 'ДЛИТЕЛЬНОСТЬ ИСКР +'; }
+  else if (opt.kind === 'lc_spark_range') { lc.upgrades.sparkRange++; label = 'ДАЛЬНОСТЬ ИСКР +'; }
   else return false;
-  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyLivingCasinoWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, opt.kind !== 'lc_spark_unlock', () => applyLivingCasinoWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   run.fx.push({ t: 'weapon_mod', id: p.id, label, w: modWeapon });
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
   return true;
@@ -4096,30 +4132,34 @@ function handleLivingCasinoBaseMark(run, players, p) {
 function stepLivingCasinoState(run, players, p, dt) {
   const lc = ensureLivingCasinoState(p); if (!lc || !p.alive || run.phase !== 'play') return;
   const fireMul = Math.max(0.35, Number(p.stats?.fireMul || 1) || 1);
+  const baseRange = livingCasinoBaseRange(p);
   lc.base.targetIds = livingCasinoCleanTargets(run, lc.base.targetIds, livingCasinoBaseTargetMax(lc));
   lc.sparks.targetIds = livingCasinoCleanTargets(run, lc.sparks.targetIds, livingCasinoSparkMax(lc));
   lc.base.cd = Math.max(0, (lc.base.cd || 0) - dt);
 
-  // Aim at the next queued mark during reload. This makes multi-target fire readable:
-  // the barrel turns first, then releases the shot, instead of snapping after the cooldown.
-  let baseTarget = lc.base.targetIds.length
-    ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length])
-    : nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
+  const markedBase = lc.base.targetIds.length ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length]) : null;
+  const markedBaseValid = markedBase
+    && dist2(markedBase.x, markedBase.y, p.x, p.y) <= (baseRange + (markedBase.size || 24) / 2) ** 2
+    && livingCasinoHasTargetLine(run, p, markedBase);
+  const baseTarget = markedBaseValid ? markedBase : nearestLivingCasinoTarget(run, p, baseRange);
   lc.base.aimTargetId = baseTarget?.id || '';
   if (baseTarget) {
     const want = Math.atan2(baseTarget.y - p.y, baseTarget.x - p.x);
     lc.base.angle = lcRotateTowards(lc.base.angle, want, LC_BASE_TURN_SPEED * dt);
     if (lc.base.cd <= 0 && Math.abs(lcAngleDelta(lc.base.angle, want)) <= 0.13) {
       const shotTarget = livingCasinoPickBaseTarget(run, p, lc) || baseTarget;
-      if (shotTarget && livingCasinoFireHoming(run, p, shotTarget)) {
-        lc.base.cd = Math.max(0.12, 0.45 / fireMul);
-        const nextTarget = lc.base.targetIds.length
-          ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length])
-          : nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
-        lc.base.aimTargetId = nextTarget?.id || shotTarget.id;
+      const shotInRange = shotTarget && dist2(shotTarget.x, shotTarget.y, p.x, p.y) <= (baseRange + (shotTarget.size || 24) / 2) ** 2 && livingCasinoHasTargetLine(run, p, shotTarget);
+      if (shotInRange && livingCasinoFireHoming(run, p, shotTarget)) {
+        lc.base.cd = Math.max(0.22, LC_BASE_COOLDOWN / fireMul);
+        const nextMarked = lc.base.targetIds.length ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length]) : null;
+        lc.base.aimTargetId = nextMarked?.id || nearestLivingCasinoTarget(run, p, baseRange)?.id || shotTarget.id;
       }
     }
+  } else {
+    lc.base.angle += LC_IDLE_TURN_SPEED * dt;
   }
+
+  if (!livingCasinoSparksUnlocked(lc)) return;
 
   const remaining = [];
   for (const spark of lc.sparks.active) {
@@ -4136,9 +4176,12 @@ function stepLivingCasinoState(run, players, p, dt) {
     spark.tickT = Math.max(0, (spark.tickT || 0) - dt);
     if (spark.tickT <= 0) {
       spark.tickT = 0.22;
-      const n = norm(target.x - p.x, target.y - p.y);
-      damageEnemy(run, players, target, weaponDamageValue(p, livingCasinoSparkDamage(lc) * 0.22, 1), p.id, 0, n.x, n.y, 'control_spark');
-      run.fx.push({ t: 'lc_spark_tick', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y) });
+      const sparkDamage = livingCasinoSparkDamage(lc);
+      if (sparkDamage > 0) {
+        const n = norm(target.x - p.x, target.y - p.y);
+        damageEnemy(run, players, target, weaponDamageValue(p, sparkDamage * 0.22, 1), p.id, 0, n.x, n.y, 'control_spark');
+        run.fx.push({ t: 'lc_spark_tick', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y) });
+      }
     }
     remaining.push(spark);
   }
@@ -4157,13 +4200,15 @@ function stepLivingCasinoState(run, players, p, dt) {
 
   let sparkTarget = livingCasinoEnemyById(run, lc.sparks.aimTargetId);
   const sparkRange = livingCasinoSparkRange(lc);
-  if (sparkTarget && dist2(sparkTarget.x, sparkTarget.y, p.x, p.y) > (sparkRange + (sparkTarget.size || 24) / 2) ** 2) sparkTarget = null;
+  if (sparkTarget && (dist2(sparkTarget.x, sparkTarget.y, p.x, p.y) > (sparkRange + (sparkTarget.size || 24) / 2) ** 2 || !livingCasinoHasTargetLine(run, p, sparkTarget))) sparkTarget = null;
   if (!sparkTarget || lc.sparks.active.some(x => x.targetId === sparkTarget.id)) sparkTarget = livingCasinoPickSparkTarget(run, p, lc);
   lc.sparks.aimTargetId = sparkTarget?.id || '';
   if (sparkTarget) {
     const want = Math.atan2(sparkTarget.y - p.y, sparkTarget.x - p.x);
     lc.sparks.angle = lcRotateTowards(lc.sparks.angle, want, LC_SPARK_TURN_SPEED * dt);
     if ((lc.sparks.charges || 0) > 0 && Math.abs(lcAngleDelta(lc.sparks.angle, want)) <= 0.11) livingCasinoAttachSpark(run, p, lc, sparkTarget);
+  } else {
+    lc.sparks.angle -= LC_IDLE_TURN_SPEED * 0.82 * dt;
   }
 }
 
@@ -5885,7 +5930,7 @@ const ROOM_WAGER_STAKES = [
   { id: 'base_weapon_loss', ru: 'один оружейный модуль', en: 'one weapon module', heroes: ['base'], needs: p => (p?.weapons || []).length > 1, loss: (run, p) => { const i = Math.max(1, Math.min((p.weapons || []).length - 1, p.weaponIdx || 1)); p.weapons.splice(i, 1); p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, p.weaponIdx || 0)); } },
   { id: 'base_fire_loss', ru: '12% огневого темпа', en: '12% fire rate', heroes: ['base'], loss: (run, p) => { p.stats.fireMul = Math.max(0.35, (p.stats.fireMul || 1) / 1.12); } },
   { id: 'base_power_loss', ru: '12% мощности оружия', en: '12% weapon power', heroes: ['base'], loss: (run, p) => { p.stats.weaponDmgMul = Math.max(0.35, (p.stats.weaponDmgMul || 1) / 1.12); } },
-  { id: 'lc_spark_drain', ru: 'заряды искр следующего сектора', en: 'next sector spark charges', heroes: ['living_casino'], loss: (run, p) => { p.nextRoomSparkDrain = 1; } },
+  { id: 'lc_spark_drain', ru: 'заряды искр следующего сектора', en: 'next sector spark charges', heroes: ['living_casino'], needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), loss: (run, p) => { p.nextRoomSparkDrain = 1; } },
   { id: 'lc_target_loss', ru: 'один канал цели LVC', en: 'one LVC target channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.targets || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.targets = Math.max(0, (lc.upgrades.targets || 0) - 1); lc.base.targetIds = lc.base.targetIds.slice(0, livingCasinoBaseTargetMax(lc)); } } },
   { id: 'lc_spark_loss', ru: 'один канал искр', en: 'one spark channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.sparkCount || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, (lc.upgrades.sparkCount || 0) - 1); lc.sparks.charges = Math.min(lc.sparks.charges || 0, livingCasinoSparkMax(lc)); lc.sparks.targetIds = lc.sparks.targetIds.slice(0, livingCasinoSparkMax(lc)); } } },
   { id: 'ctrl_release', ru: 'все перехваченные процессы', en: 'all captured processes', heroes: ['process_controller'], needs: p => (p?.processController?.controlled || []).length > 0, loss: (run, p) => { const pc = ensureProcessControllerState(p); if (pc) pc.controlled = []; } },
@@ -5906,8 +5951,8 @@ const ROOM_WAGER_CONDITIONS = [
   { id: 'base_kills18', ru: 'удалить 18 угроз', en: 'delete 18 threats', heroes: ['base'], ok: (run, p) => (p.wagerStats?.kills || 0) >= 18 },
   { id: 'lc_marks4', ru: 'передать 4 указания пушкам', en: 'issue 4 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 4 },
   { id: 'lc_marks8', ru: 'передать 8 указаний пушкам', en: 'issue 8 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 8 },
-  { id: 'lc_sparks3', ru: 'создать 3 связи искр', en: 'create 3 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 3 },
-  { id: 'lc_sparks6', ru: 'создать 6 связей искр', en: 'create 6 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 6 },
+  { id: 'lc_sparks3', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: 'создать 3 связи искр', en: 'create 3 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 3 },
+  { id: 'lc_sparks6', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: 'создать 6 связей искр', en: 'create 6 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 6 },
   { id: 'lc_auto_only', ru: 'очистить сектор без указаний', en: 'clear without manual marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) <= 0 },
   { id: 'ctrl_commands5', ru: 'отдать 5 приказов', en: 'issue 5 commands', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCommands || 0) >= 5 },
   { id: 'ctrl_commands9', ru: 'отдать 9 приказов', en: 'issue 9 commands', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCommands || 0) >= 9 },
@@ -5929,10 +5974,10 @@ const ROOM_WAGER_PRIZES = [
   { id: 'base_fire_plus', ru: '+18% огневого темпа', en: '+18% fire rate', heroes: ['base'], prize: (run, p) => { p.stats.fireMul *= 1.18; } },
   { id: 'base_power_plus', ru: '+15% мощности оружия', en: '+15% weapon power', heroes: ['base'], prize: (run, p) => { p.stats.weaponDmgMul *= 1.15; } },
   { id: 'lc_target_plus', ru: '+1 канал цели LVC', en: '+1 LVC target channel', heroes: ['living_casino'], needs: p => livingCasinoBaseTargetMax(ensureLivingCasinoState(p)) < LC_TARGET_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.targets = Math.max(0, lc.upgrades.targets || 0) + 1; } },
-  { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => livingCasinoSparkMax(ensureLivingCasinoState(p)) < LC_SPARK_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
-  { id: 'lc_spark_damage_plus', ru: '+1 мощность искр', en: '+1 spark power', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkDamage = Math.max(0, lc.upgrades.sparkDamage || 0) + 1; } },
-  { id: 'lc_spark_hold_plus', ru: '+1 длительность искр', en: '+1 spark duration', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkHold = Math.max(0, lc.upgrades.sparkHold || 0) + 1; } },
-  { id: 'lc_spark_range_plus', ru: '+1 дальность искр', en: '+1 spark range', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkRange = Math.max(0, lc.upgrades.sparkRange || 0) + 1; } },
+  { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => { const lc = ensureLivingCasinoState(p); return livingCasinoSparksUnlocked(lc) && livingCasinoSparkMax(lc) < LC_SPARK_CAP; }, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
+  { id: 'lc_spark_damage_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 мощность искр', en: '+1 spark power', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkDamage = Math.max(0, lc.upgrades.sparkDamage || 0) + 1; } },
+  { id: 'lc_spark_hold_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 длительность искр', en: '+1 spark duration', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkHold = Math.max(0, lc.upgrades.sparkHold || 0) + 1; } },
+  { id: 'lc_spark_range_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 дальность искр', en: '+1 spark range', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkRange = Math.max(0, lc.upgrades.sparkRange || 0) + 1; } },
   { id: 'ctrl_slot_plus', ru: '+1 слот процесса', en: '+1 process slot', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlMax = Math.max(0, p.stats.ctrlMax || 0) + 1; } },
   { id: 'ctrl_power_plus', ru: '+1 уровень контроля', en: '+1 control level', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlPower = Math.max(0, p.stats.ctrlPower || 0) + 1; } },
   { id: 'ctrl_tier_plus', ru: '+1 уровень ассимиляции', en: '+1 assimilation tier', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlCaptureTier || 0) < 4, prize: (run, p) => { p.stats.ctrlCaptureTier = Math.min(4, Math.max(0, p.stats.ctrlCaptureTier || 0) + 1); } },
@@ -10352,14 +10397,14 @@ function livingCasinoHudSnapshot(p) {
   const maxRemaining = lc.sparks.active.reduce((m, x) => Math.max(m, Number(x.t || 0) || 0), 0);
   return {
     hero: 'living_casino',
-    selected: Math.max(0, Math.min(1, Number(p.weaponIdx || 0) | 0)),
+    selected: Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0)),
     base: {
       label: 'LVC', color: LC_BASE_COLOR, targets: lc.base.targetIds.length, maxTargets: livingCasinoBaseTargetMax(lc),
       targetId: lc.base.aimTargetId || '', angle: Math.round(lc.base.angle * 1000) / 1000,
-      cd: Math.ceil(Math.max(0, lc.base.cd || 0) * 10) / 10, cdMax: Math.max(0.12, 0.45 / Math.max(0.35, Number(p.stats?.fireMul || 1) || 1))
+      cd: Math.ceil(Math.max(0, lc.base.cd || 0) * 10) / 10, cdMax: Math.max(0.22, LC_BASE_COOLDOWN / Math.max(0.35, Number(p.stats?.fireMul || 1) || 1)), range: Math.round(livingCasinoBaseRange(p))
     },
     sparks: {
-      label: 'SPK', color: LC_SPARK_COLOR, charges: Math.max(0, Number(lc.sparks.charges || 0) | 0), maxCharges: maxSparks,
+      unlocked: livingCasinoSparksUnlocked(lc), label: 'SPK', color: LC_SPARK_COLOR, charges: Math.max(0, Number(lc.sparks.charges || 0) | 0), maxCharges: maxSparks,
       active: lc.sparks.active.length, remaining: Math.ceil(maxRemaining * 10) / 10,
       recharge: Math.ceil(Math.max(0, lc.sparks.rechargeT || 0) * 10) / 10,
       rechargeMax: Math.ceil(Math.max(0.1, lc.sparks.rechargeMax || livingCasinoSparkRecharge(p, lc)) * 10) / 10,
@@ -10453,25 +10498,27 @@ export function buildSnapshot(run, players) {
     const lc = ensureLivingCasinoState(p);
     if (lc) {
       const gunDefs = [
-        { key: 'base', state: lc.base, range: LC_BASE_RANGE, color: LC_BASE_COLOR },
-        { key: 'sparks', state: lc.sparks, range: livingCasinoSparkRange(lc), color: LC_SPARK_COLOR }
+        { key: 'base', state: lc.base, idleLength: LC_BASE_IDLE_LENGTH, range: livingCasinoBaseRange(p), color: LC_BASE_COLOR }
       ];
+      if (livingCasinoSparksUnlocked(lc)) gunDefs.push({ key: 'sparks', state: lc.sparks, idleLength: LC_SPARK_IDLE_LENGTH, range: livingCasinoSparkRange(lc), color: LC_SPARK_COLOR });
       for (let gi = 0; gi < gunDefs.length; gi++) {
         const g = gunDefs[gi];
         const target = livingCasinoEnemyById(run, g.state.aimTargetId);
-        const ex = target ? target.x : p.x + Math.cos(g.state.angle || 0) * g.range;
-        const ey = target ? target.y : p.y + Math.sin(g.state.angle || 0) * g.range;
+        const targetDistance = target ? Math.hypot(target.x - p.x, target.y - p.y) : g.idleLength;
+        const lineLength = target ? Math.max(g.idleLength, Math.min(g.range, targetDistance)) : g.idleLength;
+        const ex = p.x + Math.cos(g.state.angle || 0) * lineLength;
+        const ey = p.y + Math.sin(g.state.angle || 0) * lineLength;
         cs.push([`lcgun:${p.id}:${g.key}`, p.id, 'lc_gun', gi, Math.round(ex), Math.round(ey), g.key, Math.round((g.state.angle || 0) * 1000), target?.id || '', p.weaponIdx === gi ? 1 : 0]);
       }
       for (let i = 0; i < lc.base.targetIds.length; i++) {
         const e = livingCasinoEnemyById(run, lc.base.targetIds[i]);
         if (e) cs.push([`lctarget:${p.id}:base:${e.id}`, p.id, 'lc_target', i, Math.round(e.x), Math.round(e.y), 'base', Math.round(e.size || 24), e.id, lc.base.aimTargetId === e.id ? 1 : 0]);
       }
-      for (let i = 0; i < lc.sparks.targetIds.length; i++) {
+      if (livingCasinoSparksUnlocked(lc)) for (let i = 0; i < lc.sparks.targetIds.length; i++) {
         const e = livingCasinoEnemyById(run, lc.sparks.targetIds[i]);
         if (e) cs.push([`lctarget:${p.id}:sparks:${e.id}`, p.id, 'lc_target', i, Math.round(e.x), Math.round(e.y), 'sparks', Math.round(e.size || 24), e.id, lc.sparks.aimTargetId === e.id ? 1 : 0]);
       }
-      for (let i = 0; i < lc.sparks.active.length; i++) {
+      if (livingCasinoSparksUnlocked(lc)) for (let i = 0; i < lc.sparks.active.length; i++) {
         const sp = lc.sparks.active[i], e = livingCasinoEnemyById(run, sp.targetId);
         if (!e) continue;
         cs.push([`lcspark:${p.id}:${sp.id}`, p.id, 'lc_spark', i, Math.round(e.x), Math.round(e.y), Math.round(Math.max(0, Math.min(1, sp.t / Math.max(0.1, sp.maxT))) * 1000), Math.round(e.size || 24), e.id, sp.t <= 0.35 ? 1 : 0]);

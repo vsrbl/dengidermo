@@ -407,6 +407,11 @@ function weaponReadability(opt = {}) {
   if (String(opt.kind || '').startsWith('lc_')) {
     const key = String(opt.kind || '');
     const lc = {
+      lc_spark_unlock: {
+        role: 'CONTROL', tone: 'control',
+        ru: 'Открывает модуль искр контроля и вторую линию наведения.', en: 'Unlocks the control-spark module and its second targeting line.',
+        changeRu: 'открыты искры контроля', changeEn: 'control sparks unlocked'
+      },
       lc_target_slot: {
         role: 'TARGETING', tone: 'control',
         ru: 'Добавляет ещё одну цель в очередь казино-модуля.', en: 'Adds one more target to the casino module queue.',
@@ -419,7 +424,7 @@ function weaponReadability(opt = {}) {
       },
       lc_spark_damage: {
         role: 'DPS', tone: 'dps',
-        ru: 'Искры наносят больше урона, пока держат угрозу.', en: 'Control sparks deal more damage while holding a threat.',
+        ru: 'Даёт искрам урон во время связи. Без этого усиления они только контролируют угрозу.', en: 'Gives sparks damage while linked. Without this upgrade they only control the threat.',
         changeRu: 'урон искр', changeEn: 'spark damage'
       },
       lc_spark_hold: {
@@ -1276,10 +1281,12 @@ export class Hud {
           <div class="lc-gun-row lc-base${selected === 0 ? ' selected' : ''}">
             <i>1</i><strong>LVC</strong><span>${escHtml(localText('ЦЕЛИ', 'TARGETS'))} ${Number(base.targets || 0)}/${Number(base.maxTargets || 1)}</span><em>${escHtml(baseStatus)}</em>
           </div>
-          <div class="lc-gun-row lc-sparks${selected === 1 ? ' selected' : ''}">
+          ${sparks.unlocked ? `<div class="lc-gun-row lc-sparks${selected === 1 ? ' selected' : ''}">
             <i>2</i><strong>SPK</strong><span>${escHtml(localText('ЗАРЯДЫ', 'CHARGES'))} ${Number(sparks.charges || 0)}/${Number(sparks.maxCharges || 1)} · ${escHtml(localText('УКАЗАНИЯ', 'MARKS'))} ${Number(sparks.instructions || 0)}/${Number(sparks.instructionMax || 1)}</span><em>${escHtml(sparkStatus)}</em>
-          </div>`;
-        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('ЛКМ отмечает цели казино-модуля. ПКМ отмечает цели искр контроля. Обе пушки сами наводятся и атакуют; колесо или 1–2 меняют выбранную пушку.', 'LMB marks casino-module targets. RMB marks control-spark targets. Both guns aim and attack automatically; wheel or 1–2 changes the selected gun.'), 'gold');
+          </div>` : ''}`;
+        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), sparks.unlocked
+          ? localText('ЛКМ отмечает цели казино-модуля. ПКМ отмечает цели искр контроля. Обе пушки сами наводятся и атакуют.', 'LMB marks casino-module targets. RMB marks control-spark targets. Both guns aim and attack automatically.')
+          : localText('ЛКМ отмечает цели казино-модуля. Искры контроля можно открыть в оружейном сундуке.', 'LMB marks casino-module targets. Control sparks can be unlocked from a weapon chest.'), 'gold');
       } else {
         lcHud.className = 'lc-dual-rack hidden';
         lcHud.innerHTML = '';
@@ -1366,9 +1373,9 @@ export class Hud {
     document.body?.classList?.toggle('ctrl-capture-active', ctrlCapActive);
     document.documentElement?.style?.setProperty('--ctrl-capture-pct', `${ctrlCapPct}%`);
     if (slots) {
-      slots.classList.remove('hidden');
+      slots.classList.toggle('hidden', livingCasinoHero);
       slots.classList.toggle('ctrl-slots', processControllerHero && !livingCasinoHero);
-      slots.classList.toggle('lc-slots', livingCasinoHero);
+      slots.classList.remove('lc-slots');
     }
     const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '');
     if (slots && slots.dataset.v !== wKey) {

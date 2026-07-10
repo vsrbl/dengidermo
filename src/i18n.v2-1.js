@@ -279,10 +279,10 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB marks targets; shots cycle through the marked queue.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
+  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB marks targets; shots cycle through the marked queue.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release. They deal no damage until upgraded.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
 };
 const RU_WEAPON = {
-  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ отмечает цели; выстрелы идут по очереди.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
+  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ отмечает цели; выстрелы идут по очереди.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают. Без усиления урона не наносят.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
@@ -475,9 +475,10 @@ export function optionDesc(opt = {}) {
   const kind = String(opt.kind || '');
   if (kind.startsWith('lc_')) {
     const desc = {
+      lc_spark_unlock: localText('Открывает модуль искр контроля и вторую линию наведения.', 'Unlocks the control-spark module and its second targeting line.'),
       lc_target_slot: localText('Добавляет ещё одну цель в очередь казино-модуля.', 'Adds one more target to the casino module queue.'),
       lc_spark_count: localText('Добавляет заряд искры и ещё одно указание цели.', 'Adds one control spark charge and one target instruction.'),
-      lc_spark_damage: localText('Искры наносят больше урона, пока держат угрозу.', 'Control sparks deal more damage while holding a threat.'),
+      lc_spark_damage: localText('Даёт искрам урон во время связи. Без этого усиления они только контролируют угрозу.', 'Gives sparks damage while linked. Without this upgrade they only control the threat.'),
       lc_spark_hold: localText('Искры дольше удерживают угрозу перед отталкиванием.', 'Control sparks hold threats longer before release.'),
       lc_spark_range: localText('Искры замечают угрозы с большего расстояния.', 'Control sparks detect threats from farther away.')
     };
@@ -657,6 +658,14 @@ Object.assign(EN_LABEL, {
   'ПЕРЕГРЕВ': 'THERMAL',
   'КРИО-СБОЙ': 'CRYO',
   'КОРРОЗИЯ': 'CORROSION'
+});
+Object.assign(EN_LABEL, {
+  'ИСКРЫ КОНТРОЛЯ': 'CONTROL SPARKS',
+  'ЦЕЛЬ LVC +1': 'LVC TARGET +1',
+  'ИСКРА КОНТРОЛЯ +1': 'CONTROL SPARK +1',
+  'УРОН ИСКР +': 'SPARK DAMAGE +',
+  'ДЛИТЕЛЬНОСТЬ ИСКР +': 'SPARK DURATION +',
+  'ДАЛЬНОСТЬ ИСКР +': 'SPARK RANGE +'
 });
 Object.assign(RU_LABEL, {
   'FIRE BULLETS': 'ТЕРМО-СБОЙ СНАРЯДОВ',
