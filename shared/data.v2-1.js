@@ -121,7 +121,6 @@ export const UPGRADES = [
   { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Антивирус получает защитный слой оболочки. Повторы увеличивают запас защиты.', apply: s => { s.aegisStacks += 1; } },
   { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующий усиливаемый приз с выбором. Не копирует саму себя. Заряд возвращается после победы над главной угрозой.', apply: s => { s.mirrorCapacity += 1; } },
   { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Резервное восстановление. При сбое возвращает игрока с 45% здоровья. Повторы дают ещё один заряд.', apply: s => { s.nullRevives += 1; } },
-  { id: 'sig_room_wager', label: 'ROOM WAGER', tier: 1, bossSig: true, desc: 'Открывает ставку справа от INSTALL перед сектором. Платишь только при провале условия.', apply: s => { s.roomWagerUnlocked = 1; } },
   { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук цикла бесплатно становится максимальной редкости. Повторы дают ещё один ключ.', apply: s => { s.bossKeys += 1; } },
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.

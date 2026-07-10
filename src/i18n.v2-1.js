@@ -183,7 +183,6 @@ Object.assign(EN_UPGRADE, {
   sig_aegis_process: 'Grants a protective shell layer. Repeats increase shell capacity.',
   sig_mirror_payout: 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.',
   sig_null_revival: 'Restores the antivirus once after a crash.',
-  sig_room_wager: 'The next sector opens with a stronger wager and stronger payout.',
   sig_boss_key: 'Makes the next chest free and upgrades its reward quality.',
   weapon_shotgun: 'Unlocks SHG: a close-range spread cannon with charges.',
   weapon_seeker: 'Unlocks SEK: a slow homing signal projectile.',

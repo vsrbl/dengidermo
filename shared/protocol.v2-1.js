@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.169';
-export const BUILD_ID = 'living_casino_dual_autoturret';
+export const VERSION = 'v2.1.170';
+export const BUILD_ID = 'five_loop_unlocks_permanent_wagers';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;
@@ -24,7 +24,7 @@ export const C = {
   ABILITY_PICK: 'ability_pick', // ABL chest pick {choiceIdx}
   RARE_PICK: 'rare_pick', // RAR chest pick {choiceIdx}
   REROLL_OFFER: 'reroll_offer',
-  ROOM_WAGER: 'room_wager', // contract favor reroll {kind}
+  ROOM_WAGER: 'room_wager', // wager decision {offerId, accept}
   PING: 'ping',
   LEAVE: 'leave'
 };

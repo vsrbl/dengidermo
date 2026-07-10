@@ -538,7 +538,7 @@ export class Effects {
         const step = Math.max(0.18, Number(f.gatherStep || 0.52));
         const dur = Math.max(0.48, Number(f.gatherDur || 0.72));
         this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, ttl: hold + dur * 4 + step * 3 + 2.35, color: '#ffd34d', delay: d, preBreak: 0, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: f.spawn ? 1 : 0, mobSize: f.mobSize || 44 });
-        if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? 'SLOT MOB' : `REBUILD ${f.lives || ''}/3`, '#ffd34d', 12);
+        if (d <= 0.05) this.float(f.x, f.y - 54, f.spawn ? localText('СКРЫТЫЙ ВИРУС', 'HIDDEN VIRUS') : `${localText('СБОРКА', 'REBUILD')} ${f.lives || ''}/3`, '#ffd34d', 12);
         this.kick(f.spawn ? 10 : 7);
         break;
       }
@@ -565,13 +565,19 @@ export class Effects {
           return Math.hypot(tx - ax, ty - ay) > 96;
         });
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 110, ttl: 0.34, color: '#ffd34d' });
-        this.float(f.x, f.y - 62, 'SLOT MOB', '#ffd34d', 16);
+        this.float(f.x, f.y - 62, localText('СКРЫТЫЙ ВИРУС', 'HIDDEN VIRUS'), '#ffd34d', 16);
         this.kick(14); this.slam = Math.max(this.slam, 0.40);
         break;
       }
       case 'boss_burst':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
+        break;
+      case 'casino_mob_defeated':
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 340, ttl: 1.15, color: '#ffd34d' });
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 250, ttl: 0.85, color: '#00ff66' });
+        this.float(f.x, f.y - 86, localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), '#ffd34d', 15);
+        this.slam = 1; this.kick(15);
         break;
       case 'boss_down':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 320, ttl: 1.0, color: '#00ff66' });

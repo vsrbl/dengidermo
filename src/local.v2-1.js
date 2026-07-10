@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleDevCommand
+  handleCasino, handleCasinoClose, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -138,7 +138,9 @@ export class LocalRoom {
     } else if (m.t === 'room_wager') {
       const p = this.players.get(playerId);
       if (!p) return;
-      const ok = handleRoomWagerAccept(this.run, this.players, p, m.offerId || 0);
+      const ok = m.accept === false
+        ? handleRoomWagerDecline(this.run, this.players, p, m.offerId || 0)
+        : handleRoomWagerAccept(this.run, this.players, p, m.offerId || 0);
       if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid room wager' }, true);
     } else if (m.t === 'reroll_offer') {
       const p = this.players.get(playerId);

@@ -21,7 +21,7 @@ const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
 const INTERACT_DIST = 95;
-const FINAL_TARGET_LOOPS = 10;
+const FINAL_TARGET_LOOPS = 5;
 const ROOMS_PER_LOOP = 4;
 const FINAL_TARGET_DEPTH = FINAL_TARGET_LOOPS * ROOMS_PER_LOOP;
 const FINAL_BOSS_DEPTH = FINAL_TARGET_DEPTH - 1;
@@ -118,12 +118,12 @@ function makeInstallOffer(run, p) {
 
 
 const BOSS_SIGNATURE_POOLS = {
-  boss_croupier: ['sig_room_wager', 'sig_mirror_payout', 'sig_boss_key', 'sig_target_lock', 'sig_kill_switch'],
+  boss_croupier: ['sig_mirror_payout', 'sig_boss_key', 'sig_target_lock', 'sig_kill_switch'],
   boss_hunter_chorus: ['sig_target_lock', 'sig_redline_boost', 'sig_spawn_hold', 'sig_null_revival', 'sig_ghost_decoy'],
   boss_hunter_duelist: ['sig_target_lock', 'sig_redline_boost', 'sig_ghost_decoy', 'sig_rewind_mark'],
   boss_hunter_marksman: ['sig_target_lock', 'sig_spawn_hold', 'sig_kill_switch', 'sig_ghost_decoy'],
   boss_hunter_trapper: ['sig_spawn_hold', 'sig_rewind_mark', 'sig_null_revival', 'sig_boss_key'],
-  boss_q_revisor: ['sig_redline_boost', 'sig_target_lock', 'sig_null_revival', 'sig_room_wager', 'sig_rewind_mark', 'sig_kill_switch'],
+  boss_q_revisor: ['sig_redline_boost', 'sig_target_lock', 'sig_null_revival', 'sig_rewind_mark', 'sig_kill_switch'],
   boss_anchor_cashier: ['sig_aegis_process', 'sig_spawn_hold', 'sig_boss_key', 'sig_mirror_payout', 'sig_rewind_mark'],
   boss: ['sig_target_lock', 'sig_redline_boost', 'sig_aegis_process', 'sig_spawn_hold', 'sig_null_revival']
 };
@@ -131,7 +131,6 @@ const BOSS_SIGNATURE_CHOICE_COUNT = 2;
 function bossRewardBlockedForPlayer(id, p) {
   if (!id || !p?.stats) return false;
   if (id === 'sig_kill_switch' && p.stats.killSwitchTaken) return true;
-  if (id === 'sig_room_wager' && p.stats.roomWagerUnlocked) return true;
   return false;
 }
 function bossSignatureChoicesForKind(kind = '', rng = Math.random, p = null) {
@@ -169,6 +168,23 @@ function queueBossSignatureReward(run, players, bossKind = 'boss') {
   run.fx.push({ t: 'boss_signature', label: 'SIGNATURE EXTRACTED', kind: bossKind, choices: bossSignatureChoicesForKind(bossKind, Math.random, null) });
 }
 
+function permanentRoomWagersReady(run) {
+  return Math.max(0, Number(run?.runMemory?.bossesDefeated || 0) | 0) >= 2;
+}
+function syncPermanentRoomWagers(run, players, announce = false) {
+  if (!permanentRoomWagersReady(run)) return false;
+  let changed = false;
+  for (const p of players.values()) {
+    if (!p?.connected || !p.stats) continue;
+    if (!p.stats.roomWagerUnlocked) {
+      p.stats.roomWagerUnlocked = 1;
+      changed = true;
+      if (announce) run.fx.push({ t: 'room_wager_unlocked', id: p.id, playerId: p.id, label: 'WAGER PROTOCOL ONLINE', x: Math.round(p.x || 0), y: Math.round(p.y || 0), r: 120, tone: 'gold' });
+    }
+  }
+  return changed;
+}
+
 function ensureInstallOffer(run, p) {
   if (!p || !p.connected) return null;
   if (!p.offer && p.bossSignaturePending) p.offer = makeBossSignatureOffer(run, p);
@@ -187,15 +203,17 @@ function installWaitSnapshot(run, players) {
     if (!p.connected) continue;
     total++;
     const hasOffer = !!p.offer;
+    const hasWagerOffer = !!p.roomWagerOffer;
     const pendingInstall = Math.max(0, p.economy?.pending || 0);
     const pendingSignature = !!p.bossSignaturePending;
-    const needsPick = hasOffer || pendingInstall > 0 || pendingSignature;
+    const needsPick = hasOffer || hasWagerOffer || pendingInstall > 0 || pendingSignature;
     if (needsPick) {
       waiting++;
-      if (p.offer && Number.isFinite(Number(p.offer.expires))) {
-        const ex = Math.max(0, Number(p.offer.expires));
+      for (const timedOffer of [p.offer, p.roomWagerOffer]) {
+        if (!timedOffer || !Number.isFinite(Number(timedOffer.expires))) continue;
+        const ex = Math.max(0, Number(timedOffer.expires));
         nextExpires = nextExpires > 0 ? Math.min(nextExpires, ex) : ex;
-        const totalEx = Math.max(1, Number(p.offer.total || p.offer.expires || 0));
+        const totalEx = Math.max(1, Number(timedOffer.total || timedOffer.expires || 0));
         nextTotal = nextTotal > 0 ? Math.max(nextTotal, totalEx) : totalEx;
       }
     } else ready++;
@@ -206,9 +224,9 @@ function installWaitSnapshot(run, players) {
       picked: needsPick ? 0 : 1,
       pending: pendingInstall,
       signature: pendingSignature ? 1 : 0,
-      offerId: p.offer?.id || 0,
-      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : ''),
-      total: p.offer?.total || 0
+      offerId: p.offer?.id || p.roomWagerOffer?.id || 0,
+      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : (hasWagerOffer ? 'room_wager' : '')),
+      total: p.offer?.total || p.roomWagerOffer?.total || 0
     });
   }
   return { total, waiting, ready, players: list, nextExpires: Math.max(0, nextExpires || 0), nextTotal: Math.max(1, nextTotal || nextExpires || 0) };
@@ -1658,6 +1676,7 @@ function completeRun(run, players) {
   run.bullets = [];
   run.activeFields = [];
   if (run.portal) run.portal.open = true;
+  run.fx.push({ t: 'hero_unlock', heroId: 'process_controller', source: 'cleanup' });
   run.fx.push({ t: 'run_complete', summary: run.finalSummary });
 }
 
@@ -3066,6 +3085,7 @@ function processControllerFindOrderTarget(run, p, range = 760, cursorRadius = 11
 }
 function commandProcessController(run, p) {
   const pc = ensureProcessControllerState(p); if (!pc) return false;
+  if (p.wagerStats) p.wagerStats.ctrlCommands = (p.wagerStats.ctrlCommands || 0) + 1;
   pc.commandX = p.aimX || p.x;
   pc.commandY = p.aimY || p.y;
   pc.commandT = 5.0 + Math.min(2.5, Math.max(0, p.stats?.ctrlPower || 0) * 0.35);
@@ -3188,6 +3208,7 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
   pc.controlled = processControllerTrimControlled(p, pc);
   pc.lastCapture = ENEMIES[kind]?.label || String(kind).toUpperCase();
   pc.captureT = 0.70;
+  if (p.wagerStats) p.wagerStats.ctrlCaptures = (p.wagerStats.ctrlCaptures || 0) + 1;
   if (pc.cmdTargetId === e.id) clearProcessControllerCmdLock(pc);
   // Enemy shell armor is intentionally not transferred to the ally. Active shells already block capture.
   e.shellHp = 0; e.shellMax = 0; e.shellType = '';
@@ -3928,6 +3949,7 @@ function livingCasinoAssignTarget(run, p, gun) {
   }
   if (gun === 'base' && state.targetIds.length) state.shotCursor %= state.targetIds.length;
   state.aimTargetId = enabled ? target.id : (state.targetIds[state.shotCursor || 0] || state.targetIds[0] || '');
+  if (enabled && p.wagerStats) p.wagerStats.lcMarks = (p.wagerStats.lcMarks || 0) + 1;
   run.fx.push({ t: 'lc_target_lock', id: p.id, gun, enabled: enabled ? 1 : 0, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 18) });
   return true;
 }
@@ -3986,6 +4008,7 @@ function livingCasinoAttachSpark(run, p, lc, target) {
   const hold = livingCasinoSparkHold(lc);
   lc.sparks.charges = Math.max(0, (lc.sparks.charges || 0) - 1);
   lc.sparks.active.push({ id: nid(), targetId: target.id, t: hold, maxT: hold, tickT: 0, slot: lc.sparks.active.length });
+  if (p.wagerStats) p.wagerStats.lcSparks = (p.wagerStats.lcSparks || 0) + 1;
   run.fx.push({ t: 'lc_spark_attach', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 22) });
   return true;
 }
@@ -4285,6 +4308,7 @@ export function startRoom(run, players) {
   run.portal = { x: pp.x, y: pp.y, open: false };
   run.director = createDirectorState(run);
   run.phase = 'play'; run.phaseT = 0;
+  syncPermanentRoomWagers(run, players, false);
   let i = 0;
   for (const p of players.values()) {
     const sp = spawnPoint(i++);
@@ -4298,7 +4322,7 @@ export function startRoom(run, players) {
     p.emergencyCleanseUsed = false; p.emergencyCleanseT = 0; p.emergencyCleansePulse = 0;
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
-    p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
+    p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.roomWagerDecisionDone = false; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0, weaponSwitch: 0, lcMarks: 0, lcSparks: 0, ctrlCommands: 0, ctrlCaptures: 0 };
     p.tempDmgMulRoom = 0;
     if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
@@ -4308,6 +4332,12 @@ export function startRoom(run, players) {
     p.abilityChestOffer = null;
     p.rareChestOffer = null;
     restoreProcessControllerAfterRoomStart(p, i);
+    if (p.nextRoomSparkDrain && isLivingCasinoPlayer(p)) {
+      const lc = ensureLivingCasinoState(p);
+      if (lc) { lc.sparks.charges = 0; lc.sparks.rechargeT = livingCasinoSparkRecharge(p, lc); }
+      p.nextRoomSparkDrain = 0;
+      run.fx.push({ t: 'active_mutation', label: 'SPK EMPTY', x: Math.round(p.x), y: Math.round(p.y), r: 92, tone: 'purple', playerId: p.id });
+    }
   }
   if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
     const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
@@ -5842,54 +5872,97 @@ function stepDecoys(run, dt) {
   run.decoys = run.decoys.filter(d => d && d.t > 0);
 }
 
+const ROOM_WAGER_DECISION_TIME = 12;
 const ROOM_WAGER_STAKES = [
-  { id: 'all_gld', text: 'всё GLD', loss: (run, p) => { p.economy.money = 0; } },
-  { id: 'hp_50', text: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
-  { id: 'loop_dmg_down', text: '-30% урона до конца loop', loss: (run, p) => { p.wagerDmgMul = Math.min(p.wagerDmgMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'loop_spd_down', text: '-30% скорости до конца loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_forever', text: 'R-протокол навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
-  { id: 'maxhp_forever', text: '-10 max HP навсегда', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
-  { id: 'boss_key', text: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
-  { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } }
+  { id: 'all_gld', ru: 'всё GLD', en: 'all GLD', loss: (run, p) => { p.economy.money = 0; } },
+  { id: 'hp_50', ru: '50% HP', en: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
+  { id: 'loop_dmg_down', ru: '-30% урона до конца цикла', en: '-30% damage for the loop', loss: (run, p) => { p.wagerDmgMul = Math.min(p.wagerDmgMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'loop_spd_down', ru: '-30% скорости до конца цикла', en: '-30% speed for the loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_forever', ru: 'R-протокол', en: 'R protocol', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
+  { id: 'maxhp_forever', ru: '10 max HP', en: '10 max HP', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
+  { id: 'boss_key', ru: '1 BOSS KEY', en: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
+  { id: 'null_revive', ru: '1 NULL REVIVAL', en: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } },
+  { id: 'base_weapon_loss', ru: 'один оружейный модуль', en: 'one weapon module', heroes: ['base'], needs: p => (p?.weapons || []).length > 1, loss: (run, p) => { const i = Math.max(1, Math.min((p.weapons || []).length - 1, p.weaponIdx || 1)); p.weapons.splice(i, 1); p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, p.weaponIdx || 0)); } },
+  { id: 'base_fire_loss', ru: '12% огневого темпа', en: '12% fire rate', heroes: ['base'], loss: (run, p) => { p.stats.fireMul = Math.max(0.35, (p.stats.fireMul || 1) / 1.12); } },
+  { id: 'base_power_loss', ru: '12% мощности оружия', en: '12% weapon power', heroes: ['base'], loss: (run, p) => { p.stats.weaponDmgMul = Math.max(0.35, (p.stats.weaponDmgMul || 1) / 1.12); } },
+  { id: 'lc_spark_drain', ru: 'заряды искр следующего сектора', en: 'next sector spark charges', heroes: ['living_casino'], loss: (run, p) => { p.nextRoomSparkDrain = 1; } },
+  { id: 'lc_target_loss', ru: 'один канал цели LVC', en: 'one LVC target channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.targets || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.targets = Math.max(0, (lc.upgrades.targets || 0) - 1); lc.base.targetIds = lc.base.targetIds.slice(0, livingCasinoBaseTargetMax(lc)); } } },
+  { id: 'lc_spark_loss', ru: 'один канал искр', en: 'one spark channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.sparkCount || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, (lc.upgrades.sparkCount || 0) - 1); lc.sparks.charges = Math.min(lc.sparks.charges || 0, livingCasinoSparkMax(lc)); lc.sparks.targetIds = lc.sparks.targetIds.slice(0, livingCasinoSparkMax(lc)); } } },
+  { id: 'ctrl_release', ru: 'все перехваченные процессы', en: 'all captured processes', heroes: ['process_controller'], needs: p => (p?.processController?.controlled || []).length > 0, loss: (run, p) => { const pc = ensureProcessControllerState(p); if (pc) pc.controlled = []; } },
+  { id: 'ctrl_slot_loss', ru: 'один слот процесса', en: 'one process slot', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlMax || 0) > 0, loss: (run, p) => { p.stats.ctrlMax = Math.max(0, (p.stats.ctrlMax || 0) - 1); const pc = ensureProcessControllerState(p); if (pc) pc.controlled = processControllerTrimControlled(p, pc); } },
+  { id: 'ctrl_power_loss', ru: 'один уровень контроля', en: 'one control level', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlPower || 0) > 0, loss: (run, p) => { p.stats.ctrlPower = Math.max(0, (p.stats.ctrlPower || 0) - 1); } }
 ];
 const ROOM_WAGER_CONDITIONS = [
-  { id: 'dash15', text: 'сделать 15 dash', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
-  { id: 'no_damage', text: 'не получить урон всю сектор', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
-  { id: 'damage10', text: 'не получить урон 10 секунд', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
-  { id: 'q3', text: 'использовать Q 3 раза', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
-  { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
-  { id: 'kills10', text: 'удалить 10 угроз', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
-  { id: 'hp50', text: 'закончить сектор выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
-  { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
+  { id: 'dash15', ru: 'сделать 15 рывков', en: 'dash 15 times', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
+  { id: 'no_damage', ru: 'не получить урон', en: 'take no damage', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'damage10', ru: 'держать нулевой урон 10 секунд', en: 'hold zero damage for 10 seconds', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'q3', ru: 'использовать Q 3 раза', en: 'use Q 3 times', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
+  { id: 'r2', ru: 'использовать R 2 раза', en: 'use R 2 times', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
+  { id: 'kills10', ru: 'удалить 10 угроз', en: 'delete 10 threats', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
+  { id: 'hp50', ru: 'закончить сектор выше 50% HP', en: 'finish above 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
+  { id: 'lowhp15', ru: 'закончить сектор ниже 35% HP', en: 'finish below 35% HP', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive },
+  { id: 'base_switch6', ru: 'сменить оружие 6 раз', en: 'switch weapons 6 times', heroes: ['base'], needs: p => (p?.weapons || []).length > 1, ok: (run, p) => (p.wagerStats?.weaponSwitch || 0) >= 6 },
+  { id: 'base_no_q', ru: 'очистить сектор без Q', en: 'clear the sector without Q', heroes: ['base'], ok: (run, p) => (p.wagerStats?.q || 0) <= 0 },
+  { id: 'base_kills18', ru: 'удалить 18 угроз', en: 'delete 18 threats', heroes: ['base'], ok: (run, p) => (p.wagerStats?.kills || 0) >= 18 },
+  { id: 'lc_marks4', ru: 'передать 4 указания пушкам', en: 'issue 4 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 4 },
+  { id: 'lc_marks8', ru: 'передать 8 указаний пушкам', en: 'issue 8 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 8 },
+  { id: 'lc_sparks3', ru: 'создать 3 связи искр', en: 'create 3 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 3 },
+  { id: 'lc_sparks6', ru: 'создать 6 связей искр', en: 'create 6 spark links', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcSparks || 0) >= 6 },
+  { id: 'lc_auto_only', ru: 'очистить сектор без указаний', en: 'clear without manual marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) <= 0 },
+  { id: 'ctrl_commands5', ru: 'отдать 5 приказов', en: 'issue 5 commands', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCommands || 0) >= 5 },
+  { id: 'ctrl_commands9', ru: 'отдать 9 приказов', en: 'issue 9 commands', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCommands || 0) >= 9 },
+  { id: 'ctrl_captures2', ru: 'перехватить 2 процесса', en: 'capture 2 processes', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCaptures || 0) >= 2 },
+  { id: 'ctrl_captures4', ru: 'перехватить 4 процесса', en: 'capture 4 processes', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCaptures || 0) >= 4 },
+  { id: 'ctrl_full_team', ru: 'закончить с полным контуром', en: 'finish with a full process grid', heroes: ['process_controller'], ok: (run, p) => (ensureProcessControllerState(p)?.controlled || []).length >= processControllerMax(p) }
 ];
 const ROOM_WAGER_PRIZES = [
-  { id: 'dmg100', text: 'урон x100 на всю следующую сектор', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
-  { id: 'loop_dmg50', text: '+50% урона до конца loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'loop_spd50', text: '+50% скорости до конца loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'aegis', text: '+1 ЭГИДА', prize: (run, p) => { p.stats.aegisStacks += 1; } },
-  { id: 'boss_key', text: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
-  { id: 'null_revive', text: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
-  { id: 'mirror', text: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
-  { id: 'q_loop', text: 'Q быстрее до конца цикла', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_stack', text: '+1 уровень R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } }
+  { id: 'dmg100', ru: 'урон x100 на следующий сектор', en: 'x100 damage next sector', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
+  { id: 'loop_dmg50', ru: '+50% урона до конца цикла', en: '+50% damage for the loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'loop_spd50', ru: '+50% скорости до конца цикла', en: '+50% speed for the loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'aegis', ru: '+1 AEGIS', en: '+1 AEGIS', prize: (run, p) => { p.stats.aegisStacks += 1; } },
+  { id: 'boss_key', ru: '+1 BOSS KEY', en: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
+  { id: 'null_revive', ru: '+1 NULL REVIVAL', en: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
+  { id: 'mirror', ru: '+1 заряд MIRROR', en: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
+  { id: 'q_loop', ru: 'Q быстрее до конца цикла', en: 'faster Q for the loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_stack', ru: '+1 уровень R', en: '+1 R level', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } },
+  { id: 'base_overclock', ru: '+75% урона до конца цикла', en: '+75% damage for the loop', heroes: ['base'], prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.75); p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'base_fire_plus', ru: '+18% огневого темпа', en: '+18% fire rate', heroes: ['base'], prize: (run, p) => { p.stats.fireMul *= 1.18; } },
+  { id: 'base_power_plus', ru: '+15% мощности оружия', en: '+15% weapon power', heroes: ['base'], prize: (run, p) => { p.stats.weaponDmgMul *= 1.15; } },
+  { id: 'lc_target_plus', ru: '+1 канал цели LVC', en: '+1 LVC target channel', heroes: ['living_casino'], needs: p => livingCasinoBaseTargetMax(ensureLivingCasinoState(p)) < LC_TARGET_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.targets = Math.max(0, lc.upgrades.targets || 0) + 1; } },
+  { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => livingCasinoSparkMax(ensureLivingCasinoState(p)) < LC_SPARK_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
+  { id: 'lc_spark_damage_plus', ru: '+1 мощность искр', en: '+1 spark power', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkDamage = Math.max(0, lc.upgrades.sparkDamage || 0) + 1; } },
+  { id: 'lc_spark_hold_plus', ru: '+1 длительность искр', en: '+1 spark duration', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkHold = Math.max(0, lc.upgrades.sparkHold || 0) + 1; } },
+  { id: 'lc_spark_range_plus', ru: '+1 дальность искр', en: '+1 spark range', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkRange = Math.max(0, lc.upgrades.sparkRange || 0) + 1; } },
+  { id: 'ctrl_slot_plus', ru: '+1 слот процесса', en: '+1 process slot', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlMax = Math.max(0, p.stats.ctrlMax || 0) + 1; } },
+  { id: 'ctrl_power_plus', ru: '+1 уровень контроля', en: '+1 control level', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlPower = Math.max(0, p.stats.ctrlPower || 0) + 1; } },
+  { id: 'ctrl_tier_plus', ru: '+1 уровень ассимиляции', en: '+1 assimilation tier', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlCaptureTier || 0) < 4, prize: (run, p) => { p.stats.ctrlCaptureTier = Math.min(4, Math.max(0, p.stats.ctrlCaptureTier || 0) + 1); } },
+  { id: 'ctrl_fire_plus', ru: '+1 огонь процессов', en: '+1 process fire', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlFire = Math.max(0, p.stats.ctrlFire || 0) + 1; } },
+  { id: 'ctrl_life_plus', ru: '+1 ресурс процессов', en: '+1 process integrity', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlLife = Math.max(0, p.stats.ctrlLife || 0) + 1; } },
+  { id: 'ctrl_persist_plus', ru: '+1 сохранение процессов', en: '+1 process persistence', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlPersist = Math.max(0, p.stats.ctrlPersist || 0) + 1; } }
 ];
+function roomWagerHeroId(p) {
+  if (isLivingCasinoPlayer(p)) return 'living_casino';
+  if (isProcessControllerPlayer(p)) return 'process_controller';
+  return 'base';
+}
 function pickRoomWagerItem(list, p) {
-  const pool = list.filter(x => !x.needs || x.needs(p));
+  const hero = roomWagerHeroId(p);
+  const pool = list.filter(x => (!x.heroes || x.heroes.includes(hero)) && (!x.needs || x.needs(p)));
   return pool[Math.floor(Math.random() * pool.length)] || list[0];
 }
 function makeRoomWagerOffer(run, p) {
-  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) return null;
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) return null;
   run.roomWagerSeq = ((run.roomWagerSeq || 0) + 1) | 0;
   if (run.roomWagerSeq <= 0) run.roomWagerSeq = 1;
   const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
   const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p);
   const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
-  // ROOM WAGER has no separate accept timer. It is only available during
-  // the normal INSTALL window and disappears when INSTALL advances.
-  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
+  const textRu = `Поставить [${stake.ru}] на [${condition.ru}] → получить [${prize.ru}]`;
+  const textEn = `Wager [${stake.en}] on [${condition.en}] → receive [${prize.en}]`;
+  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.ru, stakeTextRu: stake.ru, stakeTextEn: stake.en, condition: condition.id, conditionText: condition.ru, conditionTextRu: condition.ru, conditionTextEn: condition.en, prize: prize.id, prizeText: prize.ru, prizeTextRu: prize.ru, prizeTextEn: prize.en, text: textRu, textRu, textEn, expires: ROOM_WAGER_DECISION_TIME, total: ROOM_WAGER_DECISION_TIME };
 }
 function ensureRoomWagerOffer(run, p) {
-  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; return null; }
   if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
   return p.roomWagerOffer;
 }
@@ -5898,7 +5971,16 @@ function handleRoomWagerAccept(run, players, p, offerId = 0) {
   if (offerId && p.roomWagerOffer.id !== offerId) return false;
   p.roomWagerActive = { ...p.roomWagerOffer };
   p.roomWagerOffer = null;
-  run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', body: p.roomWagerActive?.text || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
+  p.roomWagerDecisionDone = true;
+  run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', body: p.roomWagerActive?.textRu || '', bodyRu: p.roomWagerActive?.textRu || '', bodyEn: p.roomWagerActive?.textEn || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
+  return true;
+}
+function handleRoomWagerDecline(run, players, p, offerId = 0, timedOut = false) {
+  if (!p?.roomWagerOffer) return false;
+  if (offerId && p.roomWagerOffer.id !== offerId) return false;
+  p.roomWagerOffer = null;
+  p.roomWagerDecisionDone = true;
+  run.fx.push({ t: 'room_wager_declined', id: p.id, playerId: p.id, timedOut: timedOut ? 1 : 0, x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
 function settleRoomWager(run, players, p) {
@@ -5911,10 +5993,10 @@ function settleRoomWager(run, players, p) {
   const ok = cond?.ok?.(run, p) ? true : false;
   if (ok) {
     prize?.prize?.(run, p);
-    run.fx.push({ t: 'room_wager_paid', id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', body: w.prizeText, wager: w.text || '' });
+    run.fx.push({ t: 'room_wager_paid', id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', body: prize?.ru || w.prizeTextRu || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   } else {
     stake?.loss?.(run, p);
-    run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: w.stakeText, wager: w.text || '' });
+    run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: stake?.ru || w.stakeTextRu || '', bodyRu: stake?.ru || w.stakeTextRu || '', bodyEn: stake?.en || w.stakeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   }
 }
 
@@ -5923,14 +6005,27 @@ function roomWagerProgress(run, p, w = null) {
   const st = p?.wagerStats || {};
   const solved = Math.max(0, roomSolvedTime(run));
   const dmg = Math.max(0, st.damage || 0);
-  if (id === 'dash15') return { value: Math.min(15, st.dash || 0), max: 15, text: `${Math.min(15, st.dash || 0)}/15 DASH` };
-  if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 Q` };
-  if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 R` };
-  if (id === 'kills10') return { value: Math.min(10, st.kills || 0), max: 10, text: `${Math.min(10, st.kills || 0)}/10 KILL` };
-  if (id === 'no_damage') return { value: dmg > 0 ? 0 : 1, max: 1, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0' };
-  if (id === 'damage10') return { value: dmg > 0 ? 0 : Math.min(10, Math.floor(solved)), max: 10, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : `${Math.min(10, Math.floor(solved))}/10 СЕК БЕЗ УРОНА` };
-  if (id === 'hp50') return { value: Math.max(0, Math.min(100, Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100))), max: 50, text: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%` };
-  if (id === 'lowhp15') return { value: (p?.hp || 0) <= maxHp(p) * 0.35 ? 1 : 0, max: 1, text: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%' };
+  if (id === 'dash15') return { value: Math.min(15, st.dash || 0), max: 15, text: `${Math.min(15, st.dash || 0)}/15 DASH`, textRu: `${Math.min(15, st.dash || 0)}/15 РЫВКОВ`, textEn: `${Math.min(15, st.dash || 0)}/15 DASHES` };
+  if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 Q`, textRu: `${Math.min(3, st.q || 0)}/3 Q`, textEn: `${Math.min(3, st.q || 0)}/3 Q` };
+  if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 R`, textRu: `${Math.min(2, st.r || 0)}/2 R`, textEn: `${Math.min(2, st.r || 0)}/2 R` };
+  if (id === 'kills10') return { value: Math.min(10, st.kills || 0), max: 10, text: `${Math.min(10, st.kills || 0)}/10 KILL`, textRu: `${Math.min(10, st.kills || 0)}/10 УГРОЗ`, textEn: `${Math.min(10, st.kills || 0)}/10 THREATS` };
+  if (id === 'base_switch6') return { value: Math.min(6, st.weaponSwitch || 0), max: 6, textRu: `${Math.min(6, st.weaponSwitch || 0)}/6 СМЕН`, textEn: `${Math.min(6, st.weaponSwitch || 0)}/6 SWITCHES` };
+  if (id === 'base_no_q') return { value: (st.q || 0) <= 0 ? 1 : 0, max: 1, textRu: (st.q || 0) <= 0 ? 'Q НЕ ИСПОЛЬЗОВАНА' : 'Q ИСПОЛЬЗОВАНА', textEn: (st.q || 0) <= 0 ? 'Q UNUSED' : 'Q USED' };
+  if (id === 'base_kills18') return { value: Math.min(18, st.kills || 0), max: 18, textRu: `${Math.min(18, st.kills || 0)}/18 УГРОЗ`, textEn: `${Math.min(18, st.kills || 0)}/18 THREATS` };
+  if (id === 'lc_marks4') return { value: Math.min(4, st.lcMarks || 0), max: 4, textRu: `${Math.min(4, st.lcMarks || 0)}/4 УКАЗАНИЯ`, textEn: `${Math.min(4, st.lcMarks || 0)}/4 MARKS` };
+  if (id === 'lc_marks8') return { value: Math.min(8, st.lcMarks || 0), max: 8, textRu: `${Math.min(8, st.lcMarks || 0)}/8 УКАЗАНИЙ`, textEn: `${Math.min(8, st.lcMarks || 0)}/8 MARKS` };
+  if (id === 'lc_sparks3') return { value: Math.min(3, st.lcSparks || 0), max: 3, textRu: `${Math.min(3, st.lcSparks || 0)}/3 СВЯЗИ`, textEn: `${Math.min(3, st.lcSparks || 0)}/3 LINKS` };
+  if (id === 'lc_sparks6') return { value: Math.min(6, st.lcSparks || 0), max: 6, textRu: `${Math.min(6, st.lcSparks || 0)}/6 СВЯЗЕЙ`, textEn: `${Math.min(6, st.lcSparks || 0)}/6 LINKS` };
+  if (id === 'lc_auto_only') return { value: (st.lcMarks || 0) <= 0 ? 1 : 0, max: 1, textRu: (st.lcMarks || 0) <= 0 ? 'АВТОКОНТУР ЧИСТ' : 'УКАЗАНИЕ ПЕРЕДАНО', textEn: (st.lcMarks || 0) <= 0 ? 'AUTO GRID CLEAN' : 'MARK ISSUED' };
+  if (id === 'ctrl_commands5') return { value: Math.min(5, st.ctrlCommands || 0), max: 5, textRu: `${Math.min(5, st.ctrlCommands || 0)}/5 ПРИКАЗОВ`, textEn: `${Math.min(5, st.ctrlCommands || 0)}/5 COMMANDS` };
+  if (id === 'ctrl_commands9') return { value: Math.min(9, st.ctrlCommands || 0), max: 9, textRu: `${Math.min(9, st.ctrlCommands || 0)}/9 ПРИКАЗОВ`, textEn: `${Math.min(9, st.ctrlCommands || 0)}/9 COMMANDS` };
+  if (id === 'ctrl_captures2') return { value: Math.min(2, st.ctrlCaptures || 0), max: 2, textRu: `${Math.min(2, st.ctrlCaptures || 0)}/2 ПЕРЕХВАТА`, textEn: `${Math.min(2, st.ctrlCaptures || 0)}/2 CAPTURES` };
+  if (id === 'ctrl_captures4') return { value: Math.min(4, st.ctrlCaptures || 0), max: 4, textRu: `${Math.min(4, st.ctrlCaptures || 0)}/4 ПЕРЕХВАТА`, textEn: `${Math.min(4, st.ctrlCaptures || 0)}/4 CAPTURES` };
+  if (id === 'ctrl_full_team') { const have = (ensureProcessControllerState(p)?.controlled || []).length; const need = processControllerMax(p); return { value: Math.min(need, have), max: need, textRu: `${Math.min(need, have)}/${need} ПРОЦЕССОВ`, textEn: `${Math.min(need, have)}/${need} PROCESSES` }; }
+  if (id === 'no_damage') return { value: dmg > 0 ? 0 : 1, max: 1, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0', textRu: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0', textEn: dmg > 0 ? 'DAMAGE TAKEN' : 'DAMAGE 0' };
+  if (id === 'damage10') return { value: dmg > 0 ? 0 : Math.min(10, Math.floor(solved)), max: 10, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : `${Math.min(10, Math.floor(solved))}/10 СЕК БЕЗ УРОНА`, textRu: dmg > 0 ? 'УРОН ПОЛУЧЕН' : `${Math.min(10, Math.floor(solved))}/10 СЕК БЕЗ УРОНА`, textEn: dmg > 0 ? 'DAMAGE TAKEN' : `${Math.min(10, Math.floor(solved))}/10 SEC NO DAMAGE` };
+  if (id === 'hp50') return { value: Math.max(0, Math.min(100, Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100))), max: 50, text: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textRu: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textEn: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%` };
+  if (id === 'lowhp15') return { value: (p?.hp || 0) <= maxHp(p) * 0.35 ? 1 : 0, max: 1, text: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%', textRu: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%', textEn: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'LOW HP: YES' : 'NEED HP <35%' };
   return { value: 0, max: 1, text: '' };
 }
 
@@ -6163,7 +6258,20 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
   if (killer?.wagerStats) killer.wagerStats.kills = (killer.wagerStats.kills || 0) + 1;
-  if (e.kind === 'slot_mob') run.fx.push({ t: 'casino_mob_defeated', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, themeT: 5 });
+  if (e.kind === 'slot_mob') {
+    const loop = roomLoopIndex(run);
+    const jackpot = Math.max(240, roundCost((240 + Math.max(0, run.runDepth || 0) * 36) * loopEconomyMul(run) * (1 + loop * 0.16)));
+    const pieces = Math.max(8, Math.min(14, 8 + loop));
+    let left = jackpot;
+    for (let i = 0; i < pieces && left > 0; i++) {
+      const rolled = Math.max(1, Math.round(jackpot / pieces * (0.72 + Math.random() * 0.56)));
+      const val = i === pieces - 1 ? left : Math.min(left, rolled);
+      left -= val;
+      dropPickup(run, e.x + (Math.random() - 0.5) * 210, e.y + (Math.random() - 0.5) * 210, 'GLD', val, { label: 'HIDDEN CASINO VIRUS' });
+    }
+    run.fx.push({ t: 'casino_mob_defeated', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, themeT: 5, gld: jackpot });
+    run.fx.push({ t: 'hero_unlock', heroId: 'living_casino', source: 'hidden_casino_virus' });
+  }
   run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
   registerComboEvent(run, killer, source, e, 1);
   spreadElementStatusesOnKill(run, players, e, killer);
@@ -6228,6 +6336,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     const otherBossAlive = run.enemies.some(x => x && x.hp > 0 && ENEMIES[x.kind]?.boss);
     if (!def.bossFragment || !otherBossAlive) {
       if (run.runMemory) run.runMemory.bossesDefeated = (run.runMemory.bossesDefeated || 0) + 1;
+      syncPermanentRoomWagers(run, players, true);
       // boss reward burst. GOLD FEVER keeps enemy/boss loot pure GLD too.
       const burst = def.bossFragment ? 4 : 6;
       for (let i = 0; i < burst; i++) {
@@ -8552,7 +8661,7 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
   return ok;
 }
 
-export { handleRoomWagerAccept, handleRarePick };
+export { handleRoomWagerAccept, handleRoomWagerDecline, handleRarePick };
 
 function choiceIdentity(c) { return String(c?.id || c?.upgrade || c?.weapon || c?.core || c?.mutation || c || ''); }
 function rerollChoicesDifferent(makeFn, oldChoices = [], count = 2, fallback = []) {
@@ -8619,10 +8728,9 @@ function applyDevBossReward(run, p, id) {
     p.mirrorBossCycle = Math.max(0, run?.runMemory?.bossesDefeated || 0);
     p.mirrorUsedLoop = 0;
   }
-  if (id === 'sig_room_wager') p.roomWagerOffer = makeRoomWagerOffer(run, p);
   const label = u.label || String(id).replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
   run.fx.push({ t: 'boss_signature', label: `${label}`, kind: 'dev', choices: [id], playerId: p.id });
-  run.fx.push({ t: 'active_mutation', label: `${label}`, x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: id === 'sig_kill_switch' ? 'red' : id === 'sig_mirror_payout' ? 'purple' : id === 'sig_boss_key' || id === 'sig_room_wager' ? 'gold' : 'cyan', playerId: p.id });
+  run.fx.push({ t: 'active_mutation', label: `${label}`, x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: id === 'sig_kill_switch' ? 'red' : id === 'sig_mirror_payout' ? 'purple' : id === 'sig_boss_key' ? 'gold' : 'cyan', playerId: p.id });
   return true;
 }
 
@@ -8715,9 +8823,28 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     const id = String(cmd.id || '');
     return applyDevBossReward(run, p, id);
   }
+  if (action === 'unlock_room_wagers') {
+    if (run.runMemory) run.runMemory.bossesDefeated = Math.max(2, run.runMemory.bossesDefeated || 0);
+    syncPermanentRoomWagers(run, players, true);
+    return true;
+  }
+  if (action === 'lock_room_wagers') {
+    for (const pp of players.values()) {
+      if (!pp?.stats) continue;
+      pp.stats.roomWagerUnlocked = 0; pp.roomWagerOffer = null; pp.roomWagerActive = null;
+    }
+    run.fx.push({ t: 'active_mutation', label: 'WAGERS OFF', x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'red', playerId: p.id });
+    return true;
+  }
+  if (action === 'spawn_hidden_casino_virus') {
+    scheduleSlotMobAssembly(run, players, { x: p.x + 110, y: p.y }, { first: true, lives: 1, totalLives: 1 });
+    run.fx.push({ t: 'active_mutation', label: 'HIDDEN CASINO VIRUS', x: Math.round(p.x + 110), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id });
+    return true;
+  }
   if (action === 'force_room_wager_offer') {
     p.stats.roomWagerUnlocked = 1;
     p.roomWagerActive = null;
+    p.roomWagerDecisionDone = false;
     p.roomWagerOffer = makeRoomWagerOffer(run, p);
     if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
     run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER OFFER', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'gold', playerId: p.id });
@@ -8853,6 +8980,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     run.finalSummary = finalRunSummary(run, players);
     run.phase = 'won'; run.phaseT = 0;
     openPortal(run);
+    run.fx.push({ t: 'hero_unlock', heroId: 'process_controller', source: 'cleanup' });
     run.fx.push({ t: 'run_complete', summary: run.finalSummary });
     return true;
   }
@@ -9152,12 +9280,18 @@ function stepInstall(run, players, dt) {
       continue;
     }
     ensureRoomWagerOffer(run, p);
+    if (p.roomWagerOffer) {
+      p.roomWagerOffer.expires = Math.max(0, Number(p.roomWagerOffer.expires || 0) - dt);
+      if (p.roomWagerOffer.expires <= 0) handleRoomWagerDecline(run, players, p, p.roomWagerOffer.id, true);
+      else waiting = true;
+    }
     ensureInstallOffer(run, p);
-    if (!p.offer) continue;
-    p.offer.expires -= dt;
-    if (p.offer.expires <= 0) handlePick(run, players, p, 0, p.offer.id); // auto-pick first, one queued INSTALL at a time
-    ensureInstallOffer(run, p);
-    if (p.offer) waiting = true;
+    if (p.offer) {
+      p.offer.expires -= dt;
+      if (p.offer.expires <= 0) handlePick(run, players, p, 0, p.offer.id); // auto-pick first, one queued INSTALL at a time
+      ensureInstallOffer(run, p);
+      if (p.offer) waiting = true;
+    }
   }
   // v2.1 hotfix: do not advance just because a global install timer expired.
   // Multiple players can have multiple queued INSTALL choices; every pending stack must be offered or auto-picked.
@@ -10158,7 +10292,10 @@ function stepPlayers(run, players, dt) {
     }
     p.wantSecondary = false;
     // Weapon slots remain visible for every hero; Living Casino highlights either autonomous gun.
-    if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) p.weaponIdx = p.wantWeapon;
+    if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) {
+      if (p.weaponIdx !== p.wantWeapon && p.wagerStats) p.wagerStats.weaponSwitch = (p.wagerStats.weaponSwitch || 0) + 1;
+      p.weaponIdx = p.wantWeapon;
+    }
     p.wantWeapon = -1;
     // interact
     if (p.wantInteract && run.phase === 'play') tryInteract(run, players, p);

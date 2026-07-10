@@ -490,9 +490,9 @@ function weaponElementLabel(cls) {
 }
 
 function finalGoalLine(room = {}) {
-  const g = room.runGoal || { loops: 10, loop: 0 };
-  const loop = Math.max(0, Math.min(g.loops || 10, g.loop || 0));
-  return `${localText('ЦЕЛЬ', 'GOAL')} ${loop}/${g.loops || 10} ${localText('ЦИКЛОВ', 'LOOPS')}`;
+  const g = room.runGoal || { loops: 5, loop: 0 };
+  const loop = Math.max(0, Math.min(g.loops || 5, g.loop || 0));
+  return `${localText('ЦЕЛЬ', 'GOAL')} ${loop}/${g.loops || 5} ${localText('ЦИКЛОВ', 'LOOPS')}`;
 }
 function finalSummaryRows(sum = {}) {
   const players = Array.isArray(sum.players) ? sum.players : [];
@@ -501,7 +501,7 @@ function finalSummaryRows(sum = {}) {
   const qText = players.map(p => `${p.name || 'P'}: ${p.q || '—'}`).join(' | ');
   const companionText = players.map(p => `${p.name || 'P'}: ${localText('РЫВОК', 'DASH')} ${p.dash || 1} · ${localText('ДРОНЫ', 'DRN')} ${p.drones || 0}`).join(' | ');
   return [
-    [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 10}`],
+    [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 5}`],
     [localText('СЕКТОРА', 'SECTORS'), String(sum.roomsCleared || 0)],
     [localText('УБИЙСТВА', 'KILLS'), String(sum.kills || 0)],
     [localText('ГЛАВНЫЕ УГРОЗЫ', 'CORE THREATS'), String(sum.bosses || 0)],
@@ -671,11 +671,11 @@ export class Hud {
     const sub = el.querySelector('.run-complete-sub');
     const table = el.querySelector('table');
     const footer = el.querySelector('.run-complete-footer');
-    if (kicker) kicker.textContent = localText('АНТИВИРУС ЗАВЕРШИЛ ПРОХОЖДЕНИЕ', 'ANTIVIRUS RUN COMPLETE');
-    if (title) title.textContent = localText('СИСТЕМА ОЧИЩЕНА', 'SYSTEM CLEANSED');
-    if (sub) sub.textContent = localText('10 циклов пройдены. Финальный портал закрыл заражённую ветку.', '10 loops cleared. The final portal closed the infected branch.');
+    if (kicker) kicker.textContent = localText('СИСТЕМА СТАБИЛЬНА', 'SYSTEM STABLE');
+    if (title) title.textContent = localText('ОЧИСТКА ЗАВЕРШЕНА', 'CLEANUP COMPLETE');
+    if (sub) sub.textContent = localText(`${sum.loopsTarget || 5} циклов пройдено. Заражённая ветка закрыта.`, `${sum.loopsTarget || 5} loops cleared. The infected branch is closed.`);
     if (table) table.innerHTML = finalSummaryRows(sum).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
-    if (footer) footer.textContent = localText('Музыка завершения будет играть, пока окно открыто.', 'The ending theme keeps playing while this screen is open.');
+    if (footer) footer.textContent = localText('КОНТРОЛЁР ПРОЦЕССОВ ДОСТУПЕН', 'PROCESS CONTROLLER AVAILABLE');
   }
 
   hideRunComplete() {
@@ -859,14 +859,22 @@ export class Hud {
   }
 
 
+  wagerPart(w = {}, key = '') {
+    return localText(w[`${key}TextRu`] || w[`${key}Text`] || '', w[`${key}TextEn`] || w[`${key}Text`] || '');
+  }
+
+  wagerFxBody(f = {}) {
+    return cleanPlayerText(localText(f.bodyRu || f.body || '', f.bodyEn || f.body || ''));
+  }
+
   roomWagerActiveHtml(w = {}) {
     const progress = w.progress || {};
     const pct = progress.max ? Math.max(0, Math.min(100, Math.round((Number(progress.value || 0) / Math.max(1, Number(progress.max || 1))) * 100))) : 0;
-    const progText = String(progress.text || '').trim();
+    const progText = String(localText(progress.textRu || progress.text || '', progress.textEn || progress.text || '')).trim();
     return `<div class="wager-title active">${esc(localText('СТАВКА АКТИВНА', 'WAGER ACTIVE'))}</div>
-      <div class="wager-line"><b>${esc(localText('РИСК', 'RISK'))}</b><span>${esc(w.stakeText || '—')}</span></div>
-      <div class="wager-line"><b>${esc(localText('УСЛОВИЕ', 'CONDITION'))}</b><span>${esc(w.conditionText || '—')}</span></div>
-      <div class="wager-line"><b>${esc(localText('НАГРАДА', 'PRIZE'))}</b><span>${esc(w.prizeText || '—')}</span></div>
+      <div class="wager-line"><b>${esc(localText('РИСК', 'RISK'))}</b><span>${esc(this.wagerPart(w, 'stake') || '—')}</span></div>
+      <div class="wager-line"><b>${esc(localText('УСЛОВИЕ', 'CONDITION'))}</b><span>${esc(this.wagerPart(w, 'condition') || '—')}</span></div>
+      <div class="wager-line"><b>${esc(localText('НАГРАДА', 'PRIZE'))}</b><span>${esc(this.wagerPart(w, 'prize') || '—')}</span></div>
       ${progText ? `<div class="wager-progress"><span>${esc(progText)}</span><i style="width:${pct}%"></i></div>` : ''}`;
   }
 
@@ -1084,29 +1092,34 @@ export class Hud {
       const offer = me[P.SECTORWAGER];
       const activeWager = me[P.ACTIVEWAGER];
       if (offer && room.phase === 'install') {
-        const key = `offer:${offer.id || 0}:${offer.text || ''}`;
+        const seconds = Math.max(0, Math.ceil(Number(offer.expires || 0)));
+        const key = `offer:${getLang()}:${offer.id || 0}:${offer.text || ''}:${seconds}`;
         wagerCard.classList.remove('hidden', 'active');
         wagerCard.classList.add('offer');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
-          wagerCard.innerHTML = `<div class="wager-title">SECTOR WAGER</div><div class="wager-body">${esc(offer.text || '')}</div><button id="room-wager-accept" type="button">ACCEPT WAGER</button>`;
-          const accept = (ev) => {
+          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА СЕКТОРА', 'SECTOR WAGER'))}<span>${seconds}s</span></div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
+          const decide = (accept) => (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            const btn = ev.currentTarget || wagerCard.querySelector('#room-wager-accept');
-            if (btn?.disabled) return;
+            const buttons = [...wagerCard.querySelectorAll('.wager-actions button')];
+            if (buttons.some(x => x.disabled)) return;
             this.playUiSound('ui_click');
-            this.net?.sendRoomWager?.(offer.id || 0);
-            if (btn) { btn.disabled = true; btn.textContent = localText('ПРИНЯТО', 'ACCEPTED'); }
+            this.net?.sendRoomWager?.(offer.id || 0, accept);
+            buttons.forEach(x => { x.disabled = true; });
           };
-          const btn = wagerCard.querySelector('#room-wager-accept');
-          btn?.addEventListener('pointerdown', accept);
-          btn?.addEventListener('click', accept);
+          const acceptBtn = wagerCard.querySelector('#room-wager-accept');
+          const declineBtn = wagerCard.querySelector('#room-wager-decline');
+          acceptBtn?.addEventListener('pointerdown', decide(true));
+          acceptBtn?.addEventListener('click', decide(true));
+          declineBtn?.addEventListener('pointerdown', decide(false));
+          declineBtn?.addEventListener('click', decide(false));
         }
-        this.setExplain(wagerCard, 'SECTOR WAGER', localText('Ставка живёт внутри общего времени INSTALL. Отдельного таймера принятия нет: успей принять её до конца установки.', 'The wager lives inside the normal INSTALL timer. There is no separate accept timer: accept it before install ends.'), 'gold');
+        this.setExplain(wagerCard, 'SECTOR WAGER', localText('Прими риск или продолжи без ставки.', 'Accept the risk or continue without a wager.'), 'gold');
       } else if (activeWager && room.phase !== 'install') {
         const prog = activeWager.progress || {};
-        const key = `active:${activeWager.id || 0}:${activeWager.text || ''}:${prog.text || ''}`;
+        const progKey = localText(prog.textRu || prog.text || '', prog.textEn || prog.text || '');
+        const key = `active:${getLang()}:${activeWager.id || 0}:${activeWager.text || ''}:${progKey}`;
         wagerCard.classList.remove('hidden', 'offer');
         wagerCard.classList.add('active');
         if (this.wagerRenderKey !== key) {
@@ -1137,7 +1150,7 @@ export class Hud {
       this.installSyncSeenAt = 0;
     }
     const multiplayerWait = wait && Math.max(1, wait.total || 1) > 1 && this.net?.mode !== 'solo';
-    const shouldShowDataLoading = room.phase === 'install' && multiplayerWait && myWait?.waiting && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
+    const shouldShowDataLoading = room.phase === 'install' && multiplayerWait && myWait?.waiting && myWait?.kind !== 'room_wager' && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
     if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
     else if (shouldShowDataLoading) this.showInstallDataLoading(wait, me[P.ID]);
     else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
@@ -1478,6 +1491,16 @@ export class Hud {
         this.feed(`${t('eventSignal')}: ${localText('новая угроза', 'new threat')}`, 'c');
         break;
       case 'gld_hit': if (f.id === myId) { this.feed(`${localText('ЖАДНОСТЬ УДАР', 'GREED HIT')} -${f.cost || 0} GLD · BAL ${f.balance ?? 0}`, 'r'); } break;
+      case 'casino_mob_defeated':
+        this.banner(localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), `${localText('ЖИВОЕ КАЗИНО ДОСТУПНО', 'LIVING CASINO AVAILABLE')} · GLD +${f.gld || 0}`, 'gold');
+        this.feed(`${localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED')} · GLD +${f.gld || 0}`, 'g');
+        break;
+      case 'room_wager_unlocked':
+        if (f.id === myId || f.playerId === myId) {
+          this.banner(localText('СТАВКИ ОТКРЫТЫ', 'WAGERS UNLOCKED'), localText('Новая ставка появляется перед каждым сектором.', 'A new wager appears before every sector.'), 'gold');
+          this.feed(localText('ПРОТОКОЛ СТАВОК АКТИВЕН', 'WAGER PROTOCOL ONLINE'), 'g');
+        }
+        break;
       case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${locLabel(f.label || 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
       case 'director_wave':
         this.feed(`${localText('ВОЛНА', 'WAVE')} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
@@ -1528,9 +1551,10 @@ export class Hud {
       case 'contract_wager': break;
       case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('БОНУС КАЗИНО ЗА СЕКТОР', 'SECTOR CASINO BONUS')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
       case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('БОНУС КАЗИНО СГОРЕЛ', 'CASINO BONUS LOST')}: -${f.stake || 0}`, 'r'); break;
-      case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), cleanPlayerText(f.body || ''), 'gold'); this.feed(`${localText('SECTOR WAGER ПРИНЯТ', 'SECTOR WAGER ACCEPTED')}: ${cleanPlayerText(f.body || '')}`, 'p'); } break;
-      case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), cleanPlayerText(f.body || ''), 'green'); this.feed(`${localText('WAGER ВЫПОЛНЕН', 'WAGER PAID')}: ${cleanPlayerText(f.body || '')}`, 'g'); } break;
-      case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), cleanPlayerText(f.body || ''), 'red'); this.feed(`${localText('WAGER ПРОВАЛЕН', 'WAGER LOST')}: ${cleanPlayerText(f.body || '')}`, 'r'); } break;
+      case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), body, 'gold'); this.feed(`${localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED')}: ${body}`, 'p'); } break;
+      case 'room_wager_declined': if ((f.id === myId || f.playerId === myId) && !f.timedOut) this.feed(localText('СТАВКА ПРОПУЩЕНА', 'WAGER SKIPPED'), ''); break;
+      case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), body, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID')}: ${body}`, 'g'); } break;
+      case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), body, 'red'); this.feed(`${localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST')}: ${body}`, 'r'); } break;
       case 'favor_earned': { this.localRerollSpent = 0; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
@@ -1542,7 +1566,7 @@ export class Hud {
       case 'install': if (f.id === myId) this.feed(`${localText('УЛУЧШЕНИЕ', 'INSTALL')}: ${locLabel(f.label)}`, f.cursed ? 'p' : 'g'); break;
       case 'transition': this.cancelActiveRoll(); break;
       case 'protocol_complete':
-        this.banner(localText('СИСТЕМА ОЧИЩЕНА', 'SYSTEM CLEANSED'), localText('10 ЦИКЛОВ ЗАВЕРШЕНЫ', '10 LOOPS COMPLETE'), 'green');
+        this.banner(localText('ОЧИСТКА ЗАВЕРШЕНА', 'CLEANUP COMPLETE'), localText('5 ЦИКЛОВ ЗАВЕРШЕНЫ', '5 LOOPS COMPLETE'), 'green');
         this.feed(localText('ФИНАЛЬНЫЙ ПОРТАЛ ЗАКРЫЛ ЗАРАЖЁННУЮ ВЕТКУ', 'FINAL PORTAL CLOSED THE INFECTED BRANCH'), 'g');
         this.cancelActiveRoll(); this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
         break;

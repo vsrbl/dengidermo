@@ -86,6 +86,8 @@ const skinUnlockKey = 'nnc_skins_unlocked_v1';
 let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
 const heroSaveKey = 'tcr_selected_hero_v1';
+const heroUnlockKey = 'tcr_heroes_unlocked_v1';
+const DEFAULT_UNLOCKED_HEROES = ['base'];
 const HEROES = {
   base: {
     id: 'base',
@@ -98,20 +100,53 @@ const HEROES = {
     id: 'living_casino',
     labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO',
     descRu: 'казино-протокол', descEn: 'casino protocol',
-    explainRu: 'Казино-ядро: оружие и быстрые действия выбираются через кольцо.',
-    explainEn: 'Casino core: weapons and quick actions are picked through the wheel.'
+    explainRu: 'Две автономные пушки. ЛКМ и ПКМ передают каждой линии отдельные цели.',
+    explainEn: 'Two autonomous guns. LMB and RMB assign targets to each firing line.',
+    unlockRu: 'Удалить скрытый казино-вирус.', unlockEn: 'Delete the Hidden Casino Virus.'
   },
   process_controller: {
     id: 'process_controller',
     labelRu: 'КОНТРОЛЁР ПРОЦЕССОВ', labelEn: 'PROCESS CONTROLLER',
     descRu: 'контроль процессов', descEn: 'process control',
     explainRu: 'Ядро контроля: перехватывает процессы, отдаёт приказы и ставит карантинные якоря.',
-    explainEn: 'Control core: captures processes, issues orders, and deploys quarantine anchors.'
+    explainEn: 'Control core: captures processes, issues orders, and deploys quarantine anchors.',
+    unlockRu: 'Завершить очистку.', unlockEn: 'Complete the cleanup.'
   }
 };
+function readUnlockedHeroes() {
+  let ids = [];
+  try { ids = JSON.parse(localStorage.getItem(heroUnlockKey) || '[]'); } catch { ids = []; }
+  if (!Array.isArray(ids)) ids = [];
+  const valid = new Set(Object.keys(HEROES));
+  const unlocked = new Set([...DEFAULT_UNLOCKED_HEROES, ...ids.filter(id => valid.has(id))]);
+  localStorage.setItem(heroUnlockKey, JSON.stringify([...unlocked]));
+  return unlocked;
+}
+function writeUnlockedHeroes(set) {
+  const valid = new Set(Object.keys(HEROES));
+  localStorage.setItem(heroUnlockKey, JSON.stringify([...set].filter(id => valid.has(id))));
+}
+function isHeroUnlocked(id) { return readUnlockedHeroes().has(id); }
+function unlockHero(id, source = '') {
+  if (!HEROES[id]) return false;
+  const set = readUnlockedHeroes(); const had = set.has(id); set.add(id); writeUnlockedHeroes(set);
+  updateHeroSelector();
+  if (!had && typeof hud !== 'undefined') {
+    const h = HEROES[id];
+    hud.banner?.(localText('АНТИВИРУС ОТКРЫТ', 'ANTIVIRUS UNLOCKED'), localText(h.labelRu, h.labelEn), 'gold');
+    hud.feed?.(`${localText('ОТКРЫТ', 'UNLOCKED')}: ${localText(h.labelRu, h.labelEn)}`, 'g');
+  }
+  return !had;
+}
+function lockAllHeroes() {
+  writeUnlockedHeroes(new Set(DEFAULT_UNLOCKED_HEROES));
+  if (!isHeroUnlocked(selectedHeroId)) selectedHeroId = 'base';
+  localStorage.setItem(heroSaveKey, selectedHeroId);
+  updateHeroSelector();
+}
 const savedHeroId = localStorage.getItem(heroSaveKey);
-let selectedHeroId = HEROES[savedHeroId] ? savedHeroId : 'base';
-if (!HEROES[selectedHeroId]) selectedHeroId = 'base';
+let selectedHeroId = HEROES[savedHeroId] && isHeroUnlocked(savedHeroId) ? savedHeroId : 'base';
+if (!HEROES[selectedHeroId] || !isHeroUnlocked(selectedHeroId)) selectedHeroId = 'base';
 
 function hexTriplet(hex, fallback = '0,255,102') {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
@@ -232,21 +267,32 @@ function updateHeroSelector() {
   }
   document.querySelectorAll('[data-hero]').forEach(btn => {
     const h = HEROES[btn.dataset.hero] || HEROES.base;
-    const on = btn.dataset.hero === selectedHeroId;
+    const unlocked = isHeroUnlocked(btn.dataset.hero);
+    const on = btn.dataset.hero === selectedHeroId && unlocked;
     btn.classList.toggle('selected', on);
+    btn.classList.toggle('locked', !unlocked);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
     const title = btn.querySelector('.hero-title');
     const desc = btn.querySelector('.hero-desc');
     if (title) title.textContent = ru ? h.labelRu : h.labelEn;
-    if (desc) desc.textContent = ru ? h.descRu : h.descEn;
+    if (desc) desc.textContent = unlocked ? (ru ? h.descRu : h.descEn) : localText('ЗАКРЫТО', 'LOCKED');
     btn.dataset.explainTitle = ru ? h.labelRu : h.labelEn;
-    btn.dataset.explain = ru ? h.explainRu : h.explainEn;
+    btn.dataset.explain = unlocked ? (ru ? h.explainRu : h.explainEn) : (ru ? (h.unlockRu || 'Завершите условие открытия.') : (h.unlockEn || 'Complete the unlock condition.'));
   });
 }
 function setHero(id) {
-  selectedHeroId = HEROES[id] ? id : 'base';
+  const next = HEROES[id] ? id : 'base';
+  if (!isHeroUnlocked(next)) {
+    const h = HEROES[next] || HEROES.base;
+    if (status) status.textContent = localText(h.unlockRu || 'ЗАКРЫТО', h.unlockEn || 'LOCKED');
+    uiClick('denied');
+    return false;
+  }
+  selectedHeroId = next;
   localStorage.setItem(heroSaveKey, selectedHeroId);
   updateHeroSelector();
+  return true;
 }
 document.querySelectorAll('[data-hero]').forEach(btn => btn.addEventListener('click', () => { uiClick('ui_click'); setHero(btn.dataset.hero); }));
 
@@ -576,6 +622,7 @@ net.on('s', (m) => {
   state.addSnapshot(m);
   for (const f of m.fx) {
     if (f?.t === 'skin_unlock' && f.skinId) handleSkinUnlock(f.skinId, f.source || 'room');
+    if (f?.t === 'hero_unlock' && f.heroId) unlockHero(f.heroId, f.source || 'run');
     audio.handleFx(f, { myId: state.myId });
     effects.handleFx(f, { myId: state.myId, getMyPos: () => state.myRenderPos(0), state });
     hud.handleFx(f, state.myId, state);
@@ -667,8 +714,10 @@ function ensureDevPanel() {
       <button id="dev-mirror">MIRROR +1</button>
       <button id="dev-revive">REVIVE +1</button>
       <button id="dev-boss-key">BOSS KEY +1</button>
-      <button id="dev-room-wager">ROOM WAGER</button>
       <button id="dev-wager-offer">WAGER OFFER</button>
+      <button id="dev-wagers-on">WAGERS ON</button>
+      <button id="dev-wagers-off">WAGERS OFF</button>
+      <button id="dev-hidden-virus">HIDDEN VIRUS</button>
       <button id="dev-reset-kill-switch">RESET KILL FLAG</button>
     </div>
     <div class="dev-section-title">Q / PLAYER</div>
@@ -683,7 +732,10 @@ function ensureDevPanel() {
       <button id="dev-clear">CLEAR</button>
       <button id="dev-wpn">ALL WPN</button>
       <button id="dev-money">GLD/EXP</button>
-      <button id="dev-skins">UNLOCK SKINS</button>
+      <button id="dev-heroes-open">UNLOCK HEROES</button>
+      <button id="dev-heroes-lock">LOCK HEROES</button>
+      <button id="dev-skins-open">UNLOCK SKINS</button>
+      <button id="dev-skins-lock">LOCK SKINS</button>
       <button id="dev-god">GOD: OFF</button>
       <button id="dev-all-installs">ALL INSTALLS</button>
       <button id="dev-all-wpn-mods">ALL WPN MODS</button>
@@ -713,8 +765,10 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-mirror')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_mirror_payout' }));
   devPanel.querySelector('#dev-revive')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_null_revival' }));
   devPanel.querySelector('#dev-boss-key')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_boss_key' }));
-  devPanel.querySelector('#dev-room-wager')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_room_wager' }));
   devPanel.querySelector('#dev-wager-offer')?.addEventListener('click', () => { cmd('force_room_wager_offer'); hud.feed('DEV: WAGER OFFER', 'c'); });
+  devPanel.querySelector('#dev-wagers-on')?.addEventListener('click', () => { cmd('unlock_room_wagers'); hud.feed('DEV: WAGERS ON', 'c'); });
+  devPanel.querySelector('#dev-wagers-off')?.addEventListener('click', () => { cmd('lock_room_wagers'); hud.feed('DEV: WAGERS OFF', 'r'); });
+  devPanel.querySelector('#dev-hidden-virus')?.addEventListener('click', () => { cmd('spawn_hidden_casino_virus'); hud.feed('DEV: HIDDEN VIRUS', 'p'); });
   devPanel.querySelector('#dev-reset-kill-switch')?.addEventListener('click', () => { cmd('reset_kill_switch_flag'); hud.feed('DEV: KILL SWITCH RESET', 'c'); });
   devPanel.querySelector('#dev-win-run')?.addEventListener('click', () => { cmd('win_run'); hud.feed('DEV: WIN RUN', 'c'); });
   devPanel.querySelector('#dev-apply-next')?.addEventListener('click', () => { cmd('set_next_room', readNextRoomLab()); hud.feed('DEV: NEXT ROOM LOCKED', 'c'); });
@@ -738,11 +792,15 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-all-sigs')?.addEventListener('click', () => cmd('give_all_signatures'));
   devPanel.querySelector('#dev-spawn-boss')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss_croupier'; cmd('spawn_boss', { kind }); });
   devPanel.querySelector('#dev-final')?.addEventListener('click', () => cmd('set_final_room'));
-  devPanel.querySelector('#dev-skins')?.addEventListener('click', () => {
-    const set = readUnlockedSkins();
-    for (const sk of SKIN_PRESETS) set.add(sk.id);
-    writeUnlockedSkins(set);
-    hud.feed('DEV: ALL SKINS UNLOCKED', 'c');
+  devPanel.querySelector('#dev-heroes-open')?.addEventListener('click', () => {
+    writeUnlockedHeroes(new Set(Object.keys(HEROES))); updateHeroSelector(); hud.feed('DEV: ALL HEROES UNLOCKED', 'c');
+  });
+  devPanel.querySelector('#dev-heroes-lock')?.addEventListener('click', () => { lockAllHeroes(); hud.feed('DEV: HEROES LOCKED', 'r'); });
+  devPanel.querySelector('#dev-skins-open')?.addEventListener('click', () => {
+    const set = readUnlockedSkins(); for (const sk of SKIN_PRESETS) set.add(sk.id); writeUnlockedSkins(set); updateSkinPreview(); hud.feed('DEV: ALL SKINS UNLOCKED', 'c');
+  });
+  devPanel.querySelector('#dev-skins-lock')?.addEventListener('click', () => {
+    writeUnlockedSkins(new Set(DEFAULT_UNLOCKED_SKINS)); selectedSkinId = firstUnlockedSkinId(); localStorage.setItem(skinSaveKey, selectedSkinId); skinIndex = Math.max(0, presetById(selectedSkinId)); updateSkinPreview(); applySkinTheme(selectedSkinId); hud.feed('DEV: SKINS LOCKED', 'r');
   });
   return devPanel;
 }
