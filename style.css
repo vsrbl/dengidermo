@@ -3054,18 +3054,6 @@ button:hover,
   background: rgba(255,48,72,.075);
   box-shadow: 0 0 16px rgba(255,48,72,.20), inset 0 0 0 1px rgba(255,48,72,.12);
 }
-.casino-lane {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 8px;
-  height: 3px;
-}
-.casino-lane span { background: rgba(255,48,72,.24); box-shadow: 0 0 8px rgba(255,48,72,.12); }
-#casino-modal.bet-running .casino-lane span { animation: casinoLane .54s steps(4,end) infinite; }
-#casino-modal.bet-running .casino-lane span:nth-child(2) { animation-delay: .08s; }
-#casino-modal.bet-running .casino-lane span:nth-child(3) { animation-delay: .16s; }
 #casino-result {
   min-height: 112px;
   max-height: 112px;
@@ -3190,7 +3178,6 @@ button:hover,
 #casino-modal.bet-jackpot .reel.win { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 20px rgba(255,211,77,.36); }
 @keyframes betCellScan { 50% { transform: translateY(1px); opacity: .62; } }
 @keyframes betCellLock { 0% { transform: scale(.96); filter: brightness(1.6); } 100% { transform: scale(1); filter: none; } }
-@keyframes casinoLane { 50% { background: rgba(255,211,77,.74); box-shadow: 0 0 12px rgba(255,211,77,.42); } }
 @media (max-width: 680px) {
   #casino-modal .panel { min-width: 0 !important; min-height: 500px; max-height: 86vh; overflow: auto; }
   #casino-help { grid-template-columns: 1fr; min-height: 0; }
@@ -5360,83 +5347,6 @@ body.ctrl-capture-active #custom-cursor .cc::after {
 #room-wager-card #room-wager-decline:hover,
 #room-wager-card #room-wager-decline:focus-visible { border-color: rgba(243,243,243,.82) !important; background: rgba(243,243,243,.12) !important; color: var(--fg) !important; box-shadow: none !important; }
 
-/* v2.1.172 — BET terminal reward loop, edge, heat, manual locks, pair decision */
-#casino-modal .panel { width:min(94vw,560px) !important; }
-#casino-help {
-  display:block !important;
-  margin:8px auto 10px;
-  max-width:460px;
-  color:rgba(243,243,243,.58);
-  font-size:10px;
-  line-height:1.45;
-  letter-spacing:.08em;
-  text-align:center;
-}
-.casino-status {
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:7px;
-  margin:8px 0 10px;
-}
-.casino-status span {
-  min-width:0;
-  padding:7px 6px;
-  border:1px solid rgba(243,243,243,.18);
-  background:rgba(0,0,0,.42);
-  color:rgba(243,243,243,.66);
-  font-size:9px;
-  line-height:1.15;
-  letter-spacing:.1em;
-  text-align:center;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.casino-status span.ready { color:var(--cyan); border-color:rgba(102,246,255,.55); box-shadow:inset 0 0 12px rgba(102,246,255,.08); }
-.casino-status span.danger { color:var(--red); border-color:rgba(255,48,72,.72); animation:casinoHeatPulse .72s steps(2,end) infinite; }
-@keyframes casinoHeatPulse { 50% { opacity:.58; box-shadow:0 0 14px rgba(255,48,72,.2); } }
-.casino-actions {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:9px;
-  margin:8px 0 12px;
-}
-.casino-actions.hidden { display:none !important; }
-.casino-actions button {
-  min-height:42px;
-  border:1px solid var(--gold);
-  color:var(--gold);
-  background:rgba(255,211,77,.06);
-  font-size:11px;
-  letter-spacing:.12em;
-  cursor:pointer;
-}
-.casino-actions button:hover:not(:disabled),
-.casino-actions button:focus-visible:not(:disabled) { background:rgba(255,211,77,.16); box-shadow:0 0 16px rgba(255,211,77,.18); }
-.casino-actions button:disabled { opacity:.42; cursor:default; }
-.reel.lock-target {
-  cursor:pointer;
-  outline:1px dashed var(--cyan);
-  outline-offset:4px;
-  animation:casinoLockTarget .72s steps(2,end) infinite;
-}
-.reel.lock-target::before {
-  content:'+';
-  position:absolute;
-  right:3px;
-  top:1px;
-  color:var(--cyan);
-  font-size:11px;
-}
-@keyframes casinoLockTarget { 50% { box-shadow:0 0 18px rgba(102,246,255,.35); } }
-.reel.lock-ready { border-style:double !important; border-width:3px !important; }
-#casino-modal.bet-win .casino-actions { filter:none !important; }
-@media (max-width:620px) {
-  .casino-status { grid-template-columns:1fr; }
-  .casino-actions { grid-template-columns:1fr; }
-  #casino-help { font-size:9px; }
-}
-
 /* BET terminal skin choice */
 .casino-skin-actions {
   display: grid;
@@ -5465,3 +5375,144 @@ body.ctrl-capture-active #custom-cursor .cc::after {
 #install-modal,
 #weapon-modal,
 #ability-modal { z-index: 37; }
+
+
+/* v2.1.173 — compact BET terminal: automatic LOCK, heat only, fixed geometry */
+#casino-modal .panel {
+  width: min(92vw, 520px) !important;
+  height: 410px !important;
+  min-height: 410px !important;
+  max-height: 410px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+#casino-modal .casino-readout { height: 96px !important; min-height: 96px !important; }
+#casino-modal .casino-lane,
+#casino-modal #casino-help,
+#casino-modal #casino-actions,
+#casino-modal #casino-pity,
+#casino-modal #casino-locks { display: none !important; }
+#casino-modal #casino-result {
+  height: 62px !important;
+  min-height: 62px !important;
+  max-height: 62px !important;
+  overflow: hidden !important;
+  margin: 0 0 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+#casino-modal #casino-result .casino-result-title { margin: 0 0 3px !important; }
+#casino-modal #casino-result .casino-result-flow { line-height: 1.25 !important; }
+#casino-modal .casino-status {
+  display: block !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  margin: 0 0 9px !important;
+}
+#casino-modal .casino-status span {
+  display: block !important;
+  width: 100% !important;
+  height: 30px !important;
+  box-sizing: border-box !important;
+  padding: 7px 8px !important;
+}
+#casino-modal .reel.lock-target {
+  outline: none !important;
+  outline-offset: 0 !important;
+  animation: none !important;
+  cursor: default !important;
+}
+#casino-modal .reel.lock-target::before { display: none !important; }
+#casino-modal .reel.lock-ready {
+  border-style: solid !important;
+  border-width: 2px !important;
+  box-shadow: inset 0 0 0 1px rgba(102,246,255,.26), 0 0 10px rgba(102,246,255,.12) !important;
+}
+#casino-modal .casino-skin-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  overflow: hidden !important;
+  margin: 0 0 8px !important;
+}
+#casino-modal .casino-skin-actions.hidden {
+  display: grid !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+#casino-modal #casino-stakes { margin: 0 !important; }
+#casino-modal #casino-hint { margin-top: 8px !important; white-space: nowrap !important; overflow: hidden !important; }
+@media (max-width: 680px) {
+  #casino-modal .panel { height: 410px !important; min-height: 410px !important; max-height: 410px !important; overflow: hidden !important; }
+  #casino-modal #casino-stakes { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; display: grid !important; }
+  #casino-modal #casino-stakes button { padding: 9px 6px !important; }
+}
+
+/* v2.1.173 — compact luck badge */
+#casino-modal #casino-luck-card {
+  width: 112px !important;
+  padding: 8px 9px !important;
+  text-align: center !important;
+}
+#casino-modal .casino-luck-title {
+  margin: 0 0 3px !important;
+  font-size: 9px !important;
+  text-align: center !important;
+}
+#casino-modal .casino-luck-value {
+  display: block !important;
+  margin: 0 !important;
+  font-size: 17px !important;
+  text-align: center !important;
+}
+#casino-modal .casino-luck-row,
+#casino-modal .casino-luck-note { display: none !important; }
+
+/* v2.1.174 — autonomous gun clarity and terminal scrollbars */
+.lc-gun-row {
+  grid-template-columns: 42px minmax(0,1fr) auto !important;
+}
+.lc-gun-row > i { display: none !important; }
+.lc-gun-row.selected {
+  border-color: rgba(243,243,243,.14) !important;
+  box-shadow: none !important;
+  background: rgba(255,255,255,.025) !important;
+}
+
+#dev-panel,
+#dev-panel .dev-room-mods,
+.run-complete-card {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan) rgba(0,0,0,.92);
+}
+.run-complete-card {
+  scrollbar-color: var(--green) rgba(0,0,0,.92);
+}
+#dev-panel::-webkit-scrollbar,
+#dev-panel .dev-room-mods::-webkit-scrollbar,
+.run-complete-card::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+#dev-panel::-webkit-scrollbar-track,
+#dev-panel .dev-room-mods::-webkit-scrollbar-track,
+.run-complete-card::-webkit-scrollbar-track {
+  background: #020303;
+  border-left: 1px solid rgba(243,243,243,.12);
+}
+#dev-panel::-webkit-scrollbar-thumb,
+#dev-panel .dev-room-mods::-webkit-scrollbar-thumb {
+  background: repeating-linear-gradient(180deg, rgba(102,246,255,.82) 0 5px, rgba(0,0,0,.82) 5px 7px);
+  border: 1px solid rgba(102,246,255,.95);
+  border-radius: 0;
+}
+.run-complete-card::-webkit-scrollbar-thumb {
+  background: repeating-linear-gradient(180deg, rgba(0,255,102,.82) 0 5px, rgba(0,0,0,.82) 5px 7px);
+  border: 1px solid rgba(0,255,102,.95);
+  border-radius: 0;
+}
+#dev-panel::-webkit-scrollbar-corner,
+#dev-panel .dev-room-mods::-webkit-scrollbar-corner,
+.run-complete-card::-webkit-scrollbar-corner { background: #020303; }

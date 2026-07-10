@@ -1,4 +1,4 @@
-# v2.1.172 — BET Terminal rework
+# v2.1.173 — BET Terminal rework
 
 ## Core result rules
 
