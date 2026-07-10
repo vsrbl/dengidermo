@@ -2042,7 +2042,13 @@ function hasShellArmor(e) {
 }
 function shellRegenHitDelay(e, base = 4.2) {
   // v2.1.137: the first major threat (croupier) gets a longer shell recovery pause.
+  // v2.1.165: the casino slot process has a longer shield downtime, but once
+  // recovery starts it snaps back quickly like a rigged machine jackpot.
+  if (e?.kind === 'slot_mob') return base * 3;
   return e?.kind === 'boss_croupier' ? base * 2 : base;
+}
+function shellRegenRateMul(e) {
+  return e?.kind === 'slot_mob' ? 3 : 1;
 }
 function shellChance(run, kind, def, elite, type) {
   const df = difficulty(run);
@@ -2230,7 +2236,7 @@ function stepEnemySynergies(run, players, dt) {
     e.shellRegenDelay = Math.max(0, (e.shellRegenDelay || 0) - dt);
     if ((e.shellMax || 0) > 0 && e.hp > 0 && (e.shellHp || 0) < e.shellMax && (e.shellRegenDelay || 0) <= 0) {
       const beforeShell = Math.max(0, e.shellHp || 0);
-      const regen = Math.max(3.5, e.shellMax * (e.shellType === 'linked' ? 0.10 : 0.14)) * dt;
+      const regen = Math.max(3.5, e.shellMax * (e.shellType === 'linked' ? 0.10 : 0.14)) * shellRegenRateMul(e) * dt;
       e.shellHp = Math.min(e.shellMax, beforeShell + regen);
       if (beforeShell <= 0 && e.shellHp > 0) {
         e.shellFlashT = Math.max(e.shellFlashT || 0, 0.22);
@@ -3104,17 +3110,34 @@ function controlledProcessTarget(run, m, pc) {
   return best;
 }
 function controlledFireBullet(run, p, m, target, baseDmg, speed, life, size, kind = 'ctrl_proc', spread = 0, count = 1) {
-  if (!target || run.bullets.length >= MAX_BULLETS - count) return false;
+  if (!target) return false;
+  const stats = p?.stats || {};
+  const echoExtra = chanceStacks(Math.max(0, Number(stats.echoShot || 0) || 0));
+  const shotCount = Math.max(1, (count | 0) + echoExtra);
+  if (run.bullets.length >= MAX_BULLETS - shotCount) return false;
   const base = Math.atan2(target.y - m.y, target.x - m.x);
-  const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
-  for (let i = 0; i < count; i++) {
-    const off = count === 1 ? 0 : (i - (count - 1) / 2) * spread;
-    run.bullets.push({ id: nid(), x: m.x, y: m.y, vx: Math.cos(base + off) * speed, vy: Math.sin(base + off) * speed, dmg: weaponDamageValue(p, baseDmg + power * 1.7), from: 'p', owner: p.id, life, size, kind, source: 'control', travelled: 0, maxDist: Math.round(speed * life * 0.74), knock: 16 + power * 2, bornTick: run.tick || 0 });
+  const power = Math.max(0, Number(stats.ctrlPower || 0) | 0);
+  const rangeMul = Math.max(0.25, Number(stats.bulletRange || 1) || 1);
+  const elem = bulletElementString(p, 'control');
+  const elemPower = bulletElementPower(p, 'control');
+  const proc = Math.max(0, Number(stats.procBlast || 0) || 0);
+  const bounces = Math.max(0, Number(stats.bulletBounce || 0) | 0);
+  const totalSpread = shotCount === 1 ? 0 : Math.max(spread, 0.095);
+  for (let i = 0; i < shotCount; i++) {
+    const off = shotCount === 1 ? 0 : (i - (shotCount - 1) / 2) * totalSpread;
+    const bulletLife = Math.max(0.1, life * rangeMul);
+    run.bullets.push({
+      id: nid(), x: m.x, y: m.y, vx: Math.cos(base + off) * speed, vy: Math.sin(base + off) * speed,
+      dmg: weaponDamageValue(p, baseDmg + power * 1.7), from: 'p', owner: p.id, life: bulletLife, size, kind, source: 'control',
+      travelled: 0, maxDist: Math.round(speed * bulletLife * 0.74), knock: 16 + power * 2, bornTick: run.tick || 0,
+      elem, elemPower, proc, bounces, rangeMul, echoProc: i >= count ? 1 : 0
+    });
   }
   // Controlled processes fire from their own bodies. Do not emit the normal player 'shot' FX:
   // it plays the player's weapon sound and relocates the muzzle flash to the hero on the client.
-  // The actual bullets are already visible; a silent controller-only marker is kept for future VFX.
-  run.fx.push({ t: 'ctrl_proc_fire', id: m.id || '', owner: p.id, kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y) });
+  // The actual bullets are already visible; a controller-only marker drives quiet process SFX/VFX.
+  run.fx.push({ t: 'ctrl_proc_fire', id: m.id || '', owner: p.id, kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y), shots: shotCount, echo: echoExtra });
+  if (echoExtra > 0) run.fx.push({ t: 'echo_shot', id: p.id, x: Math.round(m.x), y: Math.round(m.y), weapon: 'control', count: echoExtra });
   return true;
 }
 function controlledContact(run, players, p, m, target, dt, mult = 1) {
@@ -3226,7 +3249,8 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   if (m.ttl <= 0 || m.hp <= 0) return;
   m.st = Math.max(0, Number(m.st || 0) + dt);
   const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
-  const fireMul = 1 + Math.min(1.4, Math.max(0, p.stats?.ctrlFire || 0) * 0.18);
+  const ctrlFireMul = 1 + Math.min(1.4, Math.max(0, p.stats?.ctrlFire || 0) * 0.18);
+  const fireMul = ctrlFireMul * Math.max(0.35, Number(p.stats?.fireMul || 1) || 1);
   m.atkCd = Math.max(0, (m.atkCd || 0) - dt * fireMul);
   const hasCmd = (pc.commandT || 0) > 0;
   const orbitA = (run.now || 0) * 0.85 + i * Math.PI * 2 / Math.max(1, pc.controlled.length);
@@ -3962,7 +3986,7 @@ function activateLivingCasinoBet(run, players, p, sec, power = 1) {
   const reward = kinds[Math.floor(Math.random() * kinds.length)];
   const luck = Math.max(0, (lc?.betLuck || 0) * 1.5 + Math.max(0, p.stats?.luck || 0) * 0.75);
   let roll = Math.random() + luck * 0.035;
-  let mult = 0, tag = 'ПРОИГРЫШ';
+  let mult = 0, tag = 'LOSE';
   if (roll >= 0.95) { mult = 5.0; tag = 'JACKPOT'; }
   else if (roll >= 0.70) { mult = 2.35; tag = 'HIGH PAYOUT'; }
   else if (roll >= 0.12) { mult = 1.35; tag = 'PAYOUT'; }
@@ -8001,30 +8025,36 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
   return weighted[0][0];
 }
 function processControllerChoicePool(p, qualityTier = 0) {
-  const allowed = new Set(['ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'ctrl_process_life', 'ctrl_process_persist', 'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage']);
+  const allowed = new Set([
+    'ctrl_process_slot', 'ctrl_process_power', 'ctrl_process_fire', 'ctrl_process_life', 'ctrl_process_persist',
+    'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage',
+    // Global shooting modules now also tune controlled process fire. Drone tuning remains separate.
+    'bullet_ricochet', 'bullet_range', 'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'drone_element_link'
+  ]);
   return WEAPON_CHEST_REWARDS
     .filter(opt => {
       if (!opt) return false;
       if (opt.kind === 'weapon') return PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || '')) && !p.weapons.includes(opt.weapon);
       if (opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id))) return weaponChoiceEligible(p, opt);
-      if (opt.kind === 'stat' && opt.stat === 'dmg') return true;
+      if (opt.kind === 'stat' && (opt.stat === 'dmg' || opt.stat === 'fire')) return true;
       return false;
     })
     .map(opt => {
       const isDmgStat = opt.kind === 'stat' && opt.stat === 'dmg';
+      const isFireStat = opt.kind === 'stat' && opt.stat === 'fire';
       return {
         ...opt,
-        id: isDmgStat ? 'ctrl_proc_dmg_stat' : opt.id,
-        label: isDmgStat ? 'CTRL: УРОН ПРОЦЕССОВ +18%' : opt.label,
-        desc: isDmgStat ? 'Подконтрольные процессы сильнее кусают, стреляют и наносят урон своими действиями.' : opt.desc,
+        id: isDmgStat ? 'ctrl_proc_dmg_stat' : isFireStat ? 'ctrl_proc_fire_stat' : opt.id,
+        label: isDmgStat ? 'CTRL: УРОН ПРОЦЕССОВ +18%' : isFireStat ? 'CTRL: ТЕМП СТРЕЛЬБЫ +14%' : opt.label,
+        desc: isDmgStat ? 'Подконтрольные процессы сильнее кусают, стреляют и наносят урон своими действиями.' : isFireStat ? 'Подконтрольные стрелковые процессы атакуют чаще.' : opt.desc,
         disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL',
-        actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : 'УСИЛИТЬ КОНТРОЛЬ'
+        actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : (String(opt.upgrade || opt.id) === 'drone_element_link' ? 'УСИЛИТЬ СПУТНИКОВ' : (String(opt.upgrade || opt.id).startsWith('bullet_') || String(opt.upgrade || opt.id).startsWith('element_') ? 'УСИЛИТЬ СТРЕЛЬБУ' : 'УСИЛИТЬ КОНТРОЛЬ'))
       };
     });
 }
 function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
-  // У контролёра WPN-ящик — это ящик команд контроля, не оружейный пул.
-  // Никакие SHG/SEK/RKT/LVC/RLT/CRD и снарядные статусы сюда не попадают.
+  // У Контролёра WPN-ящик усиливает команды контроля и общую стрельбу процессов.
+  // Спутниковый канал остаётся отдельной веткой для дронов.
   const pool = processControllerChoicePool(p, qualityTier);
   const choices = [];
   const used = new Set();
@@ -8453,7 +8483,7 @@ function openChest(run, players, p, o) {
       p.hp = Math.min(p.hp, maxHp(p));
       rewards.push(u.label, 'CURSE: STATIC STORM');
     } else rewards.push('CURSE: STATIC STORM');
-    addStaticDebt(run, value.tier >= 3 ? 2 : 1, 'cursed_chest');
+    addStaticDebt(run, 1, 'cursed_chest');
   }
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: o.chest !== 'basic_chest' ? 1 : 0, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, rewards, x: o.x, y: o.y, cursed: !!def.cursed });
 }
@@ -8631,7 +8661,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
   if (action === 'luck_plus') {
     if (!p.stats) p.stats = defaultStats();
     p.stats.luck = Math.max(0, Number(p.stats.luck || 0)) + 1;
-    run.fx.push({ t: 'active_mutation', label: `УДАЧА +1 (${Math.round(p.stats.luck)})`, x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'gold', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: `LUCK +1 (${Math.round(p.stats.luck)})`, x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'gold', playerId: p.id });
     return true;
   }
   if (action === 'set_active') {
@@ -10283,6 +10313,13 @@ export function buildSnapshot(run, players) {
     if (pc?.cmdTargetId) {
       const pct = pc.cmdNeed > 0 ? Math.round(Math.max(0, Math.min(1, (pc.cmdHold || 0) / Math.max(0.001, pc.cmdNeed))) * 100) : 0;
       ctrlLocks.set(pc.cmdTargetId, Math.max(pct, ctrlLocks.get(pc.cmdTargetId) || 0));
+    }
+    if (pc?.orderTargetId) {
+      const targetLive = (run.enemies || []).some(e => e && e.id === pc.orderTargetId && e.hp > 0 && (e.spawnDelay || 0) <= 0);
+      if (targetLive) ctrlLocks.set(pc.orderTargetId, Math.max(100, ctrlLocks.get(pc.orderTargetId) || 0));
+    }
+    for (const m of pc?.controlled || []) {
+      if (m?.focusTargetId) ctrlLocks.set(m.focusTargetId, Math.max(100, ctrlLocks.get(m.focusTargetId) || 0));
     }
   }
   const es = combatEnemies(run).map(e => [

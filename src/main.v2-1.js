@@ -637,7 +637,7 @@ function ensureDevPanel() {
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
       <button id="dev-wpn-offer">ОРУЖЕЙНЫЙ ВЫБОР</button>
       <button id="dev-wpn-chest">ОРУЖЕЙНЫЙ СУНДУК</button>
-      <button id="dev-luck-plus">УДАЧА +1</button>
+      <button id="dev-luck-plus">LUCK +1</button>
       <button id="dev-sig-offer">BOSS SIG OFFER</button>
       <button id="dev-win-run">WIN RUN</button>
     </div>

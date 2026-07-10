@@ -122,7 +122,7 @@ const M = { ru: RU, en: EN };
 
 const EN_UPGRADE = {
   dmg: 'All outgoing damage increases.', fire: 'Weapons reload faster.', spd: 'Movement speed increases.', maxhp: 'Maximum health increases.', magnet: 'Pickups are pulled from farther away.', dash: 'Adds one dash charge.', dash_length: 'Dash travels farther.', drone: 'Adds an auto-firing drone.', orbital: 'Adds an orbital that damages on contact.', luck: 'Better upgrade and casino outcomes.', proc: 'Bullet hits can create a small blast.', echo: 'Sometimes fires an extra shot.', leech: 'Damage can return health.', goldgun: 'Threats drop more GLD.',
-  bullet_ricochet: 'Projectiles bounce off walls one more time.', bullet_range: 'Projectiles travel farther and last longer.', bullet_fire: 'Bullets burn enemies.', bullet_freeze: 'Bullets chill enemies and can briefly stop them.', bullet_poison: 'Bullets poison enemies.', drone_element_link: 'Drones carry your weapon elements.', element_amp: 'Fire, cold, and poison become stronger.', element_spread: 'Enemy deaths can spread status to nearby targets.', bullet_chain: 'Weapon hits can link damage to another nearby enemy.', shg_teeth: 'SHG fires more shards.', shg_longshot: 'RMB spends loaded SHG charges on one heavy long shot.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK locks on harder and flies longer.', sek_swarm: 'RMB releases a homing bullet swarm.', rkt_cluster: 'RKT breach blasts create extra mini-blasts.', rkt_mines: 'RKT breach charges leave delayed mines during flight.', rkt_stun: 'RKT explosions can stun enemies.', rkt_scatter: 'RKT explosions throw enemies farther.', rkt_remote: 'RMB detonates launched rockets one by one.', wpn_dmg: 'Weapon damage increases.', wpn_fire: 'Weapons reload faster.',
+  bullet_ricochet: 'Projectiles bounce off walls one more time.', bullet_range: 'Projectiles travel farther and last longer.', bullet_fire: 'Projectiles apply thermal corruption to threats.', bullet_freeze: 'Projectiles apply cryo corruption and can briefly stop threats.', bullet_poison: 'Projectiles apply corrosive corruption over time.', drone_element_link: 'Drones separately carry projectile corruptions.', element_amp: 'Thermal, cryo, and corrosive corruptions become stronger.', element_spread: 'Threat deletion can spread status corruption to nearby targets.', bullet_chain: 'Weapon hits can link damage to another nearby enemy.', shg_teeth: 'SHG fires more shards.', shg_longshot: 'RMB spends loaded SHG charges on one heavy long shot.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK locks on harder and flies longer.', sek_swarm: 'RMB releases a homing bullet swarm.', rkt_cluster: 'RKT breach blasts create extra mini-blasts.', rkt_mines: 'RKT breach charges leave delayed mines during flight.', rkt_stun: 'RKT explosions can stun enemies.', rkt_scatter: 'RKT explosions throw enemies farther.', rkt_remote: 'RMB detonates launched rockets one by one.', wpn_dmg: 'Weapon damage increases.', wpn_fire: 'Weapons reload faster.',
   abl_dash: 'Adds one dash charge.', abl_dash_length: 'Dash travels farther.', abl_voidstep: 'Dash leaves a damaging void rift along its path.', voidstep: 'Dash leaves a damaging void rift along its path.', dashcut: 'Dash stuns enemies near its path.', dashclone: 'Dash leaves a short damaging aftershock at its start point.', abl_dashcut: 'Dash stuns enemies near its path.', abl_dashclone: 'Dash leaves a short damaging aftershock at its start point.', abl_speed: 'Movement speed increases.', abl_dashflow: 'Dash charges recover faster.',
   q_snap: 'Q pulls enemies inward and deals damage.', q_blood: 'Q spends health for a red square blast.', q_over: 'Q briefly speeds up your weapon fire.',
   combo_gld: 'Combo payout gives GLD when the chain ends.', combo_exp: 'Combo payout gives EXP when the chain ends.', combo_hp: 'Combo payout heals you when the chain ends.',
@@ -133,7 +133,7 @@ const RU_UPGRADE_CLEAN = {
   dmg: 'Весь исходящий урон растёт.', fire: 'Оружие перезаряжается быстрее.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются дальше.', dash: 'Добавляет один заряд рывка.', dash_length: 'Рывок проходит дальше.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших угроз.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают угроз и пули дальше.', luck: 'Лучше исходы улучшений и казино.', proc: 'Попадания пуль могут создавать маленький взрыв.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Часть нанесённого урона возвращает здоровье.', goldgun: 'Угрозы дают больше кредитов при очистке.',
   voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', abl_voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', dashcut: 'Рывок оглушает угроз рядом с траекторией.', dashclone: 'После рывка в точке старта остаётся короткий ударный след.', abl_dashcut: 'Рывок оглушает угроз рядом с траекторией.', abl_dashclone: 'После рывка в точке старта остаётся короткий ударный след.',
   q_snap: 'Q стягивает угроз и наносит урон.', q_blood: 'Q тратит здоровье на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет стрельбу.',
-  bullet_chain: 'Попадание оружием может связать урон с ближайшей угрозой.', drone_element_link: 'Дроны переносят огонь, холод и яд оружия.', element_spread: 'Статусы с убитых угроз переходят на ближайшие цели.', bullet_ricochet: 'Снаряды получают дополнительный отскок от стен.', bullet_range: 'Снаряды летят дальше и живут дольше.', bullet_fire: 'Пули поджигают угроз.', bullet_freeze: 'Пули охлаждают угроз и могут коротко остановить их.', bullet_poison: 'Пули отравляют угроз.', element_amp: 'Огонь, холод и яд становятся сильнее.',
+  bullet_chain: 'Попадание оружием может связать урон с ближайшей угрозой.', drone_element_link: 'Спутники отдельно переносят статусные сбои снарядов.', element_spread: 'Статусные сбои с удалённых угроз переходят на ближайшие цели.', bullet_ricochet: 'Снаряды получают дополнительный отскок от стен.', bullet_range: 'Снаряды летят дальше и живут дольше.', bullet_fire: 'Снаряды перегревают угрозы.', bullet_freeze: 'Снаряды охлаждают угрозы и могут коротко остановить их.', bullet_poison: 'Снаряды заражают угрозы коррозией.', element_amp: 'Термо-, крио- и коррозийные сбои становятся сильнее.',
   shg_teeth: 'Клиновой разряд получает больше осколков.', shg_longshot: 'Правая кнопка тратит заряды клинового разряда на один дальний тяжёлый выстрел.', sek_split: 'Удаление угроз искателем выпускает фрагменты.', sek_chain: 'Искатель лучше держит цель и летит дольше.', sek_swarm: 'Правая кнопка выпускает рой сигнальных снарядов.', rkt_cluster: 'Разломный заряд добавляет малые взрывы вокруг детонации.', rkt_mines: 'Разломный заряд оставляет отложенные мины во время полёта.', rkt_stun: 'Разломные взрывы могут оглушать угрозы.', rkt_scatter: 'Разломные взрывы сильнее разбрасывают угрозы.', rkt_remote: 'Правая кнопка взрывает выпущенные разломные заряды по очереди.',
   wpn_dmg: 'Повышает урон оружия.', wpn_fire: 'Оружие перезаряжается быстрее.', abl_dash: 'Добавляет один заряд рывка.', abl_dash_length: 'Рывок проходит дальше.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт кредиты.', combo_exp: 'Комбо при завершении выдаёт опыт.', combo_hp: 'Комбо при завершении лечит.',
@@ -541,7 +541,7 @@ const EN_LABEL = Object.fromEntries(Object.entries(RU_LABEL).map(([en, ru]) => [
 Object.assign(EN_LABEL, {
   'СТАТИК-ЯДРО': 'STATIC CORE', 'ЗЕРКАЛО x2': 'MIRROR x2', 'УНИКАЛЬНО': 'UNIQUE', 'ЗЕРКАЛО: БЕЗ КОПИИ': 'MIRROR: NO COPY', 'СТАТИК-УЗЕЛ': 'STATIC NODE', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%',
   'РЫВОК: РУЧНОЙ ВЗРЫВ': 'RKT REMOTE DETONATOR', 'СТАТИК Q': 'STATIC CORE', 'STATIC Q': 'STATIC CORE',
-  'РЕД': 'RAR', 'ДЖК': 'JCK', 'ФИКС': 'LOCK', 'НЕТ ПРОТОКОЛА': 'NO PROTOCOL', 'Q — НЕТ ПРОТОКОЛА': 'Q — NO PROTOCOL', 'БАЗОВЫЙ АНТИВИРУС': 'BASE ANTIVIRUS', 'ЖИВОЕ КАЗИНО': 'LIVING CASINO', 'КОНТРОЛЁР ПРОЦЕССОВ': 'PROCESS CONTROLLER', 'БАЗОВЫЙ': 'BASE' 
+  'РЕД': 'RAR', 'ДЖК': 'JCK', 'ФИКС': 'LOCK', 'УДАЧА': 'LUCK', 'УДАЧА В КАЗИНО': 'CASINO LUCK', 'ВЫБОР СЕКТОРА': 'SECTOR PICK', 'НЕТ ПРОТОКОЛА': 'NO PROTOCOL', 'Q — НЕТ ПРОТОКОЛА': 'Q — NO PROTOCOL', 'БАЗОВЫЙ АНТИВИРУС': 'BASE ANTIVIRUS', 'ЖИВОЕ КАЗИНО': 'LIVING CASINO', 'КОНТРОЛЁР ПРОЦЕССОВ': 'PROCESS CONTROLLER', 'БАЗОВЫЙ': 'BASE' 
 });
 Object.assign(EN_LABEL, {
   'ОТСКОК СНАРЯДОВ +1': 'PROJECTILE BOUNCE +1',
@@ -648,9 +648,40 @@ function dynamicEnLabel(s) {
     .replace(/УРОН/g, 'DAMAGE').replace(/РАЗМЕР/g, 'SIZE').replace(/ДРОБЛЕНИЕ/g, 'SPLIT').replace(/СКОРОСТЬ/g, 'SPEED')
     .replace(/КАРТЫ/g, 'CARDS').replace(/ПРОЦЕСС/g, 'PROCESS').replace(/КОНТРОЛЬ/g, 'CONTROL').replace(/ТЕМП ПРИКАЗОВ/g, 'ORDER RATE')
     .replace(/СРОК/g, 'LIFETIME').replace(/ПЕРЕНОС/g, 'CARRY').replace(/ЯКОРЬ/g, 'ANCHOR').replace(/РАЗБОР/g, 'MASS CAPTURE')
-    .replace(/УДЕРЖАНИЕ/g, 'HOLD').replace(/РАЗРЯД/g, 'DISCHARGE');
+    .replace(/УДЕРЖАНИЕ/g, 'HOLD').replace(/РАЗРЯД/g, 'DISCHARGE')
+    .replace(/ФОКУС/g, 'FOCUS').replace(/ПРИКАЗ/g, 'ORDER').replace(/ПЕРЕХВАЧЕН/g, 'CAPTURED').replace(/ЗАДЕРЖКА ПОЯВЛЕНИЯ/g, 'SPAWN DELAY')
+    .replace(/ПОЯВЛЕНИЯ/g, 'SPAWN').replace(/СТАВКА/g, 'BET');
   return out.replace(/\s{2,}/g, ' ').trim();
 }
+
+
+Object.assign(EN_LABEL, {
+  'ТЕРМО-СБОЙ СНАРЯДОВ': 'THERMAL PROJECTILES',
+  'КРИО-СБОЙ СНАРЯДОВ': 'CRYO PROJECTILES',
+  'КОРРОЗИЯ СНАРЯДОВ': 'CORROSIVE PROJECTILES',
+  'КАНАЛ СПУТНИКОВ': 'DRONE STATUS CHANNEL',
+  'СТАТУСНЫЙ СБОЙ +25%': 'STATUS CORRUPTION +25%',
+  'ПЕРЕНОС СБОЯ': 'CORRUPTION SPREAD',
+  'CTRL: ТЕМП СТРЕЛЬБЫ +14%': 'CTRL FIRE RATE +14%',
+  'УСИЛИТЬ СТРЕЛЬБУ': 'BOOST FIRE',
+  'УСИЛИТЬ СПУТНИКОВ': 'BOOST DRONES',
+  'ПЕРЕГРЕВ': 'THERMAL',
+  'КРИО-СБОЙ': 'CRYO',
+  'КОРРОЗИЯ': 'CORROSION'
+});
+Object.assign(RU_LABEL, {
+  'FIRE BULLETS': 'ТЕРМО-СБОЙ СНАРЯДОВ',
+  'FREEZE BULLETS': 'КРИО-СБОЙ СНАРЯДОВ',
+  'POISON BULLETS': 'КОРРОЗИЯ СНАРЯДОВ',
+  'BULLET FREEZE': 'КРИО-СБОЙ',
+  'FIRE PROJECTILES': 'ТЕРМО-СБОЙ СНАРЯДОВ',
+  'CHILL PROJECTILES': 'КРИО-СБОЙ СНАРЯДОВ',
+  'TOXIC PROJECTILES': 'КОРРОЗИЯ СНАРЯДОВ',
+  'DRONE ELEMENT LINK': 'КАНАЛ СПУТНИКОВ',
+  'DRONE STATUS LINK': 'КАНАЛ СПУТНИКОВ',
+  'ELEMENT AMP +25%': 'СТАТУСНЫЙ СБОЙ +25%',
+  'STATUS SPREAD': 'ПЕРЕНОС СБОЯ'
+});
 
 export function locLabel(label) {
   const s = String(label || '');

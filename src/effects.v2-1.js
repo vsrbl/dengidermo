@@ -233,7 +233,7 @@ export class Effects {
         break;
       case 'armor_link':
         this.add({ kind: 'line', x: f.x, y: f.y, x2: f.x2, y2: f.y2, ttl: 0.26, color: '#ff3048', dash: true });
-        this.float(f.x, f.y - 44, f.label || 'ARMOR LINK', '#ff3048', 11);
+        this.float(f.x, f.y - 44, fxLabel(f.label || 'ARMOR LINK'), '#ff3048', 11);
         break;
       case 'split':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 80, ttl: 0.28, color: '#f3f3f3' });
@@ -371,7 +371,7 @@ export class Effects {
         const r = Math.max(36, Number(f.size || 24) + 32);
         this.add({ kind: 'chainLock', activeKind: 'ctrl_proc_expire', x: f.x, y: f.y, r, ttl: 0.32, color: col });
         this.add({ kind: 'squareField', activeKind: 'ctrl_proc_expire_core', x: f.x, y: f.y, r: Math.max(26, r * 0.55), ttl: 0.28, color: col, tick: 1 });
-        if (f.label) this.float(f.x, f.y - Math.max(34, Number(f.size || 24)), `PROC END ${f.label || ''}`.trim(), col, 9);
+        if (f.label) this.float(f.x, f.y - Math.max(34, Number(f.size || 24)), `${localText('ПРОЦЕСС ЗАВЕРШЁН', 'PROCESS END')} ${fxLabel(f.label || '')}`.trim(), col, 9);
         break;
       }
       case 'weapon_chain_lock':
@@ -414,19 +414,19 @@ export class Effects {
       case 'active_mutation': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : f.tone === 'purple' ? '#b45cff' : '#66f6ff';
         this.add({ kind: f.squareBlast ? 'rocketBlast' : 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 95, ttl: f.squareBlast ? 0.22 : 0.24, color: col });
-        if (f.label && !f.noFloat) this.float(f.x, f.y - 42, f.label, col, 10);
+        if (f.label && !f.noFloat) this.float(f.x, f.y - 42, fxLabel(f.label), col, 10);
         break;
       }
       case 'lc_chain_ready': {
         if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
         this.add({ kind: 'squareField', activeKind: 'lc_chain_ready', x: f.x, y: f.y, r: f.r || 155, ttl: 0.30, color: '#b45cff', tick: 1 });
-        this.float(f.x, f.y - 50, f.label || 'CHAIN DASH', '#b45cff', 12);
+        this.float(f.x, f.y - 50, fxLabel(f.label || 'CHAIN DASH'), '#b45cff', 12);
         break;
       }
       case 'lc_guard': {
         if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
         this.add({ kind: 'squareField', activeKind: 'lc_guard', x: f.x, y: f.y, r: f.r || 190, ttl: 0.34, color: '#66f6ff', tick: 1 });
-        this.float(f.x, f.y - 52, f.label || 'GUARD', '#66f6ff', 13);
+        this.float(f.x, f.y - 52, fxLabel(f.label || 'GUARD'), '#66f6ff', 13);
         break;
       }
       case 'lc_guard_hit': {
@@ -455,33 +455,33 @@ export class Effects {
         const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
         if (mine) { this.slam = Math.max(this.slam, 0.035); this.kick(f.mode === 'action' ? 3.2 : 2.4); }
         // x/y is the selected action plate position, not the player center.
-        this.add({ kind: 'lcPlateDissolve', activeKind: 'lc_sector_pick', x: f.x, y: f.y, w: f.mode === 'action' ? 116 : 108, h: f.mode === 'action' ? 46 : 42, ttl: 0.42, color: col, label: f.label || 'LVC', mode: f.mode || 'pick' });
-        this.float(f.x, f.y - 34, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${f.label || 'LVC'}`, col, 11);
+        this.add({ kind: 'lcPlateDissolve', activeKind: 'lc_sector_pick', x: f.x, y: f.y, w: f.mode === 'action' ? 116 : 108, h: f.mode === 'action' ? 46 : 42, ttl: 0.42, color: col, label: fxLabel(f.label || 'LVC'), mode: f.mode || 'pick' });
+        this.float(f.x, f.y - 34, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${fxLabel(f.label || 'LVC')}`, col, 11);
         break;
       }
       case 'lc_copy': {
         if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
         this.add({ kind: 'squareField', activeKind: 'lc_copy', x: f.x, y: f.y, r: f.r || 128, ttl: 0.28, color: '#00ff66', tick: 1 });
-        this.float(f.x, f.y - 48, f.label || 'COPY', '#00ff66', 11);
+        this.float(f.x, f.y - 48, fxLabel(f.label || 'COPY'), '#00ff66', 11);
         break;
       }
       case 'lc_ghost': {
         if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
         this.add({ kind: 'squareField', activeKind: 'lc_ghost', x: f.x, y: f.y, r: f.r || 150, ttl: 0.34, color: '#b45cff', tick: 1 });
-        this.float(f.x, f.y - 52, f.label || 'GHOST', '#b45cff', 12);
+        this.float(f.x, f.y - 52, fxLabel(f.label || 'GHOST'), '#b45cff', 12);
         break;
       }
       case 'lc_jackpot_impulse': {
         if (mine) { this.slam = Math.max(this.slam, (f.hits || 0) >= 6 ? 0.16 : 0.08); this.kick((f.hits || 0) >= 6 ? 7 : 4); }
         this.add({ kind: 'squareField', activeKind: 'lc_jackpot_impulse', x: f.x, y: f.y, r: f.r || 190, ttl: 0.32, color: '#ffd34d', tick: 1 });
         this.add({ kind: 'squareBlastLite', activeKind: 'lc_jackpot_impulse_core', x: f.x, y: f.y, r: Math.max(70, (f.r || 190) * 0.45), ttl: 0.24, color: '#f3f3f3' });
-        this.float(f.x, f.y - 58, f.label || 'JACKPOT', '#ffd34d', 13);
+        this.float(f.x, f.y - 58, fxLabel(f.label || 'JACKPOT'), '#ffd34d', 13);
         break;
       }
       case 'lc_card_table': {
         if (mine || f.hit) this.kick(f.hit ? 4 : 2);
         this.add({ kind: 'squareField', activeKind: 'lc_card_table', x: f.x, y: f.y, r: f.r || 74, ttl: f.hit ? 0.24 : 0.42, color: f.hit ? '#ff3048' : '#f3f3f3', tick: 1 });
-        this.float(f.x, f.y - 42, f.label || 'TABLE', f.hit ? '#ff3048' : '#f3f3f3', 11);
+        this.float(f.x, f.y - 42, fxLabel(f.label || 'TABLE'), f.hit ? '#ff3048' : '#f3f3f3', 11);
         break;
       }
       case 'rewind_mark':
@@ -499,7 +499,7 @@ export class Effects {
       case 'null_revival_screen':
         if (mine) { this.nullRevivalFlash = 1; this.slam = Math.max(this.slam, 0.26); this.kick(11); }
         this.add({ kind: 'squareField', activeKind: 'null_revival_screen', x: f.x, y: f.y, r: 560, ttl: 0.70, color: '#b45cff' });
-        this.float(f.x, f.y - 68, f.label || 'NULL REVIVAL', '#b45cff', 16);
+        this.float(f.x, f.y - 68, fxLabel(f.label || 'NULL REVIVAL'), '#b45cff', 16);
         break;
       case 'combo_tick': {
         const mult = Number(f.mult || 1);
@@ -516,12 +516,12 @@ export class Effects {
         break;
       case 'director_room':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 190, ttl: 0.55, color: '#66f6ff' });
-        this.float(f.x, f.y - 58, f.label || 'DIRECTOR', '#66f6ff', 12);
+        this.float(f.x, f.y - 58, fxLabel(f.label || 'DIRECTOR'), '#66f6ff', 12);
         break;
       case 'director_wave': {
         const col = f.intent === 'armor' ? '#b45cff' : (f.intent === 'ranged' || f.intent === 'control' ? '#66f6ff' : '#ff3048');
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 140 + Math.min(80, (f.count || 1) * 12), ttl: 0.44, color: col });
-        this.float(f.x, f.y - 48, f.label || 'WAVE', col, 11);
+        this.float(f.x, f.y - 48, fxLabel(f.label || 'WAVE'), col, 11);
         break;
       }
       case 'path_turn':
@@ -562,7 +562,7 @@ export class Effects {
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
         // The slot mob entity is not present in the snapshot until this chain has fully ended.
         this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + dur * 4 + step * 3 + 2.35, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
-        this.float(f.x, f.y - 70, f.label || 'SLOT OVERLOAD', '#ff3048', 16);
+        this.float(f.x, f.y - 70, fxLabel(f.label || 'SLOT OVERLOAD'), '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
         break;
       }
@@ -1359,7 +1359,7 @@ export class Effects {
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(e.label || 'LVC').slice(0, 14).toUpperCase(), 0, 2);
+        ctx.fillText(fxLabel(e.label || 'LVC').slice(0, 14).toUpperCase(), 0, 2);
         ctx.globalAlpha = fade * 0.62;
         for (let i = 0; i < 18; i++) {
           const row = i % 3;

@@ -558,7 +558,7 @@ const BOSS_REWARD_HINTS = {
   'REDLINE BOOST': [localText('КРАСНАЯ ЛИНИЯ', 'REDLINE BOOST'), localText('Рывок ускоряет антивирус. Повторы увеличивают силу и длительность.', 'The dash accelerates the antivirus. Stacks improve force and duration.')],
   'SPAWN HOLD': [localText('ЗАМОРОЗКА СПАВНА', 'SPAWN HOLD'), localText('На старте сектора угрозы задерживаются, чтобы антивирус успел занять позицию.', 'Threats are delayed at sector start so the antivirus can take position.')],
   'KILL SWITCH': [localText('АВАРИЙНАЯ ОЧИСТКА', 'KILL SWITCH'), localText('Один раз за протокол очищает экран от угроз, включая главную угрозу.', 'Once per protocol, clears the screen of threats, including the core threat.')],
-  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий уровеньаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
+  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий усиливаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
   'AEGIS PROCESS': [localText('ЭГИДА', 'AEGIS PROCESS'), localText('Даёт защитный слой оболочки. Повторы увеличивают запас защиты.', 'Adds a shell shield layer. Stacks increase its capacity.')],
   'NULL REVIVAL': [localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), localText('Один раз возвращает антивирус после сбоя.', 'Restores the antivirus once after a crash.')],
   'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук бесплатно и повышает качество награды.', 'Makes the next chest free and upgrades its reward quality.')]
@@ -1186,8 +1186,8 @@ export class Hud {
         if (explicit.has(ux)) continue;
         addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
       }
-      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Копирует следующий уровеньаемый приз с выбором. Заряд возвращается после главной угрозы.', 'Copies the next stackable choice prize. Charge returns after the core threat.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
-      if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, `NULL REVIVAL: ${me[P.REVIVE]} charge. При смерти возвращает игрока с 45% HP.`, 'cyan');
+      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Копирует следующий усиливаемый приз с выбором. Заряд возвращается после главной угрозы.', 'Copies the next stackable choice prize. Charge returns after the core threat.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
+      if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, localText(`НУЛЕВОЕ ВОССТАНОВЛЕНИЕ: зарядов ${me[P.REVIVE]}. При сбое возвращает 45% здоровья.`, `NULL REVIVAL: ${me[P.REVIVE]} charge${me[P.REVIVE] === 1 ? '' : 's'}. Restores 45% health after a crash.`), 'cyan');
       const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
       const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
       if (bossKeyMax > 0) addBadge(`${localText('КЛЮЧ', 'KEY')} ${bossKeyCur}/${bossKeyMax}`, `${localText('КЛЮЧ ЯДРА', 'CORE KEY')}: ${bossKeyCur}/${bossKeyMax}. ${localText('Следующий сундук станет бесплатным и получит лучшую редкость.', 'The next chest becomes free and rolls top rarity.')}`, bossKeyCur > 0 ? 'gold' : '');
@@ -1286,7 +1286,7 @@ export class Hud {
         lcHud.style.setProperty('--lc-color', color);
         lcHud.style.setProperty('--lc-fill', `${Math.round(fill01 * 100)}%`);
         lcHud.innerHTML = `<i class="lc-fill" aria-hidden="true"></i><b>${escHtml(localText('СЕКТОР', 'SECTOR'))}</b><span>${escHtml(String(lvc.label || '').toUpperCase())} ${escHtml(roman(Number(lvc.level || 1) || 1))}</span><em>${escHtml(status + chain)}</em>`;
-        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Правая кнопка открывает кольцо. Пушки выбираются в кольце и стреляют левой кнопкой. Действия срабатывают сразу при выборе.', 'RMB opens the ring. Guns are selected in the ring and fire with LMB. Actions trigger immediately when selected.'), 'gold');
+        this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), localText('Правая кнопка открывает кольцо. Боевые модули выбираются в кольце и стреляют левой кнопкой. Действия срабатывают сразу при выборе.', 'RMB opens the ring. Guns are selected in the ring and fire with LMB. Actions trigger immediately when selected.'), 'gold');
       } else {
         lcHud.className = 'lc-selected hidden';
         lcHud.innerHTML = '';
@@ -1657,7 +1657,7 @@ export class Hud {
             this.virusRollSpin.intervals.forEach(x => clearInterval(x));
             this.virusRollSpin.intervals = [];
             const res = el.querySelector('.roll-result');
-            if (res) res.textContent = f.label || 'VIRUS EVENT';
+            if (res) res.textContent = locLabel(f.label || 'VIRUS EVENT');
             const left = el.querySelector('.roll-left');
             if (left) left.textContent = `${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`;
             this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
@@ -2499,7 +2499,7 @@ export class Hud {
     const info = this.casinoLuckInfo(luck);
     card.innerHTML = `
       <div class="casino-luck-title">${esc(localText('УДАЧА В КАЗИНО', 'CASINO LUCK'))}</div>
-      <div class="casino-luck-value">УДАЧА +${Math.round(info.luck)}</div>
+      <div class="casino-luck-value">${esc(localText('УДАЧА', 'LUCK'))} +${Math.round(info.luck)}</div>
       <div class="casino-luck-row"><b>${esc(localText('ДЖЕКПОТ', 'JACKPOT'))}</b><span>+${info.jackpot}%</span></div>
       <div class="casino-luck-row"><b>${esc(localText('ОРУЖИЕ', 'WEAPON'))}</b><span>+${info.weapon}%</span></div>
       <div class="casino-luck-row"><b>${esc(localText('РЕДКИЙ', 'RARE'))}</b><span>+${info.rare}%</span></div>

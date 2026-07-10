@@ -113,22 +113,22 @@ export const UPGRADES = [
   { id: 'sig_ghost_decoy', label: 'GHOST DECOY', tier: 1, bossSig: true, desc: 'R: антивирус скрывается, а приманка отвлекает угрозы.', apply: s => { if (s.rActiveId === 'ghost_decoy') s.rActiveStacks += 1; else { s.rActiveId = 'ghost_decoy'; s.rActiveStacks = 1; } } },
   { id: 'sig_rewind_mark', label: 'REWIND MARK', tier: 1, bossSig: true, desc: 'R: ставит точку возврата. Повторное R возвращает назад и оглушает угрозы рядом.', apply: s => { if (s.rActiveId === 'rewind_mark') s.rActiveStacks += 1; else { s.rActiveId = 'rewind_mark'; s.rActiveStacks = 1; } } },
   { id: 'sig_kill_switch', label: 'KILL SWITCH', tier: 2, bossSig: true, desc: 'R: один раз за протокол стирает угрозы на экране, включая главную угрозу.', apply: s => { if (!s.killSwitchTaken) { s.killSwitchTaken = 1; s.rActiveId = 'kill_switch'; s.rActiveStacks = Math.max(1, s.rActiveStacks || 1); s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } else if (s.rActiveId === 'kill_switch') { s.rActiveStacks = Math.max(1, s.rActiveStacks || 1) + 1; s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } } },
-  { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Spawn-warning поля висят намного дольше. Уровни усиливают задержку появления.', apply: s => { s.spawnHoldStacks += 1; } },
-  { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Игрок получает enemy-style shell shield. Каждый уровень даёт +45 shield.', apply: s => { s.aegisStacks += 1; } },
-  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующую уровеньаемую награду с выбором. Не копирует саму себя. Charge восстанавливается после победы над главным процессом.', apply: s => { s.mirrorCapacity += 1; } },
-  { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Вторая жизнь. При смерти возвращает игрока с 45% HP. Уровни дают +1 revive charge.', apply: s => { s.nullRevives += 1; } },
+  { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Поля предупреждения появления держатся дольше. Повторы усиливают задержку входа угроз.', apply: s => { s.spawnHoldStacks += 1; } },
+  { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Антивирус получает защитный слой оболочки. Повторы увеличивают запас защиты.', apply: s => { s.aegisStacks += 1; } },
+  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующий усиливаемый приз с выбором. Не копирует саму себя. Заряд возвращается после победы над главной угрозой.', apply: s => { s.mirrorCapacity += 1; } },
+  { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Резервное восстановление. При сбое возвращает игрока с 45% здоровья. Повторы дают ещё один заряд.', apply: s => { s.nullRevives += 1; } },
   { id: 'sig_room_wager', label: 'ROOM WAGER', tier: 1, bossSig: true, desc: 'Открывает ставку справа от INSTALL перед сектором. Платишь только при провале условия.', apply: s => { s.roomWagerUnlocked = 1; } },
-  { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук в loop бесплатно становится максимальной редкости. Каждый уровень даёт +1 ключ.', apply: s => { s.bossKeys += 1; } },
+  { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук цикла бесплатно становится максимальной редкости. Повторы дают ещё один ключ.', apply: s => { s.bossKeys += 1; } },
 
-  // weapon branches. These are WPN-chest rewards only, not INSTALL/level-up rewards.
+  // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.
   { id: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
   { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%',  tier: 1, branch: 'ALL', desc: 'Все твои снаряды летят дальше и живут дольше.', apply: s => { s.bulletRange *= 1.22; } },
-  { id: 'bullet_fire',     label: 'ОГНЕННЫЕ СНАРЯДЫ',       tier: 1, branch: 'ALL', desc: 'Снаряды поджигают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
-  { id: 'bullet_freeze',   label: 'ХОЛОДНЫЕ СНАРЯДЫ',     tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
-  { id: 'bullet_poison',   label: 'ТОКСИЧНЫЕ СНАРЯДЫ',     tier: 1, branch: 'ALL', desc: 'Снаряды отравляют угрозы и наносят периодический урон.', apply: s => { s.bulletPoison += 1; } },
-  { id: 'drone_element_link', label: 'СТАТУСЫ СПУТНИКОВ', tier: 1, branch: 'ALL', desc: 'Дроны наследуют огонь, холод и яд оружия.', apply: s => { s.droneElementLink += 1; } },
-  { id: 'element_amp', label: 'СТАТУСЫ +25%', tier: 1, branch: 'ALL', desc: 'Усиливает огонь, холод и яд.', apply: s => { s.bulletElementAmp += 1; } },
-  { id: 'element_spread', label: 'ПЕРЕНОС СТАТУСОВ', tier: 1, branch: 'ALL', desc: 'Удаление угрозы переносит огонь, холод или яд на ближайшие угрозы.', apply: s => { s.elementSpread += 1; } },
+  { id: 'bullet_fire',     label: 'ТЕРМО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды перегревают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
+  { id: 'bullet_freeze',   label: 'КРИО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
+  { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией и наносят периодический урон.', apply: s => { s.bulletPoison += 1; } },
+  { id: 'drone_element_link', label: 'КАНАЛ СПУТНИКОВ', tier: 1, branch: 'ALL', desc: 'Спутники отдельно переносят термо-, крио- и коррозийные сбои снарядов.', apply: s => { s.droneElementLink += 1; } },
+  { id: 'element_amp', label: 'СТАТУСНЫЙ СБОЙ +25%', tier: 1, branch: 'ALL', desc: 'Усиливает термо-, крио- и коррозийные сбои.', apply: s => { s.bulletElementAmp += 1; } },
+  { id: 'element_spread', label: 'ПЕРЕНОС СБОЯ', tier: 1, branch: 'ALL', desc: 'Удаление угрозы переносит статусный сбой на ближайшие цели.', apply: s => { s.elementSpread += 1; } },
   { id: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Попадание оружием связывает ближайшие угрозы. Повторные выборы продлевают цепь.', apply: s => { s.bulletChain += 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
   { id: 'shg_longshot', label: 'SHG: ДАЛЬНИЙ ЗАЛП', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
@@ -175,8 +175,8 @@ export const UPGRADES = [
 export const UPGRADE_LABELS = Object.fromEntries(UPGRADES.map(u => [u.id, u.label]));
 export const CURSED_UPGRADE_IDS = UPGRADES.filter(u => u.cursed).map(u => u.id);
 
-// INSTALL / level-up upgrades are HERO ONLY.
-// Weapon-specific branches live in WPN chest choices, not level-up offers.
+// INSTALL upgrades are HERO ONLY.
+// Weapon-specific branches live in WPN chest choices, not INSTALL offers.
 export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT', 'RLT', 'CRD', 'CTRL', 'QRN'];
 export const HERO_UPGRADES = UPGRADES.filter(u => !u.bossSig && !WEAPON_BRANCHES.includes(u.branch) && u.branch !== 'Q');
 export const BOSS_SIGNATURE_UPGRADE_IDS = UPGRADES.filter(u => u.bossSig).map(u => u.id);
@@ -190,12 +190,12 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
   { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%', desc: 'Все снаряды летят дальше и держатся дольше.' },
-  { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ОГНЕННЫЕ СНАРЯДЫ', desc: 'Снаряды поджигают угрозы.' },
-  { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'ХОЛОДНЫЕ СНАРЯДЫ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
-  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'ТОКСИЧНЫЕ СНАРЯДЫ', desc: 'Снаряды заражают угрозы токсином.' },
-  { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'СТАТУСЫ СПУТНИКОВ', desc: 'Спутники переносят огонь, холод и яд оружия.' },
-  { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'СТАТУСЫ +25%', desc: 'Огонь, холод и яд держатся дольше и бьют сильнее.' },
-  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'ПЕРЕНОС СТАТУСОВ', desc: 'Статусы с удалённых угроз переходят на ближайшие цели.' },
+  { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ТЕРМО-СБОЙ СНАРЯДОВ', desc: 'Снаряды перегревают угрозы.' },
+  { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'КРИО-СБОЙ СНАРЯДОВ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
+  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией.' },
+  { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'КАНАЛ СПУТНИКОВ', desc: 'Спутники отдельно переносят статусные сбои снарядов.' },
+  { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'СТАТУСНЫЙ СБОЙ +25%', desc: 'Термо-, крио- и коррозийные сбои держатся дольше и бьют сильнее.' },
+  { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'ПЕРЕНОС СБОЯ', desc: 'Статусные сбои с удалённых угроз переходят на ближайшие цели.' },
   { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', desc: 'Попадание оружием связывает ближайшие угрозы и передаёт часть урона дальше.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG: ДАЛЬНИЙ ЗАЛП', desc: 'ПКМ тратит все заряды клинового разряда на один дальний тяжёлый выстрел.' },
