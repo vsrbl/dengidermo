@@ -5270,6 +5270,7 @@ body.ctrl-capture-active #custom-cursor .cc::after {
 }
 
 /* v2.1.169 — Living Casino dual autonomous gun rack */
+/* v2.1.170 — five-loop cleanup, hero locks and permanent wagers */
 #living-casino-selected.lc-dual-rack {
   width: min(360px, 46vw);
   min-width: min(300px, 42vw);
@@ -5335,3 +5336,26 @@ body.ctrl-capture-active #custom-cursor .cc::after {
   .lc-gun-row { grid-template-columns:18px 36px minmax(0,1fr); }
   .lc-gun-row em { grid-column:3; }
 }
+
+
+/* v2.1.170 — locked antivirus progression */
+.hero-card.locked {
+  opacity: .46;
+  border-color: rgba(154,154,154,.28) !important;
+  color: rgba(180,180,180,.78) !important;
+  background: repeating-linear-gradient(135deg, rgba(0,0,0,.58) 0 8px, rgba(120,120,120,.035) 8px 10px) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.025) !important;
+  cursor: not-allowed;
+}
+.hero-card.locked:hover { background: repeating-linear-gradient(135deg, rgba(0,0,0,.58) 0 8px, rgba(120,120,120,.035) 8px 10px) !important; }
+.hero-card.locked .hero-desc { color: rgba(255,48,72,.72) !important; }
+
+
+/* v2.1.170 — explicit wager decision */
+#room-wager-card .wager-title { display: flex !important; justify-content: space-between !important; gap: 12px !important; }
+#room-wager-card .wager-title span { color: var(--dim) !important; font-variant-numeric: tabular-nums; }
+#room-wager-card .wager-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+#room-wager-card .wager-actions button { width: 100% !important; margin: 0 !important; }
+#room-wager-card #room-wager-decline { border-color: rgba(243,243,243,.42) !important; color: var(--dim) !important; }
+#room-wager-card #room-wager-decline:hover,
+#room-wager-card #room-wager-decline:focus-visible { border-color: rgba(243,243,243,.82) !important; background: rgba(243,243,243,.12) !important; color: var(--fg) !important; box-shadow: none !important; }
