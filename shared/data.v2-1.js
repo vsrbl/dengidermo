@@ -15,7 +15,11 @@ export const WEAPONS = {
   },
   living_casino: {
     id: 'living_casino', label: 'LVC', name: 'ЖИВОЕ КАЗИНО',
-    cooldown: 0.45, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
+    cooldown: 0.34, pellets: 1, spread: 0.018, dmg: 14, speed: 440, life: 1.42, maxDist: 650, size: 4, homing: 6.8, knock: 28
+  },
+  lvc_spark: {
+    id: 'lvc_spark', label: 'SPK', name: 'ИСКРЫ КОНТРОЛЯ',
+    cooldown: 1.05, pellets: 1, spread: 0, dmg: 6, speed: 0, life: 1.10, maxDist: 430, size: 0, spark: 1, knock: 90
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
@@ -38,7 +42,7 @@ export const WEAPONS = {
     cooldown: 12.00, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, maxDist: 560, size: 0, knock: 0, control: 1, protocol: 1
   }
 };
-export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun', 'living_casino', 'roulette', 'deck'];
+export const WEAPON_ORDER = ['shotgun', 'seeker', 'rocketgun', 'living_casino', 'lvc_spark', 'roulette', 'deck'];
 
 // ---- enemies ------------------------------------------------------------
 // kinds communicate mechanics: silhouette + behavior contract
@@ -47,6 +51,7 @@ export const ENEMIES = {
   runner:   { label: 'RUN', hp: 16,   spd: 215, size: 18, dmg: 8,  touch: true,  xp: 7,  gld: 4,  score: 1, role: 'fast pressure', combo: 'fast pressure' },
   tank:     { label: 'TNK', hp: 120,  spd: 55,  size: 42, dmg: 18, touch: true,  xp: 18, gld: 12, score: 3, armor: 0.35, role: 'front wall', combo: 'front pressure' },
   shooter:  { label: 'SHT', hp: 30,   spd: 80,  size: 24, dmg: 9,  ranged: true, fireCd: 1.4, bulletSpd: 260, keep: 320, xp: 10, gld: 7, score: 2, role: 'ranged guard', combo: 'ranged pressure' },
+  wall_clinger: { label: 'WCL', hp: 72, spd: 118, size: 30, dmg: 10, wallClinger: true, ranged: true, fireCd: 1.75, bulletSpd: 335, keep: 390, burst: 3, xp: 24, gld: 17, score: 4, role: 'wall latch gunner', combo: 'wall burst pressure' },
   charger:  { label: 'CHG', hp: 44,   spd: 75,  size: 28, dmg: 22, charges: true, windup: 0.75, chargeSpd: 520, chargeTime: 0.55, chargeCd: 2.4, xp: 12, gld: 8, score: 2, role: 'line breaker', combo: 'line pressure' },
   bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'space pressure' },
   bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'movement pressure' },
@@ -81,8 +86,8 @@ export const ENEMIES = {
 export const SPAWN_POOLS = [
   ['grunt', 'runner', 'shooter', 'charger'],
   ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'splitter'],
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'anchor', 'leech', 'pulse', 'damper', 'warden'],
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'echo', 'orbiter', 'anchor', 'splitter', 'prism', 'pulse', 'leech', 'damper', 'warden', 'herald']
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'anchor', 'leech', 'pulse', 'damper', 'warden', 'wall_clinger'],
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'echo', 'orbiter', 'anchor', 'splitter', 'prism', 'pulse', 'leech', 'damper', 'warden', 'herald', 'wall_clinger']
 ];
 
 // ---- upgrades (INSTALL) -------------------------------------------------
@@ -161,8 +166,17 @@ export const UPGRADES = [
   { id: 'rlt_wall_charge', label: 'RLT: ОТСКОК +', branch: 'RLT', tier: 1, desc: 'Удар о стену сильнее заряжает следующие квадраты.', apply: s => { s.rltWallBuff += 1; } },
   { id: 'rlt_square_speed', label: 'RLT: СКОРОСТЬ +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки летят быстрее.', apply: s => { s.rltSpeed += 1; } },
   { id: 'crd_card_count', label: 'CRD: КАРТЫ +1', branch: 'CRD', tier: 1, desc: 'Колода выпускает на одну карту больше в каждом веере.', apply: s => { s.crdCards += 1; } },
+  { id: 'lvc_target_slot', label: 'LVC: ЦЕЛЬ +1', branch: 'LVC', tier: 1, desc: 'Живое казино держит ещё одну указанную цель для основной пушки.', apply: s => { s.lvcTargetSlots += 1; } },
+  { id: 'lvc_base_damage', label: 'LVC: УРОН +', branch: 'LVC', tier: 1, desc: 'Основная пушка Живого казино бьёт сильнее.', apply: s => { s.lvcBaseDamage += 1; } },
+  { id: 'lvc_base_fire', label: 'LVC: ТЕМП +', branch: 'LVC', tier: 1, desc: 'Основная пушка Живого казино стреляет чаще.', apply: s => { s.lvcBaseFire += 1; } },
+  { id: 'lvc_spark_count', label: 'SPK: ИСКРА +1', branch: 'SPK', tier: 1, desc: 'Искры контроля держат ещё одну угрозу.', apply: s => { s.lvcSparkCount += 1; } },
+  { id: 'lvc_spark_damage', label: 'SPK: УРОН +', branch: 'SPK', tier: 1, desc: 'Искры контроля сильнее прожигают цель.', apply: s => { s.lvcSparkDamage += 1; } },
+  { id: 'lvc_spark_hold', label: 'SPK: УДЕРЖАНИЕ +', branch: 'SPK', tier: 1, desc: 'Искры дольше держат цель и сильнее замедляют.', apply: s => { s.lvcSparkHold += 1; } },
+  { id: 'lvc_spark_range', label: 'SPK: ДАЛЬНОСТЬ +', branch: 'SPK', tier: 1, desc: 'Искры замечают угрозы дальше.', apply: s => { s.lvcSparkRange += 1; } },
+  { id: 'lvc_spark_reload', label: 'SPK: ПЕРЕЗАРЯДКА +', branch: 'SPK', tier: 1, desc: 'Искры быстрее возвращаются после разрыва.', apply: s => { s.lvcSparkReload += 1; } },
   { id: 'ctrl_process_slot', label: 'CTRL: ПРОЦЕСС +1', branch: 'CTRL', tier: 1, desc: 'Контролёр держит ещё один подконтрольный процесс.', apply: s => { s.ctrlMax += 1; } },
   { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее заполняют захват цели; процессы сильнее атакуют.', apply: s => { s.ctrlPower += 1; } },
+  { id: 'ctrl_capture_tier', label: 'CTRL: АССИМИЛЯЦИЯ +', branch: 'CTRL', tier: 1, desc: 'Расширяет пул захвата: I — стойкие и сбойные, II — дальние и полевые, III — дирижёры роя, IV — боссы.', apply: s => { s.ctrlCaptureTier += 1; } },
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП ПРИКАЗОВ +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.', apply: s => { s.ctrlFire += 1; } },
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
@@ -177,7 +191,7 @@ export const CURSED_UPGRADE_IDS = UPGRADES.filter(u => u.cursed).map(u => u.id);
 
 // INSTALL upgrades are HERO ONLY.
 // Weapon-specific branches live in WPN chest choices, not INSTALL offers.
-export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT', 'RLT', 'CRD', 'CTRL', 'QRN'];
+export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT', 'RLT', 'CRD', 'LVC', 'SPK', 'CTRL', 'QRN'];
 export const HERO_UPGRADES = UPGRADES.filter(u => !u.bossSig && !WEAPON_BRANCHES.includes(u.branch) && u.branch !== 'Q');
 export const BOSS_SIGNATURE_UPGRADE_IDS = UPGRADES.filter(u => u.bossSig).map(u => u.id);
 export const WEAPON_UPGRADE_IDS = UPGRADES.filter(u => WEAPON_BRANCHES.includes(u.branch)).map(u => u.id);
@@ -186,6 +200,14 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'weapon_shotgun', kind: 'weapon', weapon: 'shotgun', label: 'SHG WEAPON', desc: 'Открывает клиновой разряд: короткий веер очистки с зарядами.' },
   { id: 'weapon_seeker', kind: 'weapon', weapon: 'seeker', label: 'SEK WEAPON', desc: 'Открывает искатель: медленный сигнальный снаряд, который сам держит цель.' },
   { id: 'weapon_rocketgun', kind: 'weapon', weapon: 'rocketgun', label: 'RKT WEAPON', desc: 'Открывает разломный заряд: тяжёлый снаряд с широким взрывом.' },
+  { id: 'lvc_target_slot', kind: 'weapon_upgrade', upgrade: 'lvc_target_slot', reqWeapon: 'living_casino', label: 'LVC: ЦЕЛЬ +1', desc: 'Основная пушка по очереди ведёт больше отмеченных целей.' },
+  { id: 'lvc_base_damage', kind: 'weapon_upgrade', upgrade: 'lvc_base_damage', reqWeapon: 'living_casino', label: 'LVC: УРОН +', desc: 'Основная пушка Живого казино бьёт сильнее.' },
+  { id: 'lvc_base_fire', kind: 'weapon_upgrade', upgrade: 'lvc_base_fire', reqWeapon: 'living_casino', label: 'LVC: ТЕМП +', desc: 'Основная пушка Живого казино стреляет чаще.' },
+  { id: 'lvc_spark_count', kind: 'weapon_upgrade', upgrade: 'lvc_spark_count', reqWeapon: 'lvc_spark', label: 'SPK: ИСКРА +1', desc: 'Искры контроля держат ещё одну угрозу.' },
+  { id: 'lvc_spark_damage', kind: 'weapon_upgrade', upgrade: 'lvc_spark_damage', reqWeapon: 'lvc_spark', label: 'SPK: УРОН +', desc: 'Искры сильнее прожигают цель.' },
+  { id: 'lvc_spark_hold', kind: 'weapon_upgrade', upgrade: 'lvc_spark_hold', reqWeapon: 'lvc_spark', label: 'SPK: УДЕРЖАНИЕ +', desc: 'Искры дольше держат и сильнее замедляют цель.' },
+  { id: 'lvc_spark_range', kind: 'weapon_upgrade', upgrade: 'lvc_spark_range', reqWeapon: 'lvc_spark', label: 'SPK: ДАЛЬНОСТЬ +', desc: 'Искры замечают угрозы дальше.' },
+  { id: 'lvc_spark_reload', kind: 'weapon_upgrade', upgrade: 'lvc_spark_reload', reqWeapon: 'lvc_spark', label: 'SPK: ПЕРЕЗАРЯДКА +', desc: 'Искры быстрее возвращаются после разрыва.' },
   { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: маркер цепляется за стену и держит угрозы на цепях.' },
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
@@ -216,6 +238,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'crd_card_count', kind: 'weapon_upgrade', upgrade: 'crd_card_count', reqWeapon: 'deck', label: 'CRD: КАРТЫ +1', desc: 'Колода выпускает на одну карту больше в каждом веере.' },
   { id: 'ctrl_process_slot', kind: 'weapon_upgrade', upgrade: 'ctrl_process_slot', reqWeapon: 'command_pulse', label: 'CTRL: ПРОЦЕСС +1', desc: 'Контролёр может держать ещё один подконтрольный процесс.' },
   { id: 'ctrl_process_power', kind: 'weapon_upgrade', upgrade: 'ctrl_process_power', reqWeapon: 'command_pulse', label: 'CTRL: КОНТРОЛЬ +', desc: 'Команды быстрее заполняют захват цели; процессы сильнее атакуют.' },
+  { id: 'ctrl_capture_tier', kind: 'weapon_upgrade', upgrade: 'ctrl_capture_tier', reqWeapon: 'command_pulse', label: 'CTRL: АССИМИЛЯЦИЯ +', desc: 'Расширяет захват необычных мобов по ступеням. На четвёртой ступени разрешает перехват босса.' },
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП ПРИКАЗОВ +', desc: 'Подконтрольные процессы быстрее выполняют атакующие приказы.' },
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
@@ -321,7 +344,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, dashDistMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlFire: 0, ctrlLife: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, lvcTargetSlots: 0, lvcBaseDamage: 0, lvcBaseFire: 0, lvcSparkCount: 0, lvcSparkDamage: 0, lvcSparkHold: 0, lvcSparkRange: 0, lvcSparkReload: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlLife: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
@@ -564,7 +587,8 @@ export const ROOM_MODS = {
   prism_grid:      { id: 'prism_grid',      label: 'PRISM GRID' },
   blood_tax:       { id: 'blood_tax',       label: 'BLOOD PAYMENT' },
   echo_walls:      { id: 'echo_walls',      label: 'ECHO SHOTS' },
-  skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' }
+  skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' },
+  trojan:          { id: 'trojan',          label: 'TROJAN CHEST' }
 };
 
 // Backward-compatible alias for UI modules that use the setting name after the locale pass.

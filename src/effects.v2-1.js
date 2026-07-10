@@ -614,8 +614,20 @@ export class Effects {
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
         break;
+      case 'casino_mob_defeated':
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 360, ttl: 1.05, color: '#ffd34d' });
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: 150, ttl: 0.62, color: '#00ff66' });
+        this.float(f.x, f.y - 76, localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), '#ffd34d', 17);
+        this.slam = Math.max(this.slam, 0.9); this.kick(16);
+        break;
+      case 'trojan_chest':
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 150, ttl: 0.42, color: '#ff3048' });
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: 92, ttl: 0.32, color: '#b45cff' });
+        this.float(f.x, f.y - 52, 'TROJAN', '#ff3048', 14);
+        this.kick(11);
+        break;
       case 'boss_down':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: 320, ttl: 1.0, color: '#00ff66' });
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 320, ttl: 1.0, color: f.virus ? '#ffd34d' : '#00ff66' });
         this.slam = 1; this.kick(14);
         break;
       case 'chest_open':

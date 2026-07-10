@@ -204,6 +204,7 @@ Object.assign(EN_UPGRADE, {
   crd_card_count: 'Deck module fires one more card.',
   ctrl_process_slot: 'Adds room for one more controlled process.',
   ctrl_process_power: 'Commands fill capture faster and controlled processes hit harder.',
+  ctrl_capture_tier: 'Unlocks capture tiers for unusual threats; tier four allows boss capture.',
   ctrl_process_fire: 'Controlled processes execute attack orders more often.',
   ctrl_process_life: 'Controlled processes keep their signal longer. Targets with higher durability receive a longer control timer.',
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
@@ -527,7 +528,7 @@ const RU_LABEL = {
 
   'SHG LONGSHOT RMB': 'КЛИНОВОЙ РАЗРЯД: ДАЛЬНИЙ ЗАЛП', 'SEK SWARM RMB': 'САМОНАВОДЧИК: РОЙ', 'RKT STUN BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОГЛУШЕНИЕ', 'RKT SCATTER BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОТБРОС', 'RKT REMOTE DETONATOR': 'РАЗЛОМНЫЙ ЗАРЯД: РУЧНОЙ ВЗРЫВ',
   'VIRUS CLEANUP': 'ОЧИСТКА ВИРУСА', 'PRISM CLEANUP': 'ЗАЧИСТКА ПРИЗМЫ', 'BLOOD CLEANUP': 'КРОВАВАЯ ЗАЧИСТКА', 'STATIC CLEANUP': 'ЧИСТАЯ СТАТИКА', 'FAST CLEANUP': 'БЫСТРАЯ ЗАЧИСТКА', 'NO-HIT CLEANUP': 'БЕЗ УРОНА', 'FULL CLEANUP': 'ПОЛНАЯ ЗАЧИСТКА',
-  'GRID SLOW CLEAR': 'ЗАЧИСТКА СЕТКИ', 'BLOOD TAX': 'КРОВАВАЯ ОПЛАТА', 'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'STATIC NODE': 'СТАТИК-УЗЕЛ', 'SHIFTING ZONES': 'ДВИЖУЩИЕСЯ ЗОНЫ', 'PRISM GRID': 'ПРИЗМ-СЕТКА', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС', 'ANCHOR GRAVITY': 'ЯКОРЯ ГРАВИТАЦИИ', 'ECHO SHOTS': 'ЭХО-ВЫСТРЕЛЫ', 'BLACKOUT': 'ТЕМНОТА', 'SKN CACHE': 'ТАЙНИК ОБЛИКА',
+  'GRID SLOW CLEAR': 'ЗАЧИСТКА СЕТКИ', 'BLOOD TAX': 'КРОВАВАЯ ОПЛАТА', 'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'STATIC NODE': 'СТАТИК-УЗЕЛ', 'SHIFTING ZONES': 'ДВИЖУЩИЕСЯ ЗОНЫ', 'PRISM GRID': 'ПРИЗМ-СЕТКА', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС', 'ANCHOR GRAVITY': 'ЯКОРЯ ГРАВИТАЦИИ', 'ECHO SHOTS': 'ЭХО-ВЫСТРЕЛЫ', 'BLACKOUT': 'ТЕМНОТА', 'SKN CACHE': 'ТАЙНИК ОБЛИКА', 'TROJAN CHEST': 'ТРОЯН-СУНДУК', 'TROJAN': 'ТРОЯН',
   'TARGET LOCK': 'ЗАХВАТ ЦЕЛИ', 'REDLINE BOOST': 'КРАСНАЯ ЛИНИЯ', 'GHOST DECOY': 'ПРИЗРАК-ПРИМАНКА', 'REWIND MARK': 'МЕТКА ОТКАТА', 'KILL SWITCH': 'КНОПКА УДАЛЕНИЯ', 'SPAWN HOLD': 'ЗАДЕРЖКА СПАВНА', 'AEGIS PROCESS': 'ЭГИДА', 'MIRROR PAYOUT': 'ЗЕРКАЛЬНЫЙ ПРИЗ', 'NULL REVIVAL': 'НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'ROOM WAGER': 'СТАВКА СЕКТОРА', 'BOSS KEY': 'КЛЮЧ ЯДРА', 'THREAT SIGNATURE': 'СИГНАТУРА УГРОЗЫ', 'SIGNATURE EXTRACTED': 'СИГНАТУРА ИЗВЛЕЧЕНА',
   'BASIC': 'ОБЫЧНЫЙ', 'UNCOMMON': 'НЕОБЫЧНЫЙ', 'RARE': 'РЕДКИЙ', 'SUPER RARE': 'СВЕРХРЕДКИЙ', 'LEGENDARY': 'ЛЕГЕНДАРНЫЙ',
   'Q: BLOOD PULSE': 'Q: КРОВАВЫЙ ИМПУЛЬС', 'Q: FIELD SNAP': 'Q: СТЯЖКА ПОЛЯ', 'Q: OVERCLOCK': 'Q: РАЗГОН',

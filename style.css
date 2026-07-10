@@ -4759,6 +4759,20 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   overflow: hidden;
 }
 .hero-card:hover { background: rgba(255,211,77,.11); color: var(--fg); }
+
+.hero-card.locked {
+  opacity: .48;
+  filter: grayscale(.65);
+  border-color: rgba(255,255,255,.12) !important;
+}
+.hero-card.locked .hero-title::after {
+  content: ' LOCK';
+  color: #ff3048;
+  font-size: .72em;
+  letter-spacing: .08em;
+}
+.hero-card.locked.selected { opacity: .62; }
+
 .hero-card.selected {
   border-color: #ffd34d;
   color: #ffd34d;

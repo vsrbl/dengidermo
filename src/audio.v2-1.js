@@ -69,7 +69,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, lc_chain_ready: 0.16, lc_chain_dash: 0.055, lc_guard: 0.11, lc_guard_hit: 0.045, lc_bet_roll: 0.18, lc_sector_ring: 0.06, lc_sector_pick: 0.08, lc_copy: 0.14, lc_ghost: 0.18, lc_jackpot_impulse: 0.18, lc_card_table: 0.12
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, lc_chain_ready: 0.16, lc_chain_dash: 0.055, lc_guard: 0.11, lc_guard_hit: 0.045, lc_bet_roll: 0.18, lc_sector_ring: 0.06, lc_sector_pick: 0.08, lc_copy: 0.14, lc_ghost: 0.18, lc_jackpot_impulse: 0.18, lc_card_table: 0.12, casino_mob_defeated: 0.18
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -89,7 +89,7 @@ export class AudioBus {
       dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5, lc_chain_ready: 7, lc_chain_dash: 6, lc_guard: 7, lc_guard_hit: 4, lc_bet_roll: 7, lc_sector_ring: 3, lc_sector_pick: 7, lc_copy: 6, lc_ghost: 7, lc_jackpot_impulse: 8, lc_card_table: 6
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5, lc_chain_ready: 7, lc_chain_dash: 6, lc_guard: 7, lc_guard_hit: 4, lc_bet_roll: 7, lc_sector_ring: 3, lc_sector_pick: 7, lc_copy: 6, lc_ghost: 7, lc_jackpot_impulse: 8, lc_card_table: 6, casino_mob_defeated: 8
     };
     this.userGestureUnlocked = false;
     this._unlock = ev => {
@@ -546,6 +546,12 @@ export class AudioBus {
       case 'casino_win':
         this.tone(329.63, 0.060, 'square', 0.030, 1.06);
         this.tone(392.00, 0.080, 'triangle', 0.020, 0.94, 0.052);
+        break;
+      case 'casino_mob_defeated':
+        this.tone(116.54, 0.120, 'square', 0.046, 0.72);
+        this.tone(174.61, 0.135, 'triangle', 0.028, 0.86, 0.060);
+        this.tone(261.63, 0.160, 'square', 0.020, 0.92, 0.135);
+        this.noise(0.105, 0.040, 2600, 7.5, 0.080);
         break;
       case 'casino_weapon':
         this.tone(146.83, 0.080, 'square', 0.040, 1.08);
@@ -8260,4 +8266,54 @@ AudioBus.prototype.playYouTube = async function playYouTubeV2158Status() {
     [120, 320, 700, 1200, 2200, 3600].forEach(ms => setTimeout(() => { try { this.syncYouTubeState?.(); } catch {} }, ms));
   }
   return ok;
+};
+
+
+// v2.1.167 — short casino-mob victory theme.
+// This is a five-second internal-score stinger: low casino arpeggio, broken reel ticks,
+// and a clean terminal resolve. It is triggered by the authoritative `casino_mob_defeated` fx.
+AudioBus.prototype.playCasinoMobDefeatedTheme = function playCasinoMobDefeatedThemeV2167() {
+  if (!this.enabled) return false;
+  this.unlock?.();
+  if (!this.ensureMusic?.()) return false;
+  const root = 116.54; // low A# / broken slot root; stays out of UI treble.
+  this.musicCasinoMobDefeatedT = 5.0;
+  this.musicResolve = Math.max(this.musicResolve || 0, 1.35);
+  this.musicChaos = Math.max(this.musicChaos || 0, 0.25);
+  if (this.music) this.music.phraseT = Math.min(this.music.phraseT || 0, 0.04);
+  const seq = [0, 3, 7, 10, 7, 3, 12, 10, 7, 15, 12, 10, 7, 3, 0, -2, 0, 7, 12, 10];
+  const step = 0.235;
+  for (let i = 0; i < seq.length; i++) {
+    const f = root * Math.pow(2, seq[i] / 12);
+    const d = i > 15 ? 0.34 : 0.18;
+    const vol = i % 4 === 0 ? 0.0125 : 0.0085;
+    this.musicNote?.(f, d, i % 5 === 0 ? 'square' : 'triangle', vol, 520 + i * 22, i * step, 0.998, i % 2 ? -3 : 3);
+    if (i % 4 === 1) this.musicDust?.(0.035, 0.0048, 1800 + i * 80, i * step + 0.045);
+  }
+  this.musicNote?.(root * 0.5, 1.10, 'sine', 0.014, 180, 3.85, 0.999, 0);
+  this.musicNote?.(root * 1.5, 0.92, 'triangle', 0.009, 720, 4.08, 0.999, 0);
+  this.musicDust?.(0.20, 0.0075, 2400, 4.55);
+  return true;
+};
+
+const updateMusicBeforeV2167CasinoMobTheme = AudioBus.prototype.updateMusic;
+AudioBus.prototype.updateMusic = function updateMusicV2167CasinoMobTheme(state, dt = 0.016) {
+  updateMusicBeforeV2167CasinoMobTheme.call(this, state, dt);
+  if (!this.music || !this.ctx) return;
+  if ((this.musicCasinoMobDefeatedT || 0) > 0) {
+    this.musicCasinoMobDefeatedT = Math.max(0, (this.musicCasinoMobDefeatedT || 0) - dt);
+    this.musicResolve = Math.max(this.musicResolve || 0, Math.min(1.2, 0.35 + this.musicCasinoMobDefeatedT / 5));
+    if (this.music.layers?.casino) this.setMusicLayer?.('casino', 0.0065, 1.06);
+    if (this.music.layers?.glass) this.setMusicLayer?.('glass', 0.0038, 1.08);
+  }
+};
+
+const handleFxBeforeV2167CasinoMobTheme = AudioBus.prototype.handleFx;
+AudioBus.prototype.handleFx = function handleFxV2167CasinoMobTheme(f, info = {}) {
+  const out = handleFxBeforeV2167CasinoMobTheme.call(this, f, info);
+  if (f?.t === 'casino_mob_defeated') {
+    this.play('casino_mob_defeated');
+    this.playCasinoMobDefeatedTheme?.();
+  }
+  return out;
 };
