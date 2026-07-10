@@ -21,7 +21,7 @@ const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
 const MAX_PICKUPS = 90;
 const INTERACT_DIST = 95;
-const FINAL_TARGET_LOOPS = 5;
+const FINAL_TARGET_LOOPS = 10;
 const ROOMS_PER_LOOP = 4;
 const FINAL_TARGET_DEPTH = FINAL_TARGET_LOOPS * ROOMS_PER_LOOP;
 const FINAL_BOSS_DEPTH = FINAL_TARGET_DEPTH - 1;
@@ -836,7 +836,6 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   if (mods.includes('prism_grid')) tags.push('PRISM SLOW');
   if (mods.includes('blood_tax')) tags.push('HP SHOP');
   if (mods.includes('echo_walls')) tags.push('50% ECHO SHOTS');
-  if (mods.includes('trojan')) tags.push('TROJAN CHEST');
   if (special === 'signal_contract') tags.push('PRIORITY TARGET');
   if (special === 'chill_room') tags.push('NO ENEMIES');
   return tags.slice(0, 5);
@@ -854,7 +853,6 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
   if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
-  if (mods.includes('trojan')) return 'TROJAN: one chest is infected; opening it releases a swarm and locks the portal until cleanup.';
   if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
   if (arch === 'cashier_maze') return 'CASHIER MAZE: blackout is forced; thick walls block dash skips and the portal is hidden in the farthest reachable cell.';
   if (arch === 'ripped_table') return 'RIPPED TABLE: the bridge decides when fights spill between halves.';
@@ -1660,8 +1658,7 @@ function completeRun(run, players) {
   run.bullets = [];
   run.activeFields = [];
   if (run.portal) run.portal.open = true;
-  run.fx.push({ t: 'run_complete', summary: run.finalSummary, label: 'ОЧИСТКА ЗАВЕРШЕНА' });
-  run.fx.push({ t: 'hero_unlock', hero: 'process_controller', label: 'КОНТРОЛЁР ОТКРЫТ' });
+  run.fx.push({ t: 'run_complete', summary: run.finalSummary });
 }
 
 function recordPickupStat(run, type, val) {
@@ -2114,127 +2111,16 @@ function movingWallDangerPenalty(run, x, y, half = 14) {
   return penalty;
 }
 
-
-function navPlanKey(run, cell = 96, half = 14) {
-  const plan = run?.plan || {};
-  return `${plan.seed || ''}:${plan.roomId || ''}:${Math.round(plan.w || 0)}x${Math.round(plan.h || 0)}:${cell}:${Math.round(half)}`;
-}
-function buildNavGrid(run, cell = 96, half = 14) {
-  const plan = run?.plan || {};
-  const key = navPlanKey(run, cell, half);
-  if (run._navGrid && run._navGrid.key === key) return run._navGrid;
-  const cols = Math.max(1, Math.ceil((plan.w || 1) / cell));
-  const rows = Math.max(1, Math.ceil((plan.h || 1) / cell));
-  const blocked = new Uint8Array(cols * rows);
-  const walls = plan.walls || [];
-  const bounds = enemyArenaBounds(run, { size: half * 2 }, 2);
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    const cx = clamp((x + 0.5) * cell, bounds.left, bounds.right);
-    const cy = clamp((y + 0.5) * cell, bounds.top, bounds.bottom);
-    const edge = cx <= bounds.left + half || cx >= bounds.right - half || cy <= bounds.top + half || cy >= bounds.bottom - half;
-    blocked[y * cols + x] = edge || wallPenalty(cx, cy, half + 7, walls) > 0 ? 1 : 0;
-  }
-  run._navGrid = { key, cell, half, cols, rows, blocked, paths: new Map() };
-  return run._navGrid;
-}
-function navCellFor(g, x, y) {
-  return { cx: clamp(Math.floor(x / g.cell), 0, g.cols - 1), cy: clamp(Math.floor(y / g.cell), 0, g.rows - 1) };
-}
-function navIndex(g, cx, cy) { return cy * g.cols + cx; }
-function nearestOpenNavCell(g, cx, cy) {
-  cx = clamp(cx | 0, 0, g.cols - 1); cy = clamp(cy | 0, 0, g.rows - 1);
-  if (!g.blocked[navIndex(g, cx, cy)]) return { cx, cy };
-  for (let r = 1; r <= Math.max(g.cols, g.rows); r++) {
-    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-      if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-      const x = cx + dx, y = cy + dy;
-      if (x < 0 || y < 0 || x >= g.cols || y >= g.rows) continue;
-      if (!g.blocked[navIndex(g, x, y)]) return { cx: x, cy: y };
-    }
-  }
-  return { cx, cy };
-}
-function navDistanceMap(run, g, tx, ty) {
-  const goal0 = navCellFor(g, tx, ty);
-  const goal = nearestOpenNavCell(g, goal0.cx, goal0.cy);
-  const key = `${goal.cx},${goal.cy}`;
-  const cached = g.paths.get(key);
-  if (cached && cached.tick === (run.tick || 0)) return cached;
-  const total = g.cols * g.rows;
-  const dist = new Int16Array(total);
-  dist.fill(-1);
-  const qx = new Int16Array(total), qy = new Int16Array(total);
-  let head = 0, tail = 0;
-  const gi = navIndex(g, goal.cx, goal.cy);
-  dist[gi] = 0; qx[tail] = goal.cx; qy[tail] = goal.cy; tail++;
-  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-  while (head < tail) {
-    const cx = qx[head], cy = qy[head]; head++;
-    const cd = dist[navIndex(g, cx, cy)];
-    for (const [dx, dy] of dirs) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= g.cols || ny >= g.rows) continue;
-      const ni = navIndex(g, nx, ny);
-      if (dist[ni] >= 0 || g.blocked[ni]) continue;
-      // Avoid diagonal corner cutting through solid cells.
-      if (dx && dy && (g.blocked[navIndex(g, cx + dx, cy)] || g.blocked[navIndex(g, cx, cy + dy)])) continue;
-      dist[ni] = cd + (dx && dy ? 14 : 10);
-      qx[tail] = nx; qy[tail] = ny; tail++;
-    }
-  }
-  const res = { key, tick: run.tick || 0, goal, dist };
-  g.paths.set(key, res);
-  if (g.paths.size > 8) g.paths.delete(g.paths.keys().next().value);
-  return res;
-}
-function navDirectionToTarget(run, e, target, half = 14) {
-  if (!run?.plan || !e || !target) return null;
-  const g = buildNavGrid(run, 96, Math.max(12, Math.min(34, half)));
-  const from0 = navCellFor(g, e.x, e.y);
-  const from = nearestOpenNavCell(g, from0.cx, from0.cy);
-  const map = navDistanceMap(run, g, target.x, target.y);
-  const curI = navIndex(g, from.cx, from.cy);
-  const curD = map.dist[curI];
-  if (curD < 0) return null;
-  let best = null;
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-    if (!dx && !dy) continue;
-    const cx = from.cx + dx, cy = from.cy + dy;
-    if (cx < 0 || cy < 0 || cx >= g.cols || cy >= g.rows) continue;
-    const i = navIndex(g, cx, cy);
-    const d = map.dist[i];
-    if (d < 0 || g.blocked[i]) continue;
-    if (dx && dy && (g.blocked[navIndex(g, from.cx + dx, from.cy)] || g.blocked[navIndex(g, from.cx, from.cy + dy)])) continue;
-    const px = clamp((cx + 0.5) * g.cell, 0, run.plan.w || 1);
-    const py = clamp((cy + 0.5) * g.cell, 0, run.plan.h || 1);
-    const wall = wallPenalty(px, py, half + 4, run.plan.walls || []);
-    const score = -d * 10 - wall * 500 - Math.hypot(px - e.x, py - e.y) * 0.02;
-    if (!best || score > best.score) best = { x: px, y: py, d, score };
-  }
-  if (!best || best.d >= curD) return null;
-  return norm(best.x - e.x, best.y - e.y);
-}
 function steerMove(run, e, dir, speedValue, dt, opts = {}) {
   const walls = run.plan?.walls || [];
   const half = e.size / 2;
-  let base = norm(dir.x || 0, dir.y || 0);
+  const base = norm(dir.x || 0, dir.y || 0);
   const amount = Math.max(0, speedValue * dt);
   if (!amount) return { x: e.x, y: e.y, moved: 0, blocked: false };
   const target = opts.target || null;
   const sideBias = e.steerSide || ((parseInt(e.id, 36) || 1) % 2 ? 1 : -1);
   const directLook = Math.max(half + 18, Math.min(95, amount * 7 + half));
-  let directBlocked = wallPenalty(e.x + base.x * directLook, e.y + base.y * directLook, half, walls) > 0;
-  if (target && opts.path !== false) {
-    const losBlocked = !enemyHasLineOfSight(run, e, target, Math.max(12, Math.min(24, half * 0.65)));
-    if (directBlocked || losBlocked || (e.stuckT || 0) > 0.16) {
-      const nd = navDirectionToTarget(run, e, target, half);
-      if (nd && (Math.abs(nd.x) + Math.abs(nd.y)) > 0.01) {
-        base = norm(base.x * (losBlocked ? 0.20 : 0.45) + nd.x, base.y * (losBlocked ? 0.20 : 0.45) + nd.y);
-        directBlocked = wallPenalty(e.x + base.x * directLook, e.y + base.y * directLook, half, walls) > 0;
-        e.pathT = Math.max(e.pathT || 0, 0.35);
-      }
-    }
-  }
+  const directBlocked = wallPenalty(e.x + base.x * directLook, e.y + base.y * directLook, half, walls) > 0;
   const angles = directBlocked
     ? [0, 0.42 * sideBias, -0.42 * sideBias, 0.82 * sideBias, -0.82 * sideBias, 1.22 * sideBias, -1.22 * sideBias, 1.58 * sideBias, -1.58 * sideBias, Math.PI]
     : [0, 0.25 * sideBias, -0.25 * sideBias, 0.55 * sideBias, -0.55 * sideBias];
@@ -2913,69 +2799,87 @@ export function dashDistance(p) {
 
 // ---------------------------------------------------------------- Living Casino hero
 const LIVING_CASINO_SKIN_ID = 'living_casino';
-const LC_SECTOR_TYPES = ['dmg', 'roulette', 'deck', 'guard', 'chain', 'bet', 'copy', 'ghost', 'jackpot', 'table'];
-const LC_WEAPON_SECTORS = new Set(['dmg', 'roulette', 'deck']);
-const LC_SECTOR_LABEL = { dmg: 'LVC', roulette: 'RLT', deck: 'CRD', guard: 'GUARD', chain: 'CHAIN', bet: 'BET', copy: 'COPY', ghost: 'GHOST', jackpot: 'JACKPOT', table: 'TABLE' };
-const LC_SECTOR_TONE = { dmg: 'gold', roulette: 'red', deck: 'cyan', guard: 'cyan', chain: 'purple', bet: 'orange', copy: 'green', ghost: 'blue', jackpot: 'gold', table: 'green' };
-const LC_SECTOR_COLOR = { dmg: '#ffd34d', roulette: '#ff3048', deck: '#66f6ff', guard: '#66f6ff', chain: '#b45cff', bet: '#ff9f1a', copy: '#00ff66', ghost: '#7aa8ff', jackpot: '#ffd34d', table: '#f3f3f3' };
-const LC_SECTOR_WEAPON_ID = { dmg: 'living_casino', roulette: 'roulette', deck: 'deck' };
+const LC_BASE_COLOR = '#ffd34d';
+const LC_SPARK_COLOR = '#66f6ff';
+const LC_BASE_RANGE = 820;
+const LC_BASE_TURN_SPEED = 4.8;
+const LC_SPARK_TURN_SPEED = 3.9;
+const LC_TARGET_CAP = 6;
+const LC_SPARK_CAP = 6;
 
 function isLivingCasinoPlayer(p) { return p?.hero === 'living_casino' || p?.skin?.hero === 'living_casino'; }
-function livingCasinoSectorLabel(type) { return LC_SECTOR_LABEL[String(type || '')] || String(type || 'SEC').toUpperCase(); }
-function normalizeLivingCasinoSector(x) {
-  const type = LC_SECTOR_TYPES.includes(String(x?.type || '')) ? String(x.type) : 'dmg';
-  return { type, level: Math.max(1, Number(x?.level || 1) | 0), cd: Math.max(0, Number(x?.cd || 0) || 0), activeT: Math.max(0, Number(x?.activeT || 0) || 0), pulseT: Math.max(0, Number(x?.pulseT || 0) || 0) };
+function lcAngleDelta(from, to) { return Math.atan2(Math.sin(to - from), Math.cos(to - from)); }
+function lcRotateTowards(from, to, maxStep) {
+  const d = lcAngleDelta(from, to);
+  return from + Math.max(-maxStep, Math.min(maxStep, d));
+}
+function lcFreshState(p) {
+  const a = Math.atan2((p?.aimY || p?.y || 0) - (p?.y || 0), (p?.aimX || (p?.x || 0) + 1) - (p?.x || 0));
+  return {
+    version: 2,
+    base: { angle: Number.isFinite(a) ? a : 0, cd: 0, targetIds: [], shotCursor: 0, aimTargetId: '' },
+    sparks: { angle: Number.isFinite(a) ? a : 0, targetIds: [], aimTargetId: '', active: [], charges: 1, recovering: 0, rechargeT: 0, rechargeMax: 3.8 },
+    upgrades: { targets: 0, sparkCount: 0, sparkDamage: 0, sparkHold: 0, sparkRange: 0 },
+    leftDown: false
+  };
 }
 function setupLivingCasinoPlayer(p) {
   if (!p) return p;
   p.hero = 'living_casino';
-  p.weapons = ['living_casino', 'lvc_spark'];
-  p.weaponIdx = 0;
+  p.weapons = ['living_casino', 'control_sparks'];
+  p.weaponIdx = Math.max(0, Math.min(1, Number(p.weaponIdx || 0) | 0));
   p.shgCharges = 0;
   p.shgReload = 0;
-  p.livingCasino = {
-    maxSectors: 2,
-    sectors: [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }],
-    selected: 0,
-    ringOpen: false,
-    fireDown: false,
-    primaryTargets: [],
-    sparkTargets: [],
-    sparkLocks: [],
-    primaryCd: 0, sparkCd: 0,
-    primarySeq: 0, sparkSeq: 0,
-    aimPrimaryX: 1, aimPrimaryY: 0, aimSparkX: 1, aimSparkY: 0,
-    lastSector: '', lastPower: 1,
-    copyPower: 0.55, betLuck: 0, betCd: 0, tableCd: 0, tableRadius: 0, tableTriggers: 0, tableHold: 0, autoLvc: 1
-  };
+  p.livingCasino = lcFreshState(p);
+  p.livingCasinoChainDashes = 0;
+  p.livingCasinoChainT = 0;
+  p.livingCasinoGuardCap = 0;
+  p.livingCasinoGuardMax = 0;
+  p.livingCasinoGuardT = 0;
+  p.livingCasinoBetRoll = null;
   return p;
 }
 function ensureLivingCasinoState(p) {
   if (!isLivingCasinoPlayer(p)) return null;
-  if (!p.livingCasino) setupLivingCasinoPlayer(p);
+  if (!p.livingCasino || Number(p.livingCasino.version || 0) !== 2) p.livingCasino = lcFreshState(p);
   const lc = p.livingCasino;
-  lc.maxSectors = 2;
-  lc.sectors = [{ type: 'dmg', level: 1, cd: 0, activeT: 0, pulseT: 0 }];
-  lc.selected = 0;
-  lc.ringOpen = false;
-  lc.fireDown = !!lc.fireDown;
-  lc.primaryTargets = Array.isArray(lc.primaryTargets) ? lc.primaryTargets.filter(Boolean).slice(0, 8) : [];
-  lc.sparkTargets = Array.isArray(lc.sparkTargets) ? lc.sparkTargets.filter(Boolean).slice(0, 8) : [];
-  lc.sparkLocks = Array.isArray(lc.sparkLocks) ? lc.sparkLocks.filter(Boolean).slice(0, 12) : [];
-  lc.primaryCd = Math.max(0, Number(lc.primaryCd || 0) || 0);
-  lc.sparkCd = Math.max(0, Number(lc.sparkCd || 0) || 0);
-  lc.primarySeq = Math.max(0, Number(lc.primarySeq || 0) | 0);
-  lc.sparkSeq = Math.max(0, Number(lc.sparkSeq || 0) | 0);
-  lc.aimPrimaryX = Number.isFinite(lc.aimPrimaryX) ? lc.aimPrimaryX : 1;
-  lc.aimPrimaryY = Number.isFinite(lc.aimPrimaryY) ? lc.aimPrimaryY : 0;
-  lc.aimSparkX = Number.isFinite(lc.aimSparkX) ? lc.aimSparkX : 1;
-  lc.aimSparkY = Number.isFinite(lc.aimSparkY) ? lc.aimSparkY : 0;
-  if (!Array.isArray(p.weapons)) p.weapons = [];
-  p.weapons = p.weapons.filter(w => w === 'living_casino' || w === 'lvc_spark');
-  if (!p.weapons.includes('living_casino')) p.weapons.unshift('living_casino');
-  if (!p.weapons.includes('lvc_spark')) p.weapons.push('lvc_spark');
-  p.weapons = [...new Set(p.weapons.filter(w => WEAPONS[w]))];
+  lc.version = 2;
+  lc.base = lc.base && typeof lc.base === 'object' ? lc.base : {};
+  lc.sparks = lc.sparks && typeof lc.sparks === 'object' ? lc.sparks : {};
+  lc.upgrades = lc.upgrades && typeof lc.upgrades === 'object' ? lc.upgrades : {};
+  lc.upgrades.targets = Math.max(0, Math.min(LC_TARGET_CAP - 1, Number(lc.upgrades.targets || 0) | 0));
+  lc.upgrades.sparkCount = Math.max(0, Math.min(LC_SPARK_CAP - 1, Number(lc.upgrades.sparkCount || 0) | 0));
+  lc.upgrades.sparkDamage = Math.max(0, Number(lc.upgrades.sparkDamage || 0) | 0);
+  lc.upgrades.sparkHold = Math.max(0, Number(lc.upgrades.sparkHold || 0) | 0);
+  lc.upgrades.sparkRange = Math.max(0, Number(lc.upgrades.sparkRange || 0) | 0);
+  lc.base.angle = Number.isFinite(lc.base.angle) ? lc.base.angle : 0;
+  lc.base.cd = Math.max(0, Number(lc.base.cd || 0) || 0);
+  lc.base.targetIds = Array.isArray(lc.base.targetIds) ? [...new Set(lc.base.targetIds.map(String).filter(Boolean))].slice(0, 1 + lc.upgrades.targets) : [];
+  lc.base.shotCursor = Math.max(0, Number(lc.base.shotCursor || 0) | 0);
+  lc.base.aimTargetId = String(lc.base.aimTargetId || '');
+  lc.sparks.angle = Number.isFinite(lc.sparks.angle) ? lc.sparks.angle : 0;
+  lc.sparks.targetIds = Array.isArray(lc.sparks.targetIds) ? [...new Set(lc.sparks.targetIds.map(String).filter(Boolean))].slice(0, 1 + lc.upgrades.sparkCount) : [];
+  lc.sparks.aimTargetId = String(lc.sparks.aimTargetId || '');
+  lc.sparks.active = Array.isArray(lc.sparks.active) ? lc.sparks.active.filter(x => x && x.targetId).map(x => ({
+    id: String(x.id || nid()), targetId: String(x.targetId || ''), t: Math.max(0, Number(x.t || 0) || 0),
+    maxT: Math.max(0.1, Number(x.maxT || 0.1) || 0.1), tickT: Math.max(0, Number(x.tickT || 0) || 0), slot: Math.max(0, Number(x.slot || 0) | 0)
+  })) : [];
+  const maxSparks = 1 + lc.upgrades.sparkCount;
+  if (lc.sparks.active.length > maxSparks) lc.sparks.active.length = maxSparks;
+  lc.sparks.recovering = Math.max(0, Math.min(maxSparks, Number(lc.sparks.recovering || 0) | 0));
+  lc.sparks.charges = Math.max(0, Math.min(maxSparks - lc.sparks.active.length - lc.sparks.recovering, Number(lc.sparks.charges ?? maxSparks) | 0));
+  const accounted = lc.sparks.active.length + lc.sparks.recovering + lc.sparks.charges;
+  if (accounted < maxSparks) lc.sparks.charges += maxSparks - accounted;
+  lc.sparks.rechargeMax = Math.max(1.15, Number(lc.sparks.rechargeMax || 3.8) || 3.8);
+  lc.sparks.rechargeT = Math.max(0, Number(lc.sparks.rechargeT || 0) || 0);
+  lc.leftDown = !!lc.leftDown;
+  p.weapons = ['living_casino', 'control_sparks'];
   p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, Number(p.weaponIdx || 0) | 0));
+  p.livingCasinoChainDashes = 0;
+  p.livingCasinoChainT = 0;
+  p.livingCasinoGuardCap = 0;
+  p.livingCasinoGuardMax = 0;
+  p.livingCasinoGuardT = 0;
   return lc;
 }
 
@@ -2984,7 +2888,7 @@ const PROCESS_CONTROLLER_SKIN_ID = 'process_controller';
 const PROCESS_CONTROLLER_COMMANDS = ['command_pulse', 'quarantine_anchor', 'process_saw'];
 const PROCESS_CONTROLLER_WEAPON_SET = new Set(PROCESS_CONTROLLER_COMMANDS);
 function allowedWeaponOrderForPlayer(p) {
-  if (isLivingCasinoPlayer(p)) return ['living_casino', 'lvc_spark'];
+  if (isLivingCasinoPlayer(p)) return ['living_casino', 'control_sparks'];
   if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
   return ['shotgun', 'seeker', 'rocketgun'];
 }
@@ -3195,7 +3099,6 @@ function commandProcessController(run, p) {
     run.fx.push({ t: 'ctrl_order', id: p.id, x: Math.round(pc.commandX), y: Math.round(pc.commandY), count: current.length || 0 });
     run.fx.push({ t: 'active_mutation', label: `ПРИКАЗ CTRL x${current.length || 0}`, x: Math.round(pc.commandX), y: Math.round(pc.commandY), r: 96 + (current.length || 0) * 14, tone: 'cyan', owner: p.id });
   }
-  if (p.wagerStats) p.wagerStats.ctrlOrders = (p.wagerStats.ctrlOrders || 0) + 1;
   return true;
 }
 function makeControlledProcess(run, p, pc, source, opts = {}) {
@@ -3892,7 +3795,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     if (pc.cmdHold >= pc.cmdNeed) {
       const ok = captureEnemyAsProcess(run, players, p, target, 'command');
       const tempFire = p.activeBuffT > 0 ? 1.18 + p.stats.activeOver * 0.07 : 1;
-      p.cd = Math.max(0.55, (w.cooldown || 1.7) / Math.max(0.35, (p.stats.fireMul || 1) * tempFire * (p.wagerFireMul || 1)));
+      p.cd = Math.max(0.55, (w.cooldown || 1.7) / Math.max(0.35, (p.stats.fireMul || 1) * tempFire));
       p.ctrlCdMax = p.cd;
       p.recoilT = Math.max(p.recoilT || 0, 0.035);
       if (ok) run.fx.push({ t: 'active_mutation', label: w.label || 'CMD', x: Math.round(p.x), y: Math.round(p.y), r: 44, tone: 'cyan', owner: p.id });
@@ -3947,7 +3850,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     ok = hit > 0 || captured > 0;
   }
   if (ok) {
-    p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire * (p.wagerFireMul || 1)));
+    p.cd = Math.max(0.12, (w.cooldown || 0.5) / Math.max(0.2, (p.stats.fireMul || 1) * tempFire));
     p.ctrlCdMax = p.cd;
     p.recoilT = Math.max(p.recoilT || 0, 0.035);
     run.fx.push({ t: 'active_mutation', label: w.label || 'CTRL', x: Math.round(p.x), y: Math.round(p.y), r: 44, tone: id === 'process_saw' ? 'purple' : 'cyan', owner: p.id });
@@ -3955,114 +3858,146 @@ function fireProcessControllerProtocol(run, players, p, dt) {
 }
 
 
-function livingCasinoAimIndex(p, lc = null) {
-  lc = lc || ensureLivingCasinoState(p); if (!lc) return 0;
-  const n = Math.max(1, lc.sectors.length);
-  if (n <= 1) return 0;
-  const a = Math.atan2((p.aimY || p.y) - p.y, (p.aimX || p.x) - p.x);
-  const step = Math.PI * 2 / n;
-  return ((Math.round(a / step) % n) + n) % n;
+function livingCasinoBaseTargetMax(lc) { return Math.max(1, Math.min(LC_TARGET_CAP, 1 + Math.max(0, Number(lc?.upgrades?.targets || 0) | 0))); }
+function livingCasinoSparkMax(lc) { return Math.max(1, Math.min(LC_SPARK_CAP, 1 + Math.max(0, Number(lc?.upgrades?.sparkCount || 0) | 0))); }
+function livingCasinoSparkRange(lc) { return 430 + Math.max(0, Number(lc?.upgrades?.sparkRange || 0) | 0) * 70; }
+function livingCasinoSparkHold(lc) { return 2.45 + Math.max(0, Number(lc?.upgrades?.sparkHold || 0) | 0) * 0.55; }
+function livingCasinoSparkDamage(lc) { return 10 + Math.max(0, Number(lc?.upgrades?.sparkDamage || 0) | 0) * 4.5; }
+function livingCasinoSparkRecharge(p, lc) { return Math.max(1.15, 3.8 / Math.max(0.35, Number(p?.stats?.fireMul || 1) || 1)); }
+function livingCasinoEnemyById(run, id) {
+  if (!id) return null;
+  return run.enemies.find(e => e && e.id === id && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)) || null;
 }
-function livingCasinoSelectedIndex(p) {
-  const lc = ensureLivingCasinoState(p); if (!lc) return 0;
-  if (lc.ringOpen) return livingCasinoAimIndex(p, lc);
-  return Math.max(0, Math.min(Math.max(0, lc.sectors.length - 1), Number(lc.selected || 0) | 0));
+function livingCasinoHasTargetLine(run, p, e) {
+  if (!run || !p || !e) return false;
+  const dx = e.x - p.x, dy = e.y - p.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const sx = p.x + (dx / len) * Math.max(10, PLAYER_SIZE * 0.45);
+  const sy = p.y + (dy / len) * Math.max(10, PLAYER_SIZE * 0.45);
+  const tx = e.x - (dx / len) * Math.max(8, (e.size || 28) * 0.42);
+  const ty = e.y - (dy / len) * Math.max(8, (e.size || 28) * 0.42);
+  return !segmentBlockedByWalls(sx, sy, tx, ty, run.plan?.walls || [], 12);
 }
-function livingCasinoIsInstantSelect(type) {
-  type = String(type || '');
-  // В кольце Живого казино пушки выбираются для ЛКМ, а остальные ячейки — instant-действия.
-  return !LC_WEAPON_SECTORS.has(type);
-}
-function livingCasinoPrimaryIndex(lc) {
-  if (!lc || !Array.isArray(lc.sectors) || !lc.sectors.length) return 0;
-  const idx = lc.sectors.findIndex(s => String(s?.type || '') === 'dmg');
-  return idx >= 0 ? idx : 0;
-}
-function livingCasinoSectorFxPoint(p, lc, idx) {
-  const n = Math.max(1, Array.isArray(lc?.sectors) ? lc.sectors.length : 1);
-  const r = (lc?.ringOpen ? 92 + Math.min(28, n * 4) : 50);
-  const i = ((Number(idx || 0) | 0) % n + n) % n;
-  const a = i * Math.PI * 2 / n;
-  return { x: Math.round((p?.x || 0) + Math.cos(a) * r), y: Math.round((p?.y || 0) + Math.sin(a) * r) };
-}
-function closeLivingCasinoRing(run, p, mode = 'close', players = null) {
-  const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  const hoverIdx = livingCasinoAimIndex(p, lc);
-  const sec = lc.sectors[hoverIdx] || lc.sectors[0];
-  const tone = LC_SECTOR_TONE[sec?.type] || 'gold';
-  const label = livingCasinoSectorLabel(sec?.type);
-  const plateFx = livingCasinoSectorFxPoint(p, lc, hoverIdx);
-  lc.ringOpen = false;
-  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode: 'close', label, x: Math.round(p.x), y: Math.round(p.y), tone, sector: sec?.type || '', sectorIndex: hoverIdx });
-  if (mode !== 'open' && livingCasinoIsInstantSelect(sec?.type)) {
-    // Action sectors do not become the selected weapon. They only trigger once.
-    const ok = activateLivingCasinoSector(run, players || new Map(), p, sec, { instantSelect: 1 });
-    if (ok) run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'action', label, x: plateFx.x, y: plateFx.y, tone, sector: sec?.type || '', sectorIndex: hoverIdx });
-    else run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `${label} RELOAD`, chest: 'LVC' });
-    lc.selected = livingCasinoPrimaryIndex(lc);
-  } else if (LC_WEAPON_SECTORS.has(String(sec?.type || ''))) {
-    // Weapon cells select the current Living Casino weapon; they do not fire immediately.
-    const wid = LC_SECTOR_WEAPON_ID[String(sec?.type || '')] || 'living_casino';
-    if (!p.weapons.includes(wid)) p.weapons.push(wid);
-    p.weaponIdx = Math.max(0, p.weapons.indexOf(wid));
-    lc.selected = hoverIdx;
-    run.fx.push({ t: 'lc_sector_pick', id: p.id, mode: 'weapon', label, x: plateFx.x, y: plateFx.y, tone, sector: sec?.type || '', sectorIndex: hoverIdx });
-  } else {
-    lc.selected = livingCasinoPrimaryIndex(lc);
+function livingCasinoEnemyAtCursor(run, p, maxRange = 1100) {
+  let best = null, bd = Infinity;
+  const ax = Number(p?.aimX || p?.x || 0), ay = Number(p?.aimY || p?.y || 0);
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    if (dist2(e.x, e.y, p.x, p.y) > (maxRange + (e.size || 24) / 2) ** 2) continue;
+    const d = dist2(e.x, e.y, ax, ay);
+    const hitR = Math.max(28, (e.size || 24) * 0.72 + 12);
+    if (d <= hitR * hitR && d < bd) { best = e; bd = d; }
   }
+  return best;
+}
+function nearestLivingCasinoTarget(run, p, range = LC_BASE_RANGE, excluded = null) {
+  let best = null, bd = range * range;
+  for (const e of run.enemies) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e) || excluded?.has(e.id)) continue;
+    if (!livingCasinoHasTargetLine(run, p, e)) continue;
+    const d = dist2(e.x, e.y, p.x, p.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function livingCasinoCleanTargets(run, ids, max) {
+  const out = [];
+  for (const id of Array.isArray(ids) ? ids : []) {
+    const e = livingCasinoEnemyById(run, String(id || ''));
+    if (e && !out.includes(e.id)) out.push(e.id);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+function livingCasinoAssignTarget(run, p, gun) {
+  const lc = ensureLivingCasinoState(p); if (!lc) return false;
+  const target = livingCasinoEnemyAtCursor(run, p, gun === 'sparks' ? livingCasinoSparkRange(lc) + 180 : 1200);
+  if (!target) {
+    run.fx.push({ t: 'lc_target_miss', id: p.id, gun, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y) });
+    return false;
+  }
+  const state = gun === 'sparks' ? lc.sparks : lc.base;
+  const max = gun === 'sparks' ? livingCasinoSparkMax(lc) : livingCasinoBaseTargetMax(lc);
+  const idx = state.targetIds.indexOf(target.id);
+  let enabled = true;
+  if (idx >= 0) { state.targetIds.splice(idx, 1); enabled = false; }
+  else {
+    while (state.targetIds.length >= max) state.targetIds.shift();
+    state.targetIds.push(target.id);
+    if (gun === 'base') state.shotCursor = Math.max(0, state.targetIds.indexOf(target.id));
+  }
+  if (gun === 'base' && state.targetIds.length) state.shotCursor %= state.targetIds.length;
+  state.aimTargetId = enabled ? target.id : (state.targetIds[state.shotCursor || 0] || state.targetIds[0] || '');
+  run.fx.push({ t: 'lc_target_lock', id: p.id, gun, enabled: enabled ? 1 : 0, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 18) });
   return true;
 }
-function toggleLivingCasinoRing(run, p) {
-  const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  if (lc.ringOpen) return closeLivingCasinoRing(run, p, 'close', null);
-  lc.ringOpen = true;
-  lc.selected = livingCasinoAimIndex(p, lc);
-  run.fx.push({ t: 'lc_sector_ring', id: p.id, mode: 'open', label: 'ВЫБОР СЕКТОРА', x: Math.round(p.x), y: Math.round(p.y), tone: 'gold' });
+function livingCasinoPickBaseTarget(run, p, lc) {
+  lc.base.targetIds = livingCasinoCleanTargets(run, lc.base.targetIds, livingCasinoBaseTargetMax(lc));
+  if (lc.base.targetIds.length) {
+    const i = lc.base.shotCursor % lc.base.targetIds.length;
+    const e = livingCasinoEnemyById(run, lc.base.targetIds[i]);
+    lc.base.shotCursor = (i + 1) % Math.max(1, lc.base.targetIds.length);
+    if (e) return e;
+  }
+  return nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
+}
+function livingCasinoPickSparkTarget(run, p, lc) {
+  lc.sparks.targetIds = livingCasinoCleanTargets(run, lc.sparks.targetIds, livingCasinoSparkMax(lc));
+  const used = new Set(lc.sparks.active.map(x => x.targetId));
+  for (const id of lc.sparks.targetIds) {
+    const e = livingCasinoEnemyById(run, id);
+    if (e && !used.has(e.id) && dist2(e.x, e.y, p.x, p.y) <= (livingCasinoSparkRange(lc) + (e.size || 24) / 2) ** 2) return e;
+  }
+  return nearestLivingCasinoTarget(run, p, livingCasinoSparkRange(lc), used);
+}
+function livingCasinoFireHoming(run, p, target) {
+  if (!p?.alive || !target || run.bullets.length >= MAX_BULLETS) return false;
+  const dir = norm(target.x - p.x, target.y - p.y);
+  const dmg = weaponDamageValue(p, 18, 1);
+  const speed = 410;
+  run.bullets.push({
+    id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: dir.x * speed, vy: dir.y * speed,
+    dmg, from: 'p', owner: p.id, life: 1.95, size: 4, homing: 8.2, targetId: target.id, strictTarget: 1,
+    kind: 'live_casino', travelled: 0, maxDist: 760, bounces: 0, elem: bulletElementString(p, 'weapon'),
+    elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0
+  });
+  run.fx.push({ t: 'shot', id: p.id, w: 'LIVE', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 28), my: Math.round(p.y + dir.y * 28), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
   return true;
 }
-function livingCasinoSectorDuration(type, lvl, power = 1) {
-  lvl = Math.max(1, lvl | 0); power = Math.max(0.2, Number(power) || 1);
-  if (type === 'dmg') return (10.0 + Math.min(6, (lvl - 1) * 1.2)) * power;
-  if (type === 'chain') return (5.5 + Math.min(5, (lvl - 1) * 0.9)) * power;
-  if (type === 'ghost') return (3.0 + Math.min(3.5, (lvl - 1) * 0.55)) * power;
-  if (type === 'table') return (5.0 + Math.min(3.0, (lvl - 1) * 0.45)) * power;
-  return 0;
+function livingCasinoReleaseSpark(run, players, p, lc, spark, target, expired = true) {
+  if (expired && target?.hp > 0) {
+    const n = norm(target.x - p.x, target.y - p.y);
+    const force = ENEMIES[target.kind]?.boss ? 42 : 92 + Math.max(0, lc.upgrades.sparkHold || 0) * 8;
+    const c = collideWalls(target.x + n.x * force, target.y + n.y * force, (target.size || 24) / 2, run.plan?.walls || [], target.x, target.y);
+    target.x = c.x; target.y = c.y;
+    target.vx = (target.vx || 0) + n.x * force * 2.2;
+    target.vy = (target.vy || 0) + n.y * force * 2.2;
+    target.stunT = Math.max(target.stunT || 0, ENEMIES[target.kind]?.boss ? 0.04 : Math.min(0.28, 0.12 + Math.max(0, lc.upgrades.sparkHold || 0) * 0.018));
+    run.fx.push({ t: 'lc_spark_release', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), dx: Math.round(n.x * 100), dy: Math.round(n.y * 100), r: Math.round((target.size || 24) + 26) });
+  }
+  lc.sparks.recovering = Math.min(livingCasinoSparkMax(lc), (lc.sparks.recovering || 0) + 1);
+  if ((lc.sparks.rechargeT || 0) <= 0) {
+    lc.sparks.rechargeMax = livingCasinoSparkRecharge(p, lc);
+    lc.sparks.rechargeT = lc.sparks.rechargeMax;
+  }
 }
-function livingCasinoSectorReload(type, lvl) {
-  lvl = Math.max(1, lvl | 0);
-  if (type === 'dmg') return Math.max(4.8, 8.0 - Math.min(2.6, (lvl - 1) * 0.35));
-  if (type === 'guard') return Math.max(5.2, 9.0 - Math.min(2.4, (lvl - 1) * 0.35));
-  if (type === 'chain') return Math.max(5.6, 10.5 - Math.min(2.8, (lvl - 1) * 0.4));
-  if (type === 'bet') return Math.max(3.8, 7.5 - Math.min(2.5, (lvl - 1) * 0.35));
-  if (type === 'copy') return Math.max(4.8, 9.0 - Math.min(2.2, (lvl - 1) * 0.3));
-  if (type === 'ghost') return Math.max(6.4, 11.0 - Math.min(2.4, (lvl - 1) * 0.35));
-  if (type === 'jackpot') return Math.max(6.8, 12.0 - Math.min(2.6, (lvl - 1) * 0.35));
-  if (type === 'table') return Math.max(5.8, 10.0 - Math.min(2.4, (lvl - 1) * 0.35));
-  return 8;
-}
-function livingCasinoCanAddSector(p, type) {
-  const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  if (lc.sectors.length >= 6 || lc.sectors.length >= lc.maxSectors) return false;
-  return !lc.sectors.some(s => s.type === type);
-}
-function livingCasinoHasSector(p, type) {
-  const lc = ensureLivingCasinoState(p); return !!lc?.sectors?.some(s => s.type === type);
-}
-function livingCasinoSectorUpgradeLevel(p, type) {
-  const lc = ensureLivingCasinoState(p); const s = lc?.sectors?.find(s => s.type === type); return Math.max(1, Number(s?.level || 1) | 0);
+function livingCasinoAttachSpark(run, p, lc, target) {
+  if (!target || (lc.sparks.charges || 0) <= 0 || lc.sparks.active.some(x => x.targetId === target.id)) return false;
+  const hold = livingCasinoSparkHold(lc);
+  lc.sparks.charges = Math.max(0, (lc.sparks.charges || 0) - 1);
+  lc.sparks.active.push({ id: nid(), targetId: target.id, t: hold, maxT: hold, tickT: 0, slot: lc.sparks.active.length });
+  run.fx.push({ t: 'lc_spark_attach', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 22) });
+  return true;
 }
 function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
-  // Живое казино не получает SHG/SEK/RKT и их ветки из WPN.
-  // Оставляем только общие оружейные моды и статы, которые работают на LVC/RLT/CRD.
-  const blockedWeapons = new Set(['shotgun', 'seeker', 'rocketgun']);
-  const blockedBranches = new Set(['shotgun', 'seeker', 'rocketgun']);
+  const blockedWeapons = new Set(['shotgun', 'seeker', 'rocketgun', 'roulette', 'deck', 'control_sparks']);
   return WEAPON_CHEST_REWARDS
     .filter(opt => {
       if (!opt) return false;
       const kind = String(opt.kind || '');
       if (kind === 'weapon') return false;
       if (kind === 'weapon_upgrade') {
-        if (opt.reqWeapon && blockedBranches.has(String(opt.reqWeapon))) return false;
+        if (opt.reqWeapon && blockedWeapons.has(String(opt.reqWeapon))) return false;
         if (opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return false;
         if (opt.weapon && blockedWeapons.has(String(opt.weapon))) return false;
         const id = opt.upgrade || opt.id;
@@ -4077,42 +4012,18 @@ function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
 }
 function livingCasinoChoicePool(p, qualityTier = 0) {
   const lc = ensureLivingCasinoState(p); if (!lc) return [];
-  return livingCasinoGeneralWeaponPool(p, qualityTier)
-    .filter(opt => {
-      const id = String(opt?.upgrade || opt?.id || '');
-      return !id.startsWith('rlt_') && !id.startsWith('crd_') && !['rlt_square_damage','rlt_square_size','rlt_fragment_count','rlt_split_depth','rlt_wall_charge','rlt_square_speed','crd_card_count'].includes(id);
-    })
-    .map(opt => ({ ...opt, group: opt.group || 'ЖИВОЕ КАЗИНО' }));
-}
-function livingCasinoSectorDesc(type) {
-  if (type === 'roulette') return 'Пушка-рулетка: выпускает вращающийся квадрат. При ударе о стену или угрозу он дробится на меньшие квадраты.';
-  if (type === 'deck') return 'Пушка-колода: быстрый веер карт по курсору.';
-  if (type === 'guard') return 'Расталкивает угрозы и даёт временный щит, ёмкость которого постепенно тает.';
-  if (type === 'chain') return 'Открывает быстрые фиолетовые рывки сверх обычного запаса рывка.';
-  if (type === 'bet') return 'Ставит малую случайную цену: кредиты, здоровье или опыт. Выплата тоже случайная, действие уходит на перезарядку.';
-  if (type === 'copy') return 'Повторяет последнее сработавшее действие в ослабленной версии.';
-  if (type === 'ghost') return 'Короткая невидимость для агро: урон всё ещё проходит, но угрозы теряют интерес.';
-  if (type === 'jackpot') return 'Мгновенный джекпот-импульс вокруг антивируса. Если задел 6+ угроз, выдаёт небольшой бонус.';
-  if (type === 'table') return 'Ставит карту-ловушку прямо под героем: угроза получает урон и короткий стоп.';
-  return 'Казино-модуль: запускает самонаводящиеся цифровые пули на несколько секунд.';
-}
-function livingCasinoSectorUpgradeDesc(type, next = 2) {
-  if (type === 'dmg') return `КАЗИНО ${roman(next)}: дольше стреляет, быстрее выпускает самонаводящиеся пули и сильнее бьёт.`;
-  if (type === 'roulette') return `РУЛЕТКА ${roman(next)}: крупнее стартовый квадрат, больше урон, больше осколков и глубже дробление.`;
-  if (type === 'deck') return `КОЛОДА ${roman(next)}: больше карт, урона и лучше контроль веера.`;
-  if (type === 'guard') return `ЗАЩИТА ${roman(next)}: больше временный щит и сильнее отталкивание.`;
-  if (type === 'chain') return `ЦЕПЬ ${roman(next)}: +1 быстрый фиолетовый рывок и длиннее окно.`;
-  if (type === 'bet') return `СТАВКА ${roman(next)}: выше ставки и выплаты, лучше шанс сильного исхода.`;
-  if (type === 'copy') return `КОПИЯ ${roman(next)}: быстрее перезарядка и сильнее повтор прошлого действия.`;
-  if (type === 'ghost') return `ПРИЗРАК ${roman(next)}: дольше скрытие и быстрее перезарядка.`;
-  if (type === 'jackpot') return `ДЖЕКПОТ ${roman(next)}: больше радиус, урон и бонус за 6+ угроз.`;
-  if (type === 'table') return `КАРТА ${roman(next)}: дольше ловушка, шире зона и сильнее срабатывание.`;
-  return `Сектор ${roman(next)}.`;
+  const pool = [];
+  if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'LVC: TARGET +1', actionLabel: 'ADD TARGET', group: 'LIVING CASINO', role: 'TARGETING', desc: 'LVC cycles one more marked threat.', valueTier: qualityTier });
+  if (livingCasinoSparkMax(lc) < LC_SPARK_CAP) pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'CONTROL SPARK +1', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds one simultaneous control spark and one target mark.', valueTier: qualityTier });
+  pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'SPARK DAMAGE +', actionLabel: 'AMPLIFY', group: 'LIVING CASINO', role: 'DPS', desc: 'Control sparks deal more damage while connected.', valueTier: qualityTier });
+  pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'SPARK HOLD +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks remain connected longer.', valueTier: qualityTier });
+  pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'SPARK RANGE +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', valueTier: qualityTier });
+  pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
+  return pool;
 }
 function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   const pool = livingCasinoChoicePool(p, qualityTier).map(x => ({ ...x, disabled: 0, disabledReason: '' }));
-  const choices = [];
-  const used = new Set();
+  const choices = [], used = new Set();
   const want = Math.max(1, Math.min(5, count | 0));
   while (choices.length < want && pool.length) {
     const candidates = pool.filter(x => !used.has(x.id));
@@ -4124,474 +4035,113 @@ function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityT
 }
 function applyLivingCasinoWeaponOption(run, players, p, opt) {
   const lc = ensureLivingCasinoState(p); if (!lc || !opt) return false;
-  let label = opt.label || 'LIVE CASINO';
-  if (opt.lcGeneral || ['weapon','weapon_upgrade', 'stat'].includes(String(opt.kind || ''))) {
-    if (opt.kind === 'weapon') {
-      // Legacy/stale choices from older builds must not add normal guns to Living Casino.
-      if (['shotgun', 'seeker', 'rocketgun'].includes(String(opt.weapon || ''))) return false;
-      if (!WEAPONS[opt.weapon] || p.weapons.includes(opt.weapon)) return false;
-      p.weapons.push(opt.weapon);
-      label = opt.label || `WPN ${WEAPONS[opt.weapon]?.label || opt.weapon}`;
-      run.fx.push({ t: 'weapon_get', id: p.id, w: WEAPONS[opt.weapon]?.label || opt.label });
-    } else if (opt.kind === 'weapon_upgrade') {
+  let label = opt.label || 'LIVING CASINO';
+  let modWeapon = String(opt.kind || '').startsWith('lc_spark') ? 'SPK' : 'LVC';
+  if (opt.lcGeneral || ['weapon_upgrade', 'stat'].includes(String(opt.kind || ''))) {
+    modWeapon = 'ALL';
+    if (opt.kind === 'weapon_upgrade') {
       if (opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return false;
-      const u = UPGRADES.find(x => x.id === opt.upgrade);
-      if (!u) return false;
-      u.apply(p.stats);
-      label = u.label || opt.label || label;
-      run.fx.push({ t: 'weapon_mod', id: p.id, label, w: u.branch || 'ALL' });
+      const u = UPGRADES.find(x => x.id === opt.upgrade); if (!u) return false;
+      u.apply(p.stats); label = u.label || label;
     } else if (opt.kind === 'stat') {
       if (opt.stat === 'dmg') p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
       else if (opt.stat === 'fire') p.stats.fireMul *= 1.14;
       else return false;
-      label = opt.label || label;
-      run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'ALL' });
     } else return false;
-    if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, ['weapon_upgrade','stat'].includes(String(opt.kind || '')), () => applyLivingCasinoWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
-    p.hp = Math.min(p.hp, maxHp(p));
-    p.dashCharges = Math.min(dashMax(p), p.dashCharges);
-    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
-    return true;
-  }
-  if (opt.kind === 'lc_sector_expand_add') {
-    const type = String(opt.sector || '');
-    if (!LC_SECTOR_TYPES.includes(type) || lc.maxSectors >= 6 || lc.sectors.some(s => s.type === type)) return false;
-    lc.maxSectors = Math.min(6, lc.maxSectors + 1);
-    if (lc.sectors.length < lc.maxSectors) lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
-    label = `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`;
-  } else if (opt.kind === 'lc_sector_slot') {
-    if (lc.maxSectors >= 6) return false;
-    lc.maxSectors = Math.min(6, lc.maxSectors + 1);
-    const missing = LC_SECTOR_TYPES.filter(t => t !== 'dmg' && !lc.sectors.some(s => s.type === t));
-    if (missing.length && lc.sectors.length < lc.maxSectors) {
-      const type = missing[0];
-      lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
-      label = `СЕКТОР +1: ${livingCasinoSectorLabel(type)}`;
-    }
-  } else if (opt.kind === 'lc_sector_add') {
-    const type = String(opt.sector || '');
-    if (!LC_SECTOR_TYPES.includes(type) || lc.sectors.length >= 6 || lc.sectors.some(s => s.type === type)) return false;
-    lc.sectors.push({ type, level: 1, cd: 0, activeT: 0, pulseT: 0 });
-    const wid = LC_SECTOR_WEAPON_ID[type];
-    if (wid && !p.weapons.includes(wid)) p.weapons.push(wid);
-    label = `${LC_WEAPON_SECTORS.has(type) ? 'ПУШКА' : 'ДЕЙСТВИЕ'}: ${livingCasinoSectorLabel(type)}`;
-  } else if (opt.kind === 'lc_sector_upgrade') {
-    const sec = lc.sectors.find(s => s.type === opt.sector);
-    if (!sec) return false;
-    sec.level = Math.max(1, sec.level || 1) + 1;
-    label = `${livingCasinoSectorLabel(sec.type)} ${roman(sec.level)}`;
-  } else if (opt.kind === 'lc_copy_power') {
-    lc.copyPower = Math.min(0.95, (lc.copyPower || 0.55) + 0.10);
-    label = `КОПИЯ: СИЛА ${Math.round(lc.copyPower * 100)}%`; 
-  } else if (opt.kind === 'lc_lvc_auto_fire') {
-    lc.autoLvc = 1;
-    label = 'КАЗИНО: АВТО-ОГОНЬ';
-  } else if (opt.kind === 'lc_bet_luck') {
-    lc.betLuck = Math.max(0, (lc.betLuck || 0) + 1);
-    label = `СТАВКА: ШАНС +${lc.betLuck}`;
-  } else if (opt.kind === 'lc_table_radius') {
-    lc.tableRadius = Math.max(0, (lc.tableRadius || 0) + 1);
-    label = `КАРТА: РАДИУС +${lc.tableRadius}`;
-  } else if (opt.kind === 'lc_table_triggers') {
-    lc.tableTriggers = Math.max(0, (lc.tableTriggers || 0) + 1);
-    label = `КАРТА: МЕТОК ${1 + lc.tableTriggers}`;
-  } else if (opt.kind === 'lc_table_hold') {
-    lc.tableHold = Math.max(0, (lc.tableHold || 0) + 1);
-    label = `КАРТА: СТОП +${lc.tableHold}`;
-  } else return false;
-  run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'LVC' });
+  } else if (opt.kind === 'lc_target_slot') {
+    if (livingCasinoBaseTargetMax(lc) >= LC_TARGET_CAP) return false;
+    lc.upgrades.targets++; label = 'LVC: TARGET +1';
+  } else if (opt.kind === 'lc_spark_count') {
+    if (livingCasinoSparkMax(lc) >= LC_SPARK_CAP) return false;
+    lc.upgrades.sparkCount++; lc.sparks.charges++; label = 'CONTROL SPARK +1';
+  } else if (opt.kind === 'lc_spark_damage') { lc.upgrades.sparkDamage++; label = 'SPARK DAMAGE +'; }
+  else if (opt.kind === 'lc_spark_hold') { lc.upgrades.sparkHold++; label = 'SPARK HOLD +'; }
+  else if (opt.kind === 'lc_spark_range') { lc.upgrades.sparkRange++; label = 'SPARK RANGE +'; }
+  else return false;
+  if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyLivingCasinoWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+  run.fx.push({ t: 'weapon_mod', id: p.id, label, w: modWeapon });
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
-function livingCasinoHasTargetLine(run, p, e) {
-  if (!run || !p || !e) return false;
-  const dx = e.x - p.x, dy = e.y - p.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const sx = p.x + (dx / len) * Math.max(10, PLAYER_SIZE * 0.45);
-  const sy = p.y + (dy / len) * Math.max(10, PLAYER_SIZE * 0.45);
-  const tx = e.x - (dx / len) * Math.max(8, (e.size || 28) * 0.42);
-  const ty = e.y - (dy / len) * Math.max(8, (e.size || 28) * 0.42);
-  return !segmentBlockedByWalls(sx, sy, tx, ty, run.plan?.walls || [], 12);
-}
-function nearestLivingCasinoTarget(run, p, range = 760) {
-  let best = null, bd = range * range;
-  for (const e of run.enemies) {
-    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-    if (!livingCasinoHasTargetLine(run, p, e)) continue;
-    const d = dist2(e.x, e.y, p.x, p.y);
-    if (d < bd) { bd = d; best = e; }
-  }
-  return best;
-}
-
-function livingCasinoPrimarySlots(p) { return Math.max(1, Math.min(6, 1 + Math.max(0, Number(p?.stats?.lvcTargetSlots || 0) | 0))); }
-function livingCasinoSparkMax(p) { return Math.max(1, Math.min(8, 1 + Math.max(0, Number(p?.stats?.lvcSparkCount || 0) | 0))); }
-function livingCasinoSparkRange(p) { return Math.max(280, Math.round(430 + Math.max(0, Number(p?.stats?.lvcSparkRange || 0) | 0) * 58)); }
-function livingCasinoSparkHold(p) { return Math.max(0.55, 1.10 + Math.max(0, Number(p?.stats?.lvcSparkHold || 0) | 0) * 0.22); }
-function livingCasinoSparkCooldown(p) { return Math.max(0.26, (WEAPONS.lvc_spark?.cooldown || 1.05) * Math.pow(0.88, Math.max(0, Number(p?.stats?.lvcSparkReload || 0) | 0)) / Math.max(0.3, (Number(p?.stats?.fireMul || 1) || 1) * (Number(p?.wagerFireMul || 1) || 1))); }
-function livingCasinoBaseCooldown(p) { return Math.max(0.085, (WEAPONS.living_casino?.cooldown || 0.34) * Math.pow(0.88, Math.max(0, Number(p?.stats?.lvcBaseFire || 0) | 0)) / Math.max(0.3, (Number(p?.stats?.fireMul || 1) || 1) * (Number(p?.wagerFireMul || 1) || 1))); }
-function livingCasinoTargetById(run, id) { return run.enemies.find(e => e && e.id === id && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)); }
-function livingCasinoCleanTargetList(run, list, max = 1) {
-  const seen = new Set();
-  const out = [];
-  for (const id of Array.isArray(list) ? list : []) {
-    if (!id || seen.has(id)) continue;
-    const e = livingCasinoTargetById(run, id);
-    if (!e) continue;
-    seen.add(id); out.push(id);
-    if (out.length >= max) break;
-  }
-  return out;
-}
-function livingCasinoEnemyAtCursor(run, p, range = 760) {
-  let best = null, bd = 56 * 56;
-  const ax = Number(p?.aimX || p?.x || 0), ay = Number(p?.aimY || p?.y || 0);
-  for (const e of run.enemies) {
-    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-    if (dist2(e.x, e.y, p.x, p.y) > range * range) continue;
-    if (!livingCasinoHasTargetLine(run, p, e)) continue;
-    const d = dist2(e.x, e.y, ax, ay);
-    const pickR = Math.max(52, (e.size || 24) + 34);
-    if (d < Math.max(bd, pickR * pickR) && (!best || d < bd)) { bd = d; best = e; }
-  }
-  return best || nearestLivingCasinoTarget(run, p, range);
-}
-function livingCasinoSelectTarget(run, p, which = 'primary') {
-  const lc = ensureLivingCasinoState(p); if (!lc) return false;
-  const isSpark = which === 'spark';
-  const max = isSpark ? livingCasinoSparkMax(p) : livingCasinoPrimarySlots(p);
-  const target = livingCasinoEnemyAtCursor(run, p, isSpark ? livingCasinoSparkRange(p) : 820);
-  if (!target) { run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: isSpark ? 'SPK: НЕТ ЦЕЛИ' : 'LVC: НЕТ ЦЕЛИ', chest: isSpark ? 'SPK' : 'LVC' }); return false; }
-  const key = isSpark ? 'sparkTargets' : 'primaryTargets';
-  let arr = livingCasinoCleanTargetList(run, lc[key], max);
-  if (arr.includes(target.id)) arr = arr.filter(id => id !== target.id);
-  arr.push(target.id);
-  while (arr.length > max) arr.shift();
-  lc[key] = arr;
-  const dir = norm(target.x - p.x, target.y - p.y);
-  if (isSpark) { lc.aimSparkX = dir.x; lc.aimSparkY = dir.y; } else { lc.aimPrimaryX = dir.x; lc.aimPrimaryY = dir.y; }
-  if (p.wagerStats) p.wagerStats.lvcMarks = (p.wagerStats.lvcMarks || 0) + 1;
-  run.fx.push({ t: 'lc_target_mark', id: p.id, target: target.id, x: Math.round(target.x), y: Math.round(target.y), label: isSpark ? 'SPK TARGET' : 'LVC TARGET', tone: isSpark ? 'cyan' : 'gold', weapon: isSpark ? 'SPK' : 'LVC', slots: arr.length, max });
-  return true;
-}
-function livingCasinoResolveTarget(run, p, which = 'primary') {
-  const lc = ensureLivingCasinoState(p); if (!lc) return null;
-  const isSpark = which === 'spark';
-  const max = isSpark ? livingCasinoSparkMax(p) : livingCasinoPrimarySlots(p);
-  const key = isSpark ? 'sparkTargets' : 'primaryTargets';
-  lc[key] = livingCasinoCleanTargetList(run, lc[key], max);
-  if (lc[key].length) {
-    const seqKey = isSpark ? 'sparkSeq' : 'primarySeq';
-    for (let i = 0; i < lc[key].length; i++) {
-      const idx = ((lc[seqKey] || 0) + i) % lc[key].length;
-      const e = livingCasinoTargetById(run, lc[key][idx]);
-      if (e && livingCasinoHasTargetLine(run, p, e)) { lc[seqKey] = idx + 1; return e; }
-    }
-  }
-  return nearestLivingCasinoTarget(run, p, isSpark ? livingCasinoSparkRange(p) : 820);
-}
-function livingCasinoAimToward(lc, keyX, keyY, tx, ty, dt) {
-  const cur = norm(Number(lc[keyX] || 1) || 1, Number(lc[keyY] || 0) || 0);
-  const dst = norm(tx, ty);
-  const blend = Math.max(0.04, Math.min(0.42, dt * 7.5));
-  const n = norm(cur.x + (dst.x - cur.x) * blend, cur.y + (dst.y - cur.y) * blend);
-  lc[keyX] = n.x; lc[keyY] = n.y;
-  return n;
-}
-function livingCasinoStepBaseGun(run, p, dt) {
-  const lc = ensureLivingCasinoState(p); if (!lc || !p.alive || run.phase !== 'play') return;
-  lc.primaryCd = Math.max(0, (lc.primaryCd || 0) - dt);
-  const target = livingCasinoResolveTarget(run, p, 'primary');
-  if (target) livingCasinoAimToward(lc, 'aimPrimaryX', 'aimPrimaryY', target.x - p.x, target.y - p.y, dt);
-  if (!target || lc.primaryCd > 0 || run.bullets.length >= MAX_BULLETS) return;
-  const dir = norm((lc.aimPrimaryX || 1), (lc.aimPrimaryY || 0));
-  const w = WEAPONS.living_casino || { dmg: 14, speed: 440, life: 1.4, size: 4 };
-  const dmg = weaponDamageValue(p, (w.dmg || 14) + Math.max(0, Number(p.stats?.lvcBaseDamage || 0) | 0) * 4, 1);
-  const sp = (w.speed || 440) + Math.min(150, Math.max(0, Number(p.stats?.lvcBaseFire || 0) | 0) * 12);
-  run.bullets.push({ id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: dir.x * sp, vy: dir.y * sp, dmg, from: 'p', owner: p.id, life: (w.life || 1.42) * (p.stats?.bulletRange || 1), size: w.size || 4, homing: (w.homing || 6.8) + Math.max(0, Number(p.stats?.lvcTargetSlots || 0) | 0) * 0.45, targetId: target.id, kind: 'live_casino', travelled: 0, maxDist: Math.round((w.maxDist || 650) * (p.stats?.bulletRange || 1)), bounces: p.stats?.bulletBounce || 0, rangeMul: p.stats?.bulletRange || 1, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0 });
-  lc.primaryCd = livingCasinoBaseCooldown(p);
-  run.fx.push({ t: 'shot', id: p.id, w: 'LVC', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 32), my: Math.round(p.y + dir.y * 32), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
-}
-function livingCasinoStepSparks(run, players, p, dt) {
-  const lc = ensureLivingCasinoState(p); if (!lc || !p.alive || run.phase !== 'play') return;
-  lc.sparkCd = Math.max(0, (lc.sparkCd || 0) - dt);
-  const max = livingCasinoSparkMax(p);
-  lc.sparkLocks = (Array.isArray(lc.sparkLocks) ? lc.sparkLocks : []).filter(lock => lock && livingCasinoTargetById(run, lock.id));
-  for (const lock of [...lc.sparkLocks]) {
-    const e = livingCasinoTargetById(run, lock.id);
-    if (!e) continue;
-    lock.t = Math.max(0, (lock.t || 0) - dt);
-    const n = norm(e.x - p.x, e.y - p.y);
-    lc.aimSparkX = n.x; lc.aimSparkY = n.y;
-    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.20);
-    e.activeSlowMul = Math.min(e.activeSlowMul || 1, Math.max(0.08, 0.24 - Math.max(0, Number(p.stats?.lvcSparkHold || 0) | 0) * 0.025));
-    e.sparkDotT = Math.max(0, (e.sparkDotT || 0) - dt);
-    if (e.sparkDotT <= 0) {
-      e.sparkDotT = 0.22;
-      activeDamageEnemy(run, players, e, weaponDamageValue(p, 2.2 + Math.max(0, Number(p.stats?.lvcSparkDamage || 0) | 0) * 1.3, 1), p.id, 'spark');
-    }
-    if (lock.t <= 0) {
-      const force = 76 + Math.max(0, Number(p.stats?.lvcSparkHold || 0) | 0) * 10;
-      const c = collideWalls(e.x + n.x * force, e.y + n.y * force, (e.size || 24) / 2, run.plan?.walls || [], e.x, e.y);
-      e.x = c.x; e.y = c.y;
-      e.stunT = Math.max(e.stunT || 0, 0.18 + Math.max(0, Number(p.stats?.lvcSparkHold || 0) | 0) * 0.025);
-      run.fx.push({ t: 'lc_spark_pop', id: p.id, target: e.id, x: Math.round(e.x), y: Math.round(e.y), tone: 'cyan' });
-    }
-  }
-  lc.sparkLocks = lc.sparkLocks.filter(lock => (lock.t || 0) > 0 && livingCasinoTargetById(run, lock.id));
-  if (lc.sparkLocks.length >= max || lc.sparkCd > 0) return;
-  const target = livingCasinoResolveTarget(run, p, 'spark');
-  if (!target || lc.sparkLocks.some(l => l.id === target.id) || !livingCasinoHasTargetLine(run, p, target)) return;
-  const n = norm(target.x - p.x, target.y - p.y);
-  lc.aimSparkX = n.x; lc.aimSparkY = n.y;
-  const total = livingCasinoSparkHold(p);
-  lc.sparkLocks.push({ id: target.id, t: total, total, seed: ((run.tick || 0) * 131 + lc.sparkSeq * 17) | 0 });
-  if (p.wagerStats) p.wagerStats.sparkLocks = (p.wagerStats.sparkLocks || 0) + 1;
-  lc.sparkCd = livingCasinoSparkCooldown(p);
-  run.fx.push({ t: 'active_mutation', label: 'SPK LOCK', x: Math.round(target.x), y: Math.round(target.y), r: 68, tone: 'cyan', owner: p.id });
-}
-function livingCasinoFireHoming(run, p, sec, power = 1) {
-  if (!p?.alive || run.bullets.length >= MAX_BULLETS) return false;
-  const lvl = Math.max(1, Number(sec?.level || 1) | 0);
-  const target = nearestLivingCasinoTarget(run, p, 780 + lvl * 35);
-  if (!target) return false;
-  const dir = norm(target.x - p.x, target.y - p.y);
-  const shots = 1 + Math.floor((lvl - 1) / 3);
-  const dmg = weaponDamageValue(p, 14 + lvl * 4, power);
-  const speed = 390 + Math.min(150, lvl * 12);
-  for (let i = 0; i < shots && run.bullets.length < MAX_BULLETS; i++) {
-    const spread = shots > 1 ? (i - (shots - 1) / 2) * 0.12 : 0;
-    const a = Math.atan2(dir.y, dir.x) + spread;
-    run.bullets.push({ id: nid(), x: p.x + dir.x * 24, y: p.y + dir.y * 24, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg, from: 'p', owner: p.id, life: 1.75 + lvl * 0.08, size: 4, homing: 7.2 + lvl * 0.22, kind: 'live_casino', travelled: 0, maxDist: 680 + lvl * 42, bounces: 0, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon'), bornTick: run.tick || 0 });
-  }
-  run.fx.push({ t: 'shot', id: p.id, w: 'LIVE', kind: 'live_casino', x: Math.round(p.x), y: Math.round(p.y), mx: Math.round(p.x + dir.x * 28), my: Math.round(p.y + dir.y * 28), dx: Math.round(dir.x * 100), dy: Math.round(dir.y * 100), ammo: 0 });
-  return true;
-}
-
-function activateLivingCasinoJackpot(run, players, p, sec, power = 1) {
-  const lvl = Math.max(1, sec.level || 1);
-  const r = Math.round(175 + lvl * 18);
-  let hits = 0;
-  const dmg = weaponDamageValue(p, 20 + lvl * 6, power);
-  for (const e of run.enemies) {
-    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-    if (dist2(e.x, e.y, p.x, p.y) > (r + e.size / 2) ** 2) continue;
-    hits++;
-    const n = norm(e.x - p.x, e.y - p.y);
-    e.x += n.x * (55 + lvl * 5);
-    e.y += n.y * (55 + lvl * 5);
-    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.20 + lvl * 0.03);
-    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.70);
-    damageEnemy(run, players, e, dmg, p.id, 90 + lvl * 8, n.x, n.y, 'jackpot');
-  }
-  if (hits >= 6) {
-    const payout = Math.round((6 + lvl * 3 + Math.min(18, hits)) * loopEconomyMul(run));
-    grantPersonalEconomy(run, players, p, Math.random() < 0.5 ? 'GLD' : 'EXP', payout, 'JACKPOT IMPULSE', p.x, p.y);
-  }
-  run.fx.push({ t: 'lc_jackpot_impulse', id: p.id, label: hits >= 6 ? `JACKPOT x${hits}` : `IMPULSE x${hits}`, x: Math.round(p.x), y: Math.round(p.y), r, hits, playerId: p.id });
-  return true;
-}
-function activateLivingCasinoTable(run, p, sec, power = 1, copied = false) {
-  const lvl = Math.max(1, sec.level || 1);
-  const lc = ensureLivingCasinoState(p);
-  if (!copied && (lc?.tableCd || 0) > 0) return false;
-  const radiusBonus = Math.max(0, Number(lc?.tableRadius || 0) | 0);
-  const triggerBonus = Math.max(0, Number(lc?.tableTriggers || 0) | 0);
-  const holdBonus = Math.max(0, Number(lc?.tableHold || 0) | 0);
-  // TABLE is an instant trap under the hero, not a cursor-targeted cast.
-  const x = p.x;
-  const y = p.y;
-  const radius = 60 + lvl * 6 + radiusBonus * 12;
-  const ttl = livingCasinoSectorDuration('table', lvl, power) + radiusBonus * 0.45;
-  sec.activeT = Math.max(sec.activeT || 0, Math.min(ttl, 1.15));
-  const dmg = weaponDamageValue(p, 42 + lvl * 9 + holdBonus * 7, power);
-  activeField(run, { kind: 'lc_table', owner: p.id, x, y, r: radius, ttl, dmg, slow: 0.04, tickEvery: 0.18, lvl, sprung: 0, hitsLeft: 1 + triggerBonus, hold: holdBonus, hitIds: [] });
-  run.fx.push({ t: 'lc_card_table', id: p.id, label: `TABLE ${roman(lvl)}`, x: Math.round(x), y: Math.round(y), r: Math.round(radius + 16), playerId: p.id, hitsLeft: 1 + triggerBonus });
-  return true;
-}
-function activateLivingCasinoGuard(run, p, sec, power = 1) {
-  const lvl = Math.max(1, sec.level || 1);
-  const cap = Math.round((34 + lvl * 14) * power);
-  p.livingCasinoGuardCap = Math.max(p.livingCasinoGuardCap || 0, cap);
-  p.livingCasinoGuardMax = Math.max(p.livingCasinoGuardMax || 0, cap);
-  p.livingCasinoGuardT = Math.max(p.livingCasinoGuardT || 0, 5.2 + lvl * 0.45);
-  p.aegisShield = Math.max(p.aegisShield || 0, Math.min(aegisCapacity(p), cap));
-  const r = Math.round(205 + lvl * 20);
-  let pushed = 0;
-  const hitFx = [];
-  for (const e of run.enemies) {
-    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0) continue;
-    if (dist2(e.x, e.y, p.x, p.y) > (r + e.size / 2) ** 2) continue;
-    const n = norm(e.x - p.x, e.y - p.y);
-    const force = (ENEMIES[e.kind]?.boss ? 86 : 178 + lvl * 22) * power;
-    const ox = e.x, oy = e.y;
-    const c = run?.plan?.walls ? collideWalls(e.x + n.x * force, e.y + n.y * force, (e.size || 24) / 2, run.plan.walls, e.x, e.y) : { x: e.x + n.x * force, y: e.y + n.y * force };
-    e.x = c.x; e.y = c.y;
-    e.vx = (e.vx || 0) + n.x * (120 + lvl * 12);
-    e.vy = (e.vy || 0) + n.y * (120 + lvl * 12);
-    e.activeSlowT = Math.max(e.activeSlowT || 0, 0.30 + lvl * 0.04);
-    e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.58);
-    e.stunT = Math.max(e.stunT || 0, ENEMIES[e.kind]?.boss ? 0 : Math.min(0.24, 0.10 + lvl * 0.015));
-    pushed++;
-    if (hitFx.length < 10) hitFx.push({ x: Math.round((ox + e.x) / 2), y: Math.round((oy + e.y) / 2), r: Math.round((e.size || 24) + 34) });
-  }
-  run.fx.push({ t: 'lc_guard', id: p.id, label: `GUARD ${roman(lvl)}${pushed ? ' / PUSH ' + pushed : ''}`, x: Math.round(p.x), y: Math.round(p.y), r, tone: 'cyan', playerId: p.id, pushed });
-  run.fx.push({ t: 'active_mutation', id: p.id, label: 'GUARD IMPACT', x: Math.round(p.x), y: Math.round(p.y), r: Math.round(r * 0.58), tone: 'cyan', squareBlast: 1, noFloat: 1, playerId: p.id });
-  for (const h of hitFx) run.fx.push({ t: 'lc_guard_hit', id: p.id, x: h.x, y: h.y, r: h.r, tone: 'cyan', playerId: p.id });
-  return true;
-}
-function livingCasinoChainMax(sec) {
-  return Math.max(1, Number(sec?.level || 1) | 0);
-}
-function activateLivingCasinoChain(run, p, sec, power = 1) {
-  const lvl = Math.max(1, sec.level || 1);
-  const maxCharges = livingCasinoChainMax(sec);
-  const cur = Math.max(0, Number(p.livingCasinoChainDashes || 0) | 0);
-  if (cur >= maxCharges) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: `CHAIN SLOT FULL x${cur}`, chest: 'LVC' });
-    return false;
-  }
-  p.livingCasinoChainDashes = maxCharges;
-  p.livingCasinoChainT = 9999;
-  p.livingCasinoChainGlowT = Math.max(p.livingCasinoChainGlowT || 0, 1.25 + lvl * 0.12);
-  run.fx.push({ t: 'lc_chain_ready', id: p.id, label: `CHAIN DASH x${p.livingCasinoChainDashes}`, x: Math.round(p.x), y: Math.round(p.y), r: 150 + lvl * 18, charges: p.livingCasinoChainDashes, playerId: p.id });
-  return true;
-}
-function livingCasinoPickStake(p, lvl) {
-  const kinds = ['GLD', 'HP', 'EXP'];
-  let stake = kinds[Math.floor(Math.random() * kinds.length)];
-  for (let i = 0; i < 3; i++) {
-    if (stake === 'GLD' && (p.economy.money || 0) >= 6) break;
-    if (stake === 'HP' && (p.hp || 0) > Math.max(20, maxHp(p) * 0.28)) break;
-    if (stake === 'EXP' && (p.economy.xp || 0) >= 6) break;
-    stake = kinds[(kinds.indexOf(stake) + 1) % kinds.length];
-  }
-  const base = Math.round((stake === 'HP' ? 4 : stake === 'EXP' ? 9 : 7) + lvl * 2);
-  let paid = 0;
-  if (stake === 'GLD') { paid = Math.min(base, Math.max(0, Math.round(p.economy.money || 0))); p.economy.money -= paid; }
-  else if (stake === 'HP') { paid = Math.min(base, Math.max(0, Math.round((p.hp || 0) - 8))); p.hp = Math.max(1, (p.hp || 1) - paid); }
-  else { paid = Math.min(base, Math.max(0, Math.round(p.economy.xp || 0))); p.economy.xp -= paid; }
-  return { stake, base, paid };
-}
-function activateLivingCasinoBet(run, players, p, sec, power = 1) {
-  const lc = ensureLivingCasinoState(p);
-  if ((lc?.betCd || 0) > 0) return false;
-  if (p.livingCasinoBetRoll && (p.livingCasinoBetRoll.t || 0) > 0) return false;
-  const lvl = Math.max(1, sec.level || 1);
-  const { stake, base, paid } = livingCasinoPickStake(p, lvl);
-  const kinds = ['GLD', 'HP', 'EXP'];
-  const reward = kinds[Math.floor(Math.random() * kinds.length)];
-  const luck = Math.max(0, (lc?.betLuck || 0) * 1.5 + Math.max(0, p.stats?.luck || 0) * 0.75);
-  let roll = Math.random() + luck * 0.035;
-  let mult = 0, tag = 'LOSE';
-  if (roll >= 0.95) { mult = 5.0; tag = 'JACKPOT'; }
-  else if (roll >= 0.70) { mult = 2.35; tag = 'HIGH PAYOUT'; }
-  else if (roll >= 0.12) { mult = 1.35; tag = 'PAYOUT'; }
-  const val = Math.max(0, Math.round((paid || base) * mult * power));
-  const spinSymbols = ['GLD', 'HP', 'EXP'].sort(() => Math.random() - 0.5);
-  p.livingCasinoBetRoll = { t: 1.15, total: 1.15, stake, paid: paid || 0, reward, val, result: tag, win: val > 0 ? 1 : 0, lvl, power, spinSymbols };
-  if (lc) lc.betCd = Math.max(lc.betCd || 0, livingCasinoSectorReload('bet', lvl));
-  run.fx.push({ t: 'lc_bet_roll', phase: 'spin', id: p.id, label: 'ROLLING', symbols: spinSymbols, stake, paid: paid || 0, reward, val: 0, result: 'ROLL', win: 0, x: Math.round(p.x), y: Math.round(p.y), r: 112 + lvl * 10, playerId: p.id });
-  return true;
-}
-function settleLivingCasinoBet(run, players, p) {
-  const br = p.livingCasinoBetRoll;
-  if (!br) return;
-  if ((br.val || 0) > 0) grantPersonalEconomy(run, players, p, br.reward, br.val, `LIVE BET ${br.result}`, p.x, p.y);
-  const label = br.val ? `WIN ${br.reward}+${br.val}` : 'LOSE';
-  run.fx.push({ t: 'lc_bet_roll', phase: 'result', id: p.id, label, symbols: [br.stake || 'BET', br.reward || 'PAY', br.val > 0 ? 'WIN' : 'LOSE'], stake: br.stake, paid: br.paid || 0, reward: br.reward, val: br.val || 0, result: br.result, win: br.val > 0 ? 1 : 0, x: Math.round(p.x), y: Math.round(p.y), r: 112 + (br.lvl || 1) * 10, playerId: p.id });
-  p.livingCasinoBetRoll = null;
-}
-function activateLivingCasinoGhost(run, p, sec, power = 1) {
-  const lvl = Math.max(1, sec.level || 1);
-  const dur = livingCasinoSectorDuration('ghost', lvl, power);
-  p.ghostT = Math.max(p.ghostT || 0, dur);
-  run.fx.push({ t: 'lc_ghost', id: p.id, label: `GHOST ${roman(lvl)}`, x: Math.round(p.x), y: Math.round(p.y), r: 150 + lvl * 12, playerId: p.id });
-  return true;
-}
-function activateLivingCasinoSector(run, players, p, sec, opts = {}) {
-  const lc = ensureLivingCasinoState(p); if (!lc || !sec) return false;
-  let type = String(sec.type || 'dmg');
-  const copied = !!opts.copy;
-  if (!copied) sec = lc.sectors.find(s => s.type === type) || sec;
-  type = String(sec.type || type || 'dmg');
-  const power = Math.max(0.2, Number(opts.power || 1) || 1);
-  if (!copied && ((sec.cd || 0) > 0 || (sec.activeT || 0) > 0)) return false;
-  let ok = false;
-  if (type === 'dmg') {
-    sec.activeT = livingCasinoSectorDuration(type, sec.level, power);
-    sec.pulseT = 0;
-    ok = true;
-    run.fx.push({ t: 'active_mutation', label: `LVC VECTOR ${roman(sec.level || 1)}`, x: Math.round(p.x), y: Math.round(p.y), r: 130 + (sec.level || 1) * 10, tone: 'gold', playerId: p.id });
-  } else if (type === 'guard') ok = activateLivingCasinoGuard(run, p, sec, power);
-  else if (type === 'chain') ok = activateLivingCasinoChain(run, p, sec, power);
-  else if (type === 'bet') ok = activateLivingCasinoBet(run, players, p, sec, power);
-  else if (type === 'ghost') ok = activateLivingCasinoGhost(run, p, sec, power);
-  else if (type === 'jackpot') ok = activateLivingCasinoJackpot(run, players, p, sec, power);
-  else if (type === 'table') ok = activateLivingCasinoTable(run, p, sec, power, copied);
-  else if (type === 'copy') {
-    const last = lc.lastSector && lc.lastSector !== 'copy' ? lc.lastSector : '';
-    const source = last ? lc.sectors.find(s => s.type === last) : null;
-    if (!source) { run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'НЕТ ПРОШЛОГО СЕКТОРА', chest: 'LVC' }); return false; }
-    const copyPower = Math.min(0.95, lc.copyPower || 0.55);
-    run.fx.push({ t: 'lc_copy', id: p.id, label: `COPY: ${livingCasinoSectorLabel(last)}`, x: Math.round(p.x), y: Math.round(p.y), r: 122 + Math.max(1, sec.level || 1) * 8, playerId: p.id });
-    if (last === 'dmg') {
-      source.activeT = Math.max(source.activeT || 0, livingCasinoSectorDuration('dmg', source.level || 1, copyPower));
-      source.pulseT = 0;
-      ok = true;
-    } else {
-      const ghost = { ...source, cd: 0, activeT: 0, level: Math.max(1, source.level || 1) };
-      ok = activateLivingCasinoSector(run, players, p, ghost, { copy: 1, power: copyPower });
-    }
-  }
-  if (!ok) return false;
-  if (!copied) {
-    const reload = livingCasinoSectorReload(type, sec.level || 1);
-    sec.cd = Math.max(sec.cd || 0, (sec.activeT || 0) + reload);
-    if (type === 'table') lc.tableCd = Math.max(lc.tableCd || 0, sec.cd || reload);
-    if (type !== 'copy') { lc.lastSector = type; lc.lastPower = power; }
-  }
-  return true;
-}
-function fireLivingCasinoSector(run, players, p, dt) {
+function handleLivingCasinoBaseMark(run, players, p) {
   const lc = ensureLivingCasinoState(p); if (!lc) return;
-  if (!p.alive) return;
-  if (!p.fire) lc.fireDown = false;
-  else if (!lc.fireDown) {
-    lc.fireDown = true;
-    livingCasinoSelectTarget(run, p, 'primary');
-  }
+  if (!p.fire) { lc.leftDown = false; return; }
+  if (lc.leftDown || !p.alive) return;
+  lc.leftDown = true;
+  livingCasinoAssignTarget(run, p, 'base');
 }
-
 function stepLivingCasinoState(run, players, p, dt) {
-  const lc = ensureLivingCasinoState(p); if (!lc) return;
-  lc.betCd = Math.max(0, (lc.betCd || 0) - dt);
-  lc.tableCd = Math.max(0, (lc.tableCd || 0) - dt);
-  lc.primaryTargets = livingCasinoCleanTargetList(run, lc.primaryTargets, livingCasinoPrimarySlots(p));
-  lc.sparkTargets = livingCasinoCleanTargetList(run, lc.sparkTargets, livingCasinoSparkMax(p));
-  livingCasinoStepBaseGun(run, p, dt);
-  livingCasinoStepSparks(run, players, p, dt);
-  if (p.livingCasinoBetRoll) {
-    p.livingCasinoBetRoll.t = Math.max(0, (p.livingCasinoBetRoll.t || 0) - dt);
-    if (p.livingCasinoBetRoll.t <= 0) settleLivingCasinoBet(run, players, p);
+  const lc = ensureLivingCasinoState(p); if (!lc || !p.alive || run.phase !== 'play') return;
+  const fireMul = Math.max(0.35, Number(p.stats?.fireMul || 1) || 1);
+  lc.base.targetIds = livingCasinoCleanTargets(run, lc.base.targetIds, livingCasinoBaseTargetMax(lc));
+  lc.sparks.targetIds = livingCasinoCleanTargets(run, lc.sparks.targetIds, livingCasinoSparkMax(lc));
+  lc.base.cd = Math.max(0, (lc.base.cd || 0) - dt);
+
+  // Aim at the next queued mark during reload. This makes multi-target fire readable:
+  // the barrel turns first, then releases the shot, instead of snapping after the cooldown.
+  let baseTarget = lc.base.targetIds.length
+    ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length])
+    : nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
+  lc.base.aimTargetId = baseTarget?.id || '';
+  if (baseTarget) {
+    const want = Math.atan2(baseTarget.y - p.y, baseTarget.x - p.x);
+    lc.base.angle = lcRotateTowards(lc.base.angle, want, LC_BASE_TURN_SPEED * dt);
+    if (lc.base.cd <= 0 && Math.abs(lcAngleDelta(lc.base.angle, want)) <= 0.13) {
+      const shotTarget = livingCasinoPickBaseTarget(run, p, lc) || baseTarget;
+      if (shotTarget && livingCasinoFireHoming(run, p, shotTarget)) {
+        lc.base.cd = Math.max(0.12, 0.45 / fireMul);
+        const nextTarget = lc.base.targetIds.length
+          ? livingCasinoEnemyById(run, lc.base.targetIds[lc.base.shotCursor % lc.base.targetIds.length])
+          : nearestLivingCasinoTarget(run, p, LC_BASE_RANGE);
+        lc.base.aimTargetId = nextTarget?.id || shotTarget.id;
+      }
+    }
   }
-  p.livingCasinoChainT = 0;
-  p.livingCasinoChainDashes = 0;
-  p.livingCasinoChainGlowT = Math.max(0, (p.livingCasinoChainGlowT || 0) - dt);
-  p.livingCasinoGuardCap = 0;
-}
 
+  const remaining = [];
+  for (const spark of lc.sparks.active) {
+    const target = livingCasinoEnemyById(run, spark.targetId);
+    spark.t = Math.max(0, (spark.t || 0) - dt);
+    if (!target || spark.t <= 0 || dist2(target?.x || 0, target?.y || 0, p.x, p.y) > (livingCasinoSparkRange(lc) * 1.35) ** 2) {
+      livingCasinoReleaseSpark(run, players, p, lc, spark, target, !!target && spark.t <= 0);
+      continue;
+    }
+    const slowMul = Math.max(0.08, 0.20 - Math.min(0.10, Math.max(0, lc.upgrades.sparkHold || 0) * 0.012));
+    target.activeSlowT = Math.max(target.activeSlowT || 0, 0.16);
+    target.activeSlowMul = Math.min(target.activeSlowMul || 1, slowMul);
+    target.fireCd = Math.max(target.fireCd || 0, 0.09);
+    spark.tickT = Math.max(0, (spark.tickT || 0) - dt);
+    if (spark.tickT <= 0) {
+      spark.tickT = 0.22;
+      const n = norm(target.x - p.x, target.y - p.y);
+      damageEnemy(run, players, target, weaponDamageValue(p, livingCasinoSparkDamage(lc) * 0.22, 1), p.id, 0, n.x, n.y, 'control_spark');
+      run.fx.push({ t: 'lc_spark_tick', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y) });
+    }
+    remaining.push(spark);
+  }
+  lc.sparks.active = remaining;
 
-function assignTrojanChest(run) {
-  if (!run?.plan || !(run.plan.modifierIds || []).includes('trojan')) return;
-  const valid = new Set(['basic_chest', 'weapon_chest', 'ability_chest', 'rare_chest', 'cursed_chest']);
-  const list = (run.plan.interactables || []).filter(o => o && o.type === 'chest' && valid.has(o.chest) && !o.opened);
-  if (!list.length) return;
-  const rng = mulberry32(((run.seedBase || 1) ^ ((run.runDepth || 0) * 0x9e3779b1) ^ 0x7A014E) >>> 0);
-  const pick = list[Math.floor(rng() * list.length)] || list[0];
-  pick.trojan = 1;
-  pick.rarityReason = pick.rarityReason ? `${pick.rarityReason} / TROJAN` : 'TROJAN';
-  run.trojanChestId = pick.id;
+  if ((lc.sparks.recovering || 0) > 0) {
+    lc.sparks.rechargeMax = livingCasinoSparkRecharge(p, lc);
+    lc.sparks.rechargeT = Math.max(0, (lc.sparks.rechargeT || lc.sparks.rechargeMax) - dt);
+    if (lc.sparks.rechargeT <= 0) {
+      lc.sparks.recovering = Math.max(0, lc.sparks.recovering - 1);
+      lc.sparks.charges = Math.min(livingCasinoSparkMax(lc) - lc.sparks.active.length - lc.sparks.recovering, lc.sparks.charges + 1);
+      lc.sparks.rechargeT = lc.sparks.recovering > 0 ? lc.sparks.rechargeMax : 0;
+      run.fx.push({ t: 'lc_spark_ready', id: p.id, x: Math.round(p.x), y: Math.round(p.y), charges: lc.sparks.charges });
+    }
+  } else lc.sparks.rechargeT = 0;
+
+  let sparkTarget = livingCasinoEnemyById(run, lc.sparks.aimTargetId);
+  const sparkRange = livingCasinoSparkRange(lc);
+  if (sparkTarget && dist2(sparkTarget.x, sparkTarget.y, p.x, p.y) > (sparkRange + (sparkTarget.size || 24) / 2) ** 2) sparkTarget = null;
+  if (!sparkTarget || lc.sparks.active.some(x => x.targetId === sparkTarget.id)) sparkTarget = livingCasinoPickSparkTarget(run, p, lc);
+  lc.sparks.aimTargetId = sparkTarget?.id || '';
+  if (sparkTarget) {
+    const want = Math.atan2(sparkTarget.y - p.y, sparkTarget.x - p.x);
+    lc.sparks.angle = lcRotateTowards(lc.sparks.angle, want, LC_SPARK_TURN_SPEED * dt);
+    if ((lc.sparks.charges || 0) > 0 && Math.abs(lcAngleDelta(lc.sparks.angle, want)) <= 0.11) livingCasinoAttachSpark(run, p, lc, sparkTarget);
+  }
 }
 
 export function startRoom(run, players) {
@@ -4603,7 +4153,6 @@ export function startRoom(run, players) {
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
-  assignTrojanChest(run);
   activatePendingContractFavors(run);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
@@ -4752,7 +4301,7 @@ export function startRoom(run, players) {
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0 };
     p.tempDmgMulRoom = 0;
     if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
-    if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; p.wagerFireMul = 1; }
+    if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     ensureBossKeyCharges(run, p);
     p.offer = null;
     p.weaponChestOffer = null;
@@ -5645,14 +5194,6 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
       e.heldSpawn = 1;
     }
   }
-  if (kind === 'wall_clinger') {
-    e.state = 'move';
-    e.fireCd = Math.max(0.55, (def.fireCd || 1.75) * (0.55 + rng() * 0.55));
-    e.wallSide = rng() < 0.5 ? -1 : 1;
-    e.wallJumpT = 0.35 + rng() * 0.9;
-    e.wallBurstLeft = 0;
-    e.wallBurstCd = 0;
-  }
   if (e.spawnDelay > 0) run.fx.push({ t: 'spawn_warning', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 44), delay: e.spawnDelay, kind, held: e.heldSpawn ? 1 : 0 });
   let shell = null;
   if (opts.noArmor) shell = null;
@@ -6092,7 +5633,7 @@ function redlineSpeedMul(p) { return 1 + (0.60 + Math.max(0, (p?.stats?.rActiveS
 function ghostDecoyDuration(p) { return Math.round((4.2 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1.4) * 10) / 10; }
 function rewindWindow(p) { return Math.round((6 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
 function rewindStun(p) { return Math.round((1.0 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.3) * 10) / 10; }
-function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45, Number(p?.livingCasinoGuardCap || 0) || 0); }
+function aegisCapacity(p) { return Math.max(0, (p?.stats?.aegisStacks || 0) * 45); }
 function mirrorCapacity(p) { return Math.max(0, p?.stats?.mirrorCapacity || 0); }
 function mirrorLeft(p) { return Math.max(0, mirrorCapacity(p) - Math.max(0, p?.mirrorUsedLoop || 0)); }
 function roomLoopIndex(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
@@ -6192,115 +5733,11 @@ function enemyNearPoint(run, x, y, maxR = 260) {
   }
   return best;
 }
-
-function activePreviewKey(slot, id, extra = '') { return `${slot}:${id || ''}:${extra || ''}`; }
-function activePreviewIsArmed(run, p, slot, key) {
-  const pr = p?.activePreview;
-  return !!(pr && pr.slot === slot && pr.key === key && (pr.expires || 0) > (run.now || 0));
-}
-function clearActivePreview(p, slot = '') {
-  if (!p) return;
-  if (!slot || p.activePreview?.slot === slot) p.activePreview = null;
-}
-function armActivePreview(run, p, spec) {
-  if (!spec) return false;
-  p.activePreview = { ...spec, expires: (run.now || 0) + (spec.ttl || 2.4) };
-  run.fx.push({ t: 'active_mutation', label: spec.label || (spec.slot === 'r' ? 'R READY' : 'Q READY'), x: Math.round(spec.x || p.x), y: Math.round(spec.y || p.y), r: Math.round(spec.r || 80), tone: spec.tone || 'cyan', playerId: p.id, noFloat: 1 });
-  return true;
-}
-function qActivePreviewSpec(run, p) {
-  const a = ensureActive(p);
-  const core = a.core;
-  const lvl = Math.max(1, a.level || 1);
-  if (!core || core === 'void_cut') return null;
-  let x = p.x, y = p.y, r = 130, label = 'Q FIELD', tone = ACTIVE_CORES[core]?.tone || 'cyan';
-  if (core === 'blood_ring') { r = activeRadiusForLevel(lvl, 205, 335); label = `BLOOD RING ${roman(lvl)}`; tone = 'red'; }
-  else if (core === 'field_snap') { r = activeRadiusForLevel(lvl, 310, 455); label = `FIELD SNAP ${roman(lvl)}`; tone = 'cyan'; }
-  else if (core === 'bullet_freeze') { r = activeRadiusForLevel(lvl, 245, 405); label = `BULLET FREEZE ${roman(lvl)}`; tone = 'cyan'; }
-  else if (core === 'shell_ripper') { r = activeRadiusForLevel(lvl, 240, 380); label = `SHELL RIPPER ${roman(lvl)}`; tone = 'purple'; }
-  else if (core === 'signal_spike') {
-    const extra = Math.max(0, lvl - 1);
-    const aimRange = Math.round(activeScale(390 + Math.min(280, extra * 24)));
-    const aim = activeAimPoint(p, aimRange, 140);
-    x = Math.round(aim.x); y = Math.round(aim.y); r = Math.round(activeScale(158 + Math.min(82, extra * 10))); label = `SIGNAL SPIKE ${roman(lvl)}`; tone = 'cyan';
-  } else if (core === 'black_box') { r = activeRadiusForLevel(lvl, 210, 340); label = `BLACK BOX ${roman(lvl)}`; tone = 'purple'; }
-  else if (core === 'debt_pulse') { r = activeRadiusForLevel(lvl, 340, 560); label = `STATIC PULSE ${roman(lvl)}`; tone = 'purple'; }
-  else return null;
-  return { slot: 'q', key: activePreviewKey('q', core), core, kind: 'radius', x: Math.round(x), y: Math.round(y), r: Math.round(r), label, tone, ttl: 2.6 };
-}
-function rActivePreviewSpec(run, p) {
-  const id = String(p?.stats?.rActiveId || '');
-  if (!id) return null;
-  const stacks = Math.max(1, Number(p?.stats?.rActiveStacks || 1) | 0);
-  let x = p.x, y = p.y, r = 120, label = rActiveLabel(p) || 'R', tone = 'cyan', kind = 'radius';
-  if (id === 'target_lock') {
-    const e = enemyNearPoint(run, p.aimX, p.aimY, 320) || enemyNearPoint(run, p.x, p.y, 620);
-    if (!e) return null;
-    x = e.x; y = e.y; r = 90; label = 'TARGET LOCK'; tone = 'cyan'; kind = 'target';
-  } else if (id === 'redline_boost') { r = 135 + stacks * 18; label = 'КРАСНАЯ ЛИНИЯ'; tone = 'red'; }
-  else if (id === 'ghost_decoy') { r = 135; label = 'GHOST DECOY'; tone = 'cyan'; }
-  else if (id === 'rewind_mark') {
-    if ((p.rewindT || 0) > 0 && p.rewindMark) { x = p.rewindMark.x; y = p.rewindMark.y; r = 245 + Math.max(0, stacks - 1) * 35; label = 'REWIND RETURN'; tone = 'purple'; }
-    else { r = 110; label = 'REWIND MARK'; tone = 'purple'; }
-  } else if (id === 'kill_switch') { r = 560; label = 'KILL SWITCH'; tone = 'red'; }
-  else return null;
-  return { slot: 'r', key: activePreviewKey('r', id, (id === 'rewind_mark' && (p.rewindT || 0) > 0) ? 'return' : ''), core: id, kind, x: Math.round(x), y: Math.round(y), r: Math.round(r), label, tone, ttl: 2.6 };
-}
-function currentVoidBuilderPreview(run, p) {
-  const a = ensureActive(p);
-  if (a.core !== 'void_cut' || !a.voidBuilder) return null;
-  const b = a.voidBuilder;
-  if ((b.expires || 0) <= (run.now || 0)) { delete a.voidBuilder; clearActivePreview(p, 'q'); return null; }
-  const lvl = Math.max(1, a.level || 1);
-  const len = voidLaserSegmentLen(lvl);
-  const startX = Math.round(b.x), startY = Math.round(b.y);
-  const aim = aimPointFrom(p, startX, startY, len, 80);
-  const end = collideWalls(aim.x, aim.y, 5, run.plan?.walls || [], startX, startY);
-  const idx = Math.max(1, (b.index || 0) + 1);
-  const max = Math.max(1, b.max || voidLaserMaxSegments(p));
-  return { slot: 'q', key: activePreviewKey('q', 'void_cut'), core: 'void_cut', kind: 'line', x: startX, y: startY, x2: Math.round(end.x), y2: Math.round(end.y), r: Math.max(20, Math.round(8 + Math.min(8, Math.max(0, lvl - 1) * 0.22))), label: `VOID LINK ${idx}/${max}`, tone: 'purple', ttl: 0.25, index: idx, max };
-}
-function beginVoidBuilder(run, p) {
-  const a = ensureActive(p);
-  const lvl = Math.max(1, a.level || 1);
-  const max = voidLaserMaxSegments(p);
-  const aim = activeAimPoint(p, Math.round(activeScale(520 + Math.min(560, (lvl - 1) * 46))), 75);
-  const c = collideWalls(aim.x, aim.y, 5, run.plan?.walls || [], p.x, p.y);
-  a.voidBuilder = { x: Math.round(c.x), y: Math.round(c.y), remaining: max, index: 0, max, expires: (run.now || 0) + voidLaserChainWindow(lvl) + 4.0 };
-  const spec = currentVoidBuilderPreview(run, p);
-  if (spec) armActivePreview(run, p, { ...spec, label: 'VOID START', ttl: voidLaserChainWindow(lvl) + 4.0 });
-  return true;
-}
-function stepVoidBuilder(run, players, p) {
-  const a = ensureActive(p);
-  const b = a.voidBuilder;
-  if (a.core !== 'void_cut' || !b || (b.expires || 0) <= (run.now || 0)) { delete a.voidBuilder; clearActivePreview(p, 'q'); return false; }
-  if ((p.voidChainPlaceCd || 0) > 0) return 'wait';
-  const first = (b.index || 0) <= 0;
-  if (first && (p.activeCd || 0) > 0) return 'wait';
-  if (first) p.activeCd = activeCooldown(p) * Math.max(0.15, Number(p.wagerQCdMul || 1) || 1);
-  const ctx = castActiveCore(run, players, p, { startX: b.x, startY: b.y, segmentIndex: (b.index || 0) + 1, chainSegment: (b.index || 0) > 0 ? 1 : 0, skipCasino: (b.index || 0) > 0 ? 1 : 0 });
-  p.voidChainPlaceCd = 0.10;
-  const remaining = Math.max(0, (b.remaining || 1) - 1);
-  if (remaining > 0 && ctx?.endX != null) {
-    a.voidBuilder = { x: ctx.endX, y: ctx.endY, remaining, index: (b.index || 0) + 1, max: b.max || voidLaserMaxSegments(p), expires: (run.now || 0) + voidLaserChainWindow(a.level || 1) + 1.0 };
-    const spec = currentVoidBuilderPreview(run, p);
-    if (spec) p.activePreview = { ...spec, expires: a.voidBuilder.expires };
-  } else {
-    delete a.voidBuilder;
-    clearActivePreview(p, 'q');
-  }
-  return 'cast';
-}
 function doRActive(run, players, p) {
+  if (p.wagerStats) p.wagerStats.r = (p.wagerStats.r || 0) + 1;
   const id = String(p?.stats?.rActiveId || '');
   if (!id || !p.alive || run.phase !== 'play') return false;
   if (id !== 'rewind_mark' && (p.rActiveCd || 0) > 0) return false;
-  const spec = rActivePreviewSpec(run, p);
-  const key = spec?.key || activePreviewKey('r', id);
-  if (spec && !activePreviewIsArmed(run, p, 'r', key)) { armActivePreview(run, p, spec); return false; }
-  clearActivePreview(p, 'r');
-  if (p.wagerStats) p.wagerStats.r = (p.wagerStats.r || 0) + 1;
   if (id === 'target_lock') {
     if ((p.targetLockT || 0) > 0) { p.targetLockT = 0; p.targetLockTargetId = ''; p.rActiveCd = 12; run.fx.push({ t: 'target_lock_end', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'release' }); run.fx.push({ t: 'active_mutation', label: 'LOCK RELEASED', x: Math.round(p.x), y: Math.round(p.y), r: 70, tone: 'cyan', playerId: p.id }); return true; }
     const e = enemyNearPoint(run, p.aimX, p.aimY, 320) || enemyNearPoint(run, p.x, p.y, 620);
@@ -6413,10 +5850,7 @@ const ROOM_WAGER_STAKES = [
   { id: 'r_forever', text: 'R-протокол навсегда', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
   { id: 'maxhp_forever', text: '-10 max HP навсегда', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
   { id: 'boss_key', text: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
-  { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } },
-  { id: 'base_wpn_heat', text: 'основное оружие: перегрев', loss: (run, p) => { p.wagerFireMul = Math.min(p.wagerFireMul || 1, 0.78); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'lvc_spark_debt', text: 'SPK искры до конца цикла', needs: p => isLivingCasinoPlayer(p), loss: (run, p) => { p.stats.lvcSparkCount = Math.max(0, (p.stats.lvcSparkCount || 0) - 1); } },
-  { id: 'ctrl_channel_debt', text: 'CTRL слот процесса', needs: p => isProcessControllerPlayer(p) && (p.stats?.ctrlMax || 0) > 0, loss: (run, p) => { p.stats.ctrlMax = Math.max(0, (p.stats.ctrlMax || 0) - 1); } }
+  { id: 'null_revive', text: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } }
 ];
 const ROOM_WAGER_CONDITIONS = [
   { id: 'dash15', text: 'сделать 15 dash', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
@@ -6426,10 +5860,7 @@ const ROOM_WAGER_CONDITIONS = [
   { id: 'r2', text: 'использовать R 2 раза', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
   { id: 'kills10', text: 'удалить 10 угроз', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
   { id: 'hp50', text: 'закончить сектор выше 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
-  { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive },
-  { id: 'mark_targets', text: 'закрепить 6 целей', needs: p => isLivingCasinoPlayer(p), ok: (run, p) => (p.wagerStats?.lvcMarks || 0) >= 6 },
-  { id: 'hold_sparks', text: 'удерживать 4 искры', needs: p => isLivingCasinoPlayer(p), ok: (run, p) => (p.wagerStats?.sparkLocks || 0) >= 4 },
-  { id: 'ctrl_orders', text: 'отдать 5 команд', needs: p => isProcessControllerPlayer(p), ok: (run, p) => (p.wagerStats?.ctrlOrders || 0) >= 5 }
+  { id: 'lowhp15', text: 'выжить при HP ниже 35%', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive }
 ];
 const ROOM_WAGER_PRIZES = [
   { id: 'dmg100', text: 'урон x100 на всю следующую сектор', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
@@ -6440,21 +5871,14 @@ const ROOM_WAGER_PRIZES = [
   { id: 'null_revive', text: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
   { id: 'mirror', text: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
   { id: 'q_loop', text: 'Q быстрее до конца цикла', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_stack', text: '+1 уровень R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } },
-  { id: 'lvc_target', text: '+1 цель LVC', needs: p => isLivingCasinoPlayer(p), prize: (run, p) => { p.stats.lvcTargetSlots += 1; } },
-  { id: 'lvc_spark', text: '+1 искра SPK', needs: p => isLivingCasinoPlayer(p), prize: (run, p) => { p.stats.lvcSparkCount += 1; } },
-  { id: 'ctrl_max', text: '+1 слот процесса', needs: p => isProcessControllerPlayer(p), prize: (run, p) => { p.stats.ctrlMax += 1; } },
-  { id: 'ctrl_life', text: '+время процесса', needs: p => isProcessControllerPlayer(p), prize: (run, p) => { p.stats.ctrlLife += 1; } }
+  { id: 'r_stack', text: '+1 уровень R', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } }
 ];
 function pickRoomWagerItem(list, p) {
   const pool = list.filter(x => !x.needs || x.needs(p));
   return pool[Math.floor(Math.random() * pool.length)] || list[0];
 }
-function roomWagerSystemUnlocked(run, p) {
-  return !!p?.stats?.roomWagerUnlocked || Math.max(0, Number(run?.runMemory?.bossesDefeated || 0) || 0) >= 2;
-}
 function makeRoomWagerOffer(run, p) {
-  if (!roomWagerSystemUnlocked(run, p) || p.roomWagerActive) return null;
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) return null;
   run.roomWagerSeq = ((run.roomWagerSeq || 0) + 1) | 0;
   if (run.roomWagerSeq <= 0) run.roomWagerSeq = 1;
   const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
@@ -6465,7 +5889,7 @@ function makeRoomWagerOffer(run, p) {
   return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.text, condition: condition.id, conditionText: condition.text, prize: prize.id, prizeText: prize.text, text: `Поставить [${stake.text}] на [${condition.text}] → получить [${prize.text}]` };
 }
 function ensureRoomWagerOffer(run, p) {
-  if (!roomWagerSystemUnlocked(run, p) || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive) { p.roomWagerOffer = null; return null; }
   if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
   return p.roomWagerOffer;
 }
@@ -6739,19 +6163,7 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
   if (killer?.wagerStats) killer.wagerStats.kills = (killer.wagerStats.kills || 0) + 1;
-  if (e.kind === 'slot_mob') {
-    const df = difficulty(run);
-    const virusGold = Math.max(140, Math.round((260 + df.loop * 105 + Math.max(0, run.runDepth || 0) * 14) * loopEconomyMul(run) * mobLootMul(run)));
-    dropPickup(run, e.x, e.y, 'GLD', virusGold, { burst: 1, label: 'СКРЫТЫЙ КАЗИНО-ВИРУС' });
-    for (let i = 0; i < 8 && run.pickups.length < MAX_PICKUPS; i++) {
-      const a = (i / 8) * Math.PI * 2 + Math.random() * 0.35;
-      const r = 34 + Math.random() * 92;
-      dropPickup(run, e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 'GLD', Math.max(8, Math.round(virusGold / 18 + Math.random() * virusGold / 22)), { label: 'VIRUS GOLD' });
-    }
-    run.fx.push({ t: 'casino_mob_defeated', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, themeT: 5, gold: virusGold, label: 'СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН' });
-    run.fx.push({ t: 'boss_down', x: Math.round(e.x), y: Math.round(e.y), fragment: 0, virus: 1 });
-    run.fx.push({ t: 'hero_unlock', hero: 'living_casino', label: 'ЖИВОЕ КАЗИНО ОТКРЫТО' });
-  }
+  if (e.kind === 'slot_mob') run.fx.push({ t: 'casino_mob_defeated', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, themeT: 5 });
   run.fx.push({ t: 'kill', x: Math.round(e.x), y: Math.round(e.y), kind: e.kind, elite: e.elite, size: e.size });
   registerComboEvent(run, killer, source, e, 1);
   spreadElementStatusesOnKill(run, players, e, killer);
@@ -6816,10 +6228,6 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     const otherBossAlive = run.enemies.some(x => x && x.hp > 0 && ENEMIES[x.kind]?.boss);
     if (!def.bossFragment || !otherBossAlive) {
       if (run.runMemory) run.runMemory.bossesDefeated = (run.runMemory.bossesDefeated || 0) + 1;
-      if ((run.runMemory?.bossesDefeated || 0) >= 2) {
-        for (const pp of players.values()) if (pp?.stats) pp.stats.roomWagerUnlocked = 1;
-        run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER ONLINE', x: Math.round(e.x), y: Math.round(e.y), r: 170, tone: 'gold' });
-      }
       // boss reward burst. GOLD FEVER keeps enemy/boss loot pure GLD too.
       const burst = def.bossFragment ? 4 : 6;
       for (let i = 0; i < burst; i++) {
@@ -7084,10 +6492,7 @@ function splitRouletteSquare(run, b, nx = 0, ny = 0, reason = 'hit') {
   return made;
 }
 function fireWeapon(run, players, p, dt) {
-  if (isLivingCasinoPlayer(p)) {
-    fireLivingCasinoSector(run, players, p, dt);
-    return;
-  }
+  if (isLivingCasinoPlayer(p)) { handleLivingCasinoBaseMark(run, players, p, dt); return; }
   if (isProcessControllerPlayer(p)) { fireProcessControllerProtocol(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
   if (!p.fire) { p.fireWasDown = false; return; }
@@ -7095,7 +6500,7 @@ function fireWeapon(run, players, p, dt) {
   const w = WEAPONS[p.weapons[p.weaponIdx]];
   if (!w) return;
   const tempFire = p.activeBuffT > 0 ? 1.65 + p.stats.activeOver * 0.20 : 1;
-  const lcWeaponLvl = isLivingCasinoPlayer(p) ? (w.id === 'roulette' ? livingCasinoSectorUpgradeLevel(p, 'roulette') : (w.id === 'deck' ? livingCasinoSectorUpgradeLevel(p, 'deck') : 1)) : 1;
+  const lcWeaponLvl = 1;
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
   if (w.id === 'shotgun') {
     if (p.fireWasDown) return;
@@ -7105,7 +6510,7 @@ function fireWeapon(run, players, p, dt) {
     p.cd = 0; // shotgun is gated by click edges + 4-charge ammo, not by cooldown
   } else {
     if (p.cd > 0) return;
-    p.cd = w.cooldown / Math.max(0.2, p.stats.fireMul * tempFire * (p.wagerFireMul || 1));
+    p.cd = w.cooldown / (p.stats.fireMul * tempFire);
   }
 
   const echoBase = p.stats.echoShot + (run.plan.modifierIds.includes('echo_walls') ? 0.50 : 0);
@@ -7289,7 +6694,7 @@ function stepBullets(run, players, dt) {
         const locked = run.enemies.find(e => e.id === b.targetId && e.hp > 0);
         if (locked) { best = locked; bd = dist2(locked.x, locked.y, b.x, b.y); }
       }
-      if (!best || bd > 520 * 520) {
+      if ((!best || bd > 520 * 520) && !b.strictTarget) {
         best = null; bd = 330 * 330;
         for (const e of run.enemies) {
           const d = dist2(e.x, e.y, b.x, b.y);
@@ -7763,46 +7168,6 @@ function stepEnemies(run, players, dt) {
 
     if (e.kind === 'slot_mob') {
       stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls);
-    } else if (e.kind === 'wall_clinger') {
-      const keep = def.keep || 390;
-      e.dirX = toT.x; e.dirY = toT.y;
-      if (e.state === 'burst') {
-        e.vx = 0; e.vy = 0;
-        e.shellHp = 0; e.shellMax = 0;
-        e.wallBurstCd = Math.max(0, (e.wallBurstCd || 0) - dt);
-        if ((e.wallBurstLeft || 0) > 0 && e.wallBurstCd <= 0 && enemyCanShoot(run, e, target, 12) && run.bullets.length < MAX_BULLETS) {
-          const bspd = enemyBulletSpeed(def.bulletSpd || 335, e);
-          const jitter = ((e.wallBurstLeft || 1) - 2) * 0.045;
-          const ca = Math.cos(jitter), sa = Math.sin(jitter);
-          const vx = toT.x * ca - toT.y * sa, vy = toT.x * sa + toT.y * ca;
-          run.bullets.push({ id: nid(), x: e.x + vx * 14, y: e.y + vy * 14, vx: vx * bspd, vy: vy * bspd, dmg: enemyDamageValue(e), from: 'e', life: 2.4, size: 6 });
-          run.fx.push({ t: 'eshot', id: e.id, kind: 'wall_clinger' });
-          e.wallBurstLeft = Math.max(0, (e.wallBurstLeft || 0) - 1);
-          e.wallBurstCd = 0.14;
-        }
-        if ((e.wallBurstLeft || 0) <= 0 && e.wallBurstCd <= 0.02) {
-          e.state = 'move'; e.st = 0;
-          e.fireCd = enemyFireCooldown(def.fireCd || 1.75, e);
-          const sh = Math.max(18, Math.round((e.maxHp || 70) * 0.52));
-          e.shellType = 'plain'; e.shellMax = sh; e.shellHp = sh; e.shellRegenDelay = 0.25;
-        }
-      } else {
-        const sh = Math.max(18, Math.round((e.maxHp || 70) * 0.52));
-        if (!e.shellMax || (e.shellHp || 0) <= 0) { e.shellType = 'plain'; e.shellMax = sh; e.shellHp = Math.max(e.shellHp || 0, sh); }
-        e.fireCd = Math.max(0, (e.fireCd || 0) - dt);
-        e.wallJumpT = Math.max(0, (e.wallJumpT || 0) - dt);
-        if (e.wallJumpT <= 0) { e.wallSide = -(e.wallSide || 1); e.wallJumpT = 0.72 + Math.random() * 1.05; run.fx.push({ t: 'blink', id: e.id, fx: Math.round(e.x), fy: Math.round(e.y), tx: Math.round(e.x - toT.y * 38 * e.wallSide), ty: Math.round(e.y + toT.x * 38 * e.wallSide) }); }
-        const side = { x: -toT.y * (e.wallSide || 1), y: toT.x * (e.wallSide || 1) };
-        let mx = side.x * 0.62, my = side.y * 0.62;
-        if (dT > keep + 55) { mx += toT.x * 0.65; my += toT.y * 0.65; }
-        else if (dT < keep - 85) { mx -= toT.x * 1.05; my -= toT.y * 1.05; }
-        steerMove(run, e, norm(mx, my), spd, dt, { target, pad: 16 });
-        if (e.fireCd <= 0 && dT < 660 && enemyCanShoot(run, e, target, 14)) {
-          e.state = 'burst'; e.st = 0; e.wallBurstLeft = Math.max(1, def.burst || 3); e.wallBurstCd = 0.02;
-          e.shellHp = 0; e.shellMax = 0;
-          run.fx.push({ t: 'active_mutation', label: 'WCL OPEN', x: Math.round(e.x), y: Math.round(e.y), r: 58, tone: 'red' });
-        }
-      }
     } else if (e.kind === 'shooter') {
       const inFormation = escortOrbitMove(run, e, dt, spd, target);
       const losBlocked = rangedLineMove(run, e, target, toT, dT, spd, dt, { keep: def.keep || 330, speedMul: 1.0, pad: 15, fireHold: 0.30 });
@@ -8751,7 +8116,7 @@ function ensureActive(p) {
   p.active.mutations = p.active.mutations.filter(id => ACTIVE_MUTATIONS[id]).slice(0, ACTIVE_MUTATION_SLOTS);
   if (p.active.core && !ACTIVE_CORES[p.active.core]) { p.active.core = null; p.active.level = 0; p.active.mutations = []; }
   if (p.active.core && (!p.active.level || p.active.level < 1)) p.active.level = 1;
-  if (p.active.core !== 'void_cut') { delete p.active.voidChain; delete p.active.voidBuilder; }
+  if (p.active.core !== 'void_cut') delete p.active.voidChain;
   return p.active;
 }
 function activeHasMutation(p, id) { return ensureActive(p).mutations.includes(id); }
@@ -9047,38 +8412,7 @@ function handleRarePick(run, players, p, choiceIdx) {
   return true;
 }
 
-
-function triggerTrojanChest(run, players, p, o) {
-  if (!run || !p || !o || o.opened) return false;
-  o.opened = true;
-  o.trojan = 0;
-  if (run.portal) run.portal.open = false;
-  const dx = p.x - o.x, dy = p.y - o.y;
-  const n = norm(dx || 1, dy || 0);
-  p.recoilX = n.x * 420;
-  p.recoilY = n.y * 420;
-  p.recoilT = Math.max(p.recoilT || 0, 0.25);
-  p.invuln = Math.max(p.invuln || 0, 0.18);
-  const df = difficulty(run);
-  const count = Math.max(5, Math.min(14, 6 + df.loop * 2 + Math.floor((run.runDepth || 0) / 6)));
-  const pool = filterModifierEnemyPool(run, ['runner', 'grunt', 'bomber', 'shooter'], ['runner', 'grunt']);
-  for (let i = 0; i < count && run.enemies.length < MAX_ENEMIES; i++) {
-    const a = (i / count) * Math.PI * 2 + Math.random() * 0.45;
-    const r = 42 + Math.random() * 56;
-    const pos = collideWalls(o.x + Math.cos(a) * r, o.y + Math.sin(a) * r, 22, run.plan?.walls || [], o.x, o.y);
-    const kind = pool[Math.floor(Math.random() * pool.length)] || 'runner';
-    const e = spawnEnemy(run, players, kind, false, pos, { noArmor: true, noSpawnWarn: true, packRole: 'trojan' });
-    if (e) { e.spawnDelay = 0.15 + Math.random() * 0.22; e.trojan = 1; }
-  }
-  run.fx.push({ t: 'trojan_chest', id: p.id, obj: o.id, x: Math.round(o.x), y: Math.round(o.y), count, label: 'TROJAN' });
-  run.fx.push({ t: 'room_event', label: 'TROJAN', body: 'ПОРТАЛ ЗАКРЫТ ДО ЗАЧИСТКИ' });
-  return true;
-}
-
 function openChest(run, players, p, o) {
-  if ((run?.plan?.modifierIds || []).includes('trojan') && (o.trojan || (run.trojanChestId && o.id === run.trojanChestId))) {
-    if (triggerTrojanChest(run, players, p, o)) return;
-  }
   const def = CHESTS[o.chest];
   const keyUsed = spendBossKey(run, p, o);
   const value = chestValueInfo(run, o);
@@ -9519,8 +8853,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     run.finalSummary = finalRunSummary(run, players);
     run.phase = 'won'; run.phaseT = 0;
     openPortal(run);
-    run.fx.push({ t: 'run_complete', summary: run.finalSummary, label: 'ОЧИСТКА ЗАВЕРШЕНА' });
-    run.fx.push({ t: 'hero_unlock', hero: 'process_controller', label: 'КОНТРОЛЁР ОТКРЫТ' });
+    run.fx.push({ t: 'run_complete', summary: run.finalSummary });
     return true;
   }
   return false;
@@ -10502,31 +9835,6 @@ function stepActiveFields(run, players, dt) {
       }
       }
     }
-    if (f.kind === 'lc_table' && (f.hitsLeft ?? (f.sprung ? 0 : 1)) > 0) {
-      if (!Array.isArray(f.hitIds)) f.hitIds = [];
-      for (const e of run.enemies) {
-        if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
-        if (f.hitIds.includes(e.id)) continue;
-        if (dist2(e.x, e.y, f.x, f.y) > ((f.r || 58) + e.size / 2) ** 2) continue;
-        f.hitsLeft = Math.max(0, Number(f.hitsLeft ?? (f.sprung ? 0 : 1)) | 0);
-        if (f.hitsLeft <= 0) break;
-        f.hitsLeft--;
-        f.sprung = f.hitsLeft <= 0 ? 1 : 0;
-        f.hitIds.push(e.id);
-        if (f.hitIds.length > 16) f.hitIds.shift();
-        const lvl = Math.max(1, f.lvl || 1);
-        const hold = Math.max(0, Number(f.hold || 0) | 0);
-        const n = norm(e.x - f.x, e.y - f.y);
-        e.stunT = Math.max(e.stunT || 0, 0.45 + lvl * 0.08 + hold * 0.12);
-        e.activeSlowT = Math.max(e.activeSlowT || 0, 0.75 + hold * 0.18);
-        e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.05);
-        damageEnemy(run, players, e, f.dmg || 42, f.owner, 75 + hold * 8, n.x, n.y, 'table');
-        run.fx.push({ t: 'lc_card_table', id: f.owner, label: f.hitsLeft > 0 ? `CARD HIT / ${f.hitsLeft}` : 'CARD HIT', x: Math.round(f.x), y: Math.round(f.y), r: Math.round((f.r || 58) + 24), hit: 1, hitsLeft: f.hitsLeft });
-        if (f.hitsLeft <= 0) f.ttl = Math.min(f.ttl, 0.20);
-        else f.ttl = Math.max(f.ttl || 0, 0.24);
-        break;
-      }
-    }
     if (f.kind === 'snap_field') {
       // FIELD SNAP pull happens once on cast. The lingering field only slows, damages and damps bullets.
       for (const e of run.enemies) if (dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
@@ -10559,20 +9867,9 @@ function stepActiveFields(run, players, dt) {
 
 // ---------------------------------------------------------------- players
 function doActive(run, players, p) {
+  if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
   const a = ensureActive(p);
   if (!a.core) { run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ ПРОТОКОЛА', x: Math.round(p.x), y: Math.round(p.y) }); p.activeCd = 0.25; return; }
-  if (a.core === 'void_cut') {
-    if (a.voidBuilder) {
-      const stepped = stepVoidBuilder(run, players, p);
-      if (stepped) {
-        if (stepped === 'cast' && p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
-        return;
-      }
-    }
-    if ((p.activeCd || 0) > 0) return;
-    beginVoidBuilder(run, p);
-    return;
-  }
   if (a.core === 'signal_spike') {
     if ((p.spikePlaceCd || 0) > 0) return;
     const max = signalSpikeMaxCharges(p);
@@ -10581,23 +9878,32 @@ function doActive(run, players, p) {
       run.fx.push({ t: 'active_denied', id: p.id, reason: 'НЕТ ЗАРЯДОВ ШИПА', label: `ПЕРЕЗАРЯДКА ШИПА ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, x: Math.round(p.x), y: Math.round(p.y) });
       return;
     }
-    const spec = qActivePreviewSpec(run, p);
-    if (spec && !activePreviewIsArmed(run, p, 'q', spec.key)) { armActivePreview(run, p, spec); return; }
-    clearActivePreview(p, 'q');
-    if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
     a.spikeCharges = charges - 1;
     p.spikePlaceCd = 0.12;
     if (a.spikeCharges < max && (p.activeCd || 0) <= 0) p.activeCd = signalSpikeRecharge(p);
     castActiveCore(run, players, p);
     return;
   }
+  if (a.core === 'void_cut') {
+    const now = run.now || 0;
+    const ch = a.voidChain;
+    if (ch && ch.remaining > 0 && ch.expires > now) {
+      const ctx = castActiveCore(run, players, p, { startX: ch.x, startY: ch.y, segmentIndex: (ch.index || 1) + 1, chainSegment: 1, skipCasino: 1 });
+      const remaining = Math.max(0, (ch.remaining || 0) - 1);
+      if (remaining > 0 && ctx?.endX != null) a.voidChain = { x: ctx.endX, y: ctx.endY, remaining, index: (ch.index || 1) + 1, expires: now + voidLaserChainWindow(a.level || 1) };
+      else delete a.voidChain;
+      p.voidChainPlaceCd = 0.10;
+      return;
+    }
+    delete a.voidChain;
+  }
   if (p.activeCd > 0) return;
-  const spec = qActivePreviewSpec(run, p);
-  if (spec && !activePreviewIsArmed(run, p, 'q', spec.key)) { armActivePreview(run, p, spec); return; }
-  clearActivePreview(p, 'q');
-  if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1;
   p.activeCd = activeCooldown(p) * Math.max(0.15, Number(p.wagerQCdMul || 1) || 1);
-  castActiveCore(run, players, p);
+  const ctx = castActiveCore(run, players, p);
+  if (a.core === 'void_cut') {
+    const max = voidLaserMaxSegments(p);
+    if (max > 1 && ctx?.endX != null) a.voidChain = { x: ctx.endX, y: ctx.endY, remaining: max - 1, index: 1, expires: (run.now || 0) + voidLaserChainWindow(a.level || 1) };
+  }
 }
 
 
@@ -10743,8 +10049,6 @@ function stepPlayers(run, players, dt) {
     p.shgLongshotCd = Math.max(0, (p.shgLongshotCd || 0) - dt);
     p.spikePlaceCd = Math.max(0, (p.spikePlaceCd || 0) - dt);
     p.voidChainPlaceCd = Math.max(0, (p.voidChainPlaceCd || 0) - dt);
-    if (p.activePreview && (p.activePreview.expires || 0) <= (run.now || 0)) p.activePreview = null;
-    if (p.active?.core === 'void_cut' && p.active.voidBuilder && (p.active.voidBuilder.expires || 0) <= (run.now || 0)) delete p.active.voidBuilder;
     stepRActiveState(run, players, p, dt);
     stepLivingCasinoState(run, players, p, dt);
     stepProcessControllerState(run, players, p, dt);
@@ -10795,16 +10099,14 @@ function stepPlayers(run, players, dt) {
       p.x = c.x; p.y = c.y;
     }
     // dash
-    const lcFastDash = isLivingCasinoPlayer(p) && (p.livingCasinoChainT || 0) > 0 && (p.livingCasinoChainDashes || 0) > 0;
-    if (p.wantDash && (p.dashCharges > 0 || lcFastDash) && run.phase === 'play') {
+    if (p.wantDash && p.dashCharges > 0 && run.phase === 'play') {
       let dx = mx, dy = my;
       if (Math.hypot(dx, dy) < 0.01) { const n = norm(p.aimX - p.x, p.aimY - p.y); dx = n.x; dy = n.y; }
       const n = norm(dx, dy);
-      const dashDist = lcFastDash ? Math.round(dashDistance(p) * 1.55) : dashDistance(p);
+      const dashDist = dashDistance(p);
       const c = collideWalls(p.x + n.x * dashDist, p.y + n.y * dashDist, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
       const ox = p.x, oy = p.y;
-      if (lcFastDash) run.fx.push({ t: 'lc_chain_dash', id: p.id, x1: Math.round(p.x), y1: Math.round(p.y), x2: Math.round(c.x), y2: Math.round(c.y), charges: p.livingCasinoChainDashes || 0 });
-      else dashFx(run, p, p.x, p.y, c.x, c.y);
+      dashFx(run, p, p.x, p.y, c.x, c.y);
       if (p.stats.voidStep > 0) {
         const stacks = Math.max(1, p.stats.voidStep | 0);
         const riftW = 102 + Math.min(86, stacks * 14);
@@ -10838,15 +10140,11 @@ function stepPlayers(run, players, dt) {
         if (stunned) run.fx.push({ t: 'dash_stun', id: p.id, x: Math.round((ox + c.x) / 2), y: Math.round((oy + c.y) / 2), r: Math.round(stunR), dur: Math.round(stunDur * 10) / 10, count: stunned });
       }
       p.x = c.x; p.y = c.y;
-      if (lcFastDash) {
-        p.livingCasinoChainDashes = Math.max(0, (p.livingCasinoChainDashes || 0) - 1);
-        if ((p.livingCasinoChainDashes || 0) <= 0) p.livingCasinoChainT = 0;
-        else p.livingCasinoChainGlowT = Math.max(p.livingCasinoChainGlowT || 0, 0.65);
-      } else p.dashCharges--;
+      p.dashCharges--;
       if (p.wagerStats) p.wagerStats.dash = (p.wagerStats.dash || 0) + 1;
       if (playerSigStack(p, 'sigRedOverdrive') > 0) p.redOverdriveShots = Math.max(p.redOverdriveShots || 0, 1);
       if (playerSigStack(p, 'sigAimGlitch') > 0) p.aimGlitchT = Math.max(p.aimGlitchT || 0, 1.15 + playerSigStack(p, 'sigAimGlitch') * 0.15);
-      p.invuln = Math.max(p.invuln, lcFastDash ? Math.min(DASH_INVULN, 0.18) : DASH_INVULN);
+      p.invuln = Math.max(p.invuln, DASH_INVULN);
     }
     p.wantDash = false;
     if (p.wantActive && run.phase === 'play') doActive(run, players, p);
@@ -10854,14 +10152,12 @@ function stepPlayers(run, players, dt) {
     if (p.wantRActive && run.phase === 'play') doRActive(run, players, p);
     p.wantRActive = false;
     if (p.wantSecondary && run.phase === 'play') {
-      if (isLivingCasinoPlayer(p)) {
-        livingCasinoSelectTarget(run, p, 'spark');
-      }
+      if (isLivingCasinoPlayer(p)) livingCasinoAssignTarget(run, p, 'sparks');
       else if (isProcessControllerPlayer(p)) commandProcessController(run, p);
       else doSecondaryWeapon(run, players, p);
     }
     p.wantSecondary = false;
-    // weapon switch: Living Casino uses the same wheel / number slots as other heroes.
+    // Weapon slots remain visible for every hero; Living Casino highlights either autonomous gun.
     if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) p.weaponIdx = p.wantWeapon;
     p.wantWeapon = -1;
     // interact
@@ -10914,27 +10210,26 @@ export function step(run, players, dt, now) {
 
 
 function livingCasinoHudSnapshot(p) {
-  const lc = ensureLivingCasinoState(p);
-  if (!lc) return null;
-  const sparkActive = (lc.sparkLocks || []).reduce((n, l) => n + ((l?.t || 0) > 0 ? 1 : 0), 0);
-  const sparkMax = livingCasinoSparkMax(p);
-  const primarySlots = livingCasinoPrimarySlots(p);
-  const sparkCd = Math.max(0, Number(lc.sparkCd || 0) || 0);
-  const primaryCd = Math.max(0, Number(lc.primaryCd || 0) || 0);
+  const lc = ensureLivingCasinoState(p); if (!lc) return null;
+  const maxSparks = livingCasinoSparkMax(lc);
+  const maxRemaining = lc.sparks.active.reduce((m, x) => Math.max(m, Number(x.t || 0) || 0), 0);
   return {
-    mode: 'guns',
-    selected: Math.max(0, Number(p.weaponIdx || 0) | 0),
-    ringOpen: 0,
-    type: (p.weapons?.[p.weaponIdx || 0] || 'living_casino') === 'lvc_spark' ? 'spark' : 'dmg',
-    label: (p.weapons?.[p.weaponIdx || 0] || 'living_casino') === 'lvc_spark' ? 'SPK' : 'LVC',
-    color: (p.weapons?.[p.weaponIdx || 0] || 'living_casino') === 'lvc_spark' ? '#66f6ff' : '#ffd34d',
-    cd: Math.ceil(Math.min(primaryCd, sparkCd || primaryCd) * 10) / 10,
-    activeT: Math.ceil(Math.max(0, ...(lc.sparkLocks || []).map(l => Number(l?.t || 0) || 0)) * 10) / 10,
-    fill: 1, activeFill: sparkMax ? Math.round((sparkActive / sparkMax) * 1000) / 1000 : 0, cdFill: Math.round(Math.max(primaryCd, sparkCd) * 100) / 100,
-    level: 1,
-    primaryTargets: (lc.primaryTargets || []).length, primarySlots,
-    sparkTargets: (lc.sparkTargets || []).length, sparkActive, sparkMax, sparkCd: Math.ceil(sparkCd * 10) / 10, sparkHold: Math.ceil(livingCasinoSparkHold(p) * 10) / 10, sparkRange: livingCasinoSparkRange(p),
-    hints: 'ЛКМ: цель LVC · ПКМ: цель SPK'
+    hero: 'living_casino',
+    selected: Math.max(0, Math.min(1, Number(p.weaponIdx || 0) | 0)),
+    base: {
+      label: 'LVC', color: LC_BASE_COLOR, targets: lc.base.targetIds.length, maxTargets: livingCasinoBaseTargetMax(lc),
+      targetId: lc.base.aimTargetId || '', angle: Math.round(lc.base.angle * 1000) / 1000,
+      cd: Math.ceil(Math.max(0, lc.base.cd || 0) * 10) / 10, cdMax: Math.max(0.12, 0.45 / Math.max(0.35, Number(p.stats?.fireMul || 1) || 1))
+    },
+    sparks: {
+      label: 'SPK', color: LC_SPARK_COLOR, charges: Math.max(0, Number(lc.sparks.charges || 0) | 0), maxCharges: maxSparks,
+      active: lc.sparks.active.length, remaining: Math.ceil(maxRemaining * 10) / 10,
+      recharge: Math.ceil(Math.max(0, lc.sparks.rechargeT || 0) * 10) / 10,
+      rechargeMax: Math.ceil(Math.max(0.1, lc.sparks.rechargeMax || livingCasinoSparkRecharge(p, lc)) * 10) / 10,
+      instructions: lc.sparks.targetIds.length, instructionMax: maxSparks,
+      range: Math.round(livingCasinoSparkRange(lc)), hold: Math.round(livingCasinoSparkHold(lc) * 10) / 10,
+      targetId: lc.sparks.aimTargetId || '', angle: Math.round(lc.sparks.angle * 1000) / 1000
+    }
   };
 }
 
@@ -10975,20 +10270,19 @@ export function buildSnapshot(run, players) {
   }
   const ctrlLocks = new Map();
   for (const p of players.values()) {
+    if (!p.connected || !p.alive) continue;
     const pc = ensureProcessControllerState(p);
-    if (!pc || !Array.isArray(pc.targets)) continue;
-    for (const [id, lock] of pc.targets) {
-      if (!id) continue;
-      ctrlLocks.set(id, Math.round(Math.max(0, Math.min(1, Number(lock || 0) || 0)) * 100));
+    if (pc?.cmdTargetId) {
+      const pct = pc.cmdNeed > 0 ? Math.round(Math.max(0, Math.min(1, (pc.cmdHold || 0) / Math.max(0.001, pc.cmdNeed))) * 100) : 0;
+      ctrlLocks.set(pc.cmdTargetId, Math.max(pct, ctrlLocks.get(pc.cmdTargetId) || 0));
     }
-  }
-  const lvcLocks = new Map();
-  for (const p of players.values()) {
-    const lc = ensureLivingCasinoState(p);
-    if (!lc) continue;
-    for (const id of (lc.primaryTargets || [])) if (livingCasinoTargetById(run, id)) lvcLocks.set(id, 'lvc');
-    for (const id of (lc.sparkTargets || [])) if (livingCasinoTargetById(run, id)) lvcLocks.set(id, 'spark');
-    for (const lock of (lc.sparkLocks || [])) if (livingCasinoTargetById(run, lock.id)) lvcLocks.set(lock.id, 'spark');
+    if (pc?.orderTargetId) {
+      const targetLive = (run.enemies || []).some(e => e && e.id === pc.orderTargetId && e.hp > 0 && (e.spawnDelay || 0) <= 0);
+      if (targetLive) ctrlLocks.set(pc.orderTargetId, Math.max(100, ctrlLocks.get(pc.orderTargetId) || 0));
+    }
+    for (const m of pc?.controlled || []) {
+      if (m?.focusTargetId) ctrlLocks.set(m.focusTargetId, Math.max(100, ctrlLocks.get(m.focusTargetId) || 0));
+    }
   }
   const es = combatEnemies(run).map(e => [
     e.id, KIND_IDX[e.kind], Math.round(e.x), Math.round(e.y),
@@ -11007,9 +10301,7 @@ export function buildSnapshot(run, players) {
     ((e.shellMax || 0) > 0 && (e.shellHp || 0) > 0 && (e.shellHp || 0) < (e.shellMax || 0) && (e.shellRegenDelay || 0) <= 0) ? 1 : 0,
     Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10,
     ctrlLocks.has(e.id) ? 1 : 0,
-    ctrlLocks.get(e.id) || 0,
-    lvcLocks.has(e.id) ? 1 : 0,
-    lvcLocks.get(e.id) || ''
+    ctrlLocks.get(e.id) || 0
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn
@@ -11023,30 +10315,29 @@ export function buildSnapshot(run, players) {
     if (!p.connected || !p.alive) continue;
     const lc = ensureLivingCasinoState(p);
     if (lc) {
-      const primaryTarget = livingCasinoTargetById(run, (lc.primaryTargets || [])[0]) || nearestLivingCasinoTarget(run, p, 820);
-      const sparkTarget = livingCasinoTargetById(run, (lc.sparkTargets || [])[0]) || nearestLivingCasinoTarget(run, p, livingCasinoSparkRange(p));
-      const pd = norm(lc.aimPrimaryX || 1, lc.aimPrimaryY || 0);
-      const sd = norm(lc.aimSparkX || 1, lc.aimSparkY || 0);
-      const ptx = primaryTarget ? primaryTarget.x : p.x + pd.x * 230;
-      const pty = primaryTarget ? primaryTarget.y : p.y + pd.y * 230;
-      const stx = sparkTarget ? sparkTarget.x : p.x + sd.x * 210;
-      const sty = sparkTarget ? sparkTarget.y : p.y + sd.y * 210;
-      cs.push([`lvc_line:${p.id}:base`, p.id, 'lvc_line', 0, Math.round(p.x), Math.round(p.y), Math.round(ptx), Math.round(pty), 'LVC', '#ffd34d', primaryTarget ? 1 : 0]);
-      cs.push([`lvc_line:${p.id}:spark`, p.id, 'lvc_line', 1, Math.round(p.x), Math.round(p.y), Math.round(stx), Math.round(sty), 'SPK', '#66f6ff', sparkTarget ? 1 : 0]);
-      for (const lock of (lc.sparkLocks || [])) {
-        const e = livingCasinoTargetById(run, lock.id);
-        if (!e) continue;
-        cs.push([`lvc_spark:${p.id}:${e.id}`, p.id, 'lvc_spark', 0, Math.round(p.x), Math.round(p.y), Math.round(e.x), Math.round(e.y), Math.ceil((lock.t || 0) * 10) / 10, lock.seed || 0]);
+      const gunDefs = [
+        { key: 'base', state: lc.base, range: LC_BASE_RANGE, color: LC_BASE_COLOR },
+        { key: 'sparks', state: lc.sparks, range: livingCasinoSparkRange(lc), color: LC_SPARK_COLOR }
+      ];
+      for (let gi = 0; gi < gunDefs.length; gi++) {
+        const g = gunDefs[gi];
+        const target = livingCasinoEnemyById(run, g.state.aimTargetId);
+        const ex = target ? target.x : p.x + Math.cos(g.state.angle || 0) * g.range;
+        const ey = target ? target.y : p.y + Math.sin(g.state.angle || 0) * g.range;
+        cs.push([`lcgun:${p.id}:${g.key}`, p.id, 'lc_gun', gi, Math.round(ex), Math.round(ey), g.key, Math.round((g.state.angle || 0) * 1000), target?.id || '', p.weaponIdx === gi ? 1 : 0]);
       }
-    }
-    if (p.activePreview && (p.activePreview.expires || 0) > (run.now || 0)) {
-      let pr = null;
-      if (p.activePreview.core === 'void_cut') pr = currentVoidBuilderPreview(run, p);
-      else if (p.activePreview.slot === 'q') pr = qActivePreviewSpec(run, p);
-      else if (p.activePreview.slot === 'r') pr = rActivePreviewSpec(run, p);
-      if (pr) {
-        if (pr.kind === 'line') cs.push([`active_preview:${p.id}:${pr.slot}`, p.id, 'active_preview', pr.slot === 'r' ? 1 : 0, Math.round(pr.x), Math.round(pr.y), Math.round(pr.r || 24), pr.label || '', pr.tone || 'cyan', 'line', Math.round(pr.x2 || pr.x), Math.round(pr.y2 || pr.y), Math.round(pr.index || 1), Math.round(pr.max || 1)]);
-        else cs.push([`active_preview:${p.id}:${pr.slot}`, p.id, 'active_preview', pr.slot === 'r' ? 1 : 0, Math.round(pr.x), Math.round(pr.y), Math.round(pr.r || 80), pr.label || '', pr.tone || 'cyan', pr.kind || 'radius', 0, 0, 0, 0]);
+      for (let i = 0; i < lc.base.targetIds.length; i++) {
+        const e = livingCasinoEnemyById(run, lc.base.targetIds[i]);
+        if (e) cs.push([`lctarget:${p.id}:base:${e.id}`, p.id, 'lc_target', i, Math.round(e.x), Math.round(e.y), 'base', Math.round(e.size || 24), e.id, lc.base.aimTargetId === e.id ? 1 : 0]);
+      }
+      for (let i = 0; i < lc.sparks.targetIds.length; i++) {
+        const e = livingCasinoEnemyById(run, lc.sparks.targetIds[i]);
+        if (e) cs.push([`lctarget:${p.id}:sparks:${e.id}`, p.id, 'lc_target', i, Math.round(e.x), Math.round(e.y), 'sparks', Math.round(e.size || 24), e.id, lc.sparks.aimTargetId === e.id ? 1 : 0]);
+      }
+      for (let i = 0; i < lc.sparks.active.length; i++) {
+        const sp = lc.sparks.active[i], e = livingCasinoEnemyById(run, sp.targetId);
+        if (!e) continue;
+        cs.push([`lcspark:${p.id}:${sp.id}`, p.id, 'lc_spark', i, Math.round(e.x), Math.round(e.y), Math.round(Math.max(0, Math.min(1, sp.t / Math.max(0.1, sp.maxT))) * 1000), Math.round(e.size || 24), e.id, sp.t <= 0.35 ? 1 : 0]);
       }
     }
     const pc = ensureProcessControllerState(p);
@@ -11072,7 +10363,7 @@ export function buildSnapshot(run, players) {
     return [
       o.id, o.type, o.type === 'chest' ? CHESTS[o.chest].label : 'BET',
       o.x, o.y, o.opened ? 1 : 0, o.type === 'chest' ? (blood ? bloodTaxHpCost(effectiveChestCost(run, o)) : effectiveChestCost(run, o)) : 0,
-      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0, value?.slotCount || 0, o.trojan ? 'TROJAN' : (value?.reason || '')
+      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0, value?.slotCount || 0, value?.reason || ''
     ];
   });
   const staticMode = staticRainCurrentMode(run);

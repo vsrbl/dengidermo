@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.170';
-export const BUILD_ID = 'active_preview_void_pathfinding';
+export const VERSION = 'v2.1.169';
+export const BUILD_ID = 'living_casino_dual_autoturret';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

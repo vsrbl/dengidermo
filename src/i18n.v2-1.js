@@ -261,14 +261,14 @@ Object.assign(RU_UPGRADE_CLEAN, {
 
 const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONTROL', 'FREEZE / CONTROL':'FREEZE / CONTROL', 'ARMOR / EXPOSE':'ARMOR / EXPOSE', 'THIN LASER':'THIN LASER', 'BUILD LASER':'BUILD LASER', 'DEPLOY NODE':'DEPLOY NODE', 'STEALTH / SAFE':'STEALTH / SAFE', 'RISK BURST':'RISK BURST', FIELD:'FIELD', DAMAGE:'DAMAGE', RECAST:'RECAST', BULLETS:'BULLETS', 'POST-ROLL':'POST-ROLL', PHASE:'PHASE', SUSTAIN:'SUSTAIN', SHELL:'SHELL', 'LOCK ZONE':'LOCK ZONE', SCALING:'SCALING', 'CHARGE BITE':'CHARGE BITE', 'GLITCH REPEAT':'GLITCH REPEAT' };
 const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'ОПАСНЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ИСКАЖЁННЫЙ ПОВТОР' };
-const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'ДОБАВИТЬ ПУШКУ':'ADD GUN', 'ДОБАВИТЬ ДЕЙСТВИЕ':'ADD ACTION', 'УСИЛИТЬ':'UPGRADE', 'ПОДКРУТИТЬ СТАВКУ':'IMPROVE BET', 'РАСШИРИТЬ КАРТУ':'EXPAND TABLE', 'ДОБАВИТЬ МЕТКУ':'ADD MARK', 'УСИЛИТЬ СТОП':'STRONGER HOLD', 'УСИЛИТЬ КОПИЮ':'UPGRADE COPY', 'АВТО-ОГОНЬ':'AUTOFIRE', 'SIDE UPGRADE':'SIDE UPGRADE' };
-const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ' };
+const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'ДОБАВИТЬ ПУШКУ':'ADD GUN', 'ДОБАВИТЬ ДЕЙСТВИЕ':'ADD ACTION', 'УСИЛИТЬ':'UPGRADE', 'ПОДКРУТИТЬ СТАВКУ':'IMPROVE BET', 'РАСШИРИТЬ КАРТУ':'EXPAND TABLE', 'ДОБАВИТЬ МЕТКУ':'ADD MARK', 'УСИЛИТЬ СТОП':'STRONGER HOLD', 'УСИЛИТЬ КОПИЮ':'UPGRADE COPY', 'АВТО-ОГОНЬ':'AUTOFIRE', 'SIDE UPGRADE':'SIDE UPGRADE', 'ADD TARGET':'ADD TARGET', 'ADD SPARK':'ADD SPARK', 'AMPLIFY':'AMPLIFY', 'EXTEND':'EXTEND' };
+const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ', 'ADD TARGET':'ДОБАВИТЬ ЦЕЛЬ', 'ADD SPARK':'ДОБАВИТЬ ИСКРУ', 'AMPLIFY':'УСИЛИТЬ', 'EXTEND':'ПРОДЛИТЬ' };
 
 const EN_CHEST = {
-  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Core cache: adapts to your core with weapon modules, casino sectors, or control commands.', ABL: 'Protocol chest: Q protocol, Q upgrade, Q mutation, or movement module.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
+  BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Core cache: adapts to your core with weapon modules, Living Casino gun upgrades, or control commands.', ABL: 'Protocol chest: Q protocol, Q upgrade, Q mutation, or movement module.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
 };
 const RU_CHEST = {
-  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Ящик ядра: подстраивается под выбранное ядро — модули оружия, сектора казино или команды контроля.', ABL: 'Сундук протоколов: Q-протокол, усиление Q, мутация или модуль движения.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
+  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение.', WPN: 'Ящик ядра: подстраивается под выбранное ядро — модули оружия, усиления пушек Живого казино или команды контроля.', ABL: 'Сундук протоколов: Q-протокол, усиление Q, мутация или модуль движения.', RAR: 'Редкий сундук: сильное улучшение.', CRS: 'Проклятый сундук: сильная награда, но протокол становится опаснее.'
 };
 const EN_PICKUP = { GLD: 'Credits for chests and bets. Shared by the team.', EXP: 'Experience toward the next level. Install choices appear between sectors.', HEA: 'Healing pickup. Restores health to the collector.' };
 const RU_PICKUP = { GLD: 'Кредиты для сундуков и ставок. Обычный подбор делится с командой.', EXP: 'Опыт для уровней. Улучшения появляются между секторами.', HEA: 'Лечение. Восстанавливает здоровье тому, кто подобрал.' };
@@ -280,10 +280,10 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Casino core. Opens and triggers casino sectors.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
+  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB marks targets; shots cycle through the marked queue.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
 };
 const RU_WEAPON = {
-  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Казино-ядро. Запускает сектор казино.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
+  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ отмечает цели; выстрелы идут по очереди.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'
@@ -475,25 +475,14 @@ export function optionDesc(opt = {}) {
   if (opt.mutation) return mutationDesc(opt.mutation, opt.desc || opt.preview || '');
   const kind = String(opt.kind || '');
   if (kind.startsWith('lc_')) {
-    const sector = String(opt.sector || '');
-    const ru = {
-      dmg: 'Самонаводящиеся цифровые пули.', roulette: 'Квадрат рулетки дробится при ударе.', deck: 'Быстрый веер карт.',
-      guard: 'Отталкивание и временный щит.', chain: 'Быстрые фиолетовые рывки.', bet: 'Риск ради случайной выплаты.',
-      copy: 'Повтор прошлого действия слабее.', ghost: 'Угрозы на время теряют цель.', jackpot: 'Импульс вокруг антивируса.', table: 'Ловушка под антивирусом.'
+    const desc = {
+      lc_target_slot: localText('Добавляет ещё одну цель в очередь казино-модуля.', 'Adds one more target to the casino module queue.'),
+      lc_spark_count: localText('Добавляет заряд искры и ещё одно указание цели.', 'Adds one control spark charge and one target instruction.'),
+      lc_spark_damage: localText('Искры наносят больше урона, пока держат угрозу.', 'Control sparks deal more damage while holding a threat.'),
+      lc_spark_hold: localText('Искры дольше удерживают угрозу перед отталкиванием.', 'Control sparks hold threats longer before release.'),
+      lc_spark_range: localText('Искры замечают угрозы с большего расстояния.', 'Control sparks detect threats from farther away.')
     };
-    const en = {
-      dmg: 'Homing digital shots.', roulette: 'Roulette square splits on impact.', deck: 'Fast fan of cards.',
-      guard: 'Pushback and temporary shield.', chain: 'Fast violet dash charges.', bet: 'Risk for a random payout.',
-      copy: 'Repeats the last action weaker.', ghost: 'Threats briefly lose target.', jackpot: 'Impulse around the antivirus.', table: 'Trap under the antivirus.'
-    };
-    if (kind === 'lc_lvc_auto_fire') return localText('Если казино-модуль выбран, он сам запускается после перезарядки.', 'If the casino module is selected, it triggers automatically after reload.');
-    if (kind === 'lc_copy_power') return localText('Копия повторяет последнее действие сильнее.', 'Copy repeats the last action with more power.');
-    if (kind === 'lc_bet_luck') return localText('Ставка чаще выдаёт сильную выплату и реже сбой.', 'Bet rolls stronger payouts more often and blanks less often.');
-    if (kind === 'lc_table_radius') return localText('Карта-ловушка накрывает больше пола и держится немного дольше.', 'Table trap covers more floor and lasts slightly longer.');
-    if (kind === 'lc_table_triggers') return localText('Карта-ловушка может сработать ещё по одной угрозе перед распадом.', 'Table trap can trigger on one more threat before breaking.');
-    if (kind === 'lc_table_hold') return localText('Карта-ловушка дольше стопорит угрозу и наносит больше урона.', 'Table trap holds the threat longer and deals more damage.');
-    if (kind === 'lc_sector_upgrade') return localText(ru[sector] || cleanPlayerText(opt.desc || ''), en[sector] || cleanPlayerText(opt.desc || ''));
-    if (kind === 'lc_sector_add') return localText(ru[sector] || cleanPlayerText(opt.desc || ''), en[sector] || cleanPlayerText(opt.desc || ''));
+    return desc[kind] || localText(cleanPlayerText(opt.desc || 'Усиление Живого казино.'), cleanPlayerText(opt.desc || 'Living Casino upgrade.'));
   }
   const id = (typeof opt.upgrade === 'string' && opt.upgrade) ? opt.upgrade : opt.id;
   return upgradeDesc(id, opt.desc || opt.preview || '');
@@ -528,7 +517,7 @@ const RU_LABEL = {
 
   'SHG LONGSHOT RMB': 'КЛИНОВОЙ РАЗРЯД: ДАЛЬНИЙ ЗАЛП', 'SEK SWARM RMB': 'САМОНАВОДЧИК: РОЙ', 'RKT STUN BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОГЛУШЕНИЕ', 'RKT SCATTER BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОТБРОС', 'RKT REMOTE DETONATOR': 'РАЗЛОМНЫЙ ЗАРЯД: РУЧНОЙ ВЗРЫВ',
   'VIRUS CLEANUP': 'ОЧИСТКА ВИРУСА', 'PRISM CLEANUP': 'ЗАЧИСТКА ПРИЗМЫ', 'BLOOD CLEANUP': 'КРОВАВАЯ ЗАЧИСТКА', 'STATIC CLEANUP': 'ЧИСТАЯ СТАТИКА', 'FAST CLEANUP': 'БЫСТРАЯ ЗАЧИСТКА', 'NO-HIT CLEANUP': 'БЕЗ УРОНА', 'FULL CLEANUP': 'ПОЛНАЯ ЗАЧИСТКА',
-  'GRID SLOW CLEAR': 'ЗАЧИСТКА СЕТКИ', 'BLOOD TAX': 'КРОВАВАЯ ОПЛАТА', 'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'STATIC NODE': 'СТАТИК-УЗЕЛ', 'SHIFTING ZONES': 'ДВИЖУЩИЕСЯ ЗОНЫ', 'PRISM GRID': 'ПРИЗМ-СЕТКА', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС', 'ANCHOR GRAVITY': 'ЯКОРЯ ГРАВИТАЦИИ', 'ECHO SHOTS': 'ЭХО-ВЫСТРЕЛЫ', 'BLACKOUT': 'ТЕМНОТА', 'SKN CACHE': 'ТАЙНИК ОБЛИКА', 'TROJAN CHEST': 'ТРОЯН-СУНДУК', 'TROJAN': 'ТРОЯН',
+  'GRID SLOW CLEAR': 'ЗАЧИСТКА СЕТКИ', 'BLOOD TAX': 'КРОВАВАЯ ОПЛАТА', 'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'STATIC NODE': 'СТАТИК-УЗЕЛ', 'SHIFTING ZONES': 'ДВИЖУЩИЕСЯ ЗОНЫ', 'PRISM GRID': 'ПРИЗМ-СЕТКА', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС', 'ANCHOR GRAVITY': 'ЯКОРЯ ГРАВИТАЦИИ', 'ECHO SHOTS': 'ЭХО-ВЫСТРЕЛЫ', 'BLACKOUT': 'ТЕМНОТА', 'SKN CACHE': 'ТАЙНИК ОБЛИКА',
   'TARGET LOCK': 'ЗАХВАТ ЦЕЛИ', 'REDLINE BOOST': 'КРАСНАЯ ЛИНИЯ', 'GHOST DECOY': 'ПРИЗРАК-ПРИМАНКА', 'REWIND MARK': 'МЕТКА ОТКАТА', 'KILL SWITCH': 'КНОПКА УДАЛЕНИЯ', 'SPAWN HOLD': 'ЗАДЕРЖКА СПАВНА', 'AEGIS PROCESS': 'ЭГИДА', 'MIRROR PAYOUT': 'ЗЕРКАЛЬНЫЙ ПРИЗ', 'NULL REVIVAL': 'НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'ROOM WAGER': 'СТАВКА СЕКТОРА', 'BOSS KEY': 'КЛЮЧ ЯДРА', 'THREAT SIGNATURE': 'СИГНАТУРА УГРОЗЫ', 'SIGNATURE EXTRACTED': 'СИГНАТУРА ИЗВЛЕЧЕНА',
   'BASIC': 'ОБЫЧНЫЙ', 'UNCOMMON': 'НЕОБЫЧНЫЙ', 'RARE': 'РЕДКИЙ', 'SUPER RARE': 'СВЕРХРЕДКИЙ', 'LEGENDARY': 'ЛЕГЕНДАРНЫЙ',
   'Q: BLOOD PULSE': 'Q: КРОВАВЫЙ ИМПУЛЬС', 'Q: FIELD SNAP': 'Q: СТЯЖКА ПОЛЯ', 'Q: OVERCLOCK': 'Q: РАЗГОН',
@@ -599,7 +588,7 @@ Object.assign(EN_LABEL, {
 
 
 const RU_DYNAMIC_LABEL = {
-  SHOTGUN: 'КЛИНОВОЙ РАЗРЯД', SEEKER: 'ИСКАТЕЛЬ', ROCKETGUN: 'РАЗЛОМНЫЙ ЗАРЯД',
+  SHOTGUN: 'КЛИНОВОЙ РАЗРЯД', SPARK: 'ИСКРА', SPARKS: 'ИСКРЫ', TARGET: 'ЦЕЛЬ', TARGETS: 'ЦЕЛИ', HOLD: 'СВЯЗЬ', RANGE: 'ДАЛЬНОСТЬ', SEEKER: 'ИСКАТЕЛЬ', ROCKETGUN: 'РАЗЛОМНЫЙ ЗАРЯД',
   WPN: 'ЯДРО', ABL: 'ПРОТОКОЛ', RAR: 'РЕДКИЙ', LUCK: 'УДАЧА',
   GUARD: 'ЗАЩИТА', CHAIN: 'ЦЕПЬ', BET: 'СТАВКА', COPY: 'КОПИЯ', GHOST: 'ПРИЗРАК',
   JACKPOT: 'ДЖЕКПОТ', TABLE: 'КАРТА', ZERO: 'НОЛЬ', AUTOPLAY: 'АВТО-ОГОНЬ',
@@ -617,7 +606,7 @@ function dynamicRuLabel(s) {
     'ПУШКА: LVC': 'КАЗИНО-МОДУЛЬ', 'ПУШКА: RLT': 'РУЛЕТКА-МОДУЛЬ', 'ПУШКА: CRD': 'КОЛОДА-МОДУЛЬ',
     'ДЕЙСТВИЕ: GUARD': 'ДЕЙСТВИЕ: ЗАЩИТА', 'ДЕЙСТВИЕ: CHAIN': 'ДЕЙСТВИЕ: ЦЕПЬ', 'ДЕЙСТВИЕ: BET': 'ДЕЙСТВИЕ: СТАВКА',
     'ДЕЙСТВИЕ: COPY': 'ДЕЙСТВИЕ: КОПИЯ', 'ДЕЙСТВИЕ: GHOST': 'ДЕЙСТВИЕ: ПРИЗРАК', 'ДЕЙСТВИЕ: JACKPOT': 'ДЕЙСТВИЕ: ДЖЕКПОТ', 'ДЕЙСТВИЕ: TABLE': 'ДЕЙСТВИЕ: КАРТА',
-    'LVC AUTOPLAY': 'КАЗИНО: АВТО-ОГОНЬ', 'COPY POWER +10%': 'КОПИЯ: СИЛА +10%', 'BET ODDS +1': 'СТАВКА: ШАНС +1', 'DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'DASH FLOW +20%': 'РЫВОК: ВОССТАНОВЛЕНИЕ +20%', 'MOBILITY +12%': 'СКОРОСТЬ +12%',
+    'LVC: TARGET +1': 'LVC: ЦЕЛЬ +1', 'CONTROL SPARK +1': 'ИСКРА КОНТРОЛЯ +1', 'SPARK DAMAGE +': 'ИСКРЫ: УРОН +', 'SPARK HOLD +': 'ИСКРЫ: СВЯЗЬ +', 'SPARK RANGE +': 'ИСКРЫ: ДАЛЬНОСТЬ +', 'LVC AUTOPLAY': 'КАЗИНО: АВТО-ОГОНЬ', 'COPY POWER +10%': 'КОПИЯ: СИЛА +10%', 'BET ODDS +1': 'СТАВКА: ШАНС +1', 'DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'DASH FLOW +20%': 'РЫВОК: ВОССТАНОВЛЕНИЕ +20%', 'MOBILITY +12%': 'СКОРОСТЬ +12%',
     'LIVE CASINO': 'ЖИВОЕ КАЗИНО', 'WPN CHEST': 'ОРУЖЕЙНЫЙ СУНДУК', 'ABL CHEST': 'СУНДУК ПРОТОКОЛОВ', 'BOSS SIG OFFER': 'ПРИЗ ГЛАВНОЙ УГРОЗЫ'
   };
   if (exact[out]) return exact[out];
@@ -633,7 +622,7 @@ function dynamicEnLabel(s) {
   const exact = {
     'ПУШКА: LVC': 'CASINO MODULE', 'ПУШКА: RLT': 'ROULETTE MODULE', 'ПУШКА: CRD': 'DECK MODULE',
     'ДЕЙСТВИЕ: GUARD': 'ACTION: GUARD', 'ДЕЙСТВИЕ: CHAIN': 'ACTION: CHAIN', 'ДЕЙСТВИЕ: BET': 'ACTION: BET', 'ДЕЙСТВИЕ: COPY': 'ACTION: COPY', 'ДЕЙСТВИЕ: GHOST': 'ACTION: GHOST', 'ДЕЙСТВИЕ: JACKPOT': 'ACTION: JACKPOT', 'ДЕЙСТВИЕ: TABLE': 'ACTION: TABLE',
-    'КАЗИНО: АВТО-ОГОНЬ': 'CASINO AUTOFIRE', 'КОПИЯ: СИЛА +10%': 'COPY POWER +10%', 'СТАВКА: ШАНС +1': 'BET ODDS +1'
+    'LVC: ЦЕЛЬ +1': 'LVC: TARGET +1', 'ИСКРА КОНТРОЛЯ +1': 'CONTROL SPARK +1', 'ИСКРЫ: УРОН +': 'SPARK DAMAGE +', 'ИСКРЫ: СВЯЗЬ +': 'SPARK HOLD +', 'ИСКРЫ: ДАЛЬНОСТЬ +': 'SPARK RANGE +', 'КАЗИНО: АВТО-ОГОНЬ': 'CASINO AUTOFIRE', 'КОПИЯ: СИЛА +10%': 'COPY POWER +10%', 'СТАВКА: ШАНС +1': 'BET ODDS +1'
   };
   if (exact[out]) return exact[out];
   out = out.replace(/ГЛАВНАЯ УГРОЗА/g, 'CORE THREAT').replace(/УГРОЗЫ/g, 'THREATS').replace(/УГРОЗА/g, 'THREAT').replace(/ОБЛИК/g, 'SHELL').replace(/СЕКТОР/g, 'SECTOR')
@@ -700,7 +689,7 @@ export function locLabel(label) {
   return out;
 }
 export function locReward(r) { return locLabel(r); }
-export function groupLabel(g) { const v = String(g || '').toUpperCase(); if (langIsEn()) return v === 'CORE' ? 'Q' : v; const ru = { CORE: 'Q', MUTATION: 'МУТАЦИЯ', SIDE: 'ДОП.', UPGRADE: 'УСИЛЕНИЕ' }; return ru[v] || v; }
+export function groupLabel(g) { const v = String(g || '').toUpperCase(); if (langIsEn()) return v === 'CORE' ? 'Q' : v; const ru = { CORE: 'Q', MUTATION: 'МУТАЦИЯ', SIDE: 'ДОП.', UPGRADE: 'УСИЛЕНИЕ', 'LIVING CASINO': 'ЖИВОЕ КАЗИНО' }; return ru[v] || v; }
 export function disabledReason(reason) {
   const r = String(reason || '');
   if (!langIsEn()) return cleanPlayerText(r || t('requiresOtherWeapon'));

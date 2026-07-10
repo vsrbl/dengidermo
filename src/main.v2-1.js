@@ -86,7 +86,6 @@ const skinUnlockKey = 'nnc_skins_unlocked_v1';
 let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
 const heroSaveKey = 'tcr_selected_hero_v1';
-const heroUnlockKey = 'tcr_hero_unlocks_v1';
 const HEROES = {
   base: {
     id: 'base',
@@ -98,9 +97,9 @@ const HEROES = {
   living_casino: {
     id: 'living_casino',
     labelRu: 'ЖИВОЕ КАЗИНО', labelEn: 'LIVING CASINO',
-    descRu: 'пушки и искры', descEn: 'guns and sparks',
-    explainRu: 'Открывается после удаления скрытого казино-вируса. ЛКМ закрепляет цели базовой пушки. ПКМ закрепляет цели Искр контроля.',
-    explainEn: 'Unlocked by deleting the hidden casino virus. LMB marks base-gun targets. RMB marks Control Spark targets.'
+    descRu: 'казино-протокол', descEn: 'casino protocol',
+    explainRu: 'Казино-ядро: оружие и быстрые действия выбираются через кольцо.',
+    explainEn: 'Casino core: weapons and quick actions are picked through the wheel.'
   },
   process_controller: {
     id: 'process_controller',
@@ -110,49 +109,9 @@ const HEROES = {
     explainEn: 'Control core: captures processes, issues orders, and deploys quarantine anchors.'
   }
 };
-function readUnlockedHeroes() {
-  let ids = [];
-  try { ids = JSON.parse(localStorage.getItem(heroUnlockKey) || '[]'); } catch { ids = []; }
-  if (!Array.isArray(ids)) ids = [];
-  const valid = new Set(Object.keys(HEROES));
-  const out = new Set(['base', ...ids.filter(id => valid.has(id))]);
-  localStorage.setItem(heroUnlockKey, JSON.stringify([...out]));
-  return out;
-}
-function writeUnlockedHeroes(set) {
-  const valid = new Set(Object.keys(HEROES));
-  localStorage.setItem(heroUnlockKey, JSON.stringify([...set].filter(id => valid.has(id))));
-}
-function isHeroUnlocked(id) { return readUnlockedHeroes().has(id); }
-function unlockHero(id, silent = false) {
-  if (!HEROES[id]) return false;
-  const set = readUnlockedHeroes();
-  const had = set.has(id);
-  set.add(id); writeUnlockedHeroes(set);
-  updateHeroSelector?.();
-  if (!had && !silent) {
-    const h = HEROES[id];
-    hud?.feed?.(`${localText('ЯДРО ОТКРЫТО', 'CORE UNLOCKED')}: ${localText(h.labelRu, h.labelEn)}`, 'g');
-  }
-  return !had;
-}
-function lockHero(id) {
-  if (!HEROES[id] || id === 'base') return false;
-  const set = readUnlockedHeroes();
-  set.delete(id); writeUnlockedHeroes(set);
-  if (selectedHeroId === id) selectedHeroId = 'base';
-  updateHeroSelector?.();
-  return true;
-}
-function setAllHeroesUnlocked(on = true) {
-  const set = on ? new Set(Object.keys(HEROES)) : new Set(['base']);
-  writeUnlockedHeroes(set);
-  if (!isHeroUnlocked(selectedHeroId)) selectedHeroId = 'base';
-  updateHeroSelector?.();
-}
 const savedHeroId = localStorage.getItem(heroSaveKey);
-let selectedHeroId = (HEROES[savedHeroId] && isHeroUnlocked(savedHeroId)) ? savedHeroId : 'base';
-if (!HEROES[selectedHeroId] || !isHeroUnlocked(selectedHeroId)) selectedHeroId = 'base';
+let selectedHeroId = HEROES[savedHeroId] ? savedHeroId : 'base';
+if (!HEROES[selectedHeroId]) selectedHeroId = 'base';
 
 function hexTriplet(hex, fallback = '0,255,102') {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
@@ -273,39 +232,19 @@ function updateHeroSelector() {
   }
   document.querySelectorAll('[data-hero]').forEach(btn => {
     const h = HEROES[btn.dataset.hero] || HEROES.base;
-    const unlocked = isHeroUnlocked(h.id);
     const on = btn.dataset.hero === selectedHeroId;
     btn.classList.toggle('selected', on);
-    btn.classList.toggle('locked', !unlocked);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
     const title = btn.querySelector('.hero-title');
     const desc = btn.querySelector('.hero-desc');
-    const lockText = h.id === 'living_casino'
-      ? localText('ОТКРЫТЬ: СКРЫТЫЙ КАЗИНО-ВИРУС', 'UNLOCK: HIDDEN CASINO VIRUS')
-      : h.id === 'process_controller'
-        ? localText('ОТКРЫТЬ: ЗАВЕРШИТЬ ОЧИСТКУ', 'UNLOCK: COMPLETE CLEANUP')
-        : '';
     if (title) title.textContent = ru ? h.labelRu : h.labelEn;
-    if (desc) desc.textContent = unlocked ? (ru ? h.descRu : h.descEn) : lockText;
+    if (desc) desc.textContent = ru ? h.descRu : h.descEn;
     btn.dataset.explainTitle = ru ? h.labelRu : h.labelEn;
-    btn.dataset.explain = unlocked ? (ru ? h.explainRu : h.explainEn) : lockText;
+    btn.dataset.explain = ru ? h.explainRu : h.explainEn;
   });
 }
 function setHero(id) {
-  const next = HEROES[id] ? id : 'base';
-  if (!isHeroUnlocked(next)) {
-    const h = HEROES[next] || HEROES.base;
-    const msg = next === 'living_casino'
-      ? localText('ЖИВОЕ КАЗИНО: УДАЛИ СКРЫТЫЙ КАЗИНО-ВИРУС', 'LIVING CASINO: DELETE THE HIDDEN CASINO VIRUS')
-      : next === 'process_controller'
-        ? localText('КОНТРОЛЁР: ЗАВЕРШИ ОЧИСТКУ', 'CONTROLLER: COMPLETE THE CLEANUP')
-        : localText('ЯДРО ЗАКРЫТО', 'CORE LOCKED');
-    hud?.feed?.(msg, 'r');
-    updateHeroSelector();
-    return;
-  }
-  selectedHeroId = next;
+  selectedHeroId = HEROES[id] ? id : 'base';
   localStorage.setItem(heroSaveKey, selectedHeroId);
   updateHeroSelector();
 }
@@ -368,8 +307,6 @@ function handleCasinoSkinReward(pl = {}) {
   handleSkinUnlock(pl.skinId, 'casino');
 }
 window.NNCCKKRR_UNLOCK_SKIN = unlockSkin;
-window.TCR_UNLOCK_HERO = unlockHero;
-window.TCR_LOCK_HERO = lockHero;
 
 function playerName() {
   const name = ($('name-input').value || 'PLAYER').trim().toUpperCase() || 'PLAYER';
@@ -747,9 +684,6 @@ function ensureDevPanel() {
       <button id="dev-wpn">ALL WPN</button>
       <button id="dev-money">GLD/EXP</button>
       <button id="dev-skins">UNLOCK SKINS</button>
-      <button id="dev-lock-skins">LOCK SKINS</button>
-      <button id="dev-heroes">UNLOCK HEROES</button>
-      <button id="dev-lock-heroes">LOCK HEROES</button>
       <button id="dev-god">GOD: OFF</button>
       <button id="dev-all-installs">ALL INSTALLS</button>
       <button id="dev-all-wpn-mods">ALL WPN MODS</button>
@@ -808,17 +742,8 @@ function ensureDevPanel() {
     const set = readUnlockedSkins();
     for (const sk of SKIN_PRESETS) set.add(sk.id);
     writeUnlockedSkins(set);
-    updateSkinPreview();
     hud.feed('DEV: ALL SKINS UNLOCKED', 'c');
   });
-  devPanel.querySelector('#dev-lock-skins')?.addEventListener('click', () => {
-    writeUnlockedSkins(new Set(DEFAULT_UNLOCKED_SKINS));
-    if (!isSkinUnlocked(selectedSkinId)) selectedSkinId = firstUnlockedSkinId();
-    updateSkinPreview(); applySkinTheme(selectedSkinId);
-    hud.feed('DEV: SKINS RESET', 'c');
-  });
-  devPanel.querySelector('#dev-heroes')?.addEventListener('click', () => { setAllHeroesUnlocked(true); hud.feed('DEV: ALL HEROES UNLOCKED', 'c'); });
-  devPanel.querySelector('#dev-lock-heroes')?.addEventListener('click', () => { setAllHeroesUnlocked(false); hud.feed('DEV: HEROES RESET', 'c'); });
   return devPanel;
 }
 function toggleDevPanel() {

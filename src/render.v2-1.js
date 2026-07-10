@@ -465,7 +465,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, lvcLock = 0, lvcKind = ''] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -515,31 +515,6 @@ export class Renderer {
         ctx.strokeStyle = stroke; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(ex, ey);
         ctx.lineTo(ex + (dirX / 100) * size, ey + (dirY / 100) * size); ctx.stroke();
-      } else if (kind === 'wall_clinger') {
-        const open = st === 'burst' || st === 'open';
-        const body = open ? size : size * 0.72;
-        const tone = open ? COL.red : COL.cyan;
-        this.square(ex, ey, body, { stroke: tone, lw: open ? 2.4 : 4.2, fill: open ? 'rgba(255,48,72,0.09)' : 'rgba(102,246,255,0.08)' });
-        if (!open) {
-          ctx.save();
-          ctx.globalAlpha = 0.72;
-          ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.6; ctx.setLineDash([5, 4]);
-          ctx.strokeRect(Math.round(ex - size * 0.66), Math.round(ey - size * 0.36), Math.round(size * 1.32), Math.round(size * 0.72));
-          ctx.setLineDash([]);
-          ctx.restore();
-        } else {
-          ctx.save();
-          ctx.strokeStyle = COL.red; ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(ex - size * 0.55, ey - size * 0.10); ctx.lineTo(ex + size * 0.55, ey - size * 0.10);
-          ctx.moveTo(ex - size * 0.42, ey + size * 0.22); ctx.lineTo(ex + size * 0.42, ey + size * 0.22);
-          ctx.stroke();
-          ctx.restore();
-        }
-        ctx.strokeStyle = tone; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(ex, ey);
-        ctx.lineTo(ex + ((dirX / 100) || 1) * size * 0.9, ey + ((dirY / 100) || 0) * size * 0.9); ctx.stroke();
-        this.label('WCL', ex, ey - size / 2 - 10, tone, 9);
       } else if (kind === 'charger' || kind === 'boss_q_revisor' || kind === 'boss_hunter_duelist') {
         const winding = st === 'windup';
         if (winding) {
@@ -899,22 +874,6 @@ export class Renderer {
         ctx.fillRect(Math.round(ex - r / 2 + 1), Math.round(ey - r / 2 - 7), Math.round((r - 2) * pct / 100), 3);
         ctx.restore();
       }
-      if (lvcLock) {
-        ctx.save();
-        const lk = String(lvcKind || 'lvc');
-        const col = lk === 'spark' ? COL.cyan : COL.gold;
-        const pulse = 0.58 + Math.sin(now * 12) * 0.15;
-        ctx.globalAlpha = 0.72 + pulse * 0.22;
-        ctx.strokeStyle = col;
-        ctx.lineWidth = lk === 'spark' ? 2.4 : 2.0;
-        ctx.setLineDash(lk === 'spark' ? [4, 4] : [9, 5, 2, 5]);
-        const lockSize = size + 28;
-        ctx.strokeRect(Math.round(ex - lockSize/2), Math.round(ey - lockSize/2), Math.round(lockSize), Math.round(lockSize));
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 0.90;
-        this.label(lk === 'spark' ? 'SPK' : 'LVC', ex, ey - lockSize / 2 - 7, col, 8);
-        ctx.restore();
-      }
       // hp tick under damaged regular enemies only. Bosses already have their own readable top bar.
       if (!isBossKind && hp01 < 100) {
         ctx.fillStyle = '#222'; ctx.fillRect(ex - size / 2, ey + size / 2 + 5, size, 3);
@@ -1034,143 +993,96 @@ export class Renderer {
             this.square(cx, cy, 13, { stroke: skinMetaLocal.outline || COL.cyan, lw: 1, alpha: 0.24, rotate: a + Math.PI / 4 });
             this.square(cx, cy, 9, { stroke: skinMetaLocal.outline || COL.cyan, lw: 2, rotate: a });
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
-          } else if (type === 'lvc_line') {
-            const tx = Number(c[6] || cx) || cx;
-            const ty = Number(c[7] || cy) || cy;
-            const label = String(c[8] || 'LVC');
-            const tone = /^#[0-9a-fA-F]{6}$/.test(String(c[9] || '')) ? String(c[9]) : (label === 'SPK' ? COL.cyan : COL.gold);
-            const locked = !!c[10];
-            const dx = tx - cx, dy = ty - cy;
+          } else if (type === 'lc_gun') {
+            const gun = String(c[6] || 'base');
+            const angle = (Number(c[7] || 0) || 0) / 1000;
+            const selectedGun = !!c[9];
+            const tone = gun === 'sparks' ? '#66f6ff' : '#ffd34d';
+            const dx = cx - px, dy = cy - py;
             const len = Math.hypot(dx, dy) || 1;
             const ux = dx / len, uy = dy / len;
-            const sx = cx + ux * 17, sy = cy + uy * 17;
-            const ex2 = cx + ux * Math.min(len, locked ? len - 16 : 235);
-            const ey2 = cy + uy * Math.min(len, locked ? len - 16 : 235);
             ctx.save();
-            ctx.globalAlpha = locked ? 0.86 : 0.42;
-            ctx.strokeStyle = tone; ctx.lineWidth = locked ? 2.1 : 1.35;
-            ctx.setLineDash(locked ? [] : [8, 7]);
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex2, ey2); ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.globalAlpha = 0.95;
-            ctx.strokeStyle = tone; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + ux * 28, sy + uy * 28); ctx.stroke();
-            ctx.restore();
-            this.label(label, sx + ux * 40, sy + uy * 40 - 8, tone, 8);
-            this.companionTrail.set(id, { x: cx, y: cy, t: now });
-          } else if (type === 'lvc_spark') {
-            const tx = Number(c[6] || cx) || cx;
-            const ty = Number(c[7] || cy) || cy;
-            const ttl = Math.max(0, Number(c[8] || 0) || 0);
-            const seed = Number(c[9] || 0) || 0;
-            const dx = tx - cx, dy = ty - cy;
-            const dist = Math.hypot(dx, dy) || 1;
-            const ux = dx / dist, uy = dy / dist;
-            const pxn = -uy, pyn = ux;
-            const bends = Math.max(2, Math.min(5, Math.round(dist / 95) + 1));
-            ctx.save();
-            ctx.globalAlpha = 0.72 + Math.sin(now * 22 + seed) * 0.12;
-            ctx.strokeStyle = COL.cyan; ctx.lineWidth = 2.2;
+            ctx.globalAlpha = selectedGun ? 0.72 : 0.44;
+            ctx.strokeStyle = tone;
+            ctx.lineWidth = selectedGun ? 1.7 : 1.15;
+            ctx.setLineDash(gun === 'sparks' ? [3, 7] : [10, 7]);
             ctx.beginPath();
-            ctx.moveTo(cx + ux * 18, cy + uy * 18);
-            for (let i = 1; i <= bends; i++) {
-              const t = i / (bends + 1);
-              const wobble = Math.sin(seed * 0.017 + now * 21 + i * 2.31) * (10 + Math.min(24, dist * 0.035));
-              ctx.lineTo(cx + dx * t + pxn * wobble, cy + dy * t + pyn * wobble);
-            }
-            ctx.lineTo(tx - ux * 13, ty - uy * 13);
-            ctx.stroke();
-            ctx.globalAlpha = 0.22;
-            ctx.lineWidth = 6;
-            ctx.beginPath();
-            ctx.moveTo(cx + ux * 18, cy + uy * 18);
-            ctx.lineTo(tx - ux * 13, ty - uy * 13);
-            ctx.stroke();
-            ctx.restore();
-            if (ttl > 0) this.label(`${ttl.toFixed(1)}s`, (cx + tx) / 2, (cy + ty) / 2 - 12, COL.cyan, 8);
-            this.companionTrail.set(id, { x: tx, y: ty, t: now });
-          } else if (type === 'active_preview') {
-            const r = Math.max(18, Number(c[6] || 80) || 80);
-            const label = String(c[7] || 'READY');
-            const rawTone = String(c[8] || 'cyan');
-            const tone = /^#[0-9a-fA-F]{6}$/.test(rawTone) ? rawTone : (rawTone === 'red' ? COL.red : rawTone === 'purple' ? COL.purple : rawTone === 'gold' ? COL.gold : COL.cyan);
-            const kind = String(c[9] || 'radius');
-            ctx.save();
-            if (kind === 'line') {
-              const x2 = Number(c[10] || cx) || cx;
-              const y2 = Number(c[11] || cy) || cy;
-              const idx = Math.max(1, Number(c[12] || 1) | 0);
-              const max = Math.max(idx, Number(c[13] || idx) | 0);
-              const dx = x2 - cx, dy = y2 - cy;
-              const len = Math.hypot(dx, dy) || 1;
-              const ux = dx / len, uy = dy / len;
-              ctx.globalAlpha = 0.78 + Math.sin(now * 9) * 0.08;
-              ctx.strokeStyle = tone;
-              ctx.lineWidth = 2;
-              ctx.setLineDash([12, 8]);
-              ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x2, y2); ctx.stroke();
-              ctx.setLineDash([]);
-              ctx.globalAlpha = 0.22;
-              ctx.lineWidth = Math.max(6, r);
-              ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x2, y2); ctx.stroke();
-              this.square(cx, cy, 18, { stroke: tone, lw: 2, alpha: 0.80, rotate: now * 1.8 });
-              this.square(x2, y2, 14, { stroke: tone, lw: 2, alpha: 0.68, rotate: -now * 1.5 });
-              ctx.restore();
-              this.label(`${label || 'VOID'} ${idx}/${max}`, cx + ux * Math.min(90, len * 0.45), cy + uy * Math.min(90, len * 0.45) - 14, tone, 9);
-            } else {
-              ctx.globalAlpha = kind === 'target' ? 0.84 : 0.56;
-              ctx.strokeStyle = tone;
-              ctx.lineWidth = kind === 'target' ? 2.4 : 2;
-              ctx.setLineDash(kind === 'target' ? [10, 4, 2, 4] : [8, 7]);
-              ctx.strokeRect(Math.round(cx - r / 2), Math.round(cy - r / 2), Math.round(r), Math.round(r));
-              ctx.setLineDash([]);
-              ctx.globalAlpha = 0.12;
-              ctx.fillStyle = tone;
-              ctx.fillRect(Math.round(cx - r / 2 + 4), Math.round(cy - r / 2 + 4), Math.round(Math.max(0, r - 8)), Math.round(Math.max(0, r - 8)));
-              const node = Math.max(14, Math.min(34, r * 0.14));
-              ctx.globalAlpha = 0.85;
-              ctx.strokeStyle = tone; ctx.lineWidth = 2;
-              ctx.strokeRect(Math.round(cx - node / 2), Math.round(cy - node / 2), Math.round(node), Math.round(node));
-              ctx.restore();
-              this.label(label || 'READY', cx, cy - r / 2 - 12, tone, 9);
-            }
-            this.companionTrail.set(id, { x: cx, y: cy, t: now });
-          } else if (type === 'lc_sector') {
-            const secType = String(c[6] || 'dmg');
-            const ready = !!c[7], active = !!c[8], selected = !!c[9];
-            const cd = Math.max(0, Number(c[10] || 0) || 0);
-            const lvl = Math.max(1, Number(c[11] || 1) | 0);
-            const ringOpen = !!c[12];
-            const chainCharges = Math.max(0, Number(c[13] || 0) | 0);
-            const tone = secType === 'guard' ? COL.cyan : secType === 'chain' ? COL.purple : secType === 'bet' ? '#ff9f1a' : secType === 'copy' ? COL.green : secType === 'ghost' ? '#7aa8ff' : secType === 'roulette' ? '#ff3048' : secType === 'deck' ? '#66f6ff' : secType === 'jackpot' ? COL.gold : secType === 'table' ? '#f3f3f3' : COL.gold;
-            const rot = Number(c[3] || 0) * 0.7;
-            ctx.save();
-            // Connector line: these are UI panels attached to the player, not loose orbiting blocks.
-            ctx.globalAlpha = 0.56;
-            ctx.strokeStyle = selected ? '#f3f3f3' : tone;
-            ctx.lineWidth = selected ? 1.8 : 1.1;
-            ctx.setLineDash(selected ? [] : [6, 7]);
-            ctx.beginPath();
-            ctx.moveTo(px, py);
+            ctx.moveTo(px + ux * 24, py + uy * 24);
             ctx.lineTo(cx, cy);
             ctx.stroke();
             ctx.setLineDash([]);
-            // Larger terminal UI plate. No inner icon: the label itself is the interaction target.
-            const w = selected ? 116 : 104;
-            const h = selected ? 46 : 40;
-            ctx.globalAlpha = 0.90;
-            ctx.fillStyle = '#050505';
-            ctx.fillRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
-            ctx.globalAlpha = active ? 0.96 : (ready ? 0.90 : 0.46);
-            ctx.strokeStyle = selected ? '#f3f3f3' : tone;
-            ctx.lineWidth = selected ? 2.6 : 1.6;
-            ctx.strokeRect(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
-            ctx.globalAlpha = selected ? 0.22 : 0.10;
-            ctx.fillStyle = tone;
-            ctx.fillRect(Math.round(cx - w / 2 + 4), Math.round(cy - h / 2 + 4), Math.round(w - 8), 3);
+            const bx = px + Math.cos(angle) * 22;
+            const by = py + Math.sin(angle) * 22;
+            ctx.globalAlpha = 0.96;
+            ctx.lineWidth = gun === 'sparks' ? 3 : 2.5;
+            ctx.beginPath();
+            ctx.moveTo(px + Math.cos(angle) * 8, py + Math.sin(angle) * 8);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+            ctx.globalAlpha = selectedGun ? 0.90 : 0.62;
+            ctx.strokeRect(Math.round(bx - 4), Math.round(by - 4), 8, 8);
             ctx.restore();
-            const secLabel = ({ dmg:'LVC', roulette:'RLT', deck:'CRD', guard:'GUARD', chain:'CHAIN', bet:'BET', copy:'COPY', ghost:'GHOST', jackpot:'JACK', table:'TABLE' })[secType] || String(secType || '').toUpperCase().slice(0, 6);
-            this.label(secLabel, cx, cy + 2, ready ? (selected ? '#f3f3f3' : tone) : '#777', selected ? 12 : 10);
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
+          } else if (type === 'lc_target') {
+            const gun = String(c[6] || 'base');
+            const size = Math.max(18, Number(c[7] || 24) || 24);
+            const active = !!c[9];
+            const tone = gun === 'sparks' ? '#66f6ff' : '#ffd34d';
+            const r = size * 0.72 + (active ? 13 : 9);
+            const pulse = active ? 1 + Math.sin(now * 12 + Number(c[3] || 0)) * 0.08 : 1;
+            ctx.save();
+            ctx.globalAlpha = active ? 0.94 : 0.62;
+            ctx.strokeStyle = tone;
+            ctx.lineWidth = active ? 2.4 : 1.5;
+            ctx.setLineDash(active ? [] : [7, 5]);
+            ctx.strokeRect(Math.round(cx - r * pulse), Math.round(cy - r * pulse), Math.round(r * 2 * pulse), Math.round(r * 2 * pulse));
+            ctx.setLineDash([]);
+            ctx.globalAlpha = active ? 0.46 : 0.26;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(Math.round(cx - r + 5), Math.round(cy - r + 5), Math.round((r - 5) * 2), Math.round((r - 5) * 2));
+            ctx.restore();
+            this.label(gun === 'sparks' ? 'SPK' : 'LVC', cx, cy - r - 9, tone, 7);
+            this.companionTrail.set(id, { x: cx, y: cy, t: now });
+          } else if (type === 'lc_spark') {
+            const life = Math.max(0, Math.min(1, (Number(c[6] || 0) || 0) / 1000));
+            const targetSize = Math.max(18, Number(c[7] || 24) || 24);
+            const expiring = !!c[9];
+            const dx = cx - px, dy = cy - py;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx / len, uy = dy / len;
+            const nx = -uy, ny = ux;
+            const breaks = Math.max(2, Math.min(8, Math.round(len / 115) + 1));
+            const phase = Math.floor(now * 16);
+            const points = [];
+            for (let i = 0; i <= breaks + 1; i++) {
+              const t = i / (breaks + 1);
+              let off = 0;
+              if (i > 0 && i < breaks + 1) {
+                const seed = Math.sin((phase * 13.17 + i * 41.73 + Number(c[3] || 0) * 17.11)) * 43758.5453;
+                off = ((seed - Math.floor(seed)) * 2 - 1) * Math.min(22, 5 + len * 0.018);
+              }
+              points.push({ x: px + dx * t + nx * off, y: py + dy * t + ny * off });
+            }
+            ctx.save();
+            ctx.lineJoin = 'miter';
+            ctx.lineCap = 'butt';
+            ctx.globalAlpha = 0.18 + life * 0.18;
+            ctx.strokeStyle = '#66f6ff';
+            ctx.lineWidth = expiring ? 8 : 6;
+            ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+            ctx.stroke();
+            ctx.globalAlpha = 0.72 + life * 0.24;
+            ctx.strokeStyle = expiring ? '#f3f3f3' : '#66f6ff';
+            ctx.lineWidth = expiring ? 2.6 : 1.8;
+            ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+            ctx.stroke();
+            ctx.globalAlpha = 0.50;
+            ctx.strokeStyle = '#66f6ff';
+            ctx.lineWidth = 1.4;
+            ctx.strokeRect(Math.round(cx - targetSize * 0.78), Math.round(cy - targetSize * 0.78), Math.round(targetSize * 1.56), Math.round(targetSize * 1.56));
+            ctx.restore();
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else if (type === 'ctrl_proc') {
             const procLabel = String(c[6] || 'PRC');
@@ -1262,22 +1174,7 @@ export class Renderer {
         continue;
       }
       ctx.save();
-      const lvcHud = p[P.LVC] || null;
-      const lvcChainCharges = Math.max(0, Number(lvcHud?.chainCharges || 0) | 0);
-      if (lvcChainCharges > 0) {
-        const gp = 0.55 + Math.sin(now * 18) * 0.16;
-        ctx.save();
-        ctx.globalAlpha = 0.24 + gp * 0.16;
-        ctx.strokeStyle = COL.purple;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([7, 5, 2, 5]);
-        const gr = 52 + Math.sin(now * 14) * 4;
-        ctx.strokeRect(px - gr / 2, py - gr / 2, gr, gr);
-        ctx.setLineDash([]);
-        ctx.restore();
-        this.label(`CHAIN x${lvcChainCharges}`, px, py - 50, COL.purple, 8);
-      }
-      const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') && Number(p[P.RT] || 0) > 0) || !!(p[P.LVC] && Number(p[P.LVC].ghostActive || 0) > 0);
+      const ghostActive = (String(p[P.RLABEL] || '').includes('GHOST') && Number(p[P.RT] || 0) > 0);
       if (inv) ctx.globalAlpha = 0.55 + Math.sin(now * 18) * 0.25;
       if (ghostActive) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.38 + Math.sin(now * 16) * 0.12);
       const redlineActive = String(p[P.RLABEL] || '').includes('REDLINE') && Number(p[P.RT] || 0) > 0;

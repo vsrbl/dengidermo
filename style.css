@@ -4648,70 +4648,6 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   padding: 0 2px !important;
 }
 
-/* v2.1.117 — Living Casino selected-sector HUD */
-#living-casino-selected {
-  min-width: min(300px, 42vw);
-  max-width: min(360px, 46vw);
-  margin: 0 0 8px auto;
-  padding: 7px 10px;
-  border: 1px solid rgba(255,211,77,.54);
-  background: rgba(5,5,5,.82);
-  box-shadow: 0 0 14px rgba(255,211,77,.12);
-  text-align: right;
-  letter-spacing: .10em;
-  color: var(--gold);
-  pointer-events: auto;
-}
-#living-casino-selected.hidden { display: none !important; }
-#living-casino-selected b { display:block; color: var(--dim); font-size: 9px; letter-spacing:.24em; margin-bottom:2px; }
-#living-casino-selected span { display:block; color: var(--fg); font-size: 15px; line-height:1.05; }
-#living-casino-selected em { display:block; font-style:normal; color: inherit; font-size: 10px; margin-top:3px; opacity:.90; }
-#living-casino-selected.ready { border-color: rgba(0,255,102,.52); color: var(--green); box-shadow: 0 0 14px rgba(0,255,102,.10); }
-#living-casino-selected.cooldown { border-color: rgba(255,48,72,.50); color: var(--red); box-shadow: 0 0 14px rgba(255,48,72,.10); }
-#living-casino-selected.active { border-color: rgba(102,246,255,.55); color: var(--cyan); box-shadow: 0 0 14px rgba(102,246,255,.12); }
-#living-casino-selected.open { border-color: rgba(255,255,255,.72); color: var(--fg); box-shadow: 0 0 18px rgba(255,255,255,.10); }
-
-/* v2.1.119 — Living Casino HUD polish */
-.lc-selected {
-  margin: 6px 0 0 auto;
-  padding: 7px 10px;
-  min-width: 150px;
-  max-width: 230px;
-  border: 1px solid rgba(255, 211, 77, 0.76);
-  background: rgba(5, 5, 5, 0.88);
-  box-shadow: 0 0 0 1px rgba(255, 211, 77, 0.14), 0 0 18px rgba(255, 211, 77, 0.08);
-  text-align: right;
-  font-family: 'Courier New', ui-monospace, monospace;
-  pointer-events: auto;
-}
-.lc-selected.hidden { display: none !important; }
-.lc-selected b {
-  display: block;
-  font-size: 9px;
-  line-height: 1;
-  letter-spacing: .12em;
-  opacity: .72;
-  color: #ffd34d;
-}
-.lc-selected span {
-  display: block;
-  margin-top: 3px;
-  font-size: 15px;
-  line-height: 1.05;
-  color: #f3f3f3;
-}
-.lc-selected em {
-  display: block;
-  margin-top: 3px;
-  font-size: 10px;
-  line-height: 1.05;
-  font-style: normal;
-  color: rgba(243, 243, 243, 0.72);
-}
-.lc-selected.cooldown { border-color: rgba(255, 48, 72, 0.66); }
-.lc-selected.active { border-color: rgba(0, 255, 102, 0.74); }
-.lc-selected.open { border-color: rgba(102, 246, 255, 0.80); }
-
 /* v2.1.121 — main menu hero selector + hidden YouTube visual player */
 #youtube-music.compact #youtube-player-wrap {
   position: absolute !important;
@@ -4759,20 +4695,6 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   overflow: hidden;
 }
 .hero-card:hover { background: rgba(255,211,77,.11); color: var(--fg); }
-
-.hero-card.locked {
-  opacity: .48;
-  filter: grayscale(.65);
-  border-color: rgba(255,255,255,.12) !important;
-}
-.hero-card.locked .hero-title::after {
-  content: ' LOCK';
-  color: #ff3048;
-  font-size: .72em;
-  letter-spacing: .08em;
-}
-.hero-card.locked.selected { opacity: .62; }
-
 .hero-card.selected {
   border-color: #ffd34d;
   color: #ffd34d;
@@ -5345,4 +5267,71 @@ body.ctrl-capture-active #custom-cursor .cc::after {
 @keyframes ytStatusPulseV2156 {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
+}
+
+/* v2.1.169 — Living Casino dual autonomous gun rack */
+#living-casino-selected.lc-dual-rack {
+  width: min(360px, 46vw);
+  min-width: min(300px, 42vw);
+  margin: 0 0 8px auto;
+  padding: 7px;
+  border: 1px solid rgba(255,211,77,.48);
+  background: rgba(5,5,5,.88);
+  box-shadow: 0 0 0 1px rgba(255,211,77,.08), 0 0 18px rgba(255,211,77,.08);
+  color: var(--fg);
+  text-align: right;
+  pointer-events: auto;
+  font-family: 'Courier New', ui-monospace, monospace;
+}
+#living-casino-selected.lc-dual-rack.hidden { display:none !important; }
+.lc-dual-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 3px 5px;
+  color:rgba(255,211,77,.92);
+  font-size:9px;
+  letter-spacing:.18em;
+}
+.lc-dual-head b, .lc-dual-head em { display:block; margin:0; font:inherit; color:inherit; }
+.lc-dual-head em { opacity:.58; font-style:normal; }
+.lc-gun-row {
+  display:grid;
+  grid-template-columns:20px 42px minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px;
+  min-height:27px;
+  padding:4px 6px;
+  border:1px solid rgba(243,243,243,.14);
+  background:rgba(255,255,255,.025);
+  font-size:10px;
+  letter-spacing:.08em;
+  transition:border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.lc-gun-row + .lc-gun-row { margin-top:4px; }
+.lc-gun-row i {
+  display:grid;
+  place-items:center;
+  width:17px;
+  height:17px;
+  border:1px solid currentColor;
+  font-style:normal;
+  opacity:.72;
+}
+.lc-gun-row strong { font-size:13px; letter-spacing:.12em; }
+.lc-gun-row span { margin:0; color:rgba(243,243,243,.78); font-size:9px; white-space:nowrap; }
+.lc-gun-row em { margin:0; color:currentColor; font-size:9px; font-style:normal; white-space:nowrap; }
+.lc-gun-row.lc-base { color:#ffd34d; }
+.lc-gun-row.lc-sparks { color:#66f6ff; }
+.lc-gun-row.selected {
+  background:rgba(255,255,255,.055);
+  border-color:currentColor;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 0 12px color-mix(in srgb, currentColor 20%, transparent);
+}
+#weapon-slots.lc-slots .wslot.lc-slot-base.active { border-color:#ffd34d; color:#ffd34d; }
+#weapon-slots.lc-slots .wslot.lc-slot-sparks.active { border-color:#66f6ff; color:#66f6ff; }
+@media (max-width: 760px) {
+  #living-casino-selected.lc-dual-rack { width:min(330px,72vw); min-width:0; }
+  .lc-gun-row { grid-template-columns:18px 36px minmax(0,1fr); }
+  .lc-gun-row em { grid-column:3; }
 }

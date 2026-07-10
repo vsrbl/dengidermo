@@ -311,13 +311,6 @@ export class Effects {
         if (mine) this.kick(2);
         break;
       }
-      case 'lc_chain_dash': {
-        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
-        this.add({ kind: 'line', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, ttl: 0.18, color: '#b45cff', dash: false });
-        this.add({ kind: 'voidDashRift', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, w: 24, ttl: 0.16, color: '#b45cff' });
-        if (mine && Number(f.charges || 0) > 1) this.float((f.x1 + f.x2) / 2, (f.y1 + f.y2) / 2 - 30, `CHAIN x${Number(f.charges || 0) - 1}`, '#b45cff', 9);
-        break;
-      }
       case 'bullet_cut':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 50 + (f.count || 1) * 4, ttl: 0.18, color: '#66f6ff' });
         break;
@@ -417,71 +410,37 @@ export class Effects {
         if (f.label && !f.noFloat) this.float(f.x, f.y - 42, fxLabel(f.label), col, 10);
         break;
       }
-      case 'lc_chain_ready': {
-        if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
-        this.add({ kind: 'squareField', activeKind: 'lc_chain_ready', x: f.x, y: f.y, r: f.r || 155, ttl: 0.30, color: '#b45cff', tick: 1 });
-        this.float(f.x, f.y - 50, fxLabel(f.label || 'CHAIN DASH'), '#b45cff', 12);
+      case 'lc_target_lock': {
+        const col = f.gun === 'sparks' ? '#66f6ff' : '#ffd34d';
+        if (mine) this.kick(f.enabled ? 1.6 : 0.8);
+        this.add({ kind: 'squareField', activeKind: 'lc_target_lock', x: f.x, y: f.y, r: f.r || 48, ttl: 0.22, color: col, tick: 1 });
+        this.float(f.x, f.y - 32, f.enabled ? fxLabel(f.gun === 'sparks' ? 'SPK MARK' : 'LVC MARK') : fxLabel('MARK OFF'), col, 10);
         break;
       }
-      case 'lc_guard': {
-        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
-        this.add({ kind: 'squareField', activeKind: 'lc_guard', x: f.x, y: f.y, r: f.r || 190, ttl: 0.34, color: '#66f6ff', tick: 1 });
-        this.float(f.x, f.y - 52, fxLabel(f.label || 'GUARD'), '#66f6ff', 13);
+      case 'lc_target_miss': {
+        if (mine) this.kick(0.7);
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_target_miss', x: f.x, y: f.y, r: 30, ttl: 0.14, color: '#ff3048' });
         break;
       }
-      case 'lc_guard_hit': {
-        this.add({ kind: 'squareBlastLite', activeKind: 'lc_guard_hit', x: f.x, y: f.y, r: f.r || 54, ttl: 0.18, color: '#66f6ff' });
+      case 'lc_spark_attach': {
+        if (mine) { this.slam = Math.max(this.slam, 0.04); this.kick(2.5); }
+        this.add({ kind: 'squareField', activeKind: 'lc_spark_attach', x: f.x, y: f.y, r: f.r || 52, ttl: 0.26, color: '#66f6ff', tick: 1 });
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_spark_attach_core', x: f.x, y: f.y, r: Math.max(26, (f.r || 52) * 0.55), ttl: 0.16, color: '#f3f3f3' });
         break;
       }
-      case 'lc_bet_roll': {
-        const spin = String(f.phase || '') === 'spin';
-        if (mine) { this.slam = Math.max(this.slam, spin ? 0.05 : (f.win ? 0.09 : 0.04)); this.kick(spin ? 3 : (f.win ? 5 : 2)); }
-        const col = spin ? '#ffd34d' : (f.win ? '#ffd34d' : '#ff3048');
-        const symbols = Array.isArray(f.symbols) && f.symbols.length ? f.symbols : (spin ? ['?', '?', '?'] : [f.stake || 'BET', f.reward || 'PAY', f.win ? 'WIN' : 'LOSE']);
-        this.add({ kind: 'casinoRollBurst', activeKind: 'lc_bet_roll', x: f.x, y: f.y + 12, ttl: spin ? 1.05 : 0.72, color: col, symbols });
-        this.add({ kind: 'squareField', activeKind: 'lc_bet_roll', x: f.x, y: f.y, r: spin ? (f.r || 120) + 18 : f.r || 120, ttl: spin ? 0.95 : 0.42, color: col, tick: 1 });
-        this.float(f.x, f.y - 108, spin ? `BET ROLL: ${f.stake || ''}-${f.paid || 0}` : `BET ${f.stake || ''}-${f.paid || 0}`, '#ffd34d', 11);
-        this.float(f.x, f.y - 88, spin ? 'SLOTS SPIN...' : (f.win ? `WIN ${f.reward || ''}+${f.val || 0}` : 'LOSE'), col, spin ? 13 : 16);
+      case 'lc_spark_tick': {
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_spark_tick', x: f.x, y: f.y, r: 22, ttl: 0.08, color: '#66f6ff' });
         break;
       }
-      case 'lc_sector_ring': {
-        const open = f.mode === 'open';
-        // v2.1.164: no world-area animation around the hero for the Living Casino ring.
-        // The ring itself is the UI; only a tiny tactile tick remains.
-        if (mine) this.kick(open ? 0.8 : 0.6);
+      case 'lc_spark_release': {
+        if (mine) { this.slam = Math.max(this.slam, 0.055); this.kick(3.2); }
+        this.add({ kind: 'squareField', activeKind: 'lc_spark_release', x: f.x, y: f.y, r: f.r || 58, ttl: 0.24, color: '#66f6ff', tick: 1 });
+        this.add({ kind: 'squareBlastLite', activeKind: 'lc_spark_release_core', x: f.x, y: f.y, r: Math.max(34, (f.r || 58) * 0.72), ttl: 0.18, color: '#ffd34d' });
         break;
       }
-      case 'lc_sector_pick': {
-        const col = f.tone === 'purple' ? '#b45cff' : f.tone === 'cyan' ? '#66f6ff' : f.tone === 'green' ? '#00ff66' : '#ffd34d';
-        if (mine) { this.slam = Math.max(this.slam, 0.035); this.kick(f.mode === 'action' ? 3.2 : 2.4); }
-        // x/y is the selected action plate position, not the player center.
-        this.add({ kind: 'lcPlateDissolve', activeKind: 'lc_sector_pick', x: f.x, y: f.y, w: f.mode === 'action' ? 116 : 108, h: f.mode === 'action' ? 46 : 42, ttl: 0.42, color: col, label: fxLabel(f.label || 'LVC'), mode: f.mode || 'pick' });
-        this.float(f.x, f.y - 34, `${f.mode === 'action' ? 'ACT' : 'PICK'}: ${fxLabel(f.label || 'LVC')}`, col, 11);
-        break;
-      }
-      case 'lc_copy': {
-        if (mine) { this.slam = Math.max(this.slam, 0.06); this.kick(3); }
-        this.add({ kind: 'squareField', activeKind: 'lc_copy', x: f.x, y: f.y, r: f.r || 128, ttl: 0.28, color: '#00ff66', tick: 1 });
-        this.float(f.x, f.y - 48, fxLabel(f.label || 'COPY'), '#00ff66', 11);
-        break;
-      }
-      case 'lc_ghost': {
-        if (mine) { this.slam = Math.max(this.slam, 0.08); this.kick(4); }
-        this.add({ kind: 'squareField', activeKind: 'lc_ghost', x: f.x, y: f.y, r: f.r || 150, ttl: 0.34, color: '#b45cff', tick: 1 });
-        this.float(f.x, f.y - 52, fxLabel(f.label || 'GHOST'), '#b45cff', 12);
-        break;
-      }
-      case 'lc_jackpot_impulse': {
-        if (mine) { this.slam = Math.max(this.slam, (f.hits || 0) >= 6 ? 0.16 : 0.08); this.kick((f.hits || 0) >= 6 ? 7 : 4); }
-        this.add({ kind: 'squareField', activeKind: 'lc_jackpot_impulse', x: f.x, y: f.y, r: f.r || 190, ttl: 0.32, color: '#ffd34d', tick: 1 });
-        this.add({ kind: 'squareBlastLite', activeKind: 'lc_jackpot_impulse_core', x: f.x, y: f.y, r: Math.max(70, (f.r || 190) * 0.45), ttl: 0.24, color: '#f3f3f3' });
-        this.float(f.x, f.y - 58, fxLabel(f.label || 'JACKPOT'), '#ffd34d', 13);
-        break;
-      }
-      case 'lc_card_table': {
-        if (mine || f.hit) this.kick(f.hit ? 4 : 2);
-        this.add({ kind: 'squareField', activeKind: 'lc_card_table', x: f.x, y: f.y, r: f.r || 74, ttl: f.hit ? 0.24 : 0.42, color: f.hit ? '#ff3048' : '#f3f3f3', tick: 1 });
-        this.float(f.x, f.y - 42, fxLabel(f.label || 'TABLE'), f.hit ? '#ff3048' : '#f3f3f3', 11);
+      case 'lc_spark_ready': {
+        if (mine) this.kick(1.4);
+        this.add({ kind: 'squareField', activeKind: 'lc_spark_ready', x: f.x, y: f.y, r: 48 + Math.min(4, Number(f.charges || 1)) * 5, ttl: 0.22, color: '#66f6ff', tick: 1 });
         break;
       }
       case 'rewind_mark':
@@ -614,20 +573,8 @@ export class Effects {
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
         break;
-      case 'casino_mob_defeated':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: 360, ttl: 1.05, color: '#ffd34d' });
-        this.add({ kind: 'burst', x: f.x, y: f.y, r: 150, ttl: 0.62, color: '#00ff66' });
-        this.float(f.x, f.y - 76, localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), '#ffd34d', 17);
-        this.slam = Math.max(this.slam, 0.9); this.kick(16);
-        break;
-      case 'trojan_chest':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: 150, ttl: 0.42, color: '#ff3048' });
-        this.add({ kind: 'burst', x: f.x, y: f.y, r: 92, ttl: 0.32, color: '#b45cff' });
-        this.float(f.x, f.y - 52, 'TROJAN', '#ff3048', 14);
-        this.kick(11);
-        break;
       case 'boss_down':
-        this.add({ kind: 'ring', x: f.x, y: f.y, r: 320, ttl: 1.0, color: f.virus ? '#ffd34d' : '#00ff66' });
+        this.add({ kind: 'ring', x: f.x, y: f.y, r: 320, ttl: 1.0, color: '#00ff66' });
         this.slam = 1; this.kick(14);
         break;
       case 'chest_open':
