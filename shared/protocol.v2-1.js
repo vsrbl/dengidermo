@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.176';
-export const BUILD_ID = 'casino_restore_path_commit_target_frames';
+export const VERSION = 'v2.1.177';
+export const BUILD_ID = 'lvc_multiline_controller_process_stability';
 export const PROTOCOL = 5;
 
 export const MAX_PLAYERS = 4;

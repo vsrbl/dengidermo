@@ -997,26 +997,30 @@ export class Renderer {
             const gun = String(c[6] || 'base');
             const angle = (Number(c[7] || 0) || 0) / 1000;
             const hasTarget = !!String(c[8] || '');
+            const channel = Math.max(0, Number(c[9] || 0) | 0);
+            const channelCount = Math.max(1, Number(c[10] || 1) | 0);
             const tone = gun === 'sparks' ? '#66f6ff' : '#ffd34d';
             const dx = cx - px, dy = cy - py;
             const len = Math.hypot(dx, dy) || 1;
             const ux = dx / len, uy = dy / len;
+            const nx = -uy, ny = ux;
+            const lane = (channel - (channelCount - 1) / 2) * 5;
             ctx.save();
             ctx.strokeStyle = tone;
             if (hasTarget) {
               ctx.globalAlpha = 0.62;
               ctx.lineWidth = 1.35;
               ctx.beginPath();
-              ctx.moveTo(px + ux * 24, py + uy * 24);
-              ctx.lineTo(cx, cy);
+              ctx.moveTo(px + ux * 24 + nx * lane, py + uy * 24 + ny * lane);
+              ctx.lineTo(cx + nx * lane * 0.30, cy + ny * lane * 0.30);
               ctx.stroke();
             }
-            const bx = px + Math.cos(angle) * 22;
-            const by = py + Math.sin(angle) * 22;
+            const bx = px + Math.cos(angle) * 22 + nx * lane;
+            const by = py + Math.sin(angle) * 22 + ny * lane;
             ctx.globalAlpha = 0.96;
             ctx.lineWidth = gun === 'sparks' ? 3 : 2.5;
             ctx.beginPath();
-            ctx.moveTo(px + Math.cos(angle) * 8, py + Math.sin(angle) * 8);
+            ctx.moveTo(px + Math.cos(angle) * 8 + nx * lane, py + Math.sin(angle) * 8 + ny * lane);
             ctx.lineTo(bx, by);
             ctx.stroke();
             ctx.globalAlpha = hasTarget ? 0.92 : 0.58;
@@ -1121,6 +1125,9 @@ export class Renderer {
             } else if (procKind === 'tank') {
               this.square(cx, cy, size, { stroke, lw: 4, fill });
               this.square(cx, cy, size * 0.58, { stroke: COL.fg, lw: 1.2 });
+            } else if (procKind === 'bouncer') {
+              this.square(cx, cy, size, { stroke, lw: 2.4, fill, rotate: Math.PI / 4 });
+              this.square(cx, cy, Math.max(8, size * 0.42), { stroke: cmd ? COL.green : COL.cyan, lw: 1.2, rotate: Math.PI / 4 });
             } else if (procKind === 'shooter') {
               this.square(cx, cy, size, { stroke, lw: 2.2, fill });
               const fl = Math.hypot(faceX, faceY) || 1;

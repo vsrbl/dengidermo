@@ -204,7 +204,7 @@ Object.assign(EN_UPGRADE, {
   ctrl_process_slot: 'Adds room for one more controlled process.',
   ctrl_process_power: 'Commands fill capture faster and controlled processes hit harder.',
   ctrl_capture_tier: 'Unlocks capture tiers for unusual threats; tier four allows boss capture.',
-  ctrl_process_fire: 'Controlled processes execute attack orders more often.',
+  ctrl_process_fire: 'Controlled processes attack more often.',
   ctrl_process_life: 'Controlled processes keep their signal longer. Targets with higher durability receive a longer control timer.',
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
   qrn_radius: 'QRN chains reach farther from the wall anchor.',
@@ -454,7 +454,9 @@ export function denyText(f = {}) {
     'CTRL_OUT_OF_RANGE': localText('CMD: ЦЕЛЬ ВНЕ ДАЛЬНОСТИ', 'CMD: TARGET OUT OF RANGE'),
     'CTRL_SIGNAL_BLOCKED': localText('CMD: СИГНАЛ ПЕРЕКРЫТ СТЕНОЙ', 'CMD: SIGNAL BLOCKED BY WALL'),
     'CTRL_NO_SLOT': localText('CMD: НЕТ СВОБОДНОГО СЛОТА', 'CMD: NO FREE PROCESS SLOT'),
-    'SAW_NO_SLOT': localText('SAW: НЕТ СВОБОДНОГО СЛОТА', 'SAW: NO FREE PROCESS SLOT')
+    'SAW_NO_SLOT': localText('SAW: НЕТ СВОБОДНОГО СЛОТА', 'SAW: NO FREE PROCESS SLOT'),
+    'SAW_NO_TARGET': localText('SAW: НЕТ ЦЕЛЕЙ В ОБЛАСТИ', 'SAW: NO TARGETS IN AREA'),
+    'SAW_NO_CAPTURE': localText('SAW: НЕТ ДОСТУПНЫХ ПРОЦЕССОВ', 'SAW: NO AVAILABLE PROCESSES')
   };
   return map[reason] || String(f?.label || reason || t('denied'));
 }
@@ -573,7 +575,7 @@ Object.assign(EN_LABEL, {
   'CRD: КАРТЫ +1': 'CRD CARDS +1',
   'CTRL: ПРОЦЕСС +1': 'CTRL PROCESS +1',
   'CTRL: КОНТРОЛЬ +': 'CTRL CONTROL +',
-  'CTRL: ТЕМП ПРИКАЗОВ +': 'CTRL ORDER RATE +',
+  'CTRL: ТЕМП АТАК +': 'CTRL ATTACK RATE +',
   'CTRL: СРОК +': 'CTRL PROCESS LIFETIME +',
   'CTRL: ПЕРЕНОС': 'CTRL PROCESS CARRY',
   'QRN: ЯКОРЬ': 'QRN ANCHOR',
@@ -649,7 +651,7 @@ function dynamicEnLabel(s) {
     .replace(/ЗАХВАТ/g, 'LOCK').replace(/РОЙ/g, 'SWARM').replace(/МИНИ-ВЗРЫВЫ/g, 'MINI-BLASTS').replace(/СТАТИК-МИНЫ/g, 'STATIC MINES')
     .replace(/ОГЛУШЕНИЕ/g, 'STUN').replace(/ОТБРОС/g, 'KNOCKBACK').replace(/РУЧНОЙ ВЗРЫВ/g, 'REMOTE DETONATOR')
     .replace(/УРОН/g, 'DAMAGE').replace(/РАЗМЕР/g, 'SIZE').replace(/ДРОБЛЕНИЕ/g, 'SPLIT').replace(/СКОРОСТЬ/g, 'SPEED')
-    .replace(/КАРТЫ/g, 'CARDS').replace(/ПРОЦЕСС/g, 'PROCESS').replace(/КОНТРОЛЬ/g, 'CONTROL').replace(/ТЕМП ПРИКАЗОВ/g, 'ORDER RATE')
+    .replace(/КАРТЫ/g, 'CARDS').replace(/ПРОЦЕСС/g, 'PROCESS').replace(/КОНТРОЛЬ/g, 'CONTROL').replace(/ТЕМП АТАК/g, 'ATTACK RATE')
     .replace(/СРОК/g, 'LIFETIME').replace(/ПЕРЕНОС/g, 'CARRY').replace(/ЯКОРЬ/g, 'ANCHOR').replace(/РАЗБОР/g, 'MASS CAPTURE')
     .replace(/УДЕРЖАНИЕ/g, 'HOLD').replace(/РАЗРЯД/g, 'DISCHARGE')
     .replace(/ФОКУС/g, 'FOCUS').replace(/ПРИКАЗ/g, 'ORDER').replace(/ПЕРЕХВАЧЕН/g, 'CAPTURED').replace(/ЗАДЕРЖКА ПОЯВЛЕНИЯ/g, 'SPAWN DELAY')

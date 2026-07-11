@@ -3033,7 +3033,7 @@ function ensureLivingCasinoState(p) {
   lc.upgrades.sparkRange = Math.max(0, Number(lc.upgrades.sparkRange || 0) | 0);
   lc.base.angle = Number.isFinite(lc.base.angle) ? lc.base.angle : 0;
   lc.base.cd = Math.max(0, Number(lc.base.cd || 0) || 0);
-  lc.base.targetIds = Array.isArray(lc.base.targetIds) ? lc.base.targetIds.map(String).filter(Boolean).slice(0, 1 + lc.upgrades.targets) : [];
+  lc.base.targetIds = Array.isArray(lc.base.targetIds) ? lc.base.targetIds.map(String).filter(Boolean).slice(0, livingCasinoBaseTargetMax(lc)) : [];
   lc.base.shotCursor = Math.max(0, Number(lc.base.shotCursor || 0) | 0);
   lc.base.aimTargetId = String(lc.base.aimTargetId || '');
   lc.base.acquiredTargetIds = Array.isArray(lc.base.acquiredTargetIds) ? lc.base.acquiredTargetIds.map(String).filter(Boolean).slice(0, LC_TARGET_CAP) : [];
@@ -3318,7 +3318,9 @@ function makeControlledProcess(run, p, pc, source, opts = {}) {
     hp: Math.max(1, Number(opts.hp ?? maxH)), maxHp: maxH,
     ttl: lifeMax, maxT: lifeMax, born: run.tick || 0,
     atkCd: Math.max(0.02, Number(opts.atkCd ?? source?.fireCd ?? 0.18) || 0.18), touchCd: 0, state: 'move', st: 0,
-    tx: focusedOrderLive ? orderTarget.x : (pc?.commandX || p.x), ty: focusedOrderLive ? orderTarget.y : (pc?.commandY || p.y), cmdT: focusedOrderLive ? Math.max(0.6, pc?.commandT || 0) : Math.max(0.6, pc?.commandT || 0),
+    tx: focusedOrderLive ? orderTarget.x : (pc?.commandX || p.x), ty: focusedOrderLive ? orderTarget.y : (pc?.commandY || p.y),
+    // A fresh capture must not flash green unless a real order is active.
+    cmdT: focusedOrderLive ? Math.max(0.6, pc?.commandT || 0) : ((pc?.commandT || 0) > 0 ? pc.commandT : 0),
     focusTargetId: focusedOrderLive ? (orderTarget.id || '') : (opts.focusTargetId || ''), focusTargetLabel: focusedOrderLive ? orderLabel : (opts.focusTargetLabel || ''), focusSeq: focusedOrderLive ? (pc?.orderSeq || 0) : 0,
     dirX: source?.dirX || 1, dirY: source?.dirY || 0,
     slotMode: source?.slotMode || '', slotLives: source?.slotLives || 0,
@@ -3349,8 +3351,15 @@ function makeControlledProcess(run, p, pc, source, opts = {}) {
     ctrlHealBase: Math.max(0, Number(opts.ctrlHealBase ?? source?.healBase ?? def.healCd ?? 0) || 0),
     ctrlBulletDamp: Math.max(0, Number(opts.ctrlBulletDamp ?? source?.bulletDamp ?? def.bulletDamp ?? 0) || 0),
     ctrlStopSpd: Math.max(0, Number(opts.ctrlStopSpd ?? source?.stopSpd ?? def.stopSpd ?? 0) || 0),
+    formationAngle: Number.isFinite(Number(opts.formationAngle ?? source?.formationAngle)) ? Number(opts.formationAngle ?? source?.formationAngle) : 0,
+    formationRadius: Math.max(58, Number(opts.formationRadius ?? source?.formationRadius ?? 78) || 78),
     shellHp: 0, shellMax: 0, shellType: ''
   };
+  if (!Number.isFinite(Number(opts.formationAngle ?? source?.formationAngle))) {
+    const seed = parseInt(String(m.id || '1').slice(-7), 36) || 1;
+    m.formationAngle = ((seed % 4096) / 4096) * Math.PI * 2;
+    m.formationRadius = 68 + ((seed >> 4) % 4) * 16;
+  }
   if (kind === 'bouncer') {
     const a = Math.atan2(m.dirY || 0, m.dirX || 1);
     m.vx = Math.cos(a) * Math.min(220, m.ctrlSpd || def.spd || 180);
@@ -3676,6 +3685,68 @@ function controlledHeraldSummon(run, p, pc, m, target, power = 0) {
   }
   return made;
 }
+function stepControlledBouncer(run, players, p, pc, m, target, dt, walls) {
+  const def = ENEMIES[m.kind] || ENEMIES.bouncer || {};
+  const half = Math.max(7, (m.size || def.size || 24) / 2);
+  const bnd = enemyArenaBounds(run, m, 2);
+  const spd = Math.max(55, Number(m.ctrlSpd || def.spd || 220));
+  const seed = parseInt(String(m.id || '1').slice(-7), 36) || 1;
+  let cur = Math.hypot(m.vx || 0, m.vy || 0);
+  if (cur < spd * 0.42) {
+    const base = target ? Math.atan2(target.y - m.y, target.x - m.x) : ((seed % 2048) / 2048) * Math.PI * 2;
+    const side = ((seed >> 3) & 1) ? 0.58 : -0.58;
+    m.vx = Math.cos(base + side) * spd;
+    m.vy = Math.sin(base + side) * spd;
+    cur = spd;
+  } else if (Math.abs(cur - spd) > spd * 0.12) {
+    m.vx = (m.vx / cur) * spd;
+    m.vy = (m.vy / cur) * spd;
+  }
+  const clearAt = (x, y) => Number.isFinite(x) && Number.isFinite(y)
+    && x >= bnd.left && x <= bnd.right && y >= bnd.top && y <= bnd.bottom
+    && !walls.some(w => aabbHit(x, y, half, w));
+  const ox = m.x, oy = m.y;
+  let nx = m.x + (m.vx || 0) * dt;
+  let ny = m.y + (m.vy || 0) * dt;
+  let hitX = nx < bnd.left || nx > bnd.right;
+  let hitY = ny < bnd.top || ny > bnd.bottom;
+  for (const w of walls) {
+    if (aabbHit(nx, m.y, half, w)) hitX = true;
+    if (aabbHit(m.x, ny, half, w)) hitY = true;
+  }
+  if (hitX) { m.vx *= -1; nx = m.x + m.vx * dt; }
+  if (hitY) { m.vy *= -1; ny = m.y + m.vy * dt; }
+  nx = clamp(nx, bnd.left, bnd.right);
+  ny = clamp(ny, bnd.top, bnd.bottom);
+  if (!clearAt(nx, ny)) {
+    const c = collideWalls(nx, ny, half, walls, ox, oy);
+    nx = clamp(c.x, bnd.left, bnd.right);
+    ny = clamp(c.y, bnd.top, bnd.bottom);
+  }
+  if (!clearAt(nx, ny)) {
+    m.vx *= -1; m.vy *= -1;
+    nx = ox; ny = oy;
+  }
+  m.x = nx; m.y = ny;
+  let hitTarget = false;
+  for (const e of run.enemies || []) {
+    if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
+    const rr = half + (e.size || 24) / 2 + 5;
+    if (dist2(m.x, m.y, e.x, e.y) > rr * rr) continue;
+    if (controlledContact(run, players, p, m, e, dt, 1.22)) hitTarget = true;
+    const n = norm(m.x - e.x, m.y - e.y);
+    m.vx = n.x * spd; m.vy = n.y * spd;
+    break;
+  }
+  if (!hitTarget && target && (hitX || hitY)) {
+    // Only bias a new bounce toward an ordered target; never pull every frame.
+    const a = Math.atan2(target.y - m.y, target.x - m.x) + ((((seed + (run.tick || 0)) >> 2) & 1) ? 0.42 : -0.42);
+    m.vx = Math.cos(a) * spd; m.vy = Math.sin(a) * spd;
+  }
+  const d = Math.hypot(m.vx || 0, m.vy || 0) || 1;
+  m.dirX = (m.vx || 0) / d; m.dirY = (m.vy || 0) / d;
+}
+
 function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
   m.size = Math.max(8, Number(m.baseSize || m.size || def.size || 24));
@@ -3692,14 +3763,20 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const fireMul = ctrlFireMul * Math.max(0.35, Number(p.stats?.fireMul || 1) || 1);
   m.atkCd = Math.max(0, (m.atkCd || 0) - dt * fireMul);
   const hasCmd = (pc.commandT || 0) > 0;
-  const orbitA = (run.now || 0) * 0.85 + i * Math.PI * 2 / Math.max(1, pc.controlled.length);
-  const restX = hasCmd ? pc.commandX : p.x + Math.cos(orbitA) * (82 + i * 13);
-  const restY = hasCmd ? pc.commandY : p.y + Math.sin(orbitA) * (82 + i * 13);
+  const formationA = Number.isFinite(m.formationAngle) ? m.formationAngle : ((i / Math.max(1, pc.controlled.length)) * Math.PI * 2);
+  const formationR = Math.max(58, Number(m.formationRadius || 78));
+  const commandSpread = Math.min(54, formationR * 0.48);
+  const restX = hasCmd ? pc.commandX + Math.cos(formationA) * commandSpread : p.x + Math.cos(formationA) * formationR;
+  const restY = hasCmd ? pc.commandY + Math.sin(formationA) * commandSpread : p.y + Math.sin(formationA) * formationR;
   const target = controlledProcessTarget(run, m, pc);
   const toTarget = target ? norm(target.x - m.x, target.y - m.y) : norm(restX - m.x, restY - m.y);
   const dT = target ? Math.hypot(target.x - m.x, target.y - m.y) : Math.hypot(restX - m.x, restY - m.y);
   const spd = Math.max(35, (m.ctrlSpd || def.spd || 95) * (target ? 1.05 : 1.18) + power * 5);
   const keep = def.ranged || m.kind === 'shooter' || m.kind === 'prism' || m.kind === 'pulse' || m.kind === 'orbiter' || m.kind === 'echo' ? (m.ctrlKeep || def.keep || 300) : 0;
+  if (m.kind === 'bouncer') {
+    stepControlledBouncer(run, players, p, pc, m, target, dt, walls);
+    return;
+  }
   if (target && m.kind === 'charger') {
     const state = String(m.state || 'move');
     if (state === 'move') {
@@ -3719,11 +3796,6 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
       explode(run, players, m.x, m.y, m.ctrlBlast || def.blast || 95, weaponDamageValue(p, (m.ctrlDmg || def.dmg || 28) * 0.82), p.id, false, 'ctrl_bomb');
       m.ttl = 0;
     }
-  } else if (m.kind === 'bouncer') {
-    let mv = target ? toTarget : norm(restX - m.x, restY - m.y);
-    if (!target && dT < 22) mv = { x: 0, y: 0 };
-    if (Math.abs(mv.x) + Math.abs(mv.y) > 0.01) steerMove(run, m, mv, target ? spd * 0.92 : Math.min(spd * 0.62, 155), dt, { target: target || { x: restX, y: restY } });
-    if (target) controlledContact(run, players, p, m, target, dt, 1.22);
   } else if (target && m.kind === 'glitch') {
     if (m.state === 'move') {
       steerMove(run, m, toTarget, spd * 0.95, dt, { target });
@@ -3885,6 +3957,25 @@ function stepProcessControllerState(run, players, p, dt) {
   pc.controlled = processControllerTrimControlled(p, { controlled: survivors.concat(spawned) });
 }
 
+function stepProcessControllerInstallDecay(run, players, dt) {
+  for (const p of players.values()) {
+    if (!p || !p.connected || !isProcessControllerPlayer(p)) continue;
+    const pc = ensureProcessControllerState(p);
+    if (!pc || !Array.isArray(pc.pendingControlled) || !pc.pendingControlled.length) continue;
+    const kept = [];
+    for (const m of pc.pendingControlled) {
+      if (!m || Number(m.hp ?? 1) <= 0) continue;
+      m.ttl = Math.max(0, Number(m.ttl || 0) - dt);
+      if (m.ttl > 0) kept.push(m);
+      else if (!m.expiredFx) {
+        m.expiredFx = 1;
+        expireControlledProcess(run, p, m, 'install');
+      }
+    }
+    pc.pendingControlled = kept;
+  }
+}
+
 function progressiveAnchorGain(level, start = 2) {
   const n = Math.max(0, Number(level || 0) | 0);
   let total = 0;
@@ -3999,6 +4090,11 @@ function placeProcessControllerAnchor(run, players, p) {
   spawnQuarantineAnchorField(run, players, { owner: p.id }, Math.round(hit.x), Math.round(hit.y), hit.nx || 0, hit.ny || 0);
   return true;
 }
+function emitProcessSawFailure(run, p, x, y, r, reason = 'SAW_NO_CAPTURE') {
+  run.fx.push({ t: 'ctrl_saw_fail', id: p.id, x: Math.round(x), y: Math.round(y), r: Math.round(r), reason });
+  run.fx.push({ t: 'denied', id: p.id, x: Math.round(x), y: Math.round(y), reason, chest: 'CTRL' });
+}
+
 function fireProcessControllerProtocol(run, players, p, dt) {
   const pc = ensureProcessControllerState(p);
   if (!pc) return;
@@ -4073,7 +4169,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     ok = placeProcessControllerAnchor(run, players, p);
   } else if (id === 'process_saw') {
     if (processControllerRegularCount(pc) >= processControllerMax(p)) {
-      run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'SAW_NO_SLOT', chest: 'CTRL' });
+      emitProcessSawFailure(run, p, p.aimX || p.x, p.aimY || p.y, 158, 'SAW_NO_SLOT');
       return;
     }
     const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
@@ -4102,7 +4198,11 @@ function fireProcessControllerProtocol(run, players, p, dt) {
       run.fx.push({ t: 'active_mutation', label: `SAW MASS ${captured}`, x: Math.round(ax), y: Math.round(ay), r: Math.round(radius), tone: 'purple', owner: p.id });
       ok = true;
     } else {
-      // A scan containing only protected or unavailable targets is free and silent: no cooldown is consumed.
+      // Failed scans remain free, but they now have a clear visual response.
+      const nearby = (run.enemies || []).filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)
+        && dist2(p.x, p.y, e.x, e.y) <= range * range
+        && dist2(ax, ay, e.x, e.y) <= Math.pow(radius + (e.size || 24) / 2, 2));
+      emitProcessSawFailure(run, p, ax, ay, radius, nearby.length ? 'SAW_NO_CAPTURE' : 'SAW_NO_TARGET');
       ok = false;
     }
   }
@@ -8765,9 +8865,13 @@ function applyProcessControllerWeaponOption(run, players, p, opt) {
     run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
     if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   } else if (opt.kind === 'stat') {
-    if (opt.stat !== 'dmg') return false;
-    p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
-    label = opt.label || 'CTRL: УРОН ПРОЦЕССОВ +18%';
+    if (opt.stat === 'dmg') {
+      p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
+      label = opt.label || 'CTRL: УРОН ПРОЦЕССОВ +18%';
+    } else if (opt.stat === 'fire') {
+      p.stats.fireMul = Math.max(0.05, Number(p.stats.fireMul) || 1) * 1.14;
+      label = opt.label || 'CTRL: ТЕМП АТАК +14%';
+    } else return false;
     run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'CTRL' });
     if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyProcessControllerWeaponOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
   } else return false;
@@ -10903,6 +11007,7 @@ export function step(run, players, dt, now) {
     return;
   }
   if (run.phase === 'install') {
+    stepProcessControllerInstallDecay(run, players, dt);
     stepPickups(run, players, dt);
     stepInstall(run, players, dt);
     return;
@@ -11042,12 +11147,23 @@ export function buildSnapshot(run, players) {
       if (livingCasinoSparksUnlocked(lc)) gunDefs.push({ key: 'sparks', state: lc.sparks, idleLength: LC_SPARK_IDLE_LENGTH, range: livingCasinoSparkRange(lc), color: LC_SPARK_COLOR });
       for (let gi = 0; gi < gunDefs.length; gi++) {
         const g = gunDefs[gi];
-        const target = livingCasinoEnemyById(run, g.state.aimTargetId);
-        const targetDistance = target ? Math.hypot(target.x - p.x, target.y - p.y) : g.idleLength;
-        const lineLength = target ? Math.max(g.idleLength, Math.min(g.range, targetDistance)) : g.idleLength;
-        const ex = p.x + Math.cos(g.state.angle || 0) * lineLength;
-        const ey = p.y + Math.sin(g.state.angle || 0) * lineLength;
-        cs.push([`lcgun:${p.id}:${g.key}`, p.id, 'lc_gun', gi, Math.round(ex), Math.round(ey), g.key, Math.round((g.state.angle || 0) * 1000), target?.id || '', target ? 1 : 0]);
+        const channelIds = Array.isArray(g.state.acquiredTargetIds) ? g.state.acquiredTargetIds.slice() : [];
+        const liveChannels = channelIds.map(id => livingCasinoEnemyById(run, id)).filter(Boolean);
+        if (!liveChannels.length) {
+          const ex = p.x + Math.cos(g.state.angle || 0) * g.idleLength;
+          const ey = p.y + Math.sin(g.state.angle || 0) * g.idleLength;
+          cs.push([`lcgun:${p.id}:${g.key}:idle`, p.id, 'lc_gun', gi, Math.round(ex), Math.round(ey), g.key, Math.round((g.state.angle || 0) * 1000), '', 0, 1]);
+          continue;
+        }
+        for (let ci = 0; ci < liveChannels.length; ci++) {
+          const target = liveChannels[ci];
+          const angle = Math.atan2(target.y - p.y, target.x - p.x);
+          const targetDistance = Math.hypot(target.x - p.x, target.y - p.y);
+          const lineLength = Math.max(g.idleLength, Math.min(g.range, targetDistance));
+          const ex = p.x + Math.cos(angle) * lineLength;
+          const ey = p.y + Math.sin(angle) * lineLength;
+          cs.push([`lcgun:${p.id}:${g.key}:${ci}`, p.id, 'lc_gun', gi, Math.round(ex), Math.round(ey), g.key, Math.round(angle * 1000), target.id || '', ci, liveChannels.length]);
+        }
       }
       const emitLcTargets = (gun, state) => {
         const manualCounts = new Map();

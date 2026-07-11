@@ -356,8 +356,12 @@ export class Effects {
         this.add({ kind: 'squareField', activeKind: 'qrn_anchor_marker', x: f.x, y: f.y, r: 44, ttl: 0.12, color: '#66f6ff', tick: 1 });
         break;
       case 'ctrl_proc_fire':
-        this.add({ kind: 'voidLine', x: f.x, y: f.y, x2: f.mx || f.x, y2: f.my || f.y, w: 1.8, ttl: 0.055, color: '#66f6ff' });
+        // The projectile already shows direction. Keep only a compact muzzle pulse.
         this.add({ kind: 'squareField', activeKind: 'ctrl_proc_fire', x: f.x, y: f.y, r: 18, ttl: 0.10, color: '#66f6ff', tick: 1 });
+        break;
+      case 'ctrl_saw_fail':
+        this.add({ kind: 'squareField', activeKind: 'ctrl_saw_fail', x: f.x, y: f.y, r: f.r || 158, ttl: 0.28, color: '#b45cff', tick: 1 });
+        this.add({ kind: 'chainLock', activeKind: 'ctrl_saw_fail_lock', x: f.x, y: f.y, r: Math.max(34, (f.r || 158) * 0.46), ttl: 0.24, color: '#6d6d75' });
         break;
       case 'ctrl_proc_expire': {
         const col = f.reason === 'hp' ? '#ff3048' : '#66f6ff';
