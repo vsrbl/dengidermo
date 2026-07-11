@@ -411,7 +411,7 @@ export class Effects {
         break;
       }
       case 'lc_target_lock': {
-        const col = f.gun === 'sparks' ? '#66f6ff' : '#ffd34d';
+        const col = f.gun === 'sparks' ? '#b45cff' : '#00ff66';
         if (mine) this.kick(f.enabled ? 1.6 : 0.8);
         this.add({ kind: 'squareField', activeKind: 'lc_target_lock', x: f.x, y: f.y, r: f.r || 48, ttl: 0.22, color: col, tick: 1 });
         this.float(f.x, f.y - 32, f.enabled ? fxLabel(f.gun === 'sparks' ? 'SPK MARK' : 'LVC MARK') : fxLabel('MARK OFF'), col, 10);

@@ -1001,16 +1001,10 @@ export class Hud {
       });
     }
     this.casinoLockSymbol = String(me[P.CASINOLOCK] || '').toUpperCase();
-    const casinoMeta = me[P.CASINO] && typeof me[P.CASINO] === 'object' ? me[P.CASINO] : null;
-    if (casinoMeta) {
-      this.casinoMeta = { ...this.casinoMeta, ...casinoMeta };
-      if (Array.isArray(casinoMeta.lockSlots)) this.casinoSlotLocks = casinoNormalizeSlotLocks(casinoMeta.lockSlots);
-    }
     if (this.casino.open) {
       this.updateCasinoLockBadge('');
       this.updateCasinoLuckCard(me);
-      this.updateCasinoStatus(this.casinoMeta);
-      if (!this.casino.spinning && !this.casinoDecisionPending) this.paintStoredCasinoLockCells(false);
+      if (!this.casino.spinning) this.paintStoredCasinoLockCells(false);
     }
     $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
     const obj = $('hud-objective');
@@ -2547,7 +2541,16 @@ export class Hud {
     const card = $('casino-luck-card');
     if (!card) return;
     const luck = me ? Number(me[P.LUCK] || 0) : Number(this.latestMe?.[P.LUCK] || 0);
-    card.innerHTML = `<div class="casino-luck-title">${esc(localText('УДАЧА', 'LUCK'))}</div><div class="casino-luck-value">+${Math.round(luck)}</div>`;
+    const info = this.casinoLuckInfo(luck);
+    card.innerHTML = `
+      <div class="casino-luck-title">${esc(localText('УДАЧА В КАЗИНО', 'CASINO LUCK'))}</div>
+      <div class="casino-luck-value">${esc(localText('УДАЧА', 'LUCK'))} +${Math.round(info.luck)}</div>
+      <div class="casino-luck-row"><b>${esc(localText('ДЖЕКПОТ', 'JACKPOT'))}</b><span>+${info.jackpot}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('ОРУЖИЕ', 'WEAPON'))}</b><span>+${info.weapon}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('РЕДКИЙ', 'RARE'))}</b><span>+${info.rare}%</span></div>
+      <div class="casino-luck-row"><b>${esc(localText('ФИКСАЦИЯ', 'LOCK'))}</b><span>+${info.lock}%</span></div>
+      <div class="casino-luck-note">${esc(localText(`Каждая удача усиливает ценные символы и снижает шанс сбоя.`, `Each luck point raises valuable symbols and lowers blank outcomes.`))}</div>
+    `;
     this.positionCasinoLuckCard();
   }
 
@@ -2558,7 +2561,7 @@ export class Hud {
     if (!modal || modal.classList.contains('hidden') || !card || !panel) return;
     const r = panel.getBoundingClientRect();
     const gap = 14;
-    const w = Math.max(100, Math.min(140, card.offsetWidth || 112));
+    const w = Math.max(220, Math.min(276, card.offsetWidth || 250));
     let left = r.right + gap;
     if (left + w > window.innerWidth - 12) left = Math.max(12, r.left - w - gap);
     card.style.left = `${Math.round(left)}px`;
@@ -2566,154 +2569,8 @@ export class Hud {
   }
 
   updateCasinoHelpLanguage() {
-    const hint = $('casino-hint');
-    if (hint) hint.textContent = localText('1 / 2 / 3 — ставка · ESC — выйти', '1 / 2 / 3 — bet · ESC — exit');
-  }
-
-  updateCasinoStatus(meta = {}) {
-    this.casinoMeta = { ...this.casinoMeta, ...(meta || {}) };
-    const heat = Math.max(0, Math.min(10, Number(this.casinoMeta.heat || 0) | 0));
-    const heatEl = $('casino-heat');
-    if (heatEl) {
-      heatEl.textContent = `${localText('НАГРЕВ', 'HEAT')} ${heat}/10`;
-      heatEl.classList.toggle('danger', heat >= 8);
-    }
-  }
-
-  hideCasinoActions() {
-    this.casinoDecisionPending = false;
-    const box = $('casino-actions');
-    if (!box) return;
-    box.classList.add('hidden');
-    box.setAttribute('aria-hidden', 'true');
-    box.querySelectorAll('button').forEach(b => { b.disabled = false; });
-  }
-
-  hideCasinoSkinActions() {
-    this.casinoSkinChoicePending = false;
-    this.casinoPrizeChoicePending = false;
-    const box = $('casino-skin-actions');
-    if (!box) return;
-    box.classList.add('hidden');
-    box.setAttribute('aria-hidden', 'true');
-    box.innerHTML = '';
-  }
-
-  showCasinoSkinActions(options = [], overloadAfterWin = false) {
-    const box = $('casino-skin-actions');
-    if (!box) return;
-    const rows = Array.isArray(options) ? options.slice(0, 3) : [];
-    box.innerHTML = '';
-    rows.forEach((skin, i) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.dataset.casinoSkin = String(i);
-      btn.innerHTML = `<b>${esc(locLabel(skin.name || skin.id || localText('ОБЛИК', 'SKIN')))}</b><span>${esc(rarityText(skin.rarity || 'uncommon'))}</span>`;
-      box.appendChild(btn);
-    });
-    if (!rows.length) return;
-    box.classList.remove('hidden');
-    box.setAttribute('aria-hidden', 'false');
-    this.casinoSkinChoicePending = true;
-    this.casinoSkinOverloadPending = !!overloadAfterWin;
-    this.casinoDecisionPending = true;
-    this.setCasinoButtons(true);
-  }
-
-  showCasinoPrizeActions(options = [], overloadAfterWin = false) {
-    const box = $('casino-skin-actions');
-    if (!box) return;
-    const labels = {
-      WPN: [localText('ОРУЖИЕ', 'WEAPON'), localText('выбор модуля', 'choose a module')],
-      ABL: [localText('ПРОТОКОЛ', 'PROTOCOL'), localText('выбор способности', 'choose an ability')],
-      RAR: [localText('РЕДКИЙ', 'RARE'), localText('выбор усиления', 'choose an upgrade')]
-    };
-    const rows = Array.isArray(options) ? options.filter(x => labels[String(x || '').toUpperCase()]).slice(0, 3) : [];
-    box.innerHTML = '';
-    rows.forEach((raw, i) => {
-      const id = String(raw || '').toUpperCase();
-      const btn = document.createElement('button');
-      btn.type = 'button'; btn.dataset.casinoPrize = String(i);
-      btn.innerHTML = `<b>${esc(labels[id][0])}</b><span>${esc(labels[id][1])}</span>`;
-      box.appendChild(btn);
-    });
-    if (!rows.length) return;
-    box.classList.remove('hidden'); box.setAttribute('aria-hidden', 'false');
-    this.casinoPrizeChoicePending = true;
-    this.casinoPrizeOverloadPending = !!overloadAfterWin;
-    this.casinoDecisionPending = true;
-    this.setCasinoButtons(true);
-  }
-
-  casinoPrizeResult(m, myId) {
-    if (!m || (m.id && m.id !== myId)) return;
-    if (m.ok === false) {
-      $('casino-skin-actions')?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-      this.playUiSound('denied');
-      this.feed(`${localText('ПРИЗ ОТКЛОНЁН', 'PRIZE DENIED')} · ${locLabel(m.error || '')}`, 'r');
-      return;
-    }
-    this.hideCasinoSkinActions();
-    this.casinoDecisionPending = false;
-    if (m.casino && typeof m.casino === 'object') this.casinoMeta = { ...this.casinoMeta, ...m.casino };
-    this.updateCasinoStatus(this.casinoMeta);
-    this.setCasinoButtons(false);
-    const names = { WPN: localText('ОРУЖИЕ', 'WEAPON'), ABL: localText('ПРОТОКОЛ', 'PROTOCOL'), RAR: localText('РЕДКИЙ ПРИЗ', 'RARE PRIZE') };
-    const label = names[String(m.choice || '').toUpperCase()] || locLabel(m.choice || 'PRIZE');
-    const el = $('casino-result');
-    if (el) el.innerHTML = `<span class="casino-result-title gold">${esc(localText('ВЫБОР ОТКРЫТ', 'CHOICE OPEN'))}</span><span class="casino-result-flow compact"><b>${esc(label)}</b></span>`;
-    this.setCasinoPanelState(localText('ВЫБОР ОТКРЫТ', 'CHOICE OPEN'), 'gold');
-    this.playUiSound('casino_ability');
-    if (m.overloadAfterWin || this.casinoPrizeOverloadPending) { this.casinoPrizeOverloadPending = false; setTimeout(() => this.closeCasino(), 650); }
-    else this.markCasinoLockTargets();
-  }
-
-  casinoSkinResult(m, myId) {
-    if (!m || (m.id && m.id !== myId)) return;
-    if (m.ok === false) {
-      $('casino-skin-actions')?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-      this.playUiSound('denied');
-      this.feed(`${localText('ОБЛИК ОТКЛОНЁН', 'SKIN DENIED')} · ${locLabel(m.error || '')}`, 'r');
-      return;
-    }
-    this.hideCasinoSkinActions();
-    this.casinoDecisionPending = false;
-    if (m.casino && typeof m.casino === 'object') this.casinoMeta = { ...this.casinoMeta, ...m.casino };
-    this.updateCasinoStatus(this.casinoMeta);
-    this.setCasinoButtons(false);
-    const label = locLabel(m.skinLabel || m.skinId || localText('ОБЛИК', 'SKIN'));
-    const rarity = rarityText(m.skinRarity || 'uncommon');
-    const el = $('casino-result');
-    if (el) el.innerHTML = `<span class="casino-result-title purple">${esc(localText('ОБЛИК ОТКРЫТ', 'SKIN UNLOCKED'))}</span><span class="casino-result-flow compact"><b>${esc(label)}</b> · ${esc(rarity)}</span>`;
-    this.setCasinoPanelState(localText('ОБЛИК ОТКРЫТ', 'SKIN UNLOCKED'), 'purple');
-    this.playUiSound((m.skinRarity === 'legendary') ? 'jackpot' : 'casino_ability');
-    this.feed(`${localText('ОБЛИК ОТКРЫТ', 'SKIN UNLOCKED')} · ${label}`, 'p');
-    if (m.overloadAfterWin || this.casinoSkinOverloadPending) {
-      this.casinoSkinOverloadPending = false;
-      setTimeout(() => this.closeCasino(), 650);
-    } else this.markCasinoLockTargets();
-  }
-
-  showCasinoPairActions() {}
-
-  markCasinoLockTargets() {
-    document.querySelectorAll('.reel.lock-target').forEach(r => r.classList.remove('lock-target'));
-  }
-
-  casinoLockResult(m, myId) {
-    if (!m || (m.id && m.id !== myId)) return;
-    if (m.ok === false) {
-      this.playUiSound('denied');
-      this.feed(`${localText('ФИКС ОТКЛОНЁН', 'LOCK DENIED')} · ${locLabel(m.error || '')}`, 'r');
-      return;
-    }
-    this.casinoSlotLocks = casinoNormalizeSlotLocks(m.lockSlots || []);
-    this.casinoMeta = { ...this.casinoMeta, ...(m.casino || {}) };
-    this.updateCasinoStatus(this.casinoMeta);
-    this.paintStoredCasinoLockCells(false);
-    this.markCasinoLockTargets();
-    this.playUiSound('casino_reel_stop');
-    this.feed(`${localText('ЯЧЕЙКА ЗАФИКСИРОВАНА', 'CELL LOCKED')} · ${casinoDisplaySymbol(m.symbol || '')}`, 'c');
+    const ru = localText('ru', 'en') === 'ru';
+    document.querySelectorAll('#casino-help [data-ru]').forEach(el => { el.textContent = ru ? el.dataset.ru : (el.dataset.en || el.textContent); });
   }
 
   // ------------------------------------------------- casino modal
@@ -2728,15 +2585,13 @@ export class Hud {
     document.querySelectorAll('.reel').forEach(r => {
       if (r._iv) clearInterval(r._iv);
       r._iv = null;
-      r.classList.remove('spin', 'win', 'lose', 'lock-target');
+      r.classList.remove('spin', 'win', 'lose');
     });
   }
   openCasino() {
     this.clearReels();
     this.casino.open = true;
     this.casino.spinning = false;
-    this.hideCasinoActions();
-    this.hideCasinoSkinActions();
     this.setCasinoButtons(false);
     const modal = $('casino-modal');
     modal.classList.remove('hidden', 'bet-protocolning', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
@@ -2745,7 +2600,6 @@ export class Hud {
     this.casinoLockSpinSymbol = '';
     this.updateCasinoLockBadge('');
     this.updateCasinoLuckCard(this.latestMe);
-    this.updateCasinoStatus(this.casinoMeta);
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('ВЫБЕРИ СТАВКУ', 'CHOOSE BET'))}</span>`;
     res.style.color = '';
@@ -2756,25 +2610,18 @@ export class Hud {
     this.clearReels();
     this.casino.open = false;
     this.casino.spinning = false;
-    this.casinoSkinOverloadPending = false;
-    this.casinoPrizeOverloadPending = false;
-    this.hideCasinoActions();
-    this.hideCasinoSkinActions();
     this.setCasinoButtons(false);
     const modal = $('casino-modal');
     modal.classList.add('hidden');
     modal.classList.remove('bet-protocolning', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
     this.casinoLockSpinSymbol = '';
     this.casinoSlotLocks = ['', '', ''];
-    this.casinoMeta = { ...this.casinoMeta };
-    this.updateCasinoStatus(this.casinoMeta);
     try { this.net?.sendCasinoClose?.(); } catch {}
     this.updateCasinoLockBadge('');
     this.hideTip();
   }
   placeBet(stake) {
-    if (this.casino.spinning || !this.casino.open || this.casinoDecisionPending) return;
-    this.hideCasinoActions();
+    if (this.casino.spinning || !this.casino.open) return;
     this.clearReels();
     this.casino.spinning = true;
     this.setCasinoButtons(true);
@@ -2789,7 +2636,7 @@ export class Hud {
     const res = $('casino-result');
     res.innerHTML = `<span class="casino-result-title">${esc(localText('...', '...'))}</span>`;
     res.style.color = '';
-    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'LOCK', 'RAR', 'BAD'];
+    const syms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'ДЖК', 'ФИКС', 'РЕД', 'BAD'];
     const locks = casinoNormalizeSlotLocks(this.casinoSlotLocks || []);
     document.querySelectorAll('.reel').forEach((r, i) => {
       if (r._iv) clearInterval(r._iv);
@@ -2799,7 +2646,8 @@ export class Hud {
         r.className = `reel locked lock-preview ${casinoCellClass(fixed)}`.trim();
         r.textContent = casinoDisplaySymbol(fixed);
         r.dataset.final = fixed;
-        this.clearExplain(r);
+        const info = this.casinoSymbolInfo(fixed);
+        this.setExplain(r, localText('ФИКС-ЯЧЕЙКА', 'LOCK CELL'), localText(`Слот ${i + 1} зафиксирован до закрытия терминала: ${casinoDisplaySymbol(fixed)}.`, `Slot ${i + 1} is fixed until the terminal closes: ${casinoDisplaySymbol(fixed)}.`), info.tone || 'cyan');
         return;
       }
       r.className = 'reel spin';
@@ -2831,12 +2679,13 @@ export class Hud {
     const bySlot = new Map(cells.map(c => [Number(c.slot || 0) | 0, c]));
     const nextLocks = casinoNormalizeSlotLocks(f?.lockSlots || payload.lockSlots || this.casinoSlotLocks || []);
     if (f) this.casinoSlotLocks = nextLocks;
-    const spinSyms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'JCK', 'RAR', 'BAD'];
+    const spinSyms = ['GLD', 'HEA', 'EXP', 'WPN', 'ABL', 'SKN', 'STC', 'ДЖК', 'РЕД', 'BAD'];
     const settleCell = (r, sym, c = {}, lockedClass = false) => {
       const finalSymbol = String(sym || '—').toUpperCase();
       r.textContent = casinoDisplaySymbol(finalSymbol);
       r.dataset.final = finalSymbol;
-      this.clearExplain(r);
+      const info = this.casinoSymbolInfo(finalSymbol);
+      this.setExplain(r, info.title, `${info.body} ${c.locked || lockedClass ? localText('Слот зафиксирован до закрытия терминала.', 'Slot is fixed until the terminal closes.') : ''}`.trim(), info.tone);
       const bad = f?.outcome === 'LOSE' || casinoIsBadCell(finalSymbol);
       r.className = `reel locked ${bad ? 'lose' : casinoCellClass(finalSymbol) || 'win'}${(c.locked || lockedClass) ? ' lock-ready' : ''}`.trim();
     };
@@ -2850,7 +2699,7 @@ export class Hud {
           r.textContent = i === 1 ? 'ERR' : rawSym;
           r.dataset.final = 'ERR';
           r.className = 'reel locked lose slot-overload-break';
-          this.clearExplain(r);
+          this.setExplain(r, localText('ПЕРЕГРУЗКА', 'OVERLOAD'), localText('Слот-терминал сломался и выпустил угрозу.', 'The slot terminal broke and released a threat.'), 'red');
           this.playUiSound(i === 1 ? 'slot_overload' : 'casino_static');
         } else if (f) {
           const c = bySlot.get(i) || { slot: i, raw: f.symbols?.[i] || '—', symbol: f.symbols?.[i] || '—' };
@@ -2861,7 +2710,7 @@ export class Hud {
             r.textContent = 'ФИКС';
             r.dataset.final = 'ФИКС';
             r.className = 'reel locked lock-vanish win lock-cell';
-            this.clearExplain(r);
+            this.setExplain(r, 'ФИКС', localText('ФИКС растворяется и превращается в фиксированный слот до закрытия терминала.', 'LOCK dissolves into a fixed slot until the terminal closes.'), 'cyan');
             this.playUiSound('casino_reel_stop');
             const morphSpin = setTimeout(() => {
               r.className = 'reel spin lock-morph';
@@ -2891,13 +2740,8 @@ export class Hud {
         if (i === 2) {
           const done = setTimeout(() => {
             this.casino.spinning = false;
-            const pendingPair = false;
-            const pendingSkin = !!f?.payload?.skinChoicePending && Array.isArray(f?.payload?.skinOptions) && f.payload.skinOptions.length;
-            const pendingPrize = !!f?.payload?.mixedChoicePending && Array.isArray(f?.payload?.mixedChoiceOptions) && f.payload.mixedChoiceOptions.length;
-            const pendingChoice = pendingPair || pendingSkin || pendingPrize;
-            this.setCasinoButtons(pendingChoice);
-            this.setCasinoPanelState(pendingPair ? localText('ПАРА', 'PAIR') : pendingSkin ? localText('ВЫБОР ОБЛИКА', 'SKIN CHOICE') : pendingPrize ? localText('ВЫБОР ПРИЗА', 'PRIZE CHOICE') : localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : f?.outcome === 'STC' ? 'purple' : (f?.outcome === 'JCK' || f?.outcome === 'ДЖК') ? 'gold' : 'green');
-            if (!pendingChoice) this.markCasinoLockTargets();
+            this.setCasinoButtons(false);
+            this.setCasinoPanelState(localText('ИТОГ', 'RESULT'), f?.outcome === 'LOSE' ? 'red' : f?.outcome === 'STC' ? 'purple' : f?.outcome === 'ДЖК' ? 'gold' : 'green');
           }, 620);
           this.casino.reelTimers.push(done);
         }
@@ -2923,61 +2767,64 @@ export class Hud {
     this.feed(`${localText('BET ОТКАЗАН', 'BET DENIED')} · ${msg}`, 'r');
   }
   casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
-    const items = [];
-    const add = value => { const text = locLabel(String(value || '').trim()); if (text && !items.includes(text)) items.push(text); };
-    if (pl.skinChoicePending) add(localText('ВЫБОР ОБЛИКА', 'SKIN CHOICE'));
-    if (pl.weaponChoice) add(localText('ВЫБОР ОРУЖИЯ', 'WEAPON CHOICE'));
-    if (pl.abilityChoice) add(localText('ВЫБОР ПРОТОКОЛА', 'PROTOCOL CHOICE'));
-    if (pl.rareChoice) add(localText('РЕДКОЕ УСИЛЕНИЕ', 'RARE UPGRADE'));
-    if (weaponLabels.length) add(String(weaponLabels[0]).replace(/^CASINO\s+/i, ''));
-    if (abilityLabels.length) add(String(abilityLabels[0]).replace(/^CASINO\s+/i, ''));
-    if (rareLabels.length) add(String(rareLabels[0]).replace(/^CASINO\s+/i, ''));
-    if (pl.skinLabel) add(pl.skinLabel);
-    if (pl.forceInstall) add('INSTALL');
-    if (pl.fullHeal) add(localText('ПОЛНОЕ ЛЕЧЕНИЕ', 'FULL HEAL'));
-    else if (pl.heal) add(`+${pl.heal} HP`);
+    const clean = (x) => locLabel(String(x || '').replace(/^CASINO\s+/i, '').trim());
+    const weaponDetail = (x) => {
+      const raw = String(x || '').trim();
+      if (/WEAPON DMG/i.test(raw) || /DMG|УРОН/i.test(raw)) return localText('+15% урон оружия', '+15% weapon damage');
+      return clean(raw) || localText('новое оружие добавлено', 'new weapon added');
+    };
+    const abilityDetail = (x) => clean(x) || localText('новая мутация добавлена', 'new mutation added');
+    const rareDetail = (x) => clean(x) || localText('редкое усиление применено', 'rare bonus applied');
+    if (f.outcome === 'OVERLOAD') return localText('слот сломан, угрозу собирается', 'slot broken, enemy assembling');
+    if (pl.static || pl.staticCount) return `${localText('следующая сектор загрязнена статикой', 'next room gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
+    if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${pl.lockLabel}`;
+    if (weaponLabels.length) return weaponDetail(weaponLabels[0]);
+    if (abilityLabels.length) return abilityDetail(abilityLabels[0]);
+    if (rareLabels.length) return rareDetail(rareLabels[0]);
+    if (pl.skinLabel) return `${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`;
+    if (pl.gld) return `+${pl.gld} GLD`;
+    if (pl.xp) return `+${pl.xp} EXP`;
+    if (pl.heal) return `+${pl.heal} HP`;
+    if (pl.dash) return locLabel('DASH +1');
+    return `-${paid} ${paidUnit}`;
+  }
+  casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
+    const list = [];
+    const add = (x) => { const s = locLabel(String(x || '').trim()); if (s && !list.includes(s)) list.push(s); };
+    if (f.outcome === 'OVERLOAD') add(localText('перегрузка закрыла терминал и вызвала SLOT MOB', 'overload closed the terminal and spawned SLOT MOB'));
+    if (pl.lockLabel) add(`${localText('фикс', 'fixed')}: ${pl.lockLabel}`);
     if (pl.gld) add(`+${pl.gld} GLD`);
     if (pl.xp) add(`+${pl.xp} EXP`);
-    if (pl.weaponBoostLabel || pl.weaponBoost) add(`${localText('УРОН', 'DAMAGE')} +${Math.max(1, Number(pl.weaponBoost || 1) | 0) * 4}%`);
-    if (pl.activeCdReduce) add(`${localText('ВОССТАНОВЛЕНИЕ', 'RECOVERY')} +${Math.round(pl.activeCdReduce)}s`);
-    if (pl.rareProgress) add(`${localText('РЕД СИГНАЛ', 'RAR SIGNAL')} ${pl.rareProgressTotal ?? pl.rareProgress}/3`);
-    if (pl.skinProgress) add(`${localText('SKN СИГНАЛ', 'SKN SIGNAL')} ${pl.skinProgressTotal ?? pl.skinProgress}/3`);
-    if (pl.static || pl.staticCount) add(localText('СТАТИК-ДОЛГ', 'STATIC DEBT'));
-    if (pl.lockCreated && !items.length) add(localText('ФИКС', 'LOCK'));
-    if (!items.length) add(`-${paid} ${paidUnit}`);
-    const prefix = pl.tripleMatch ? localText('ТРОЙКА · ', 'TRIPLE · ') : '';
-    return `${prefix}${items.slice(0, 3).join(' · ')}`;
-  }
-
-  casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
-    return [this.casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels), `-${pl.totalPaid || paid} ${paidUnit}`];
+    if (pl.heal) add(`+${pl.heal} HP`);
+    if (pl.dash) add('DASH +1');
+    for (const x of weaponLabels) add(this.casinoPrizeLineForResult({ outcome: 'WPN' }, {}, paid, paidUnit, [], [x], []));
+    for (const x of abilityLabels) add(this.casinoPrizeLineForResult({ outcome: 'ABL' }, {}, paid, paidUnit, [x], [], []));
+    for (const x of rareLabels) add(this.casinoPrizeLineForResult({ outcome: 'РЕД' }, {}, paid, paidUnit, [], [], [x]));
+    if (pl.skinLabel) add(`${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+    if (pl.static || pl.staticCount) add(`${localText('статик-долг', 'static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
+    if (pl.tripleMatch) add(`${localText('три одинаковых', 'three of a kind')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+    else if (pl.pairMatch) add(`${localText('пара', 'pair')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+    if (pl.noMatch && !pl.lockLabel && f.outcome !== 'OVERLOAD') add(localText('линия не собрана', 'no line'));
+    add(`-${paid} ${paidUnit}`);
+    return list.slice(0, 8);
   }
 
   casinoResult(f, myId) {
-    if (f?.ok === false) {
-      this.casinoDenied(f);
-      return;
-    }
+    if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
-      const key = ({ JCK: 'JCK', RAR: 'RAR', LOCK: 'LOCK' })[String(f.outcome || '').toUpperCase()] || String(f.outcome || '').toUpperCase();
-      const RES = { JCK: localText('ДЖЕКПОТ', 'JACKPOT'), PAIR: localText('ПАРА', 'PAIR'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), LOCK: localText('ФИКС', 'LOCK'), RAR: localText('РЕД', 'RAR'), OVERLOAD: localText('ПЕРЕГРЕВ', 'OVERHEAT') };
-      this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[key] || locLabel(key)}`, key === 'LOSE' ? 'r' : key === 'STC' ? 'p' : 'g');
+      const RES = { ДЖК: localText(t('jackpot'), 'JACKPOT'), JCK: localText(t('jackpot'), 'JACKPOT'), PAIR: localText('ПАРА', 'PAIR'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), ФИКС: localText('ФИКС', 'LOCK'), РЕД: localText('РЕД', 'RARE'), OVERLOAD: localText('ПЕРЕГРУЗКА', 'OVERLOAD') };
+      this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
-    if (f.seq && this.casino.lastResultSeq === f.seq) return;
+    if (f.seq && this.casino.lastResultSeq === f.seq) return; // direct result + later snapshot duplicate
     if (f.seq) this.casino.lastResultSeq = f.seq;
     if (!this.casino.open) this.openCasino();
     const resultToken = this.casino.spinToken;
-    const pl = f.payload || {};
-    const pendingPair = false;
-    const pendingSkin = !!pl.skinChoicePending && Array.isArray(pl.skinOptions) && pl.skinOptions.length;
-    const pendingPrize = !!pl.mixedChoicePending && Array.isArray(pl.mixedChoiceOptions) && pl.mixedChoiceOptions.length;
-    this.hideCasinoActions();
-    if (!pendingSkin && !pendingPrize) this.hideCasinoSkinActions();
     this.stopReels(f);
     const timer = setTimeout(() => {
       if (resultToken !== this.casino.spinToken) return;
       const el = $('casino-result');
+      const pl = f.payload || {};
       const paidUnit = f.bloodTax ? 'HP' : 'GLD';
       const paid = f.bloodTax ? (f.hpStake || f.stake) : f.stake;
       const abilityLabels = Array.isArray(pl.abilityLabels) && pl.abilityLabels.length ? pl.abilityLabels : (pl.abilityLabel ? [pl.abilityLabel] : []);
@@ -2987,53 +2834,40 @@ export class Hud {
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
       modal.classList.remove('bet-protocolning', 'bet-win', 'bet-lose', 'bet-debt', 'bet-jackpot');
-      const outcome = String(f.outcome || '').toUpperCase();
-      modal.classList.add((outcome === 'JCK' || outcome === 'ДЖК') ? 'bet-jackpot' : (outcome === 'LOSE' || outcome === 'OVERLOAD') ? 'bet-lose' : outcome === 'STC' ? 'bet-debt' : 'bet-win');
+      modal.classList.add((f.outcome === 'ДЖК' || f.outcome === 'JCK') ? 'bet-jackpot' : (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'bet-lose' : f.outcome === 'STC' ? 'bet-debt' : 'bet-win');
       this.setCasinoPanelState(info.title, info.tone);
       const toneCls = info.tone ? ` ${info.tone}` : '';
       const resultLine = this.casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
-      el.title = '';
-      delete el.dataset.explainTitle;
-      delete el.dataset.explain;
-      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact"><b>${esc(resultLine)}</b></span>`;
+      const detailParts = parts.map(locLabel).filter(x => {
+        const sx = String(x || '').trim();
+        if (!sx || sx === info.title || sx === resultLine) return false;
+        return true;
+      }).slice(0, 5);
+      const fullResultText = `${info.title}: ${resultLine}${detailParts.length ? ' · ' + detailParts.join(' · ') : ''}`;
+      el.title = fullResultText;
+      this.setExplain(el, info.title, fullResultText, info.tone);
+      el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact" title="${esc(fullResultText)}"><b>${esc(resultLine)}</b></span>`;
       const who = f.id === myId ? t('you') : (this.names.get(f.id) || '??');
-      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, outcome === 'LOSE' ? 'r' : outcome === 'STC' ? 'p' : 'g');
-      el.style.color = outcome === 'LOSE' ? '#ff3048' : outcome === 'STC' ? '#b45cff' : (outcome === 'JCK' ? '#ffd34d' : '#00ff66');
-
+      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      el.style.color = (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.casinoSlotLocks = casinoNormalizeSlotLocks(f.lockSlots || pl.lockSlots || this.casinoSlotLocks || []);
-      if (f.casino && typeof f.casino === 'object') this.casinoMeta = { ...this.casinoMeta, ...f.casino };
-      else this.casinoMeta = { ...this.casinoMeta, heat: pl.heat ?? this.casinoMeta.heat, rareProgress: pl.rareProgressTotal ?? this.casinoMeta.rareProgress, skinProgress: pl.skinProgressTotal ?? this.casinoMeta.skinProgress, pendingSkin: pendingSkin ? 1 : 0, pendingPrize: pendingPrize ? 1 : 0 };
-      this.updateCasinoStatus(this.casinoMeta);
       this.paintStoredCasinoLockCells(false);
       this.casinoLockSpinSymbol = '';
       this.updateCasinoLockBadge('');
-
-      const positive = !!(pl.gld || pl.xp || pl.heal || pl.weapon || pl.weaponCount || pl.weaponBoost || pl.ability || pl.abilityCount || pl.activeCdReduce || pl.rare || pl.rareCount || pl.rareProgress || pl.skin || pl.skinCount || pl.skinProgress || pl.jackpotCount || pl.weaponChoice || pl.abilityChoice || pl.rareChoice || pl.skinChoicePending || pl.mixedChoicePending);
-      this.playUiSound((pl.jackpotCount || 0) >= 3 || outcome === 'JCK' ? 'jackpot' : (!positive && outcome === 'LOSE') ? 'casino_lose' : (!positive && (outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon || pl.weaponCount ? 'casino_weapon' : (pl.ability || pl.abilityCount || pl.skin || pl.rare || pl.rareCount ? 'casino_ability' : 'casino_win')));
-
-      if (pendingSkin) {
-        this.showCasinoSkinActions(pl.skinOptions, !!(pl.overloadAfterWin || f.overloadAfterWin));
-      } else if (pendingPrize) {
-        this.showCasinoPrizeActions(pl.mixedChoiceOptions, !!(pl.overloadAfterWin || f.overloadAfterWin));
-      } else {
-        this.casinoDecisionPending = false;
-        this.setCasinoButtons(false);
-
-      }
-
-      if ((pl.overloadAfterWin || f.overloadAfterWin || outcome === 'OVERLOAD') && !pendingSkin && !pendingPrize) {
+      const positive = (pl.gld || pl.xp || pl.heal || pl.weapon || pl.ability || pl.rare || pl.skin || pl.jackpotCount);
+      this.playUiSound(f.outcome === 'OVERLOAD' ? 'slot_overload' : ((pl.jackpotCount || 0) >= 3 || f.outcome === 'ДЖК' || f.outcome === 'JCK' ? 'jackpot' : (!positive && (f.outcome === 'LOSE' || pl.missCount)) ? 'casino_lose' : (!positive && (f.outcome === 'STC' || pl.static)) ? 'casino_static' : (pl.weapon ? 'casino_weapon' : (pl.ability || pl.skin || pl.rare ? 'casino_ability' : 'casino_win'))));
+      if (f.outcome === 'OVERLOAD') {
         const closeTimer = setTimeout(() => {
           if (resultToken === this.casino.spinToken) {
             this.playUiSound('slot_overload');
             this.playUiSound('casino_static');
             this.closeCasino();
           }
-        }, 1250);
+        }, 980);
         this.casino.reelTimers.push(closeTimer);
       }
     }, 640);
     this.casino.reelTimers.push(timer);
   }
-
 
 }

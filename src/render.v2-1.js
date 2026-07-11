@@ -1029,20 +1029,27 @@ export class Renderer {
             const mode = Math.max(1, Number(c[9] || 1) | 0);
             const manual = mode >= 2;
             const active = mode === 3 || mode === 1;
-            const tone = manual ? '#b45cff' : (gun === 'sparks' ? '#66f6ff' : '#ffd34d');
+            const tone = gun === 'sparks' ? '#b45cff' : '#00ff66';
             const stack = Math.max(1, Number(c[3] || 1) | 0);
-            const r = size * 0.72 + (active ? 12 : 9);
-            const pulse = active ? 1 + Math.sin(now * 12 + stack) * 0.06 : 1;
+            // Concentric radii keep LVC and SPK readable when both target the
+            // same threat. Automatic locks stay inside and dashed; player
+            // orders are larger, solid and brighter.
+            const gunOffset = gun === 'sparks' ? (manual ? 9 : 5) : 0;
+            const r = size * (manual ? 0.74 : 0.62) + (manual ? 14 : 6) + gunOffset;
+            const pulse = manual && active ? 1 + Math.sin(now * 11 + stack) * 0.035 : 1;
             ctx.save();
-            ctx.globalAlpha = manual ? 0.98 : 0.78;
             ctx.strokeStyle = tone;
-            ctx.lineWidth = manual ? 2.5 : 1.8;
+            ctx.globalAlpha = manual ? 0.98 : 0.62;
+            ctx.lineWidth = manual ? 2.5 : 1.35;
+            ctx.setLineDash(manual ? [] : [5, 4]);
             ctx.strokeRect(Math.round(cx - r * pulse), Math.round(cy - r * pulse), Math.round(r * 2 * pulse), Math.round(r * 2 * pulse));
-            ctx.globalAlpha = manual ? 0.44 : 0.24;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(Math.round(cx - r + 5), Math.round(cy - r + 5), Math.round((r - 5) * 2), Math.round((r - 5) * 2));
+            if (manual) {
+              ctx.globalAlpha = 0.28;
+              ctx.lineWidth = 1;
+              ctx.strokeRect(Math.round(cx - r + 5), Math.round(cy - r + 5), Math.round((r - 5) * 2), Math.round((r - 5) * 2));
+            }
             ctx.restore();
-            if (manual) this.label(stack > 1 ? `LOCK ×${stack}` : 'LOCK', cx, cy - r - 9, tone, 7);
+            if (manual) this.label(`${gun === 'sparks' ? 'SPK' : 'LVC'}${stack > 1 ? ` ×${stack}` : ''}`, cx, cy - r - 9, tone, 7);
             this.companionTrail.set(id, { x: cx, y: cy, t: now });
           } else if (type === 'lc_spark') {
             const life = Math.max(0, Math.min(1, (Number(c[6] || 0) || 0) / 1000));
