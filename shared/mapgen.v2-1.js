@@ -679,6 +679,7 @@ function genInteractables(rng, category, loopIndex, greed, modIds = [], specialR
   if (chillRoom) {
     objs.push({ id: `b${id++}`, type: 'bet' });
     objs.push({ id: `b${id++}`, type: 'bet' });
+    objs.push(makeChestObj(`c${id++}`, rng, 'basic_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, costMul: 0, bscBoost: 2, rarityReason: 'CHILL ROOM + BOOSTED BSC' }));
     objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
     objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
     objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + RARE' }));
@@ -749,7 +750,7 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
     category = 'chill';
   }
   if (!forcedMods && specialRoomId === 'signal_contract') {
-    const contractMods = ['greed', 'static_rain', 'hunter_contract', 'casino_virus', 'moving_room', 'prism_grid', 'blood_tax', 'echo_walls'];
+    const contractMods = ['greed', 'static_rain', 'hunter_contract', 'casino_virus', 'moving_room', 'prism_grid', 'blood_tax', 'echo_walls', 'trojan'];
     const picked = contractMods[Math.floor(rng() * contractMods.length)];
     if (!modifierIds.includes(picked)) modifierIds.push(picked);
   } else if (!forcedMods && specialRoomId === 'debt_node') {
@@ -769,6 +770,18 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
   }
   const walls = genWalls(rng, category, loopIndex, roomArchetype);
   const interactables = genInteractables(rng, category, loopIndex, greed, modifierIds, specialRoomId);
+  // TROJAN CHEST always infects exactly one real chest. The infected object is hidden
+  // from presentation until interaction; if the room rolled no chest, seed one BSC.
+  if (modifierIds.includes('trojan') && category !== 'boss') {
+    let chestPool = interactables.filter(o => o && o.type === 'chest' && ['basic_chest','weapon_chest','ability_chest','rare_chest','cursed_chest'].includes(o.chest));
+    if (!chestPool.length) {
+      const fallback = makeChestObj(`c${interactables.length + 1}`, rng, 'basic_chest', loopIndex, greed, modifierIds, specialRoomId, 0.5);
+      interactables.push(fallback);
+      chestPool = [fallback];
+    }
+    const infected = chestPool[Math.floor(rng() * chestPool.length)] || chestPool[0];
+    if (infected) infected.trojan = 1;
+  }
   const blockers = [
     { x: WORLD_W / 2, y: WORLD_H / 2, r: 290 }
   ];
@@ -861,7 +874,92 @@ export function spawnPoint(idx) {
   return pts[idx % 4];
 }
 
-export function enemySpawnPoint(rng, walls, players) {
+const ENEMY_SPAWN_NAV_STEP = 28;
+const enemySpawnNavCache = new WeakMap();
+
+function enemySpawnNav(walls, half = 16) {
+  const safeHalf = Math.max(12, Math.round(Number(half || 16) / 4) * 4);
+  let bySize = enemySpawnNavCache.get(walls);
+  if (!bySize) { bySize = new Map(); enemySpawnNavCache.set(walls, bySize); }
+  if (bySize.has(safeHalf)) return bySize.get(safeHalf);
+  const step = ENEMY_SPAWN_NAV_STEP;
+  const cols = Math.ceil(WORLD_W / step), rows = Math.ceil(WORLD_H / step);
+  const open = new Uint8Array(cols * rows);
+  const labels = new Int32Array(cols * rows);
+  const pointFor = (ix, iy) => ({ x: Math.min(WORLD_W - 1, (ix + 0.5) * step), y: Math.min(WORLD_H - 1, (iy + 0.5) * step) });
+  for (let iy = 0; iy < rows; iy++) for (let ix = 0; ix < cols; ix++) {
+    const p = pointFor(ix, iy);
+    if (!blockedByWalls(p.x, p.y, walls, safeHalf + 4)) open[iy * cols + ix] = 1;
+  }
+  let component = 0;
+  const queue = new Int32Array(cols * rows);
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  for (let start = 0; start < open.length; start++) {
+    if (!open[start] || labels[start]) continue;
+    component++;
+    let head = 0, tail = 0;
+    queue[tail++] = start; labels[start] = component;
+    while (head < tail) {
+      const cur = queue[head++], cx = cur % cols, cy = Math.floor(cur / cols);
+      for (const [dx, dy] of dirs) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const ni = ny * cols + nx;
+        if (!open[ni] || labels[ni]) continue;
+        // Never cut diagonally through the corner of two walls.
+        if (dx && dy && (!open[cy * cols + nx] || !open[ny * cols + cx])) continue;
+        labels[ni] = component; queue[tail++] = ni;
+      }
+    }
+  }
+  const nav = { step, cols, rows, open, labels, pointFor, safeHalf };
+  bySize.set(safeHalf, nav);
+  return nav;
+}
+
+function nearestEnemySpawnCell(nav, x, y) {
+  const sx = Math.max(0, Math.min(nav.cols - 1, Math.floor(x / nav.step)));
+  const sy = Math.max(0, Math.min(nav.rows - 1, Math.floor(y / nav.step)));
+  let best = -1, bestD = Infinity;
+  for (let radius = 0; radius <= 5; radius++) {
+    for (let iy = Math.max(0, sy - radius); iy <= Math.min(nav.rows - 1, sy + radius); iy++) {
+      for (let ix = Math.max(0, sx - radius); ix <= Math.min(nav.cols - 1, sx + radius); ix++) {
+        if (radius && Math.abs(ix - sx) !== radius && Math.abs(iy - sy) !== radius) continue;
+        const idx = iy * nav.cols + ix;
+        if (!nav.open[idx]) continue;
+        const p = nav.pointFor(ix, iy), d = dist2ish(p.x, p.y, x, y);
+        if (d < bestD) { bestD = d; best = idx; }
+      }
+    }
+    if (best >= 0) break;
+  }
+  return best;
+}
+
+function reachableEnemySpawnComponents(nav, players = []) {
+  const out = new Set();
+  for (const pl of players || []) {
+    if (!pl || pl.alive === false) continue;
+    const idx = nearestEnemySpawnCell(nav, Number(pl.x || 0), Number(pl.y || 0));
+    if (idx >= 0 && nav.labels[idx]) out.add(nav.labels[idx]);
+  }
+  return out;
+}
+
+export function isEnemySpawnReachable(point, walls, players, half = 16) {
+  if (!point || !(players || []).some(pl => pl && pl.alive !== false)) return true;
+  if (blockedByWalls(point.x, point.y, walls, Math.max(12, half) + 4)) return false;
+  const nav = enemySpawnNav(walls, half);
+  const allowed = reachableEnemySpawnComponents(nav, players);
+  const idx = nearestEnemySpawnCell(nav, point.x, point.y);
+  return idx >= 0 && allowed.size > 0 && allowed.has(nav.labels[idx]);
+}
+
+export function enemySpawnPoint(rng, walls, players, opts = {}) {
+  const half = Math.max(12, Number(opts.half || 16));
+  const validateReachability = !opts.skipReachability && (players || []).some(pl => pl && pl.alive !== false);
+  const valid = p => !validateReachability || isEnemySpawnReachable(p, walls, players, half);
+  if (opts.preferred && valid(opts.preferred)) return { x: Math.round(opts.preferred.x), y: Math.round(opts.preferred.y) };
   for (let tries = 0; tries < 80; tries++) {
     const p = freeSpot(rng, walls, 65);
     let farEnough = true;
@@ -869,7 +967,25 @@ export function enemySpawnPoint(rng, walls, players) {
       const dx = p.x - pl.x, dy = p.y - pl.y;
       if (dx * dx + dy * dy < 440 * 440) { farEnough = false; break; }
     }
-    if (farEnough) return p;
+    if (farEnough && valid(p)) return p;
+  }
+  for (let tries = 0; tries < 80; tries++) {
+    const p = freeSpot(rng, walls, 65);
+    if (valid(p)) return p;
+  }
+  if (validateReachability) {
+    const nav = enemySpawnNav(walls, half);
+    const allowed = reachableEnemySpawnComponents(nav, players);
+    const candidates = [];
+    for (let idx = 0; idx < nav.open.length; idx++) {
+      if (!nav.open[idx] || !allowed.has(nav.labels[idx])) continue;
+      const ix = idx % nav.cols, iy = Math.floor(idx / nav.cols), p = nav.pointFor(ix, iy);
+      let nearest = Infinity;
+      for (const pl of players) if (pl && pl.alive !== false) nearest = Math.min(nearest, dist2ish(p.x, p.y, pl.x, pl.y));
+      candidates.push({ ...p, d: nearest + rng() * 1000 });
+    }
+    candidates.sort((a, b) => b.d - a.d);
+    if (candidates.length) return { x: Math.round(candidates[0].x), y: Math.round(candidates[0].y) };
   }
   return freeSpot(rng, walls, 65);
 }

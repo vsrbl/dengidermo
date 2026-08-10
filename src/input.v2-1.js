@@ -10,7 +10,7 @@ export class Input {
     this.rActiveEdge = false;
     this.weaponSel = -1;
     this.tabOpen = false;      // toggle helper panel: press TAB once to open/close
-    this.inspectMode = false;  // toggle world explanations: Space
+    this.inspectMode = false;  // retained for renderer compatibility; world inspect mode is disabled
     this.escEdge = false;
     this.secondaryEdge = false; // RMB: secondary weapon action / RKT remote detonate
     this.numEdge = -1;   // 1/2/3 pressed this frame (for modals)
@@ -40,7 +40,6 @@ export class Input {
       if (c === 'KeyE') this.interEdge = true;
       if (c === 'KeyQ') this.activeEdge = true;
       if (c === 'KeyR') this.rActiveEdge = true;
-      if (c === 'Space') { e.preventDefault(); this.inspectMode = !this.inspectMode; this.updateCursor(); }
     });
     window.addEventListener('keyup', (e) => {
       const c = e.code;

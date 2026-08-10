@@ -11,7 +11,7 @@ const ARCH_LABELS_RU = { panic_box: 'ТЕСНЫЙ СЕКТОР', compact: 'МА�
 const MOD_LABELS_RU = {
   blackout: 'ТЕМНОТА', static_rain: 'СТАТИК-ШТОРМ', greed: 'ЗОЛОТАЯ ЛИХОРАДКА', debt_floor: 'СТАТИК-ПОЛ', hunter_contract: 'ВОЛНЫ ОХОТНИКОВ',
   casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНЫЙ ЗАЛ', moving_room: 'ДВИЖУЩИЕСЯ ЗОНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ОПЛАТА',
-  shell_market: 'БИРЖА ЩИТОВ', echo_walls: 'ЭХО-ВЫСТРЕЛЫ', static_wires: 'СТАТИК-ПРОВОДА', hunted_exit: 'ОХОТА У ВЫХОДА', skin_cache: 'ОБЛИК-ТАЙНИК'
+  shell_market: 'БИРЖА ЩИТОВ', echo_walls: 'ЭХО-ВЫСТРЕЛЫ', static_wires: 'СТАТИК-ПРОВОДА', hunted_exit: 'ОХОТА У ВЫХОДА', skin_cache: 'ОБЛИК-ТАЙНИК', trojan: 'ТРОЯНСКИЙ СУНДУК'
 };
 const TAG_RU = {
   'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЗОЛОТО', ARMOR: 'БРОНЯ',
@@ -20,7 +20,7 @@ const TAG_RU = {
   'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'ПОКУПКИ', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
   '3 VIRUS SPINS': '3 БРОСКА ВИРУСА', 'DANGER ZONES': 'ОПАСНЫЕ ЗОНЫ', 'PRISM SLOW': 'ПРИЗМ-ЗАМЕДЛЕНИЕ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ УЗЛЫ',
   'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ УГРОЗ',
-  'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН'
+  'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН', 'INFECTED CHEST': 'ЗАРАЖЁННЫЙ СУНДУК', 'CHEST SWARM': 'РОЙ ИЗ СУНДУКА'
 };
 function roman(n) { const map = ['','I','II','III','IV','V','VI','VII','VIII','IX','X']; n = Math.max(1, Math.min(10, Number(n || 1) | 0)); return map[n] || String(n); }
 function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase()); }
@@ -110,7 +110,7 @@ function roomModHint(m, room = {}) {
     static_rain: String(mode).startsWith('paid')
       ? localText(`Статик-шторм ур. ${lvl}: опасные области появляются и затем бьют разрядом.`, `Static Storm LVL ${lvl}: danger areas appear, then lightning strikes them.`)
       : localText(`Статик-шторм ур. ${Math.max(1, lvl)}: сектор помечает опасные области и бьёт разрядом.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks danger areas and strikes them.`),
-    greed: localText('Золотая лихорадка: больше GLD, но ошибки опаснее.', 'Gold Fever: more GLD, but mistakes are harsher.'),
+    greed: localText('Золотая лихорадка: больше GLD; вампиризм возвращает кредиты вместо HP.', 'Gold Fever: more GLD; lifesteal returns credits instead of HP.'),
     debt_floor: localText('Статик-пол: выгодные сделки усиливают следующий шторм.', 'Static Floor: good deals strengthen the next storm.'),
     hunter_contract: localText('Волны охотников: портал закрыт до конца волн.', 'Hunter Waves: portal is locked until the waves end.'),
     casino_virus: localText('Казино-вирус: три броска дают награды, штрафы или угроз.', 'Casino Virus: three spins give rewards, penalties, or enemy packs.'),
@@ -122,7 +122,8 @@ function roomModHint(m, room = {}) {
     echo_walls: localText('Эхо-выстрелы: часть пуль получает копию.', 'Echo Shots: some bullets get a copy.'),
     static_wires: localText('Статик-провода: линии замедляют движение.', 'Static Wires: thin lines slow movement.'),
     hunted_exit: localText('Охота у выхода: задержка вызывает охотников.', 'Hunted Exit: staying too long calls hunters.'),
-    skin_cache: localText('Тайник облика: после очистки появится карточка облика.', 'Shell Cache: a shell card appears after clearing.')
+    skin_cache: localText('Тайник облика: после очистки появится карточка облика.', 'Shell Cache: a shell card appears after clearing.'),
+    trojan: localText('Один сундук заражён: при открытии он взорвётся и выпустит рой.', 'One chest is infected: opening it makes it explode and release a swarm.')
   };
   return hints[m] || localText('Особое правило меняет бой.', 'A special rule changes combat.');
 }
@@ -168,15 +169,6 @@ function comboPrizeReadout(c = {}) {
   const amount = Math.max(0, c.prizeAmount | 0);
   return amount > 0 ? localText(`ПРИЗ +${amount} ${label}`, `PRIZE +${amount} ${label}`) : localText(`ПРИЗ ${label}`, `PRIZE ${label}`);
 }
-function comboExplain(c = {}) {
-  const methods = (c.recent || []).filter(m => !['shell','armor'].includes(String(m).toLowerCase())).map(comboMethodLabel).filter(Boolean).slice(0, 4).join(' · ') || localText('пока нет', 'none yet');
-  const kills = Math.max(0, c.count | 0);
-  const prize = comboPrizeReadout(c);
-  return localText(
-    `Комбо держится, пока ты продолжаешь убивать. В конце цепь выдаёт этот приз. ${prize}. Урон снимает часть комбо. Убито: ${kills}. Способы: ${methods}.`,
-    `Combo stays active while you keep killing. When the chain ends, it pays this prize. ${prize}. Damage removes part of the combo. Kills: ${kills}. Methods: ${methods}.`
-  );
-}
 function renderComboHud(c = {}) {
   const mult = Number(c.mult || 1);
   const count = Math.max(0, c.count | 0);
@@ -185,7 +177,7 @@ function renderComboHud(c = {}) {
   const methods = (c.recent || []).filter(m => !['shell','armor'].includes(String(m).toLowerCase())).map(comboMethodLabel).filter(Boolean).slice(0, 3);
   const methodLine = methods.length ? methods.join(' · ') : comboMethodLabel(c.lastMethod || 'weapon');
   const prizeLine = comboPrizeReadout(c);
-  return `<div class="combo-readout${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}" data-explain-title="${esc(localText('КОМБО', 'COMBO'))}" data-explain="${esc(comboExplain(c))}" data-explain-tone="gold">` +
+  return `<div class="combo-readout${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}">` +
     `<div class="combo-prize">${esc(prizeLine)}</div>` +
     `<div class="combo-main"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b><em>${esc(localText('УБИТО', 'KILLS'))} ${count}</em></div>` +
     `<div class="combo-used">${esc(methodLine)}</div>` +
@@ -320,8 +312,8 @@ function weaponReadability(opt = {}) {
     },
     bullet_poison: {
       role: 'STATUS', tone: 'status', element: 'poison',
-      ru: 'Пули отравляют угроз и наносят периодический урон.', en: 'Bullets poison enemies over time.',
-      changeRu: 'яд · хорошо против прочных целей', changeEn: 'poison · good versus durable targets'
+      ru: 'Коррозия наносит периодический урон; каждый уровень быстрее разрушает броню.', en: 'Corrosion deals damage over time; each stack strips armor faster.',
+      changeRu: 'коррозия · каждый уровень быстрее снимает броню', changeEn: 'corrosion · each stack strips armor faster'
     },
     drone_element_link: {
       role: 'SYNERGY', tone: 'synergy', element: 'drone',
@@ -340,8 +332,13 @@ function weaponReadability(opt = {}) {
     },
     bullet_chain: {
       role: 'CONTROL', tone: 'control',
-      ru: 'Попадания связывают ближайших угроз линией.', en: 'Hits link nearby enemies with a thin line.',
-      changeRu: '+1 прыжок связи · урон идёт дальше', changeEn: '+1 link jump · damage travels onward'
+      ru: 'Попадания передают урон ближайшим угрозам. Статусы сами по связи не идут.', en: 'Hits pass damage to nearby enemies. Statuses do not transfer by default.',
+      changeRu: '+1 прыжок связи · только урон', changeEn: '+1 link jump · damage only'
+    },
+    bullet_chain_status_link: {
+      role: 'SYNERGY', tone: 'synergy',
+      ru: 'Связь переносит все текущие и будущие статусы оружия.', en: 'Projectile links carry all current and future weapon statuses.',
+      changeRu: 'пассивно · действует и на будущие статусы', changeEn: 'passive · includes future statuses'
     },
     shg_teeth: {
       role: 'DPS', tone: 'dps',
@@ -444,9 +441,10 @@ function weaponReadability(opt = {}) {
   if (opt.pcOnly) {
     const pc = {
       ctrl_process_slot: { role: 'CONTROL', tone: 'control', ru: 'Добавляет место для ещё одного подконтрольного процесса.', en: 'Adds room for one more controlled process.', changeRu: '+1 процесс под контролем', changeEn: '+1 controlled process' },
-      ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее заполняют шкалу захвата цели.', en: 'Commands fill the capture bar faster.', changeRu: 'быстрее перехват', changeEn: 'faster capture' },
+      ctrl_process_power: { role: 'CONTROL', tone: 'control', ru: 'Команды быстрее заполняют захват, а все атаки процессов становятся сильнее.', en: 'Commands capture faster and every process attack hits harder.', changeRu: 'быстрее перехват · сильнее все атаки', changeEn: 'faster capture · stronger attacks' },
       ctrl_capture_tier: { role: 'CONTROL', tone: 'control', ru: 'Открывает захват необычных угроз по ступеням; четвёртая ступень разрешает захват босса.', en: 'Unlocks capture tiers for unusual threats; the fourth tier allows boss capture.', changeRu: 'шире пул захвата', changeEn: 'wider capture pool' },
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы атакуют чаще.', en: 'Controlled processes attack more often.', changeRu: 'чаще атаки процессов', changeEn: 'faster process attacks' },
+      ctrl_process_contact_status: { role: 'SYNERGY', tone: 'synergy', ru: 'Телесные атаки процессов становятся живыми снарядами и переносят любые текущие и будущие статусы.', en: 'Process body attacks become living projectiles and carry all current and future statuses.', changeRu: 'укусы · касания · прыжки · самоподрыв', changeEn: 'bites · contact · leaps · self-destruct' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от настенного маркера.', en: 'The anchor can chain threats farther from the wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
@@ -494,10 +492,11 @@ function weaponElementLabel(cls) {
   return localText(ru[k] || String(cls || '').toUpperCase(), en[k] || String(cls || '').toUpperCase());
 }
 
+function displayLoopNumber(loop = 0) { return Math.max(1, (Number(loop) || 0) + 1); }
 function finalGoalLine(room = {}) {
-  const g = room.runGoal || { loops: 5, loop: 0 };
-  const loop = Math.max(0, Math.min(g.loops || 5, g.loop || 0));
-  return `${localText('ЦЕЛЬ', 'GOAL')} ${loop}/${g.loops || 5} ${localText('ЦИКЛОВ', 'LOOPS')}`;
+  const g = room.runGoal || { loops: 6, loop: 0 };
+  const loop = Math.max(0, Math.min(g.loops || 6, g.loop || 0));
+  return `${localText('ЦЕЛЬ', 'GOAL')} ${loop}/${g.loops || 6} ${localText('ЦИКЛОВ', 'LOOPS')}`;
 }
 function finalSummaryRows(sum = {}) {
   const players = Array.isArray(sum.players) ? sum.players : [];
@@ -506,7 +505,7 @@ function finalSummaryRows(sum = {}) {
   const qText = players.map(p => `${p.name || 'P'}: ${p.q || '—'}`).join(' | ');
   const companionText = players.map(p => `${p.name || 'P'}: ${localText('РЫВОК', 'DASH')} ${p.dash || 1} · ${localText('ДРОНЫ', 'DRN')} ${p.drones || 0}`).join(' | ');
   return [
-    [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 5}`],
+    [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 6}`],
     [localText('СЕКТОРА', 'SECTORS'), String(sum.roomsCleared || 0)],
     [localText('УБИЙСТВА', 'KILLS'), String(sum.kills || 0)],
     [localText('ГЛАВНЫЕ УГРОЗЫ', 'CORE THREATS'), String(sum.bosses || 0)],
@@ -539,7 +538,7 @@ const BOSS_REWARD_HINTS = {
   'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий усиливаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
   'AEGIS PROCESS': [localText('ЭГИДА', 'AEGIS PROCESS'), localText('Даёт защитный слой оболочки. Повторы увеличивают запас защиты.', 'Adds a shell shield layer. Stacks increase its capacity.')],
   'NULL REVIVAL': [localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), localText('Один раз возвращает антивирус после сбоя.', 'Restores the antivirus once after a crash.')],
-  'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук бесплатно и повышает качество награды.', 'Makes the next chest free and upgrades its reward quality.')]
+  'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук с выбором бесплатно и повышает качество награды.', 'Makes the next choice chest free and upgrades its reward quality.')]
 };
 function bossRewardHint(label = '') {
   const key = String(label || '').toUpperCase().replace(/\s+\d+\/\d+$|\s+X\d+$/i, '').trim();
@@ -699,7 +698,7 @@ export class Hud {
     const footer = el.querySelector('.run-complete-footer');
     if (kicker) kicker.textContent = localText('СИСТЕМА СТАБИЛЬНА', 'SYSTEM STABLE');
     if (title) title.textContent = localText('ОЧИСТКА ЗАВЕРШЕНА', 'CLEANUP COMPLETE');
-    if (sub) sub.textContent = localText(`${sum.loopsTarget || 5} циклов пройдено. Заражённая ветка закрыта.`, `${sum.loopsTarget || 5} loops cleared. The infected branch is closed.`);
+    if (sub) sub.textContent = localText(`${sum.loopsTarget || 6} циклов пройдено. Заражённая ветка закрыта.`, `${sum.loopsTarget || 6} loops cleared. The infected branch is closed.`);
     if (table) table.innerHTML = finalSummaryRows(sum).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
     if (footer) footer.textContent = localText('КОНТРОЛЁР ПРОЦЕССОВ ДОСТУПЕН', 'PROCESS CONTROLLER AVAILABLE');
   }
@@ -961,6 +960,27 @@ export class Hud {
     card.style.setProperty('pointer-events', 'auto', 'important');
   }
 
+  renderInstallNextRoom(room = {}) {
+    const el = $('install-next-room');
+    const next = room?.next || null;
+    if (!el || room?.phase !== 'install' || !next) {
+      if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+      return;
+    }
+    const mods = (next.mods || []).filter(Boolean).slice(0, 6);
+    const modHtml = mods.length
+      ? mods.map(m => `<span>${esc(roomModLabel(m, next))}</span>`).join('')
+      : `<span>${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
+    const contract = next.objective
+      ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
+      : '';
+    el.innerHTML = `<div class="install-next-title">${esc(localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'))}</div>` +
+      `<div class="install-next-arch">${esc(archLabel(next.archetype))}</div>` +
+      `<div class="install-next-label">${esc(localText('МОДИФИКАТОРЫ', 'MODIFIERS'))}</div>` +
+      `<div class="install-next-mods">${modHtml}</div>${contract}`;
+    el.classList.remove('hidden');
+  }
+
   // ------------------------------------------------- per-frame update
   update(state, dt) {
     const me = state.me();
@@ -968,6 +988,7 @@ export class Hud {
     if (!me || !room) return;
     this.latestRoom = room;
     this.latestMe = me;
+    this.renderInstallNextRoom(room);
     if (room.phase === 'won') this.showRunComplete(room); else this.hideRunComplete();
     for (const p of state.latest.players) this.names.set(p[P.ID], p[P.NAME]);
     const aliveNow = !!me[P.ALIVE] && (me[P.HP] > 0);
@@ -982,7 +1003,7 @@ export class Hud {
     // top
     const roomDisplay = this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----');
     $('hud-room').textContent = `${roomDisplay} · ${room.id}`;
-    $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${room.loop} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth} · ${finalGoalLine(room)}`;
+    $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${displayLoopNumber(room.loop)} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth} · ${finalGoalLine(room)}`;
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
     const modTone = (m) => m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' ? 'purple' : m === 'greed' ? 'gold' : '';
     const visibleMods = (room.mods || []).filter(m => m !== 'static_rain');
@@ -1124,7 +1145,7 @@ export class Hud {
         wagerCard.classList.add('offer');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
-          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА СЕКТОРА', 'SECTOR WAGER'))}<span>${seconds}s</span></div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
+          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'))}<span>${seconds}s</span></div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
           const decide = (accept) => (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -1141,7 +1162,7 @@ export class Hud {
           declineBtn?.addEventListener('pointerdown', decide(false));
           declineBtn?.addEventListener('click', decide(false));
         }
-        this.setExplain(wagerCard, 'SECTOR WAGER', localText('Прими риск или продолжи без ставки.', 'Accept the risk or continue without a wager.'), 'gold');
+        this.setExplain(wagerCard, localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'), localText('Прими риск для следующего сектора или продолжи без ставки.', 'Accept a risk for the next sector or continue without a wager.'), 'gold');
       } else if (activeWager && room.phase !== 'install') {
         const prog = activeWager.progress || {};
         const progKey = localText(prog.textRu || prog.text || '', prog.textEn || prog.text || '');
@@ -1202,7 +1223,7 @@ export class Hud {
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, localText(`НУЛЕВОЕ ВОССТАНОВЛЕНИЕ: зарядов ${me[P.REVIVE]}. При сбое возвращает 45% здоровья.`, `NULL REVIVAL: ${me[P.REVIVE]} charge${me[P.REVIVE] === 1 ? '' : 's'}. Restores 45% health after a crash.`), 'cyan');
       const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
       const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
-      if (bossKeyMax > 0) addBadge(`${localText('КЛЮЧ', 'KEY')} ${bossKeyCur}/${bossKeyMax}`, `${localText('КЛЮЧ ЯДРА', 'CORE KEY')}: ${bossKeyCur}/${bossKeyMax}. ${localText('Следующий сундук станет бесплатным и получит лучшую редкость.', 'The next chest becomes free and rolls top rarity.')}`, bossKeyCur > 0 ? 'gold' : '');
+      if (bossKeyMax > 0) addBadge(`${localText('КЛЮЧ', 'KEY')} ${bossKeyCur}/${bossKeyMax}`, `${localText('КЛЮЧ ЯДРА', 'CORE KEY')}: ${bossKeyCur}/${bossKeyMax}. ${localText('Следующий сундук с выбором станет бесплатным и получит лучшую редкость.', 'The next choice chest becomes free and rolls top rarity.')}`, bossKeyCur > 0 ? 'gold' : '');
       if (me[P.SHIELDMAX] > 0) addBadge(localText('ЭГИДА', 'AEGIS'), `${localText('ЭГИДА', 'AEGIS')}: ${localText('защитный слой оболочки', 'shell shield')} ${me[P.SHIELDMAX]}.`, 'cyan');
       if (badges.length) {
         sigEl.classList.remove('hidden');
@@ -1470,7 +1491,7 @@ export class Hud {
         const danger = dangerLabel({ danger: f.danger, dangerLabel: f.dangerLabel });
         const threats = Array.isArray(f.threatTags) && f.threatTags.length ? ` · ${localText('УГРОЗЫ', 'THREAT')} ${tagJoin(f.threatTags.slice(0, 3))}` : '';
         const rewards = Array.isArray(f.rewardTags) && f.rewardTags.length ? ` · ${localText('НАГРАДА', 'REWARD')} ${tagJoin(f.rewardTags.slice(0, 3))}` : '';
-        this.banner(f.cat === 'boss' ? t('bossFloor') : `${f.roomId}`, `${t('loop')} ${f.loop} · ${t('depth')} ${f.depth}${arch}${mods ? ' · ' + mods : ''} · ${danger}${threats}${rewards}${skn}`,
+        this.banner(f.cat === 'boss' ? t('bossFloor') : `${f.roomId}`, `${t('loop')} ${displayLoopNumber(f.loop)} · ${t('depth')} ${f.depth}${arch}${mods ? ' · ' + mods : ''} · ${danger}${threats}${rewards}${skn}`,
           f.cat === 'boss' || (f.danger | 0) >= 4 ? 'red' : (f.skinRarity ? 'purple' : (mods ? 'purple' : '')));
         if (f.skinRarity) this.feed(`${t('skinHidden')} · ${rarityText(f.skinRarity)}`, 'p');
         this.cancelActiveRoll(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
@@ -1564,8 +1585,8 @@ export class Hud {
       case 'boss_key_used':
         if (f.id === myId || f.playerId === myId) {
           const left = f.left ? ` · ${f.left}` : '';
-          this.banner(localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED'), localText('Сундук открыт бесплатно и поднят до max rarity.', 'Chest opened for free and upgraded to max rarity.') + left, 'gold');
-          this.feed(`${localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED')}: ${localText('бесплатный max-rarity сундук', 'free max-rarity chest')}${left}`, 'p');
+          this.banner(localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED'), localText('Сундук с выбором открыт бесплатно и поднят до max rarity.', 'Choice chest opened for free and upgraded to max rarity.') + left, 'gold');
+          this.feed(`${localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED')}: ${localText('бесплатный max-rarity сундук с выбором', 'free max-rarity choice chest')}${left}`, 'p');
         }
         break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
@@ -1606,12 +1627,12 @@ export class Hud {
       case 'install': if (f.id === myId) this.feed(`${localText('УЛУЧШЕНИЕ', 'INSTALL')}: ${locLabel(f.label)}`, f.cursed ? 'p' : 'g'); break;
       case 'transition': this.cancelActiveRoll(); break;
       case 'protocol_complete':
-        this.banner(localText('ОЧИСТКА ЗАВЕРШЕНА', 'CLEANUP COMPLETE'), localText('5 ЦИКЛОВ ЗАВЕРШЕНЫ', '5 LOOPS COMPLETE'), 'green');
+        this.banner(localText('ОЧИСТКА ЗАВЕРШЕНА', 'CLEANUP COMPLETE'), localText('6 ЦИКЛОВ ЗАВЕРШЕНЫ', '6 LOOPS COMPLETE'), 'green');
         this.feed(localText('ФИНАЛЬНЫЙ ПОРТАЛ ЗАКРЫЛ ЗАРАЖЁННУЮ ВЕТКУ', 'FINAL PORTAL CLOSED THE INFECTED BRANCH'), 'g');
         this.cancelActiveRoll(); this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
         break;
       case 'protocol_lost':
-        this.banner(t('protocolLost'), `${t('loop')} ${f.loop} · ${t('depth')} ${f.depth} — ${t('restart')}`, 'red');
+        this.banner(t('protocolLost'), `${t('loop')} ${displayLoopNumber(f.loop)} · ${t('depth')} ${f.depth} — ${t('restart')}`, 'red');
         this.cancelActiveRoll(); this.closeInstall(); this.closeCasino(); this.closeWeaponChest(); this.closeAbilityChest();
         break;
     }
@@ -1829,7 +1850,7 @@ export class Hud {
           (next?.objective ? `<p>${objectiveChip(next.objective, 'CONTRACT')}</p>` : '') +
           `</div>` +
         `<div class="tab-card protocol"><h3>${esc(localText('ЗАБЕГ', 'RUN'))}</h3>` +
-          `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${room.loop} · <span class="term" ${explainAttr(t('depth'), localText('Сколько секторов уже очищено в текущем протоколе.', 'Sectors cleaned in this protocol.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
+          `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${displayLoopNumber(room.loop)} · <span class="term" ${explainAttr(t('depth'), localText('Сколько секторов уже очищено в текущем протоколе.', 'Sectors cleaned in this protocol.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----'))}</p>` +
           `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда сектор очищен и угрозы удалены.', 'The portal opens when the sector is clean and threats are removed.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +

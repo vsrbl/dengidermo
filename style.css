@@ -238,6 +238,42 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 #install-timer { height: 3px; background: #222; margin-top: 14px; }
 #install-timer-bar { height: 100%; width: 100%; background: var(--green); }
 
+#install-modal > .panel { position: relative; overflow: visible; }
+.install-next-room {
+  position: absolute;
+  right: calc(100% + 14px);
+  top: 0;
+  width: min(270px, 26vw);
+  box-sizing: border-box;
+  border: 1px solid rgba(102,246,255,.46);
+  background: rgba(5,5,5,.94);
+  box-shadow: 0 0 18px rgba(102,246,255,.10);
+  padding: 10px 11px;
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: left;
+}
+.install-next-room.hidden { display: none; }
+.install-next-title { color: var(--cyan); font-weight: 800; letter-spacing: .12em; }
+.install-next-arch { margin-top: 3px; color: var(--fg); letter-spacing: .08em; }
+.install-next-label { margin-top: 9px; color: var(--dim); font-size: 10px; letter-spacing: .14em; }
+.install-next-mods { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.install-next-mods span {
+  border: 1px solid rgba(102,246,255,.28);
+  padding: 2px 5px;
+  color: var(--cyan);
+  background: rgba(102,246,255,.04);
+}
+.install-next-contract { margin-top: 10px; border-top: 1px solid rgba(255,211,77,.26); padding-top: 8px; }
+.install-next-contract > b { display: block; margin-bottom: 4px; color: var(--gold); font-size: 10px; letter-spacing: .14em; }
+.install-next-contract .objective-chip { color: var(--gold); }
+
+@media (max-width: 1080px), (max-height: 720px) {
+  #install-modal > .panel { overflow: auto; }
+  .install-next-room { position: static; width: 100%; margin: 0 0 10px; }
+}
+
 
 .install-wait {
   border: 1px solid rgba(255,255,255,.28);

@@ -171,6 +171,19 @@ export class Effects {
           this.kick(6);
         }
         break;
+      case 'trojan_burst': {
+        const col = '#ff315f';
+        this.add({ kind: 'squareField', activeKind: 'trojan_burst', x: f.x, y: f.y, r: Math.max(90, f.r || 150), ttl: 0.52, color: col, tick: 1 });
+        this.add({ kind: 'squareBlastLite', x: f.x, y: f.y, r: Math.max(80, (f.r || 150) * 0.72), ttl: 0.34, color: col });
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: Math.max(54, (f.r || 150) * 0.46), ttl: 0.38, color: col });
+        this.kick(5);
+        break;
+      }
+      case 'active_arm': {
+        const col = f.tone === 'red' ? '#ff3048' : f.tone === 'purple' ? '#b45cff' : f.tone === 'gold' ? '#ffd34d' : '#66f6ff';
+        this.add({ kind: 'squareField', activeKind: 'active_arm', x: f.x, y: f.y, r: Math.max(28, Math.min(96, f.r || 54)), ttl: 0.20, color: col, tick: 1 });
+        break;
+      }
       case 'active_denied':
         if (mine) {
           if (typeof f.x === 'number' && typeof f.y === 'number') {

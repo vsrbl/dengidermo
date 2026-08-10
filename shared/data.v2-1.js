@@ -54,8 +54,9 @@ export const ENEMIES = {
   charger:  { label: 'CHG', hp: 44,   spd: 75,  size: 28, dmg: 22, charges: true, windup: 0.75, chargeSpd: 520, chargeTime: 0.55, chargeCd: 2.4, xp: 12, gld: 8, score: 2, role: 'line breaker', combo: 'line pressure' },
   bomber:   { label: 'BMB', hp: 22,   spd: 130, size: 22, dmg: 30, bombs: true, fuse: 0.9, blast: 95, xp: 10, gld: 7, score: 2, role: 'space breaker', combo: 'space pressure' },
   bouncer:  { label: 'BNC', hp: 38,   spd: 240, size: 26, dmg: 12, bounces: true, push: 260, xp: 14, gld: 9, score: 2, role: 'pinball displacement', combo: 'movement pressure' },
+  wall_jumper: { label: 'WJP', hp: 58, spd: 92, size: 26, dmg: 16, wallJumper: true, wallSpd: 132, leapSpd: 650, leapCd: 2.5, windup: 0.58, leapTime: 0.72, leapRange: 610, xp: 18, gld: 12, score: 3, role: 'wall ambush', combo: 'wall pressure' },
   glitch:   { label: 'GLT', hp: 34,   spd: 70,  size: 24, dmg: 16, blinks: true, blinkCd: 2.2, blinkRange: 230, strikeCd: 0.5, xp: 14, gld: 10, score: 2, role: 'backline disruptor', combo: 'ambush pressure' },
-  slot_mob: { label: 'SLT', hp: 6120, spd: 200, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 281, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
+  slot_mob: { label: 'SLT', hp: 3060, spd: 200, size: 44, dmg: 15, slotMob: true, touch: true, fireCd: 1.25, bulletSpd: 281, xp: 26, gld: 32, score: 5, role: 'casino overload process', combo: 'slot corruption' },
 
   // anomaly pack
   echo:     { label: 'ECH', hp: 48,   spd: 145, size: 26, dmg: 12, echo: true, mirrorFireCd: 1.15, xp: 18, gld: 12, score: 3, role: 'weapon mimic', combo: 'mirror pressure' },
@@ -85,15 +86,15 @@ export const ENEMIES = {
 export const SPAWN_POOLS = [
   ['grunt', 'runner', 'shooter', 'charger'],
   ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'splitter'],
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'anchor', 'leech', 'pulse', 'damper', 'warden'],
-  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'tank', 'glitch', 'echo', 'orbiter', 'anchor', 'splitter', 'prism', 'pulse', 'leech', 'damper', 'warden', 'herald']
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'wall_jumper', 'tank', 'glitch', 'anchor', 'leech', 'pulse', 'damper', 'warden'],
+  ['grunt', 'runner', 'shooter', 'charger', 'bomber', 'bouncer', 'wall_jumper', 'tank', 'glitch', 'echo', 'orbiter', 'anchor', 'splitter', 'prism', 'pulse', 'leech', 'damper', 'warden', 'herald']
 ];
 
 // ---- upgrades (INSTALL) -------------------------------------------------
 // All stackable. No caps. Balatro rules.
 export const UPGRADES = [
   { id: 'dmg',      label: 'DMG +15%',             tier: 0, desc: 'Весь исходящий урон растёт, включая подконтрольные процессы Контролёра.', apply: s => { s.dmgMul *= 1.15; } },
-  { id: 'fire',     label: 'FIRE RATE +12%',       tier: 0, desc: 'Оружие перезаряжается быстрее.', apply: s => { s.fireMul *= 1.12; } },
+  { id: 'fire',     label: 'FIRE RATE +12%',       tier: 0, desc: 'Оружие и стрелковые процессы Контролёра атакуют чаще.', apply: s => { s.fireMul *= 1.12; } },
   { id: 'spd',      label: 'SPD +8%',              tier: 0, desc: 'Скорость движения растёт.', apply: s => { s.spdMul *= 1.08; } },
   { id: 'maxhp',    label: 'HP +20',               tier: 0, desc: 'Максимальное здоровье растёт.', apply: s => { s.maxHpAdd += 20; } },
   { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Подборы притягиваются дальше.', apply: s => { s.magnetMul *= 1.4; } },
@@ -121,18 +122,19 @@ export const UPGRADES = [
   { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Антивирус получает защитный слой оболочки. Повторы увеличивают запас защиты.', apply: s => { s.aegisStacks += 1; } },
   { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующий усиливаемый приз с выбором. Не копирует саму себя. Заряд возвращается после победы над главной угрозой.', apply: s => { s.mirrorCapacity += 1; } },
   { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Резервное восстановление. При сбое возвращает игрока с 45% здоровья. Повторы дают ещё один заряд.', apply: s => { s.nullRevives += 1; } },
-  { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук цикла бесплатно становится максимальной редкости. Повторы дают ещё один ключ.', apply: s => { s.bossKeys += 1; } },
+  { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук с выбором в цикле бесплатно становится максимальной редкости. Повторы дают ещё один ключ.', apply: s => { s.bossKeys += 1; } },
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.
   { id: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
   { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%',  tier: 1, branch: 'ALL', desc: 'Все твои снаряды летят дальше и живут дольше.', apply: s => { s.bulletRange *= 1.22; } },
   { id: 'bullet_fire',     label: 'ТЕРМО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды перегревают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
   { id: 'bullet_freeze',   label: 'КРИО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
-  { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией и наносят периодический урон.', apply: s => { s.bulletPoison += 1; } },
+  { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню и усиливает периодический урон.', apply: s => { s.bulletPoison += 1; } },
   { id: 'drone_element_link', label: 'КАНАЛ СПУТНИКОВ', tier: 1, branch: 'ALL', desc: 'Спутники отдельно переносят термо-, крио- и коррозийные сбои снарядов.', apply: s => { s.droneElementLink += 1; } },
   { id: 'element_amp', label: 'СТАТУСНЫЙ СБОЙ +25%', tier: 1, branch: 'ALL', desc: 'Усиливает термо-, крио- и коррозийные сбои.', apply: s => { s.bulletElementAmp += 1; } },
   { id: 'element_spread', label: 'ПЕРЕНОС СБОЯ', tier: 1, branch: 'ALL', desc: 'Удаление угрозы переносит статусный сбой на ближайшие цели.', apply: s => { s.elementSpread += 1; } },
   { id: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Попадание оружием связывает ближайшие угрозы. Повторные выборы продлевают цепь.', apply: s => { s.bulletChain += 1; } },
+  { id: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', tier: 1, branch: 'ALL', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.', apply: s => { s.bulletChainStatuses = 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
   { id: 'shg_longshot', label: 'SHG: ДАЛЬНИЙ ЗАЛП', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK: ФРАГМЕНТЫ',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
@@ -165,9 +167,10 @@ export const UPGRADES = [
   { id: 'rlt_square_speed', label: 'RLT: СКОРОСТЬ +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки летят быстрее.', apply: s => { s.rltSpeed += 1; } },
   { id: 'crd_card_count', label: 'CRD: КАРТЫ +1', branch: 'CRD', tier: 1, desc: 'Колода выпускает на одну карту больше в каждом веере.', apply: s => { s.crdCards += 1; } },
   { id: 'ctrl_process_slot', label: 'CTRL: ПРОЦЕСС +1', branch: 'CTRL', tier: 1, desc: 'Контролёр держит ещё один подконтрольный процесс.', apply: s => { s.ctrlMax += 1; } },
-  { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее заполняют захват цели; процессы сильнее атакуют.', apply: s => { s.ctrlPower += 1; } },
+  { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее заполняют захват цели; все атаки процессов становятся сильнее.', apply: s => { s.ctrlPower += 1; } },
   { id: 'ctrl_capture_tier', label: 'CTRL: АССИМИЛЯЦИЯ +', branch: 'CTRL', tier: 1, desc: 'Расширяет пул захвата: I — стойкие и сбойные, II — дальние и полевые, III — дирижёры роя, IV — боссы.', apply: s => { s.ctrlCaptureTier += 1; } },
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП АТАК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы атакуют чаще.', apply: s => { s.ctrlFire += 1; } },
+  { id: 'ctrl_process_contact_status', label: 'CTRL: ЖИВОЙ СНАРЯД', branch: 'CTRL', tier: 1, desc: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы.', apply: s => { s.ctrlProcessContactStatus = 1; } },
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
   { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
@@ -196,11 +199,12 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%', desc: 'Все снаряды летят дальше и держатся дольше.' },
   { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ТЕРМО-СБОЙ СНАРЯДОВ', desc: 'Снаряды перегревают угрозы.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'КРИО-СБОЙ СНАРЯДОВ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
-  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией.' },
+  { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню.' },
   { id: 'drone_element_link', kind: 'weapon_upgrade', upgrade: 'drone_element_link', label: 'КАНАЛ СПУТНИКОВ', desc: 'Спутники отдельно переносят статусные сбои снарядов.' },
   { id: 'element_amp', kind: 'weapon_upgrade', upgrade: 'element_amp', label: 'СТАТУСНЫЙ СБОЙ +25%', desc: 'Термо-, крио- и коррозийные сбои держатся дольше и бьют сильнее.' },
   { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'ПЕРЕНОС СБОЯ', desc: 'Статусные сбои с удалённых угроз переходят на ближайшие цели.' },
-  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', desc: 'Попадание оружием связывает ближайшие угрозы и передаёт часть урона дальше.' },
+  { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', desc: 'Попадание оружием передаёт часть урона дальше. Статусы сами по цепи не переходят.' },
+  { id: 'bullet_chain_status_link', kind: 'weapon_upgrade', upgrade: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG: ДАЛЬНИЙ ЗАЛП', desc: 'ПКМ тратит все заряды клинового разряда на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK: ФРАГМЕНТЫ', desc: 'Искатель выпускает фрагменты после удаления цели.' },
@@ -222,6 +226,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_power', kind: 'weapon_upgrade', upgrade: 'ctrl_process_power', reqWeapon: 'command_pulse', label: 'CTRL: КОНТРОЛЬ +', desc: 'Команды быстрее заполняют захват цели; процессы сильнее атакуют.' },
   { id: 'ctrl_capture_tier', kind: 'weapon_upgrade', upgrade: 'ctrl_capture_tier', reqWeapon: 'command_pulse', label: 'CTRL: АССИМИЛЯЦИЯ +', desc: 'Расширяет захват необычных мобов по ступеням. На четвёртой ступени разрешает перехват босса.' },
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП АТАК +', desc: 'Подконтрольные процессы атакуют чаще.' },
+  { id: 'ctrl_process_contact_status', kind: 'weapon_upgrade', upgrade: 'ctrl_process_contact_status', reqWeapon: 'command_pulse', label: 'CTRL: ЖИВОЙ СНАРЯД', desc: 'Укусы, касания, наскоки, прыжки и самоподрыв переносят любые текущие и будущие оружейные статусы.' },
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
   { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
@@ -236,42 +241,42 @@ export const WEAPON_CHEST_REWARDS = [
 export const ACTIVE_CORES = {
   blood_ring: {
     id: 'blood_ring', label: 'BLOOD RING', short: 'RING', tone: 'red', role: 'FOLLOW DAMAGE',
-    desc: 'Кровавое кольцо следует за тобой. если угроза остаётся внутри долго — становится высоким.',
+    desc: 'Первое Q показывает область. Второе запускает кровавое кольцо.',
     upgrade: ['+большой радиус', '+длительность', '+сильнее урон']
   },
   field_snap: {
     id: 'field_snap', label: 'FIELD SNAP', short: 'SNAP', tone: 'cyan', role: 'PULL / CONTROL',
-    desc: 'Один раз резко стягивает угрозы и подборы. После рывка остаётся короткое поле: оно уже не тянет, только замедляет, глушит пули и наносит слабый урон.',
+    desc: 'Первое Q показывает область. Второе стягивает угрозы и оставляет замедляющее поле без урона.',
     upgrade: ['+большой радиус', '+сила стяжки', '+дольше поле']
   },
   bullet_freeze: {
     id: 'bullet_freeze', label: 'BULLET FREEZE', short: 'FREEZE', tone: 'cyan', role: 'FREEZE / CONTROL',
-    desc: 'Холодная аура следует за тобой. Враги замирают, вражеские пули почти останавливаются.',
+    desc: 'Первое Q показывает область. Второе запускает холодную ауру.',
     upgrade: ['+большой радиус', '+длительность', '+дольше примерзание']
   },
   shell_ripper: {
     id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'ARMOR / EXPOSE',
-    desc: 'Срывает защиту с угроз рядом. Ослабленные угрозы получают больше урона от всех источников.',
+    desc: 'Первое Q показывает область. Второе срывает защиту внутри неё.',
     upgrade: ['+большой радиус', '+сильнее ломает защиту', '+сильнее уязвимость']
   },
   void_cut: {
     id: 'void_cut', label: 'VOID CUT', short: 'CUT', tone: 'purple', role: 'BUILD LASER',
-    desc: 'Пускает тонкий луч по направлению прицела. Улучшения добавляют новые звенья луча.',
+    desc: 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.',
     upgrade: ['+1 точка связи', '++длина каждого сегмента', '+урон луча']
   },
   signal_spike: {
     id: 'signal_spike', label: 'SIGNAL SPIKE', short: 'SPIKE', tone: 'cyan', role: 'DEPLOY NODE',
-    desc: 'Ставит сигнальный шип в точке прицела. Зона замедляет и глушит пули.',
-    upgrade: ['+1 заряд', '+немного длительность', '+немного урон зоны']
+    desc: 'Первое Q показывает зону шипа. Второе устанавливает её.',
+    upgrade: ['+1 заряд', '++дальность и радиус', '+длительность и урон']
   },
   black_box: {
     id: 'black_box', label: 'BLACK BOX', short: 'BOX', tone: 'purple', role: 'STEALTH / SAFE',
-    desc: 'Прячет тебя в чёрной области. Угрозы снаружи теряют сигнал, ближайшие сбиваются.',
+    desc: 'Первое Q показывает область. Второе раскрывает чёрный ящик.',
     upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
   },
   debt_pulse: {
     id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'RISK BURST',
-    desc: 'Красный статик-взрыв вокруг тебя. Ослабляет угрозы, но может добавить уровень статик-шторма.',
+    desc: 'Первое Q показывает область. Второе запускает статик-волну.',
     upgrade: ['+огромный радиус', '+урон волны', '+сильнее уязвимость']
   }
 };
@@ -292,15 +297,9 @@ export const ACTIVE_MUTATIONS = {
 
 export const ACTIVE_MUTATION_SLOTS = 3;
 
-// Legacy ABL list is kept for dash/mobility side rewards. Q rewards are generated dynamically in sim.
+// Repeatable ABL side rewards. Dash upgrades belong to INSTALL and must not be duplicated here.
 export const ABILITY_CHEST_REWARDS = [
-  { id: 'abl_dash', kind: 'ability_upgrade', upgrade: 'dash', label: 'DASH +1', desc: 'Добавляет один заряд рывка.' },
-  { id: 'abl_dash_length', kind: 'ability_upgrade', upgrade: 'dash_length', label: 'DASH LENGTH +18%', desc: 'Рывок проходит дальше.' },
-  { id: 'abl_voidstep', kind: 'ability_upgrade', upgrade: 'voidstep', label: 'DASH: VOID RIFT', desc: 'Рывок оставляет разрез пустоты.' },
-  { id: 'abl_dashcut', kind: 'ability_upgrade', upgrade: 'dashcut', label: 'DASH STUN', desc: 'Рывок оглушает угроз рядом с траекторией.' },
-  { id: 'abl_dashclone', kind: 'ability_upgrade', upgrade: 'dashclone', label: 'DASH AFTERSHOCK', desc: 'После рывка остаётся ударный след.' },
-  { id: 'abl_speed', kind: 'stat', stat: 'spd', label: 'MOBILITY +12%', desc: 'Скорость движения растёт.' },
-  { id: 'abl_dashflow', kind: 'stat', stat: 'dashflow', label: 'DASH FLOW +20%', desc: 'Заряды рывка восстанавливаются быстрее.' }
+  { id: 'abl_active_recovery', kind: 'stat', stat: 'active_recovery', label: 'Q RECOVERY +20%', desc: 'Активный протокол восстанавливается быстрее.' }
 ];
 
 export function rollUpgradeChoices(rng, luck, count = 3) {
@@ -324,9 +323,9 @@ export function rollUpgradeChoices(rng, luck, count = 3) {
 export function defaultStats() {
   return {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
-    dashAdd: 0, dashRegenMul: 1, dashDistMul: 1, drones: 0, orbitals: 0, luck: 0,
+    dashAdd: 0, dashRegenMul: 1, dashDistMul: 1, activeRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlLife: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
@@ -565,7 +564,8 @@ export const ROOM_MODS = {
   prism_grid:      { id: 'prism_grid',      label: 'PRISM GRID' },
   blood_tax:       { id: 'blood_tax',       label: 'BLOOD PAYMENT' },
   echo_walls:      { id: 'echo_walls',      label: 'ECHO SHOTS' },
-  skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' }
+  skin_cache:      { id: 'skin_cache',      label: 'SKN CACHE' },
+  trojan:          { id: 'trojan',          label: 'TROJAN CHEST' }
 };
 
 // Backward-compatible alias for UI modules that use the setting name after the locale pass.
