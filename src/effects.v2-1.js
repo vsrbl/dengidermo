@@ -208,7 +208,8 @@ export class Effects {
         this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: f.ally ? '#a8f8ff' : '#b45cff' });
         break;
       case 'rain_hit':
-        this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: f.ally ? '#bdfbff' : '#b45cff' });
+        if (f.active && f.ally) this.add({ kind: 'staticStrikeFlash', x: f.x, y: f.y, r: f.r, ttl: 0.14, color: '#d9fdff' });
+        else this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: f.ally ? '#bdfbff' : '#b45cff' });
         this.kick(3);
         break;
       case 'blood_tax_warn':
@@ -237,7 +238,6 @@ export class Effects {
         break;
       case 'armor_shell':
         this.add({ kind: 'shellHit', x: f.x, y: f.y, ttl: f.locked ? 0.30 : 0.22, color: f.locked ? '#ff3048' : '#66f6ff', locked: !!f.locked });
-        this.float(f.x, f.y - 36, f.locked ? 'LINKED ARMOR' : 'SHELL HIT', f.locked ? '#ff3048' : '#66f6ff', 10);
         break;
       case 'armor_break':
         this.add({ kind: 'rocketBlast', x: f.x, y: f.y, r: 72, ttl: 0.24, color: '#66f6ff' });
@@ -251,8 +251,13 @@ export class Effects {
         break;
       case 'armor_link':
         this.add({ kind: 'line', x: f.x, y: f.y, x2: f.x2, y2: f.y2, ttl: 0.26, color: '#ff3048', dash: true });
-        this.float(f.x, f.y - 44, fxLabel(f.label || 'ARMOR LINK'), '#ff3048', 11);
         break;
+      case 'anchor_phase': {
+        const field = f.phase === 'field';
+        this.add({ kind: 'squareField', activeKind: 'anchor_phase', x: f.x, y: f.y, r: field ? Math.min(220, f.r || 220) : 120, ttl: 0.28, color: field ? '#b45cff' : '#66f6ff', tick: field ? 0 : 1 });
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.18, color: field ? '#b45cff' : '#66f6ff' });
+        break;
+      }
       case 'split':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 80, ttl: 0.28, color: '#f3f3f3' });
         break;
@@ -506,7 +511,7 @@ export class Effects {
         break;
       }
       case 'path_turn':
-        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.10 });
+        // Compatibility with old/replayed events: navigation rescue has no combat FX.
         break;
       case 'contract':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 180, ttl: 0.8, color: '#ff3048' });
@@ -733,6 +738,31 @@ export class Effects {
         ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.7;
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1 - p; ctx.fillRect(e.x - 2, e.y - 600, 4, 600);
+      } else if (e.kind === 'staticStrikeFlash') {
+        // STATIC STRIKE is a single impact, not a lingering field. Draw only a
+        // very short bolt/core flash; never leave a filled radius behind.
+        const fade = 1 - p;
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color;
+        ctx.globalAlpha = fade;
+        ctx.lineWidth = Math.max(1, 4 * fade);
+        ctx.beginPath();
+        ctx.moveTo(e.x - 3, e.y - 620);
+        ctx.lineTo(e.x + 5, e.y - 390);
+        ctx.lineTo(e.x - 4, e.y - 185);
+        ctx.lineTo(e.x, e.y);
+        ctx.stroke();
+        ctx.globalAlpha = fade * 0.9;
+        ctx.fillRect(e.x - 5, e.y - 5, 10, 10);
+        ctx.globalAlpha = fade * 0.7;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          const inner = Math.max(8, e.r * 0.72);
+          ctx.beginPath();
+          ctx.moveTo(e.x + Math.cos(a) * inner, e.y + Math.sin(a) * inner);
+          ctx.lineTo(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r);
+          ctx.stroke();
+        }
       } else if (e.kind === 'burst') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = 1 - p; ctx.lineWidth = 2;
         const n = 6;

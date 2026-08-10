@@ -148,8 +148,8 @@ const EN_CORE = {
   shell_ripper: 'Press Q for reduced HP damage against unarmored threats, double armor damage, and a full ability lock, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
-  black_box: 'Press Q to open the Black Box around you.',
-  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm strikes enemies only. Upgrades increase damage, recovery speed, and diameter.',
+  black_box: 'Press Q to open the Black Box around you. Upgrades shrink its detection radius and extend its duration.',
+  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm hits every enemy whose body touches the marked area. It leaves no field. Upgrades increase damage, recovery speed, and diameter.',
   debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.'
 };
 const EN_MUT = {
@@ -163,8 +163,8 @@ const RU_CORE = {
   shell_ripper: 'Q наносит меньше урона угрозам без брони, вдвое сильнее ломает броню и отключает все способности, включая боссов.',
   void_cut: 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.',
   signal_spike: 'Q сразу устанавливает шип в точку курсора. Улучшения заметно растят дальность и область.',
-  black_box: 'Q сразу раскрывает чёрный ящик вокруг героя.',
-  static_strike: 'Q помечает точку курсора. После предупреждения светлый шторм бьёт только угрозы. Улучшения повышают урон, скорость восстановления и диаметр.',
+  black_box: 'Q сразу раскрывает чёрный ящик вокруг героя. Улучшения уменьшают радиус обнаружения и продлевают действие.',
+  static_strike: 'Q помечает точку курсора. После предупреждения светлый шторм бьёт каждую угрозу, чей корпус касается отмеченной зоны, и не оставляет поле. Улучшения повышают урон, скорость восстановления и диаметр.',
   debt_pulse: 'Q сразу запускает статик-волну вокруг героя. Каждый уровень наносит на 25% больше урона, чем предыдущий. Сама Q никогда не создаёт статик-долг.'
 };
 const RU_MUT = {
@@ -221,8 +221,8 @@ Object.assign(EN_UPGRADE, {
   shell_ripper: 'Press Q for reduced HP damage against unarmored threats, double armor damage, and a full ability lock, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
-  black_box: 'Press Q to open the Black Box around you.',
-  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm strikes enemies only. Upgrades increase damage, recovery speed, and diameter.',
+  black_box: 'Press Q to open the Black Box around you. Upgrades shrink its detection radius and extend its duration.',
+  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm hits every enemy whose body touches the marked area. It leaves no field. Upgrades increase damage, recovery speed, and diameter.',
   debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.',
   static: 'Q leaves a static field that slows threats and bullets.',
   blood: 'Q gains blood damage. Some uses may cost health.',
@@ -276,6 +276,8 @@ const EN_ROLE = { 'FOLLOW DAMAGE':'FOLLOW DAMAGE', 'PULL / CONTROL':'PULL / CONT
 const RU_ROLE = { 'FOLLOW DAMAGE':'УРОН РЯДОМ', 'PULL / CONTROL':'СТЯЖКА / КОНТРОЛЬ', 'FREEZE / CONTROL':'ЗАМОРОЗКА / КОНТРОЛЬ', 'ARMOR / EXPOSE':'ЗАЩИТА / УЯЗВИМОСТЬ', 'THIN LASER':'ТОНКИЙ ЛУЧ', 'BUILD LASER':'ЛУЧ / ЗВЕНЬЯ', 'DEPLOY NODE':'УСТАНОВКА УЗЛА', 'STEALTH / SAFE':'СКРЫТИЕ / БЕЗОПАСНОСТЬ', 'RISK BURST':'ОПАСНЫЙ ВЗРЫВ', FIELD:'ПОЛЕ', DAMAGE:'УРОН', RECAST:'ПОВТОР', BULLETS:'ПУЛИ', 'POST-ROLL':'ПОСЛЕ Q', PHASE:'ФАЗА', SUSTAIN:'ВЫЖИВАНИЕ', SHELL:'ЩИТЫ', 'LOCK ZONE':'ЗОНА КОНТРОЛЯ', SCALING:'НАКОПЛЕНИЕ', 'CHARGE BITE':'НАКОПЛЕНИЕ / УКУС', 'GLITCH REPEAT':'ИСКАЖЁННЫЙ ПОВТОР' };
 const EN_ACTION = { 'ЗАМЕНИТЬ CORE':'REPLACE Q', 'УСТАНОВИТЬ CORE':'INSTALL Q', 'УСИЛИТЬ CORE':'UPGRADE Q', 'ЗАМЕНИТЬ Q':'REPLACE Q', 'УСТАНОВИТЬ Q':'INSTALL Q', 'УСИЛИТЬ Q':'UPGRADE Q', 'ЗАМЕНИТЬ МУТАЦИЮ':'REPLACE MUTATION', 'ДОБАВИТЬ МУТАЦИЮ':'ADD MUTATION', 'ДОБАВИТЬ ПУШКУ':'ADD GUN', 'ДОБАВИТЬ ДЕЙСТВИЕ':'ADD ACTION', 'УСИЛИТЬ':'UPGRADE', 'ПОДКРУТИТЬ СТАВКУ':'IMPROVE BET', 'РАСШИРИТЬ КАРТУ':'EXPAND TABLE', 'ДОБАВИТЬ МЕТКУ':'ADD MARK', 'УСИЛИТЬ СТОП':'STRONGER HOLD', 'УСИЛИТЬ КОПИЮ':'UPGRADE COPY', 'АВТО-ОГОНЬ':'AUTOFIRE', 'SIDE UPGRADE':'SIDE UPGRADE', 'ADD TARGET':'ADD TARGET', 'ADD SPARK':'ADD SPARK', 'AMPLIFY':'AMPLIFY', 'EXTEND':'EXTEND' };
 const RU_ACTION = { 'REPLACE CORE':'ЗАМЕНИТЬ Q', 'INSTALL CORE':'УСТАНОВИТЬ Q', 'UPGRADE CORE':'УСИЛИТЬ Q', 'REPLACE Q':'ЗАМЕНИТЬ Q', 'INSTALL Q':'УСТАНОВИТЬ Q', 'UPGRADE Q':'УСИЛИТЬ Q', 'REPLACE MUTATION':'ЗАМЕНИТЬ МУТАЦИЮ', 'ADD MUTATION':'ДОБАВИТЬ МУТАЦИЮ', 'SIDE UPGRADE':'ДОП. УСИЛЕНИЕ', 'ADD TARGET':'ДОБАВИТЬ ЦЕЛЬ', 'ADD SPARK':'ДОБАВИТЬ ИСКРУ', 'AMPLIFY':'УСИЛИТЬ', 'EXTEND':'ПРОДЛИТЬ' };
+EN_ACTION['УСИЛИТЬ МУТАЦИЮ'] = 'UPGRADE MUTATION';
+RU_ACTION['UPGRADE MUTATION'] = 'УСИЛИТЬ МУТАЦИЮ';
 
 const EN_CHEST = {
   BSC: 'Free basic chest: GLD, EXP, and sometimes healing.', WPN: 'Core cache: adapts to your core with weapon modules, Living Casino gun upgrades, or control commands.', ABL: 'Protocol chest: Q protocol, Q upgrade, Q mutation, or movement module.', RAR: 'Rare chest: stronger build upgrade.', CRS: 'Cursed chest: strong reward, but the run becomes more dangerous.'
@@ -500,7 +502,15 @@ export function coreDesc(id, fallback = '') { return langIsEn() ? (EN_CORE[id] |
 export function mutationDesc(id, fallback = '') { return langIsEn() ? (EN_MUT[id] || cleanPlayerText(fallback)) : (RU_MUT[id] || cleanPlayerText(fallback)); }
 export function optionDesc(opt = {}) {
   if (opt.core) return coreDesc(opt.core, opt.desc || opt.preview || '');
-  if (opt.mutation) return mutationDesc(opt.mutation, opt.desc || opt.preview || '');
+  if (opt.mutation) {
+    const base = mutationDesc(opt.mutation, opt.desc || opt.preview || '');
+    if (opt.kind === 'active_upgrade_mutation') {
+      const level = Math.max(2, Math.floor(Number(opt.mutationLevel) || 2));
+      return `${base}\n${localText(`Уровень ${level}: эффект становится сильнее.`, `Level ${level}: strengthens this mutation.`)}`;
+    }
+    if (opt.repeatable === 0) return `${base}\n${localText('Уникальная: после установки больше не выпадает.', 'Unique: once installed, it no longer appears.')}`;
+    return `${base}\n${localText('Может выпадать повторно и усиливаться без лимита.', 'Can appear again and level up without a cap.')}`;
+  }
   const kind = String(opt.kind || '');
   if (kind.startsWith('lc_')) {
     const desc = {

@@ -5,7 +5,7 @@ import { buildSnapshot, createPlayer, createRun, handleRerollOffer, startRoom } 
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 import { reconcileRerollAvailability } from '../src/reroll-sync.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|200)$/);
+assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|20[0-4])$/);
 if (VERSION === 'v2.1.189') assert.equal(BUILD_ID, 'reroll_charge_sync_hotfix');
 assert.equal(PROTOCOL, 14);
 

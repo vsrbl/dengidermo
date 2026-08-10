@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[89]|200)$/);
+assert.match(VERSION, /^v2\.1\.(?:19[89]|20[0-4])$/);
 if (VERSION === 'v2.1.198') assert.equal(BUILD_ID, 'controller_process_lifetime_heal_hotfix');
 assert.equal(PROTOCOL, 14);
 

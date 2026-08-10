@@ -273,12 +273,12 @@ export const ACTIVE_CORES = {
   },
   black_box: {
     id: 'black_box', label: 'BLACK BOX', short: 'BOX', tone: 'purple', role: 'STEALTH / SAFE',
-    desc: 'Q сразу раскрывает чёрный ящик вокруг героя.',
-    upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
+    desc: 'Q сразу раскрывает чёрный ящик вокруг героя. Улучшения сжимают зону обнаружения.',
+    upgrade: ['−радиус обнаружения', '+длительность', '+дольше скрытие']
   },
   static_strike: {
     id: 'static_strike', label: 'STATIC STRIKE', short: 'STRIKE', tone: 'cyan', role: 'CURSOR STRIKE',
-    desc: 'Q помечает точку курсора. После задержки светлый шторм бьёт только угрозы.',
+    desc: 'Q помечает точку курсора. После задержки светлый шторм один раз бьёт все угрозы, чьи корпуса касаются зоны, и не оставляет поле.',
     upgrade: ['+урон', '+быстрее восстановление', '+диаметр']
   },
   debt_pulse: {
@@ -289,20 +289,22 @@ export const ACTIVE_CORES = {
 };
 
 export const ACTIVE_MUTATIONS = {
-  static: { id: 'static', label: 'STATIC', tone: 'cyan', role: 'FIELD', desc: 'Q оставляет замедляющее статик-поле.' },
-  blood: { id: 'blood', label: 'BLOOD', tone: 'red', role: 'DAMAGE', desc: 'Q получает кровавый урон; часть применений стоит здоровье.' },
-  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', desc: 'Q повторяется слабее после короткой паузы.' },
-  shrapnel: { id: 'shrapnel', label: 'SHRAPNEL', tone: 'cyan', role: 'BULLETS', desc: 'Q выпускает дополнительные снаряды.' },
-  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После Q может сработать казино-проверка.' },
-  void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', desc: 'Q даёт короткое окно неуязвимости.' },
-  leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания Q могут вернуть здоровье или кредиты.' },
-  armor_crack: { id: 'armor_crack', label: 'ARMOR BREAK', tone: 'purple', role: 'AREA / SHELL', desc: 'Во всей зоне Q проходит мощный удар только по броне угроз.' },
-  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Q оставляет область, которая тянет угроз и тормозит пули.' },
-  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'LOW HP BURST', desc: 'Q наносит небольшой урон вокруг героя. Чем меньше HP было при активации, тем сильнее импульс.' },
-  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Q повторяется двумя слабыми сбоями.' }
+  static: { id: 'static', label: 'STATIC', tone: 'cyan', role: 'FIELD', stackable: true, desc: 'Q оставляет замедляющее статик-поле.' },
+  blood: { id: 'blood', label: 'BLOOD', tone: 'red', role: 'DAMAGE', stackable: true, desc: 'Q получает кровавый урон; часть применений стоит здоровье.' },
+  echo: { id: 'echo', label: 'ECHO', tone: 'purple', role: 'RECAST', stackable: true, desc: 'Q повторяется слабее после короткой паузы.' },
+  shrapnel: { id: 'shrapnel', label: 'SHRAPNEL', tone: 'cyan', role: 'BULLETS', stackable: true, desc: 'Q выпускает дополнительные снаряды.' },
+  casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', stackable: false, desc: 'После Q может сработать казино-проверка.' },
+  void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', stackable: true, desc: 'Q даёт короткое окно неуязвимости.' },
+  leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', stackable: true, desc: 'Попадания Q могут вернуть здоровье или кредиты.' },
+  armor_crack: { id: 'armor_crack', label: 'ARMOR BREAK', tone: 'purple', role: 'AREA / SHELL', stackable: true, desc: 'Во всей зоне Q проходит мощный удар только по броне угроз.' },
+  anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', stackable: true, desc: 'Q оставляет область, которая тянет угроз и тормозит пули.' },
+  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'LOW HP BURST', stackable: true, desc: 'Q наносит небольшой урон вокруг героя. Чем меньше HP было при активации, тем сильнее импульс.' },
+  bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', stackable: true, desc: 'Q повторяется двумя слабыми сбоями.' }
 };
 
-export const ACTIVE_MUTATION_SLOTS = 3;
+// Compatibility export for older modules. Mutation ownership itself is no
+// longer slot-limited; every distinct mutation can coexist.
+export const ACTIVE_MUTATION_SLOTS = Number.POSITIVE_INFINITY;
 
 // Repeatable ABL side rewards. Dash upgrades belong to INSTALL and must not be duplicated here.
 export const ABILITY_CHEST_REWARDS = [

@@ -1,7 +1,7 @@
 // terminal casino roguelike server simulation — single source of truth, no client authority
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
-  WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS, ACTIVE_MUTATION_SLOTS,
+  WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS,
   rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
 } from './data.v2-1.js';
 import { generateRoom, spawnPoint, enemySpawnPoint, isEnemySpawnReachable, portalSpot, mulberry32, WALL_T } from './mapgen.v2-1.js';
@@ -395,6 +395,8 @@ function nextStaticRainBreakdown(run, players = null, plan = null) {
   if (debtEngine > 0) sources.push({ id: 'debt_engine', level: debtEngine });
   const bd = normalizeStaticSources(sources);
   bd.banked = pendingTotal > 0 && !eligible ? pendingTotal : 0;
+  bd.bankedSources = !eligible && pendingTotal > 0 ? pendingSources : [];
+  bd.deferredCore = !eligible ? activeDebtEngineStacks(run, players) : 0;
   bd.eligible = eligible;
   return bd;
 }
@@ -1086,7 +1088,8 @@ function containBossesInArena(run, players = null) {
       fixed++;
       if ((run.now || 0) - (e._bossClampFxAt || -999) > 1.2) {
         e._bossClampFxAt = run.now || 0;
-        run.fx.push({ t: 'path_turn', id: e.id, x: Math.round(e.x), y: Math.round(e.y), boss: 1 });
+        // Path rescue is simulation housekeeping, not a combat event. Showing it
+        // as a red hit marker made healthy enemies look damaged or glitched.
       }
     }
   }
@@ -2354,7 +2357,11 @@ function steerMove(run, e, dir, speedValue, dt, opts = {}) {
   if ((e.stuckT || 0) > 0.45) {
     e.steerSide = -(e.steerSide || sideBias);
     e.stuckT = 0.12;
-    run.fx.push({ t: 'path_turn', id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
+    // Hostile path corrections are useful feedback. Controlled processes use the
+    // cyan command language instead; showing the hostile red correction on them
+    // looked like damage/text spam when a freshly split child needed a new route.
+    // Keep the turn/rescue behavior silent. The old red marker could repeat on
+    // any enemy (especially a large armored one) while it navigated a tight wall.
   }
   return { x: e.x, y: e.y, moved: Math.hypot(e.x - prevX, e.y - prevY), blocked: best.blocked };
 }
@@ -2436,6 +2443,7 @@ function stepEnemySynergies(run, players, dt) {
     e.orbShieldT = Math.max(0, (e.orbShieldT || 0) - dt);
     e.armorLockT = Math.max(0, (e.armorLockT || 0) - dt);
     if (e.armorLockT <= 0) e.armorLinkId = '';
+    e.shellImpactFxT = Math.max(0, (e.shellImpactFxT || 0) - dt);
     e.activeSlowT = Math.max(0, (e.activeSlowT || 0) - dt);
     e.chillT = Math.max(0, (e.chillT || 0) - dt);
     e.frozenT = Math.max(0, (e.frozenT || 0) - dt);
@@ -2984,7 +2992,7 @@ export function createPlayer(id, name, idx, skin = null) {
     recoilT: 0, recoilX: 0, recoilY: 0,
     dashCharges: 1, dashTimer: 0, invuln: 0, activeCd: 0, activeBuffT: 0,
     stats: defaultStats(),
-    active: { core: null, level: 0, mutations: [] },
+    active: { core: null, level: 0, mutations: [], mutationLevels: {} },
     economy: { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 },
     lastSeq: 0,
     droneCd: 0, orbHits: new Map(),
@@ -3427,6 +3435,7 @@ function makeControlledProcess(run, p, pc, source, opts = {}) {
   const size = Math.max(8, Number(opts.size ?? source?.size ?? def.size ?? 24));
   const m = {
     id: nid(), kind, x, y,
+    controlledProcess: 1,
     size, baseSize: size,
     hp: Math.max(1, Number(opts.hp ?? (def.boss ? source?.hp : maxH) ?? maxH)), maxHp: maxH,
     ttl: lifeMax, maxT: lifeMax, born: run.tick || 0,
@@ -3510,6 +3519,58 @@ function spawnControlledProcess(run, p, pc, kind, x, y, opts = {}) {
   pc.controlled = processControllerTrimControlled(p, pc);
   return m;
 }
+function controlledProcessSpawnPoint(run, p, pc, source, opts = {}, staged = []) {
+  const size = Math.max(8, Number(opts.size ?? source?.size ?? ENEMIES[source?.kind]?.size ?? 24) || 24);
+  const half = size * 0.5;
+  const walls = run?.plan?.walls || [];
+  const probe = { size };
+  const bounds = enemyArenaBounds(run, probe, 2);
+  const excluded = String(opts.excludeProcessId || '');
+  const occupied = [...(pc?.controlled || []), ...(staged || [])].filter(m => m && String(m.id || '') !== excluded && (m.ttl ?? 1) > 0 && Number(m.hp ?? 1) > 0);
+  const valid = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) return false;
+    if (walls.some(w => aabbHit(x, y, half + 3, w))) return false;
+    if (!isEnemySpawnReachable({ x, y }, walls, [p], half)) return false;
+    return !occupied.some(m => Math.hypot(x - Number(m.x || 0), y - Number(m.y || 0)) < half + Math.max(4, Number(m.size || 24) * 0.5) + 5);
+  };
+  const requested = {
+    x: Number.isFinite(Number(source?.x)) ? Number(source.x) : Number(p?.x || bounds.cx),
+    y: Number.isFinite(Number(source?.y)) ? Number(source.y) : Number(p?.y || bounds.cy)
+  };
+  const origins = [
+    requested,
+    Number.isFinite(Number(opts.fallbackX)) && Number.isFinite(Number(opts.fallbackY)) ? { x: Number(opts.fallbackX), y: Number(opts.fallbackY) } : null,
+    { x: Number(p?.x || bounds.cx), y: Number(p?.y || bounds.cy) }
+  ].filter(Boolean);
+  const seed = (parseInt(String(source?.id || source?.kind || '1').slice(-7), 36) || 1) ^ (Number(run?.tick || 0) | 0);
+  const phase = ((seed & 4095) / 4096) * Math.PI * 2;
+  const radii = [0, 28, 44, 64, 88, 116, 150, 190, 235];
+  for (const origin of origins) {
+    for (const radius of radii) {
+      const spokes = radius ? 16 : 1;
+      for (let i = 0; i < spokes; i++) {
+        const a = phase + (i / spokes) * Math.PI * 2;
+        const x = radius ? origin.x + Math.cos(a) * radius : origin.x;
+        const y = radius ? origin.y + Math.sin(a) * radius : origin.y;
+        if (valid(x, y)) return { x, y };
+      }
+    }
+  }
+  // Last resort stays inside the same reachable component. The shared enemy
+  // spawn validator is deterministic here and cannot place the ally in a wall.
+  const rng = mulberry32((seed ^ 0xC071A11) >>> 0);
+  return enemySpawnPoint(rng, walls, [p], { half, preferred: requested });
+}
+function controlledProcessNeedsSpawnRescue(run, p, m) {
+  if (!run?.plan || !m || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return true;
+  const half = Math.max(4, Number(m.size || 24) * 0.5);
+  const bounds = enemyArenaBounds(run, m, 2);
+  if (m.x < bounds.left || m.x > bounds.right || m.y < bounds.top || m.y > bounds.bottom) return true;
+  const walls = run.plan.walls || [];
+  if (walls.some(w => aabbHit(m.x, m.y, half + 3, w))) return true;
+  return !m._spawnValidated && !isEnemySpawnReachable({ x: m.x, y: m.y }, walls, [p], half);
+}
 function makeInheritedControlledProcess(run, p, pc, source, opts = {}, staged = []) {
   if (!pc) return null;
   const stagedLive = (staged || []).filter(m => m && (m.ttl ?? 1) > 0 && Number(m.hp ?? 1) > 0);
@@ -3517,7 +3578,8 @@ function makeInheritedControlledProcess(run, p, pc, source, opts = {}, staged = 
   const stagedBonus = stagedLive.filter(m => m.bonusSlot).length;
   const useBonus = processControllerRegularCount(pc) + stagedRegular >= processControllerMax(p);
   if (useBonus && processControllerBonusCount(pc) + stagedBonus >= CTRL_BONUS_PROCESS_MAX) return null;
-  return makeControlledProcess(run, p, pc, source, { ...opts, bonusSlot: useBonus ? 1 : 0, inheritedProcess: 1 });
+  const point = controlledProcessSpawnPoint(run, p, pc, source, opts, staged);
+  return makeControlledProcess(run, p, pc, { ...source, x: point.x, y: point.y }, { ...opts, bonusSlot: useBonus ? 1 : 0, inheritedProcess: 1 });
 }
 function spawnInheritedControlledProcess(run, p, pc, kind, x, y, opts = {}) {
   pc = pc || ensureProcessControllerState(p);
@@ -3542,7 +3604,7 @@ function makeControlledSplitterChildren(run, p, pc, m, staged = []) {
     const child = makeInheritedControlledProcess(run, p, pc, {
       kind: 'splitter', x: m.x + Math.cos(a) * 34, y: m.y + Math.sin(a) * 34,
       maxHp: childHp, hp: childHp, size: childSize, dirX: Math.cos(a), dirY: Math.sin(a)
-    }, { splitStage: (m.splitStage || 0) + 1, maxHp: childHp, hp: childHp, size: childSize, lifeMax: childLife, focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || '' }, staged.concat(out));
+    }, { splitStage: (m.splitStage || 0) + 1, maxHp: childHp, hp: childHp, size: childSize, lifeMax: childLife, focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || '', excludeProcessId: m.id, fallbackX: m.x, fallbackY: m.y }, staged.concat(out));
     if (!child) continue;
     child.cmdT = Math.max(child.cmdT || 0, m.cmdT || 0, 1.2);
     child.tx = m.tx ?? child.tx; child.ty = m.ty ?? child.ty;
@@ -3573,7 +3635,8 @@ function makeControlledHunterChorusFragments(run, p, pc, m, staged = []) {
       maxHp: childHp, hp: childHp, size: def.size, dirX: Math.cos(a), dirY: Math.sin(a)
     }, {
       maxHp: childHp, hp: childHp, size: def.size, lifeMax: childLife,
-      focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || ''
+      focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || '',
+      excludeProcessId: m.id, fallbackX: m.x, fallbackY: m.y
     }, staged.concat(out));
     if (!child) continue;
     child.bossFragmentParent = m.id;
@@ -4273,6 +4336,12 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   const def = ENEMIES[m.kind] || ENEMIES.grunt || {};
   m.size = Math.max(8, Number(m.baseSize || m.size || def.size || 24));
   m.baseSize = m.size;
+  if (controlledProcessNeedsSpawnRescue(run, p, m)) {
+    const safe = controlledProcessSpawnPoint(run, p, pc, m, { size: m.size, excludeProcessId: m.id, fallbackX: p.x, fallbackY: p.y });
+    m.x = safe.x; m.y = safe.y;
+    m.stuckT = 0; m._stuckT = 0; m._navPath = []; m._navReplanAt = 0;
+  }
+  m._spawnValidated = 1;
   m.maxHp = Math.max(1, Number(m.maxHp || def.hp || 30));
   m.hp = Number.isFinite(Number(m.hp)) ? Math.max(0, Number(m.hp)) : m.maxHp;
   m.maxT = Math.max(1, Number(m.maxT || processControllerLifeMax(p)) || processControllerLifeMax(p));
@@ -5398,7 +5467,7 @@ export function resetRun(run, players) {
     p.weapons = ['shotgun']; p.weaponIdx = 0; p.cd = 0;
     p.shgCharges = 4; p.shgReload = 0; p.fireWasDown = false; p.sekSwarmCd = 0; p.shgLongshotCd = 0; p.recoilT = 0; p.recoilX = 0; p.recoilY = 0;
     p.stats = defaultStats();
-    p.active = { core: null, level: 0, mutations: [] };
+    p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
     p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.rareChestOffer = null; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
@@ -6594,6 +6663,11 @@ function bossPullPlayers(run, players, e, r, pull, dt, slowMul = 0.62) {
     }
   }
 }
+function bossKeepPlayersOut(run, players, e, r, push, dt, slowMul = 0.62) {
+  // The Anchor Cashier's field phase owns the space around the boss. Collision
+  // remains wall-safe and no player is teleported across room geometry.
+  bossPullPlayers(run, players, e, r, -Math.abs(push), dt, slowMul);
+}
 function chorusLiveBossFragments(run) {
   return (run?.enemies || []).filter(x => x && x.hp > 0 && ENEMIES[x.kind]?.bossFragment);
 }
@@ -6639,21 +6713,42 @@ function stepCroupierBoss(run, players, e, def, target, toT, dT, spd, dt) {
 }
 function stepAnchorCashierBoss(run, players, e, def, target, toT, dT, spd, dt) {
   bossMoveKeep(run, e, target, toT, dT, spd, dt, 430, 0.10);
-  const r = def.fieldR || 430;
-  bossPullPlayers(run, players, e, r, def.pull || 190, dt, 0.58);
-  for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, e.x, e.y) < (r + b.size) ** 2) {
-    const n = norm(e.x - b.x, e.y - b.y); b.vx += n.x * 70 * dt; b.vy += n.y * 70 * dt;
+  if (e.anchorCyclePhase !== 'field' && e.anchorCyclePhase !== 'shots') {
+    e.anchorCyclePhase = 'field';
+    e.anchorPhaseT = 10;
   }
-  e.fxT = (e.fxT || 0) - dt;
-  if (e.fxT <= 0) { e.fxT = 0.18; run.fx.push({ t: 'active_field', kind: 'anchor_boss', x: Math.round(e.x), y: Math.round(e.y), r, tone: 'purple' }); }
+  if (!Number.isFinite(e.anchorPhaseT) || e.anchorPhaseT <= 0) e.anchorPhaseT = e.anchorCyclePhase === 'field' ? 10 : 5;
+  e.anchorPhaseT -= dt;
+  if (e.anchorPhaseT <= 0) {
+    const overflow = Math.max(0, -e.anchorPhaseT);
+    e.anchorCyclePhase = e.anchorCyclePhase === 'field' ? 'shots' : 'field';
+    e.anchorPhaseT = Math.max(0.05, (e.anchorCyclePhase === 'field' ? 10 : 5) - overflow);
+    e.bossCastCd = Math.min(Math.max(0, e.bossCastCd || 0), 0.42);
+    run.fx.push({ t: 'anchor_phase', phase: e.anchorCyclePhase, x: Math.round(e.x), y: Math.round(e.y), r: def.fieldR || 430 });
+  }
+  const fieldPhase = e.anchorCyclePhase === 'field';
+  const r = def.fieldR || 430;
+  if (fieldPhase) {
+    bossKeepPlayersOut(run, players, e, r, def.pull || 190, dt, 0.58);
+    for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, e.x, e.y) < (r + b.size) ** 2) {
+      const n = norm(e.x - b.x, e.y - b.y); b.vx += n.x * 70 * dt; b.vy += n.y * 70 * dt;
+    }
+    e.fxT = (e.fxT || 0) - dt;
+    if (e.fxT <= 0) { e.fxT = 0.18; run.fx.push({ t: 'active_field', kind: 'anchor_boss', x: Math.round(e.x), y: Math.round(e.y), r, tone: 'purple' }); }
+  }
   e.bossCastCd -= dt;
   if (e.bossCastCd <= 0) {
     const loop = difficulty(run).loop;
-    bossRadial(run, e, 8 + Math.min(6, loop * 2), def.bulletSpd || 215, enemyDamageValue(e, 0.50), 8, 3.0, e.bossPhase || 0);
-    const x = clamp(target.x + (Math.random() - 0.5) * 180, 90, run.plan.w - 90);
-    const y = clamp(target.y + (Math.random() - 0.5) * 180, 90, run.plan.h - 90);
-    warnBossCircle(run, e, x, y, 105 + Math.min(34, loop * 8), enemyDamageValue(e, 0.82), 1.05, 'purple');
-    e.bossPhase = (e.bossPhase || 0) + 0.6;
+    if (fieldPhase) {
+      bossRadial(run, e, 8 + Math.min(6, loop * 2), def.bulletSpd || 215, enemyDamageValue(e, 0.50), 8, 3.0, e.bossPhase || 0);
+      const x = clamp(target.x + (Math.random() - 0.5) * 180, 90, run.plan.w - 90);
+      const y = clamp(target.y + (Math.random() - 0.5) * 180, 90, run.plan.h - 90);
+      warnBossCircle(run, e, x, y, 105 + Math.min(34, loop * 8), enemyDamageValue(e, 0.82), 1.05, 'purple');
+      e.bossPhase = (e.bossPhase || 0) + 0.6;
+    } else {
+      // Five-second opening: shots only. No pull/slow field, pulse ring or floor zone.
+      bossAimBurst(run, e, target, 4 + Math.min(2, loop), 0.48, def.bulletSpd || 215, enemyDamageValue(e, 0.46), 7);
+    }
     e.bossCastCd = Math.max(1.75, def.fireCd - Math.min(0.55, loop * 0.09));
   }
   touchDamage(run, e, players, dt);
@@ -7471,7 +7566,12 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
     const locked = e.shellType === 'linked' && ((e.armorLockT || 0) > 0 && !!e.armorLinkId);
     e.shellFlashT = 0.16;
     if (locked) {
-      run.fx.push({ t: 'armor_shell', locked: 1, shellType: e.shellType || 'linked', id: e.id, link: e.armorLinkId, dmg: rawDmg, x: Math.round(e.x), y: Math.round(e.y) });
+      // Every hit is still blocked, but rapid weapons/status ticks may request
+      // feedback only a few times per second instead of flooding red FX/text.
+      if ((e.shellImpactFxT || 0) <= 0) {
+        e.shellImpactFxT = 0.24;
+        run.fx.push({ t: 'armor_shell', locked: 1, shellType: e.shellType || 'linked', id: e.id, link: e.armorLinkId, dmg: rawDmg, x: Math.round(e.x), y: Math.round(e.y) });
+      }
       return;
     }
     e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, shellRegenHitDelay(e, 4.2));
@@ -7884,6 +7984,9 @@ function applyWeaponChain(run, players, startEnemy, b) {
 // ---------------------------------------------------------------- shooting
 function globalDamageMul(p) {
   return Math.max(0.05, Number(p?.stats?.dmgMul) || 1) * Math.max(0.05, Number(p?.wagerDmgMul || 1) || 1) * ((((p?.tempDmgMulT || 0) > 0) || p?.tempDmgMulRoom) ? Math.max(1, Number(p?.tempDmgMul || 1) || 1) : 1);
+}
+export function playerDamageValue(p, base, scale = 1) {
+  return Math.max(0, Number(base) || 0) * globalDamageMul(p) * Math.max(0, Number(scale) || 0);
 }
 function weaponDamageMul(p) {
   return globalDamageMul(p) * Math.max(0.05, Number(p?.stats?.weaponDmgMul) || 1);
@@ -9019,7 +9122,7 @@ function stepCompanions(run, players, dt, now) {
         for (const e of run.enemies) {
           if (p.orbHits.has(e.id)) continue;
           if (dist2(e.x, e.y, op.x, op.y) < ((e.size / 2) + 16 + Math.max(0, p.stats.orbRange || 0) * 2) ** 2) {
-            damageEnemy(run, players, e, (18 + Math.max(0, p.stats.orbSpeed || 0) * 3) * p.stats.dmgMul, p.id, 0, 0, 0, 'orbital');
+            damageEnemy(run, players, e, playerDamageValue(p, 18 + Math.max(0, p.stats.orbSpeed || 0) * 3), p.id, 0, 0, 0, 'orbital');
             p.orbHits.set(e.id, now + 0.28);
           }
         }
@@ -9597,17 +9700,41 @@ function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0
 
 
 function ensureActive(p) {
-  if (!p.active || typeof p.active !== 'object') p.active = { core: null, level: 0, mutations: [] };
+  if (!p.active || typeof p.active !== 'object') p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
   if (!Array.isArray(p.active.mutations)) p.active.mutations = [];
-  p.active.mutations = p.active.mutations.filter(id => ACTIVE_MUTATIONS[id]).slice(0, ACTIVE_MUTATION_SLOTS);
-  if (p.active.core && !ACTIVE_CORES[p.active.core]) { p.active.core = null; p.active.level = 0; p.active.mutations = []; }
+  const oldLevels = p.active.mutationLevels && typeof p.active.mutationLevels === 'object' ? p.active.mutationLevels : {};
+  const counts = {};
+  for (const raw of p.active.mutations) {
+    const id = String(raw || '');
+    if (!ACTIVE_MUTATIONS[id]) continue;
+    counts[id] = (counts[id] || 0) + 1;
+  }
+  p.active.mutations = Object.keys(counts);
+  p.active.mutationLevels = {};
+  for (const id of p.active.mutations) {
+    const stored = Math.max(0, Math.floor(Number(oldLevels[id]) || 0));
+    p.active.mutationLevels[id] = ACTIVE_MUTATIONS[id]?.stackable === false ? 1 : Math.max(1, stored, counts[id] || 1);
+  }
+  if (p.active.core && !ACTIVE_CORES[p.active.core]) { p.active.core = null; p.active.level = 0; p.active.mutations = []; p.active.mutationLevels = {}; }
   if (p.active.core && (!p.active.level || p.active.level < 1)) p.active.level = 1;
   if (p.active.core !== 'void_cut') delete p.active.voidChain;
   if (p.activeTargeting && p.activeTargeting.core !== p.active.core) p.activeTargeting = null;
   return p.active;
 }
 function activeHasMutation(p, id) { return ensureActive(p).mutations.includes(id); }
-function activeMutationLabels(p) { return ensureActive(p).mutations.map(id => ACTIVE_MUTATIONS[id]?.label || id.toUpperCase()); }
+export function activeMutationLevel(p, id) {
+  const a = ensureActive(p);
+  return a.mutations.includes(id) ? Math.max(1, Math.floor(Number(a.mutationLevels?.[id]) || 1)) : 0;
+}
+function activeMutationCanUpgrade(id) { return !!ACTIVE_MUTATIONS[id] && ACTIVE_MUTATIONS[id].stackable !== false; }
+function activeMutationLabels(p) {
+  const a = ensureActive(p);
+  return a.mutations.map(id => {
+    const label = ACTIVE_MUTATIONS[id]?.label || id.toUpperCase();
+    const level = activeMutationLevel(p, id);
+    return `${label}${level > 1 ? ' ' + roman(level) : ''}`;
+  });
+}
 function addActiveChoiceMeta(opt) {
   const tone = opt.tone || (opt.kind && String(opt.kind).includes('mutation') ? 'purple' : 'cyan');
   return { ...opt, tone };
@@ -9637,17 +9764,19 @@ function makeUpgradeCoreChoice(p) {
     desc: c.desc, tone: c.tone
   });
 }
-function makeMutationChoice(mutId, p, replaceIdx = -1) {
-  const m = ACTIVE_MUTATIONS[mutId]; const a = ensureActive(p);
-  const replace = replaceIdx >= 0;
-  const old = replace ? ACTIVE_MUTATIONS[a.mutations[replaceIdx]]?.label || a.mutations[replaceIdx] : '';
+function makeMutationChoice(mutId, p) {
+  const m = ACTIVE_MUTATIONS[mutId];
+  const current = activeMutationLevel(p, mutId);
+  const upgrade = current > 0;
+  const next = current + 1;
   return addActiveChoiceMeta({
-    id: replace ? `active_replace_mut_${replaceIdx}_${mutId}` : `active_mut_${mutId}`,
-    kind: replace ? 'active_replace_mutation' : 'active_add_mutation', mutation: mutId, replaceIdx,
-    label: replace ? `MUTATE: ${old} → ${m.label}` : `MUTATION: ${m.label}`,
-    actionLabel: replace ? 'ЗАМЕНИТЬ МУТАЦИЮ' : 'ДОБАВИТЬ МУТАЦИЮ',
+    id: upgrade ? `active_upgrade_mut_${mutId}_${next}` : `active_mut_${mutId}`,
+    kind: upgrade ? 'active_upgrade_mutation' : 'active_add_mutation', mutation: mutId, mutationLevel: next,
+    repeatable: activeMutationCanUpgrade(mutId) ? 1 : 0,
+    label: upgrade ? `MUTATION: ${m.label} ${roman(current)} → ${roman(next)}` : `MUTATION: ${m.label}`,
+    actionLabel: upgrade ? 'УСИЛИТЬ МУТАЦИЮ' : 'ДОБАВИТЬ МУТАЦИЮ',
     group: 'MUTATION', role: m.role || 'SIGNAL',
-    preview: `${m.label} усиливает текущую Q и меняет её поведение.`,
+    preview: upgrade ? `${m.label} получает уровень ${roman(next)}.` : `${m.label} усиливает текущую Q и меняет её поведение.`,
     desc: m.desc, tone: m.tone
   });
 }
@@ -9691,13 +9820,8 @@ function makeAbilityChestChoices(p, rng = Math.random, count = 3, qualityTier = 
       choices.push(addActiveChoiceMeta({ ...recovery, actionLabel: 'Q RECOVERY', group: 'ACTIVE', role: 'RECOVERY', preview: recovery.desc, tone: 'cyan', valueTier: qualityTier }));
     }
   }
-  const availableMuts = mutIds.filter(id => !a.mutations.includes(id));
-  if (a.mutations.length < ACTIVE_MUTATION_SLOTS && availableMuts.length) {
-    choices.push(makeMutationChoice(pickUnique(rng, availableMuts, used), p));
-  } else if (availableMuts.length && a.mutations.length) {
-    const idx = Math.floor(rng() * a.mutations.length);
-    choices.push(makeMutationChoice(pickUnique(rng, availableMuts, used), p, idx));
-  }
+  const availableMuts = mutIds.filter(id => !a.mutations.includes(id) || activeMutationCanUpgrade(id));
+  if (availableMuts.length) choices.push(makeMutationChoice(pickUnique(rng, availableMuts, used), p));
   const otherCores = coreIds.filter(id => id !== a.core);
   if (otherCores.length) choices.push(makeCoreChoice(pickUnique(rng, otherCores, used), 'active_core_replace', p));
 
@@ -9727,7 +9851,7 @@ function applyAbilityChestOption(run, players, p, opt) {
   let label = opt.label || opt.id;
   if (opt.kind === 'active_core_install') {
     if (!ACTIVE_CORES[opt.core]) return false;
-    p.active.core = opt.core; p.active.level = 1; p.active.mutations = []; p.activeTargeting = null;
+    p.active.core = opt.core; p.active.level = 1; p.active.mutations = []; p.active.mutationLevels = {}; p.activeTargeting = null;
     if (opt.core === 'signal_spike') p.active.spikeCharges = 1; else delete p.active.spikeCharges;
     label = `Q: ${ACTIVE_CORES[opt.core].label} I`;
   } else if (opt.kind === 'active_core_replace') {
@@ -9752,18 +9876,31 @@ function applyAbilityChestOption(run, players, p, opt) {
     label = `Q UPGRADE: ${ACTIVE_CORES[p.active.core].label} ${roman(p.active.level)}`;
   } else if (opt.kind === 'active_add_mutation') {
     if (!a.core || !ACTIVE_MUTATIONS[opt.mutation]) return false;
-    if (!p.active.mutations.includes(opt.mutation)) {
-      if (p.active.mutations.length >= ACTIVE_MUTATION_SLOTS) return false;
-      p.active.mutations.push(opt.mutation);
-    }
-    label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label}`;
+    if (p.active.mutations.includes(opt.mutation)) return false;
+    p.active.mutations.push(opt.mutation);
+    p.active.mutationLevels[opt.mutation] = 1;
+    label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label} I`;
+  } else if (opt.kind === 'active_upgrade_mutation') {
+    if (!a.core || !ACTIVE_MUTATIONS[opt.mutation] || !activeMutationCanUpgrade(opt.mutation)) return false;
+    if (!p.active.mutations.includes(opt.mutation)) return false;
+    const next = activeMutationLevel(p, opt.mutation) + 1;
+    p.active.mutationLevels[opt.mutation] = next;
+    label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label} ${roman(next)}`;
   } else if (opt.kind === 'active_replace_mutation') {
+    // Compatibility with an offer created by an older host: never delete the
+    // mutation occupying replaceIdx. Convert the old replacement into a safe
+    // add/upgrade operation.
     if (!a.core || !ACTIVE_MUTATIONS[opt.mutation]) return false;
-    const idx = Math.max(0, Math.min(p.active.mutations.length - 1, opt.replaceIdx | 0));
-    if (!p.active.mutations.length) return false;
-    p.active.mutations[idx] = opt.mutation;
-    p.active.mutations = [...new Set(p.active.mutations)].slice(0, ACTIVE_MUTATION_SLOTS);
-    label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label}`;
+    if (p.active.mutations.includes(opt.mutation)) {
+      if (!activeMutationCanUpgrade(opt.mutation)) return false;
+      const next = activeMutationLevel(p, opt.mutation) + 1;
+      p.active.mutationLevels[opt.mutation] = next;
+      label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label} ${roman(next)}`;
+    } else {
+      p.active.mutations.push(opt.mutation);
+      p.active.mutationLevels[opt.mutation] = 1;
+      label = `Q MUTATION: ${ACTIVE_MUTATIONS[opt.mutation].label} I`;
+    }
   } else if (opt.kind === 'ability_upgrade') {
     const u = UPGRADES.find(x => x.id === opt.upgrade);
     if (!u) return false;
@@ -10098,6 +10235,7 @@ export {
   bossRewardBlockedForPlayer, signalSpikeAimRangeForLevel, signalSpikeRadiusForLevel,
   controlledProcessFireRateMul, controlledProcessDamageValue, controlledProcessContactCarriesStatuses,
   applyControlledProcessStatuses, bulletElementString, damageEnemy, controlledFireBullet,
+  stepAnchorCashierBoss,
   captureEnemyAsProcess, damageControlledProcess, expireControlledProcess, stepProcessControllerState,
   rareTierTwoChance, rollSafeRareUpgrade, spendBossKey, continueMultiPickChestOffer
 };
@@ -10237,10 +10375,12 @@ export function handleDevCommand(run, players, p, cmd = {}) {
   if (action === 'set_active') {
     const core = String(cmd.core || '');
     if (!ACTIVE_CORES[core]) return false;
-    const muts = Array.isArray(cmd.mutations) ? cmd.mutations.filter(id => ACTIVE_MUTATIONS[id]).slice(0, ACTIVE_MUTATION_SLOTS) : ensureActive(p).mutations;
+    const currentActive = ensureActive(p);
+    const muts = Array.isArray(cmd.mutations) ? cmd.mutations.filter(id => ACTIVE_MUTATIONS[id]) : currentActive.mutations;
+    const mutationLevels = cmd.mutationLevels && typeof cmd.mutationLevels === 'object' ? { ...cmd.mutationLevels } : { ...(currentActive.mutationLevels || {}) };
     const rawLevel = Math.max(1, Number(cmd.level || 1) | 0);
     const levelCap = (core === 'signal_spike' || core === 'void_cut') ? 12 : 3;
-    p.active = { core, level: Math.max(1, Math.min(levelCap, rawLevel)), mutations: [...new Set(muts)] }; p.activeTargeting = null;
+    p.active = { core, level: Math.max(1, Math.min(levelCap, rawLevel)), mutations: [...muts], mutationLevels }; ensureActive(p); p.activeTargeting = null;
     if (core === 'signal_spike') p.active.spikeCharges = signalSpikeMaxCharges(p);
     if (core === 'void_cut') delete p.active.voidChain;
     p.activeCd = 0;
@@ -10990,18 +11130,19 @@ function activeCoreLabel(p) {
   const c = ACTIVE_CORES[a.core];
   if (!c) return 'НЕТ ПРОТОКОЛА';
   const muts = activeMutationLabels(p);
+  const compactMuts = muts.length > 3 ? [...muts.slice(0, 3), `+${muts.length - 3} MUT`] : muts;
   const chargeTag = a.core === 'signal_spike' ? ` [${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}]` : (a.core === 'void_cut' ? ` [LINK ${roman(voidLaserMaxSegments(p))}]` : '');
-  return `Q: ${c.label} ${roman(a.level || 1)}${chargeTag}${muts.length ? ' +' + muts.join('+') : ''}`;
+  return `Q: ${c.label} ${roman(a.level || 1)}${chargeTag}${compactMuts.length ? ' +' + compactMuts.join('+') : ''}`;
 }
 function activeCoreDesc(p) {
   const a = ensureActive(p);
   const c = ACTIVE_CORES[a.core];
   if (!c) return 'Q сейчас пустая. Открой сундук протоколов, чтобы выбрать активный модуль.';
-  const muts = a.mutations.map(id => ACTIVE_MUTATIONS[id]).filter(Boolean);
+  const muts = a.mutations.map(id => ({ ...ACTIVE_MUTATIONS[id], level: activeMutationLevel(p, id) })).filter(m => m.id);
   const chargeLine = a.core === 'signal_spike'
     ? `\nЗаряды: ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}. Улучшения заметно увеличивают дальность установки и размер зоны.`
     : (a.core === 'void_cut' ? `\nЗвенья луча: ${roman(voidLaserMaxSegments(p))}. Улучшения добавляют новые звенья и дальность.` : '');
-  return `${c.label} ${roman(a.level || 1)}\n${c.desc}${chargeLine}` + (muts.length ? `\nМутации: ${muts.map(m => `${m.label} — ${m.desc}`).join(' / ')}` : '\nМутации: нет. Открой ABL-сундук, чтобы добавить мутацию.');
+  return `${c.label} ${roman(a.level || 1)}\n${c.desc}${chargeLine}` + (muts.length ? `\nМутации: ${muts.map(m => `${m.label} ${roman(m.level)} — ${m.desc}`).join(' / ')}` : '\nМутации: нет. Открой ABL-сундук, чтобы добавить мутацию.');
 }
 
 function activeCooldown(p) {
@@ -11090,6 +11231,11 @@ function activeDurationForLevel(lvl, low, high) {
 function activeRadiusForLevel(lvl, low, high) {
   return Math.round(activeDurationForLevel(lvl, low, high));
 }
+export function blackBoxRadiusForLevel(level = 1) {
+  // A tighter box is the upgrade: fewer enemies can enter the detection area
+  // around the hidden player. Level III reaches the compact final footprint.
+  return activeRadiusForLevel(level, 340, 210);
+}
 function activeExposeEnemy(run, e, lvl, owner) {
   if (!enemyCombatReady(e)) return;
   const oldMul = e.exposedMul || 1;
@@ -11130,12 +11276,26 @@ export function staticPulseDamageForLevel(level = 1) {
 export function staticStrikeProfile(level = 1) {
   const lvl = Math.max(1, Math.floor(Number(level) || 1));
   const extra = lvl - 1;
+  // Keep the upgrade growth meaningful, but make the level-I footprint exactly
+  // 1.5x smaller than the original 132-unit base profile.
+  const baseRadius = activeScale(132) / 1.5;
   return {
     damage: 72 + extra * 30,
-    radius: Math.round(activeScale(132 + extra * 42)),
+    radius: Math.round(baseRadius + activeScale(extra * 42)),
     cooldownBase: Math.max(3.6, 9.0 - extra * 1.35),
     delay: 1.15
   };
+}
+
+export function staticStrikeHitsEnemy(strike = {}, e = null) {
+  if (!enemyCombatReady(e)) return false;
+  const x = Number(strike.x || 0), y = Number(strike.y || 0);
+  const radius = Math.max(0, Number(strike.r || strike.radius || 0));
+  const bodyRadius = Math.max(0, Number(e.size || 24) / 2);
+  const contactRadius = radius + bodyRadius;
+  // Inclusive circle-to-body contact keeps the warning edge identical to the
+  // damage edge, including a threat touching the circumference exactly.
+  return dist2(e.x, e.y, x, y) <= contactRadius * contactRadius;
 }
 
 export function hungerMutationProfile(level = 1, hpRatio = 1) {
@@ -11176,14 +11336,14 @@ function activeCrackShell(run, e, dmg, forceBreakLink = false) {
   if (e.shellHp <= 0) { run.fx.push({ t: 'armor_break', id: e.id, shellType: e.shellType || 'plain', x: Math.round(e.x), y: Math.round(e.y), active: 1 }); rewardShellMarket(run, e.x, e.y); }
   return d;
 }
-function activeShrapnel(run, p, x, y, power = 1) {
+function activeShrapnel(run, p, x, y, power = 1, mutationLevel = 1) {
   const n = Math.min(18, 8 + Math.floor(power * 3) + ensureActive(p).mutations.length);
   const rangeMul = p.stats.bulletRange || 1;
   for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.12;
     run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: activeScale(weaponDamageValue(p, 7 + power * 2)), from: 'p', owner: p.id, life: 0.75 * rangeMul, size: 4, proc: p.stats.procBlast * 0.35, kind: 'active_shrapnel', travelled: 0, maxDist: Math.round(450 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
   }
-  run.fx.push({ t: 'active_mutation', label: 'SHRAPNEL', x: Math.round(x), y: Math.round(y), r: 85, tone: 'cyan' });
+  run.fx.push({ t: 'active_mutation', label: `SHRAPNEL ${roman(mutationLevel)}`, x: Math.round(x), y: Math.round(y), r: 85, tone: 'cyan' });
 }
 
 function activeCasinoMutationPayoutMul(run) {
@@ -11282,7 +11442,7 @@ function applyActiveUnstableReactions(run, players, p, ctx, opts = {}) {
   const roll = () => Math.random() < (fired ? 0.34 : 0.92);
 
   if (activeHasAll(p, 'static', 'blood') && roll()) {
-    activeField(run, { kind: 'red_static', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round((ctx.r || 130) * 0.66), ttl: activeDurationForLevel(lvl, 3.75, 4.5), tickEvery: 0.34, dmg: (5 + lvl * 2) * p.stats.dmgMul, slow: 0.48, damp: 0.33 });
+    activeField(run, { kind: 'red_static', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round((ctx.r || 130) * 0.66), ttl: activeDurationForLevel(lvl, 3.75, 4.5), tickEvery: 0.34, dmg: playerDamageValue(p, 5 + lvl * 2), slow: 0.48, damp: 0.33 });
     activeNoise(run, 'RED STATIC', ctx.x, ctx.y, (ctx.r || 130) * 0.74, 'red');
     fired++;
   }
@@ -11338,18 +11498,18 @@ function applyActiveUnstableReactions(run, players, p, ctx, opts = {}) {
     fired++;
   }
   if (ctx.core === 'field_snap' && activeHasAll(p, 'blood', 'echo') && roll()) {
-    explode(run, players, ctx.x, ctx.y, activeScale(64 + lvl * 12), activeScale(8 + lvl * 4 + (ctx.hitCount || 0)) * p.stats.dmgMul, p.id, false, 'blood');
+    explode(run, players, ctx.x, ctx.y, activeScale(64 + lvl * 12), playerDamageValue(p, activeScale(8 + lvl * 4 + (ctx.hitCount || 0))), p.id, false, 'blood');
     activeNoise(run, 'LATE PULSE', ctx.x, ctx.y, 102 + lvl * 12, 'red');
     fired++;
   }
   if (activeHasAll(p, 'anchor', 'static') && roll()) {
-    activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: activeRadiusForLevel(lvl, 150, 230), ttl: activeDurationForLevel(lvl, 3.6, 5.2), tickEvery: 0.36, pull: activeRadiusForLevel(lvl, 125, 230), dmg: (3 + lvl * 2) * p.stats.dmgMul, slow: 0.24, damp: 0.16 });
+    activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: activeRadiusForLevel(lvl, 150, 230), ttl: activeDurationForLevel(lvl, 3.6, 5.2), tickEvery: 0.36, pull: activeRadiusForLevel(lvl, 125, 230), dmg: playerDamageValue(p, 3 + lvl * 2), slow: 0.24, damp: 0.16 });
     activeNoise(run, 'DEAD ZONE', ctx.x, ctx.y, 170 + lvl * 22, 'purple');
     fired++;
   }
   if (activeHasAll(p, 'hunger', 'blood') && roll()) {
     const bite = Math.min(34, 8 + (ctx.hitCount || 0) * 2.6 + lvl * 4);
-    explode(run, players, ctx.x, ctx.y, activeScale(70 + lvl * 14), activeScale(bite) * p.stats.dmgMul, p.id, false, 'blood');
+    explode(run, players, ctx.x, ctx.y, activeScale(70 + lvl * 14), playerDamageValue(p, activeScale(bite)), p.id, false, 'blood');
     p.hp = Math.min(maxHp(p), p.hp + Math.min(16, 2 + (ctx.hitCount || 0) * 1.2));
     activeNoise(run, 'RED HUNGER', ctx.x, ctx.y, 112 + lvl * 16, 'red');
     fired++;
@@ -11368,60 +11528,67 @@ function applyActiveMutations(run, players, p, ctx, opts = {}) {
   let mods = opts.skipEcho ? a.mutations.filter(id => id !== 'echo') : a.mutations;
   if (opts.skipCasino) mods = mods.filter(id => id !== 'casino');
   for (const id of mods) {
+    const mutationLevel = activeMutationLevel(p, id);
+    const mutationExtra = Math.max(0, mutationLevel - 1);
     if (id === 'static') {
-      activeField(run, { kind: 'static', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round(activeScale((ctx.r || 120) * 0.86)), ttl: activeDurationForLevel(lvl, 4.5, 6.0), dmg: 0, slow: 0.30, damp: 0.24 });
-      run.fx.push({ t: 'active_mutation', label: 'STATIC', x: Math.round(ctx.x), y: Math.round(ctx.y), r: Math.round(activeScale((ctx.r || 120) * 0.86)), tone: 'cyan' });
+      const fieldRadius = Math.round(activeScale((ctx.r || 120) * 0.86) * (1 + Math.sqrt(mutationExtra) * 0.14));
+      const fieldTtl = activeDurationForLevel(lvl, 4.5, 6.0) + activeScale(mutationExtra * 0.55);
+      activeField(run, { kind: 'static', owner: p.id, x: ctx.x, y: ctx.y, r: fieldRadius, ttl: fieldTtl, dmg: 0, slow: Math.max(0.08, 0.30 - mutationExtra * 0.018), damp: Math.max(0.06, 0.24 - mutationExtra * 0.015) });
+      run.fx.push({ t: 'active_mutation', label: `STATIC ${roman(mutationLevel)}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: fieldRadius, tone: 'cyan' });
     } else if (id === 'blood') {
       if (p.hp > 16) p.hp = Math.max(1, p.hp - Math.max(4, Math.round(maxHp(p) * 0.035)));
-      explode(run, players, ctx.x, ctx.y, activeScale(92 + lvl * 16), activeScale(14 + lvl * 5 + (ctx.hitCount || 0) * 1.5) * p.stats.dmgMul, p.id, false, 'blood');
-      run.fx.push({ t: 'active_mutation', label: 'BLOOD', x: Math.round(ctx.x), y: Math.round(ctx.y), r: 105 + lvl * 16, tone: 'red' });
+      const bloodRadius = activeScale(92 + lvl * 16) * (1 + Math.sqrt(mutationExtra) * 0.10);
+      const bloodDamage = playerDamageValue(p, activeScale(14 + lvl * 5 + (ctx.hitCount || 0) * 1.5) * (1 + mutationExtra * 0.30));
+      explode(run, players, ctx.x, ctx.y, bloodRadius, bloodDamage, p.id, false, 'blood');
+      run.fx.push({ t: 'active_mutation', label: `BLOOD ${roman(mutationLevel)}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: Math.round(bloodRadius), tone: 'red' });
     } else if (id === 'echo' && !opts.echo) {
       if (!run.pendingActives) run.pendingActives = [];
-      run.pendingActives.push({ owner: p.id, at: run.now + 0.58, core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
-      run.fx.push({ t: 'active_mutation', label: 'ECHO ARMED', x: Math.round(ctx.x), y: Math.round(ctx.y), r: 90, tone: 'purple' });
-    } else if (id === 'shrapnel') activeShrapnel(run, p, ctx.x, ctx.y, lvl);
+      for (let i = 0; i < mutationLevel; i++) run.pendingActives.push({ owner: p.id, at: run.now + 0.58 + i * 0.22, core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
+      run.fx.push({ t: 'active_mutation', label: `ECHO ARMED x${mutationLevel}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: 90, tone: 'purple' });
+    } else if (id === 'shrapnel') activeShrapnel(run, p, ctx.x, ctx.y, lvl + mutationExtra * 0.9, mutationLevel);
     else if (id === 'casino') activeCasinoRoll(run, p, ctx, opts);
     else if (id === 'void') {
-      p.invuln = Math.max(p.invuln || 0, 0.48 + lvl * 0.08);
-      run.fx.push({ t: 'active_mutation', label: 'VOID PHASE', x: Math.round(p.x), y: Math.round(p.y), r: activeScale(80), tone: 'purple', squareBlast: 1 });
+      p.invuln = Math.max(p.invuln || 0, 0.48 + lvl * 0.08 + mutationExtra * 0.22);
+      run.fx.push({ t: 'active_mutation', label: `VOID PHASE ${roman(mutationLevel)}`, x: Math.round(p.x), y: Math.round(p.y), r: activeScale(80), tone: 'purple', squareBlast: 1 });
     } else if (id === 'leech') {
-      const heal = Math.min(30, 5 + (ctx.hitCount || 0) * 3 + (ctx.damageDone || 0) * 0.035);
+      const heal = Math.min(30 + mutationExtra * 12, 5 + mutationExtra * 2 + (ctx.hitCount || 0) * 3 * (1 + mutationExtra * 0.12) + (ctx.damageDone || 0) * 0.035 * (1 + mutationExtra * 0.10));
       if (heal > 0) p.hp = Math.min(maxHp(p), p.hp + heal);
-      run.fx.push({ t: 'active_mutation', label: `LEECH +${Math.round(heal)}`, x: Math.round(p.x), y: Math.round(p.y), r: 72, tone: 'green' });
+      run.fx.push({ t: 'active_mutation', label: `LEECH ${roman(mutationLevel)} +${Math.round(heal)}`, x: Math.round(p.x), y: Math.round(p.y), r: 72, tone: 'green' });
     } else if (id === 'armor_crack') {
-      const profile = armorCrackMutationProfile(lvl, ctx.r || 120);
+      const profile = armorCrackMutationProfile(lvl + mutationExtra, ctx.r || 120);
       let cracked = 0, targets = 0;
       for (const e of activeTargets(run, ctx.x, ctx.y, profile.radius)) {
         const dealt = activeCrackShell(run, e, profile.armorDamage, true);
         if (dealt > 0) { cracked += dealt; targets++; }
       }
       run.fx.push({
-        t: 'active_mutation', label: targets ? `ARMOR BREAK x${targets}` : 'ARMOR BREAK',
+        t: 'active_mutation', label: targets ? `ARMOR BREAK ${roman(mutationLevel)} x${targets}` : `ARMOR BREAK ${roman(mutationLevel)}`,
         x: Math.round(ctx.x), y: Math.round(ctx.y), r: profile.radius,
         tone: 'purple', squareBlast: 1, armorOnly: 1, targets, damage: Math.round(cracked)
       });
     } else if (id === 'anchor') {
-      activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round(activeScale((ctx.r || 130) * 0.58 + 88)), ttl: activeDurationForLevel(lvl, 2.9, 4.4), tickEvery: 0.30, pull: activeRadiusForLevel(lvl, 120, 240), dmg: (2 + lvl * 2) * p.stats.dmgMul, slow: 0.32, damp: 0.20 });
-      run.fx.push({ t: 'active_mutation', label: 'ANCHOR', x: Math.round(ctx.x), y: Math.round(ctx.y), r: Math.round(activeScale((ctx.r || 130) * 0.62 + 95)), tone: 'purple' });
+      const anchorRadius = Math.round(activeScale((ctx.r || 130) * 0.58 + 88) + activeScale(Math.sqrt(mutationExtra) * 18));
+      activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: anchorRadius, ttl: activeDurationForLevel(lvl, 2.9, 4.4) + activeScale(mutationExtra * 0.55), tickEvery: 0.30, pull: activeRadiusForLevel(lvl, 120, 240) + activeScale(mutationExtra * 32), dmg: playerDamageValue(p, (2 + lvl * 2) * (1 + mutationExtra * 0.28)), slow: Math.max(0.10, 0.32 - mutationExtra * 0.016), damp: Math.max(0.06, 0.20 - mutationExtra * 0.012) });
+      run.fx.push({ t: 'active_mutation', label: `ANCHOR ${roman(mutationLevel)}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: anchorRadius, tone: 'purple' });
     } else if (id === 'hunger') {
-      const profile = hungerMutationProfile(lvl, ctx.activationHpRatio);
+      const profile = hungerMutationProfile(lvl + mutationExtra, ctx.activationHpRatio);
       let hit = 0, dealt = 0;
       for (const e of [...activeTargets(run, p.x, p.y, profile.radius)]) {
-        dealt += activeDamageEnemy(run, players, e, profile.damage * p.stats.dmgMul, p.id);
+        dealt += activeDamageEnemy(run, players, e, playerDamageValue(p, profile.damage), p.id);
         hit++;
       }
       ctx.hitCount += hit;
       ctx.damageDone += dealt;
       run.fx.push({
-        t: 'active_mutation', label: `HUNGER PULSE ${Math.round(profile.multiplier * 100)}%`,
+        t: 'active_mutation', label: `HUNGER PULSE ${Math.round(profile.multiplier * 100)}%${mutationLevel > 1 ? ' ' + roman(mutationLevel) : ''}`,
         x: Math.round(p.x), y: Math.round(p.y), r: profile.radius, tone: 'red', squareBlast: 1,
         lowHp: Math.round(profile.missingHp * 100), hit
       });
     } else if (id === 'bad_tape' && !opts.echo) {
       if (!run.pendingActives) run.pendingActives = [];
-      run.pendingActives.push({ owner: p.id, at: run.now + 0.46, core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
-      run.pendingActives.push({ owner: p.id, at: run.now + 0.92, core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
-      run.fx.push({ t: 'active_mutation', label: 'BAD TAPE', x: Math.round(ctx.x), y: Math.round(ctx.y), r: 104, tone: 'purple' });
+      const copies = mutationLevel * 2;
+      for (let i = 0; i < copies; i++) run.pendingActives.push({ owner: p.id, at: run.now + 0.46 * (i + 1), core: a.core, level: Math.max(1, lvl - 1), echo: 1 });
+      run.fx.push({ t: 'active_mutation', label: `BAD TAPE ${roman(mutationLevel)} x${copies}`, x: Math.round(ctx.x), y: Math.round(ctx.y), r: 104, tone: 'purple' });
     }
   }
 }
@@ -11437,7 +11604,7 @@ function castActiveCore(run, players, p, opts = {}) {
   };
   if (core === 'blood_ring') {
     ctx.r = activeRadiusForLevel(lvl, 205, 335);
-    activeField(run, { kind: 'blood_ring', owner: p.id, follow: 1, x: p.x, y: p.y, r: ctx.r, ttl: activeDurationForLevel(lvl, 4.8, 7.5), tickEvery: 0.32, dmg: (11 + lvl * 9) * p.stats.dmgMul });
+    activeField(run, { kind: 'blood_ring', owner: p.id, follow: 1, x: p.x, y: p.y, r: ctx.r, ttl: activeDurationForLevel(lvl, 4.8, 7.5), tickEvery: 0.32, dmg: playerDamageValue(p, 11 + lvl * 9) });
     run.fx.push({ t: 'active', id: p.id, label: `BLOOD RING ${roman(lvl)}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r });
   } else if (core === 'field_snap') {
     ctx.r = activeRadiusForLevel(lvl, 310, 455);
@@ -11485,7 +11652,7 @@ function castActiveCore(run, players, p, opts = {}) {
       const shell = activeCrackShell(run, e, ripperDamage.armorDamage, true);
       if (shell) ctx.hitCount++;
       ctx.damageDone += shell;
-      if (!shell) { activeExposeEnemy(run, e, lvl, p.id); ctx.damageDone += activeDamageEnemy(run, players, e, ripperDamage.healthDamage * p.stats.dmgMul, p.id); ctx.hitCount++; }
+      if (!shell) { activeExposeEnemy(run, e, lvl, p.id); ctx.damageDone += activeDamageEnemy(run, players, e, playerDamageValue(p, ripperDamage.healthDamage), p.id); ctx.hitCount++; }
     }
     if (ctx.hitCount) run.fx.push({ t: 'active_mutation', label: `SHELL LOCK ${ctx.hitCount}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r, tone: 'purple' });
     run.fx.push({ t: 'active', id: p.id, label: `SHELL RIPPER ${roman(lvl)}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r });
@@ -11500,7 +11667,7 @@ function castActiveCore(run, players, p, opts = {}) {
     const width = Math.max(6, Math.round(7 + Math.min(8, extra * 0.22)));
     const visualWidth = Math.max(1.25, Math.round(width * 0.18));
     const ttl = voidLaserSegmentTtl(lvl);
-    const laserDmg = (32 + lvl * 16 + segmentIndex * 3) * p.stats.dmgMul;
+    const laserDmg = playerDamageValue(p, 32 + lvl * 16 + segmentIndex * 3);
     ctx.x = Math.round((startX + end.x) / 2);
     ctx.y = Math.round((startY + end.y) / 2);
     ctx.r = Math.round(Math.hypot(end.x - startX, end.y - startY) * 0.5 + width);
@@ -11518,7 +11685,7 @@ function castActiveCore(run, players, p, opts = {}) {
     activeField(run, {
       kind: 'void_laser', owner: p.id, x: ctx.x, y: ctx.y, r: width,
       x1: Math.round(startX), y1: Math.round(startY), x2: ctx.endX, y2: ctx.endY, width, visualWidth,
-      ttl, tickEvery: 0.18, dmg: (4 + lvl * 2.4) * p.stats.dmgMul, slow: 0.20, damp: 0.02
+      ttl, tickEvery: 0.18, dmg: playerDamageValue(p, 4 + lvl * 2.4), slow: 0.20, damp: 0.02
     });
     const segTag = ctx.maxSegments > 1 ? ` ${segmentIndex}/${ctx.maxSegments}` : '';
     run.fx.push({ t: 'active_line', kind: 'void_laser', id: p.id, label: `VOID LINK${segTag}${cut ? ' / ERASE ' + cut : ''}`, x1: Math.round(startX), y1: Math.round(startY), x2: ctx.endX, y2: ctx.endY, width: visualWidth, hitWidth: width, laserLen, ttl, tone: 'purple' });
@@ -11529,13 +11696,13 @@ function castActiveCore(run, players, p, opts = {}) {
     const aim = activeAimPoint(p, aimRange, 140);
     ctx.x = Math.round(aim.x); ctx.y = Math.round(aim.y); ctx.r = signalSpikeRadiusForLevel(lvl);
     const ttl = activeScale(4.9 + Math.min(3.0, extra * 0.32));
-    const dmg = (8.5 + lvl * 2.35) * p.stats.dmgMul;
+    const dmg = playerDamageValue(p, 8.5 + lvl * 2.35);
     activeField(run, { kind: 'signal_spike', owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r, ttl, tickEvery: 0.40, pull: Math.round(activeScale(34 + Math.min(70, extra * 5))), dmg, slow: 0.44, damp: 0.20 });
     for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, ctx.x, ctx.y) < (ctx.r + b.size) ** 2) { b.vx *= 0.25; b.vy *= 0.25; ctx.hitCount++; }
     const chargeInfo = opts.echo ? '' : ` ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}`;
     run.fx.push({ t: 'active', id: p.id, label: `SIGNAL SPIKE ${roman(lvl)}${chargeInfo}`, x: ctx.x, y: ctx.y, r: ctx.r });
   } else if (core === 'black_box') {
-    ctx.r = activeRadiusForLevel(lvl, 210, 340);
+    ctx.r = blackBoxRadiusForLevel(lvl);
     let confused = 0, jammed = 0;
     // On cast, enemies already inside the box are briefly confused. Enemies outside simply stop seeing the owner via target selection.
     for (const e of [...activeTargets(run, p.x, p.y, ctx.r)]) {
@@ -11561,7 +11728,7 @@ function castActiveCore(run, players, p, opts = {}) {
     if (!run.pendingActiveStrikes) run.pendingActiveStrikes = [];
     run.pendingActiveStrikes.push({
       id: nid(), owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r,
-      dmg: profile.damage * p.stats.dmgMul, at: run.now + profile.delay, level: lvl
+      dmg: playerDamageValue(p, profile.damage), at: run.now + profile.delay, level: lvl
     });
     run.fx.push({ t: 'rain_warn', id: p.id, owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r, dur: profile.delay, stacks: 1, tone: 'cyan', ally: 1, active: 1 });
     run.fx.push({ t: 'active', kind: 'static_strike', id: p.id, label: `STATIC STRIKE ${roman(lvl)}`, x: ctx.x, y: ctx.y, r: ctx.r, delayed: 1 });
@@ -11570,7 +11737,7 @@ function castActiveCore(run, players, p, opts = {}) {
     for (const e of [...activeTargets(run, p.x, p.y, ctx.r)]) {
       const n = norm(e.x - p.x, e.y - p.y);
       e.x += n.x * activeScale(34 + lvl * 15); e.y += n.y * activeScale(34 + lvl * 15);
-      ctx.damageDone += activeDamageEnemy(run, players, e, staticPulseDamageForLevel(lvl) * p.stats.dmgMul, p.id);
+      ctx.damageDone += activeDamageEnemy(run, players, e, playerDamageValue(p, staticPulseDamageForLevel(lvl)), p.id);
       // The pulse's own hit is the exact +25% level step. Its vulnerability
       // starts after that hit and boosts follow-up damage, not the same pulse.
       activeExposeEnemy(run, e, lvl + 1, p.id);
@@ -11667,7 +11834,7 @@ function stepActiveFields(run, players, dt) {
     if (run.now < strike.at) continue;
     run.pendingActiveStrikes = run.pendingActiveStrikes.filter(x => x !== strike);
     let hits = 0;
-    for (const e of [...activeTargets(run, strike.x, strike.y, strike.r)]) {
+    for (const e of [...run.enemies].filter(e => staticStrikeHitsEnemy(strike, e))) {
       const before = e.hp;
       activeDamageEnemy(run, players, e, strike.dmg || 72, strike.owner, 'static_strike');
       if (e.hp < before) hits++;
@@ -12122,7 +12289,7 @@ function stepPlayers(run, players, dt) {
       if (p.stats.voidStep > 0) {
         const stacks = Math.max(1, p.stats.voidStep | 0);
         const riftW = 102 + Math.min(86, stacks * 14);
-        const riftDmg = (14 + stacks * 9) * p.stats.dmgMul;
+        const riftDmg = playerDamageValue(p, 14 + stacks * 9);
         let hit = 0;
         for (const e of run.enemies) {
           if (!enemyCombatReady(e)) continue;
@@ -12135,7 +12302,7 @@ function stepPlayers(run, players, dt) {
         }
         run.fx.push({ t: 'dash_void', id: p.id, x1: Math.round(ox), y1: Math.round(oy), x2: Math.round(c.x), y2: Math.round(c.y), w: Math.round(riftW), dmg: Math.round(riftDmg), count: hit, stacks });
       }
-      if (p.stats.dashClone > 0) explode(run, players, ox, oy, 138 + p.stats.dashClone * 8, (10 + p.stats.dashClone * 5) * p.stats.dmgMul, p.id, false, 'echo');
+      if (p.stats.dashClone > 0) explode(run, players, ox, oy, 138 + p.stats.dashClone * 8, playerDamageValue(p, 10 + p.stats.dashClone * 5), p.id, false, 'echo');
       if (p.stats.dashCut > 0) {
         const stacks = Math.max(1, p.stats.dashCut | 0);
         const stunR = 162 + Math.min(96, stacks * 16);
@@ -12286,6 +12453,31 @@ function activeTargetingSnapshot(run, p) {
   return (q || r) ? { q, r } : null;
 }
 
+function playerBuildSnapshot(p) {
+  const stats = {};
+  for (const [key, value] of Object.entries(p?.stats || {})) {
+    if (typeof value === 'number' && Number.isFinite(value)) stats[key] = Math.round(value * 10000) / 10000;
+    else if (typeof value === 'string' || typeof value === 'boolean') stats[key] = value;
+  }
+  const active = ensureActive(p);
+  const mutations = [];
+  const seen = new Set();
+  for (const id of active.mutations || []) {
+    if (!ACTIVE_MUTATIONS[id] || seen.has(id)) continue;
+    seen.add(id);
+    mutations.push({ id, level: activeMutationLevel(p, id) });
+  }
+  const lc = ensureLivingCasinoState(p);
+  return {
+    hero: String(p?.hero || 'base'),
+    stats,
+    derived: { damageMul: Math.round(globalDamageMul(p) * 10000) / 10000, weaponDamageMul: Math.round(weaponDamageMul(p) * 10000) / 10000 },
+    weapons: Array.isArray(p?.weapons) ? p.weapons.map(String) : [],
+    active: { core: String(active.core || ''), level: Math.max(0, Number(active.level || 0) | 0), mutations },
+    livingCasino: lc ? { ...lc.upgrades } : null
+  };
+}
+
 // ---------------------------------------------------------------- snapshot
 export function buildSnapshot(run, players) {
   sanitizeEnemiesForRoom(run, players, 0.05);
@@ -12312,7 +12504,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p)
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p)
     ]);
   }
   const ctrlLocks = new Map();
@@ -12349,7 +12541,8 @@ export function buildSnapshot(run, players) {
     Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10,
     ctrlLocks.has(e.id) ? 1 : 0,
     ctrlLocks.get(e.id) || 0,
-    (e.abilityLockT || 0) > 0 ? 1 : 0
+    (e.abilityLockT || 0) > 0 ? 1 : 0,
+    e.kind === 'boss_anchor_cashier' && e.anchorCyclePhase === 'shots' ? 0 : 1
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn
@@ -12452,7 +12645,6 @@ export function buildSnapshot(run, players) {
   let nextPreview = run.nextRoomPreview ? { ...run.nextRoomPreview, mods: [...(run.nextRoomPreview.mods || [])] } : null;
   if (nextPreview) {
     const nextBreakdown = nextStaticRainBreakdown(run, players, nextPreview);
-    if (nextBreakdown.total > 0 && !nextPreview.mods.includes('static_rain')) nextPreview.mods.push('static_rain');
     const debtEngineNext = nextBreakdown.sources.find(s => s.id === 'debt_engine')?.level || 0;
     const paidNext = nextBreakdown.sources.some(s => s.id !== 'room_modifier' && s.id !== 'debt_engine');
     const ni = roomIntel(nextPreview, nextBreakdown.total, paidNext ? 'paid' : (debtEngineNext > 0 ? 'debt_engine' : 'natural'));
@@ -12468,7 +12660,10 @@ export function buildSnapshot(run, players) {
     room: {
       id: run.plan.roomId, cat: run.plan.category, special: run.plan.specialRoomId || '',
       loop: run.plan.loopIndex, depth: run.runDepth, inLoop: run.plan.roomInLoop,
-      mods: run.plan.modifierIds, quota: Math.max(run.plan.quota || 0, directorTotalBudget(run)), baseQuota: run.plan.quota || 0, kills: run.kills, liveEnemies: liveEnemyCount(run), spawned: run.spawned, archetype: run.plan.roomArchetype || 'standard',
+      // A debt/Core storm uses a synthetic runtime tag, but it is not a room
+      // modifier. Only expose STATIC STORM in the rule list when it was rolled
+      // naturally; the unified storm readout carries every other source.
+      mods: (run.plan.modifierIds || []).filter(m => m !== 'static_rain' || (run.staticRainNaturalLevel || 0) > 0), quota: Math.max(run.plan.quota || 0, directorTotalBudget(run)), baseQuota: run.plan.quota || 0, kills: run.kills, liveEnemies: liveEnemyCount(run), spawned: run.spawned, archetype: run.plan.roomArchetype || 'standard',
       w: run.plan.w, h: run.plan.h,
       portal: [Math.round(run.portal.x), Math.round(run.portal.y), run.portal.open ? 1 : 0],
       phase: run.phase, solvedTime: Math.round(roomSolvedTime(run)), solved: roomSolvedAt(run) > 0 ? 1 : 0, age: roomAge, bossKind: run.bossKind || '', bossHpPct,

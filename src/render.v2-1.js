@@ -534,7 +534,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0, anchorField = 1] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -798,7 +798,7 @@ export class Renderer {
       } else if (kind === 'boss_anchor_cashier') {
         this.square(ex, ey, size, { stroke: COL.purple, lw: 6, fill: 'rgba(180,92,255,0.08)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.purple, lw: 2.5, rotate: Math.PI / 4 });
-        ctx.save(); ctx.globalAlpha = 0.18 + Math.sin(now * 5) * 0.05; ctx.strokeStyle = COL.purple; ctx.setLineDash([12, 10]); ctx.strokeRect(ex - 215, ey - 215, 430, 430); ctx.restore();
+        if (anchorField) { ctx.save(); ctx.globalAlpha = 0.18 + Math.sin(now * 5) * 0.05; ctx.strokeStyle = COL.purple; ctx.setLineDash([12, 10]); ctx.strokeRect(ex - 215, ey - 215, 430, 430); ctx.restore(); }
         this.label('ANC+', ex, ey - size / 2 - 12, COL.purple, 12);
         const bw = size * 1.45; ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5); ctx.fillStyle = COL.purple; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
       } else if (kind === 'boss_hunter_chorus') {

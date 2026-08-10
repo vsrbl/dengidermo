@@ -1,6 +1,6 @@
 // terminal casino roguelike HUD: bars, pips, feed, banners, TAB panel, install + casino modals
 import { P, ENEMY_KINDS } from './state.v2-1.js';
-import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-1.js';
+import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES, ACTIVE_CORES, ACTIVE_MUTATIONS, defaultStats } from '../shared/data.v2-1.js';
 import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, activeShort as locActiveShort, activeDescFrom, chestDesc, pickupDesc, enemyDesc, weaponDesc, optionDesc, locAction, locRole, locLabel, locReward, disabledReason, objectStateText, priceText, localText, denyText, esc as escHtml } from './i18n.v2-1.js';
 import { reconcileRerollAvailability } from './reroll-sync.v2-1.js';
 
@@ -24,6 +24,148 @@ const TAG_RU = {
   'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН', 'INFECTED CHEST': 'ЗАРАЖЁННЫЙ СУНДУК', 'CHEST SWARM': 'РОЙ ИЗ СУНДУКА'
 };
 function roman(n) { const map = ['','I','II','III','IV','V','VI','VII','VIII','IX','X']; n = Math.max(1, Math.min(10, Number(n || 1) | 0)); return map[n] || String(n); }
+const BUILD_BASE_STATS = defaultStats();
+function buildNum(value, digits = 2) {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? String(n) : n.toFixed(digits).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+function buildValue(value, kind = 'level') {
+  const n = Number(value || 0);
+  if (kind === 'mult') return `×${buildNum(n)}`;
+  if (kind === 'pct') return `${buildNum(n * 100, 1)}%`;
+  if (kind === 'seconds') return `${buildNum(n, 1)}s`;
+  if (kind === 'units') return buildNum(n, 0);
+  if (kind === 'bool') return n > 0 ? localText('ДА', 'YES') : localText('НЕТ', 'NO');
+  return buildNum(n, 1);
+}
+function buildGain(value, base, kind = 'level') {
+  const n = Number(value || 0), b = Number(base || 0);
+  if (kind === 'mult') return `${n >= b ? '+' : ''}${buildNum((n - b) * 100, 1)}%`;
+  if (kind === 'pct') return `${n >= b ? '+' : ''}${buildNum((n - b) * 100, 1)} п.п.`;
+  if (kind === 'bool') return n > b ? localText('ОТКРЫТО', 'UNLOCKED') : '—';
+  const d = n - b;
+  return `${d >= 0 ? '+' : ''}${buildNum(d, 1)}`;
+}
+function buildStatHtml(def, stats, me) {
+  const base = def.base ?? BUILD_BASE_STATS[def.key] ?? 0;
+  const value = typeof def.value === 'function' ? def.value(stats, me) : (stats[def.key] ?? base);
+  const title = localText(def.ru, def.en);
+  const hint = localText(
+    `Текущее значение: ${buildValue(value, def.kind)}. Базовое: ${buildValue(base, def.kind)}. Прокачка: ${buildGain(value, base, def.kind)}.`,
+    `Current: ${buildValue(value, def.kind)}. Base: ${buildValue(base, def.kind)}. Upgrade: ${buildGain(value, base, def.kind)}.`
+  );
+  return `<div class="tab-build-stat term" data-explain-title="${esc(title)}" data-explain="${esc(hint)}"><span>${esc(title)}</span><b>${esc(buildValue(value, def.kind))}</b><small>${esc(localText('БАЗА', 'BASE'))} ${esc(buildValue(base, def.kind))} · ${esc(buildGain(value, base, def.kind))}</small></div>`;
+}
+function tabBuildCard(titleRu, titleEn, rows, cls = '') {
+  return `<section class="tab-build-card ${cls}"><h3>${esc(localText(titleRu, titleEn))}</h3><div class="tab-build-rows">${rows.join('')}</div></section>`;
+}
+function renderTabBuild(me) {
+  const build = me?.[P.BUILD];
+  if (!build?.stats) return `<section class="tab-build-card"><h3>${esc(localText('СБОРКА', 'BUILD'))}</h3><p class="muted">${esc(localText('СИНХРОНИЗАЦИЯ…', 'SYNCING…'))}</p></section>`;
+  const s = { ...BUILD_BASE_STATS, ...build.stats };
+  const coreDefs = [
+    { key:'dmgMul', ru:'ВЕСЬ ИСХОДЯЩИЙ УРОН', en:'ALL OUTGOING DAMAGE', kind:'mult', value:()=>build.derived?.damageMul ?? s.dmgMul },
+    { key:'weaponDmgMul', ru:'ДОБАВКА ОРУЖИЯ', en:'WEAPON DAMAGE BONUS', kind:'mult' },
+    { key:'fireMul', ru:'СКОРОСТЬ ОРУЖИЯ', en:'WEAPON CLOCK', kind:'mult' },
+    { key:'maxHpAdd', ru:'МАКС. HP', en:'MAX HP', kind:'units', base:100, value:(_,p)=>p[P.MAXHP] },
+    { key:'spdMul', ru:'СКОРОСТЬ', en:'MOVE SPEED', kind:'units', base:260, value:(_,p)=>p[P.SPD] },
+    { key:'magnetMul', ru:'МАГНИТ ДАННЫХ', en:'DATA MAGNET', kind:'mult' },
+    { key:'luck', ru:'УДАЧА', en:'LUCK', kind:'level' },
+    { key:'goldMul', ru:'ДОХОД GLD', en:'GLD INCOME', kind:'mult' },
+    { key:'lifesteal', ru:'ВАМПИРИЗМ', en:'LIFESTEAL', kind:'pct' },
+    { key:'procBlast', ru:'ШАНС ВЗРЫВА', en:'BLAST CHANCE', kind:'pct' },
+    { key:'echoShot', ru:'ЭХО-ВЫСТРЕЛ', en:'ECHO SHOT', kind:'pct' },
+    { key:'drones', ru:'СПУТНИКИ', en:'DRONES', kind:'level' },
+    { key:'dashAdd', ru:'ЗАРЯДЫ РЫВКА', en:'DASH CHARGES', kind:'level', base:1, value:(_,p)=>p[P.DASHMAX] },
+    { key:'dashDistMul', ru:'ДАЛЬНОСТЬ РЫВКА', en:'DASH DISTANCE', kind:'units', base:175, value:(_,p)=>p[P.DASHDIST] },
+    { key:'dashRegenMul', ru:'ВОССТ. РЫВКА', en:'DASH RECOVERY', kind:'mult' },
+    { key:'activeRegenMul', ru:'ВОССТ. Q', en:'Q RECOVERY', kind:'mult' }
+  ];
+  const armoryDefs = [
+    { key:'bulletRange', ru:'ДАЛЬНОСТЬ ОРУЖИЯ', en:'WEAPON RANGE', kind:'mult' },
+    { key:'bulletBounce', ru:'РИКОШЕТЫ', en:'RICOCHETS' },
+    { key:'bulletFire', ru:'ОГОНЬ', en:'FIRE STATUS' },
+    { key:'bulletFreeze', ru:'ЗАМОРОЗКА', en:'FREEZE STATUS' },
+    { key:'bulletPoison', ru:'ЯД', en:'POISON STATUS' },
+    { key:'bulletElementAmp', ru:'СИЛА СТАТУСОВ', en:'STATUS POWER' },
+    { key:'elementSpread', ru:'ПЕРЕНОС СТАТУСОВ', en:'STATUS SPREAD' },
+    { key:'bulletChain', ru:'СВЯЗЬ СНАРЯДОВ', en:'PROJECTILE LINK' },
+    { key:'bulletChainStatuses', ru:'СТАТУСЫ ПО СВЯЗИ', en:'LINKED STATUSES', kind:'bool' },
+    { key:'droneElementLink', ru:'СТАТУСЫ КОНТАКТА CTRL', en:'CTRL CONTACT STATUS', kind:'bool' },
+    { key:'droneProc', ru:'ВЗРЫВЫ СПУТНИКОВ', en:'DRONE BLAST' }
+  ];
+  const weapons = new Set(build.weapons || []);
+  const branches = [
+    ['shotgun', [
+      { key:'shgPellets', ru:'SHG: ДРОБЬ', en:'SHG: PELLETS' }, { key:'shgBounce', ru:'SHG: РИКОШЕТ', en:'SHG: BOUNCE' }, { key:'shgLongshot', ru:'SHG: ДАЛЬНИЙ БОЙ', en:'SHG: LONGSHOT' }
+    ]],
+    ['seeker', [
+      { key:'sekSplit', ru:'SEK: ДЕЛЕНИЕ', en:'SEK: SPLIT' }, { key:'sekChain', ru:'SEK: ЦЕПЬ', en:'SEK: CHAIN' }, { key:'sekSwarm', ru:'SEK: РОЙ', en:'SEK: SWARM' }
+    ]],
+    ['rocketgun', [
+      { key:'rktCluster', ru:'RKT: КАССЕТА', en:'RKT: CLUSTER' }, { key:'rktMines', ru:'RKT: МИНЫ', en:'RKT: MINES' }, { key:'rktStun', ru:'RKT: ОГЛУШЕНИЕ', en:'RKT: STUN' }, { key:'rktScatter', ru:'RKT: РАЗБРОС', en:'RKT: SCATTER' }, { key:'rktRemote', ru:'RKT: ПОДРЫВ', en:'RKT: REMOTE' }
+    ]],
+    ['roulette', [
+      { key:'rltDmg', ru:'RLT: УРОН', en:'RLT: DAMAGE' }, { key:'rltSize', ru:'RLT: РАЗМЕР', en:'RLT: SIZE' }, { key:'rltFrag', ru:'RLT: ОСКОЛКИ', en:'RLT: FRAGMENTS' }, { key:'rltDepth', ru:'RLT: ГЛУБИНА', en:'RLT: DEPTH' }, { key:'rltBounce', ru:'RLT: РИКОШЕТ', en:'RLT: BOUNCE' }, { key:'rltSpeed', ru:'RLT: СКОРОСТЬ', en:'RLT: SPEED' }
+    ]],
+    ['deck', [
+      { key:'crdCards', ru:'CRD: КАРТЫ', en:'CRD: CARDS' }, { key:'crdDmg', ru:'CRD: УРОН', en:'CRD: DAMAGE' }, { key:'crdBounce', ru:'CRD: РИКОШЕТ', en:'CRD: BOUNCE' }
+    ]]
+  ];
+  for (const [weapon, defs] of branches) if (weapons.has(weapon) || defs.some(d => Number(s[d.key] || 0) > 0)) armoryDefs.push(...defs);
+
+  const heroDefs = [];
+  if (build.hero === 'process_controller') heroDefs.push(
+    { key:'ctrlMax', ru:'ЛИМИТ ПРОЦЕССОВ', en:'PROCESS LIMIT', base:2, value:v=>2 + Number(v.ctrlMax || 0) },
+    { key:'ctrlPower', ru:'СИЛА ПРОЦЕССОВ', en:'PROCESS POWER' },
+    { key:'ctrlCaptureTier', ru:'РАНГ ЗАХВАТА', en:'CAPTURE TIER' },
+    { key:'ctrlFire', ru:'ОГОНЬ ПРОЦЕССОВ', en:'PROCESS FIRE RATE' },
+    { key:'ctrlProcessContactStatus', ru:'СТАТУСЫ ТЕЛОМ', en:'CONTACT STATUSES', kind:'bool' },
+    { key:'ctrlLife', ru:'СРОК КОНТРОЛЯ', en:'CONTROL LIFETIME' },
+    { key:'ctrlDeathHeal', ru:'ВОЗВРАТ HP', en:'PROCESS HP RETURN' },
+    { key:'ctrlPersist', ru:'ПЕРЕХОД МЕЖДУ СЕКТОРАМИ', en:'ROOM PERSISTENCE', kind:'bool' },
+    { key:'qrRadius', ru:'ЯКОРЬ: РАДИУС', en:'ANCHOR: RADIUS' },
+    { key:'qrHold', ru:'ЯКОРЬ: ДЛИТЕЛЬНОСТЬ', en:'ANCHOR: DURATION' },
+    { key:'qrLinks', ru:'ЯКОРЬ: ЗАХВАТЫ', en:'ANCHOR: LINKS', base:5, value:v=>5 + Number(v.qrLinks || 0) },
+    { key:'qrDamage', ru:'ЯКОРЬ: УРОН', en:'ANCHOR: DAMAGE' }
+  );
+  else if (build.hero === 'living_casino') {
+    const lc = build.livingCasino || {};
+    heroDefs.push(
+      { key:'lcTargets', ru:'ЦЕЛИ КАЗИНО', en:'CASINO TARGETS', base:2, value:()=>2 + Number(lc.targets || 0) },
+      { key:'lcSparks', ru:'КОНТРОЛЬНЫЕ ИСКРЫ', en:'CONTROL SPARKS', kind:'bool', value:()=>lc.sparksUnlocked ? 1 : 0 },
+      { key:'lcSparkCount', ru:'КАНАЛЫ ИСКР', en:'SPARK CHANNELS', base:0, value:()=>lc.sparksUnlocked ? 1 + Number(lc.sparkCount || 0) : 0 },
+      { key:'lcSparkDamage', ru:'УРОН ИСКР', en:'SPARK DAMAGE', value:()=>Number(lc.sparkDamage || 0) },
+      { key:'lcSparkHold', ru:'УДЕРЖАНИЕ ИСКР', en:'SPARK HOLD', value:()=>Number(lc.sparkHold || 0) },
+      { key:'lcSparkRange', ru:'ДАЛЬНОСТЬ ИСКР', en:'SPARK RANGE', value:()=>Number(lc.sparkRange || 0) }
+    );
+  } else heroDefs.push(
+    { key:'voidStep', ru:'РЫВОК: ФАЗА', en:'DASH: PHASE' },
+    { key:'dashCut', ru:'РЫВОК: РАЗРЕЗ', en:'DASH: CUT' },
+    { key:'dashClone', ru:'РЫВОК: ПРИЗРАК', en:'DASH: GHOST' }
+  );
+  const specialDefs = [
+    ['spawnHoldStacks','R: УДЕРЖАНИЕ СПАВНА','R: SPAWN HOLD'], ['aegisStacks','R: ЭГИДА','R: AEGIS'], ['mirrorCapacity','R: ЗЕРКАЛО','R: MIRROR'], ['nullRevives','R: ВОЗВРАТ','R: REVIVE'], ['rActiveStacks','R: УРОВЕНЬ','R: LEVEL']
+  ];
+  for (const [key, ru, en] of specialDefs) if (Number(s[key] || 0) > 0) heroDefs.push({ key, ru, en });
+
+  const active = build.active || {};
+  const core = ACTIVE_CORES[active.core] || null;
+  const mutationRows = [];
+  mutationRows.push(`<div class="tab-build-q term" data-explain-title="${esc(core?.label || localText('Q НЕ УСТАНОВЛЕНА', 'NO Q INSTALLED'))}" data-explain="${esc(core?.desc || localText('Активный протокол ещё не выбран.', 'No active protocol selected yet.'))}"><span>Q</span><b>${esc(core?.label || '—')}</b><small>${esc(localText('УРОВЕНЬ', 'LEVEL'))} ${esc(active.level || 0)}</small></div>`);
+  for (const owned of active.mutations || []) {
+    const mut = ACTIVE_MUTATIONS[owned.id];
+    if (!mut) continue;
+    const lv = Math.max(1, Number(owned.level || 1) | 0);
+    mutationRows.push(`<div class="tab-build-mutation term tone-${esc(mut.tone || 'cyan')}" data-explain-title="${esc(mut.label)} ${esc(lv <= 10 ? roman(lv) : `LV ${lv}`)}" data-explain="${esc(mut.desc || '')}"><span>${esc(mut.role || localText('МУТАЦИЯ', 'MUTATION'))}</span><b>${esc(mut.label)}</b><small>LV ${esc(lv)} · ${esc(mut.stackable === false ? localText('УНИКАЛЬНАЯ', 'UNIQUE') : localText('СТАКАЕТСЯ', 'STACKABLE'))}</small></div>`);
+  }
+  if (!(active.mutations || []).length) mutationRows.push(`<p class="muted">${esc(localText('МУТАЦИЙ ПОКА НЕТ', 'NO MUTATIONS YET'))}</p>`);
+
+  return tabBuildCard('ОСНОВА', 'CORE', coreDefs.map(d => buildStatHtml(d, s, me)), 'core') +
+    tabBuildCard('ОРУЖИЕ / СТАТУСЫ', 'WEAPON / STATUS', armoryDefs.map(d => buildStatHtml(d, s, me)), 'armory') +
+    tabBuildCard('ГЕРОЙ / ОСОБОЕ', 'HERO / SPECIAL', heroDefs.map(d => buildStatHtml(d, s, me)), 'hero') +
+    tabBuildCard('Q / МУТАЦИИ', 'Q / MUTATIONS', mutationRows, 'mutations');
+}
 function archLabel(id) { return localText(ARCH_LABELS_RU[id] || String(id || 'STANDARD').toUpperCase(), ARCH_LABELS[id] || String(id || 'STANDARD').toUpperCase()); }
 function locTag(v) {
   const s = String(v || '').trim();
@@ -73,13 +215,13 @@ function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
   return localText(STATIC_SOURCE_RU[k] || k.replace(/_/g, ' '), STATIC_SOURCE_EN[k] || k.replace(/_/g, ' '));
 }
-function staticBreakdownParts(bd = {}) {
-  const sources = Array.isArray(bd.sources) ? bd.sources : [];
+function staticBreakdownParts(bd = {}, sourceKey = 'sources') {
+  const sources = Array.isArray(bd[sourceKey]) ? bd[sourceKey] : [];
   return sources.filter(x => (x?.level | 0) > 0).map((x, i) => `${i === 0 ? '' : '+'}${Math.max(0, x.level | 0)} ${staticSourceLabel(x.id)}`);
 }
 function staticBreakdownText(bd = {}, banked = 0) {
   const total = Math.max(0, bd.total | 0);
-    const parts = staticBreakdownParts(bd);
+  const parts = staticBreakdownParts(bd, total > 0 ? 'sources' : 'bankedSources');
   if (total > 0) {
     return `${localText('СТАТИК-ШТОРМ УР.', 'STATIC STORM LVL')} ${total}${parts.length ? ' = ' + parts.join(' ') : ''}`;
   }
@@ -87,9 +229,9 @@ function staticBreakdownText(bd = {}, banked = 0) {
   return '';
 }
 function staticBreakdownExplain(bd = {}, banked = 0) {
-  const parts = staticBreakdownParts(bd);
   const total = Math.max(0, bd.total | 0);
-    const head = total > 0
+  const parts = staticBreakdownParts(bd, total > 0 ? 'sources' : 'bankedSources');
+  const head = total > 0
     ? localText(`Общий уровень статик-шторма: ${total}.`, `Static Storm level: ${total}.`)
     : localText(`Статик ждёт следующий сектор: ${banked}.`, `Static waiting for the next room: ${banked}.`);
   const sum = parts.length ? localText(`Сумма: ${parts.join(' ')}.`, `Sum: ${parts.join(' ')}.`) : '';
@@ -974,13 +1116,34 @@ export class Hud {
     const modHtml = mods.length
       ? mods.map(m => `<span>${esc(roomModLabel(m, next))}</span>`).join('')
       : `<span>${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
+    const staticBd = next.staticRainBreakdown || null;
+    const activeStatic = Math.max(0, staticBd?.total | 0);
+    const bankedStatic = Math.max(0, staticBd?.banked | 0);
+    const deferredCore = Math.max(0, staticBd?.deferredCore | 0);
+    const staticParts = staticBd ? staticBreakdownParts(staticBd, activeStatic > 0 ? 'sources' : 'bankedSources') : [];
+    const staticTitle = activeStatic > 0
+      ? localText(`ШТОРМ СЛЕД. СЕКТОРА · УР. ${activeStatic}`, `NEXT-SECTOR STORM · LVL ${activeStatic}`)
+      : bankedStatic > 0
+        ? localText(`СТАТИК В ЗАПАСЕ · УР. ${bankedStatic}`, `STATIC BANKED · LVL ${bankedStatic}`)
+        : deferredCore > 0
+          ? localText(`СТАТИК-ЯДРО НА ПАУЗЕ · УР. ${deferredCore}`, `STATIC CORE PAUSED · LVL ${deferredCore}`)
+          : '';
+    const staticWait = activeStatic <= 0 && (bankedStatic > 0 || deferredCore > 0)
+      ? `<div class="install-next-static-wait">${esc(localText('ЖДЁТ СЛЕДУЮЩИЙ БОЕВОЙ СЕКТОР', 'WAITS FOR THE NEXT COMBAT SECTOR'))}</div>`
+      : '';
+    const corePause = deferredCore > 0 && bankedStatic > 0
+      ? `<span>${esc(localText(`СТАТИК-ЯДРО +${deferredCore} · ПАУЗА`, `STATIC CORE +${deferredCore} · PAUSED`))}</span>`
+      : '';
+    const staticForecast = staticTitle
+      ? `<div class="install-next-static"><b>${esc(staticTitle)}</b>${staticParts.length || corePause ? `<div class="install-next-static-sources">${staticParts.map(x => `<span>${esc(x)}</span>`).join('')}${corePause}</div>` : ''}${staticWait}</div>`
+      : '';
     const contract = next.objective
       ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
       : '';
     el.innerHTML = `<div class="install-next-title">${esc(localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'))}</div>` +
       `<div class="install-next-arch">${esc(archLabel(next.archetype))}</div>` +
       `<div class="install-next-label">${esc(localText('МОДИФИКАТОРЫ', 'MODIFIERS'))}</div>` +
-      `<div class="install-next-mods">${modHtml}</div>${contract}`;
+      `<div class="install-next-mods">${modHtml}</div>${staticForecast}${contract}`;
     el.classList.remove('hidden');
   }
 
@@ -1880,6 +2043,7 @@ export class Hud {
           `${this.compactFavorItems(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), this.compactFavorItems(room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${this.compactFavorItems(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
           `${this.compactFavorItems(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${this.compactFavorItems(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
       `</div>`;
+    $('tab-build').innerHTML = renderTabBuild(state.me());
     const table = $('tab-table');
     let html = '<tr>' +
       `<th><span class="term" data-explain-title="${esc(t('player'))}" data-explain="${esc(t('nameBody'))}">${esc(t('player'))}</span></th>` +
