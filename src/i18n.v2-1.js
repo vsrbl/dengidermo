@@ -186,7 +186,7 @@ Object.assign(EN_UPGRADE, {
   weapon_shotgun: 'Unlocks SHG: a close-range spread cannon with charges.',
   weapon_seeker: 'Unlocks SEK: a slow homing signal projectile.',
   weapon_rocketgun: 'Unlocks RKT: a heavy breach projectile with a wide blast.',
-  ctrl_unlock_qrn: 'Unlocks QRN: a wall anchor that chains nearby threats.',
+  ctrl_unlock_qrn: 'Unlocks QRN: a floor or wall anchor that chains up to 5 nearby threats.',
   ctrl_unlock_saw: 'Unlocks SAW: a wide pulse that can capture several processes.',
   rlt_square_damage: 'Roulette squares deal more direct damage.',
   rlt_damage: 'Roulette squares deal more direct damage.',
@@ -208,9 +208,9 @@ Object.assign(EN_UPGRADE, {
   ctrl_process_life: 'Controlled processes keep their signal longer. Targets with higher durability receive a longer control timer.',
   ctrl_process_death_heal: 'A process death restores hero HP from that process maximum HP. Stacks add 1%, then +1.5%, +2%, and so on.',
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
-  qrn_radius: 'QRN chains reach farther from the wall anchor.',
-  qrn_hold: 'QRN chains hold threats longer.',
-  qrn_links: 'One QRN anchor has no target cap. Each level acquires more threats per scan: +2, then +3, +4.',
+  qrn_radius: 'QRN chains reach farther from its floor or wall marker.',
+  qrn_hold: 'Strongly extends QRN anchor duration.',
+  qrn_links: 'Adds 3 simultaneous captures. Base capacity is 5; maximum is 20.',
   qrn_damage: 'QRN chains periodically discharge damage.',
   blood_ring: 'Press Q to deploy the blood ring around you.',
   field_snap: 'Press Q to pull nearby threats and leave the control field around you.',
@@ -249,6 +249,10 @@ Object.assign(RU_UPGRADE_CLEAN, {
   ctrl_process_contact_status: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы. Их выстрелы наследуют статусы всегда.',
   ctrl_process_life: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.',
   ctrl_process_death_heal: 'Смерть процесса лечит героя от максимального HP процесса. Стаки добавляют 1%, затем +1,5%, +2% и дальше.',
+  qrn_radius: 'Цепи QRN достают дальше от напольного или настенного маркера.',
+  qrn_hold: 'Сильно увеличивает срок работы карантинного якоря.',
+  qrn_links: 'Добавляет 3 одновременных захвата. Базово — 5, максимум — 20.',
+  qrn_damage: 'Цепи QRN периодически наносят урон разрядом.',
   rlt_square_damage: 'Квадраты рулетки наносят больше прямого урона.', rlt_damage: 'Квадраты рулетки наносят больше прямого урона.',
   rlt_square_size: 'Квадраты рулетки становятся крупнее.', rlt_size: 'Квадраты рулетки становятся крупнее.',
   rlt_fragment_count: 'Удар рулетки создаёт больше осколков.', rlt_fragments: 'Удар рулетки создаёт больше осколков.',
@@ -259,7 +263,7 @@ Object.assign(RU_UPGRADE_CLEAN, {
   weapon_shotgun: 'Открывает клиновой разряд: короткий веер очистки с зарядами.',
   weapon_seeker: 'Открывает искатель: медленный сигнальный снаряд с наведением.',
   weapon_rocketgun: 'Открывает разломный заряд: тяжёлый снаряд с широким взрывом.',
-  ctrl_unlock_qrn: 'Открывает карантинный якорь: настенный маркер с цепями контроля.',
+  ctrl_unlock_qrn: 'Открывает карантинный якорь: ставится на полу или стене и удерживает до 5 угроз.',
   ctrl_unlock_saw: 'Открывает массовый разбор: широкий импульс перехвата процессов.'
 });
 
@@ -284,10 +288,10 @@ const RU_ENEMY = {
 };
 
 const EN_WEAPON = {
-  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB assigns priority targets. Its channels fire together in a short stagger.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release. They deal no damage until upgraded.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Locks to a wall marker and chains nearby threats so they cannot leave its leash range.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
+  SHG: 'Close-range spread cannon. Fires in bursts and reloads automatically.', SEK: 'Slow homing square projectile. Strong single-target pressure.', RKT: 'Heavy breach charge. Explodes on impact or wall hit.', LVC: 'Autonomous homing gun. LMB assigns priority targets. Its channels fire together in a short stagger.', SPK: 'Control sparks. RMB marks targets; sparks strongly slow them, then push and briefly stun on release. They deal no damage until upgraded.', RLT: 'Roulette module. A plain spinning square breaks into smaller squares on impact or timeout.', CRD: 'Deck module. Fast card fan.', CMD: 'Capture command. Locks a target and fills the capture bar while LMB is held.', QRN: 'Quarantine anchor. Deploys on the floor or locks to a wall and chains up to 5 nearby threats.', SAW: 'Mass capture command. Pulses a wide process area and rapidly captures several threats.'
 };
 const RU_WEAPON = {
-  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ задаёт приоритетные цели. Каналы стреляют коротким залпом.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают. Без усиления урона не наносят.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Цепляется маркером за стену и держит угрозы цепями на ограниченной дистанции.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
+  SHG: 'Клиновой разряд ближней очистки. Стреляет залпами и сам заряжается.', SEK: 'Искатель: сигнальный снаряд для одиночных целей.', RKT: 'Разломный заряд. Взрывается при попадании или ударе о стену.', LVC: 'Автоматическая самонаводящаяся пушка. ЛКМ задаёт приоритетные цели. Каналы стреляют коротким залпом.', SPK: 'Искры контроля. ПКМ отмечает цели; искры сильно замедляют их, затем отталкивают и ненадолго оглушают. Без усиления урона не наносят.', RLT: 'Модуль рулетки. Простой вращающийся квадрат распадается при ударе или окончании полёта.', CRD: 'Модуль колоды. Быстрый веер карт.', CMD: 'Команда захвата. Фиксирует цель и при удержании ЛКМ заполняет шкалу перехвата.', QRN: 'Карантинный якорь. Ставится на полу или цепляется за стену и удерживает до 5 ближайших угроз.', SAW: 'Команда массового захвата. Бьёт по широкой области процесса и быстро перехватывает несколько угроз.'
 };
 const EN_SKIN_NOTE = {
   terminal_mint:'house terminal signal', debt_red:'debt-fracture signal', void_cyan:'void channel signal', casino_gold:'cashier gleam signal', bruise_purple:'bruised circuit signal', bone_static:'bone-noise signal', black_lime:'lime breach signal', bad_tv:'bad broadcast glare', red_static:'red storm channel', mirror_coin:'false jackpot signal', terminal_ghost:'ghost terminal signal', jackpot_wound:'legendary jackpot wound', dead_channel:'dead channel signal'

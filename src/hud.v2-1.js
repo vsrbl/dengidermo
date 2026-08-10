@@ -2,6 +2,7 @@
 import { P, ENEMY_KINDS } from './state.v2-1.js';
 import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES } from '../shared/data.v2-1.js';
 import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, activeShort as locActiveShort, activeDescFrom, chestDesc, pickupDesc, enemyDesc, weaponDesc, optionDesc, locAction, locRole, locLabel, locReward, disabledReason, objectStateText, priceText, localText, denyText, esc as escHtml } from './i18n.v2-1.js';
+import { reconcileRerollAvailability } from './reroll-sync.v2-1.js';
 
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(SECTOR_MODS).map(m => [m.id, m.label]));
@@ -448,9 +449,9 @@ function weaponReadability(opt = {}) {
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
       ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Смерть процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A process death restores hero HP based on that process maximum health.', changeRu: '1% · затем +1,5% · +2% · дальше', changeEn: '1% · then +1.5% · +2% · onward' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
-      qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от настенного маркера.', en: 'The anchor can chain threats farther from the wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
-      qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень заметно увеличивает срок работы якоря.', en: 'Each level noticeably extends anchor duration.', changeRu: 'намного дольше работа', changeEn: 'much longer duration' },
-      qrn_links: { role: 'CONTROL', tone: 'control', ru: 'Лимита цепей нет. Каждый уровень ускоряет захват новых угроз: +2, затем +3, +4.', en: 'One anchor has no target cap. Each level acquires more new threats per scan: +2, then +3, +4.', changeRu: '+2 / +3 / +4 захвата', changeEn: '+2 / +3 / +4 acquisition' },
+      qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от напольного или настенного маркера.', en: 'The anchor can chain threats farther from its floor or wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
+      qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень сильно увеличивает срок работы якоря.', en: 'Each level strongly extends anchor duration.', changeRu: 'сильно дольше работа', changeEn: 'strongly longer duration' },
+      qrn_links: { role: 'CONTROL', tone: 'control', ru: 'Добавляет 3 одновременных захвата. Базово — 5, максимум — 20.', en: 'Adds 3 simultaneous captures. Base capacity is 5; maximum is 20.', changeRu: '+3 захвата · максимум 20', changeEn: '+3 captures · maximum 20' },
       qrn_damage: { role: 'DPS', tone: 'dps', ru: 'Каждый уровень заметно усиливает разряд и ускоряет его повторение.', en: 'Each level noticeably strengthens the discharge and makes it repeat faster.', changeRu: 'сильнее и чаще разряд', changeEn: 'stronger, faster discharge' },
     };
     const out = pc[key] || { role: 'CONTROL', tone: 'control', ru: cleanPlayerText(opt.desc || 'Усиление команды контроля.'), en: cleanPlayerText(opt.desc || 'Control command upgrade.'), changeRu: 'усиление контроля', changeEn: 'control upgrade' };
@@ -625,6 +626,7 @@ export class Hud {
     this.wagerRenderKey = '';
     this.names = new Map();
     this.localRerollSpent = 0;
+    this.localRerollServerLeft = null;
 
     this.initExplain();
     onLangChange(() => { this.hideTip(); });
@@ -1486,6 +1488,7 @@ export class Hud {
     switch (f.t) {
       case 'room': {
         this.localRerollSpent = 0;
+        this.localRerollServerLeft = null;
         const mods = (f.mods || []).filter(m => m !== 'static_rain').map(m => roomModLabel(m, state?.room || null)).join(' + ');
         const skn = f.skinRarity ? ` · ${localText('СКРЫТЫЙ ОБЛИК', 'HIDDEN SHELL')} ${rarityText(f.skinRarity)}` : '';
         const arch = f.archetype ? ` · ${archLabel(f.archetype)}` : '';
@@ -1604,7 +1607,7 @@ export class Hud {
       case 'room_wager_declined': if ((f.id === myId || f.playerId === myId) && !f.timedOut) this.feed(localText('СТАВКА ПРОПУЩЕНА', 'WAGER SKIPPED'), ''); break;
       case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), body, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID')}: ${body}`, 'g'); } break;
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), body, 'red'); this.feed(`${localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST')}: ${body}`, 'r'); } break;
-      case 'favor_earned': { this.localRerollSpent = 0; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
+      case 'favor_earned': { this.localRerollSpent = 0; this.localRerollServerLeft = null; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
       case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
@@ -2181,10 +2184,10 @@ export class Hud {
   activeRerollFavorUses() {
     const active = this.compactFavorItems(this.latestRoom?.contractFavors?.active || []);
     const serverLeft = active.reduce((n, f) => n + ((f.id === 'free_reroll' || f.id === 'epic_reroll') ? Math.max(0, f.uses || 0) : 0), 0);
-    // New offers can arrive before the next room snapshot reflects a just-used
-    // contract reroll. Subtract the local optimistic spend so the button never
-    // reappears with a stale charge. Reset happens on the next room/favor earn.
-    return Math.max(0, serverLeft - Math.max(0, Number(this.localRerollSpent || 0) | 0));
+    const sync = reconcileRerollAvailability(serverLeft, this.localRerollSpent, this.localRerollServerLeft);
+    this.localRerollSpent = sync.pending;
+    this.localRerollServerLeft = sync.seen;
+    return sync.available;
   }
   appendFavorRerollButton(box, kind) {
     let uses = this.activeRerollFavorUses();

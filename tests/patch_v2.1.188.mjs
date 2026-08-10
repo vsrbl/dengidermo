@@ -16,8 +16,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.188');
-assert.equal(BUILD_ID, 'drone_void_herald_contract_healer_hotfix');
+assert.match(VERSION, /^v2\.1\.(?:18[89]|190)$/);
+if (VERSION === 'v2.1.188') assert.equal(BUILD_ID, 'drone_void_herald_contract_healer_hotfix');
 assert.equal(PROTOCOL, 14);
 
 // Normal BLAST CHANCE stays on hero/process bullets. Drones require DRONE BLAST.

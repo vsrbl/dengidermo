@@ -175,8 +175,8 @@ export const UPGRADES = [
   { id: 'ctrl_process_death_heal', label: 'CTRL: ВОЗВРАТ HP', branch: 'CTRL', tier: 1, desc: 'Смерть процесса лечит героя от максимального HP процесса. Стаки добавляют 1%, затем +1,5%, +2% и дальше.', apply: s => { s.ctrlDeathHeal += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
   { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
-  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Каждый уровень заметно увеличивает срок работы якоря.', apply: s => { s.qrHold += 1; } },
-  { id: 'qrn_links', label: 'QRN: ЗАХВАТ +', branch: 'QRN', tier: 1, desc: 'Лимита цепей нет. Якорь быстрее подхватывает новые угрозы: +2, затем +3, +4.', apply: s => { s.qrLinks += 1; } },
+  { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Каждый уровень сильно увеличивает срок работы якоря.', apply: s => { s.qrHold += 1; } },
+  { id: 'qrn_links', label: 'QRN: ЗАХВАТ +3', branch: 'QRN', tier: 1, desc: 'Добавляет 3 одновременных захвата. Предел одного якоря — 20 угроз.', apply: s => { s.qrLinks += 1; } },
   { id: 'qrn_damage', label: 'QRN: РАЗРЯД +', branch: 'QRN', tier: 1, desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.', apply: s => { s.qrDamage += 1; } },
 ];
 
@@ -194,7 +194,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'weapon_shotgun', kind: 'weapon', weapon: 'shotgun', label: 'SHG WEAPON', desc: 'Открывает клиновой разряд: короткий веер очистки с зарядами.' },
   { id: 'weapon_seeker', kind: 'weapon', weapon: 'seeker', label: 'SEK WEAPON', desc: 'Открывает искатель: медленный сигнальный снаряд, который сам держит цель.' },
   { id: 'weapon_rocketgun', kind: 'weapon', weapon: 'rocketgun', label: 'RKT WEAPON', desc: 'Открывает разломный заряд: тяжёлый снаряд с широким взрывом.' },
-  { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: маркер цепляется за стену и держит угрозы на цепях.' },
+  { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: ставится на полу или цепляется за стену и удерживает до 5 угроз.' },
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
   { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Увеличивает дальность оружия, автооружия Живого казино и протоколов Контроллера.' },
@@ -232,8 +232,8 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_death_heal', kind: 'weapon_upgrade', upgrade: 'ctrl_process_death_heal', reqWeapon: 'command_pulse', label: 'CTRL: ВОЗВРАТ HP', desc: 'Смерть процесса лечит героя на долю максимального HP процесса. Стаки: +1%, затем +1,5%, +2% и дальше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
   { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
-  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Каждый уровень заметно увеличивает срок работы якоря.' },
-  { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +', desc: 'Лимита цепей нет. Якорь быстрее подхватывает новые угрозы: +2, затем +3, +4.' },
+  { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Каждый уровень сильно увеличивает срок работы якоря.' },
+  { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +3', desc: 'Добавляет 3 одновременных захвата. Предел одного якоря — 20 угроз.' },
   { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия. У Контролёра усиливает урон подконтрольных процессов.' },
   { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ТЕМП ОРУЖИЯ +14%', desc: 'Оружие стреляет чаще.' }

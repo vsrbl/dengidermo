@@ -20,7 +20,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.18[78]$/);
+assert.match(VERSION, /^v2\.1\.(?:18[7-9]|190)$/);
 if (VERSION === 'v2.1.187') assert.equal(BUILD_ID, 'controller_boss_range_blast_sustain_rework');
 assert.equal(PROTOCOL, 14);
 

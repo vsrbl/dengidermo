@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.188';
-export const BUILD_ID = 'drone_void_herald_contract_healer_hotfix';
+export const VERSION = 'v2.1.190';
+export const BUILD_ID = 'controller_anchor_floor_capacity_duration';
 export const PROTOCOL = 14;
 
 export const MAX_PLAYERS = 4;

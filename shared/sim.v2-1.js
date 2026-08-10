@@ -4460,19 +4460,29 @@ function progressiveAnchorGain(level, start = 2) {
   for (let i = 0; i < n; i++) total += start + i;
   return total;
 }
+export function quarantineAnchorCapacity(p) {
+  const level = Math.max(0, Number(p?.stats?.qrLinks || 0) | 0);
+  return Math.min(20, 5 + level * 3);
+}
+export function quarantineAnchorDuration(p) {
+  const hold = Math.max(0, Number(p?.stats?.qrHold || 0) | 0);
+  // v2.1.190: +25% base lifetime, with a stronger duration-upgrade curve.
+  return (4.8 + progressiveAnchorGain(hold, 1.8)) * 1.25;
+}
 function spawnQuarantineAnchorField(run, players, b, x, y, nx = 0, ny = 0) {
   const owner = b?.owner ? players.get(b.owner) : null;
   const hold = owner ? Math.max(0, Number(owner.stats?.qrHold || 0) | 0) : 0;
   const radius = 210 + (owner ? Math.max(0, Number(owner.stats?.qrRadius || 0) | 0) * 28 : 0);
-  const linkLevel = owner ? Math.max(0, Number(owner.stats?.qrLinks || 0) | 0) : 0;
   const damage = owner ? Math.max(0, Number(owner.stats?.qrDamage || 0) | 0) : 0;
-  const acquirePerScan = 1 + progressiveAnchorGain(linkLevel, 2); // +2, then +3, then +4...
-  const ttl = 4.8 + progressiveAnchorGain(hold, 1.2);
+  const targetCap = quarantineAnchorCapacity(owner);
+  const acquirePerScan = targetCap;
+  const ttl = quarantineAnchorDuration(owner);
   const rawDamage = damage > 0 ? 4.5 + progressiveAnchorGain(damage, 3.0) + damage * 1.8 : 0;
   if (!run.activeFields) run.activeFields = [];
-  run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, r: radius, acquirePerScan, acquireT: 0, leash: 118 + hold * 12, ttl, maxT: ttl, age: 0, tickT: 0.18, tickEvery: Math.max(0.22, 0.42 - damage * 0.025), fxT: 0.01, chainT: 0.03, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, rawDamage), gap: 11, leashes: [] });
-  run.fx.push({ t: 'qrn_place', id: b.owner || '', x: Math.round(x), y: Math.round(y) });
-  run.fx.push({ t: 'active_mutation', label: 'QRN WALL ANCHOR', x: Math.round(x), y: Math.round(y), r: 62, tone: 'cyan', owner: b.owner || '' });
+  const surface = Math.abs(nx) + Math.abs(ny) > 0 ? 'wall' : 'floor';
+  run.activeFields.push({ kind: 'quarantine_anchor', owner: b.owner || '', x, y, nx, ny, surface, r: radius, targetCap, acquirePerScan, acquireT: 0, leash: 118 + hold * 12, ttl, maxT: ttl, age: 0, tickT: 0.18, tickEvery: Math.max(0.22, 0.42 - damage * 0.025), fxT: 0.01, chainT: 0.03, dmg: weaponDamageValue(owner || { stats: { dmgMul: 1, weaponDmgMul: 1 } }, rawDamage), gap: 11, leashes: [] });
+  run.fx.push({ t: 'qrn_place', id: b.owner || '', x: Math.round(x), y: Math.round(y), surface });
+  run.fx.push({ t: 'active_mutation', label: 'QRN ANCHOR', x: Math.round(x), y: Math.round(y), r: 62, tone: 'cyan', owner: b.owner || '' });
 }
 
 
@@ -4557,15 +4567,33 @@ function applyProcessControllerInstability(run, players, p, e, amount = 35, sour
   e.fireCd = Math.max(e.fireCd || 0, 0.10);
   return true;
 }
-function placeProcessControllerAnchor(run, players, p) {
-  const dir = norm((p.aimX ?? p.x + 1) - p.x, (p.aimY ?? p.y) - p.y);
+export function resolveProcessControllerAnchorPlacement(run, p) {
+  if (!run?.plan || !p) return null;
   const range = (WEAPONS.quarantine_anchor.maxDist || 680) * weaponRangeMultiplier(p);
-  const hit = bulletWallCollision(p.x, p.y, p.x + dir.x * range, p.y + dir.y * range, 8, run.plan?.walls || []);
-  if (!hit) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'QRN: НУЖНА СТЕНА', chest: 'CTRL' });
+  const aimX = Number.isFinite(p.aimX) ? p.aimX : p.x + (p.dirX || 1) * range;
+  const aimY = Number.isFinite(p.aimY) ? p.aimY : p.y + (p.dirY || 0) * range;
+  const dx = aimX - p.x, dy = aimY - p.y;
+  const rawDistance = Math.hypot(dx, dy);
+  const dir = rawDistance > 0.001 ? norm(dx, dy) : norm(p.dirX || 1, p.dirY || 0);
+  const distance = Math.min(range, rawDistance > 0.001 ? rawDistance : 0);
+  const endX = p.x + dir.x * distance;
+  const endY = p.y + dir.y * distance;
+  const hit = bulletWallCollision(p.x, p.y, endX, endY, 8, run.plan.walls || []);
+  if (hit) return { x: Math.round(hit.x), y: Math.round(hit.y), nx: hit.nx || 0, ny: hit.ny || 0, surface: 'wall' };
+  const pad = WALL_T + 12;
+  return {
+    x: Math.round(clamp(endX, pad, Math.max(pad, Number(run.plan.w || 0) - pad))),
+    y: Math.round(clamp(endY, pad, Math.max(pad, Number(run.plan.h || 0) - pad))),
+    nx: 0, ny: 0, surface: 'floor'
+  };
+}
+function placeProcessControllerAnchor(run, players, p) {
+  const point = resolveProcessControllerAnchorPlacement(run, p);
+  if (!point) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: 'QRN_NO_POINT', chest: 'CTRL' });
     return false;
   }
-  spawnQuarantineAnchorField(run, players, { owner: p.id }, Math.round(hit.x), Math.round(hit.y), hit.nx || 0, hit.ny || 0);
+  spawnQuarantineAnchorField(run, players, { owner: p.id }, point.x, point.y, point.nx, point.ny);
   return true;
 }
 function emitProcessSawFailure(run, p, x, y, r, reason = 'SAW_NO_CAPTURE') {
@@ -9400,6 +9428,7 @@ function processControllerChoicePool(p, qualityTier = 0) {
       if (opt.kind === 'weapon') return PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || '')) && !p.weapons.includes(opt.weapon);
       if (opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id))) {
         if (String(opt.upgrade || opt.id) === 'ctrl_capture_tier' && processControllerCaptureTier(p) >= 4) return false;
+        if (String(opt.upgrade || opt.id) === 'qrn_links' && quarantineAnchorCapacity(p) >= 20) return false;
         return weaponChoiceEligible(p, opt);
       }
       if (opt.kind === 'stat' && (opt.stat === 'dmg' || opt.stat === 'fire')) return true;
@@ -11341,15 +11370,15 @@ function stepQuarantineAnchorField(run, players, f, dt) {
   if (!Array.isArray(f.leashes)) f.leashes = [];
   const live = new Map((run.enemies || []).filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)).map(e => [e.id, e]));
   f.leashes = f.leashes.filter(l => live.has(l.id));
-  // There is no total target cap. Link upgrades only accelerate how many new threats are acquired per scan.
+  const cap = Math.max(1, Math.min(20, Number(f.targetCap || 5) | 0));
   f.acquireT = Math.max(0, Number(f.acquireT || 0) - dt);
-  if (f.acquireT <= 0) {
+  if (f.acquireT <= 0 && f.leashes.length < cap) {
     f.acquireT = 0.16;
     const chained = new Set(f.leashes.map(l => l.id));
     const candidates = [...live.values()]
       .filter(e => !chained.has(e.id) && dist2(e.x, e.y, f.x, f.y) <= Math.pow((f.r || 210) + (e.size || 24) / 2, 2))
       .sort((a, b) => dist2(a.x, a.y, f.x, f.y) - dist2(b.x, b.y, f.x, f.y));
-    const take = Math.max(1, Number(f.acquirePerScan || 1) | 0);
+    const take = Math.min(cap - f.leashes.length, Math.max(1, Number(f.acquirePerScan || cap) | 0));
     for (const e of candidates.slice(0, take)) {
       const d = Math.hypot(e.x - f.x, e.y - f.y);
       const leash = Math.max(62, Math.min(Math.max(82, f.r || 210), Math.max(f.leash || 118, d * 0.72)));
@@ -11358,7 +11387,6 @@ function stepQuarantineAnchorField(run, players, f, dt) {
       run.fx.push({ t: 'weapon_chain_lock', x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 14), tone: 'cyan' });
     }
   }
-  const cap = 0;
   for (const l of f.leashes) {
     const e = live.get(l.id); if (!e) continue;
     const d = Math.hypot(e.x - f.x, e.y - f.y) || 1;
