@@ -258,8 +258,8 @@ export const ACTIVE_CORES = {
   },
   shell_ripper: {
     id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'SHELL / ABILITY LOCK',
-    desc: 'Q срывает защиту и надолго отключает все способности задетых угроз, включая боссов.',
-    upgrade: ['+большой радиус', '+сильнее ломает защиту', '+дольше блокировка способностей']
+    desc: 'Q наносит меньше урона угрозам без брони, зато вдвое сильнее ломает броню и надолго отключает все способности, включая боссов.',
+    upgrade: ['+большой радиус', '+сильнее ломает броню', '+дольше блокировка способностей']
   },
   void_cut: {
     id: 'void_cut', label: 'VOID CUT', short: 'CUT', tone: 'purple', role: 'BUILD LASER',
@@ -296,7 +296,7 @@ export const ACTIVE_MUTATIONS = {
   casino: { id: 'casino', label: 'CASINO', tone: 'green', role: 'POST-ROLL', desc: 'После Q может сработать казино-проверка.' },
   void: { id: 'void', label: 'VOID', tone: 'purple', role: 'PHASE', desc: 'Q даёт короткое окно неуязвимости.' },
   leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания Q могут вернуть здоровье или кредиты.' },
-  armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту угроз.' },
+  armor_crack: { id: 'armor_crack', label: 'ARMOR BREAK', tone: 'purple', role: 'AREA / SHELL', desc: 'Во всей зоне Q проходит мощный удар только по броне угроз.' },
   anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Q оставляет область, которая тянет угроз и тормозит пули.' },
   hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'LOW HP BURST', desc: 'Q наносит небольшой урон вокруг героя. Чем меньше HP было при активации, тем сильнее импульс.' },
   bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Q повторяется двумя слабыми сбоями.' }

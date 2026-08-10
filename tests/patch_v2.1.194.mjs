@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.19[45]$/);
+assert.match(VERSION, /^v2\.1\.19[4-6]$/);
 if (VERSION === 'v2.1.194') assert.equal(BUILD_ID, 'static_debt_source_audit_contract_clear');
 assert.equal(PROTOCOL, 14);
 
@@ -151,7 +151,9 @@ const data = fs.readFileSync(new URL('../shared/data.v2-1.js', import.meta.url),
 const hud = fs.readFileSync(new URL('../src/hud.v2-1.js', import.meta.url), 'utf8');
 const i18n = fs.readFileSync(new URL('../src/i18n.v2-1.js', import.meta.url), 'utf8');
 assert.match(data, /Сама Q не создаёт статик-долг/);
-assert.match(hud, /Полностью снимает весь накопленный статик-долг/);
+assert.match(hud, VERSION === 'v2.1.196'
+  ? /навсегда глушит шторм Статик-ядра/
+  : /Полностью снимает весь накопленный статик-долг/);
 assert.match(i18n, /Q itself never creates Static debt/);
 
 console.log(`v2.1.194 compatibility checks passed: explicit debt sources, Q-safe STATIC PULSE, full contract clear${VERSION === 'v2.1.194' ? ', no STATIC CORE recurrence' : ''}`);

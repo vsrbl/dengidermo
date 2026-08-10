@@ -143,7 +143,7 @@ const EN_CORE = {
   blood_ring: 'Press Q to deploy the blood ring around you.',
   field_snap: 'Press Q to pull and strongly stun nearby threats, then leave a harmless control field.',
   bullet_freeze: 'Press Q to deploy the cold aura around you.',
-  shell_ripper: 'Press Q to break protection and lock every ability of affected threats, including bosses.',
+  shell_ripper: 'Press Q for reduced HP damage against unarmored threats, double armor damage, and a full ability lock, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
@@ -151,14 +151,14 @@ const EN_CORE = {
   debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.'
 };
 const EN_MUT = {
-  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost health.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return health or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q deals a small burst around the hero. Lower HP at activation makes it much stronger.', bad_tape: 'Q leaves two unstable glitch echoes.'
+  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost health.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return health or GLD.', armor_crack: 'The entire Q zone deals heavy armor-only damage to enemies.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q deals a small burst around the hero. Lower HP at activation makes it much stronger.', bad_tape: 'Q leaves two unstable glitch echoes.'
 };
 
 const RU_CORE = {
   blood_ring: 'Q сразу запускает кровавое кольцо вокруг героя.',
   field_snap: 'Q сразу стягивает и надолго оглушает ближайшие угрозы, затем оставляет поле без урона.',
   bullet_freeze: 'Q сразу запускает холодную ауру вокруг героя.',
-  shell_ripper: 'Q срывает защиту и отключает все способности задетых угроз, включая боссов.',
+  shell_ripper: 'Q наносит меньше урона угрозам без брони, вдвое сильнее ломает броню и отключает все способности, включая боссов.',
   void_cut: 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.',
   signal_spike: 'Q сразу устанавливает шип в точку курсора. Улучшения заметно растят дальность и область.',
   black_box: 'Q сразу раскрывает чёрный ящик вокруг героя.',
@@ -166,7 +166,7 @@ const RU_CORE = {
   debt_pulse: 'Q сразу запускает статик-волну вокруг героя. Каждый уровень наносит на 25% больше урона, чем предыдущий. Сама Q никогда не создаёт статик-долг.'
 };
 const RU_MUT = {
-  static: 'Q оставляет статик-поле, которое замедляет угроз и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить здоровье.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую проверку казино: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть здоровье или кредиты.', armor_crack: 'Q сильнее ломает защиту угроз.', anchor: 'Q оставляет тяжёлую область, которая тянет угроз и тормозит пули.', hunger: 'Q наносит небольшой импульс вокруг героя. Чем меньше HP при активации, тем он сильнее.', bad_tape: 'Q создаёт два слабых искажённых повтора.'
+  static: 'Q оставляет статик-поле, которое замедляет угроз и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить здоровье.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую проверку казино: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть здоровье или кредиты.', armor_crack: 'Во всей зоне Q проходит мощный удар только по броне угроз.', anchor: 'Q оставляет тяжёлую область, которая тянет угроз и тормозит пули.', hunger: 'Q наносит небольшой импульс вокруг героя. Чем меньше HP при активации, тем он сильнее.', bad_tape: 'Q создаёт два слабых искажённых повтора.'
 };
 
 
@@ -216,7 +216,7 @@ Object.assign(EN_UPGRADE, {
   qrn_damage: 'QRN chains periodically discharge damage.',
   blood_ring: 'Press Q to deploy the blood ring around you.',
   field_snap: 'Press Q to pull and strongly stun nearby threats, then leave a harmless control field.',
-  shell_ripper: 'Press Q to break protection and lock every ability of affected threats, including bosses.',
+  shell_ripper: 'Press Q for reduced HP damage against unarmored threats, double armor damage, and a full ability lock, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
@@ -227,7 +227,7 @@ Object.assign(EN_UPGRADE, {
   shrapnel: 'Q releases extra bullets from the impact point.',
   casino: 'Q can trigger a small casino check: prize, repeat, or danger.',
   void: 'Q gives a short invulnerable phase window.',
-  armor_crack: 'Q breaks protection harder.',
+  armor_crack: 'The entire Q zone deals heavy armor-only damage.',
   anchor: 'Q leaves a heavy square that pulls threats and slows bullets.',
   hunger: 'Q deals a small burst around the hero. Lower HP at activation makes it much stronger.',
   bad_tape: 'Q leaves unstable glitch echoes.',

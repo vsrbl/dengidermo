@@ -534,7 +534,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -575,7 +575,14 @@ export class Renderer {
         ctx.restore();
         continue;
       }
-      if (kind === 'bouncer') {
+      if (abilityLock) {
+        // SHELL RIPPER strips every special silhouette/telegraph for its duration:
+        // the threat is visibly reduced to an ordinary contact square.
+        const lockPulse = 0.5 + Math.sin(now * 15 + ex * 0.01 + ey * 0.01) * 0.18;
+        this.square(ex, ey, size, { stroke: COL.purple, lw: 2.8, fill: `rgba(180,92,255,${0.06 + lockPulse * 0.05})` });
+        this.square(ex, ey, size * 0.48, { stroke: COL.cyan, lw: 1.3, rotate: now * 1.8 });
+        if (isBossKind) this.bossHpBar(ex, ey, size, hp01, COL.purple);
+      } else if (kind === 'bouncer') {
         this.square(ex, ey, size, { stroke, lw: 2.5, rotate: Math.PI / 4, fill: 'rgba(255,255,255,0.06)' });
       } else if (kind === 'wall_jumper') {
         const ws = String(st || 'wall_top');
@@ -883,6 +890,25 @@ export class Renderer {
         ctx.strokeRect(Math.round(ex - sz / 2 + 5), Math.round(ey - sz / 2 + 5), Math.round(sz - 10), Math.round(sz - 10));
         ctx.restore();
         this.label('STUN', ex, ey + size / 2 + (frozen || chill ? 34 : 18), '#f3f3f3', 8);
+      }
+      if (abilityLock) {
+        ctx.save();
+        const pulse = 0.5 + Math.sin(now * 17) * 0.22;
+        const lockSize = size + 24 + pulse * 8;
+        ctx.globalAlpha = 0.58 + pulse * 0.24;
+        ctx.strokeStyle = COL.purple;
+        ctx.lineWidth = 2.4;
+        ctx.setLineDash([8, 5, 2, 5]);
+        ctx.translate(ex, ey);
+        ctx.rotate(now * 0.9);
+        ctx.strokeRect(Math.round(-lockSize / 2), Math.round(-lockSize / 2), Math.round(lockSize), Math.round(lockSize));
+        ctx.rotate(-now * 1.8);
+        ctx.strokeStyle = COL.cyan;
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(Math.round(-lockSize * 0.36), Math.round(-lockSize * 0.36), Math.round(lockSize * 0.72), Math.round(lockSize * 0.72));
+        ctx.setLineDash([]);
+        ctx.restore();
+        this.label('SHELL LOCK', ex, ey + size / 2 + (frozen || chill || stun ? 34 : 18), COL.purple, 8);
       }
       if (exposed) {
         ctx.save();

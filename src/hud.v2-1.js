@@ -1609,7 +1609,11 @@ export class Hud {
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), body, 'red'); this.feed(`${localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST')}: ${body}`, 'r'); } break;
       case 'favor_earned': { this.localRerollSpent = 0; this.localRerollServerLeft = null; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
-      case 'favor_used': this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'gold'); break;
+      case 'favor_used': {
+        const body = this.wagerFxBody(f);
+        this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${body ? ' · ' + body : ''}`, 'gold');
+        break;
+      }
       case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
       case 'ctrl_capture': {
         const who = name(f.id || f.owner);
@@ -2146,14 +2150,14 @@ export class Hud {
     const id = String(f.id || '');
     const ru = {
       free_reroll: 'Один раз обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
-      clear_debt: 'Полностью снимает весь накопленный статик-долг перед входом в сектор.',
+      clear_debt: 'Снимает весь накопленный статик и навсегда глушит шторм Статик-ядра в этом забеге.',
       portal_insurance: 'Один раз в этой секторе смертельный удар оставит тебя живым и даст 50 HP.',
       epic_reroll: 'Два раза обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
       double_favor: 'Если контракт выполнен, после сектора будет два приза.'
     };
     const en = {
       free_reroll: 'Refreshes weapon, protocol, or main-threat prize choices once. Persists until used.',
-      clear_debt: 'Clears every banked Static Storm level before you enter the room.',
+      clear_debt: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
       epic_reroll: 'Refreshes weapon, protocol, or main-threat prize choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'

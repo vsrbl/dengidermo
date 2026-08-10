@@ -1211,7 +1211,7 @@ function contractChainPayout(depth = 0, chain = 0) {
 
 const CONTRACT_FAVOR_DEFS = {
   free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL/boss choice reroll. Persists until used.' },
-  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears every banked Static Storm level. Persists until debt exists, then clears it all.' },
+  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run. Persists until it can clear either source.' },
   portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.' },
   epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.' },
   double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' }
@@ -1301,7 +1301,13 @@ function activatePendingContractFavors(run, players = null) {
       run.staticCoreStormDisabled = true;
       f.used = (f.used || 0) + 1;
       run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, cleared, coreCleared: coreCleared ? 1 : 0 });
-      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: coreCleared ? 'BANKED STATIC + CORE STORM CLEARED' : 'ALL BANKED STATIC CLEARED', cleared, coreCleared: coreCleared ? 1 : 0 });
+      run.fx.push({
+        t: 'favor_used', id: f.id, label: favorLabel(f),
+        body: coreCleared ? 'BANKED STATIC + CORE STORM CLEARED' : 'ALL BANKED STATIC CLEARED',
+        bodyRu: coreCleared ? 'НАКОПЛЕННЫЙ СТАТИК И ШТОРМ ЯДРА СНЯТЫ' : 'ВЕСЬ НАКОПЛЕННЫЙ СТАТИК СНЯТ',
+        bodyEn: coreCleared ? 'BANKED STATIC AND CORE STORM CLEARED' : 'ALL BANKED STATIC CLEARED',
+        cleared, coreCleared: coreCleared ? 1 : 0
+      });
     }
   }
   if (incoming.length) run.fx.push({ t: 'favor_active', favors: compactContractFavors(incoming).map(f => favorSnapshotItem(f, true)) });
@@ -1317,33 +1323,33 @@ function nextRoomHasContractTarget(run) {
   if (nx.special === 'chill_room' || nx.cat === 'chill') return false;
   return !!nx.objective && nx.objective.id && nx.objective.id !== 'lounge_cashout';
 }
-function contractFavorPool(chain = 1, run = null) {
+function contractFavorPool(chain = 1, run = null, players = null) {
   let pool = chain >= 4
     ? ['epic_reroll', 'portal_insurance', 'double_favor']
     : chain >= 2
       ? ['free_reroll', 'clear_debt', 'portal_insurance']
       : ['free_reroll', 'clear_debt'];
   // Do not offer the Static Storm remover when there is no banked/upcoming storm to remove.
-  if (!hasClearableUpcomingStatic(run)) pool = pool.filter(id => id !== 'clear_debt');
+  if (!hasClearableUpcomingStatic(run, players)) pool = pool.filter(id => id !== 'clear_debt');
   // Double prize only makes sense when the next location actually has a contract target.
   if (!nextRoomHasContractTarget(run)) pool = pool.filter(id => id !== 'double_favor');
   // When DOUBLE NEXT PRIZE is active, it doubles the next room payout instead of rolling itself again.
   if (hasActiveContractFavor(run, 'double_favor')) pool = pool.filter(id => id !== 'double_favor');
   return pool.length ? pool : ['free_reroll'];
 }
-function rollContractFavor(run, chain = 1, slot = 0) {
-  const pool = contractFavorPool(chain, run);
+function rollContractFavor(run, players = null, chain = 1, slot = 0) {
+  const pool = contractFavorPool(chain, run, players);
   const rng = mulberry32(((run?.seedBase || 1) ^ ((run?.runDepth || 0) * 2246822519) ^ (chain * 3266489917) ^ (slot * 668265263)) >>> 0);
   return makeContractFavor(pool[Math.floor(rng() * pool.length)] || 'free_reroll', chain);
 }
-function buildContractFavors(run, chain = 1, count = 1) {
+function buildContractFavors(run, players = null, chain = 1, count = 1) {
   count = Math.max(1, Math.min(2, count | 0));
   const favors = [];
   const used = new Set();
   for (let i = 0; i < count; i++) {
-    let f = rollContractFavor(run, chain, i);
+    let f = rollContractFavor(run, players, chain, i);
     if (used.has(f.id)) {
-      const pool = contractFavorPool(chain, run).filter(id => !used.has(id));
+      const pool = contractFavorPool(chain, run, players).filter(id => !used.has(id));
       if (pool.length) f = makeContractFavor(pool[i % pool.length], chain);
     }
     used.add(f.id);
@@ -1356,16 +1362,16 @@ function favorSnapshotItem(f = {}, active = false) {
   const left = active ? Math.max(0, (f.uses || 0) - (f.used || 0)) : Math.max(0, f.uses || 0);
   return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', nextRoomOnly: 0, persistent: 1 };
 }
-function grantContractFavors(run, chain = 1, count = 1) {
+function grantContractFavors(run, players = null, chain = 1, count = 1) {
   const want = Math.max(1, Math.min(2, count | 0));
   let planned = Array.isArray(run?.roomObjective?.prizePreview) && run.roomObjective.prizePreview.length
     ? run.roomObjective.prizePreview.map(f => makeContractFavor(f.id, chain))
-    : buildContractFavors(run, chain, want);
+    : buildContractFavors(run, players, chain, want);
   // DOUBLE NEXT PRIZE must pay extra prizes, not clone itself into the payout.
   if (want > 1) planned = planned.filter(f => f.id !== 'double_favor');
   const used = new Set(planned.map(f => f.id));
   while (planned.length < want) {
-    const extra = buildContractFavors(run, chain, want).find(f => !used.has(f.id) && f.id !== 'double_favor') || makeContractFavor('free_reroll', chain);
+    const extra = buildContractFavors(run, players, chain, want).find(f => !used.has(f.id) && f.id !== 'double_favor') || makeContractFavor('free_reroll', chain);
     used.add(extra.id);
     planned.push(extra);
   }
@@ -1385,14 +1391,14 @@ function contractFavorSnapshot(run) {
     used: Array.isArray(run?.contractFavorsUsedThisRoom) ? run.contractFavorsUsedThisRoom : []
   };
 }
-function contractPrizePreview(run, chain = 1, count = 1) {
-  return buildContractFavors(run, chain, count).map(f => favorSnapshotItem(f, false));
+function contractPrizePreview(run, players = null, chain = 1, count = 1) {
+  return buildContractFavors(run, players, chain, count).map(f => favorSnapshotItem(f, false));
 }
-function attachContractPrizePreview(run) {
+function attachContractPrizePreview(run, players = null) {
   if (!run?.roomObjective || run.roomObjective.id === 'lounge_cashout') return;
   const chain = Math.max(1, (run?.runMemory?.contractStreak || 0) + 1);
   const count = hasActiveContractFavor(run, 'double_favor') ? 2 : 1;
-  run.roomObjective.prizePreview = contractPrizePreview(run, chain, count);
+  run.roomObjective.prizePreview = contractPrizePreview(run, players, chain, count);
 }
 function roomObjectivePayoutText(obj = {}, depth = 0, chain = 0) {
   if (!obj?.id) return '';
@@ -1638,7 +1644,7 @@ function pushCircleOutOfRect(ent, r, rect) {
   else ent.y = rect.y + rect.h + r;
   return true;
 }
-function makeNextRoomPreview(run) {
+function makeNextRoomPreview(run, players = null) {
   if (!run) return null;
   const depth = (run.runDepth || 0) + 1;
   const loop = Math.floor(depth / 4);
@@ -1649,7 +1655,7 @@ function makeNextRoomPreview(run) {
   const intel = roomIntel(plan, 0, '');
   const offer = shouldOfferRoomContract(plan, depth, seed);
   const obj = offer ? roomObjectiveForPlan(plan, depth) : null;
-  if (obj) obj.prizePreview = contractPrizePreview(run, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), 1);
+  if (obj) obj.prizePreview = contractPrizePreview(run, players, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), 1);
   return {
     id: plan.roomId, cat: plan.category, special: plan.specialRoomId || '', archetype: plan.roomArchetype || 'standard',
     mods: (plan.modifierIds || []).slice(0, 4), quota: plan.quota || 0,
@@ -2415,6 +2421,10 @@ function tickElementalStatuses(run, players, e, dt) {
   }
 }
 
+function enemyAbilitiesLocked(e) {
+  return (e?.abilityLockT || 0) > 0;
+}
+
 function stepEnemySynergies(run, players, dt) {
   if (run.plan?.specialRoomId === 'chill_room') return;
   const alive = [...players.values()].filter(p => p.alive);
@@ -2437,7 +2447,7 @@ function stepEnemySynergies(run, players, dt) {
     e.elemComboCd = Math.max(0, (e.elemComboCd || 0) - dt);
     tickElementalStatuses(run, players, e, dt);
     e.shellRegenDelay = Math.max(0, (e.shellRegenDelay || 0) - dt);
-    if ((e.shellMax || 0) > 0 && e.hp > 0 && (e.shellHp || 0) < e.shellMax && (e.shellRegenDelay || 0) <= 0) {
+    if (!enemyAbilitiesLocked(e) && (e.shellMax || 0) > 0 && e.hp > 0 && (e.shellHp || 0) < e.shellMax && (e.shellRegenDelay || 0) <= 0) {
       const beforeShell = Math.max(0, e.shellHp || 0);
       const regen = Math.max(3.5, e.shellMax * (e.shellType === 'linked' ? 0.10 : 0.14)) * shellRegenRateMul(e) * dt;
       e.shellHp = Math.min(e.shellMax, beforeShell + regen);
@@ -2450,7 +2460,7 @@ function stepEnemySynergies(run, players, dt) {
     e.comboCd = Math.max(0, (e.comboCd || 0) - dt);
     e.packRoleT = Math.max(0, (e.packRoleT || 0) - dt);
   }
-  const anchors = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'anchor');
+  const anchors = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.kind === 'anchor');
   for (const a of anchors) {
     const def = ENEMIES.anchor;
     let count = 0;
@@ -2460,7 +2470,7 @@ function stepEnemySynergies(run, players, dt) {
     }
     if (count && (a.comboCd || 0) <= 0) { a.comboCd = 0.85; run.fx.push({ t: 'enemy_combo', label: 'ANCHOR FIELD', x: Math.round(a.x), y: Math.round(a.y) }); }
   }
-  const dampers = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'damper');
+  const dampers = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.kind === 'damper');
   for (const d of dampers) {
     const def = ENEMIES.damper;
     let guarded = 0;
@@ -2487,7 +2497,7 @@ function stepEnemySynergies(run, players, dt) {
     }
     if (guarded && (d.comboCd || 0) <= 0) { d.comboCd = 1.15; run.fx.push({ t: 'enemy_combo', label: 'DMP NEST', x: Math.round(d.x), y: Math.round(d.y) }); }
   }
-  const heralds = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'herald');
+  const heralds = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.kind === 'herald');
   for (const h of heralds) {
     h.rallyCd = (h.rallyCd || 0) - dt;
     if (h.rallyCd > 0) continue;
@@ -2505,7 +2515,7 @@ function stepEnemySynergies(run, players, dt) {
     }
     if (rallied) run.fx.push({ t: 'enemy_combo', label: 'HERALD RALLY', x: Math.round(h.x), y: Math.round(h.y) });
   }
-  const orbiters = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'orbiter');
+  const orbiters = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.kind === 'orbiter');
   for (const o of orbiters) {
     let guarded = 0;
     for (const e of run.enemies) {
@@ -2519,13 +2529,13 @@ function stepEnemySynergies(run, players, dt) {
   // Linked armor is now a general armor class, not only a WRD gimmick:
   // any eligible shell carrier that spawned with linked armor can anchor its shell to a nearby unarmored battery mob.
   // The link never targets another armored/shelled enemy, another linked-armor carrier, or boss.
-  const linkedCarriers = run.enemies.filter(e => enemyCombatReady(e) && e.shellType === 'linked' && (e.shellHp || 0) > 0);
+  const linkedCarriers = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.shellType === 'linked' && (e.shellHp || 0) > 0);
   for (const carrier of linkedCarriers) {
     const def = ENEMIES[carrier.kind] || {};
     const radius = def.linkR || 340;
     let best = null, bd = radius * radius;
     for (const e of run.enemies) {
-      if (!enemyCombatReady(e) || e.id === carrier.id || !isLinkableShellBattery(e)) continue;
+      if (!enemyCombatReady(e) || enemyAbilitiesLocked(e) || e.id === carrier.id || !isLinkableShellBattery(e)) continue;
       const d = dist2(carrier.x, carrier.y, e.x, e.y);
       if (d < bd) { bd = d; best = e; }
     }
@@ -2540,7 +2550,7 @@ function stepEnemySynergies(run, players, dt) {
     }
   }
   // Splitting enemies agitate nearby runners: a small swarm moment after a split pack appears.
-  const splitters = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'splitter');
+  const splitters = run.enemies.filter(e => enemyCombatReady(e) && !enemyAbilitiesLocked(e) && e.kind === 'splitter');
   for (const s of splitters) {
     if ((s.splitStage || 0) <= 0 || (s.comboCd || 0) > 0) continue;
     let aggro = 0;
@@ -5157,8 +5167,8 @@ export function startRoom(run, players) {
   run.roomContractStakes = {};
   initRoomStats(run);
   run.roomObjective = shouldOfferRoomContract(run.plan, run.runDepth, seed) ? roomObjectiveForPlan(run.plan, run.runDepth) : null;
-  attachContractPrizePreview(run);
-  run.nextRoomPreview = makeNextRoomPreview(run);
+  attachContractPrizePreview(run, players);
+  run.nextRoomPreview = makeNextRoomPreview(run, players);
   run.roomSockets = [];
   run.roomWires = [];
   run.movingWalls = [];
@@ -7352,7 +7362,6 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
     run.fx.push({ t: 'active_mutation', label: absorbed && (p.aegisShield || 0) <= 0 ? 'AEGIS BREAK' : 'AEGIS SHELL', x: Math.round(p.x), y: Math.round(p.y), r: 82, tone: 'cyan', absorbed, playerId: p.id });
     if (dmg <= 0) { p.invuln = Math.max(p.invuln, PLAYER_HIT_INVULN * 0.45); return; }
   }
-  if (run.roomStats) run.roomStats.damageTaken += dmg;
   if (isGreedRoom(run)) {
     playerMoneyCost(run, p, dmg, srcX ?? p.x, srcY ?? p.y, 'GREED HIT');
     damageCombo(run, p, dmg);
@@ -7362,6 +7371,7 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
   const hpBefore = Math.max(0, Number(p.hp || 0));
   p.hp -= dmg;
   const hpLost = Math.max(0, hpBefore - Math.max(0, Number(p.hp || 0)));
+  if (run.roomStats && hpLost > 0) run.roomStats.damageTaken += hpLost;
   // No-damage contracts track HP damage only. Shield absorption and Gold Fever's
   // credit loss return before this point and therefore never fail the contract.
   if (p.wagerStats && hpLost > 0) p.wagerStats.damage = (p.wagerStats.damage || 0) + hpLost;
@@ -8457,18 +8467,32 @@ function stepEnemies(run, players, dt) {
       } else syncSlotMobState(e);
       continue;
     }
-    if ((e.frozenT || 0) > 0 || (e.stunT || 0) > 0 || (e.abilityLockT || 0) > 0) {
+    if ((e.frozenT || 0) > 0 || (e.stunT || 0) > 0) {
       if (typeof e.vx === 'number') e.vx *= Math.pow(0.02, dt * 8);
       if (typeof e.vy === 'number') e.vy *= Math.pow(0.02, dt * 8);
       e.fireCd = Math.max(e.fireCd || 0, 0.12);
-      // Frozen, stunned, or SHELL-locked means no movement, firing, summons,
-      // boss phases, windup progress, or contact damage.
+      // Frozen or stunned means no movement, firing, abilities, or contact damage.
       continue;
     }
     const target = nearestAlive(players, e.x, e.y, run);
     e.st += dt;
     const half = e.size / 2;
     const spd = enemySpeed(e);
+
+    if (enemyAbilitiesLocked(e)) {
+      // SHELL RIPPER removes the enemy's complete ability kit for the duration:
+      // no shots, dashes, healing, summons, auras, boss casts, windups, or phases.
+      // The stripped body still walks and deals ordinary contact damage.
+      e.fireCd = Math.max(e.fireCd || 0, 0.12);
+      if (target) {
+        const lockedToTarget = norm(target.x - e.x, target.y - e.y);
+        steerMove(run, e, lockedToTarget, spd, dt, { target });
+        e.dirX = lockedToTarget.x;
+        e.dirY = lockedToTarget.y;
+      }
+      touchDamage(run, e, players, dt);
+      continue;
+    }
 
     if (e.kind === 'bouncer') {
       const bnd = enemyArenaBounds(run, e, 2);
@@ -10249,13 +10273,13 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     const override = sanitizeDevRoomOverride(cmd);
     if (!override) return false;
     run.devNextRoomOverride = override;
-    run.nextRoomPreview = makeNextRoomPreview(run);
+    run.nextRoomPreview = makeNextRoomPreview(run, players);
     run.fx.push({ t: 'active_mutation', label: `NEXT: ${devOverrideLabel(override)}`, x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'cyan' });
     return true;
   }
   if (action === 'clear_next_room') {
     run.devNextRoomOverride = null;
-    run.nextRoomPreview = makeNextRoomPreview(run);
+    run.nextRoomPreview = makeNextRoomPreview(run, players);
     run.fx.push({ t: 'active_mutation', label: 'NEXT: AUTO', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'purple' });
     return true;
   }
@@ -10778,7 +10802,7 @@ function beginTransition(run, players) {
   const prevContractStreak = Math.max(0, run.runMemory?.contractStreak || 0);
   const contractChain = objResult?.done ? prevContractStreak + 1 : 0;
   const doubleFavor = objResult?.done ? consumeContractFavor(run, ['double_favor']) : null;
-  const earnedFavors = objResult?.done ? grantContractFavors(run, contractChain, doubleFavor ? 2 : 1) : [];
+  const earnedFavors = objResult?.done ? grantContractFavors(run, players, contractChain, doubleFavor ? 2 : 1) : [];
   let contractBonusGld = 0;
   let contractBonusExp = 0;
   const contractStakeEntries = Object.entries(run.roomContractStakes || {}).map(([id, amount]) => [id, Math.max(0, amount | 0)]).filter(([, amount]) => amount > 0);
@@ -10966,6 +10990,13 @@ export function fieldSnapStunDuration(level = 1) {
 export function shellRipperLockDuration(level = 1) {
   return Math.min(5.5, 2.5 + Math.max(0, Math.floor(level) - 1) * 0.75);
 }
+export function shellRipperDamageProfile(level = 1) {
+  const lvl = Math.max(1, Math.floor(Number(level) || 1));
+  return {
+    armorDamage: (88 + lvl * 58) * 2,
+    healthDamage: (14 + lvl * 8) * 0.5
+  };
+}
 
 function signalSpikeMaxCharges(p) {
   const a = ensureActive(p);
@@ -11082,6 +11113,17 @@ export function hungerMutationProfile(level = 1, hpRatio = 1) {
     radius: Math.round(activeScale(180 + (lvl - 1) * 18))
   };
 }
+
+export function armorCrackMutationProfile(level = 1, activationRadius = 120) {
+  const lvl = Math.max(1, Math.floor(Number(level) || 1));
+  return {
+    radius: Math.max(1, Math.round(Number(activationRadius) || 120)),
+    // This mutation is an area shell-breaker, not a second generic HP blast.
+    // The shared active balance scale is applied once by activeCrackShell.
+    armorDamage: 270 + (lvl - 1) * 135
+  };
+}
+
 function activeCrackShell(run, e, dmg, forceBreakLink = false) {
   if (!enemyCombatReady(e) || (e.shellHp || 0) <= 0) return 0;
   const d = Math.max(1, Math.round(activeScale(dmg)));
@@ -11136,9 +11178,11 @@ function applyActiveCasinoRoll(run, players, cr) {
   const lvl = Math.max(1, cr.lvl || ensureActive(p).level || 1);
   if (cr.outcome === 'HIT') {
     const dmg = Math.round(9 + lvl * 5 + Math.random() * 8);
-    p.hp = Math.max(1, p.hp - dmg);
-    p.invuln = Math.max(p.invuln || 0, 0.18);
-    run.fx.push({ t: 'phit', id: p.id, dmg, x: Math.round(p.x), y: Math.round(p.y) });
+    // Casino mutation damage uses the same shield, invulnerability, Gold Fever,
+    // HP-only contract and room-stat path as every other hit. Preserve the old
+    // non-lethal floor outside Gold Fever.
+    const applied = isGreedRoom(run) ? dmg : Math.min(dmg, Math.max(0, Math.floor((p.hp || 0) - 1)));
+    if (applied > 0) damagePlayer(run, p, applied, cr.x ?? p.x, cr.y ?? p.y);
   } else if (cr.outcome === 'DEBT') {
     addStaticDebt(run, 1, 'active_casino');
   } else if (cr.outcome === 'DOUBLE') {
@@ -11303,9 +11347,17 @@ function applyActiveMutations(run, players, p, ctx, opts = {}) {
       if (heal > 0) p.hp = Math.min(maxHp(p), p.hp + heal);
       run.fx.push({ t: 'active_mutation', label: `LEECH +${Math.round(heal)}`, x: Math.round(p.x), y: Math.round(p.y), r: 72, tone: 'green' });
     } else if (id === 'armor_crack') {
-      let cracked = 0;
-      for (const e of run.enemies) if (enemyCombatReady(e) && dist2(e.x, e.y, ctx.x, ctx.y) < ((ctx.r || 130) + 35 + e.size / 2) ** 2) cracked += activeCrackShell(run, e, 38 + lvl * 18, true);
-      if (cracked) run.fx.push({ t: 'active_mutation', label: 'ARMOR CRACK', x: Math.round(ctx.x), y: Math.round(ctx.y), r: activeScale((ctx.r || 120) + 55), tone: 'purple' });
+      const profile = armorCrackMutationProfile(lvl, ctx.r || 120);
+      let cracked = 0, targets = 0;
+      for (const e of activeTargets(run, ctx.x, ctx.y, profile.radius)) {
+        const dealt = activeCrackShell(run, e, profile.armorDamage, true);
+        if (dealt > 0) { cracked += dealt; targets++; }
+      }
+      run.fx.push({
+        t: 'active_mutation', label: targets ? `ARMOR BREAK x${targets}` : 'ARMOR BREAK',
+        x: Math.round(ctx.x), y: Math.round(ctx.y), r: profile.radius,
+        tone: 'purple', squareBlast: 1, armorOnly: 1, targets, damage: Math.round(cracked)
+      });
     } else if (id === 'anchor') {
       activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round(activeScale((ctx.r || 130) * 0.58 + 88)), ttl: activeDurationForLevel(lvl, 2.9, 4.4), tickEvery: 0.30, pull: activeRadiusForLevel(lvl, 120, 240), dmg: (2 + lvl * 2) * p.stats.dmgMul, slow: 0.32, damp: 0.20 });
       run.fx.push({ t: 'active_mutation', label: 'ANCHOR', x: Math.round(ctx.x), y: Math.round(ctx.y), r: Math.round(activeScale((ctx.r || 130) * 0.62 + 95)), tone: 'purple' });
@@ -11381,12 +11433,17 @@ function castActiveCore(run, players, p, opts = {}) {
   } else if (core === 'shell_ripper') {
     ctx.r = activeRadiusForLevel(lvl, 240, 380);
     const lock = shellRipperLockDuration(lvl);
+    const ripperDamage = shellRipperDamageProfile(lvl);
     for (const e of [...activeTargets(run, p.x, p.y, ctx.r)]) {
       e.abilityLockT = Math.max(e.abilityLockT || 0, lock);
-      const shell = activeCrackShell(run, e, 88 + lvl * 58, true);
+      // Pending boss telegraphs are abilities too: do not let a pre-lock cast land
+      // while the enemy is stripped down to its ordinary contact body.
+      if (Array.isArray(e.bossMarks)) e.bossMarks = [];
+      run.fx.push({ t: 'shell_lock', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 26), tone: 'purple' });
+      const shell = activeCrackShell(run, e, ripperDamage.armorDamage, true);
       if (shell) ctx.hitCount++;
       ctx.damageDone += shell;
-      if (!shell) { activeExposeEnemy(run, e, lvl, p.id); ctx.damageDone += activeDamageEnemy(run, players, e, (14 + lvl * 8) * p.stats.dmgMul, p.id); ctx.hitCount++; }
+      if (!shell) { activeExposeEnemy(run, e, lvl, p.id); ctx.damageDone += activeDamageEnemy(run, players, e, ripperDamage.healthDamage * p.stats.dmgMul, p.id); ctx.hitCount++; }
     }
     if (ctx.hitCount) run.fx.push({ t: 'active_mutation', label: `SHELL LOCK ${ctx.hitCount}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r, tone: 'purple' });
     run.fx.push({ t: 'active', id: p.id, label: `SHELL RIPPER ${roman(lvl)}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r });
@@ -12243,11 +12300,12 @@ export function buildSnapshot(run, players) {
     (e.burnT || 0) > 0 ? 1 : 0,
     (e.poisonT || 0) > 0 ? 1 : 0,
     (e.chillT || 0) > 0 ? 1 : 0,
-    (e.stunT || 0) > 0 || (e.abilityLockT || 0) > 0 ? 1 : 0,
+    (e.stunT || 0) > 0 ? 1 : 0,
     ((e.shellMax || 0) > 0 && (e.shellHp || 0) > 0 && (e.shellHp || 0) < (e.shellMax || 0) && (e.shellRegenDelay || 0) <= 0) ? 1 : 0,
     Math.ceil(Math.max(0, e.spawnDelay || 0) * 10) / 10,
     ctrlLocks.has(e.id) ? 1 : 0,
-    ctrlLocks.get(e.id) || 0
+    ctrlLocks.get(e.id) || 0,
+    (e.abilityLockT || 0) > 0 ? 1 : 0
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn

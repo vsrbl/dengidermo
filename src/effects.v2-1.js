@@ -244,6 +244,11 @@ export class Effects {
         this.float(f.x, f.y - 42, 'SHELL BREAK', '#66f6ff', 12);
         this.kick(4);
         break;
+      case 'shell_lock':
+        this.add({ kind: 'chainLock', activeKind: 'shell_lock', x: f.x, y: f.y, r: f.r || 54, ttl: 0.34, color: '#b45cff' });
+        this.add({ kind: 'squareField', activeKind: 'shell_lock_core', x: f.x, y: f.y, r: Math.max(28, (f.r || 54) * 0.62), ttl: 0.26, color: '#66f6ff', tick: 1 });
+        this.float(f.x, f.y - 42, 'SHELL LOCK', '#b45cff', 10);
+        break;
       case 'armor_link':
         this.add({ kind: 'line', x: f.x, y: f.y, x2: f.x2, y2: f.y2, ttl: 0.26, color: '#ff3048', dash: true });
         this.float(f.x, f.y - 44, fxLabel(f.label || 'ARMOR LINK'), '#ff3048', 11);
