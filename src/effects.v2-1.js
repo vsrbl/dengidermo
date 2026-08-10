@@ -300,8 +300,8 @@ export class Effects {
         this.add({ kind: 'heraldCore', x: f.x, y: f.y, ttl: 0.22, color: '#b45cff', start: f.start ? 1 : 0 });
         break;
       case 'summon':
-        if (f.kind === 'herald') this.add({ kind: 'heraldSummonBurst', x: f.x, y: f.y, x2: f.x2, y2: f.y2, hx: f.hx, hy: f.hy, dx: (f.dx || 0) / 100, dy: (f.dy || 0) / 100, count: f.count || 0, ttl: 0.55, color: '#ff3048' });
-        else this.add({ kind: 'burst', x: f.x, y: f.y, r: 70, ttl: 0.24, color: '#ff3048' });
+        if (f.kind === 'herald') this.add({ kind: 'heraldSummonBurst', x: f.x, y: f.y, x2: f.x2, y2: f.y2, hx: f.hx, hy: f.hy, dx: (f.dx || 0) / 100, dy: (f.dy || 0) / 100, count: f.count || 0, ttl: 0.55, color: f.ally ? '#66f6ff' : '#ff3048' });
+        else this.add({ kind: 'burst', x: f.x, y: f.y, r: 70, ttl: 0.24, color: f.ally ? '#66f6ff' : '#ff3048' });
         break;
       case 'echo_shot':
         this.add({ kind: 'burst', x: f.x, y: f.y, r: 38, ttl: 0.18, color: f.enemy ? '#ff3048' : '#b45cff' });

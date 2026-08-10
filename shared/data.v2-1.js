@@ -102,7 +102,7 @@ export const UPGRADES = [
   { id: 'dash_length', label: 'DASH LENGTH +18%', tier: 1, desc: 'Рывок проходит дальше.', apply: s => { s.dashDistMul *= 1.18; } },
   { id: 'drone',    label: 'DRONE +1',             tier: 1, desc: 'Добавляет автостреляющего спутника.', apply: s => { s.drones += 1; } },
   { id: 'luck',     label: 'LUCK +1',              tier: 1, desc: 'Лучше исходы улучшений и казино.', apply: s => { s.luck += 1; } },
-  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Попадания пуль могут создавать маленький взрыв.', apply: s => { s.procBlast += 0.10; } },
+  { id: 'proc',     label: 'BLAST CHANCE 10%',     tier: 1, desc: 'Выстрелы героя и стрелковых процессов могут создавать маленький взрыв. Дронам нужен DRONE BLAST.', apply: s => { s.procBlast += 0.10; } },
   { id: 'echo',     label: 'ECHO SHOT 12%',        tier: 1, desc: 'Иногда появляется дополнительный выстрел.', apply: s => { s.echoShot += 0.12; } },
   { id: 'leech',    label: 'LIFESTEAL 2%',         tier: 1, desc: 'Лечение от нанесённого урона.', apply: s => { s.lifesteal += 0.02; } },
   { id: 'goldgun',  label: 'GLD ON KILL +40%',     tier: 1, desc: 'Больше кредитов за удаление угроз.', apply: s => { s.goldMul *= 1.4; } },
@@ -126,7 +126,7 @@ export const UPGRADES = [
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.
   { id: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
-  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%',  tier: 1, branch: 'ALL', desc: 'Все твои снаряды летят дальше и живут дольше.', apply: s => { s.bulletRange *= 1.22; } },
+  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%',  tier: 1, branch: 'ALL', desc: 'Увеличивает дальность оружия, автооружия Живого казино и протоколов Контроллера.', apply: s => { s.bulletRange *= 1.22; } },
   { id: 'bullet_fire',     label: 'ТЕРМО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды перегревают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
   { id: 'bullet_freeze',   label: 'КРИО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
   { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню и усиливает периодический урон.', apply: s => { s.bulletPoison += 1; } },
@@ -172,6 +172,7 @@ export const UPGRADES = [
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП АТАК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы атакуют чаще.', apply: s => { s.ctrlFire += 1; } },
   { id: 'ctrl_process_contact_status', label: 'CTRL: ЖИВОЙ СНАРЯД', branch: 'CTRL', tier: 1, desc: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы.', apply: s => { s.ctrlProcessContactStatus = 1; } },
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
+  { id: 'ctrl_process_death_heal', label: 'CTRL: ВОЗВРАТ HP', branch: 'CTRL', tier: 1, desc: 'Смерть процесса лечит героя от максимального HP процесса. Стаки добавляют 1%, затем +1,5%, +2% и дальше.', apply: s => { s.ctrlDeathHeal += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
   { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
   { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Каждый уровень заметно увеличивает срок работы якоря.', apply: s => { s.qrHold += 1; } },
@@ -196,7 +197,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: маркер цепляется за стену и держит угрозы на цепях.' },
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
-  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ СНАРЯДОВ +22%', desc: 'Все снаряды летят дальше и держатся дольше.' },
+  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Увеличивает дальность оружия, автооружия Живого казино и протоколов Контроллера.' },
   { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ТЕРМО-СБОЙ СНАРЯДОВ', desc: 'Снаряды перегревают угрозы.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'КРИО-СБОЙ СНАРЯДОВ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
   { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню.' },
@@ -228,6 +229,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП АТАК +', desc: 'Подконтрольные процессы атакуют чаще.' },
   { id: 'ctrl_process_contact_status', kind: 'weapon_upgrade', upgrade: 'ctrl_process_contact_status', reqWeapon: 'command_pulse', label: 'CTRL: ЖИВОЙ СНАРЯД', desc: 'Укусы, касания, наскоки, прыжки и самоподрыв переносят любые текущие и будущие оружейные статусы.' },
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
+  { id: 'ctrl_process_death_heal', kind: 'weapon_upgrade', upgrade: 'ctrl_process_death_heal', reqWeapon: 'command_pulse', label: 'CTRL: ВОЗВРАТ HP', desc: 'Смерть процесса лечит героя на долю максимального HP процесса. Стаки: +1%, затем +1,5%, +2% и дальше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
   { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
   { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Каждый уровень заметно увеличивает срок работы якоря.' },
@@ -241,22 +243,22 @@ export const WEAPON_CHEST_REWARDS = [
 export const ACTIVE_CORES = {
   blood_ring: {
     id: 'blood_ring', label: 'BLOOD RING', short: 'RING', tone: 'red', role: 'FOLLOW DAMAGE',
-    desc: 'Первое Q показывает область. Второе запускает кровавое кольцо.',
+    desc: 'Q сразу запускает кровавое кольцо вокруг героя.',
     upgrade: ['+большой радиус', '+длительность', '+сильнее урон']
   },
   field_snap: {
     id: 'field_snap', label: 'FIELD SNAP', short: 'SNAP', tone: 'cyan', role: 'PULL / CONTROL',
-    desc: 'Первое Q показывает область. Второе стягивает угрозы и оставляет замедляющее поле без урона.',
+    desc: 'Q сразу стягивает ближайшие угрозы и оставляет поле вокруг героя без урона.',
     upgrade: ['+большой радиус', '+сила стяжки', '+дольше поле']
   },
   bullet_freeze: {
     id: 'bullet_freeze', label: 'BULLET FREEZE', short: 'FREEZE', tone: 'cyan', role: 'FREEZE / CONTROL',
-    desc: 'Первое Q показывает область. Второе запускает холодную ауру.',
+    desc: 'Q сразу запускает холодную ауру вокруг героя.',
     upgrade: ['+большой радиус', '+длительность', '+дольше примерзание']
   },
   shell_ripper: {
     id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'ARMOR / EXPOSE',
-    desc: 'Первое Q показывает область. Второе срывает защиту внутри неё.',
+    desc: 'Q сразу срывает защиту вокруг героя.',
     upgrade: ['+большой радиус', '+сильнее ломает защиту', '+сильнее уязвимость']
   },
   void_cut: {
@@ -266,17 +268,17 @@ export const ACTIVE_CORES = {
   },
   signal_spike: {
     id: 'signal_spike', label: 'SIGNAL SPIKE', short: 'SPIKE', tone: 'cyan', role: 'DEPLOY NODE',
-    desc: 'Первое Q показывает зону шипа. Второе устанавливает её.',
+    desc: 'Q сразу устанавливает шип в точку курсора.',
     upgrade: ['+1 заряд', '++дальность и радиус', '+длительность и урон']
   },
   black_box: {
     id: 'black_box', label: 'BLACK BOX', short: 'BOX', tone: 'purple', role: 'STEALTH / SAFE',
-    desc: 'Первое Q показывает область. Второе раскрывает чёрный ящик.',
+    desc: 'Q сразу раскрывает чёрный ящик вокруг героя.',
     upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
   },
   debt_pulse: {
     id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'RISK BURST',
-    desc: 'Первое Q показывает область. Второе запускает статик-волну.',
+    desc: 'Q сразу запускает статик-волну вокруг героя.',
     upgrade: ['+огромный радиус', '+урон волны', '+сильнее уязвимость']
   }
 };
@@ -325,7 +327,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, dashDistMul: 1, activeRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,

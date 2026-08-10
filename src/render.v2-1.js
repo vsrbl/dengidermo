@@ -101,7 +101,7 @@ export class Renderer {
     const drawRadius = item => {
       if (!item || item.kind !== 'radius') return;
       const col = colFor(item.tone);
-      const point = localPos && item === data.q && item.core !== 'signal_spike' ? localPos : item;
+      const point = item;
       const ix = Number(point.x || 0), iy = Number(point.y || 0);
       const r = Math.max(24, Number(item.r || 80));
       const pulse = 1 + Math.sin(now * 7.5 + ix * 0.01) * 0.012;
@@ -129,7 +129,6 @@ export class Renderer {
     drawRadius(data.r);
     const q = data.q;
     if (!q) return;
-    if (q.kind === 'radius') { drawRadius(q); return; }
     if (q.kind === 'void') {
       const col = COL.purple;
       const dx = q.x2 - q.x, dy = q.y2 - q.y;
@@ -1226,7 +1225,25 @@ export class Renderer {
             ctx.save();
             ctx.globalAlpha = 0.92;
             const fill = 'rgba(0,0,0,.56)';
-            if (procKind === 'runner') {
+            if (procKind.startsWith('boss_')) {
+              // Captured bosses keep a heavyweight silhouette instead of collapsing into
+              // the generic process square. The cyan/green treatment marks allegiance.
+              const bossSpin = now * 0.16;
+              this.square(cx, cy, size, { stroke, lw: 4.2, fill: 'rgba(0,220,255,.08)', rotate: procKind === 'boss_anchor_cashier' ? Math.PI / 4 : 0 });
+              this.square(cx, cy, Math.max(12, size * 0.72), { stroke: COL.fg, lw: 1.5, rotate: bossSpin });
+              if (procKind === 'boss_hunter_chorus') {
+                this.square(cx - size * 0.19, cy, Math.max(8, size * 0.27), { stroke, lw: 1.8, rotate: -bossSpin });
+                this.square(cx + size * 0.19, cy, Math.max(8, size * 0.27), { stroke, lw: 1.8, rotate: bossSpin });
+              } else if (procKind === 'boss_hunter_duelist') {
+                ctx.strokeStyle = stroke; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(cx - size * 0.5, cy + size * 0.5); ctx.lineTo(cx + size * 0.5, cy - size * 0.5); ctx.stroke();
+              } else if (procKind === 'boss_hunter_marksman') {
+                ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + faceX * size, cy + faceY * size); ctx.stroke();
+              } else if (procKind === 'boss_hunter_trapper') {
+                this.square(cx, cy, Math.max(8, size * 0.36), { stroke, lw: 1.8, rotate: Math.PI / 4 });
+              } else if (procKind === 'boss_q_revisor') {
+                ctx.strokeStyle = stroke; ctx.lineWidth = 2.2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(cx - faceX * size * 0.6, cy - faceY * size * 0.6); ctx.lineTo(cx + faceX * size * 0.8, cy + faceY * size * 0.8); ctx.stroke(); ctx.setLineDash([]);
+              }
+            } else if (procKind === 'runner') {
               this.square(cx, cy, size, { stroke, lw: 1.8, fill, rotate: now * 1.2 });
             } else if (procKind === 'tank') {
               this.square(cx, cy, size, { stroke, lw: 4, fill });

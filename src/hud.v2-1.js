@@ -297,8 +297,8 @@ function weaponReadability(opt = {}) {
     },
     bullet_range: {
       role: 'RANGE', tone: 'range',
-      ru: 'Снаряды живут дольше и летят дальше.', en: 'Projectiles live longer and travel farther.',
-      changeRu: 'дальше летит · дольше держится', changeEn: 'travels farther · lasts longer'
+      ru: 'Увеличивает дальность оружия всех героев, включая Живое казино и Контроллера.', en: 'Increases weapon range for every hero, including Living Casino and Controller.',
+      changeRu: '+22% ко всей дальности оружия', changeEn: '+22% to all weapon range'
     },
     bullet_fire: {
       role: 'STATUS', tone: 'status', element: 'fire',
@@ -446,6 +446,7 @@ function weaponReadability(opt = {}) {
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы атакуют чаще.', en: 'Controlled processes attack more often.', changeRu: 'чаще атаки процессов', changeEn: 'faster process attacks' },
       ctrl_process_contact_status: { role: 'SYNERGY', tone: 'synergy', ru: 'Телесные атаки процессов становятся живыми снарядами и переносят любые текущие и будущие статусы.', en: 'Process body attacks become living projectiles and carry all current and future statuses.', changeRu: 'укусы · касания · прыжки · самоподрыв', changeEn: 'bites · contact · leaps · self-destruct' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
+      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Смерть процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A process death restores hero HP based on that process maximum health.', changeRu: '1% · затем +1,5% · +2% · дальше', changeEn: '1% · then +1.5% · +2% · onward' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от настенного маркера.', en: 'The anchor can chain threats farther from the wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
       qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень заметно увеличивает срок работы якоря.', en: 'Each level noticeably extends anchor duration.', changeRu: 'намного дольше работа', changeEn: 'much longer duration' },
