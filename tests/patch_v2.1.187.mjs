@@ -20,7 +20,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[7-9]|190)$/);
+assert.match(VERSION, /^v2\.1\.(?:18[7-9]|19[0-4])$/);
 if (VERSION === 'v2.1.187') assert.equal(BUILD_ID, 'controller_boss_range_blast_sustain_rework');
 assert.equal(PROTOCOL, 14);
 
@@ -61,24 +61,24 @@ assert.equal(weaponRangeMultiplier(blastPlayer), 1);
 rangeUpgrade.apply(blastPlayer.stats);
 assert.equal(Math.round(weaponRangeMultiplier(blastPlayer) * 100), 122);
 
-// CTRL death-heal progression is cumulative: 1%, 2.5%, 4.5%, 7%.
+// CTRL death-heal progression is cumulative and doubled: 2%, 5%, 9%, 14%.
 const healUpgrade = UPGRADES.find(x => x.id === 'ctrl_process_death_heal');
 const healOption = WEAPON_CHEST_REWARDS.find(x => x.id === 'ctrl_process_death_heal');
 assert.ok(healUpgrade && healOption && weaponChoiceEligible(blastPlayer, healOption));
-const expectedPercent = [1, 2.5, 4.5, 7];
+const expectedPercent = [2, 5, 9, 14];
 const healPlayer = createPlayer('heal187', 'HEAL', 0, { hero: 'process_controller' });
 for (let i = 0; i < expectedPercent.length; i++) {
   healUpgrade.apply(healPlayer.stats);
   assert.equal(controlledProcessDeathHealPercent(healPlayer), expectedPercent[i]);
 }
 healPlayer.stats.ctrlDeathHeal = 2;
-assert.equal(controlledProcessDeathHealValue(healPlayer, { maxHp: 400 }), 10);
+assert.equal(controlledProcessDeathHealValue(healPlayer, { maxHp: 400 }), 20);
 healPlayer.hp = 50;
 const healRun = { fx: [] };
 expireControlledProcess(healRun, healPlayer, { id: 'dead', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'hp');
-assert.equal(healPlayer.hp, 60);
+assert.equal(healPlayer.hp, 70);
 expireControlledProcess(healRun, healPlayer, { id: 'ttl', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'ttl');
-assert.equal(healPlayer.hp, 60, 'signal expiry incorrectly counted as combat death');
+assert.equal(healPlayer.hp, 70, 'signal expiry incorrectly counted as combat death');
 
 function bossSource(kind, id, hp = null) {
   const def = ENEMIES[kind];

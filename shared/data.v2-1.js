@@ -94,7 +94,7 @@ export const SPAWN_POOLS = [
 // All stackable. No caps. Balatro rules.
 export const UPGRADES = [
   { id: 'dmg',      label: 'DMG +15%',             tier: 0, desc: 'Весь исходящий урон растёт, включая подконтрольные процессы Контролёра.', apply: s => { s.dmgMul *= 1.15; } },
-  { id: 'fire',     label: 'FIRE RATE +12%',       tier: 0, desc: 'Оружие и стрелковые процессы Контролёра атакуют чаще.', apply: s => { s.fireMul *= 1.12; } },
+  { id: 'fire',     label: 'WEAPON CLOCK +12%',    tier: 0, desc: 'Оружейный такт ускоряет перезарядку всего оружия каждого героя, включая SAW и подконтрольные стрелковые процессы.', apply: s => { s.fireMul *= 1.12; } },
   { id: 'spd',      label: 'SPD +8%',              tier: 0, desc: 'Скорость движения растёт.', apply: s => { s.spdMul *= 1.08; } },
   { id: 'maxhp',    label: 'HP +20',               tier: 0, desc: 'Максимальное здоровье растёт.', apply: s => { s.maxHpAdd += 20; } },
   { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Подборы притягиваются дальше.', apply: s => { s.magnetMul *= 1.4; } },
@@ -115,7 +115,7 @@ export const UPGRADES = [
   // These are not normal INSTALL rolls; they appear only after boss rooms.
   { id: 'sig_target_lock', label: 'TARGET LOCK', tier: 1, bossSig: true, desc: 'R: захватывает угрозу. Прицел держится на цели дольше с каждым уровнем.', apply: s => { if (s.rActiveId === 'target_lock') s.rActiveStacks += 1; else { s.rActiveId = 'target_lock'; s.rActiveStacks = 1; } } },
   { id: 'sig_redline_boost', label: 'REDLINE BOOST', tier: 1, bossSig: true, desc: 'R: супер-ускорение. Короткий рывок темпа с перезарядкой. Уровни увеличивают скорость и длительность.', apply: s => { if (s.rActiveId === 'redline_boost') s.rActiveStacks += 1; else { s.rActiveId = 'redline_boost'; s.rActiveStacks = 1; } } },
-  { id: 'sig_ghost_decoy', label: 'GHOST DECOY', tier: 1, bossSig: true, desc: 'R: антивирус скрывается, а приманка отвлекает угрозы.', apply: s => { if (s.rActiveId === 'ghost_decoy') s.rActiveStacks += 1; else { s.rActiveId = 'ghost_decoy'; s.rActiveStacks = 1; } } },
+  { id: 'sig_ghost_decoy', label: 'GHOST DECOY', tier: 1, bossSig: true, desc: 'R: антивирус надолго скрывается, а приманка отвлекает угрозы.', apply: s => { if (s.rActiveId === 'ghost_decoy') s.rActiveStacks += 1; else { s.rActiveId = 'ghost_decoy'; s.rActiveStacks = 1; } } },
   { id: 'sig_rewind_mark', label: 'REWIND MARK', tier: 1, bossSig: true, desc: 'R: ставит точку возврата. Повторное R возвращает назад и оглушает угрозы рядом.', apply: s => { if (s.rActiveId === 'rewind_mark') s.rActiveStacks += 1; else { s.rActiveId = 'rewind_mark'; s.rActiveStacks = 1; } } },
   { id: 'sig_kill_switch', label: 'KILL SWITCH', tier: 2, bossSig: true, desc: 'R: один раз за протокол стирает угрозы на экране, включая главную угрозу.', apply: s => { if (!s.killSwitchTaken) { s.killSwitchTaken = 1; s.rActiveId = 'kill_switch'; s.rActiveStacks = Math.max(1, s.rActiveStacks || 1); s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } else if (s.rActiveId === 'kill_switch') { s.rActiveStacks = Math.max(1, s.rActiveStacks || 1) + 1; s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } } },
   { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Поля предупреждения появления держатся дольше. Повторы усиливают задержку входа угроз.', apply: s => { s.spawnHoldStacks += 1; } },
@@ -150,13 +150,13 @@ export const UPGRADES = [
   { id: 'voidstep',  label: 'DASH: VOID RIFT',     tier: 1, branch: 'DASH', desc: 'Рывок оставляет разрез пустоты и ранит угрозы вдоль траектории.', apply: s => { s.voidStep += 1; } },
   { id: 'dashcut',   label: 'DASH STUN',          tier: 1, branch: 'DASH', desc: 'Рывок оглушает угрозы рядом с траекторией.', apply: s => { s.dashCut += 1; } },
   { id: 'dashclone', label: 'DASH AFTERSHOCK',    tier: 1, branch: 'DASH', desc: 'После рывка в точке старта остаётся короткий ударный след.', apply: s => { s.dashClone += 1; } },
-  { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q стягивает угрозы и оставляет короткое замедляющее поле.', apply: s => { s.activeSnap += 1; } },
+  { id: 'q_snap',    label: 'Q: FIELD SNAP',      tier: 1, branch: 'Q', desc: 'Q стягивает угрозы, надолго оглушает их и оставляет поле без урона.', apply: s => { s.activeSnap += 1; } },
   { id: 'q_blood',   label: 'Q: BLOOD PULSE',     tier: 1, branch: 'Q', desc: 'Q тратит HP на красный сигнальный взрыв.', apply: s => { s.activeBlood += 1; } },
   { id: 'q_over',    label: 'Q: OVERCLOCK',       tier: 1, branch: 'Q', desc: 'Q временно ускоряет стрельбу.', apply: s => { s.activeOver += 1; } },
 
   // high rarity rule-breakers
   { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
-  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но боевые сектора становятся опаснее от статик-шторма.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача. Проклятый сундук добавляет один статик-долг, но ядро не повторяет его само.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } },
   { id: 'rlt_square_damage', label: 'RLT: УРОН +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки бьют сильнее.', apply: s => { s.rltDmg += 1; } },
@@ -172,7 +172,7 @@ export const UPGRADES = [
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП АТАК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы атакуют чаще.', apply: s => { s.ctrlFire += 1; } },
   { id: 'ctrl_process_contact_status', label: 'CTRL: ЖИВОЙ СНАРЯД', branch: 'CTRL', tier: 1, desc: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы.', apply: s => { s.ctrlProcessContactStatus = 1; } },
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
-  { id: 'ctrl_process_death_heal', label: 'CTRL: ВОЗВРАТ HP', branch: 'CTRL', tier: 1, desc: 'Смерть процесса лечит героя от максимального HP процесса. Стаки добавляют 1%, затем +1,5%, +2% и дальше.', apply: s => { s.ctrlDeathHeal += 1; } },
+  { id: 'ctrl_process_death_heal', label: 'CTRL: ВОЗВРАТ HP', branch: 'CTRL', tier: 1, desc: 'Боевая смерть процесса лечит героя от его максимального HP. Стаки дают 2%, затем +3%, +4% и дальше.', apply: s => { s.ctrlDeathHeal += 1; } },
   { id: 'ctrl_process_persist', label: 'CTRL: ПЕРЕНОС', branch: 'CTRL', tier: 2, desc: 'Подконтрольные процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', apply: s => { s.ctrlPersist += 1; } },
   { id: 'qrn_radius', label: 'QRN: ДАЛЬНОСТЬ +', branch: 'QRN', tier: 1, desc: 'Карантинный якорь цепляет процессы дальше от маркера.', apply: s => { s.qrRadius += 1; } },
   { id: 'qrn_hold', label: 'QRN: УДЕРЖАНИЕ +', branch: 'QRN', tier: 1, desc: 'Каждый уровень сильно увеличивает срок работы якоря.', apply: s => { s.qrHold += 1; } },
@@ -229,14 +229,14 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП АТАК +', desc: 'Подконтрольные процессы атакуют чаще.' },
   { id: 'ctrl_process_contact_status', kind: 'weapon_upgrade', upgrade: 'ctrl_process_contact_status', reqWeapon: 'command_pulse', label: 'CTRL: ЖИВОЙ СНАРЯД', desc: 'Укусы, касания, наскоки, прыжки и самоподрыв переносят любые текущие и будущие оружейные статусы.' },
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
-  { id: 'ctrl_process_death_heal', kind: 'weapon_upgrade', upgrade: 'ctrl_process_death_heal', reqWeapon: 'command_pulse', label: 'CTRL: ВОЗВРАТ HP', desc: 'Смерть процесса лечит героя на долю максимального HP процесса. Стаки: +1%, затем +1,5%, +2% и дальше.' },
+  { id: 'ctrl_process_death_heal', kind: 'weapon_upgrade', upgrade: 'ctrl_process_death_heal', reqWeapon: 'command_pulse', label: 'CTRL: ВОЗВРАТ HP', desc: 'Боевая смерть процесса лечит от его максимального HP. Стаки: 2%, затем +3%, +4% и дальше.' },
   { id: 'ctrl_process_persist', kind: 'weapon_upgrade', upgrade: 'ctrl_process_persist', reqWeapon: 'command_pulse', label: 'CTRL: ПЕРЕНОС', desc: 'Подконтрольные процессы аккуратно переходят в следующий сектор.' },
   { id: 'qrn_radius', kind: 'weapon_upgrade', upgrade: 'qrn_radius', reqWeapon: 'quarantine_anchor', label: 'QRN: ДАЛЬНОСТЬ +', desc: 'Карантинный якорь цепляет угрозы дальше от маркера.' },
   { id: 'qrn_hold', kind: 'weapon_upgrade', upgrade: 'qrn_hold', reqWeapon: 'quarantine_anchor', label: 'QRN: УДЕРЖАНИЕ +', desc: 'Каждый уровень сильно увеличивает срок работы якоря.' },
   { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +3', desc: 'Добавляет 3 одновременных захвата. Предел одного якоря — 20 угроз.' },
   { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия. У Контролёра усиливает урон подконтрольных процессов.' },
-  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ТЕМП ОРУЖИЯ +14%', desc: 'Оружие стреляет чаще.' }
+  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет перезарядку всего оружия каждого героя, включая SAW и подконтрольные стрелковые процессы.' }
 ];
 
 
@@ -248,8 +248,8 @@ export const ACTIVE_CORES = {
   },
   field_snap: {
     id: 'field_snap', label: 'FIELD SNAP', short: 'SNAP', tone: 'cyan', role: 'PULL / CONTROL',
-    desc: 'Q сразу стягивает ближайшие угрозы и оставляет поле вокруг героя без урона.',
-    upgrade: ['+большой радиус', '+сила стяжки', '+дольше поле']
+    desc: 'Q сразу стягивает и надолго оглушает ближайшие угрозы, затем оставляет поле без урона.',
+    upgrade: ['+большой радиус', '+сильнее стяжка', '+дольше оглушение и поле']
   },
   bullet_freeze: {
     id: 'bullet_freeze', label: 'BULLET FREEZE', short: 'FREEZE', tone: 'cyan', role: 'FREEZE / CONTROL',
@@ -257,9 +257,9 @@ export const ACTIVE_CORES = {
     upgrade: ['+большой радиус', '+длительность', '+дольше примерзание']
   },
   shell_ripper: {
-    id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'ARMOR / EXPOSE',
-    desc: 'Q сразу срывает защиту вокруг героя.',
-    upgrade: ['+большой радиус', '+сильнее ломает защиту', '+сильнее уязвимость']
+    id: 'shell_ripper', label: 'SHELL RIPPER', short: 'RIP', tone: 'purple', role: 'SHELL / ABILITY LOCK',
+    desc: 'Q срывает защиту и надолго отключает все способности задетых угроз, включая боссов.',
+    upgrade: ['+большой радиус', '+сильнее ломает защиту', '+дольше блокировка способностей']
   },
   void_cut: {
     id: 'void_cut', label: 'VOID CUT', short: 'CUT', tone: 'purple', role: 'BUILD LASER',
@@ -277,9 +277,9 @@ export const ACTIVE_CORES = {
     upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
   },
   debt_pulse: {
-    id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'RISK BURST',
-    desc: 'Q сразу запускает статик-волну вокруг героя.',
-    upgrade: ['+огромный радиус', '+урон волны', '+сильнее уязвимость']
+    id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'BURST / EXPOSE',
+    desc: 'Q сразу запускает статик-волну вокруг героя. Каждый уровень увеличивает урон предыдущего на 25%. Сама Q не создаёт статик-долг.',
+    upgrade: ['+огромный радиус', '+25% урона за уровень', '+сильнее уязвимость']
   }
 };
 
@@ -293,7 +293,7 @@ export const ACTIVE_MUTATIONS = {
   leech: { id: 'leech', label: 'LEECH', tone: 'green', role: 'SUSTAIN', desc: 'Попадания Q могут вернуть здоровье или кредиты.' },
   armor_crack: { id: 'armor_crack', label: 'ARMOR CRACK', tone: 'purple', role: 'SHELL', desc: 'Q сильнее ломает защиту угроз.' },
   anchor: { id: 'anchor', label: 'ANCHOR', tone: 'purple', role: 'LOCK ZONE', desc: 'Q оставляет область, которая тянет угроз и тормозит пули.' },
-  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'CHARGE BITE', desc: 'Q создаёт зону голода с финальным укусом.' },
+  hunger: { id: 'hunger', label: 'HUNGER', tone: 'red', role: 'LOW HP BURST', desc: 'Q наносит небольшой урон вокруг героя. Чем меньше HP было при активации, тем сильнее импульс.' },
   bad_tape: { id: 'bad_tape', label: 'BAD TAPE', tone: 'purple', role: 'GLITCH REPEAT', desc: 'Q повторяется двумя слабыми сбоями.' }
 };
 

@@ -119,52 +119,52 @@ const EN = {
 const M = { ru: RU, en: EN };
 
 const EN_UPGRADE = {
-  dmg: 'All outgoing damage increases, including controlled process attacks.', fire: 'Weapons and ranged controlled processes attack faster.', spd: 'Movement speed increases.', maxhp: 'Maximum health increases.', magnet: 'Pickups are pulled from farther away.', dash: 'Adds one dash charge.', dash_length: 'Dash travels farther.', drone: 'Adds an auto-firing drone.', orbital: 'Adds an orbital that damages on contact.', luck: 'Better upgrade and casino outcomes.', proc: 'Hero shots and ranged controlled processes can create a small blast. Drones require DRONE BLAST.', echo: 'Sometimes fires an extra shot.', leech: 'Damage returns health. In Gold Fever it returns credits instead of HP.', goldgun: 'Threats drop more GLD.',
-  bullet_ricochet: 'Projectiles bounce off walls one more time.', bullet_range: 'Increases weapon range for every hero, including Living Casino guns and Controller protocols.', bullet_fire: 'Projectiles apply thermal corruption to threats.', bullet_freeze: 'Projectiles apply cryo corruption and can briefly stop threats.', bullet_poison: 'Projectiles apply corrosive corruption over time.', drone_element_link: 'Drones separately carry projectile corruptions.', element_amp: 'Thermal, cryo, and corrosive corruptions become stronger.', element_spread: 'Threat deletion can spread status corruption to nearby targets.', bullet_chain: 'Weapon hits link damage onward. Statuses do not transfer by default.', bullet_chain_status_link: 'Projectile links transfer all current and future weapon statuses.', shg_teeth: 'SHG fires more shards.', shg_longshot: 'RMB spends loaded SHG charges on one heavy long shot.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK locks on harder and flies longer.', sek_swarm: 'RMB releases a homing bullet swarm.', rkt_cluster: 'RKT breach blasts create extra mini-blasts.', rkt_mines: 'RKT breach charges leave delayed mines during flight.', rkt_stun: 'RKT explosions can stun enemies.', rkt_scatter: 'RKT explosions throw enemies farther.', rkt_remote: 'RMB detonates launched rockets one by one.', wpn_dmg: 'Weapon and controlled process damage increases.', wpn_fire: 'Weapons and ranged controlled processes attack faster.',
+  dmg: 'All outgoing damage increases, including controlled process attacks.', fire: 'Weapon Clock shortens every hero weapon cycle, including Living Casino guns, Controller SAW, and ranged controlled processes.', spd: 'Movement speed increases.', maxhp: 'Maximum health increases.', magnet: 'Pickups are pulled from farther away.', dash: 'Adds one dash charge.', dash_length: 'Dash travels farther.', drone: 'Adds an auto-firing drone.', orbital: 'Adds an orbital that damages on contact.', luck: 'Better upgrade and casino outcomes.', proc: 'Hero shots and ranged controlled processes can create a small blast. Drones require DRONE BLAST.', echo: 'Sometimes fires an extra shot.', leech: 'Damage returns health. In Gold Fever it returns credits instead of HP.', goldgun: 'Threats drop more GLD.',
+  bullet_ricochet: 'Projectiles bounce off walls one more time.', bullet_range: 'Increases weapon range for every hero, including Living Casino guns and Controller protocols.', bullet_fire: 'Projectiles apply thermal corruption to threats.', bullet_freeze: 'Projectiles apply cryo corruption and can briefly stop threats.', bullet_poison: 'Projectiles apply corrosive corruption over time.', drone_element_link: 'Drones separately carry projectile corruptions.', element_amp: 'Thermal, cryo, and corrosive corruptions become stronger.', element_spread: 'Threat deletion can spread status corruption to nearby targets.', bullet_chain: 'Weapon hits link damage onward. Statuses do not transfer by default.', bullet_chain_status_link: 'Projectile links transfer all current and future weapon statuses.', shg_teeth: 'SHG fires more shards.', shg_longshot: 'RMB spends loaded SHG charges on one heavy long shot.', sek_split: 'SEK kills release homing fragments.', sek_chain: 'SEK locks on harder and flies longer.', sek_swarm: 'RMB releases a homing bullet swarm.', rkt_cluster: 'RKT breach blasts create extra mini-blasts.', rkt_mines: 'RKT breach charges leave delayed mines during flight.', rkt_stun: 'RKT explosions can stun enemies.', rkt_scatter: 'RKT explosions throw enemies farther.', rkt_remote: 'RMB detonates launched rockets one by one.', wpn_dmg: 'Weapon and controlled process damage increases.', wpn_fire: 'Weapon Clock shortens every hero weapon cycle, including Living Casino guns, Controller SAW, and ranged controlled processes.',
   abl_active_recovery: 'Your active protocol recovers 20% faster. Stacks multiplicatively.', voidstep: 'Dash leaves a damaging void rift along its path.', dashcut: 'Dash stuns enemies near its path.', dashclone: 'Dash leaves a short damaging aftershock at its start point.',
-  q_snap: 'Q pulls enemies inward and leaves a slowing field without dealing damage.', q_blood: 'Q spends health for a red square blast.', q_over: 'Q briefly speeds up weapon and controlled process fire.',
+  q_snap: 'Q pulls enemies inward, stuns them for a long time, and leaves a slowing field without dealing damage.', q_blood: 'Q spends health for a red square blast.', q_over: 'Q briefly speeds up weapon and controlled process fire.',
   combo_gld: 'Combo payout gives GLD when the chain ends.', combo_exp: 'Combo payout gives EXP when the chain ends.', combo_hp: 'Combo payout heals you when the chain ends.',
   sig_quarantine_buffer: '10-second temporary shield at the start of each room.', sig_emergency_cleanse: 'At low health, erases nearby enemy bullets for 20 seconds.', sig_payout_swap: 'Small chance to double GLD or healing.', sig_false_zero: 'Enemy bullets sometimes count as zero and deal no damage.', sig_deaf_command: 'Some enemies receive the start-room order late.', sig_hunt_route: 'Keep moving to gain a small speed trace.', sig_red_overdrive: 'After dash, the next shot hits harder.', sig_aim_glitch: 'After dash, nearby enemy bullets drift off course.', sig_incomplete_delete: 'Strong enemies can leave a small healing fragment.', sig_insurance_process: 'At 10% health, nearby enemies are thrown outward once per room.',
-  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck. Combat rooms gain extra Static Storm pressure.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
+  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck. The cursed chest banks one Static Storm, but the core never repeats it by itself.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
 };
 const RU_UPGRADE_CLEAN = {
-  dmg: 'Весь исходящий урон растёт, включая атаки подконтрольных процессов.', fire: 'Оружие и стрелковые процессы атакуют чаще.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются дальше.', dash: 'Добавляет один заряд рывка.', dash_length: 'Рывок проходит дальше.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших угроз.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают угроз и пули дальше.', luck: 'Лучше исходы улучшений и казино.', proc: 'Выстрелы героя и стрелковых процессов могут создавать маленький взрыв. Дронам нужен DRONE BLAST.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Урон возвращает здоровье. В Золотой лихорадке — кредиты вместо HP.', goldgun: 'Угрозы дают больше кредитов при очистке.',
+  dmg: 'Весь исходящий урон растёт, включая атаки подконтрольных процессов.', fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются дальше.', dash: 'Добавляет один заряд рывка.', dash_length: 'Рывок проходит дальше.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших угроз.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают угроз и пули дальше.', luck: 'Лучше исходы улучшений и казино.', proc: 'Выстрелы героя и стрелковых процессов могут создавать маленький взрыв. Дронам нужен DRONE BLAST.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Урон возвращает здоровье. В Золотой лихорадке — кредиты вместо HP.', goldgun: 'Угрозы дают больше кредитов при очистке.',
   voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', abl_voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', dashcut: 'Рывок оглушает угроз рядом с траекторией.', dashclone: 'После рывка в точке старта остаётся короткий ударный след.', abl_dashcut: 'Рывок оглушает угроз рядом с траекторией.', abl_dashclone: 'После рывка в точке старта остаётся короткий ударный след.',
   abl_active_recovery: 'Активный протокол восстанавливается на 20% быстрее. Эффект складывается.',
-  q_snap: 'Q стягивает угрозы и оставляет замедляющее поле без урона.', q_blood: 'Q тратит здоровье на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет оружие и стрельбу процессов.',
+  q_snap: 'Q стягивает угрозы, надолго оглушает их и оставляет замедляющее поле без урона.', q_blood: 'Q тратит здоровье на красный сигнальный взрыв.', q_over: 'Q ненадолго ускоряет оружие и стрельбу процессов.',
   bullet_chain: 'Попадание оружием передаёт урон дальше. Статусы сами по цепи не переходят.', bullet_chain_status_link: 'Связь переносит все текущие и будущие оружейные статусы.', drone_element_link: 'Спутники отдельно переносят статусные сбои снарядов.', element_spread: 'Статусные сбои с удалённых угроз переходят на ближайшие цели.', bullet_ricochet: 'Снаряды получают дополнительный отскок от стен.', bullet_range: 'Увеличивает дальность оружия всех героев, включая пушки Живого казино и протоколы Контроллера.', bullet_fire: 'Снаряды перегревают угрозы.', bullet_freeze: 'Снаряды охлаждают угрозы и могут коротко остановить их.', bullet_poison: 'Снаряды заражают угрозы коррозией.', element_amp: 'Термо-, крио- и коррозийные сбои становятся сильнее.',
   shg_teeth: 'Клиновой разряд получает больше осколков.', shg_longshot: 'Правая кнопка тратит заряды клинового разряда на один дальний тяжёлый выстрел.', sek_split: 'Удаление угроз искателем выпускает фрагменты.', sek_chain: 'Искатель лучше держит цель и летит дольше.', sek_swarm: 'Правая кнопка выпускает рой сигнальных снарядов.', rkt_cluster: 'Разломный заряд добавляет малые взрывы вокруг детонации.', rkt_mines: 'Разломный заряд оставляет отложенные мины во время полёта.', rkt_stun: 'Разломные взрывы могут оглушать угрозы.', rkt_scatter: 'Разломные взрывы сильнее разбрасывают угрозы.', rkt_remote: 'Правая кнопка взрывает выпущенные разломные заряды по очереди.',
-  wpn_dmg: 'Повышает урон оружия и процессов.', wpn_fire: 'Оружие и стрелковые процессы атакуют чаще.', abl_dash: 'Добавляет один заряд рывка.', abl_dash_length: 'Рывок проходит дальше.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
+  wpn_dmg: 'Повышает урон оружия и процессов.', wpn_fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', abl_dash: 'Добавляет один заряд рывка.', abl_dash_length: 'Рывок проходит дальше.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт кредиты.', combo_exp: 'Комбо при завершении выдаёт опыт.', combo_hp: 'Комбо при завершении лечит.',
   sig_quarantine_buffer: 'В начале каждого сектора включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком здоровье 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить кредиты или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть угроз получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные угрозы иногда оставляют небольшой лечебный обломок.', sig_insurance_process: 'При 10% здоровье угрозы разбрасываются в стороны. Один раз за сектор.',
-  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача. Боевые секторы получают больше статик-давления.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
+  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача. Проклятый сундук добавляет один статик-долг, но ядро не повторяет его само.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
 };
 const EN_CORE = {
   blood_ring: 'Press Q to deploy the blood ring around you.',
-  field_snap: 'Press Q to pull nearby threats and leave the control field around you.',
+  field_snap: 'Press Q to pull and strongly stun nearby threats, then leave a harmless control field.',
   bullet_freeze: 'Press Q to deploy the cold aura around you.',
-  shell_ripper: 'Press Q to break protection around you.',
+  shell_ripper: 'Press Q to break protection and lock every ability of affected threats, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
-  debt_pulse: 'Press Q to release the static pulse around you.'
+  debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.'
 };
 const EN_MUT = {
-  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost health.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return health or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q creates a hunger zone. More enemies inside it feed a stronger final digital bite.', bad_tape: 'Q leaves two unstable glitch echoes.'
+  static: 'Q leaves a static field that slows enemies and bullets.', blood: 'Q gains extra blood damage. Some uses may cost health.', echo: 'Q leaves a weaker echo after a short pause.', shrapnel: 'Q releases extra bullets from the impact point.', casino: 'Q can trigger a small casino check: reward, repeat, or danger.', void: 'Q gives a short invulnerable phase window.', leech: 'Q hits can return health or GLD.', armor_crack: 'Q breaks enemy protection harder.', anchor: 'Q leaves a heavy square that pulls enemies and slows bullets.', hunger: 'Q deals a small burst around the hero. Lower HP at activation makes it much stronger.', bad_tape: 'Q leaves two unstable glitch echoes.'
 };
 
 const RU_CORE = {
   blood_ring: 'Q сразу запускает кровавое кольцо вокруг героя.',
-  field_snap: 'Q сразу стягивает ближайшие угрозы и оставляет поле вокруг героя.',
+  field_snap: 'Q сразу стягивает и надолго оглушает ближайшие угрозы, затем оставляет поле без урона.',
   bullet_freeze: 'Q сразу запускает холодную ауру вокруг героя.',
-  shell_ripper: 'Q сразу срывает защиту вокруг героя.',
+  shell_ripper: 'Q срывает защиту и отключает все способности задетых угроз, включая боссов.',
   void_cut: 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.',
   signal_spike: 'Q сразу устанавливает шип в точку курсора. Улучшения заметно растят дальность и область.',
   black_box: 'Q сразу раскрывает чёрный ящик вокруг героя.',
-  debt_pulse: 'Q сразу запускает статик-волну вокруг героя.'
+  debt_pulse: 'Q сразу запускает статик-волну вокруг героя. Каждый уровень наносит на 25% больше урона, чем предыдущий. Сама Q никогда не создаёт статик-долг.'
 };
 const RU_MUT = {
-  static: 'Q оставляет статик-поле, которое замедляет угроз и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить здоровье.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую проверку казино: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть здоровье или кредиты.', armor_crack: 'Q сильнее ломает защиту угроз.', anchor: 'Q оставляет тяжёлую область, которая тянет угроз и тормозит пули.', hunger: 'Q создаёт зону голода. Чем больше угроз внутри, тем сильнее финальный цифровой укус.', bad_tape: 'Q создаёт два слабых искажённых повтора.'
+  static: 'Q оставляет статик-поле, которое замедляет угроз и пули.', blood: 'Q получает дополнительный кровавый урон. Некоторые применения могут стоить здоровье.', echo: 'Q оставляет слабое эхо после короткой паузы.', shrapnel: 'Q выпускает дополнительные пули из точки удара.', casino: 'Q может запустить маленькую проверку казино: награда, повтор или опасность.', void: 'Q даёт короткое окно неуязвимости.', leech: 'Попадания Q могут вернуть здоровье или кредиты.', armor_crack: 'Q сильнее ломает защиту угроз.', anchor: 'Q оставляет тяжёлую область, которая тянет угроз и тормозит пули.', hunger: 'Q наносит небольшой импульс вокруг героя. Чем меньше HP при активации, тем он сильнее.', bad_tape: 'Q создаёт два слабых искажённых повтора.'
 };
 
 
@@ -175,7 +175,7 @@ const RU_MUT = {
 Object.assign(EN_UPGRADE, {
   sig_target_lock: 'Core threat takes increased damage after the first secure lock.',
   sig_redline_boost: 'Red danger lines briefly boost your damage after you cross them.',
-  sig_ghost_decoy: 'Creates a false signal that distracts nearby threats.',
+  sig_ghost_decoy: 'Creates a long-lasting false signal that distracts nearby threats.',
   sig_rewind_mark: 'Marks your last safe point and can pull you back after danger.',
   sig_kill_switch: 'A weakened core threat can receive a finishing purge pulse.',
   sig_spawn_hold: 'New threats enter the sector with a short signal delay.',
@@ -206,19 +206,19 @@ Object.assign(EN_UPGRADE, {
   ctrl_process_fire: 'Controlled processes attack more often.',
   ctrl_process_contact_status: 'Body attacks from controlled processes carry all current and future weapon statuses. Their shots always inherit statuses by default.',
   ctrl_process_life: 'Controlled processes keep their signal longer. Targets with higher durability receive a longer control timer.',
-  ctrl_process_death_heal: 'A process death restores hero HP from that process maximum HP. Stacks add 1%, then +1.5%, +2%, and so on.',
+  ctrl_process_death_heal: 'A combat process death restores hero HP from that process maximum HP. Stacks grant 2%, then +3%, +4%, and so on.',
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
   qrn_radius: 'QRN chains reach farther from its floor or wall marker.',
   qrn_hold: 'Strongly extends QRN anchor duration.',
   qrn_links: 'Adds 3 simultaneous captures. Base capacity is 5; maximum is 20.',
   qrn_damage: 'QRN chains periodically discharge damage.',
   blood_ring: 'Press Q to deploy the blood ring around you.',
-  field_snap: 'Press Q to pull nearby threats and leave the control field around you.',
-  shell_ripper: 'Press Q to break protection around you.',
+  field_snap: 'Press Q to pull and strongly stun nearby threats, then leave a harmless control field.',
+  shell_ripper: 'Press Q to break protection and lock every ability of affected threats, including bosses.',
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
-  debt_pulse: 'Press Q to release the static pulse around you.',
+  debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.',
   static: 'Q leaves a static field that slows threats and bullets.',
   blood: 'Q gains blood damage. Some uses may cost health.',
   shrapnel: 'Q releases extra bullets from the impact point.',
@@ -226,7 +226,7 @@ Object.assign(EN_UPGRADE, {
   void: 'Q gives a short invulnerable phase window.',
   armor_crack: 'Q breaks protection harder.',
   anchor: 'Q leaves a heavy square that pulls threats and slows bullets.',
-  hunger: 'Q creates a hunger zone with a stronger final bite.',
+  hunger: 'Q deals a small burst around the hero. Lower HP at activation makes it much stronger.',
   bad_tape: 'Q leaves unstable glitch echoes.',
   terminal_mint: 'Cosmetic shell: house terminal signal.',
   debt_red: 'Cosmetic shell: debt-fracture signal.',
@@ -248,7 +248,7 @@ Object.assign(RU_UPGRADE_CLEAN, {
   ctrl_process_fire: 'Подконтрольные процессы атакуют чаще.',
   ctrl_process_contact_status: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы. Их выстрелы наследуют статусы всегда.',
   ctrl_process_life: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.',
-  ctrl_process_death_heal: 'Смерть процесса лечит героя от максимального HP процесса. Стаки добавляют 1%, затем +1,5%, +2% и дальше.',
+  ctrl_process_death_heal: 'Боевая смерть процесса лечит героя от максимального HP процесса. Стаки дают 2%, затем +3%, +4% и дальше.',
   qrn_radius: 'Цепи QRN достают дальше от напольного или настенного маркера.',
   qrn_hold: 'Сильно увеличивает срок работы карантинного якоря.',
   qrn_links: 'Добавляет 3 одновременных захвата. Базово — 5, максимум — 20.',
@@ -345,7 +345,7 @@ export function cleanPlayerText(text) {
       .replace(/SIDE UPGRADE/gi, 'дополнительное усиление')
       .replace(/contract favor/gi, 'приз контракта')
       .replace(/favor/gi, 'приз')
-      .replace(/reroll/gi, 'переброс').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER CHARGE/gi, 'накопление голода').replace(/DIGITAL BITE/gi, 'цифровой укус')
+      .replace(/reroll/gi, 'переброс').replace(/PROC/gi, 'шанс взрыва').replace(/STATIC STACK/gi, 'уровень статик-шторма').replace(/STATIC STORM/gi, 'статик-шторм').replace(/HUNGER PULSE/gi, 'импульс голода').replace(/HUNGER/gi, 'голод')
       .replace(/next room/gi, 'следующий сектор')
       .replace(/дробовик/gi, 'клиновой разряд')
       .replace(/дробин[а-я]*/gi, 'осколки')
@@ -523,11 +523,11 @@ function coreLabelById(id) {
   return m[id] || id;
 }
 const RU_LABEL = {
-  'DMG +15%': 'УРОН +15%', 'FIRE RATE +12%': 'СКОРОСТРЕЛЬНОСТЬ +12%', 'SPD +8%': 'СКОРОСТЬ +8%', 'HP +20': 'ЗДОРОВЬЕ +20', 'MAGNET +40%': 'МАГНИТ +40%',
+  'DMG +15%': 'УРОН +15%', 'FIRE RATE +12%': 'ОРУЖЕЙНЫЙ ТАКТ +12%', 'WEAPON CLOCK +12%': 'ОРУЖЕЙНЫЙ ТАКТ +12%', 'SPD +8%': 'СКОРОСТЬ +8%', 'HP +20': 'ЗДОРОВЬЕ +20', 'MAGNET +40%': 'МАГНИТ +40%',
   'DASH +1': 'РЫВОК +1', 'DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'ABL: DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'DRONE +1': 'ДРОН +1', 'ORBITAL +1': 'ОРБИТАЛЬ +1', 'ORBITAL SEEK +20%': 'ОРБИТАЛИ: НАВЕДЕНИЕ +20%', 'ORBITAL RANGE +35%': 'ОРБИТАЛИ: РАДИУС +35%', 'LUCK +1': 'УДАЧА +1', 'BLAST PROC 10%': 'ШАНС ВЗРЫВА 10%', 'BLAST CHANCE 10%': 'ШАНС ВЗРЫВА 10%', 'ECHO SHOT 12%': 'ЭХО-ВЫСТРЕЛ 12%', 'LIFESTEAL 2%': 'ВАМПИРИЗМ 2%', 'GLD ON KILL +40%': 'КРЕДИТЫ ЗА ОЧИСТКУ +40%', 'COMBO PAYS GLD': 'КОМБО: КРЕДИТЫ', 'COMBO PAYS EXP': 'КОМБО: ОПЫТ', 'COMBO PAYS HP': 'КОМБО: ЛЕЧЕНИЕ',
   'DASH: VOID RIFT': 'РЫВОК: РАЗРЕЗ ПУСТОТЫ', 'DASH STUN': 'РЫВОК: СТАН', 'DASH CLONE': 'РЫВОК: УДАРНЫЙ СЛЕД', 'DASH ECHO BURST': 'РЫВОК: УДАРНЫЙ СЛЕД', 'DASH AFTERSHOCK': 'РЫВОК: УДАРНЫЙ СЛЕД',
   'DRONES COPY PROC': 'ДРОНЫ: ШАНС ВЗРЫВА', 'DRONE BLAST CHANCE': 'ДРОНЫ: ШАНС ВЗРЫВА', 'ORBITALS REFLECT': 'ОРБИТАЛИ ОТРАЖАЮТ', 'STATIC CORE': 'СТАТИК-ЯДРО', 'DMG +50% / HP -15': 'УРОН +50% / ЗДОРОВЬЕ -15', 'LUCK +3 / SPD -10%': 'УДАЧА +3 / СКР -10%',
-  'WEAPON DMG +18%': 'УРОН ОРУЖИЯ +18%', 'WEAPON FIRE +14%': 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%', 'WEAPON RATE +14%': 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%',
+  'WEAPON DMG +18%': 'УРОН ОРУЖИЯ +18%', 'WEAPON FIRE +14%': 'ОРУЖЕЙНЫЙ ТАКТ +14%', 'WEAPON RATE +14%': 'ОРУЖЕЙНЫЙ ТАКТ +14%', 'WEAPON CLOCK +14%': 'ОРУЖЕЙНЫЙ ТАКТ +14%',
   'SHG WEAPON': 'ОРУЖИЕ: КЛИНОВОЙ РАЗРЯД', 'SEK WEAPON': 'ОРУЖИЕ: ИСКАТЕЛЬ', 'RKT WEAPON': 'ОРУЖИЕ: РАЗЛОМНЫЙ ЗАРЯД', 'BULLET RICOCHET +1': 'ОТСКОК ПУЛЬ +1', 'BULLET RANGE +22%': 'ДАЛЬНОСТЬ ПУЛЬ +22%',
   'FIRE BULLETS': 'ОГНЕННЫЕ ПУЛИ', 'FREEZE BULLETS': 'ЛЕДЯНЫЕ ПУЛИ', 'POISON BULLETS': 'ЯДОВИТЫЕ ПУЛИ', 'DRONE ELEMENT LINK': 'СТАТУСЫ ДРОНОВ',
   'ELEMENT AMP +25%': 'СТАТУСЫ +25%', 'STATUS SPREAD': 'ПЕРЕНОС СТАТУСОВ', 'BULLET LINK +1': 'СВЯЗЬ ПУЛЬ +1',
@@ -553,7 +553,7 @@ const RU_LABEL = {
 };
 const EN_LABEL = Object.fromEntries(Object.entries(RU_LABEL).map(([en, ru]) => [ru, en]));
 Object.assign(EN_LABEL, {
-  'СТАТИК-ЯДРО': 'STATIC CORE', 'ЗЕРКАЛО x2': 'MIRROR x2', 'УНИКАЛЬНО': 'UNIQUE', 'ЗЕРКАЛО: БЕЗ КОПИИ': 'MIRROR: NO COPY', 'СТАТИК-УЗЕЛ': 'STATIC NODE', 'СКОРОСТРЕЛЬНОСТЬ ОРУЖИЯ +14%': 'WEAPON RATE +14%', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%',
+  'СТАТИК-ЯДРО': 'STATIC CORE', 'ЗЕРКАЛО x2': 'MIRROR x2', 'УНИКАЛЬНО': 'UNIQUE', 'ЗЕРКАЛО: БЕЗ КОПИИ': 'MIRROR: NO COPY', 'СТАТИК-УЗЕЛ': 'STATIC NODE', 'ОРУЖЕЙНЫЙ ТАКТ +12%': 'WEAPON CLOCK +12%', 'ОРУЖЕЙНЫЙ ТАКТ +14%': 'WEAPON CLOCK +14%', 'УРОН ОРУЖИЯ +18%': 'WEAPON DMG +18%',
   'РЫВОК: РУЧНОЙ ВЗРЫВ': 'RKT REMOTE DETONATOR', 'СТАТИК Q': 'STATIC CORE', 'STATIC Q': 'STATIC CORE',
   'РЕД': 'RAR', 'ДЖК': 'JCK', 'ФИКС': 'LOCK', 'УДАЧА': 'LUCK', 'УДАЧА В КАЗИНО': 'CASINO LUCK', 'ВЫБОР СЕКТОРА': 'SECTOR PICK', 'НЕТ ПРОТОКОЛА': 'NO PROTOCOL', 'Q — НЕТ ПРОТОКОЛА': 'Q — NO PROTOCOL', 'БАЗОВЫЙ АНТИВИРУС': 'BASE ANTIVIRUS', 'ЖИВОЕ КАЗИНО': 'LIVING CASINO', 'КОНТРОЛЁР ПРОЦЕССОВ': 'PROCESS CONTROLLER', 'БАЗОВЫЙ': 'BASE' 
 });
@@ -595,7 +595,8 @@ Object.assign(EN_LABEL, {
   'QRN: УДЕРЖАНИЕ +': 'QRN HOLD +',
   'QRN: ЗАХВАТ +': 'QRN ACQUIRE +',
   'QRN: РАЗРЯД +': 'QRN DISCHARGE +',
-  'ТЕМП ОРУЖИЯ +14%': 'WEAPON RATE +14%',
+  'ТЕМП ОРУЖИЯ +14%': 'WEAPON CLOCK +14%',
+  'ОРУЖЕЙНЫЙ ТАКТ +14%': 'WEAPON CLOCK +14%',
   'СРОК КОНТРОЛЯ +': 'CONTROL TIMER +',
   'ПРОЦЕСС +1': 'PROCESS +1',
   'КОНТРОЛЬ +': 'CONTROL +',

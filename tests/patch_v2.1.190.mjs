@@ -11,8 +11,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.190');
-assert.equal(BUILD_ID, 'controller_anchor_floor_capacity_duration');
+assert.match(VERSION, /^v2\.1\.19[0-4]$/);
+if (VERSION === 'v2.1.190') assert.equal(BUILD_ID, 'controller_anchor_floor_capacity_duration');
 assert.equal(PROTOCOL, 14);
 
 const controller = createPlayer('anchor190', 'ANCHOR', 0, { hero: 'process_controller' });
@@ -42,7 +42,7 @@ assert.deepEqual(resolveProcessControllerAnchorPlacement(placementRun, controlle
 });
 
 placementRun.plan.walls = [{ x: 360, y: 80, w: 40, h: 300 }];
-controller.aimX = 620;
+controller.aimX = 380;
 controller.aimY = 200;
 const wallPoint = resolveProcessControllerAnchorPlacement(placementRun, controller);
 assert.equal(wallPoint.surface, 'wall');

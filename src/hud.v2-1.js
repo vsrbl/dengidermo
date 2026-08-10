@@ -64,10 +64,10 @@ function contractRewardText(reward = '', obj = null) {
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 const STATIC_SOURCE_RU = {
-  room_modifier: 'мод сектора', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', bad_tape: 'плохая плёнка', debt_pulse: 'долговой импульс', active_reaction: 'активная реакция', previous_room_hits: 'попадания прошлой сектора', room_strikes: 'попадания прошлой сектора', debt_engine: 'статик-ядро', casino_virus: 'казино-вирус', contract_wager: 'казино-бонус сектора'
+  room_modifier: 'мод сектора', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', previous_room_hits: 'попадания прошлого сектора', room_strikes: 'попадания прошлого сектора', casino_virus: 'казино-вирус'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', bad_tape: 'bad tape', debt_pulse: 'debt pulse', active_reaction: 'Q reaction', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', debt_engine: 'static core', casino_virus: 'casino virus', contract_wager: 'sector casino bonus'
+  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', casino_virus: 'casino virus'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
@@ -398,8 +398,8 @@ function weaponReadability(opt = {}) {
     },
     wpn_fire: {
       role: 'DPS', tone: 'dps',
-      ru: 'Ускоряет темп стрельбы всего оружия.', en: 'Increases firing tempo for all weapons.',
-      changeRu: '+14% темп стрельбы', changeEn: '+14% fire rate'
+      ru: 'Оружейный такт ускоряет перезарядку всего оружия каждого героя, включая пушки Живого казино, SAW и стрелковые процессы.', en: 'Weapon Clock shortens every hero weapon cycle, including Living Casino guns, Controller SAW, and ranged controlled processes.',
+      changeRu: '+14% оружейный такт', changeEn: '+14% Weapon Clock'
     }
   };
   if (String(opt.kind || '').startsWith('lc_')) {
@@ -447,7 +447,7 @@ function weaponReadability(opt = {}) {
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы атакуют чаще.', en: 'Controlled processes attack more often.', changeRu: 'чаще атаки процессов', changeEn: 'faster process attacks' },
       ctrl_process_contact_status: { role: 'SYNERGY', tone: 'synergy', ru: 'Телесные атаки процессов становятся живыми снарядами и переносят любые текущие и будущие статусы.', en: 'Process body attacks become living projectiles and carry all current and future statuses.', changeRu: 'укусы · касания · прыжки · самоподрыв', changeEn: 'bites · contact · leaps · self-destruct' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
-      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Смерть процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A process death restores hero HP based on that process maximum health.', changeRu: '1% · затем +1,5% · +2% · дальше', changeEn: '1% · then +1.5% · +2% · onward' },
+      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Боевая смерть процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A combat process death restores hero HP based on that process maximum health.', changeRu: '2% · затем +3% · +4% · дальше', changeEn: '2% · then +3% · +4% · onward' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от напольного или настенного маркера.', en: 'The anchor can chain threats farther from its floor or wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
       qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень сильно увеличивает срок работы якоря.', en: 'Each level strongly extends anchor duration.', changeRu: 'сильно дольше работа', changeEn: 'strongly longer duration' },
@@ -533,7 +533,7 @@ const activeShort = p => locActiveShort(activeLabel(p));
 
 const BOSS_REWARD_HINTS = {
   'TARGET LOCK': [localText('МЕТКА ЦЕЛИ', 'TARGET LOCK'), localText('Наводка усиливает точность и давление по отмеченным угрозам.', 'Marking improves accuracy and pressure against tagged threats.')],
-  'GHOST DECOY': [localText('ПРИЗРАЧНАЯ ПРИМАНКА', 'GHOST DECOY'), localText('Создаёт обманный сигнал, который отвлекает угрозы и даёт время на позицию.', 'Creates a false signal that distracts threats and buys positioning time.')],
+  'GHOST DECOY': [localText('ПРИЗРАЧНАЯ ПРИМАНКА', 'GHOST DECOY'), localText('Создаёт долгий обманный сигнал, который отвлекает угрозы и даёт время на позицию.', 'Creates a long-lasting false signal that distracts threats and buys positioning time.')],
   'REDLINE BOOST': [localText('КРАСНАЯ ЛИНИЯ', 'REDLINE BOOST'), localText('Рывок ускоряет антивирус. Повторы увеличивают силу и длительность.', 'The dash accelerates the antivirus. Stacks improve force and duration.')],
   'SPAWN HOLD': [localText('ЗАМОРОЗКА СПАВНА', 'SPAWN HOLD'), localText('На старте сектора угрозы задерживаются, чтобы антивирус успел занять позицию.', 'Threats are delayed at sector start so the antivirus can take position.')],
   'KILL SWITCH': [localText('АВАРИЙНАЯ ОЧИСТКА', 'KILL SWITCH'), localText('Один раз за протокол очищает экран от угроз, включая главную угрозу.', 'Once per protocol, clears the screen of threats, including the core threat.')],
@@ -2146,14 +2146,14 @@ export class Hud {
     const id = String(f.id || '');
     const ru = {
       free_reroll: 'Один раз обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
-      clear_debt: 'Ослабляет следующий статик-шторм перед входом в сектор.',
+      clear_debt: 'Полностью снимает весь накопленный статик-долг перед входом в сектор.',
       portal_insurance: 'Один раз в этой секторе смертельный удар оставит тебя живым и даст 50 HP.',
       epic_reroll: 'Два раза обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
       double_favor: 'Если контракт выполнен, после сектора будет два приза.'
     };
     const en = {
       free_reroll: 'Refreshes weapon, protocol, or main-threat prize choices once. Persists until used.',
-      clear_debt: 'Weakens the next Static Storm before you enter the room.',
+      clear_debt: 'Clears every banked Static Storm level before you enter the room.',
       portal_insurance: 'Once this room, lethal damage keeps you alive and restores 50 HP.',
       epic_reroll: 'Refreshes weapon, protocol, or main-threat prize choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'
