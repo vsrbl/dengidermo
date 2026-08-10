@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.194';
-export const BUILD_ID = 'static_debt_source_audit_contract_clear';
+export const VERSION = 'v2.1.195';
+export const BUILD_ID = 'static_core_strike_spawn_immunity';
 export const PROTOCOL = 14;
 
 export const MAX_PLAYERS = 4;

@@ -205,10 +205,10 @@ export class Effects {
         this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: '#ff3048' });
         break;
       case 'rain_warn':
-        this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: '#b45cff' });
+        this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: f.ally ? '#a8f8ff' : '#b45cff' });
         break;
       case 'rain_hit':
-        this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: '#b45cff' });
+        this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: f.ally ? '#bdfbff' : '#b45cff' });
         this.kick(3);
         break;
       case 'blood_tax_warn':

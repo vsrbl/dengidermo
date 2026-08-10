@@ -10,8 +10,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.194');
-assert.equal(BUILD_ID, 'static_debt_source_audit_contract_clear');
+assert.match(VERSION, /^v2\.1\.19[45]$/);
+if (VERSION === 'v2.1.194') assert.equal(BUILD_ID, 'static_debt_source_audit_contract_clear');
 assert.equal(PROTOCOL, 14);
 
 function activeFixture(core, mutations = [], seed = 1940) {
@@ -101,8 +101,8 @@ function activeFixture(core, mutations = [], seed = 1940) {
   assert.equal(run.contractFavorsUsedThisRoom.find(f => f.id === 'clear_debt')?.cleared, 7);
 }
 
-// STATIC CORE still grants its stats, but owning it cannot recreate storms in
-// later clean rooms after the original cursed-chest debt has been cleared.
+// v2.1.194 suppressed recurring Core storms. v2.1.195 deliberately restores
+// the room source; the new patch test covers its contract-cleansing exception.
 {
   const p = createPlayer('static-core', 'STATIC CORE', 0);
   p.stats.debtEngine = 4;
@@ -111,10 +111,17 @@ function activeFixture(core, mutations = [], seed = 1940) {
   run.devNextRoomOverride = { category: 'grid', modifierIds: [] };
   startRoom(run, players);
   const snap = buildSnapshot(run, players);
-  assert.equal(run.staticRainStacks, 0);
-  assert.equal(run.staticRainSources.some(s => s.id === 'debt_engine'), false);
-  assert.equal(snap.room.staticRainNext, 0);
-  assert.equal(snap.room.debtEngineRainStacks, 0);
+  if (VERSION === 'v2.1.194') {
+    assert.equal(run.staticRainStacks, 0);
+    assert.equal(run.staticRainSources.some(s => s.id === 'debt_engine'), false);
+    assert.equal(snap.room.staticRainNext, 0);
+    assert.equal(snap.room.debtEngineRainStacks, 0);
+  } else {
+    assert.equal(run.staticRainStacks, 4);
+    assert.deepEqual(run.staticRainSources, [{ id: 'debt_engine', level: 4 }]);
+    assert.equal(snap.room.staticRainNext, 4);
+    assert.equal(snap.room.debtEngineRainStacks, 4);
+  }
 }
 
 // A genuine room modifier is still allowed to create its own storm.
@@ -147,4 +154,4 @@ assert.match(data, /Сама Q не создаёт статик-долг/);
 assert.match(hud, /Полностью снимает весь накопленный статик-долг/);
 assert.match(i18n, /Q itself never creates Static debt/);
 
-console.log('v2.1.194 checks passed: explicit debt sources only, Q-safe STATIC PULSE, full contract clear, no STATIC CORE recurrence');
+console.log(`v2.1.194 compatibility checks passed: explicit debt sources, Q-safe STATIC PULSE, full contract clear${VERSION === 'v2.1.194' ? ', no STATIC CORE recurrence' : ''}`);

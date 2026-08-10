@@ -156,7 +156,7 @@ export const UPGRADES = [
 
   // high rarity rule-breakers
   { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
-  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача. Проклятый сундук добавляет один статик-долг, но ядро не повторяет его само.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но боевые секторы получают статик-шторм. Контрактное очищение навсегда глушит шторм ядра.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } },
   { id: 'rlt_square_damage', label: 'RLT: УРОН +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки бьют сильнее.', apply: s => { s.rltDmg += 1; } },
@@ -275,6 +275,11 @@ export const ACTIVE_CORES = {
     id: 'black_box', label: 'BLACK BOX', short: 'BOX', tone: 'purple', role: 'STEALTH / SAFE',
     desc: 'Q сразу раскрывает чёрный ящик вокруг героя.',
     upgrade: ['+радиус скрытия', '+длительность', '+дольше скрытие']
+  },
+  static_strike: {
+    id: 'static_strike', label: 'STATIC STRIKE', short: 'STRIKE', tone: 'cyan', role: 'CURSOR STRIKE',
+    desc: 'Q помечает точку курсора. После задержки светлый шторм бьёт только угрозы.',
+    upgrade: ['+урон', '+быстрее восстановление', '+диаметр']
   },
   debt_pulse: {
     id: 'debt_pulse', label: 'STATIC PULSE', short: 'STC', tone: 'red', role: 'BURST / EXPOSE',

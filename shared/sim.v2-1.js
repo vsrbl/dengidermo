@@ -345,6 +345,9 @@ function playerDebtEngineStacks(players) {
   for (const p of players.values()) n += Math.max(0, p?.stats?.debtEngine || 0);
   return Math.min(STATIC_RAIN_MAX_LEVEL, n | 0);
 }
+function activeDebtEngineStacks(run, players) {
+  return run?.staticCoreStormDisabled ? 0 : playerDebtEngineStacks(players);
+}
 function debtEngineEligiblePlan(plan) {
   return !!plan && plan.category !== 'boss' && plan.specialRoomId !== 'chill_room';
 }
@@ -381,11 +384,15 @@ function nextStaticRainBreakdown(run, players = null, plan = null) {
   const p = plan || run.plan || {};
   const eligible = planStaticEligible(p);
   const sources = [];
-  const natural = eligible ? planStaticNaturalLevel(p) : 0;
+  // The current plan receives a synthetic static_rain tag when debt/Core enables
+  // the mechanic. Do not count that presentation/runtime tag as a second natural source.
+  const natural = eligible ? (p === run.plan ? Math.max(0, run.staticRainNaturalLevel || 0) : planStaticNaturalLevel(p)) : 0;
   if (natural > 0) sources.push({ id: 'room_modifier', level: natural });
   const pendingSources = pendingStaticRainSources(run);
   const pendingTotal = normalizeStaticSources(pendingSources).total;
   if (eligible && pendingTotal > 0) sources.push(...pendingSources);
+  const debtEngine = eligible ? activeDebtEngineStacks(run, players) : 0;
+  if (debtEngine > 0) sources.push({ id: 'debt_engine', level: debtEngine });
   const bd = normalizeStaticSources(sources);
   bd.banked = pendingTotal > 0 && !eligible ? pendingTotal : 0;
   bd.eligible = eligible;
@@ -398,6 +405,7 @@ function staticRainCurrentMode(run) {
   const bd = staticRainActiveBreakdown(run);
   if (!(bd.total > 0)) return '';
   if ((run.casinoVirus?.activeRainStacks || 0) > 0 && !(run.staticRainStacks > 0)) return 'casino_virus';
+  if (run.debtEngineRainStacks > 0 && !bd.sources.some(s => s.id === 'room_modifier')) return 'debt_engine';
   if (run.staticRainFromPending && run.staticRainCanSeedNext) return 'paid+seed';
   if (run.staticRainFromPending) return 'paid';
   if (run.staticRainCanSeedNext) return 'seeding';
@@ -1274,7 +1282,7 @@ export function clearAllBankedStatic(run) {
   run.staticRainCarrySources = {};
   return cleared;
 }
-function activatePendingContractFavors(run) {
+function activatePendingContractFavors(run, players = null) {
   const carry = activeContractFavors(run)
     .filter(f => Math.max(0, (f.uses || 0) - (f.used || 0)) > 0)
     .map(f => ({ ...f, activeDepth: f.activeDepth ?? (run.runDepth || 0) }));
@@ -1285,21 +1293,23 @@ function activatePendingContractFavors(run) {
   for (const f of run.contractFavorsActive) {
     const left = Math.max(0, (f.uses || 0) - (f.used || 0));
     if (left <= 0) continue;
-    if (f.id === 'clear_debt' && hasClearableUpcomingStatic(run)) {
+    if (f.id === 'clear_debt' && hasClearableUpcomingStatic(run, players)) {
+      const coreCleared = activeDebtEngineStacks(run, players) > 0;
       const cleared = clearAllBankedStatic(run);
-      if (cleared > 0) {
-        f.used = (f.used || 0) + 1;
-        run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, cleared });
-        run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: 'ALL BANKED STATIC CLEARED', cleared });
-      }
+      // Contract cleansing is the one permanent counter to STATIC CORE's room storm.
+      // It does not block future explicit debt from cursed chests, casino, or modifiers.
+      run.staticCoreStormDisabled = true;
+      f.used = (f.used || 0) + 1;
+      run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, cleared, coreCleared: coreCleared ? 1 : 0 });
+      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: coreCleared ? 'BANKED STATIC + CORE STORM CLEARED' : 'ALL BANKED STATIC CLEARED', cleared, coreCleared: coreCleared ? 1 : 0 });
     }
   }
   if (incoming.length) run.fx.push({ t: 'favor_active', favors: compactContractFavors(incoming).map(f => favorSnapshotItem(f, true)) });
 }
-function hasClearableUpcomingStatic(run) {
+function hasClearableUpcomingStatic(run, players = null) {
   const curDebt = run?.staticDebt === true ? 1 : Math.max(0, run?.staticDebt || 0);
   const carry = Math.max(0, run?.staticRainCarry || 0);
-  return curDebt > 0 || carry > 0;
+  return curDebt > 0 || carry > 0 || activeDebtEngineStacks(run, players) > 0;
 }
 function nextRoomHasContractTarget(run) {
   const nx = run?.nextRoomPreview || null;
@@ -2409,6 +2419,7 @@ function stepEnemySynergies(run, players, dt) {
   if (run.plan?.specialRoomId === 'chill_room') return;
   const alive = [...players.values()].filter(p => p.alive);
   for (const e of run.enemies) {
+    if (!enemyCombatReady(e)) continue;
     e.rallyT = Math.max(0, (e.rallyT || 0) - dt);
     e.anchorT = Math.max(0, (e.anchorT || 0) - dt);
     e.leechLinkT = Math.max(0, (e.leechLinkT || 0) - dt);
@@ -2439,22 +2450,22 @@ function stepEnemySynergies(run, players, dt) {
     e.comboCd = Math.max(0, (e.comboCd || 0) - dt);
     e.packRoleT = Math.max(0, (e.packRoleT || 0) - dt);
   }
-  const anchors = run.enemies.filter(e => e.kind === 'anchor');
+  const anchors = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'anchor');
   for (const a of anchors) {
     const def = ENEMIES.anchor;
     let count = 0;
     for (const e of run.enemies) {
-      if (e.id === a.id || ENEMIES[e.kind]?.boss) continue;
+      if (!enemyCombatReady(e) || e.id === a.id || ENEMIES[e.kind]?.boss) continue;
       if (dist2(e.x, e.y, a.x, a.y) < def.fieldR * def.fieldR) { e.anchorT = 0.26; count++; }
     }
     if (count && (a.comboCd || 0) <= 0) { a.comboCd = 0.85; run.fx.push({ t: 'enemy_combo', label: 'ANCHOR FIELD', x: Math.round(a.x), y: Math.round(a.y) }); }
   }
-  const dampers = run.enemies.filter(e => e.kind === 'damper' && e.hp > 0);
+  const dampers = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'damper');
   for (const d of dampers) {
     const def = ENEMIES.damper;
     let guarded = 0;
     for (const e of run.enemies) {
-      if (e.id === d.id || ENEMIES[e.kind]?.boss || e.hp <= 0) continue;
+      if (!enemyCombatReady(e) || e.id === d.id || ENEMIES[e.kind]?.boss) continue;
       const near = dist2(e.x, e.y, d.x, d.y) < (def.fieldR + 360) ** 2;
       if (!near) continue;
       if (['shooter','prism','pulse','orbiter','echo'].includes(e.kind)) {
@@ -2476,7 +2487,7 @@ function stepEnemySynergies(run, players, dt) {
     }
     if (guarded && (d.comboCd || 0) <= 0) { d.comboCd = 1.15; run.fx.push({ t: 'enemy_combo', label: 'DMP NEST', x: Math.round(d.x), y: Math.round(d.y) }); }
   }
-  const heralds = run.enemies.filter(e => e.kind === 'herald');
+  const heralds = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'herald');
   for (const h of heralds) {
     h.rallyCd = (h.rallyCd || 0) - dt;
     if (h.rallyCd > 0) continue;
@@ -2484,7 +2495,7 @@ function stepEnemySynergies(run, players, dt) {
     const target = nearestAlive(players, h.x, h.y, run);
     let rallied = 0;
     for (const e of run.enemies) {
-      if (e.id === h.id || ENEMIES[e.kind]?.boss || e.kind === 'anchor') continue;
+      if (!enemyCombatReady(e) || e.id === h.id || ENEMIES[e.kind]?.boss || e.kind === 'anchor') continue;
       if (dist2(e.x, e.y, h.x, h.y) < 560 * 560) {
         e.rallyT = Math.max(e.rallyT || 0, 2.1);
         if (target) e.rallyTargetId = target.id;
@@ -2494,11 +2505,11 @@ function stepEnemySynergies(run, players, dt) {
     }
     if (rallied) run.fx.push({ t: 'enemy_combo', label: 'HERALD RALLY', x: Math.round(h.x), y: Math.round(h.y) });
   }
-  const orbiters = run.enemies.filter(e => e.kind === 'orbiter');
+  const orbiters = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'orbiter');
   for (const o of orbiters) {
     let guarded = 0;
     for (const e of run.enemies) {
-      if (e.id === o.id || ENEMIES[e.kind]?.boss) continue;
+      if (!enemyCombatReady(e) || e.id === o.id || ENEMIES[e.kind]?.boss) continue;
       if (!['shooter','prism','pulse','leech'].includes(e.kind)) continue;
       if (dist2(e.x, e.y, o.x, o.y) < 230 * 230) { e.orbShieldT = 0.30; guarded++; }
     }
@@ -2508,13 +2519,13 @@ function stepEnemySynergies(run, players, dt) {
   // Linked armor is now a general armor class, not only a WRD gimmick:
   // any eligible shell carrier that spawned with linked armor can anchor its shell to a nearby unarmored battery mob.
   // The link never targets another armored/shelled enemy, another linked-armor carrier, or boss.
-  const linkedCarriers = run.enemies.filter(e => e.shellType === 'linked' && (e.shellHp || 0) > 0);
+  const linkedCarriers = run.enemies.filter(e => enemyCombatReady(e) && e.shellType === 'linked' && (e.shellHp || 0) > 0);
   for (const carrier of linkedCarriers) {
     const def = ENEMIES[carrier.kind] || {};
     const radius = def.linkR || 340;
     let best = null, bd = radius * radius;
     for (const e of run.enemies) {
-      if (e.id === carrier.id || !isLinkableShellBattery(e)) continue;
+      if (!enemyCombatReady(e) || e.id === carrier.id || !isLinkableShellBattery(e)) continue;
       const d = dist2(carrier.x, carrier.y, e.x, e.y);
       if (d < bd) { bd = d; best = e; }
     }
@@ -2529,12 +2540,12 @@ function stepEnemySynergies(run, players, dt) {
     }
   }
   // Splitting enemies agitate nearby runners: a small swarm moment after a split pack appears.
-  const splitters = run.enemies.filter(e => e.kind === 'splitter');
+  const splitters = run.enemies.filter(e => enemyCombatReady(e) && e.kind === 'splitter');
   for (const s of splitters) {
     if ((s.splitStage || 0) <= 0 || (s.comboCd || 0) > 0) continue;
     let aggro = 0;
     for (const e of run.enemies) {
-      if (e.id === s.id || !['runner','grunt','glitch'].includes(e.kind)) continue;
+      if (!enemyCombatReady(e) || e.id === s.id || !['runner','grunt','glitch'].includes(e.kind)) continue;
       if (dist2(e.x, e.y, s.x, s.y) < 300 * 300) { e.rallyT = Math.max(e.rallyT || 0, 1.1); aggro++; }
     }
     if (aggro) { s.comboCd = 2.2; run.fx.push({ t: 'enemy_combo', label: 'SPL SWARM', x: Math.round(s.x), y: Math.round(s.y) }); }
@@ -2570,7 +2581,7 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
 }
 function resolveEnemyPlayerBodies(run, players, walls) {
   for (const e of run.enemies) {
-    if (slotMobIsLockedOut(e)) continue;
+    if (!enemyCombatReady(e)) continue;
     for (const p of players.values()) resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 8 });
   }
 }
@@ -2890,6 +2901,7 @@ export function createRun(seedBase) {
     staticDebtSources: {},
     staticRainCarry: 0,
     staticRainCarrySources: {},
+    staticCoreStormDisabled: false,
     // Skin pity is run-local and player-facing only through more frequent SKN CACHE rooms.
     // It rises after non-boss rooms without a skin and resets on a skin room.
     skinPity: 0,
@@ -2906,7 +2918,7 @@ export function createRun(seedBase) {
     tapeLog: [],
     finalSummary: null, completedAt: 0,
     plan: null,
-    enemies: [], bullets: [], pickups: [], activeFields: [], pendingCasinoRolls: [], pendingSlotMobs: [],
+    enemies: [], bullets: [], pickups: [], activeFields: [], pendingActives: [], pendingActiveStrikes: [], pendingCasinoRolls: [], pendingSlotMobs: [],
     portal: null,
     kills: 0, spawned: 0,
     directorT: 1.2,
@@ -4150,7 +4162,7 @@ function stepControlledBoss(run, players, p, pc, m, target, toT, dT, spd, dt, wa
     controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 430, 0.10);
     const r = m.ctrlFieldR || def.fieldR || 430;
     for (const e of run.enemies || []) {
-      if (!e || e.hp <= 0 || dist2(e.x, e.y, m.x, m.y) > (r + (e.size || 24) / 2) ** 2) continue;
+      if (!enemyCombatReady(e) || dist2(e.x, e.y, m.x, m.y) > (r + (e.size || 24) / 2) ** 2) continue;
       const n = norm(m.x - e.x, m.y - e.y);
       const ox = e.x, oy = e.y;
       const c = collideWalls(ox + n.x * (m.ctrlPull || def.pull || 190) * dt, oy + n.y * (m.ctrlPull || def.pull || 190) * dt, (e.size || 24) / 2, walls, ox, oy);
@@ -4372,7 +4384,7 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
     } else if (m.kind === 'anchor') {
       m.atkCd = 0.42;
       for (const e of run.enemies || []) {
-        if (!e || e.hp <= 0 || dist2(e.x, e.y, m.x, m.y) > Math.pow((m.ctrlFieldR || def.fieldR || 240) * 0.55 + (e.size || 24) / 2, 2)) continue;
+        if (!enemyCombatReady(e) || dist2(e.x, e.y, m.x, m.y) > Math.pow((m.ctrlFieldR || def.fieldR || 240) * 0.55 + (e.size || 24) / 2, 2)) continue;
         const n = norm(m.x - e.x, m.y - e.y);
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.18);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.72);
@@ -4526,7 +4538,7 @@ function processControllerAimCandidate(run, p, cursorRadius = 96) {
   const ay = Number.isFinite(p.aimY) ? p.aimY : p.y;
   let best = null, bestScore = Infinity;
   for (const e of run.enemies || []) {
-    if (!e || e.hp <= 0) continue;
+    if (!enemyCombatReady(e)) continue;
     const hitR = Math.max(cursorRadius, (e.size || 24) * 0.62 + 34);
     const d = Math.hypot(ax - e.x, ay - e.y);
     if (d > hitR) continue;
@@ -5115,17 +5127,19 @@ export function startRoom(run, players) {
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
-  activatePendingContractFavors(run);
+  activatePendingContractFavors(run, players);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
   const naturalStaticLevel = naturalStaticRain && debtEngineEligiblePlan(run.plan) ? 1 : 0;
   const debtStacks = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
   const carryStacks = Math.max(0, run.staticRainCarry || 0);
   const pendingRainStacks = clampStaticRainLevel(debtStacks + carryStacks);
+  const debtEngineStacks = debtEngineEligiblePlan(run.plan) ? activeDebtEngineStacks(run, players) : 0;
   const incomingSources = [];
   if (naturalStaticLevel > 0) incomingSources.push({ id: 'room_modifier', level: naturalStaticLevel });
   if (debtStacks > 0) incomingSources.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debtStacks));
   if (carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'previous_room_hits', carryStacks));
+  if (debtEngineStacks > 0) incomingSources.push({ id: 'debt_engine', level: debtEngineStacks });
   const incomingBreakdown = normalizeStaticSources(incomingSources);
   const incomingRainStacks = incomingBreakdown.total;
   run.staticRainStacks = 0;
@@ -5133,7 +5147,7 @@ export function startRoom(run, players) {
   run.staticRainNaturalLevel = 0;
   run.staticRainDebtLevel = 0;
   run.staticRainCarryLevel = 0;
-  run.debtEngineRainStacks = 0;
+  run.debtEngineRainStacks = Math.max(0, debtEngineStacks || 0);
   run.staticRainCanSeedNext = false;
   run.staticRainFromPending = false;
   run.roomStaticRainFalls = 0;
@@ -5157,6 +5171,8 @@ export function startRoom(run, players) {
   run.pendingPrismLanes = [];
   run.pendingBloodTax = [];
   run.pendingStrikes = [];
+  run.pendingActives = [];
+  run.pendingActiveStrikes = [];
   if (hasMod(run, 'anchor_gravity')) {
     const srng = mulberry32((seed ^ 0xA44C07) >>> 0);
     const rr = playableRectForArchetype(run.plan.roomArchetype || 'standard');
@@ -5199,7 +5215,7 @@ export function startRoom(run, players) {
     run.staticRainDebtLevel = debtStacks;
     run.staticRainCarryLevel = carryStacks;
     run.staticRainFromPending = pendingRainStacks > 0;
-    // Only a natural room modifier can seed the next storm. Banked debt and Casino Virus do not cascade by themselves.
+    // Only a natural room modifier can seed the next storm. Banked debt, STATIC CORE, and Casino Virus do not cascade by themselves.
     run.staticRainCanSeedNext = naturalStaticLevel > 0;
     if (pendingRainStacks > 0) {
       run.staticDebt = 0;
@@ -5313,6 +5329,7 @@ export function resetRun(run, players) {
   run.staticDebtSources = {};
   run.staticRainCarry = 0;
   run.staticRainCarrySources = {};
+  run.staticCoreStormDisabled = false;
   run.staticRainStacks = 0;
   run.staticRainSources = [];
   run.staticRainNaturalLevel = 0;
@@ -5323,7 +5340,7 @@ export function resetRun(run, players) {
   run.roomStaticRainFalls = 0;
   run.combo = createComboState();
   run.playerCombos = {};
-  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
+  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
   run.tapeLog = [];
   run.finalSummary = null;
@@ -6955,7 +6972,7 @@ function restoreMirrorChargesAfterBoss(run, players) {
 function scatterAndStunEnemies(run, x, y, r, stun, power = 520) {
   let hit = 0;
   for (const e of run.enemies) {
-    if (!e || e.hp <= 0) continue;
+    if (!enemyCombatReady(e)) continue;
     const rr = r + (e.size || 24) * 0.5;
     if (dist2(e.x, e.y, x, y) > rr * rr) continue;
     const n = norm(e.x - x, e.y - y);
@@ -7257,7 +7274,7 @@ function maybeDoubleResourceBySignature(run, players, type, val, actor = null) {
 function scatterEnemiesFromPlayer(run, p, radius = 360) {
   let count = 0;
   for (const e of run.enemies) {
-    if (!e || e.hp <= 0) continue;
+    if (!enemyCombatReady(e)) continue;
     const d2 = dist2(e.x, e.y, p.x, p.y);
     if (d2 > (radius + (e.size || 20)) ** 2) continue;
     const n = norm(e.x - p.x, e.y - p.y);
@@ -7385,9 +7402,15 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
   }
 }
 
+function enemyCombatReady(e) {
+  return !!e && (e.hp || 0) > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e);
+}
+
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
+  // Spawn warnings are a true staging phase: nothing may chip HP, armor, statuses,
+  // lifesteal, combo, or death logic until the enemy has actually materialized.
+  if (!enemyCombatReady(e)) return 0;
   const def = ENEMIES[e.kind];
-  if (slotMobIsLockedOut(e)) return;
   // Armor is a real shell class: it absorbs hits before HP.
   // Plain shell loses shell HP from shots. Linked shell loses nothing while its unarmored battery mob is alive nearby.
   const rawDmg = Math.max(1, Math.round(dmg));
@@ -7459,7 +7482,7 @@ function spreadElementStatusesOnKill(run, players, dead, killer) {
   const r = 92 + spread * 18;
   let count = 0;
   for (const n of run.enemies) {
-    if (!n || n.id === dead.id || n.hp <= 0) continue;
+    if (!enemyCombatReady(n) || n.id === dead.id) continue;
     if (dist2(n.x, n.y, dead.x, dead.y) > (r + n.size / 2) ** 2) continue;
     if (hasBurn) { n.burnT = Math.max(n.burnT || 0, Math.min(1.9 + spread * 0.25, (dead.burnT || 1.2) * 0.55)); n.burnDps = Math.max(n.burnDps || 0, (dead.burnDps || 2) * 0.55); n.burnOwner = killer.id; }
     if (hasPoison) { n.poisonT = Math.max(n.poisonT || 0, Math.min(3.2 + spread * 0.35, (dead.poisonT || 1.8) * 0.62)); n.poisonDps = Math.max(n.poisonDps || 0, (dead.poisonDps || 1.5) * 0.58); n.poisonOwner = killer.id; }
@@ -7710,7 +7733,7 @@ function bulletCorrosionArmorDamage(players, e, b, dmg) {
   return dmg * (1 + stacks * 0.45);
 }
 function applyBulletElements(run, players, e, b, strength = 1) {
-  if (!e || e.hp <= 0 || !b) return;
+  if (!enemyCombatReady(e) || !b) return;
   const owner = b.owner || null;
   const p = owner ? players.get(owner) : null;
   // Robust fallback: old/projectile code may forget to copy b.elem, but owner stats are the source of truth.
@@ -7785,7 +7808,7 @@ function applyWeaponChain(run, players, startEnemy, b) {
   for (let i = 0; i < level; i++) {
     let best = null, bd = Infinity;
     for (const e of run.enemies) {
-      if (!e || e.hp <= 0 || visited.has(e.id)) continue;
+      if (!enemyCombatReady(e) || visited.has(e.id)) continue;
       const d = dist2(e.x, e.y, from.x, from.y);
       if (d < bd && d <= (linkRange + e.size / 2) ** 2) { bd = d; best = e; }
     }
@@ -9190,7 +9213,7 @@ function stepMovingWalls(run, players, dt) {
         hitSomething = true;
       }
     }
-    for (const e of [...run.enemies]) if (e.hp > 0 && rectHitCircle(e.x, e.y, (e.size || 24) / 2, w)) {
+    for (const e of [...run.enemies]) if (enemyCombatReady(e) && rectHitCircle(e.x, e.y, (e.size || 24) / 2, w)) {
       e.activeSlowT = Math.max(e.activeSlowT || 0, 0.36);
       e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.52);
       e.zoneHitCd = Math.max(0, (e.zoneHitCd || 0) - dt);
@@ -9210,7 +9233,7 @@ function stepPrismSlowGrid(run, players, dt) {
   if (!hasMod(run, 'prism_grid') || !run.prismZones?.length) return;
   for (const z of run.prismZones) {
     for (const p of players.values()) if (p.alive && rectHitCircle(p.x, p.y, PLAYER_SIZE / 2, z)) { p.slowT = Math.max(p.slowT || 0, 0.22); p.slowMul = Math.min(p.slowMul || 1, 0.333); }
-    for (const e of run.enemies) if (e.hp > 0 && rectHitCircle(e.x, e.y, (e.size || 24) / 2, z)) { e.activeSlowT = Math.max(e.activeSlowT || 0, 0.28); e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.333); }
+    for (const e of run.enemies) if (enemyCombatReady(e) && rectHitCircle(e.x, e.y, (e.size || 24) / 2, z)) { e.activeSlowT = Math.max(e.activeSlowT || 0, 0.28); e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.333); }
     for (const b of run.bullets) if (rectHitCircle(b.x, b.y, (b.size || 5) + 2, z)) { const m = Math.pow(0.333, dt * 6); b.vx *= m; b.vy *= m; b.gridSlowT = 0.12; }
   }
 }
@@ -10918,6 +10941,11 @@ function activeCoreDesc(p) {
 function activeCooldown(p) {
   const a = ensureActive(p);
   const lvl = Math.max(1, a.level || 1);
+  if (a.core === 'static_strike') {
+    const profile = staticStrikeProfile(lvl);
+    const recovery = Math.max(0.25, Number(p.stats.activeRegenMul) || 1);
+    return Math.max(1.2, (profile.cooldownBase - p.stats.luck * 0.07) / recovery);
+  }
   const base = a.core === 'blood_ring' ? 7.2
     : a.core === 'field_snap' ? 6.8
     : a.core === 'bullet_freeze' ? 8.2
@@ -10990,6 +11018,7 @@ function activeRadiusForLevel(lvl, low, high) {
   return Math.round(activeDurationForLevel(lvl, low, high));
 }
 function activeExposeEnemy(run, e, lvl, owner) {
+  if (!enemyCombatReady(e)) return;
   const oldMul = e.exposedMul || 1;
   e.exposedT = Math.max(e.exposedT || 0, activeScale(3.6 + lvl * 0.65));
   e.exposedMul = Math.max(oldMul, 1 + ((1.24 + lvl * 0.08) - 1) * ACTIVE_BALANCE_SCALE);
@@ -10997,10 +11026,10 @@ function activeExposeEnemy(run, e, lvl, owner) {
   run.fx.push({ t: 'active_mutation', label: 'EXPOSED', x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size + 46 + lvl * 10), tone: 'purple', owner });
 }
 function activeTargets(run, x, y, r) {
-  return run.enemies.filter(e => (e.hp || 0) > 0 && dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2);
+  return run.enemies.filter(e => enemyCombatReady(e) && dist2(e.x, e.y, x, y) < (r + e.size / 2) ** 2);
 }
 function activeFreezeEnemy(run, e, hold = 0.28) {
-  if (!e) return;
+  if (!enemyCombatReady(e)) return;
   e.frozenT = Math.max(e.frozenT || 0, hold);
   e.activeSlowT = Math.max(e.activeSlowT || 0, hold);
   e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.015);
@@ -11025,6 +11054,17 @@ export function staticPulseDamageForLevel(level = 1) {
   return 42 * Math.pow(1.25, lvl - 1);
 }
 
+export function staticStrikeProfile(level = 1) {
+  const lvl = Math.max(1, Math.floor(Number(level) || 1));
+  const extra = lvl - 1;
+  return {
+    damage: 72 + extra * 30,
+    radius: Math.round(activeScale(132 + extra * 42)),
+    cooldownBase: Math.max(3.6, 9.0 - extra * 1.35),
+    delay: 1.15
+  };
+}
+
 export function hungerMutationProfile(level = 1, hpRatio = 1) {
   const lvl = Math.max(1, Math.floor(Number(level) || 1));
   const ratio = clamp(Number(hpRatio) || 0, 0, 1);
@@ -11043,7 +11083,7 @@ export function hungerMutationProfile(level = 1, hpRatio = 1) {
   };
 }
 function activeCrackShell(run, e, dmg, forceBreakLink = false) {
-  if ((e.shellHp || 0) <= 0) return 0;
+  if (!enemyCombatReady(e) || (e.shellHp || 0) <= 0) return 0;
   const d = Math.max(1, Math.round(activeScale(dmg)));
   if (forceBreakLink) { e.armorLockT = 0; e.armorLinkId = ''; }
   e.shellRegenDelay = Math.max(e.shellRegenDelay || 0, shellRegenHitDelay(e, 5.8));
@@ -11264,7 +11304,7 @@ function applyActiveMutations(run, players, p, ctx, opts = {}) {
       run.fx.push({ t: 'active_mutation', label: `LEECH +${Math.round(heal)}`, x: Math.round(p.x), y: Math.round(p.y), r: 72, tone: 'green' });
     } else if (id === 'armor_crack') {
       let cracked = 0;
-      for (const e of run.enemies) if (dist2(e.x, e.y, ctx.x, ctx.y) < ((ctx.r || 130) + 35 + e.size / 2) ** 2) cracked += activeCrackShell(run, e, 38 + lvl * 18, true);
+      for (const e of run.enemies) if (enemyCombatReady(e) && dist2(e.x, e.y, ctx.x, ctx.y) < ((ctx.r || 130) + 35 + e.size / 2) ** 2) cracked += activeCrackShell(run, e, 38 + lvl * 18, true);
       if (cracked) run.fx.push({ t: 'active_mutation', label: 'ARMOR CRACK', x: Math.round(ctx.x), y: Math.round(ctx.y), r: activeScale((ctx.r || 120) + 55), tone: 'purple' });
     } else if (id === 'anchor') {
       activeField(run, { kind: 'anchor_field', owner: p.id, x: ctx.x, y: ctx.y, r: Math.round(activeScale((ctx.r || 130) * 0.58 + 88)), ttl: activeDurationForLevel(lvl, 2.9, 4.4), tickEvery: 0.30, pull: activeRadiusForLevel(lvl, 120, 240), dmg: (2 + lvl * 2) * p.stats.dmgMul, slow: 0.32, damp: 0.20 });
@@ -11370,7 +11410,7 @@ function castActiveCore(run, players, p, opts = {}) {
     p.invuln = Math.max(p.invuln || 0, 0.05 + lvl * 0.014);
     let cut = 0;
     for (const b of run.bullets) if (b.from === 'e' && distToSegment2(b.x, b.y, startX, startY, end.x, end.y) < (width + b.size) ** 2) { b.life = -1; cut++; }
-    for (const e of [...run.enemies]) if (distToSegment2(e.x, e.y, startX, startY, end.x, end.y) < (width + e.size / 2) ** 2) {
+    for (const e of [...run.enemies]) if (enemyCombatReady(e) && distToSegment2(e.x, e.y, startX, startY, end.x, end.y) < (width + e.size / 2) ** 2) {
       e.activeSlowT = Math.max(e.activeSlowT || 0, 0.08 + lvl * 0.014);
       e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(0.24));
       ctx.damageDone += activeDamageEnemy(run, players, e, laserDmg, p.id);
@@ -11411,6 +11451,21 @@ function castActiveCore(run, players, p, opts = {}) {
     run.fx.push({ t: 'active', id: p.id, label: `BLACK BOX ${roman(lvl)}${jammed ? ' / JAM ' + jammed : ''}`, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r, kind: 'black_box' });
     run.fx.push({ t: 'black_box_cast', id: p.id, x: Math.round(p.x), y: Math.round(p.y), r: ctx.r, lvl });
     ctx.hitCount += confused + jammed;
+  } else if (core === 'static_strike') {
+    const profile = staticStrikeProfile(lvl);
+    const margin = Math.max(26, profile.radius * 0.28);
+    const rawX = Number.isFinite(p.aimX) ? p.aimX : p.x;
+    const rawY = Number.isFinite(p.aimY) ? p.aimY : p.y;
+    ctx.x = Math.round(clamp(rawX, margin, Math.max(margin, (run.plan?.w || 1800) - margin)));
+    ctx.y = Math.round(clamp(rawY, margin, Math.max(margin, (run.plan?.h || 1100) - margin)));
+    ctx.r = profile.radius;
+    if (!run.pendingActiveStrikes) run.pendingActiveStrikes = [];
+    run.pendingActiveStrikes.push({
+      id: nid(), owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r,
+      dmg: profile.damage * p.stats.dmgMul, at: run.now + profile.delay, level: lvl
+    });
+    run.fx.push({ t: 'rain_warn', id: p.id, owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r, dur: profile.delay, stacks: 1, tone: 'cyan', ally: 1, active: 1 });
+    run.fx.push({ t: 'active', kind: 'static_strike', id: p.id, label: `STATIC STRIKE ${roman(lvl)}`, x: ctx.x, y: ctx.y, r: ctx.r, delayed: 1 });
   } else if (core === 'debt_pulse') {
     ctx.r = activeRadiusForLevel(lvl, 340, 560);
     for (const e of [...activeTargets(run, p.x, p.y, ctx.r)]) {
@@ -11507,7 +11562,19 @@ function stepQuarantineAnchorField(run, players, f, dt) {
 function stepActiveFields(run, players, dt) {
   if (!run.activeFields) run.activeFields = [];
   if (!run.pendingActives) run.pendingActives = [];
+  if (!run.pendingActiveStrikes) run.pendingActiveStrikes = [];
   if (!run.pendingCasinoRolls) run.pendingCasinoRolls = [];
+  for (const strike of [...run.pendingActiveStrikes]) {
+    if (run.now < strike.at) continue;
+    run.pendingActiveStrikes = run.pendingActiveStrikes.filter(x => x !== strike);
+    let hits = 0;
+    for (const e of [...activeTargets(run, strike.x, strike.y, strike.r)]) {
+      const before = e.hp;
+      activeDamageEnemy(run, players, e, strike.dmg || 72, strike.owner, 'static_strike');
+      if (e.hp < before) hits++;
+    }
+    run.fx.push({ t: 'rain_hit', id: strike.owner, owner: strike.owner, x: Math.round(strike.x), y: Math.round(strike.y), r: strike.r, stacks: 1, tone: 'cyan', ally: 1, active: 1, hits });
+  }
   for (const cr of [...run.pendingCasinoRolls]) {
     if (run.now >= cr.at) {
       run.pendingCasinoRolls = run.pendingCasinoRolls.filter(x => x !== cr);
@@ -11546,7 +11613,7 @@ function stepActiveFields(run, players, dt) {
     if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
         const rr = (f.width || f.r || 42);
-        for (const e of run.enemies) if (!f.bulletsOnly && distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) {
+        for (const e of run.enemies) if (enemyCombatReady(e) && !f.bulletsOnly && distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) {
           e.activeSlowT = Math.max(e.activeSlowT || 0, 0.20);
           e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
         }
@@ -11557,7 +11624,7 @@ function stepActiveFields(run, players, dt) {
         }
       } else if (f.kind === 'freeze_aura') {
         // True freeze: no damage. Enemies caught in the aura stop moving, stop shooting and display an ice/signal shell.
-        for (const e of run.enemies) if (!f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
+        for (const e of run.enemies) if (enemyCombatReady(e) && !f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
           activeFreezeEnemy(run, e, f.freezeHold || 0.28);
         }
         for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
@@ -11567,7 +11634,7 @@ function stepActiveFields(run, players, dt) {
         }
       } else if (f.kind === 'black_box') {
         // Stealth box: it does not freeze the room. Inside enemies are only briefly disoriented; outside enemies ignore the owner via nearestAlive().
-        for (const e of run.enemies) if (!f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
+        for (const e of run.enemies) if (enemyCombatReady(e) && !f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
           e.activeSlowT = Math.max(e.activeSlowT || 0, 0.12);
           e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.52));
           e.fireCd = Math.max(e.fireCd || 0, 0.16);
@@ -11577,7 +11644,7 @@ function stepActiveFields(run, players, dt) {
           b.life = -1; run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: 'box_jam' });
         }
       } else {
-      for (const e of run.enemies) if (!f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
+      for (const e of run.enemies) if (enemyCombatReady(e) && !f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.22);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
         if (f.kind === 'signal_spike' || f.kind === 'anchor_field') { const n = norm(f.x - e.x, f.y - e.y); e.x += n.x * (f.pull || 65) * dt; e.y += n.y * (f.pull || 65) * dt; }
@@ -11592,7 +11659,7 @@ function stepActiveFields(run, players, dt) {
     }
     if (f.kind === 'snap_field') {
       // FIELD SNAP is pure utility: the lingering field only slows and damps bullets.
-      for (const e of run.enemies) if (dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
+      for (const e of run.enemies) if (enemyCombatReady(e) && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.18);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.72));
       }
@@ -11604,7 +11671,7 @@ function stepActiveFields(run, players, dt) {
         const p = players.get(f.owner);
         if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
           const rr = f.width || f.r || 42;
-          for (const e of [...run.enemies]) if (distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
+          for (const e of [...run.enemies]) if (enemyCombatReady(e) && distToSegment2(e.x, e.y, f.x1, f.y1, f.x2, f.y2) < (rr + e.size / 2) ** 2) activeDamageEnemy(run, players, e, f.dmg || 8, f.owner);
           damageControlledProcessesOnSegment(run, players, f.x1, f.y1, f.x2, f.y2, rr, f.dmg || 8, f.kind || 'active_line', f.owner || '');
           run.fx.push({ t: 'active_line_tick', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || Math.max(2, Math.round(rr * 0.42)), hitWidth: rr, tone: 'purple' });
         } else {
@@ -11957,6 +12024,7 @@ function stepPlayers(run, players, dt) {
         const riftDmg = (14 + stacks * 9) * p.stats.dmgMul;
         let hit = 0;
         for (const e of run.enemies) {
+          if (!enemyCombatReady(e)) continue;
           if (distToSegment2(e.x, e.y, ox, oy, c.x, c.y) < (riftW + e.size / 2) ** 2) {
             activeDamageEnemy(run, players, e, riftDmg, p.id, 'dash');
             e.activeSlowT = Math.max(e.activeSlowT || 0, 0.16 + stacks * 0.03);
@@ -11973,6 +12041,7 @@ function stepPlayers(run, players, dt) {
         const stunDur = Math.min(4.0, 0.72 + stacks * 0.42);
         let stunned = 0;
         for (const e of run.enemies) {
+          if (!enemyCombatReady(e)) continue;
           if (distToSegment2(e.x, e.y, ox, oy, c.x, c.y) < (stunR + e.size / 2) ** 2) {
             e.stunT = Math.max(e.stunT || 0, stunDur);
             e.activeSlowT = Math.max(e.activeSlowT || 0, stunDur);
@@ -12273,6 +12342,7 @@ export function buildSnapshot(run, players) {
   const nextStaticBreakdownForCurrent = nextStaticRainBreakdown(run, players, run.plan);
   const nextStatic = nextStaticBreakdownForCurrent.total;
   const debtEngineUpgradeStacks = playerDebtEngineStacks(players);
+  const debtEngineRoomStacks = debtEngineEligiblePlan(run.plan) ? activeDebtEngineStacks(run, players) : 0;
   const currentIntel = roomIntel(run.plan, currentStaticBreakdown.total || 0, staticMode);
   const bossEnemy = run.enemies.find(e => ENEMIES[e.kind]?.boss);
   const bossHpPct = bossEnemy ? Math.max(0, Math.min(100, Math.round((bossEnemy.hp / Math.max(1, bossEnemy.maxHp || bossEnemy.hp || 1)) * 100))) : 0;
@@ -12281,8 +12351,10 @@ export function buildSnapshot(run, players) {
   if (nextPreview) {
     const nextBreakdown = nextStaticRainBreakdown(run, players, nextPreview);
     if (nextBreakdown.total > 0 && !nextPreview.mods.includes('static_rain')) nextPreview.mods.push('static_rain');
-    const ni = roomIntel(nextPreview, nextBreakdown.total, nextBreakdown.sources.some(s => s.id !== 'room_modifier') ? 'paid' : 'natural');
-    nextPreview = { ...nextPreview, ...ni, staticRainLevel: nextBreakdown.total, staticRainBreakdown: nextBreakdown, debtEngineRainLevel: 0, staticBanked: nextBreakdown.banked || 0 };
+    const debtEngineNext = nextBreakdown.sources.find(s => s.id === 'debt_engine')?.level || 0;
+    const paidNext = nextBreakdown.sources.some(s => s.id !== 'room_modifier' && s.id !== 'debt_engine');
+    const ni = roomIntel(nextPreview, nextBreakdown.total, paidNext ? 'paid' : (debtEngineNext > 0 ? 'debt_engine' : 'natural'));
+    nextPreview = { ...nextPreview, ...ni, staticRainLevel: nextBreakdown.total, staticRainBreakdown: nextBreakdown, debtEngineRainLevel: debtEngineNext, staticBanked: nextBreakdown.banked || 0 };
   }
   // Player-facing cleanup: internal enemy synergy markers (DMP NEST, ROTARY GUARD, etc.)
   // are noisy debug/readability overlays. Keep the gameplay synergies, but never send
@@ -12301,7 +12373,7 @@ export function buildSnapshot(run, players) {
       finalBoss: isFinalBossRoom(run) ? 1 : 0, runGoal: { loops: FINAL_TARGET_LOOPS, rooms: FINAL_TARGET_DEPTH, loop: finalLoopProgress(run), depth: Math.min(FINAL_TARGET_DEPTH, Math.max(0, (run.runDepth || 0) + (run.phase === 'won' ? 1 : 0))) }, finalSummary: run.finalSummary || null,
       skinReward: (run.skinRoomReward && !run.skinRoomReward.claimed) ? (run.skinRoomReward.rarity || 'uncommon') : '',
       director: run.director?.label || '', directorIntent: run.director?.lastIntent || '', directorWave: run.director?.waveIndex || 0,
-      staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineUpgradeStacks, debtEngineRainStacks: 0,
+      staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineUpgradeStacks, debtEngineRainStacks: debtEngineRoomStacks, staticCoreStormDisabled: run.staticCoreStormDisabled ? 1 : 0,
       danger: currentIntel.danger, dangerLabel: currentIntel.dangerLabel, threatTags: currentIntel.threatTags, rewardTags: currentIntel.rewardTags, tip: currentIntel.tip,
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],

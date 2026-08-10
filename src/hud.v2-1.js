@@ -64,10 +64,10 @@ function contractRewardText(reward = '', obj = null) {
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 const STATIC_SOURCE_RU = {
-  room_modifier: 'мод сектора', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', previous_room_hits: 'попадания прошлого сектора', room_strikes: 'попадания прошлого сектора', casino_virus: 'казино-вирус'
+  room_modifier: 'мод сектора', debt_engine: 'статик-ядро', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', previous_room_hits: 'попадания прошлого сектора', room_strikes: 'попадания прошлого сектора', casino_virus: 'казино-вирус'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room rule', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', casino_virus: 'casino virus'
+  room_modifier: 'room rule', debt_engine: 'Static Core', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', casino_virus: 'casino virus'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');

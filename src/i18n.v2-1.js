@@ -125,7 +125,7 @@ const EN_UPGRADE = {
   q_snap: 'Q pulls enemies inward, stuns them for a long time, and leaves a slowing field without dealing damage.', q_blood: 'Q spends health for a red square blast.', q_over: 'Q briefly speeds up weapon and controlled process fire.',
   combo_gld: 'Combo payout gives GLD when the chain ends.', combo_exp: 'Combo payout gives EXP when the chain ends.', combo_hp: 'Combo payout heals you when the chain ends.',
   sig_quarantine_buffer: '10-second temporary shield at the start of each room.', sig_emergency_cleanse: 'At low health, erases nearby enemy bullets for 20 seconds.', sig_payout_swap: 'Small chance to double GLD or healing.', sig_false_zero: 'Enemy bullets sometimes count as zero and deal no damage.', sig_deaf_command: 'Some enemies receive the start-room order late.', sig_hunt_route: 'Keep moving to gain a small speed trace.', sig_red_overdrive: 'After dash, the next shot hits harder.', sig_aim_glitch: 'After dash, nearby enemy bullets drift off course.', sig_incomplete_delete: 'Strong enemies can leave a small healing fragment.', sig_insurance_process: 'At 10% health, nearby enemies are thrown outward once per room.',
-  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck. The cursed chest banks one Static Storm, but the core never repeats it by itself.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
+  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck, but combat rooms gain a Static Storm. Contract cleansing permanently silences the core storm.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
 };
 const RU_UPGRADE_CLEAN = {
   dmg: 'Весь исходящий урон растёт, включая атаки подконтрольных процессов.', fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются дальше.', dash: 'Добавляет один заряд рывка.', dash_length: 'Рывок проходит дальше.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших угроз.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают угроз и пули дальше.', luck: 'Лучше исходы улучшений и казино.', proc: 'Выстрелы героя и стрелковых процессов могут создавать маленький взрыв. Дронам нужен DRONE BLAST.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Урон возвращает здоровье. В Золотой лихорадке — кредиты вместо HP.', goldgun: 'Угрозы дают больше кредитов при очистке.',
@@ -137,7 +137,7 @@ const RU_UPGRADE_CLEAN = {
   wpn_dmg: 'Повышает урон оружия и процессов.', wpn_fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', abl_dash: 'Добавляет один заряд рывка.', abl_dash_length: 'Рывок проходит дальше.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт кредиты.', combo_exp: 'Комбо при завершении выдаёт опыт.', combo_hp: 'Комбо при завершении лечит.',
   sig_quarantine_buffer: 'В начале каждого сектора включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком здоровье 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить кредиты или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть угроз получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные угрозы иногда оставляют небольшой лечебный обломок.', sig_insurance_process: 'При 10% здоровье угрозы разбрасываются в стороны. Один раз за сектор.',
-  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача. Проклятый сундук добавляет один статик-долг, но ядро не повторяет его само.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
+  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача, но боевые секторы получают статик-шторм. Контрактное очищение навсегда глушит шторм ядра.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
 };
 const EN_CORE = {
   blood_ring: 'Press Q to deploy the blood ring around you.',
@@ -147,6 +147,7 @@ const EN_CORE = {
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
+  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm strikes enemies only. Upgrades increase damage, recovery speed, and diameter.',
   debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.'
 };
 const EN_MUT = {
@@ -161,6 +162,7 @@ const RU_CORE = {
   void_cut: 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.',
   signal_spike: 'Q сразу устанавливает шип в точку курсора. Улучшения заметно растят дальность и область.',
   black_box: 'Q сразу раскрывает чёрный ящик вокруг героя.',
+  static_strike: 'Q помечает точку курсора. После предупреждения светлый шторм бьёт только угрозы. Улучшения повышают урон, скорость восстановления и диаметр.',
   debt_pulse: 'Q сразу запускает статик-волну вокруг героя. Каждый уровень наносит на 25% больше урона, чем предыдущий. Сама Q никогда не создаёт статик-долг.'
 };
 const RU_MUT = {
@@ -218,6 +220,7 @@ Object.assign(EN_UPGRADE, {
   void_cut: 'The first Q places the start point. Further Q presses build the laser links.',
   signal_spike: 'Press Q to deploy the spike at the cursor. Upgrades greatly extend its reach and area.',
   black_box: 'Press Q to open the Black Box around you.',
+  static_strike: 'Press Q to mark the cursor. After a short warning, a pale storm strikes enemies only. Upgrades increase damage, recovery speed, and diameter.',
   debt_pulse: 'Press Q to release the static pulse around you. Each level deals 25% more damage than the previous level. Q itself never creates Static debt.',
   static: 'Q leaves a static field that slows threats and bullets.',
   blood: 'Q gains blood damage. Some uses may cost health.',
@@ -519,7 +522,7 @@ export function activeDescFrom(label, fallback = '') {
   return cleanPlayerText(fallback || activeNoneDesc());
 }
 function coreLabelById(id) {
-  const m = { blood_ring:'BLOOD RING', field_snap:'FIELD SNAP', bullet_freeze:'BULLET FREEZE', shell_ripper:'SHELL RIPPER', void_cut:'VOID CUT', signal_spike:'SIGNAL SPIKE', black_box:'BLACK BOX', debt_pulse:'STATIC PULSE' };
+  const m = { blood_ring:'BLOOD RING', field_snap:'FIELD SNAP', bullet_freeze:'BULLET FREEZE', shell_ripper:'SHELL RIPPER', void_cut:'VOID CUT', signal_spike:'SIGNAL SPIKE', black_box:'BLACK BOX', static_strike:'STATIC STRIKE', debt_pulse:'STATIC PULSE' };
   return m[id] || id;
 }
 const RU_LABEL = {
@@ -545,7 +548,7 @@ const RU_LABEL = {
   'TARGET LOCK': 'ЗАХВАТ ЦЕЛИ', 'REDLINE BOOST': 'КРАСНАЯ ЛИНИЯ', 'GHOST DECOY': 'ПРИЗРАК-ПРИМАНКА', 'REWIND MARK': 'МЕТКА ОТКАТА', 'KILL SWITCH': 'КНОПКА УДАЛЕНИЯ', 'SPAWN HOLD': 'ЗАДЕРЖКА СПАВНА', 'AEGIS PROCESS': 'ЭГИДА', 'MIRROR PAYOUT': 'ЗЕРКАЛЬНЫЙ ПРИЗ', 'NULL REVIVAL': 'НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'ROOM WAGER': 'СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'BOSS KEY': 'КЛЮЧ ЯДРА', 'THREAT SIGNATURE': 'СИГНАТУРА УГРОЗЫ', 'SIGNATURE EXTRACTED': 'СИГНАТУРА ИЗВЛЕЧЕНА',
   'BASIC': 'ОБЫЧНЫЙ', 'UNCOMMON': 'НЕОБЫЧНЫЙ', 'RARE': 'РЕДКИЙ', 'SUPER RARE': 'СВЕРХРЕДКИЙ', 'LEGENDARY': 'ЛЕГЕНДАРНЫЙ',
   'Q: BLOOD PULSE': 'Q: КРОВАВЫЙ ИМПУЛЬС', 'Q: FIELD SNAP': 'Q: СТЯЖКА ПОЛЯ', 'Q: OVERCLOCK': 'Q: РАЗГОН',
-  'BLOOD RING': 'КРОВАВОЕ КОЛЬЦО', 'FIELD SNAP': 'СТЯЖКА ПОЛЯ', 'BULLET FREEZE': 'ЗАМОРОЗКА ПУЛЬ', 'SHELL RIPPER': 'РАЗРЫВ ЩИТА', 'VOID CUT': 'РАЗРЕЗ ПУСТОТЫ', 'SIGNAL SPIKE': 'СИГНАЛЬНЫЙ ШИП', 'BLACK BOX': 'ЧЁРНЫЙ ЯЩИК', 'STATIC PULSE': 'СТАТИК-ИМПУЛЬС',
+  'BLOOD RING': 'КРОВАВОЕ КОЛЬЦО', 'FIELD SNAP': 'СТЯЖКА ПОЛЯ', 'BULLET FREEZE': 'ЗАМОРОЗКА ПУЛЬ', 'SHELL RIPPER': 'РАЗРЫВ ЩИТА', 'VOID CUT': 'РАЗРЕЗ ПУСТОТЫ', 'SIGNAL SPIKE': 'СИГНАЛЬНЫЙ ШИП', 'BLACK BOX': 'ЧЁРНЫЙ ЯЩИК', 'STATIC STRIKE': 'СТАТИК-УДАР', 'STATIC PULSE': 'СТАТИК-ИМПУЛЬС',
   'LOCK': 'ФИКСАЦИЯ', 'REEL': 'ЯЧЕЙКА', 'CELL': 'ЯЧЕЙКА', 'NEXT': 'СЛЕД.',
   'SIMPLE': 'ПРОСТОЙ', 'GOOD': 'ЦЕННЫЙ', 'VALUABLE': 'ДОРОГОЙ', 'PREMIUM': 'ПРЕМИУМ', 'WPN GOOD': 'ОРУЖИЕ: ЦЕННЫЙ', 'WPN VALUABLE': 'ОРУЖИЕ: ДОРОГОЙ', 'WPN PREMIUM': 'ОРУЖИЕ: ПРЕМИУМ', 'ABL GOOD': 'ПРОТОКОЛ: ЦЕННЫЙ', 'ABL VALUABLE': 'ПРОТОКОЛ: ДОРОГОЙ', 'ABL PREMIUM': 'ПРОТОКОЛ: ПРЕМИУМ',
   'NEXT CHEST +1 OPTION': 'СЛЕД. СУНДУК +1 ВЫБОР', 'NEXT CHEST +2 OPTION': 'СЛЕД. СУНДУК +2 ВЫБОРА', 'STATIC STORM BANKED': 'СТАТИК-ШТОРМ ОТЛОЖЕН', 'DASH CHARGE': 'ЗАРЯД РЫВКА',

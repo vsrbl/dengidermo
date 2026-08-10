@@ -1115,6 +1115,7 @@ export class AudioBus {
       case 'slot_mob_rebuild': if (!f.visualOnly) { this.play(f.spawn ? 'slot_overload' : 'casino_static'); } break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
+      case 'rain_warn': if (f.active && mine) this.play('debt'); break;
       case 'rain_hit': this.play('static_storm'); this.musicChaos = Math.min(1, (this.musicChaos || 0) + 0.18); break;
       case 'gld_hit': if (mine) this.play('debt'); break;
       case 'room_invoice': this.play(f.noHit || f.fast ? 'casino_win' : 'install'); break;
