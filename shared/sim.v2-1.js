@@ -3123,6 +3123,7 @@ function ensureLivingCasinoState(p) {
 const PROCESS_CONTROLLER_SKIN_ID = 'process_controller';
 const PROCESS_CONTROLLER_COMMANDS = ['command_pulse', 'quarantine_anchor', 'process_saw'];
 const PROCESS_CONTROLLER_WEAPON_SET = new Set(PROCESS_CONTROLLER_COMMANDS);
+const CONTROLLED_SHOOTER_RANGE_MUL = 1.35;
 function allowedWeaponOrderForPlayer(p) {
   if (isLivingCasinoPlayer(p)) return ['living_casino', 'control_sparks'];
   if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
@@ -3172,6 +3173,7 @@ const CTRL_CAPTURE_TIER_BY_KIND = {
 const CTRL_BONUS_PROCESS_MAX = 18;
 function processControllerCaptureTier(p) { return Math.max(0, Math.min(4, Number(p?.stats?.ctrlCaptureTier || 0) | 0)); }
 function processControllerRegularCount(pc) { return (pc?.controlled || []).filter(m => m && !m.bonusSlot && (m.ttl ?? 1) > 0 && Number(m.hp ?? 1) > 0).length; }
+function processControllerBonusCount(pc) { return (pc?.controlled || []).filter(m => m && m.bonusSlot && (m.ttl ?? 1) > 0 && Number(m.hp ?? 1) > 0).length; }
 function processControllerTrimControlled(p, pc) {
   if (!pc || !Array.isArray(pc.controlled)) return [];
   const live = pc.controlled.filter(m => m && (m.ttl ?? 999) > 0 && Number(m.hp ?? 1) > 0);
@@ -3310,6 +3312,8 @@ function processControllerHudSnapshot(p) {
   if (!pc) return null;
   const max = processControllerMax(p);
   const n = Math.max(0, pc.controlled?.length || 0);
+  const regular = processControllerRegularCount(pc);
+  const temporary = processControllerBonusCount(pc);
   const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
   const lifeMax = processControllerLifeMax(p);
   const processes = (pc.controlled || []).map((m, i) => {
@@ -3320,6 +3324,7 @@ function processControllerHudSnapshot(p) {
       i,
       kind: String(m?.kind || 'process'),
       label: ENEMIES[m?.kind]?.label || String(m?.kind || 'PRC').toUpperCase().slice(0, 3),
+      bonus: m?.bonusSlot ? 1 : 0,
       life: Math.round(Math.max(0, Math.min(1, tt / mt)) * 100),
       hp: Math.round(Math.max(0, Math.min(1, Number(m?.hp || hpMax) / hpMax)) * 100)
     };
@@ -3339,6 +3344,8 @@ function processControllerHudSnapshot(p) {
     cdMax: Math.ceil(cdMax * 10) / 10,
     cdPct: Math.round(Math.max(0, Math.min(1, cd / cdMax)) * 100),
     controlled: n,
+    regular,
+    temporary,
     max,
     commandT: Math.ceil((pc.commandT || 0) * 10) / 10,
     captureT: Math.ceil((pc.captureT || 0) * 10) / 10,
@@ -3497,12 +3504,31 @@ function spawnControlledProcess(run, p, pc, kind, x, y, opts = {}) {
   pc = pc || ensureProcessControllerState(p);
   if (!pc) return null;
   if (!opts.bonusSlot && processControllerRegularCount(pc) >= processControllerMax(p)) return null;
+  if (opts.bonusSlot && processControllerBonusCount(pc) >= CTRL_BONUS_PROCESS_MAX) return null;
   const m = makeControlledProcess(run, p, pc, { kind, x, y, maxHp: opts.maxHp, hp: opts.hp, size: opts.size }, opts);
   pc.controlled.push(m);
   pc.controlled = processControllerTrimControlled(p, pc);
   return m;
 }
-function makeControlledSplitterChildren(run, p, pc, m) {
+function makeInheritedControlledProcess(run, p, pc, source, opts = {}, staged = []) {
+  if (!pc) return null;
+  const stagedLive = (staged || []).filter(m => m && (m.ttl ?? 1) > 0 && Number(m.hp ?? 1) > 0);
+  const stagedRegular = stagedLive.filter(m => !m.bonusSlot).length;
+  const stagedBonus = stagedLive.filter(m => m.bonusSlot).length;
+  const useBonus = processControllerRegularCount(pc) + stagedRegular >= processControllerMax(p);
+  if (useBonus && processControllerBonusCount(pc) + stagedBonus >= CTRL_BONUS_PROCESS_MAX) return null;
+  return makeControlledProcess(run, p, pc, source, { ...opts, bonusSlot: useBonus ? 1 : 0, inheritedProcess: 1 });
+}
+function spawnInheritedControlledProcess(run, p, pc, kind, x, y, opts = {}) {
+  pc = pc || ensureProcessControllerState(p);
+  if (!pc) return null;
+  const m = makeInheritedControlledProcess(run, p, pc, { kind, x, y, maxHp: opts.maxHp, hp: opts.hp, size: opts.size }, opts);
+  if (!m) return null;
+  pc.controlled.push(m);
+  pc.controlled = processControllerTrimControlled(p, pc);
+  return m;
+}
+function makeControlledSplitterChildren(run, p, pc, m, staged = []) {
   if (!run || !p || !pc || !m || m.kind !== 'splitter' || (m.splitStage || 0) >= 2 || m.splitSpawned) return [];
   m.splitSpawned = 1;
   const def = ENEMIES.splitter || {};
@@ -3513,10 +3539,11 @@ function makeControlledSplitterChildren(run, p, pc, m) {
     const childSize = Math.max(14, Math.round((m.size || def.size || 30) * 0.68));
     const childHp = Math.max(8, Math.round((m.maxHp || def.hp || 50) * 0.36));
     const childLife = Math.max(3.5, Math.min(processControllerLifeForMaxHp(p, childHp), (m.maxT || processControllerLifeMax(p)) * 0.62));
-    const child = makeControlledProcess(run, p, pc, {
+    const child = makeInheritedControlledProcess(run, p, pc, {
       kind: 'splitter', x: m.x + Math.cos(a) * 34, y: m.y + Math.sin(a) * 34,
       maxHp: childHp, hp: childHp, size: childSize, dirX: Math.cos(a), dirY: Math.sin(a)
-    }, { bonusSlot: true, splitStage: (m.splitStage || 0) + 1, maxHp: childHp, hp: childHp, size: childSize, lifeMax: childLife, focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || '' });
+    }, { splitStage: (m.splitStage || 0) + 1, maxHp: childHp, hp: childHp, size: childSize, lifeMax: childLife, focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || '' }, staged.concat(out));
+    if (!child) continue;
     child.cmdT = Math.max(child.cmdT || 0, m.cmdT || 0, 1.2);
     child.tx = m.tx ?? child.tx; child.ty = m.ty ?? child.ty;
     out.push(child);
@@ -3527,7 +3554,7 @@ function makeControlledSplitterChildren(run, p, pc, m) {
   }
   return out;
 }
-function makeControlledHunterChorusFragments(run, p, pc, m) {
+function makeControlledHunterChorusFragments(run, p, pc, m, staged = []) {
   if (!run || !p || !pc || !m || m.kind !== 'boss_hunter_chorus' || m.ctrlBossSplitDone) return [];
   m.ctrlBossSplitDone = 1;
   const kinds = ['boss_hunter_duelist', 'boss_hunter_marksman', 'boss_hunter_trapper'];
@@ -3541,13 +3568,14 @@ function makeControlledHunterChorusFragments(run, p, pc, m) {
     const a = base + (i / kinds.length) * Math.PI * 2;
     const childHp = Math.max(1, Math.round((def.hp || 480) * capturedScale));
     const childLife = Math.max(6, Math.min(processControllerLifeForMaxHp(p, childHp), (m.maxT || processControllerLifeMax(p)) * 0.82));
-    const child = makeControlledProcess(run, p, pc, {
+    const child = makeInheritedControlledProcess(run, p, pc, {
       kind, x: m.x + Math.cos(a) * 105, y: m.y + Math.sin(a) * 105,
       maxHp: childHp, hp: childHp, size: def.size, dirX: Math.cos(a), dirY: Math.sin(a)
     }, {
-      bonusSlot: true, maxHp: childHp, hp: childHp, size: def.size, lifeMax: childLife,
+      maxHp: childHp, hp: childHp, size: def.size, lifeMax: childLife,
       focusTargetId: m.focusTargetId || '', focusTargetLabel: m.focusTargetLabel || ''
-    });
+    }, staged.concat(out));
+    if (!child) continue;
     child.bossFragmentParent = m.id;
     child.bossCastCd = 0.75 + i * 0.18;
     child.state = 'move';
@@ -3729,8 +3757,11 @@ function controlledContact(run, players, p, m, target, dt, mult = 1) {
 }
 function expireControlledProcess(run, p, m, reason = 'ttl') {
   if (!run || !p || !m) return;
-  const combatDeath = reason === 'hp' || reason === 'self_destruct';
-  if (combatDeath && !m.deathHealPaid && p.alive) {
+  // Returning control capacity is the trigger: combat destruction, a bomber's
+  // self-destruct, and natural lifetime completion all release the process slot.
+  // INSTALL keeps ticking that same lifetime, so its timeout counts as well.
+  const slotReleasedByProcessEnd = reason === 'hp' || reason === 'self_destruct' || reason === 'ttl' || reason === 'install';
+  if (slotReleasedByProcessEnd && !m.deathHealPaid && p.alive) {
     m.deathHealPaid = 1;
     const heal = controlledProcessDeathHealValue(p, m);
     const before = Math.max(0, Number(p.hp || 0) || 0);
@@ -3897,7 +3928,7 @@ export function controlledHeraldSummon(run, p, pc, m, target, power = 0, rng = M
     const py = target.y + away.y * (120 + Math.floor(i / 3) * 24) + per.y * row * 30;
     const pos = collideWalls(clamp(px, 70, Math.max(80, run.plan.w - 70)), clamp(py, 70, Math.max(80, run.plan.h - 70)), Math.max(12, (def.size || 24) / 2), run.plan.walls || [], m.x, m.y);
     const hp = Math.max(6, Math.round((def.hp || 24) * 0.62));
-    const child = spawnControlledProcess(run, p, pc, kind, pos.x, pos.y, { bonusSlot: true, maxHp: hp, hp, lifeMax: Math.max(4.2, processControllerLifeMax(p) * 0.52), focusTargetId: target.id || '', focusTargetLabel: ENEMIES[target.kind]?.label || '' });
+    const child = spawnInheritedControlledProcess(run, p, pc, kind, pos.x, pos.y, { maxHp: hp, hp, lifeMax: Math.max(4.2, processControllerLifeMax(p) * 0.52), focusTargetId: target.id || '', focusTargetLabel: ENEMIES[target.kind]?.label || '' });
     if (child) { child.cmdT = Math.max(child.cmdT || 0, 2.4); child.tx = target.x; child.ty = target.y; made++; }
   }
   if (made) {
@@ -4123,8 +4154,8 @@ function controlledBossSummon(run, p, pc, m, target, count = 1, pool = ['grunt',
     const a = Math.random() * Math.PI * 2;
     const x = target.x + Math.cos(a) * (105 + i * 24), y = target.y + Math.sin(a) * (105 + i * 24);
     const hp = Math.max(6, Math.round((def.hp || 24) * 0.72));
-    const child = spawnControlledProcess(run, p, pc, kind, x, y, {
-      bonusSlot: true, maxHp: hp, hp, lifeMax: Math.max(4.5, processControllerLifeMax(p) * 0.58),
+    const child = spawnInheritedControlledProcess(run, p, pc, kind, x, y, {
+      maxHp: hp, hp, lifeMax: Math.max(4.5, processControllerLifeMax(p) * 0.58),
       focusTargetId: target.id || '', focusTargetLabel: ENEMIES[target.kind]?.label || ''
     });
     if (child) made++;
@@ -4402,8 +4433,16 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
       }
       run.fx.push({ t: 'weapon_chain_link', x1: Math.round(m.x), y1: Math.round(m.y), x2: Math.round(target.x), y2: Math.round(target.y), jump: 1 });
     } else if (m.kind === 'shooter' || def.ranged) {
-      m.atkCd = Math.max(0.24, (m.ctrlFireBase || def.fireCd || 1.25) * 0.68);
-      controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 8) * 0.78, m.ctrlBulletSpd || def.bulletSpd || 275, 1.65, 5, 'ctrl_shot', 0.11, 1);
+      const shotSpeed = m.ctrlBulletSpd || def.bulletSpd || 275;
+      const shotLife = 1.65 * CONTROLLED_SHOOTER_RANGE_MUL;
+      const shotReach = shotSpeed * shotLife * 0.74 * weaponRangeMultiplier(p);
+      // SHT must never fire from beyond the distance its own projectile can cover.
+      // The 35% base extension is applied to real projectile life, so weapon-range
+      // upgrades continue to scale targeting and travel together.
+      if (dT <= shotReach + (target.size || 24) / 2) {
+        m.atkCd = Math.max(0.24, (m.ctrlFireBase || def.fireCd || 1.25) * 0.68);
+        controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 8) * 0.78, shotSpeed, shotLife, 5, 'ctrl_shot', 0.11, 1);
+      }
     }
   }
   const face = m.kind === 'leech' ? norm(p.x - m.x, p.y - m.y) : (target ? toTarget : norm(restX - m.x, restY - m.y));
@@ -4448,8 +4487,8 @@ function stepProcessControllerState(run, players, p, dt) {
     if (m && m.ttl > 0 && Number(m.hp ?? 1) > 0) survivors.push(m);
     else if (m && !m.expiredFx) {
       m.expiredFx = 1;
-      spawned.push(...makeControlledSplitterChildren(run, p, pc, m));
-      if ((m.deathReason || (m.hp <= 0 ? 'hp' : 'ttl')) !== 'ttl') spawned.push(...makeControlledHunterChorusFragments(run, p, pc, m));
+      spawned.push(...makeControlledSplitterChildren(run, p, pc, m, spawned));
+      if ((m.deathReason || (m.hp <= 0 ? 'hp' : 'ttl')) !== 'ttl') spawned.push(...makeControlledHunterChorusFragments(run, p, pc, m, spawned));
       expireControlledProcess(run, p, m, m.deathReason || (m.ttl <= 0 ? 'ttl' : 'hp'));
     }
   }
@@ -6799,7 +6838,10 @@ function director(run, players, dt) {
   if (plan.category === 'boss') {
     // Boss adds now use tiny encounter packs instead of pure random trickle.
     const boss = run.enemies.find(e => ENEMIES[e.kind]?.boss);
-    if (boss && boss.hp < boss.maxHp * 0.55) {
+    // The Anchor Cashier's bullet-control field is already strong defensive space,
+    // but it must not leave the first half of the fight empty. It joins the same
+    // boss add-pack director immediately; every other boss keeps the old 55% gate.
+    if (boss && (boss.kind === 'boss_anchor_cashier' || boss.hp < boss.maxHp * 0.55)) {
       run.director.pauseT -= dt;
       if (run.director.pauseT <= 0 && run.enemies.length < df.addCap) {
         const pool = df.loop < 2 ? ['grunt','runner'] : ['grunt','runner','shooter','bouncer','glitch','leech'];
@@ -11661,7 +11703,9 @@ function stepActiveFields(run, players, dt) {
     if (f.fxT <= 0) {
       f.fxT = (f.kind === 'void_line' || f.kind === 'void_laser') ? 0.10 : 0.18;
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) run.fx.push({ t: 'active_line', kind: f.kind, x1: f.x1, y1: f.y1, x2: f.x2, y2: f.y2, width: f.visualWidth || f.width || f.r || 42, hitWidth: f.width || f.r || 42, tone: fieldTone });
-      else run.fx.push({ t: 'active_field', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: fieldTone });
+      // FIELD SNAP keeps its invisible slow/bullet-damp utility after the pull,
+      // but only the one-shot pull cast is drawn around the hero.
+      else if (f.kind !== 'snap_field') run.fx.push({ t: 'active_field', kind: f.kind, x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: fieldTone });
     }
     if (f.kind === 'quarantine_anchor') {
       stepQuarantineAnchorField(run, players, f, dt);

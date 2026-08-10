@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.19[3-6]$/);
+assert.match(VERSION, /^v2\.1\.(?:19[3-9]|200)$/);
 if (VERSION === 'v2.1.193') assert.equal(BUILD_ID, 'static_pulse_hunger_low_hp_rework');
 assert.equal(PROTOCOL, 14);
 

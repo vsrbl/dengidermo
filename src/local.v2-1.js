@@ -9,14 +9,25 @@ import {
 const TICK_MS = 1000 / SIM_HZ;
 const SNAP_EVERY = Math.max(1, Math.round(SIM_HZ / SNAPSHOT_HZ));
 
+export function normalizeRunSeed(value = '', random = Math.random) {
+  const text = String(value ?? '').trim();
+  if (!text) return (random() * 1e9) >>> 0;
+  if (/^[+-]?\d+$/.test(text)) {
+    try { return Number(BigInt(text) & 0xffffffffn) >>> 0; } catch {}
+  }
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+  return hash >>> 0;
+}
+
 export class LocalRoom {
   // onLocal(msg): synchronous delivery to the host's own client
-  constructor(roomId, onLocal) {
+  constructor(roomId, onLocal, seedInput = '') {
     this.id = roomId;
     this.onLocal = onLocal;
     this.players = new Map();     // playerId -> sim player
     this.channels = new Map();    // guestId -> { send(obj) } current best transport
-    this.run = createRun((Math.random() * 1e9) >>> 0);
+    this.run = createRun(normalizeRunSeed(seedInput));
     startRoom(this.run, this.players);
     this.tickN = 0;
     this.guestFx = [];            // fx accumulated between guest snapshots

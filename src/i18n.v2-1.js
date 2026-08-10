@@ -33,6 +33,7 @@ const RU = {
     menuSub: 'терминал-казино // до 4 антивирусов',
     musicLabel: 'МУЗЫКА', sfxLabel: 'ЗВУКИ', filterLabel: 'ФИЛЬТР', filterBody: 'Обработка изображения.', changeSkin: 'СМЕНИТЬ ОБЛИК', hideSkins: 'СКРЫТЬ ОБЛИКИ',
     namePlaceholder: 'ИМЯ', nameTitle: 'ИМЯ', nameBody: 'Имя игрока в секторе и панели. До 12 символов.',
+    seedPlaceholder: 'SEED (ПУСТО = СЛУЧАЙНЫЙ)', seedTitle: 'SEED ЗАБЕГА', seedBody: 'Одинаковый seed повторяет генерацию секторов. Оставь поле пустым для случайного seed.',
     solo: 'ОДИНОЧНАЯ ИГРА', soloBody: 'Запускает одиночный забег без сети.',
     create: 'СОЗДАТЬ СЕКТОР', createBody: 'Создаёт закрытый сектор для команды. Поделись четырёхсимвольным кодом.',
     codePlaceholder: 'КОД', codeTitle: 'КОД СЕКТОРА', codeBody: 'Четырёхсимвольный код сектора команды.',
@@ -89,6 +90,7 @@ const EN = {
     menuSub: 'terminal casino // co-op up to 4',
     musicLabel: 'MUSIC', sfxLabel: 'SFX', filterLabel: 'FILTER', filterBody: 'Screen look.', changeSkin: 'CHANGE SHELL', hideSkins: 'HIDE SHELLS',
     namePlaceholder: 'NAME', nameTitle: 'NAME', nameBody: 'Player name shown in the sector. Up to 12 characters.',
+    seedPlaceholder: 'SEED (EMPTY = RANDOM)', seedTitle: 'RUN SEED', seedBody: 'The same seed repeats sector generation. Leave this empty for a random seed.',
     solo: 'SINGLE PLAYER', soloBody: 'Starts a single-player run without network.',
     create: 'CREATE SECTOR', createBody: 'Creates a co-op sector for the squad. Share the four-symbol code.',
     codePlaceholder: 'CODE', codeTitle: 'SECTOR CODE', codeBody: 'Four-symbol sector code from a squadmate.',
@@ -208,7 +210,7 @@ Object.assign(EN_UPGRADE, {
   ctrl_process_fire: 'Controlled processes attack more often.',
   ctrl_process_contact_status: 'Body attacks from controlled processes carry all current and future weapon statuses. Their shots always inherit statuses by default.',
   ctrl_process_life: 'Controlled processes keep their signal longer. Targets with higher durability receive a longer control timer.',
-  ctrl_process_death_heal: 'A combat process death restores hero HP from that process maximum HP. Stacks grant 2%, then +3%, +4%, and so on.',
+  ctrl_process_death_heal: 'A process death or completed control lifetime restores hero HP from that process maximum HP. Stacks grant 2%, then +3%, +4%, and so on.',
   ctrl_process_persist: 'Controlled processes can cross the portal with their remaining signal time.',
   qrn_radius: 'QRN chains reach farther from its floor or wall marker.',
   qrn_hold: 'Strongly extends QRN anchor duration.',
@@ -251,7 +253,7 @@ Object.assign(RU_UPGRADE_CLEAN, {
   ctrl_process_fire: 'Подконтрольные процессы атакуют чаще.',
   ctrl_process_contact_status: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы. Их выстрелы наследуют статусы всегда.',
   ctrl_process_life: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.',
-  ctrl_process_death_heal: 'Боевая смерть процесса лечит героя от максимального HP процесса. Стаки дают 2%, затем +3%, +4% и дальше.',
+  ctrl_process_death_heal: 'Гибель или завершение срока процесса лечит героя от максимального HP процесса. Стаки дают 2%, затем +3%, +4% и дальше.',
   qrn_radius: 'Цепи QRN достают дальше от напольного или настенного маркера.',
   qrn_hold: 'Сильно увеличивает срок работы карантинного якоря.',
   qrn_links: 'Добавляет 3 одновременных захвата. Базово — 5, максимум — 20.',
@@ -765,6 +767,7 @@ export function applyStaticI18n() {
   setText('btn-create', t('create'));
   setText('btn-join', t('join'));
   setPlaceholder('name-input', t('namePlaceholder'));
+  setPlaceholder('seed-input', t('seedPlaceholder'));
   setPlaceholder('room-input', t('codePlaceholder'));
   setText('casino-state', localText('ГОТОВ', 'READY'));
   const installTitle = document.querySelector('#install-modal .panel-title');
@@ -812,6 +815,7 @@ export function applyStaticI18n() {
   setExplainSel('#casino-modal .hint .term', t('betHintTitle'), t('betHintBody'));
   const escTerm = document.querySelector('#casino-modal .hint .term:last-of-type'); if (escTerm) { escTerm.dataset.explainTitle = t('exitTitle'); escTerm.dataset.explain = t('exitBody'); }
   setExplainId('name-input', t('nameTitle'), t('nameBody'));
+  setExplainId('seed-input', t('seedTitle'), t('seedBody'));
   setExplainId('btn-solo', t('solo'), t('soloBody'));
   setExplainId('btn-create', t('create'), t('createBody'));
   setExplainId('room-input', t('codeTitle'), t('codeBody'));

@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.19[1-6]$/);
+assert.match(VERSION, /^v2\.1\.(?:19[1-9]|200)$/);
 if (VERSION === 'v2.1.191') assert.equal(BUILD_ID, 'r_cooldown_ghost_duration_balance');
 assert.equal(PROTOCOL, 14);
 

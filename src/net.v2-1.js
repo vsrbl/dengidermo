@@ -38,20 +38,21 @@ export class Net {
   emit(type, m) { if (this.handlers[type]) this.handlers[type](m); }
 
   // ---------------------------------------------------------- single-player / host
-  startSolo(name, skin = null) {
+  startSolo(name, skin = null, seedInput = '') {
     this.mode = 'solo';
     this.id = newId();
     this.roomId = 'SOLO';
-    this.room = new LocalRoom('SOLO', (m) => this._deliverLocal(m));
+    this.room = new LocalRoom('SOLO', (m) => this._deliverLocal(m), seedInput);
     this.room.addHost(this.id, name, skin);
   }
 
   // host: register room on signaling server, then run sim locally
-  hostRoom(name, skin = null) {
+  hostRoom(name, skin = null, seedInput = '') {
     this.mode = 'host';
     this.id = newId();
     this._hostName = name;
     this._skin = skin;
+    this._hostSeed = seedInput;
     this._wsSend({ t: 'host' });
   }
 
@@ -90,7 +91,7 @@ export class Net {
     switch (m.t) {
       case 'host_ok': {
         this.roomId = m.code;
-        this.room = new LocalRoom(m.code, (x) => this._deliverLocal(x));
+        this.room = new LocalRoom(m.code, (x) => this._deliverLocal(x), this._hostSeed);
         this.room.addHost(this.id, this._hostName, this._skin);
         break;
       }
@@ -208,7 +209,7 @@ export class Net {
   }
 
   // ---------------------------------------------------------- game API (same as v1)
-  createRoom() { this.hostRoom(this._name, this._skin); }
+  createRoom(seedInput = '') { this.hostRoom(this._name, this._skin, seedInput); }
   sendInput(i) { this._game({ t: 'input', ...i }, false); }
   sendCasino(stake) { this._game({ t: 'casino', stake, skins: Array.isArray(this._skinUnlocks) ? this._skinUnlocks : [] }, true); }
   sendCasinoClose() { this._game({ t: 'casino_close' }, true); }

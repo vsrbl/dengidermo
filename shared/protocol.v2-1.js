@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.196';
-export const BUILD_ID = 'casino_hit_core_favor_shell_ripper_hotfix';
+export const VERSION = 'v2.1.200';
+export const BUILD_ID = 'controller_inherited_slots_anchor_pressure';
 export const PROTOCOL = 14;
 
 export const MAX_PLAYERS = 4;

@@ -782,10 +782,34 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
     const infected = chestPool[Math.floor(rng() * chestPool.length)] || chestPool[0];
     if (infected) infected.trojan = 1;
   }
+  const baseInteractableCount = interactables.length;
+  // The opening sector always adds two affordable choice chests and three BSC
+  // chests on top of the normal loot roll. A separate derived RNG keeps every
+  // pre-existing room roll and every pre-existing interactable position on its
+  // original seed stream.
+  if (runDepth === 0 && category !== 'boss') {
+    const starterRng = mulberry32((seed ^ 0x6D2B79F5) >>> 0);
+    for (let i = 0; i < 2; i++) {
+      const chest = starterRng() < 0.5 ? 'weapon_chest' : 'ability_chest';
+      interactables.push(makeChestObj(`starter_choice_${i + 1}`, starterRng, chest, loopIndex, greed, modifierIds, specialRoomId, 0.5, {
+        chestTier: 0,
+        slotCount: 2,
+        costMul: 0.55,
+        rarityReason: 'FIRST SECTOR',
+        firstRoomGuaranteed: 1
+      }));
+    }
+    for (let i = 0; i < 3; i++) {
+      interactables.push(makeChestObj(`starter_bsc_${i + 1}`, starterRng, 'basic_chest', loopIndex, greed, modifierIds, specialRoomId, 0.5, {
+        rarityReason: 'FIRST SECTOR BSC',
+        firstRoomGuaranteedBsc: 1
+      }));
+    }
+  }
   const blockers = [
     { x: WORLD_W / 2, y: WORLD_H / 2, r: 290 }
   ];
-  const usePocket = rng() < (specialRoomId === 'reward_pocket' ? 0.88 : 0.42) && interactables.length >= 2;
+  const usePocket = rng() < (specialRoomId === 'reward_pocket' ? 0.88 : 0.42) && baseInteractableCount >= 2;
   const pockets = [freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers), freeSpot(rng, walls, 110, blockers)];
   for (let i = 0; i < interactables.length; i++) {
     const o = interactables[i];

@@ -447,7 +447,7 @@ function weaponReadability(opt = {}) {
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы атакуют чаще.', en: 'Controlled processes attack more often.', changeRu: 'чаще атаки процессов', changeEn: 'faster process attacks' },
       ctrl_process_contact_status: { role: 'SYNERGY', tone: 'synergy', ru: 'Телесные атаки процессов становятся живыми снарядами и переносят любые текущие и будущие статусы.', en: 'Process body attacks become living projectiles and carry all current and future statuses.', changeRu: 'укусы · касания · прыжки · самоподрыв', changeEn: 'bites · contact · leaps · self-destruct' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
-      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Боевая смерть процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A combat process death restores hero HP based on that process maximum health.', changeRu: '2% · затем +3% · +4% · дальше', changeEn: '2% · then +3% · +4% · onward' },
+      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Гибель или завершение срока процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A process death or completed control lifetime restores hero HP based on that process maximum health.', changeRu: '2% · затем +3% · +4% · дальше', changeEn: '2% · then +3% · +4% · onward' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от напольного или настенного маркера.', en: 'The anchor can chain threats farther from its floor or wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
       qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень сильно увеличивает срок работы якоря.', en: 'Each level strongly extends anchor duration.', changeRu: 'сильно дольше работа', changeEn: 'strongly longer duration' },
@@ -1355,6 +1355,8 @@ export class Hud {
       if (pc && pc.hero === 'process_controller') {
         const controlled = Math.max(0, Number(pc.controlled || 0) | 0);
         const max = Math.max(1, Number(pc.max || 1) | 0);
+        const regular = Math.max(0, Math.min(max, Number(pc.regular ?? controlled) | 0));
+        const temporary = Math.max(0, Number(pc.temporary || 0) | 0);
         const cmd = Math.max(0, Number(pc.commandT || 0) || 0);
         const cap = Math.max(0, Number(pc.captureT || 0) || 0);
         const cd = Math.max(0, Number(pc.cd || 0) || 0);
@@ -1365,7 +1367,9 @@ export class Hud {
         const capPct = Math.max(0, Math.min(100, Number(pc.capturePct || 0) || 0));
         const capLabel = String(pc.captureLabel || '').trim();
         const status = cd > 0 ? localText(`ПЕРЕЗАРЯДКА ${cd.toFixed(1)}`, `COOLDOWN ${cd.toFixed(1)}`) : pc.captureActive ? localText(`ЗАХВАТ ${capPct}%${capLabel ? ' · ' + capLabel : ''}`, `CAPTURE ${capPct}%${capLabel ? ' · ' + capLabel : ''}`) : cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : cap > 0 ? localText('ПЕРЕХВАТ', 'CAPTURED') : localText('ГОТОВО', 'READY');
-        const procs = Array.isArray(pc.processes) ? pc.processes.slice(0, Math.min(10, max)) : [];
+        const allProcs = Array.isArray(pc.processes) ? pc.processes : [];
+        const procs = allProcs.filter(pr => !pr?.bonus).slice(0, Math.min(10, max));
+        const temporaryProcs = allProcs.filter(pr => !!pr?.bonus).slice(0, 18);
         const chips = [];
         for (let i = 0; i < Math.min(10, max); i++) {
           const pr = procs[i] || null;
@@ -1374,11 +1378,19 @@ export class Hud {
           const label = pr ? String(pr.label || 'PRC').slice(0, 3).toUpperCase() : String(i + 1).padStart(2, '0');
           chips.push(`<i class="pc-life-chip ${pr ? 'filled' : 'empty'}" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`);
         }
+        const temporaryChips = temporaryProcs.map(pr => {
+          const l = Math.max(0, Math.min(100, Number(pr.life || 0) || 0));
+          const h = Math.max(0, Math.min(100, Number(pr.hp || 0) || 0));
+          const label = String(pr.label || 'TMP').slice(0, 3).toUpperCase();
+          return `<i class="pc-life-chip filled temporary" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`;
+        });
         if (pcRack) {
-          pcRack.className = `pc-process-rack ${controlled > 0 ? 'has-processes' : 'empty'}`;
-          pcRack.innerHTML = `<div class="pc-rack-head"><b>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))}</b><span>${controlled}/${max}${persist ? escHtml(localText(' · ПЕРЕНОС', ' · CARRY')) : ''}</span></div><div class="pc-life-grid">${chips.join('')}</div>`;
-          this.setExplain(pcRack, localText('ПОДКОНТРОЛЬНЫЕ ПРОЦЕССЫ', 'CONTROLLED PROCESSES'), localText('Каждая плашка — отдельный процесс: верхнее заполнение показывает срок контроля, нижняя полоска — HP. Пустые серые ячейки показывают свободные места.', 'Each plate is one process: the main fill is control lifetime, the bottom strip is HP. Empty gray cells show free slots.'), 'cyan');
+          pcRack.className = `pc-process-rack ${controlled > 0 ? 'has-processes' : 'empty'} ${temporary > 0 ? 'has-temporary' : ''}`;
+          pcRack.innerHTML = `<div class="pc-rack-head"><b>${escHtml(localText('ПРОЦЕССЫ', 'PROCESSES'))}</b><span>${regular}/${max}${temporary > 0 ? escHtml(localText(` · ВРЕМ +${temporary}`, ` · TEMP +${temporary}`)) : ''}${persist ? escHtml(localText(' · ПЕРЕНОС', ' · CARRY')) : ''}</span></div><div class="pc-life-grid pc-life-grid-regular">${chips.join('')}</div>${temporaryChips.length ? `<div class="pc-temp-head"><b>${escHtml(localText('ВРЕМЕННЫЕ СЛОТЫ', 'TEMPORARY SLOTS'))}</b><span>+${temporaryChips.length}</span></div><div class="pc-life-grid pc-life-grid-temporary">${temporaryChips.join('')}</div>` : ''}`;
+          this.setExplain(pcRack, localText('ПОДКОНТРОЛЬНЫЕ ПРОЦЕССЫ', 'CONTROLLED PROCESSES'), localText('Обычные слоты заполняются первыми. Золотые временные слоты появляются только для призванных или отделившихся союзников, когда обычных мест не осталось.', 'Regular slots fill first. Gold temporary slots appear only for summoned or split allies when regular capacity is full.'), 'cyan');
         }
+        document.body?.classList?.toggle('controller-temporary-slots', temporary > 0);
+        document.documentElement?.style?.setProperty('--ctrl-temp-rows', String(Math.max(0, Math.ceil(temporary / 10))));
         if (pcHud) {
           pcHud.className = `pc-selected ctrl-main type-${selected.toLowerCase()} ${cd > 0 ? 'cooldown' : pc.captureActive ? 'capturing' : cmd > 0 ? 'command' : cap > 0 ? 'capture' : 'ready'}`;
           pcHud.style.setProperty('--pc-fill', `${cd > 0 ? 100 - cdPct : 100}%`);
@@ -1388,6 +1400,8 @@ export class Hud {
       } else {
         if (pcRack) { pcRack.className = 'pc-process-rack hidden'; pcRack.innerHTML = ''; }
         if (pcHud) { pcHud.className = 'pc-selected hidden'; pcHud.innerHTML = ''; }
+        document.body?.classList?.remove('controller-temporary-slots');
+        document.documentElement?.style?.setProperty('--ctrl-temp-rows', '0');
       }
     }
 

@@ -359,6 +359,7 @@ function playerName() {
   localStorage.setItem('nnc_name', name);
   return name;
 }
+function menuSeed() { return $('seed-input')?.value || ''; }
 $('name-input').value = localStorage.getItem('nnc_name') || '';
 loadSkin();
 updateHeroSelector();
@@ -570,15 +571,16 @@ async function connect() {
 $('btn-solo').addEventListener('click', () => {
   uiClick('run_start');
   state.localMode = true;
-  net.startSolo(playerName(), saveSkin());
+  net.startSolo(playerName(), saveSkin(), menuSeed());
 });
 $('btn-create').addEventListener('click', async () => {
   uiClick('run_start');
+  const seedInput = menuSeed();
   $('btn-create').disabled = true;
   state.localMode = true;            // host = sim in this browser, zero latency
   net._name = playerName();
   net._skin = saveSkin();
-  if (net.connected || await connect()) net.createRoom();
+  if (net.connected || await connect()) net.createRoom(seedInput);
   $('btn-create').disabled = false;
 });
 $('btn-join').addEventListener('click', async () => {

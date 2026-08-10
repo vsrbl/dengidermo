@@ -51,8 +51,8 @@ assert.match(data, /Каждый уровень быстрее разрушае�
 assert.match(hud, /each stack strips armor faster/);
 assert.doesNotMatch(hud, /function comboExplain/);
 assert.doesNotMatch(input, /Space[^\n]+inspectMode/);
-assert.match(index, /v2\.1\.(?:18[1-9]|19[0-6])/);
-assert.match(page404, /v2\.1\.(?:18[1-9]|19[0-6])/);
+assert.match(index, /v2\.1\.(?:18[1-9]|19[0-9]|200)/);
+assert.match(page404, /v2\.1\.(?:18[1-9]|19[0-9]|200)/);
 assert.doesNotMatch(index, /hud-inspect/);
 assert.doesNotMatch(page404, /hud-inspect/);
 

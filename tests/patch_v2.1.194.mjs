@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.19[4-6]$/);
+assert.match(VERSION, /^v2\.1\.(?:19[4-9]|200)$/);
 if (VERSION === 'v2.1.194') assert.equal(BUILD_ID, 'static_debt_source_audit_contract_clear');
 assert.equal(PROTOCOL, 14);
 
@@ -151,7 +151,7 @@ const data = fs.readFileSync(new URL('../shared/data.v2-1.js', import.meta.url),
 const hud = fs.readFileSync(new URL('../src/hud.v2-1.js', import.meta.url), 'utf8');
 const i18n = fs.readFileSync(new URL('../src/i18n.v2-1.js', import.meta.url), 'utf8');
 assert.match(data, /Сама Q не создаёт статик-долг/);
-assert.match(hud, VERSION === 'v2.1.196'
+assert.match(hud, ['v2.1.196', 'v2.1.197', 'v2.1.198', 'v2.1.199', 'v2.1.200'].includes(VERSION)
   ? /навсегда глушит шторм Статик-ядра/
   : /Полностью снимает весь накопленный статик-долг/);
 assert.match(i18n, /Q itself never creates Static debt/);

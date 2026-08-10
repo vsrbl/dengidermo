@@ -13,8 +13,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.196');
-assert.equal(BUILD_ID, 'casino_hit_core_favor_shell_ripper_hotfix');
+assert.match(VERSION, /^v2\.1\.(?:19[6-9]|200)$/);
+if (VERSION === 'v2.1.196') assert.equal(BUILD_ID, 'casino_hit_core_favor_shell_ripper_hotfix');
 assert.equal(PROTOCOL, 14);
 
 const enemy = (kind, id, x, y, hp = null) => {
