@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   createPlayer,
@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[1-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[1-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.191') assert.equal(BUILD_ID, 'r_cooldown_ghost_duration_balance');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

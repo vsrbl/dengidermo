@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, UPGRADES, WEAPON_CHEST_REWARDS } from '../shared/data.v2-1.js';
 import {
@@ -20,7 +20,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[7-9]|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[7-9]|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.187') assert.equal(BUILD_ID, 'controller_boss_range_blast_sustain_rework');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
@@ -78,7 +78,7 @@ const healRun = { fx: [] };
 expireControlledProcess(healRun, healPlayer, { id: 'dead', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'hp');
 assert.equal(healPlayer.hp, 70);
 expireControlledProcess(healRun, healPlayer, { id: 'ttl', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'ttl');
-  assert.equal(healPlayer.hp, ['v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208'].includes(VERSION) ? 90 : 70, 'signal expiry healing does not match this patch generation');
+  assert.equal(healPlayer.hp, ['v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208', 'v2.1.209', 'v2.1.210'].includes(VERSION) ? 90 : 70, 'signal expiry healing does not match this patch generation');
 
 function bossSource(kind, id, hp = null) {
   const def = ENEMIES[kind];

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ABILITY_CHEST_REWARDS, CURSED_UPGRADE_IDS, defaultStats } from '../shared/data.v2-1.js';
 import { generateRoom } from '../shared/mapgen.v2-1.js';
@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[2-9]|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[2-9]|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.183') assert.equal(BUILD_ID, 'projectile_link_status_r_compat');
 assert.ok(PROTOCOL >= 9);
 

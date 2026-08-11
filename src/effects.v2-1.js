@@ -34,6 +34,9 @@ export class Effects {
     this.killSwitchFlash = 0;
     this.nullRevivalFlash = 0;
     this.rewindPulse = 0;
+    // Guards against an out-of-order/stale STATIC STRIKE warning being drawn
+    // again after the authoritative impact has already happened.
+    this.finishedStaticStrikes = new Map();
     this.walls = [];
     this.world = { w: 2200, h: 1500 };
   }
@@ -73,6 +76,11 @@ export class Effects {
     this.killSwitchFlash = Math.max(0, this.killSwitchFlash - 1.85 * dt);
     this.nullRevivalFlash = Math.max(0, this.nullRevivalFlash - 1.25 * dt);
     this.rewindPulse = Math.max(0, (this.rewindPulse || 0) - 1.65 * dt);
+    for (const [id, ttl] of this.finishedStaticStrikes || []) {
+      const left = ttl - dt;
+      if (left <= 0) this.finishedStaticStrikes.delete(id);
+      else this.finishedStaticStrikes.set(id, left);
+    }
     if (this.sweep > 0) { this.sweep += dt * 1.6; if (this.sweep >= 1) this.sweep = 0; }
   }
 
@@ -205,10 +213,20 @@ export class Effects {
         this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: '#ff3048' });
         break;
       case 'rain_warn':
-        this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: f.ally ? '#a8f8ff' : '#b45cff' });
+        if (f.active && f.ally && f.strikeId && this.finishedStaticStrikes?.has(f.strikeId)) break;
+        this.add({ kind: 'warnring', strikeId: f.strikeId || '', active: f.active ? 1 : 0, ally: f.ally ? 1 : 0, x: f.x, y: f.y, r: f.r, ttl: f.dur, color: f.ally ? '#a8f8ff' : '#b45cff' });
         break;
       case 'rain_hit':
-        if (f.active && f.ally) this.add({ kind: 'staticStrikeFlash', x: f.x, y: f.y, r: f.r, ttl: 0.18, color: '#d9fdff' });
+        if (f.active && f.ally) {
+          // Authoritative impact ends the matching telegraph immediately. Network
+          // jitter must never leave the warning area on the floor after damage.
+          if (f.strikeId) this.finishedStaticStrikes.set(f.strikeId, 3);
+          this.list = this.list.filter(e => !(e.kind === 'warnring' && (
+            (f.strikeId && e.strikeId === f.strikeId)
+            || (Math.hypot((e.x || 0) - f.x, (e.y || 0) - f.y) <= 3 && Math.abs(Number(e.r || 0) - Number(f.r || 0)) <= 3)
+          )));
+          this.add({ kind: 'staticStrikeFlash', x: f.x, y: f.y, r: f.r, ttl: 0.12, color: '#d9fdff' });
+        }
         else this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: f.ally ? '#bdfbff' : '#b45cff' });
         this.kick(3);
         break;
@@ -603,6 +621,20 @@ export class Effects {
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 90, ttl: 0.4, color: '#ff3048' });
         this.kick(3);
         break;
+      case 'trinode_shot':
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.10, color: '#66f6ff' });
+        this.kick(1.4);
+        break;
+      case 'trinode_break': {
+        const r = Math.max(86, Number(f.size || 62) * 1.75);
+        this.add({ kind: 'squareBlastLite', x: f.x, y: f.y, r, ttl: 0.52, color: '#66f6ff' });
+        this.add({ kind: 'squareBlastLite', x: f.x, y: f.y, r: r * 0.72, ttl: 0.38, color: '#b45cff' });
+        this.add({ kind: 'burst', x: f.x, y: f.y, r: r * 0.85, ttl: 0.44, color: '#f3f3f3' });
+        this.float(f.x, f.y - 58, localText('СЕКЦИЯ УНИЧТОЖЕНА', 'SECTION DESTROYED'), '#66f6ff', 14);
+        this.slam = Math.max(this.slam, 0.52);
+        this.kick(13);
+        break;
+      }
       case 'casino_mob_defeated':
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 340, ttl: 1.15, color: '#ffd34d' });
         this.add({ kind: 'ring', x: f.x, y: f.y, r: 250, ttl: 0.85, color: '#00ff66' });
@@ -742,15 +774,10 @@ export class Effects {
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1 - p; ctx.fillRect(e.x - 2, e.y - 600, 4, 600);
       } else if (e.kind === 'staticStrikeFlash') {
-        // STATIC STRIKE is a single impact, not a lingering field. Draw only a
-        // very short exact-radius impact flash; never leave a field behind.
+        // Impact is a bolt/core flash only. No circle, disc, radial spokes or
+        // other area marker survives the damage frame.
         const fade = 1 - p;
         ctx.strokeStyle = e.color; ctx.fillStyle = e.color;
-        ctx.globalAlpha = fade * 0.16;
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = fade * 0.95;
-        ctx.lineWidth = Math.max(1, 3 * fade);
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.stroke();
         ctx.globalAlpha = fade;
         ctx.lineWidth = Math.max(1, 4 * fade);
         ctx.beginPath();
@@ -761,16 +788,6 @@ export class Effects {
         ctx.stroke();
         ctx.globalAlpha = fade * 0.9;
         ctx.fillRect(e.x - 5, e.y - 5, 10, 10);
-        ctx.globalAlpha = fade * 0.7;
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 8; i++) {
-          const a = (i / 8) * Math.PI * 2;
-          const inner = Math.max(8, e.r * 0.72);
-          ctx.beginPath();
-          ctx.moveTo(e.x + Math.cos(a) * inner, e.y + Math.sin(a) * inner);
-          ctx.lineTo(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r);
-          ctx.stroke();
-        }
       } else if (e.kind === 'burst') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = 1 - p; ctx.lineWidth = 2;
         const n = 6;

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { UPGRADES, WEAPON_CHEST_REWARDS, defaultStats } from '../shared/data.v2-1.js';
 import {
@@ -12,7 +12,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[4-9]|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[4-9]|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.184') assert.equal(BUILD_ID, 'controller_process_inheritance_audit');
 assert.ok(PROTOCOL >= 11);
 

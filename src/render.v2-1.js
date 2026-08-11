@@ -230,6 +230,23 @@ export class Renderer {
 
     const room = state.room;
 
+    if (room?.rootLock?.left > 0) {
+      const rows = new Map(view.enemies.map(e => [e[0], e]));
+      const boss = rows.get(room.rootLock.bossId);
+      if (boss) {
+        ctx.save();
+        ctx.strokeStyle = COL.purple; ctx.lineWidth = 2; ctx.setLineDash([12, 8, 3, 8]);
+        ctx.globalAlpha = 0.34 + Math.abs(Math.sin(now * 4.2)) * 0.18;
+        for (const id of room.rootLock.nodeIds || []) {
+          const node = rows.get(id); if (!node) continue;
+          ctx.beginPath(); ctx.moveTo(node[2], node[3]); ctx.lineTo(boss[2], boss[3]); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        this.label(`ACCESS DENIED · ROOT ${room.rootLock.total - room.rootLock.left}/${room.rootLock.total}`, boss[2], boss[3] - 82, COL.purple, 10);
+        ctx.restore();
+      }
+    }
+
     if (room?.wires?.length) {
       ctx.save();
       for (const w of room.wires) {
@@ -806,19 +823,19 @@ export class Renderer {
           const active = i === 0 && !locked;
           const col = active ? COL.cyan : COL.purple;
           this.square(px, py, size, { stroke: col, lw: active ? 5.5 : 3.2, fill: active ? 'rgba(102,246,255,0.075)' : 'rgba(180,92,255,0.045)' });
-          this.square(px, py, size * 0.58, { stroke: active ? COL.fg : COL.purple, lw: 1.5, rotate: active ? Math.sin(now * 4) * 0.12 : 0 });
+          this.square(px, py, size * 0.58, { stroke: active ? COL.fg : COL.purple, lw: 1.5 });
           if (locked) {
-            this.square(px, py, size + 12, { stroke: COL.purple, lw: 1.2, rotate: Math.PI / 4 });
             this.label(`LOCK ${i + 1}`, px, py + size / 2 + 16, COL.purple, 8);
           }
-          const sw = size * 0.82;
-          ctx.fillStyle = '#222'; ctx.fillRect(px - sw / 2, py - size / 2 - 10, sw, 3);
-          ctx.fillStyle = col; ctx.fillRect(px - sw / 2, py - size / 2 - 10, sw * Math.max(0, Math.min(100, php)) / 100, 3);
+          // Every square owns and displays its own HP. There is intentionally no
+          // shared boss bar for TRI, because damage never spills into the next part.
+          const sw = size * 0.92;
+          ctx.fillStyle = '#171717'; ctx.fillRect(px - sw / 2, py - size / 2 - 11, sw, 5);
+          ctx.fillStyle = col; ctx.fillRect(px - sw / 2, py - size / 2 - 11, sw * Math.max(0, Math.min(100, php)) / 100, 5);
         }
         const [phase = 'burst', value = ''] = String(triPhase || '').split(':');
         this.label('TRI', ex, ey - size / 2 - 28, COL.cyan, 12);
         this.label(phase === 'slow' ? `SLOW ${value}s` : `BURST ${value}`, ex, ey - size / 2 - 15, phase === 'slow' ? COL.purple : COL.red, 8);
-        this.bossHpBar(ex, ey, size, hp01, COL.cyan);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });

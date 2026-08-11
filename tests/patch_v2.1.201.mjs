@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   blackBoxRadiusForLevel,
@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[1-8]$/);
+assert.match(VERSION, /^v2\.1\.(?:20[1-9]|210)$/);
 if (VERSION === 'v2.1.201') assert.equal(BUILD_ID, 'static_strike_install_storm_clarity');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
@@ -72,10 +72,11 @@ assert.ok(snap.room.next.staticRainBreakdown.sources.some(s => s.id === 'room_mo
 p.stats.debtEngine = 1;
 run.nextRoomPreview = { id: 'boss-forecast', cat: 'boss', special: '', archetype: 'boss', mods: [], quota: 1 };
 snap = buildSnapshot(run, players);
-assert.equal(snap.room.next.staticRainBreakdown.total, 0);
+assert.equal(snap.room.next.staticRainBreakdown.total, 1);
+assert.ok(snap.room.next.staticRainBreakdown.sources.some(s => s.id === 'debt_engine' && s.level === 1));
 assert.equal(snap.room.next.staticRainBreakdown.banked, 2);
 assert.deepEqual(snap.room.next.staticRainBreakdown.bankedSources, [{ id: 'cursed_chest', level: 2 }]);
-assert.equal(snap.room.next.staticRainBreakdown.deferredCore, 1);
+assert.equal(snap.room.next.staticRainBreakdown.deferredCore, 0);
 
 const hud = fs.readFileSync(new URL('../src/hud.v2-1.js', import.meta.url), 'utf8');
 const effects = fs.readFileSync(new URL('../src/effects.v2-1.js', import.meta.url), 'utf8');

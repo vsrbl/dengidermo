@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { casinoSymbolAllowedForStake, spinCasino } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, handleCasino, startRoom } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[6-8]$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.206' ? 'low_stake_lock_overload_guard' : VERSION === 'v2.1.207' ? 'install_choice_identity_sync' : 'boss_bag_trinode_q_silence_casino_wpn');
+assert.match(VERSION, /^v2\.1\.(?:20[6-9]|210)$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.206' ? 'low_stake_lock_overload_guard' : VERSION === 'v2.1.207' ? 'install_choice_identity_sync' : VERSION === 'v2.1.208' ? 'boss_bag_trinode_q_silence_casino_wpn' : VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : 'trinode_parts_radial_break_sync');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 assert.equal(casinoSymbolAllowedForStake('WPN', 'low'), false);

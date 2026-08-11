@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, defaultStats } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, damageEnemy, pickSlotMobMode, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[5-9]|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[5-9]|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.185') assert.equal(BUILD_ID, 'boss_casino_gold_fever_audit');
 assert.ok(PROTOCOL >= 12);
 assert.equal(ENEMIES.slot_mob.hp, 3060, 'Casino Mob HP was not halved');
@@ -72,7 +72,7 @@ assert.match(sim, /usedModes: e\.slotUsedModes \|\| \[\]/);
 // INSTALL preview regression guard: left-side modifiers, optional contract, RU/EN.
 assert.match(html, /id="install-next-room"/);
 assert.match(css, /right:\s*calc\(100% \+ 14px\)/);
-assert.match(hud, /const contract = next\.objective[\s\S]*?: '';/);
+assert.match(hud, /const contractOffer = room\?\.contractChoice[\s\S]*const contract = contractChoices\.length/);
 assert.match(hud, /'МОДИФИКАТОРЫ', 'MODIFIERS'/);
 assert.match(hud, /lifesteal returns credits instead of HP/);
 

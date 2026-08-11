@@ -69,7 +69,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, wager_accept_click: 0.08, wager_skip_click: 0.08, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -89,7 +89,7 @@ export class AudioBus {
       dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
     };
     this.userGestureUnlocked = false;
     this._unlock = ev => {
@@ -617,6 +617,16 @@ export class AudioBus {
         this.tone(520, 0.025, 'square', 0.020, 0.70);
         this.noise(0.012, 0.010, 4200, 10, 0.002);
         break;
+      case 'wager_accept_click':
+        this.noise(0.018, 0.014, 3600, 9, 0.000);
+        this.tone(392, 0.045, 'square', 0.030, 1.12, 0.000);
+        this.tone(659.25, 0.055, 'triangle', 0.024, 0.82, 0.032);
+        break;
+      case 'wager_skip_click':
+        this.noise(0.014, 0.012, 2400, 7, 0.000);
+        this.tone(330, 0.040, 'square', 0.025, 0.82, 0.000);
+        this.tone(220, 0.045, 'triangle', 0.018, 0.68, 0.028);
+        break;
       case 'jackpot':
         // v2.1.81: short victorious slot melody instead of one dull stab.
         this.noise(0.018, 0.020, 5200, 12, 0.000);
@@ -1113,6 +1123,8 @@ export class AudioBus {
       case 'slot_mob_roll': this.play('casino_spin'); this.play('casino_reel_stop'); this.play('casino_result'); break;
       case 'slot_mob_roll_tick': this.play('casino_spin'); break;
       case 'slot_mob_rebuild': if (!f.visualOnly) { this.play(f.spawn ? 'slot_overload' : 'casino_static'); } break;
+      case 'trinode_shot': this.play('shot'); break;
+      case 'trinode_break': this.play('slot_overload'); this.play('blast'); this.play('impact'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
       case 'rain_warn': if (f.active && mine) this.play('debt'); break;

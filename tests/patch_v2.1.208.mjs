@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, spinCasino } from '../shared/data.v2-1.js';
 import {
@@ -7,8 +7,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.208');
-assert.equal(BUILD_ID, 'boss_bag_trinode_q_silence_casino_wpn');
+assert.match(VERSION, /^v2\.1\.(?:20[89]|210)$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.208' ? 'boss_bag_trinode_q_silence_casino_wpn' : VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : 'trinode_parts_radial_break_sync');
 assert.equal(PROTOCOL, 15);
 assert.equal(ENEMIES.boss_trinode?.boss, true);
 
@@ -94,7 +94,8 @@ function fixture(seed = 20801) {
   assert.ok(run.fx.some(f => f.t === 'trinode_break'));
 }
 
-// Ten fast all-edge volleys are followed by a real five-second slow-fire phase.
+// Ten fast radial volleys from the active square are followed by a real
+// five-second slow-fire phase, without the old red boss-burst circles.
 {
   const { p, players, run } = fixture(20860);
   run.enemies = [];
@@ -105,7 +106,9 @@ function fixture(seed = 20801) {
   for (let i = 0; i < 150; i++) step(run, players, 1 / 60, i + 1);
   assert.equal(boss.trinodePhase, 'slow');
   assert.equal(boss.trinodeShots, 10);
-  assert.equal(run.fx.filter(f => f.t === 'boss_burst' && f.trinode).length >= 10, true);
+  assert.equal(run.fx.filter(f => f.t === 'trinode_shot').length >= 10, true);
+  assert.equal(run.fx.some(f => f.t === 'boss_burst' && f.trinode), false);
+  assert.equal(run.bullets.some(b => b.kind === 'trinode_edge'), false);
   const slowBefore = boss.trinodePhaseT;
   for (let i = 0; i < 60; i++) step(run, players, 1 / 60, 200 + i);
   assert.ok(boss.trinodePhaseT < slowBefore && boss.trinodePhaseT > 0);

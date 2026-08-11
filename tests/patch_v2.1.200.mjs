@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES } from '../shared/data.v2-1.js';
 import { generateRoom } from '../shared/mapgen.v2-1.js';
@@ -16,7 +16,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[0-8]$/);
+assert.match(VERSION, /^v2\.1\.(?:20[0-9]|210)$/);
 if (VERSION === 'v2.1.200') assert.equal(BUILD_ID, 'controller_inherited_slots_anchor_pressure');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

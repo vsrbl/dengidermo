@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, UPGRADES } from '../shared/data.v2-1.js';
 import {
@@ -12,8 +12,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[5-8]$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.205' ? 'saw_failsafe_static_strike_sync' : VERSION === 'v2.1.206' ? 'low_stake_lock_overload_guard' : VERSION === 'v2.1.207' ? 'install_choice_identity_sync' : 'boss_bag_trinode_q_silence_casino_wpn');
+assert.match(VERSION, /^v2\.1\.(?:20[5-9]|210)$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.205' ? 'saw_failsafe_static_strike_sync' : VERSION === 'v2.1.206' ? 'low_stake_lock_overload_guard' : VERSION === 'v2.1.207' ? 'install_choice_identity_sync' : VERSION === 'v2.1.208' ? 'boss_bag_trinode_q_silence_casino_wpn' : VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : 'trinode_parts_radial_break_sync');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 function enemy(kind, id, x, y, hp = null) {
@@ -126,6 +126,8 @@ function sawFixture(seed = 20501) {
 const effects = fs.readFileSync(new URL('../src/effects.v2-1.js', import.meta.url), 'utf8');
 assert.match(effects, /const isStaticStrike = f\.kind === 'static_strike'/);
 assert.match(effects, /if \(!isStaticStrike\) this\.add/);
-assert.match(effects, /ctx\.arc\(e\.x, e\.y, e\.r, 0, Math\.PI \* 2\); ctx\.fill\(\)/, 'STATIC STRIKE impact does not fill its exact hit radius');
+assert.match(effects, /finishedStaticStrikes/);
+const strikeFlashBlock = effects.match(/else if \(e\.kind === 'staticStrikeFlash'\) \{([\s\S]*?)\n\s*\} else if/)?.[1] || '';
+assert.doesNotMatch(strikeFlashBlock, /ctx\.arc|Math\.cos\(a\)/, 'STATIC STRIKE left a circular/radial area after impact');
 
 console.log('v2.1.205 checks passed: SAW failsafe WPN passive and synchronized exact-radius STATIC STRIKE');

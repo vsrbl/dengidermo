@@ -350,7 +350,9 @@ function activeDebtEngineStacks(run, players) {
   return run?.staticCoreStormDisabled ? 0 : playerDebtEngineStacks(players);
 }
 function debtEngineEligiblePlan(plan) {
-  return !!plan && plan.category !== 'boss' && plan.specialRoomId !== 'chill_room';
+  // STATIC CORE is a run-long source. Boss rooms do not pause or hide it;
+  // only the explicitly safe lounge defers combat hazards.
+  return !!plan && plan.specialRoomId !== 'chill_room';
 }
 function pendingStaticRainSources(run) {
   if (!run) return [];
@@ -392,13 +394,14 @@ function nextStaticRainBreakdown(run, players = null, plan = null) {
   const pendingSources = pendingStaticRainSources(run);
   const pendingTotal = normalizeStaticSources(pendingSources).total;
   if (eligible && pendingTotal > 0) sources.push(...pendingSources);
-  const debtEngine = eligible ? activeDebtEngineStacks(run, players) : 0;
+  const coreEligible = debtEngineEligiblePlan(p);
+  const debtEngine = coreEligible ? activeDebtEngineStacks(run, players) : 0;
   if (debtEngine > 0) sources.push({ id: 'debt_engine', level: debtEngine });
   const bd = normalizeStaticSources(sources);
   bd.banked = pendingTotal > 0 && !eligible ? pendingTotal : 0;
   bd.bankedSources = !eligible && pendingTotal > 0 ? pendingSources : [];
-  bd.deferredCore = !eligible ? activeDebtEngineStacks(run, players) : 0;
-  bd.eligible = eligible;
+  bd.deferredCore = !coreEligible ? activeDebtEngineStacks(run, players) : 0;
+  bd.eligible = eligible || coreEligible;
   return bd;
 }
 function nextStaticRainLevel(run, players = null) {
@@ -972,6 +975,29 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
   return { id: 'clean_signal', label: 'FULL CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy in the room.' };
 }
+function newContractObjectives(plan = {}, depth = 0) {
+  const quota = Math.max(8, Number(plan.quota || 8));
+  const out = [
+    { id: 'silent_protocol', label: 'SILENT PROTOCOL', reward: 'FAVOR', goal: 'Clear the sector without using Q.' },
+    { id: 'no_escape', label: 'NO ESCAPE', reward: 'FAVOR', goal: 'Clear the sector without dashing.' },
+    { id: 'five_channels', label: 'FIVE CHANNELS', reward: 'FAVOR', goal: 'Score kills with at least five different damage sources.', target: 5 },
+    { id: 'long_chain', label: 'LONG CHAIN', reward: 'FAVOR', goal: 'Reach the required combo multiplier.', target: Math.min(6, 3 + Math.floor(depth / 8)) },
+    { id: 'long_account', label: 'LONG ACCOUNT', reward: 'FAVOR', goal: 'Score kills from long range.', target: Math.max(5, Math.min(14, Math.round(quota * 0.28))) }
+  ];
+  if (!(plan.modifierIds || []).includes('greed')) out.push({ id: 'last_reserve', label: 'LAST RESERVE', reward: 'FAVOR', goal: 'Finish with every hero at 35% HP or less.', target: 35 });
+  return out;
+}
+function contractChoicesForPlan(plan = {}, depth = 0, seed = 1) {
+  const contextual = roomObjectiveForPlan(plan, depth);
+  if (!contextual || contextual.id === 'lounge_cashout') return [];
+  const pool = [contextual, ...newContractObjectives(plan, depth)].filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
+  const rng = mulberry32(((seed || 1) ^ 0xC04E7A11 ^ ((depth || 0) * 1597334677)) >>> 0);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  // Keep the room-specific contract represented while still changing its slot.
+  const choices = pool.slice(0, 3);
+  if (!choices.some(x => x.id === contextual.id)) choices[Math.floor(rng() * choices.length)] = contextual;
+  return choices;
+}
 function shouldOfferRoomContract(plan = {}, depth = 0, seed = 1) {
   const loop = Math.floor(Math.max(0, depth || 0) / 4);
   if (loop <= 0) return false;
@@ -1191,7 +1217,13 @@ function roomObjectiveProgress(run, st = run?.roomStats || {}) {
     cache_claim: `${liveEnemyCount(run)} LEFT`,
     fast_clear: `${Math.round(time)}/${fastLimit}s · ${liveEnemyCount(run)} LEFT`,
     no_hit: (st.damageTaken || 0) <= 0 ? 'CLEAN' : `${Math.round(st.damageTaken || 0)} DMG`,
-    clean_signal: `${liveEnemyCount(run)} LEFT`
+    clean_signal: `${liveEnemyCount(run)} LEFT`,
+    silent_protocol: `${st.qUses || 0} Q`,
+    no_escape: `${st.dashUses || 0} DASH`,
+    five_channels: `${(st.damageSources || []).length}/${obj.target || 5} SOURCES`,
+    long_chain: `x${Math.round((st.maxCombo || 1) * 10) / 10}/x${obj.target || 3}`,
+    long_account: `${st.longRangeKills || 0}/${obj.target || 5} KILLS`,
+    last_reserve: `${Math.round(st.teamHpPctMax ?? 100)}%/${obj.target || 35}% HP`
   };
   return progress[obj.id] || '—';
 }
@@ -1218,7 +1250,13 @@ const CONTRACT_FAVOR_DEFS = {
   clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run. Persists until it can clear either source.' },
   portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.' },
   epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.' },
-  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' }
+  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' },
+  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'The next WPN choice has at least improved quality and one extra option.' },
+  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'The next ABL choice has at least improved quality and one extra option.' },
+  rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.' },
+  mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРА', tier: 'rare', uses: 1, desc: 'Removes one dangerous modifier from the next eligible room.' },
+  credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next WPN or ABL choice chest costs nothing.' },
+  salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next room drop x5 team GLD and EXP.' }
 };
 function favorDef(id) { return CONTRACT_FAVOR_DEFS[String(id || '')] || null; }
 function favorLabel(f = {}) { return String((favorDef(f.id)?.label) || f.label || f.id || 'FAVOR'); }
@@ -1313,6 +1351,23 @@ function activatePendingContractFavors(run, players = null) {
         cleared, coreCleared: coreCleared ? 1 : 0
       });
     }
+    if (f.id === 'mod_veto' && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
+      const priority = ['moving_room', 'hunter_contract', 'blood_tax', 'casino_virus', 'prism_grid', 'static_rain', 'echo_walls', 'blackout', 'greed'];
+      const mods = run.plan?.modifierIds || [];
+      const removed = priority.find(id => mods.includes(id)) || mods.find(id => id && id !== 'skin_cache');
+      if (removed) {
+        run.plan.modifierIds = mods.filter(id => id !== removed);
+        f.used = (f.used || 0) + 1;
+        run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, removed });
+        run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: `MODIFIER REMOVED: ${String(removed).toUpperCase()}`, bodyRu: `МОДИФИКАТОР СНЯТ: ${String(removed).toUpperCase()}`, bodyEn: `MODIFIER REMOVED: ${String(removed).toUpperCase()}` });
+      }
+    }
+    if (f.id === 'salvage_protocol' && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
+      run.salvageKillsLeft = 10;
+      f.used = (f.used || 0) + 1;
+      run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, kills: 10 });
+      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: 'NEXT 10 KILLS: x5 TEAM GLD/EXP', bodyRu: 'СЛЕДУЮЩИЕ 10 УБИЙСТВ: x5 КОМАНДНЫХ GLD/EXP', bodyEn: 'NEXT 10 KILLS: x5 TEAM GLD/EXP' });
+    }
   }
   if (incoming.length) run.fx.push({ t: 'favor_active', favors: compactContractFavors(incoming).map(f => favorSnapshotItem(f, true)) });
 }
@@ -1329,10 +1384,10 @@ function nextRoomHasContractTarget(run) {
 }
 function contractFavorPool(chain = 1, run = null, players = null) {
   let pool = chain >= 4
-    ? ['epic_reroll', 'portal_insurance', 'double_favor']
+    ? ['epic_reroll', 'portal_insurance', 'double_favor', 'rar_clearance', 'salvage_protocol', 'wpn_clearance', 'abl_clearance']
     : chain >= 2
-      ? ['free_reroll', 'clear_debt', 'portal_insurance']
-      : ['free_reroll', 'clear_debt'];
+      ? ['free_reroll', 'clear_debt', 'portal_insurance', 'wpn_clearance', 'abl_clearance', 'mod_veto', 'credit_pass', 'salvage_protocol']
+      : ['free_reroll', 'clear_debt', 'credit_pass', 'wpn_clearance', 'abl_clearance', 'mod_veto'];
   // Do not offer the Static Storm remover when there is no banked/upcoming storm to remove.
   if (!hasClearableUpcomingStatic(run, players)) pool = pool.filter(id => id !== 'clear_debt');
   // Double prize only makes sense when the next location actually has a contract target.
@@ -1400,6 +1455,7 @@ function contractPrizePreview(run, players = null, chain = 1, count = 1) {
 }
 function attachContractPrizePreview(run, players = null) {
   if (!run?.roomObjective || run.roomObjective.id === 'lounge_cashout') return;
+  if (Array.isArray(run.roomObjective.prizePreview) && run.roomObjective.prizePreview.length) return;
   const chain = Math.max(1, (run?.runMemory?.contractStreak || 0) + 1);
   const count = hasActiveContractFavor(run, 'double_favor') ? 2 : 1;
   run.roomObjective.prizePreview = contractPrizePreview(run, players, chain, count);
@@ -1431,6 +1487,12 @@ function roomObjectiveDoneRaw(obj, run, st = {}, time = 0) {
   if (obj.id === 'fast_clear') return time > 0 && time <= fastClearTimeLimit(run) && !roomHasLiveEnemies(run);
   if (obj.id === 'no_hit') return (st.damageTaken || 0) <= 0 && !roomHasLiveEnemies(run);
   if (obj.id === 'clean_signal') return !roomHasLiveEnemies(run);
+  if (obj.id === 'silent_protocol') return (st.qUses || 0) <= 0 && !roomHasLiveEnemies(run);
+  if (obj.id === 'no_escape') return (st.dashUses || 0) <= 0 && !roomHasLiveEnemies(run);
+  if (obj.id === 'five_channels') return (st.damageSources || []).length >= (obj.target || 5) && !roomHasLiveEnemies(run);
+  if (obj.id === 'long_chain') return (st.maxCombo || 1) >= (obj.target || 3) && !roomHasLiveEnemies(run);
+  if (obj.id === 'long_account') return (st.longRangeKills || 0) >= (obj.target || 5) && !roomHasLiveEnemies(run);
+  if (obj.id === 'last_reserve') return (st.teamHpPctMax ?? 100) <= (obj.target || 35) && !roomHasLiveEnemies(run);
   return false;
 }
 function roomObjectiveFailReason(obj, run, st = {}, time = 0) {
@@ -1442,6 +1504,12 @@ function roomObjectiveFailReason(obj, run, st = {}, time = 0) {
   if (obj.id === 'no_hit' && (st.damageTaken || 0) > 0) return 'DAMAGE TAKEN';
   if (obj.id === 'static_clean' && (st.damageTaken || 0) > lowDamageLimit) return 'TOO MUCH DMG';
   if (obj.id === 'fast_clear' && time > fastClearTimeLimit(run)) return 'TIME LOST';
+  if (obj.id === 'silent_protocol' && (st.qUses || 0) > 0) return 'Q USED';
+  if (obj.id === 'no_escape' && (st.dashUses || 0) > 0) return 'DASH USED';
+  if (obj.id === 'five_channels' && (st.damageSources || []).length < (obj.target || 5)) return 'NOT ENOUGH SOURCES';
+  if (obj.id === 'long_chain' && (st.maxCombo || 1) < (obj.target || 3)) return 'COMBO TOO LOW';
+  if (obj.id === 'long_account' && (st.longRangeKills || 0) < (obj.target || 5)) return 'RANGE KILLS MISSING';
+  if (obj.id === 'last_reserve' && (st.teamHpPctMax ?? 100) > (obj.target || 35)) return 'HP TOO HIGH';
   if (['virus_clean','hunter_waves','grid_slow_clear','blood_paid','static_clean','cache_claim','fast_clear','no_hit','clean_signal'].includes(obj.id) && roomHasLiveEnemies(run)) return 'ENEMIES LEFT';
   if (!solved) return '';
   if (obj.id === 'hunter_waves' && !run?.hunterWave?.done) return 'WAVES LEFT';
@@ -1458,6 +1526,8 @@ function roomObjectiveEarlyFailReason(obj, run, st = run?.roomStats || {}) {
   if (obj.id === 'no_hit' && (st.damageTaken || 0) > 0) return 'DAMAGE TAKEN';
   if (obj.id === 'static_clean' && (st.damageTaken || 0) > lowDamageLimit) return 'TOO MUCH DMG';
   if (obj.id === 'fast_clear' && time > fastClearTimeLimit(run) && roomSolvedAt(run, st) <= 0) return 'TIME LOST';
+  if (obj.id === 'silent_protocol' && (st.qUses || 0) > 0) return 'Q USED';
+  if (obj.id === 'no_escape' && (st.dashUses || 0) > 0) return 'DASH USED';
   return '';
 }
 function roomObjectiveEarlyDoneRaw(obj, run, st = run?.roomStats || {}) {
@@ -1560,11 +1630,38 @@ function playableRectForArchetype(archetype) {
     panic_box: { w: 1120, h: 760 }, compact: { w: 1420, h: 960 }, standard: { w: 2200, h: 1500 },
     wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 },
     ripped_table: { w: 2200, h: 1500 }, cross_terminal: { w: 2200, h: 1500 }, ring_track: { w: 2200, h: 1500 },
-    clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 }
+    clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 },
+    root_lockdown: { w: 3100, h: 2150, x: 0, y: 0 }
   };
   const d = defs[archetype] || defs.standard;
-  const x = Math.round((2200 - d.w) / 2), y = Math.round((1500 - d.h) / 2);
+  const x = Number.isFinite(d.x) ? d.x : Math.round((2200 - d.w) / 2), y = Number.isFinite(d.y) ? d.y : Math.round((1500 - d.h) / 2);
   return { x, y, right: x + d.w, bottom: y + d.h };
+}
+
+function rootLockDepthForSeed(seedBase = 1) {
+  // Boss depths are 3, 7, 11, 15, 19 and 23. Never choose the first boss.
+  const slot = (((seedBase >>> 0) ^ 0x524f4f54) >>> 0) % 5;
+  return 7 + slot * 4;
+}
+function rootLockOuterWalls(w = 3100, h = 2150) {
+  const t = 180;
+  return [
+    { x: -t, y: -t, w: w + t * 2, h: t }, { x: -t, y: h, w: w + t * 2, h: t },
+    { x: -t, y: -t, w: t, h: h + t * 2 }, { x: w, y: -t, w: t, h: h + t * 2 },
+    { x: w * 0.5 - 75, y: h * 0.5 - 260, w: 150, h: 120 },
+    { x: w * 0.5 - 75, y: h * 0.5 + 140, w: 150, h: 120 }
+  ];
+}
+function prepareRootLockArena(run) {
+  if (!run?.plan || run.plan.category !== 'boss') return false;
+  if ((run.runDepth || 0) !== rootLockDepthForSeed(run.seedBase || 1)) return false;
+  if (run.runMemory?.rootLockDone) return false;
+  run.plan.w = 3100; run.plan.h = 2150;
+  run.plan.roomArchetype = 'root_lockdown';
+  run.plan.rootLockdown = 1;
+  run.plan.walls = rootLockOuterWalls(run.plan.w, run.plan.h);
+  run.plan.interactables = [];
+  return true;
 }
 
 function makeRoomWires(seed, archetype) {
@@ -1658,20 +1755,25 @@ function makeNextRoomPreview(run, players = null) {
   if (plan.modifierIds.includes('greed')) plan.modifierIds = plan.modifierIds.filter(m => m !== 'skin_cache');
   const intel = roomIntel(plan, 0, '');
   const offer = shouldOfferRoomContract(plan, depth, seed);
-  const obj = offer ? roomObjectiveForPlan(plan, depth) : null;
-  if (obj) obj.prizePreview = contractPrizePreview(run, players, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), 1);
+  const objectiveChoices = offer ? contractChoicesForPlan(plan, depth, seed) : [];
+  const obj = objectiveChoices[0] || null;
+  const previewChain = Math.max(1, (run.runMemory?.contractStreak || 0) + 1);
+  for (let i = 0; i < objectiveChoices.length; i++) {
+    objectiveChoices[i].prizePreview = [favorSnapshotItem(rollContractFavor(run, players, previewChain, (depth + 1) * 11 + i), false)];
+  }
   return {
     id: plan.roomId, cat: plan.category, special: plan.specialRoomId || '', archetype: plan.roomArchetype || 'standard',
     mods: (plan.modifierIds || []).slice(0, 4), quota: plan.quota || 0,
     danger: intel.danger, dangerLabel: intel.dangerLabel, threatTags: intel.threatTags, rewardTags: intel.rewardTags, tip: intel.tip,
-    objective: obj ? decorateRoomObjective(obj, depth, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), { status: 'planned', statusLabel: 'NEXT', progress: '—' }) : null
+    objective: obj ? decorateRoomObjective(obj, depth, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), { status: 'planned', statusLabel: 'NEXT', progress: '—' }) : null,
+    objectiveChoices: objectiveChoices.map(x => decorateRoomObjective(x, depth, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), { status: 'planned', statusLabel: 'VOTE', progress: '—' }))
   };
 }
 function initRoomStats(run) {
   run.roomObjectiveSettlement = null;
   run.roomObjectiveLiveState = null;
   run.roomObjectiveFrozenStats = null;
-  run.roomStats = { kills: 0, gld: 0, exp: 0, hea: 0, damageTaken: 0, shellBreaks: 0, prismHits: 0, bloodTaxes: 0, wireTouches: 0, huntedWaves: 0, startedAt: run.now || 0, solvedAt: 0 };
+  run.roomStats = { kills: 0, gld: 0, exp: 0, hea: 0, damageTaken: 0, shellBreaks: 0, prismHits: 0, bloodTaxes: 0, wireTouches: 0, huntedWaves: 0, qUses: 0, dashUses: 0, damageSources: [], maxCombo: 1, longRangeKills: 0, teamHpPctMax: 100, startedAt: run.now || 0, solvedAt: 0 };
 }
 function markRoomSolved(run, reason = 'portal_open') {
   if (!run) return;
@@ -2835,6 +2937,7 @@ function registerComboEvent(run, actor, method, enemy = null, scale = 1) {
   const oldTier = c.tier || 0;
   c.mult = comboMultiplierFromScore(c.score);
   c.best = Math.max(c.best || 1, c.mult || 1);
+  if (run.roomStats) run.roomStats.maxCombo = Math.max(run.roomStats.maxCombo || 1, c.best || 1);
   c.tier = comboTier(c.mult);
   if (run.runMemory) run.runMemory.bestCombo = Math.max(run.runMemory.bestCombo || 1, c.best || 1);
   if (c.tier > oldTier || (isKill && c.count === 1)) run.fx.push({ t: 'combo_tick', mult: c.mult, tier: c.tier, method, label: c.lastLabel, x: Math.round(actor.x || 0), y: Math.round(actor.y || 0), id: actor.id });
@@ -2932,8 +3035,8 @@ export function createRun(seedBase) {
     staticRainCanSeedNext: false,
     staticRainFromPending: false,
     roomStaticRainFalls: 0,
-    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], nextRoomPreview: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(), playerCombos: {},
-    runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 },
+    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], salvageKillsLeft: 0, nextRoomPreview: null, contractChoice: null, pendingRoomObjective: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], rootLock: null, hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(), playerCombos: {},
+    runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1, rootLockDone: 0 },
     bossOrder: [], bossHistory: [],
     tapeLog: [],
     finalSummary: null, completedAt: 0,
@@ -5282,18 +5385,22 @@ export function startRoom(run, players) {
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
+  run.rootLock = null;
+  const rootLockRoom = prepareRootLockArena(run);
   activatePendingContractFavors(run, players);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
-  const naturalStaticLevel = naturalStaticRain && debtEngineEligiblePlan(run.plan) ? 1 : 0;
+  const roomStaticEligible = planStaticEligible(run.plan);
+  const coreStaticEligible = debtEngineEligiblePlan(run.plan);
+  const naturalStaticLevel = naturalStaticRain && roomStaticEligible ? 1 : 0;
   const debtStacks = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
   const carryStacks = Math.max(0, run.staticRainCarry || 0);
   const pendingRainStacks = clampStaticRainLevel(debtStacks + carryStacks);
-  const debtEngineStacks = debtEngineEligiblePlan(run.plan) ? activeDebtEngineStacks(run, players) : 0;
+  const debtEngineStacks = coreStaticEligible ? activeDebtEngineStacks(run, players) : 0;
   const incomingSources = [];
   if (naturalStaticLevel > 0) incomingSources.push({ id: 'room_modifier', level: naturalStaticLevel });
-  if (debtStacks > 0) incomingSources.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debtStacks));
-  if (carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'previous_room_hits', carryStacks));
+  if (roomStaticEligible && debtStacks > 0) incomingSources.push(...sourceListFromMap(run.staticDebtSources, 'static_debt', debtStacks));
+  if (roomStaticEligible && carryStacks > 0) incomingSources.push(...sourceListFromMap(run.staticRainCarrySources, 'previous_room_hits', carryStacks));
   if (debtEngineStacks > 0) incomingSources.push({ id: 'debt_engine', level: debtEngineStacks });
   const incomingBreakdown = normalizeStaticSources(incomingSources);
   const incomingRainStacks = incomingBreakdown.total;
@@ -5311,9 +5418,18 @@ export function startRoom(run, players) {
   run.playerCombos = {};
   run.roomContractStakes = {};
   initRoomStats(run);
-  run.roomObjective = shouldOfferRoomContract(run.plan, run.runDepth, seed) ? roomObjectiveForPlan(run.plan, run.runDepth) : null;
+  const votedObjective = run.pendingRoomObjective && run.pendingRoomObjective.depth === run.runDepth ? run.pendingRoomObjective.objective : null;
+  const fallbackObjective = !votedObjective && run.contractChoice?.depth === run.runDepth && run.contractChoice?.choices?.length ? run.contractChoice.choices[0] : null;
+  const selectedObjective = votedObjective || fallbackObjective ? { ...(votedObjective || fallbackObjective) } : null;
+  run.pendingRoomObjective = null;
+  run.roomObjective = selectedObjective || (shouldOfferRoomContract(run.plan, run.runDepth, seed) ? roomObjectiveForPlan(run.plan, run.runDepth) : null);
   attachContractPrizePreview(run, players);
   run.nextRoomPreview = makeNextRoomPreview(run, players);
+  run.contractChoice = run.nextRoomPreview?.objectiveChoices?.length ? {
+    depth: (run.runDepth || 0) + 1,
+    choices: run.nextRoomPreview.objectiveChoices.map(x => ({ ...x })),
+    votes: {}, selected: ''
+  } : null;
   run.roomSockets = [];
   run.roomWires = [];
   run.movingWalls = [];
@@ -5362,17 +5478,17 @@ export function startRoom(run, players) {
   if ((run.plan.modifierIds || []).includes('casino_virus')) {
     run.casinoVirus = { spinsLeft: 3, totalSpins: 3, appliedSpins: 0, nextSpin: 6, done: false, lastLabel: 'WAITING', activeRainStacks: 0, rainT: 0, spinSeq: 0, rainKind: '', lastSymbols: [], pendingEvent: null };
   }
-  if (incomingRainStacks > 0 && debtEngineEligiblePlan(run.plan)) {
+  if (incomingRainStacks > 0 && (roomStaticEligible || coreStaticEligible)) {
     if (!run.plan.modifierIds.includes('static_rain')) run.plan.modifierIds.push('static_rain');
     run.staticRainStacks = incomingRainStacks;
     run.staticRainSources = incomingBreakdown.sources;
     run.staticRainNaturalLevel = naturalStaticLevel;
     run.staticRainDebtLevel = debtStacks;
     run.staticRainCarryLevel = carryStacks;
-    run.staticRainFromPending = pendingRainStacks > 0;
+    run.staticRainFromPending = roomStaticEligible && pendingRainStacks > 0;
     // Only a natural room modifier can seed the next storm. Banked debt, STATIC CORE, and Casino Virus do not cascade by themselves.
     run.staticRainCanSeedNext = naturalStaticLevel > 0;
-    if (pendingRainStacks > 0) {
+    if (roomStaticEligible && pendingRainStacks > 0) {
       run.staticDebt = 0;
       run.staticDebtSources = {};
       run.staticRainCarry = 0;
@@ -5419,7 +5535,7 @@ export function startRoom(run, players) {
   let i = 0;
   for (const p of players.values()) {
     const sp = spawnPoint(i++);
-    p.x = sp.x; p.y = sp.y;
+    p.x = sp.x + (rootLockRoom ? 450 : 0); p.y = sp.y + (rootLockRoom ? 325 : 0);
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
@@ -5467,6 +5583,29 @@ export function startRoom(run, players) {
     const boss = spawnEnemy(run, players, bossKind, false);
     if (isFinalBossRoom(run)) { boss.maxHp = Math.round((boss.maxHp || boss.hp || 1) * 1.35); boss.hp = boss.maxHp; boss.finalBoss = 1; }
     run.bossKind = bossKind;
+    if (rootLockRoom) {
+      const rootRng = mulberry32((seed ^ 0x524f4f54) >>> 0);
+      // One node per distant quadrant: placement changes with the seed while
+      // the quadrants guarantee readable separation and prevent node clumps.
+      const positions = [
+        [360 + rootRng() * 480, 300 + rootRng() * 390],
+        [run.plan.w - 840 + rootRng() * 480, 300 + rootRng() * 390],
+        [360 + rootRng() * 480, run.plan.h - 690 + rootRng() * 390],
+        [run.plan.w - 840 + rootRng() * 480, run.plan.h - 690 + rootRng() * 390]
+      ].map(([x, y]) => [Math.round(x), Math.round(y)]);
+      const nodeIds = [];
+      const teamScale = Math.max(1, Math.sqrt([...players.values()].filter(x => x.connected).length || 1));
+      for (let ni = 0; ni < positions.length; ni++) {
+        const node = spawnEnemy(run, players, 'root_node', false);
+        node.x = positions[ni][0]; node.y = positions[ni][1]; node.vx = 0; node.vy = 0; node.spawnDelay = 0.85 + ni * 0.12;
+        node.maxHp = Math.round((430 + loopIndex * 95) * teamScale); node.hp = node.maxHp;
+        node.rootNode = 1; node.rootIndex = ni + 1; node.shellHp = 0; node.shellMax = 0;
+        nodeIds.push(node.id);
+      }
+      run.rootLock = { active: 1, bossId: boss.id, nodeIds, total: 4, left: 4 };
+      run.runMemory.rootLockDone = 1;
+      run.fx.push({ t: 'room_event', label: 'ROOT LOCKDOWN', body: 'ACCESS DENIED · DESTROY ROOT NODES 0/4', tone: 'purple' });
+    }
     run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
     const silenceSeconds = 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10;
     run.fx.push({ t: 'boss_q_silence', label: 'Q SILENCE', seconds: silenceSeconds, x: Math.round(boss.x), y: Math.round(boss.y) });
@@ -5500,7 +5639,7 @@ export function resetRun(run, players) {
   run.roomStaticRainFalls = 0;
   run.combo = createComboState();
   run.playerCombos = {};
-  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
+  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.salvageKillsLeft = 0; run.nextRoomPreview = null; run.contractChoice = null; run.pendingRoomObjective = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.rootLock = null; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
   run.bossOrder = [];
   run.bossHistory = [];
@@ -6987,19 +7126,20 @@ function trinodeSyncParts(run, e, dt) {
 }
 function trinodeFireVolley(run, e, def) {
   const parts = Array.isArray(e.trinodeParts) ? e.trinodeParts : [];
-  const need = parts.length * 4;
-  if (!parts.length || run.bullets.length > MAX_BULLETS - need - 2) return false;
+  const active = parts[0];
+  const count = 10;
+  if (!active || run.bullets.length > MAX_BULLETS - count - 2) return false;
   const speed = def.bulletSpd || 285;
-  const half = (e.size || 62) * 0.5;
   const damage = enemyDamageValue(e, e.trinodePhase === 'burst' ? 0.22 : 0.28);
-  for (const part of parts) {
-    for (let side = 0; side < 4; side++) {
-      const a = side * Math.PI / 2;
-      const dx = Math.cos(a), dy = Math.sin(a);
-      run.bullets.push({ id: nid(), x: part.x + dx * half, y: part.y + dy * half, vx: dx * speed, vy: dy * speed, dmg: damage, from: 'e', life: 3.0, size: 6, kind: 'trinode_edge' });
-    }
+  const base = (run.now || 0) * 0.35 + (e.bossPhase || 0);
+  for (let i = 0; i < count; i++) {
+    const a = base + (i / count) * Math.PI * 2;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    run.bullets.push({ id: nid(), x: active.x, y: active.y, vx: dx * speed, vy: dy * speed, dmg: damage, from: 'e', life: 3.0, size: 6 });
   }
-  run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y), trinode: 1, phase: e.trinodePhase });
+  // TRI uses the basic boss radial pattern, but only the exposed square fires.
+  // Its cue is square-shaped so no misleading red danger circle is drawn.
+  run.fx.push({ t: 'trinode_shot', id: e.id, x: Math.round(active.x), y: Math.round(active.y), phase: e.trinodePhase });
   return true;
 }
 function trinodeTouchDamage(run, players, e, dt) {
@@ -7219,6 +7359,7 @@ function rActiveLabel(p) {
   if (id === 'kill_switch' && !(p?.stats?.killSwitchCharge > 0)) return 'R BURNT';
   const base = R_ACTIVE_LABELS[id] || id.toUpperCase();
   const stacks = Math.max(1, Number(p?.stats?.rActiveStacks || 1) | 0);
+  if (id === 'kill_switch') return `${base} x${Math.max(1, Number(p?.stats?.killSwitchCharge || 0) | 0)}`;
   return id !== 'kill_switch' && stacks > 1 ? `${base} x${stacks}` : base;
 }
 function rActiveDesc(p) {
@@ -7228,7 +7369,10 @@ function rActiveDesc(p) {
   if (id === 'redline_boost') return `Скорость +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)}с · CD ${rActiveCooldown(id)}с`;
   if (id === 'ghost_decoy') return `Невидимость + призрак ${ghostDecoyDuration(p)}с · CD ${rActiveCooldown(id)}с`;
   if (id === 'rewind_mark') return `Метка возврата ${rewindWindow(p)}с · стан ${rewindStun(p)}с · CD ${rActiveCooldown(id)}с`;
-  if (id === 'kill_switch') return p?.stats?.killSwitchCharge > 0 ? 'Один раз стирает угрозы на экране, включая главную угрозу.' : 'KILL SWITCH сгорел.';
+  if (id === 'kill_switch') {
+    const charges = Math.max(0, Number(p?.stats?.killSwitchCharge || 0) | 0);
+    return charges > 0 ? `Стирает все проявившиеся угрозы. Осталось применений: ${charges}.` : 'KILL SWITCH сгорел.';
+  }
   return 'R-протокол не выбран.';
 }
 function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
@@ -7294,8 +7438,11 @@ function useMirrorIfPossible(run, p, label, canStack, applyFn) {
     run.fx.push({ t: 'active_mutation', label: 'MIRROR FAILED', x: Math.round(p.x), y: Math.round(p.y), r: 95, tone: 'purple', playerId: p.id });
     return false;
   }
-  run.fx.push({ t: 'mirror_copy', id: p.id, playerId: p.id, ok: 1, label: cleanLabel });
-  run.fx.push({ t: 'active_mutation', label: `MIRRORED ${cleanLabel || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
+  const killSwitchCopy = cleanLabel.toUpperCase() === 'KILL SWITCH';
+  const total = killSwitchCopy ? Math.max(0, Number(p?.stats?.killSwitchCharge || 0) | 0) : 0;
+  const mirrorBody = killSwitchCopy ? `+1 USE · ${total} TOTAL` : '';
+  run.fx.push({ t: 'mirror_copy', id: p.id, playerId: p.id, ok: 1, label: cleanLabel, body: mirrorBody, total });
+  run.fx.push({ t: 'active_mutation', label: killSwitchCopy ? `MIRRORED KILL SWITCH +1 · ${total} TOTAL` : `MIRRORED ${cleanLabel || ''}`.trim(), x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'purple', playerId: p.id });
   return true;
 }
 function restoreMirrorChargesAfterBoss(run, players) {
@@ -7395,8 +7542,9 @@ function doRActive(run, players, p) {
     if (!(p.stats.killSwitchCharge > 0)) return false;
     const live = run.enemies.filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0);
     if (!live.length) return false;
-    p.stats.killSwitchCharge = 0;
-    p.stats.rActiveId = '';
+    p.stats.killSwitchCharge = Math.max(0, (Number(p.stats.killSwitchCharge || 0) | 0) - 1);
+    p.stats.rActiveStacks = Math.max(0, p.stats.killSwitchCharge);
+    if (p.stats.killSwitchCharge <= 0) p.stats.rActiveId = '';
     p.rActiveCd = 0;
     run.fx.push({ t: 'kill_switch_screen', id: p.id, x: Math.round(p.x), y: Math.round(p.y), label: 'KILL SWITCH' });
     run.fx.push({ t: 'active_mutation', label: 'KILL SWITCH', x: Math.round(p.x), y: Math.round(p.y), r: 560, tone: 'red', playerId: p.id, noFloat: 1 });
@@ -7406,7 +7554,7 @@ function doRActive(run, players, p) {
       const batch = run.enemies.filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0);
       for (const e of batch) if (run.enemies.includes(e)) killEnemy(run, players, e, p, 'kill_switch');
     }
-    run.fx.push({ t: 'active_mutation', label: 'FIELD CLEARED', x: Math.round(p.x), y: Math.round(p.y), r: 620, tone: 'red', playerId: p.id, noFloat: 1 });
+    run.fx.push({ t: 'active_mutation', label: p.stats.killSwitchCharge > 0 ? `FIELD CLEARED · KILL SWITCH x${p.stats.killSwitchCharge}` : 'FIELD CLEARED · KILL SWITCH BURNT', x: Math.round(p.x), y: Math.round(p.y), r: 620, tone: 'red', playerId: p.id, noFloat: 1 });
     tryCleanupPortal(run);
     return true;
   }
@@ -7447,7 +7595,6 @@ function stepDecoys(run, dt) {
   run.decoys = run.decoys.filter(d => d && d.t > 0);
 }
 
-const ROOM_WAGER_DECISION_TIME = 12;
 const ROOM_WAGER_STAKES = [
   { id: 'all_gld', ru: 'всё GLD', en: 'all GLD', loss: (run, p) => { p.economy.money = 0; } },
   { id: 'hp_50', ru: '50% HP', en: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
@@ -7534,10 +7681,15 @@ function makeRoomWagerOffer(run, p) {
   const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
   const textRu = `Поставить [${stake.ru}] на [${condition.ru}] → получить [${prize.ru}]`;
   const textEn = `Wager [${stake.en}] on [${condition.en}] → receive [${prize.en}]`;
-  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.ru, stakeTextRu: stake.ru, stakeTextEn: stake.en, condition: condition.id, conditionText: condition.ru, conditionTextRu: condition.ru, conditionTextEn: condition.en, prize: prize.id, prizeText: prize.ru, prizeTextRu: prize.ru, prizeTextEn: prize.en, text: textRu, textRu, textEn, expires: ROOM_WAGER_DECISION_TIME, total: ROOM_WAGER_DECISION_TIME };
+  // A wager is a deliberate choice, not a reaction check. INSTALL remains open
+  // until the player accepts or skips it, so the offer owns no countdown.
+  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.ru, stakeTextRu: stake.ru, stakeTextEn: stake.en, condition: condition.id, conditionText: condition.ru, conditionTextRu: condition.ru, conditionTextEn: condition.en, prize: prize.id, prizeText: prize.ru, prizeTextRu: prize.ru, prizeTextEn: prize.en, text: textRu, textRu, textEn };
 }
 function ensureRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; return null; }
+  // A boss signature / INSTALL choice always resolves first. The wager then gets
+  // its own full, visible decision window instead of hiding beside another modal.
+  if (p.offer || p.bossSignaturePending || Math.max(0, p.economy?.pending || 0) > 0) return null;
   if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
   return p.roomWagerOffer;
 }
@@ -7763,6 +7915,13 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
   // lifesteal, combo, or death logic until the enemy has actually materialized.
   if (!enemyCombatReady(e)) return 0;
   const def = ENEMIES[e.kind];
+  if (def?.boss && run?.rootLock?.active && (run.rootLock.left || 0) > 0 && e.id === run.rootLock.bossId) {
+    if ((run.rootLock.blockFxT || 0) <= (run.now || 0)) {
+      run.rootLock.blockFxT = (run.now || 0) + 0.28;
+      run.fx.push({ t: 'armor_shell', locked: 1, shellType: 'root', id: e.id, dmg: 0, left: run.rootLock.left, x: Math.round(e.x), y: Math.round(e.y) });
+    }
+    return 0;
+  }
   // Armor is a real shell class: it absorbs hits before HP.
   // Plain shell loses shell HP from shots. Linked shell loses nothing while its unarmored battery mob is alive nearby.
   const rawDmg = Math.max(1, Math.round(dmg));
@@ -7817,8 +7976,12 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
       e.x = next.x; e.y = next.y;
       e.trinodeUnlockT = 0.55;
       trinodeBroke = true;
-      run.fx.push({ t: 'trinode_break', id: e.id, x: Math.round(broken.x), y: Math.round(broken.y), left: e.trinodeParts.length });
+      run.fx.push({ t: 'trinode_break', id: e.id, x: Math.round(broken.x), y: Math.round(broken.y), size: e.size || 62, left: e.trinodeParts.length });
       run.fx.push({ t: 'boss_segment_unlock', id: e.id, x: Math.round(next.x), y: Math.round(next.y), segment: 4 - e.trinodeParts.length });
+    } else if (part.hp <= 0) {
+      // The final square gets the same physical break cue before the ordinary
+      // boss-down sequence resolves the encounter.
+      run.fx.push({ t: 'trinode_break', id: e.id, x: Math.round(part.x), y: Math.round(part.y), size: e.size || 62, left: 0 });
     }
   } else e.hp -= dmg;
   run.fx.push({ t: 'ehit', id: e.id, owner: owner || '', dmg, x: Math.round(e.x), y: Math.round(e.y), source });
@@ -7871,6 +8034,7 @@ function spreadElementStatusesOnKill(run, players, dead, killer) {
 
 function killEnemy(run, players, e, killer, source = 'hit') {
   const def = ENEMIES[e.kind];
+  if (def?.boss && run?.rootLock?.active && (run.rootLock.left || 0) > 0 && e.id === run.rootLock.bossId) return;
   if (e.kind === 'slot_mob' && Math.max(1, Number(e.slotLives || 1) | 0) > 1) {
     const nextLives = Math.max(1, (Number(e.slotLives || 1) | 0) - 1);
     const x = Math.round(e.x), y = Math.round(e.y);
@@ -7892,9 +8056,30 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     registerComboEvent(run, killer, source, e, 1);
     return;
   }
+  if (e.kind === 'root_node' || e.rootNode) {
+    run.enemies = run.enemies.filter(x => x.id !== e.id);
+    if (run.rootLock) {
+      run.rootLock.nodeIds = (run.rootLock.nodeIds || []).filter(id => id !== e.id);
+      run.rootLock.left = run.rootLock.nodeIds.length;
+      const cleared = Math.max(0, (run.rootLock.total || 4) - run.rootLock.left);
+      run.fx.push({ t: 'room_event_done', label: 'ROOT NODE ERASED', body: `${cleared}/${run.rootLock.total || 4} · ${run.rootLock.left ? 'ACCESS DENIED' : 'BOSS EXPOSED'}`, x: Math.round(e.x), y: Math.round(e.y) });
+      if (run.rootLock.left <= 0) {
+        run.rootLock.active = 0;
+        run.fx.push({ t: 'active_mutation', label: 'ROOT LOCK BROKEN · BOSS EXPOSED', x: Math.round(run.plan.w / 2), y: Math.round(run.plan.h / 2), r: 260, tone: 'purple' });
+      }
+    }
+    return;
+  }
   run.enemies = run.enemies.filter(x => x.id !== e.id);
   run.kills++;
   if (run.roomStats) run.roomStats.kills++;
+  if (run.roomStats && killer) {
+    const method = String(source || 'weapon').toLowerCase().replace(/^ctrl_boss.*/, 'controlled_ranged').replace(/^ctrl_.*/, 'controlled_process').replace(/^drone.*/, 'drone');
+    const sources = new Set(Array.isArray(run.roomStats.damageSources) ? run.roomStats.damageSources : []);
+    sources.add(method === 'hit' ? 'weapon' : method);
+    run.roomStats.damageSources = [...sources].slice(0, 32);
+    if (Math.hypot((killer.x || 0) - (e.x || 0), (killer.y || 0) - (e.y || 0)) >= 520) run.roomStats.longRangeKills = (run.roomStats.longRangeKills || 0) + 1;
+  }
   if (killer?.wagerStats) killer.wagerStats.kills = (killer.wagerStats.kills || 0) + 1;
   if (source === 'control_capture') {
     // Assimilation removes the hostile process without running death-only behavior:
@@ -7974,9 +8159,14 @@ function killEnemy(run, players, e, killer, source = 'hit') {
   // drops
   const greed = run.plan.modifierIds.includes('greed');
   const mult = (e.elite ? 2.5 : 1) * (def.boss ? 1 : 1);
+  const salvageMul = Math.max(0, run.salvageKillsLeft || 0) > 0 ? 5 : 1;
+  if (salvageMul > 1) {
+    run.salvageKillsLeft = Math.max(0, (run.salvageKillsLeft || 0) - 1);
+    run.fx.push({ t: 'active_mutation', label: `SALVAGE x5 · ${run.salvageKillsLeft} LEFT`, x: Math.round(e.x), y: Math.round(e.y), r: 74, tone: 'gold' });
+  }
   const goldMul = (killer ? killer.stats.goldMul : 1) * (greed ? 1.6 : 1);
-  const gldDrop = Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run)));
-  const expDrop = Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45)));
+  const gldDrop = Math.max(1, Math.round(def.gld * mult * goldMul * scaling(run) * 0.6 * mobLootMul(run) * salvageMul));
+  const expDrop = Math.max(1, Math.round(def.xp * mult * (1 + (mobLootMul(run) - 1) * 0.45) * salvageMul));
   if (greed) {
     // GOLD FEVER means mob loot is pure GLD: no EXP/HEA pickups from enemy deaths.
     dropPickup(run, e.x, e.y, 'GLD', gldDrop + Math.max(1, Math.round(expDrop * 0.55)));
@@ -10357,8 +10547,9 @@ function triggerTrojanChest(run, players, p, o, def, paidCost = 0, paidUnit = 'G
 function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
   const keyUsed = spendBossKey(run, p, o);
-  const value = chestValueInfo(run, o);
-  const cost = keyUsed ? 0 : effectiveChestCost(run, o);
+  let value = chestValueInfo(run, o);
+  const creditPass = !keyUsed && !isGreedRoom(run) && ['weapon_chest', 'ability_chest'].includes(o.chest) ? consumeContractFavor(run, ['credit_pass']) : null;
+  const cost = keyUsed || creditPass ? 0 : effectiveChestCost(run, o);
   if (cost > 0) {
     if (isBloodTaxRoom(run)) {
       const hpCost = bloodTaxHpCost(cost);
@@ -10407,6 +10598,8 @@ function openChest(run, players, p, o) {
     if (bscBoost > 1 || rng() < 0.15) dropPickup(run, o.x, o.y - 50, 'HEA', Math.round(20 + Math.min(60, 5 * Math.log2(lootMul + 1))));
     rewards.push(`LOOT x${Math.round(lootMul * 10) / 10}`);
   } else if (o.chest === 'weapon_chest') {
+    const clearance = consumeContractFavor(run, ['wpn_clearance']);
+    if (clearance) value = { ...value, tier: Math.max(2, value.tier || 1), slotCount: Math.min(5, Math.max(3, (value.slotCount || value.slots || 1) + 1)), label: 'CLEARANCE', labelRu: 'ДОПУСК', reason: 'WPN CLEARANCE' };
     takeCasinoHoldChoices(p, 2);
     const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
     p.weaponChestOffer = { choices: makeWeaponChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, picksTotal: count >= 5 ? 2 : 1, picksRemaining: count >= 5 ? 2 : 1, pickedLabels: [] };
@@ -10415,6 +10608,8 @@ function openChest(run, players, p, o) {
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'ability_chest') {
+    const clearance = consumeContractFavor(run, ['abl_clearance']);
+    if (clearance) value = { ...value, tier: Math.max(2, value.tier || 1), slotCount: Math.min(5, Math.max(3, (value.slotCount || value.slots || 1) + 1)), label: 'CLEARANCE', labelRu: 'ДОПУСК', reason: 'ABL CLEARANCE' };
     takeCasinoHoldChoices(p, 2);
     const count = Math.max(1, Math.min(5, value.slotCount || value.slots || 1));
     p.abilityChestOffer = { choices: makeAbilityChestChoices(p, rng, count, value.tier), chestId: o.id, valueTier: value.tier, valueLabel: value.label, valueLabelRu: value.labelRu, slotCount: count, rarityReason: value.reason, costPaid: paidCost, costUnit: paidUnit, picksTotal: count >= 5 ? 2 : 1, picksRemaining: count >= 5 ? 2 : 1, pickedLabels: [] };
@@ -10423,6 +10618,8 @@ function openChest(run, players, p, o) {
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, costPaid: paidCost, costUnit: paidUnit, obj: o.id, chest: def.label, value: value.label, slots: count, rewards: [tag].filter(Boolean), x: o.x, y: o.y });
     return;
   } else if (o.chest === 'rare_chest') {
+    const clearance = consumeContractFavor(run, ['rar_clearance']);
+    if (clearance) value = { ...value, tier: Math.max(3, value.tier || 1), label: 'CLEARANCE', labelRu: 'ДОПУСК', reason: 'RAR CLEARANCE' };
     takeCasinoHoldChoices(p, 2);
     const loopIndex = Math.max(0, Math.floor((run.runDepth || 0) / 4));
     const u = rollSafeRareUpgrade(p, rng, value.tier, loopIndex);
@@ -11392,6 +11589,26 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0, choiceId = '
   return true;
 }
 
+export function handleContractPick(run, players, p, choiceIdx = 0) {
+  const offer = run?.contractChoice;
+  if (!offer || !p?.connected || !Array.isArray(offer.choices) || !offer.choices.length) return false;
+  const idx = Math.max(0, Math.min(offer.choices.length - 1, Number(choiceIdx) | 0));
+  const choice = offer.choices[idx];
+  if (!choice?.id) return false;
+  if (!offer.votes || typeof offer.votes !== 'object') offer.votes = {};
+  offer.votes[p.id] = choice.id;
+  const counts = new Map(offer.choices.map(x => [x.id, 0]));
+  for (const id of Object.values(offer.votes)) if (counts.has(id)) counts.set(id, counts.get(id) + 1);
+  let selected = offer.choices[0];
+  for (const candidate of offer.choices) if ((counts.get(candidate.id) || 0) > (counts.get(selected.id) || 0)) selected = candidate;
+  const changed = offer.selected !== selected.id;
+  offer.selected = selected.id;
+  run.pendingRoomObjective = { depth: offer.depth, objective: { ...selected } };
+  if (run.nextRoomPreview) run.nextRoomPreview.objective = { ...selected, status: 'planned', statusLabel: 'SELECTED', progress: '—' };
+  if (changed) run.fx.push({ t: 'contract_selected', id: p.id, playerId: p.id, label: selected.label, body: selected.goal, votes: counts.get(selected.id) || 1 });
+  return true;
+}
+
 function stepInstall(run, players, dt) {
   run.phaseT += dt;
   let waiting = false;
@@ -11405,9 +11622,7 @@ function stepInstall(run, players, dt) {
     }
     ensureRoomWagerOffer(run, p);
     if (p.roomWagerOffer) {
-      p.roomWagerOffer.expires = Math.max(0, Number(p.roomWagerOffer.expires || 0) - dt);
-      if (p.roomWagerOffer.expires <= 0) handleRoomWagerDecline(run, players, p, p.roomWagerOffer.id, true);
-      else waiting = true;
+      waiting = true;
     }
     ensureInstallOffer(run, p);
     if (p.offer) {
@@ -12030,11 +12245,12 @@ function castActiveCore(run, players, p, opts = {}) {
     ctx.y = Math.round(clamp(rawY, margin, Math.max(margin, (run.plan?.h || 1100) - margin)));
     ctx.r = profile.radius;
     if (!run.pendingActiveStrikes) run.pendingActiveStrikes = [];
+    const strikeId = nid();
     run.pendingActiveStrikes.push({
-      id: nid(), owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r,
+      id: strikeId, owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r,
       dmg: playerDamageValue(p, profile.damage), at: run.now + profile.delay, level: lvl
     });
-    run.fx.push({ t: 'rain_warn', id: p.id, owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r, dur: profile.delay, stacks: 1, tone: 'cyan', ally: 1, active: 1 });
+    run.fx.push({ t: 'rain_warn', id: p.id, strikeId, owner: p.id, x: ctx.x, y: ctx.y, r: ctx.r, dur: profile.delay, stacks: 1, tone: 'cyan', ally: 1, active: 1 });
     run.fx.push({ t: 'active', kind: 'static_strike', id: p.id, label: `STATIC STRIKE ${roman(lvl)}`, x: ctx.x, y: ctx.y, r: ctx.r, delayed: 1 });
   } else if (core === 'debt_pulse') {
     ctx.r = activeRadiusForLevel(lvl, 340, 560);
@@ -12143,7 +12359,7 @@ function stepActiveFields(run, players, dt) {
       activeDamageEnemy(run, players, e, strike.dmg || 72, strike.owner, 'static_strike');
       if (e.hp < before) hits++;
     }
-    run.fx.push({ t: 'rain_hit', id: strike.owner, owner: strike.owner, x: Math.round(strike.x), y: Math.round(strike.y), r: strike.r, stacks: 1, tone: 'cyan', ally: 1, active: 1, hits });
+    run.fx.push({ t: 'rain_hit', id: strike.owner, strikeId: strike.id, owner: strike.owner, x: Math.round(strike.x), y: Math.round(strike.y), r: strike.r, stacks: 1, tone: 'cyan', ally: 1, active: 1, hits });
   }
   for (const cr of [...run.pendingCasinoRolls]) {
     if (run.now >= cr.at) {
@@ -12311,7 +12527,7 @@ function armVoidCut(run, p) {
   };
   run.fx.push({ t: 'active_arm', id: p.id, x: start.x, y: start.y, r: 32, tone: 'purple', label: 'CUT' });
 }
-function consumeActiveCastStat(p) { if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1; }
+function consumeActiveCastStat(run, p) { if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1; if (run?.roomStats) run.roomStats.qUses = (run.roomStats.qUses || 0) + 1; }
 function doActive(run, players, p) {
   if ((p.bossQSilenceT || 0) > 0) {
     p.activeTargeting = null;
@@ -12351,7 +12567,7 @@ function doActive(run, players, p) {
     if (firstSegment) {
       if ((p.activeCd || 0) > 0) { p.activeTargeting = null; return; }
       p.activeCd = activeCooldown(p) * Math.max(0.15, Number(p.wagerQCdMul || 1) || 1);
-      consumeActiveCastStat(p);
+      consumeActiveCastStat(run, p);
     }
     const ctx = castActiveCore(run, players, p, {
       startX: target.x, startY: target.y, segmentIndex: segIndex,
@@ -12372,7 +12588,7 @@ function doActive(run, players, p) {
     p.activeTargeting = null;
     if ((p.activeCd || 0) > 0) return;
     p.activeCd = activeCooldown(p) * Math.max(0.15, Number(p.wagerQCdMul || 1) || 1);
-    consumeActiveCastStat(p);
+    consumeActiveCastStat(run, p);
     castActiveCore(run, players, p);
     return;
   }
@@ -12392,7 +12608,7 @@ function doActive(run, players, p) {
   a.spikeCharges = currentCharges - 1;
   p.spikePlaceCd = 0.12;
   if (a.spikeCharges < max && (p.activeCd || 0) <= 0) p.activeCd = signalSpikeRecharge(p);
-  consumeActiveCastStat(p);
+  consumeActiveCastStat(run, p);
   castActiveCore(run, players, p);
 }
 
@@ -12637,6 +12853,7 @@ function stepPlayers(run, players, dt) {
       p.x = c.x; p.y = c.y;
       p.dashCharges--;
       if (p.wagerStats) p.wagerStats.dash = (p.wagerStats.dash || 0) + 1;
+      if (run.roomStats) run.roomStats.dashUses = (run.roomStats.dashUses || 0) + 1;
       if (playerSigStack(p, 'sigRedOverdrive') > 0) p.redOverdriveShots = Math.max(p.redOverdriveShots || 0, 1);
       if (playerSigStack(p, 'sigAimGlitch') > 0) p.aimGlitchT = Math.max(p.aimGlitchT || 0, 1.15 + playerSigStack(p, 'sigAimGlitch') * 0.15);
       p.invuln = Math.max(p.invuln, DASH_INVULN);
@@ -12700,6 +12917,10 @@ export function step(run, players, dt, now) {
   stepMods(run, players, dt);
   stepCombo(run, players, dt);
   tryCleanupPortal(run);
+  if (run.roomStats) {
+    const team = [...players.values()].filter(p => p.connected && p.alive);
+    run.roomStats.teamHpPctMax = team.length ? Math.max(...team.map(p => (p.hp / Math.max(1, maxHp(p))) * 100)) : 100;
+  }
   updateRoomObjectiveLiveState(run);
   // all dead?
   const connected = [...players.values()].filter(p => p.connected);
@@ -12989,6 +13210,8 @@ export function buildSnapshot(run, players) {
       staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineUpgradeStacks, debtEngineRainStacks: debtEngineRoomStacks, staticCoreStormDisabled: run.staticCoreStormDisabled ? 1 : 0,
       danger: currentIntel.danger, dangerLabel: currentIntel.dangerLabel, threatTags: currentIntel.threatTags, rewardTags: currentIntel.rewardTags, tip: currentIntel.tip,
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
+      contractChoice: run.contractChoice ? { ...run.contractChoice, votes: { ...(run.contractChoice.votes || {}) } } : null,
+      rootLock: run.rootLock ? { active: run.rootLock.active ? 1 : 0, bossId: run.rootLock.bossId || '', nodeIds: [...(run.rootLock.nodeIds || [])], total: run.rootLock.total || 4, left: run.rootLock.left || 0 } : null,
       next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run), contractWagers: { ...(run.roomContractStakes || {}) },
       runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), playerCombos: playerCombosSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players), decoys: (run.decoys || []).map(d => ({ x: Math.round(d.x), y: Math.round(d.y), t: Math.ceil((d.t || 0) * 10) / 10 }))

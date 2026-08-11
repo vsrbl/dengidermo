@@ -556,6 +556,10 @@ const RU_LABEL = {
   'WIRE GHOST': 'ПРОЙТИ БЕЗ ПРОВОДОВ', 'GRID WALKER': 'ПРОЙТИ СЕТКУ', 'BLOOD PAID': 'КРОВАВАЯ ОПЛАТА', 'STATIC CLEAN': 'ЧИСТАЯ СТАТИКА',
   'CACHE CLAIM': 'ЗАБРАТЬ ОБЛИК', 'FAST CLEAN': 'БЫСТРАЯ ЗАЧИСТКА', 'NO HIT TAPE': 'БЕЗ УРОНА', 'CLEAN SIGNAL': 'ЧИСТЫЙ СИГНАЛ',
   'NEXT SECTOR FAVOR': 'ПРИЗ СЛЕДУЮЩЕГО СЕКТОРА', 'NEXT SECTOR PRIZE': 'ПРИЗ СЛЕДУЮЩЕГО СЕКТОРА', 'NEXT SECTOR BONUS': 'БОНУС СЛЕДУЮЩЕГО СЕКТОРА',
+  'SILENT PROTOCOL': 'ТИХИЙ ПРОТОКОЛ', 'NO ESCAPE': 'БЕЗ РЫВКОВ', 'FIVE CHANNELS': 'ПЯТЬ КАНАЛОВ', 'LONG CHAIN': 'ДЛИННАЯ ЦЕПЬ', 'LONG ACCOUNT': 'ДАЛЬНИЙ СЧЁТ', 'LAST RESERVE': 'ПОСЛЕДНИЙ РЕЗЕРВ',
+  'Clear the sector without using Q.': 'Зачистить сектор без Q.', 'Clear the sector without dashing.': 'Зачистить сектор без рывков.', 'Score kills with at least five different damage sources.': 'Совершить убийства минимум пятью источниками урона.', 'Reach the required combo multiplier.': 'Достичь нужного множителя комбо.', 'Score the required number of long-range kills.': 'Совершить нужное число дальних убийств.', 'Finish with every hero at 35% HP or less.': 'Завершить бой, когда у всех героев не больше 35% HP.',
+  'ROOT LOCKDOWN': 'КОРНЕВАЯ БЛОКИРОВКА', 'ROOT NODE ERASED': 'КОРНЕВОЙ УЗЕЛ УДАЛЁН', 'ROOT LOCK BROKEN': 'КОРНЕВАЯ БЛОКИРОВКА СНЯТА', 'ACCESS DENIED': 'ДОСТУП ЗАКРЫТ', 'BOSS EXPOSED': 'БОСС ОТКРЫТ',
+  'WPN CLEARANCE': 'WPN-ДОПУСК', 'ABL CLEARANCE': 'ABL-ДОПУСК', 'RAR CLEARANCE': 'RAR-ДОПУСК', 'MOD VETO': 'ВЕТО МОДИФИКАТОРА', 'CREDIT PASS': 'КРЕДИТНЫЙ ПРОПУСК', 'SALVAGE PROTOCOL': 'ПРОТОКОЛ СБОРА',
 
   'SHG LONGSHOT RMB': 'КЛИНОВОЙ РАЗРЯД: ДАЛЬНИЙ ЗАЛП', 'SEK SWARM RMB': 'САМОНАВОДЧИК: РОЙ', 'RKT STUN BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОГЛУШЕНИЕ', 'RKT SCATTER BLASTS': 'РАЗЛОМНЫЙ ЗАРЯД: ОТБРОС', 'RKT REMOTE DETONATOR': 'РАЗЛОМНЫЙ ЗАРЯД: РУЧНОЙ ВЗРЫВ',
   'VIRUS CLEANUP': 'ОЧИСТКА ВИРУСА', 'PRISM CLEANUP': 'ЗАЧИСТКА ПРИЗМЫ', 'BLOOD CLEANUP': 'КРОВАВАЯ ЗАЧИСТКА', 'STATIC CLEANUP': 'ЧИСТАЯ СТАТИКА', 'FAST CLEANUP': 'БЫСТРАЯ ЗАЧИСТКА', 'NO-HIT CLEANUP': 'БЕЗ УРОНА', 'FULL CLEANUP': 'ПОЛНАЯ ЗАЧИСТКА',

@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[7-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[7-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.197') assert.equal(BUILD_ID, 'field_snap_pull_visual_only_hotfix');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

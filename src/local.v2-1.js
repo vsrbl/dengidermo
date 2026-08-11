@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handleCasinoClose, handleCasinoDecision, handleCasinoLock, handleCasinoSkinPick, handleCasinoPrizePick, handlePick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
+  handleCasino, handleCasinoClose, handleCasinoDecision, handleCasinoLock, handleCasinoSkinPick, handleCasinoPrizePick, handlePick, handleContractPick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -153,6 +153,9 @@ export class LocalRoom {
       }
       else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) }, true);
       else if (!ok) this.sendTo(playerId, { t: 'offer_close', offerId: requestedOfferId, pending: p.economy?.pending || 0 }, true);
+    } else if (m.t === 'contract_pick') {
+      const p = this.players.get(playerId);
+      if (!p || !handleContractPick(this.run, this.players, p, m.choice)) this.sendTo(playerId, { t: 'error', error: 'invalid contract choice' }, true);
     } else if (m.t === 'weapon_pick') {
       const p = this.players.get(playerId);
       if (!p) return;

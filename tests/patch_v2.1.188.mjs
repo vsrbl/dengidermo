@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES } from '../shared/data.v2-1.js';
 import {
@@ -16,7 +16,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[89]|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[89]|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.188') assert.equal(BUILD_ID, 'drone_void_herald_contract_healer_hotfix');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

@@ -206,10 +206,10 @@ function contractRewardText(reward = '', obj = null) {
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
 const STATIC_SOURCE_RU = {
-  room_modifier: 'мод сектора', debt_engine: 'статик-ядро', static_debt: 'статик-долг', cursed_chest: 'проклятый сундук', casino_bet: 'казино', active_casino: 'активное казино', previous_room_hits: 'попадания прошлого сектора', room_strikes: 'попадания прошлого сектора', casino_virus: 'казино-вирус'
+  room_modifier: 'мод сектора', debt_engine: 'статик-ядро (до очистки)', static_debt: 'статик-долг на 1 сектор', cursed_chest: 'проклятый сундук на 1 сектор', casino_bet: 'казино на 1 сектор', active_casino: 'активное казино на 1 сектор', previous_room_hits: 'попадания прошлого сектора', room_strikes: 'попадания прошлого сектора', casino_virus: 'казино-вирус только здесь'
 };
 const STATIC_SOURCE_EN = {
-  room_modifier: 'room rule', debt_engine: 'Static Core', static_debt: 'stored static', cursed_chest: 'cursed chest', casino_bet: 'casino', active_casino: 'Q casino', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', casino_virus: 'casino virus'
+  room_modifier: 'room rule', debt_engine: 'Static Core (until cleansed)', static_debt: 'stored static for 1 room', cursed_chest: 'cursed chest for 1 room', casino_bet: 'casino for 1 room', active_casino: 'Q casino for 1 room', previous_room_hits: 'previous room hits', room_strikes: 'previous room hits', casino_virus: 'casino virus, this room only'
 };
 function staticSourceLabel(id) {
   const k = String(id || 'static_debt');
@@ -700,13 +700,15 @@ function casinoLockParts(raw = '') {
 function casinoCellTone(symbol = '') {
   const x = String(symbol || '').toUpperCase().trim();
   if (!x || x === '—') return '';
-  if (x === 'STC' || x === 'BAD' || x === 'LOSE' || x === 'NO' || x === 'ОТК') return 'lose';
+  if (x === 'STC') return 'static';
+  if (x === 'BAD' || x === 'LOSE' || x === 'NO' || x === 'ОТК') return 'lose';
   if (x === 'ФИКС' || x === 'LOCK' || x === 'NEXT' || x === 'CELL') return 'lock';
   if (x === 'ДЖК' || x === 'JCK') return 'jackpot';
   return 'win';
 }
 function casinoCellClass(symbol = '') {
   const tone = casinoCellTone(symbol);
+  if (tone === 'static') return 'static';
   if (tone === 'lose') return 'lose';
   if (tone === 'jackpot') return 'win jackpot';
   if (tone === 'lock') return 'win lock-cell';
@@ -1138,13 +1140,28 @@ export class Hud {
     const staticForecast = staticTitle
       ? `<div class="install-next-static"><b>${esc(staticTitle)}</b>${staticParts.length || corePause ? `<div class="install-next-static-sources">${staticParts.map(x => `<span>${esc(x)}</span>`).join('')}${corePause}</div>` : ''}${staticWait}</div>`
       : '';
-    const contract = next.objective
-      ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
-      : '';
+    const contractOffer = room?.contractChoice || null;
+    const contractChoices = Array.isArray(contractOffer?.choices) ? contractOffer.choices : [];
+    const voteCounts = {};
+    for (const id of Object.values(contractOffer?.votes || {})) voteCounts[id] = (voteCounts[id] || 0) + 1;
+    const contract = contractChoices.length
+      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const prize = Array.isArray(o.prizePreview) && o.prizePreview.length ? o.prizePreview.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); return `<button type="button" class="contract-choice-card${contractOffer.selected === o.id ? ' selected' : ''}" data-contract-choice="${i}"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
+      : next.objective
+        ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
+        : '';
     el.innerHTML = `<div class="install-next-title">${esc(localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'))}</div>` +
       `<div class="install-next-arch">${esc(archLabel(next.archetype))}</div>` +
       `<div class="install-next-label">${esc(localText('МОДИФИКАТОРЫ', 'MODIFIERS'))}</div>` +
       `<div class="install-next-mods">${modHtml}</div>${staticForecast}${contract}`;
+    el.querySelectorAll('[data-contract-choice]').forEach(btn => btn.addEventListener('click', () => {
+      this.net?.sendContractPick?.(Number(btn.dataset.contractChoice) | 0);
+      this.playUiSound('pick');
+    }));
+    const previewSig = `${next.id}|${mods.join(',')}|${staticTitle}|${contractOffer?.selected || ''}`;
+    if (this.installPreviewSig !== previewSig) {
+      this.installPreviewSig = previewSig;
+      [0, 140, 280].forEach((ms, i) => setTimeout(() => { if (this.installPreviewSig === previewSig) this.playUiSound(i === 2 ? 'pick' : 'hover'); }, ms));
+    }
     el.classList.remove('hidden');
   }
 
@@ -1172,7 +1189,7 @@ export class Hud {
     $('hud-room').textContent = `${roomDisplay} · ${room.id}`;
     $('hud-loop').textContent = `${localText('ЦИКЛ', 'LOOP')} ${displayLoopNumber(room.loop)} / ${localText('ГЛУБИНА', 'DEPTH')} ${room.depth} · ${finalGoalLine(room)}`;
     const modLabels = (room.mods || []).map(m => roomModLabel(m, room));
-    const modTone = (m) => m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' ? 'purple' : m === 'greed' ? 'gold' : '';
+    const modTone = (m) => m === 'static_rain' ? 'purple' : m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'casino_virus' || m === 'echo_walls' ? 'purple' : m === 'greed' ? 'gold' : '';
     const visibleMods = (room.mods || []).filter(m => m !== 'static_rain');
     $('hud-mods').innerHTML = visibleMods.map(m => `<span class="term" data-explain-title="${esc(roomModLabel(m, room))}" data-explain="${esc(roomModHint(m, room))}"${modTone(m) ? ` data-explain-tone="${modTone(m)}"` : ''}>${esc(roomModLabel(m, room))}</span>`).join(' · ');
     if (room.betStakes) {
@@ -1207,7 +1224,7 @@ export class Hud {
     const staticExplain = curRain > 0
       ? staticBreakdownExplain(currentStaticBd)
       : (nextStaticBd ? staticBreakdownExplain(nextStaticBd, nextStaticBd.banked || 0) : '');
-    const rainHud = staticLine ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('ОБЩИЙ СТАТИК-ШТОРМ', 'TOTAL STATIC STORM'))}" data-explain="${esc(staticExplain)}" data-explain-tone="cyan">${esc(staticLine)}</span></div>` : '';
+    const rainHud = staticLine ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('ОБЩИЙ СТАТИК-ШТОРМ', 'TOTAL STATIC STORM'))}" data-explain="${esc(staticExplain)}" data-explain-tone="purple">${esc(staticLine)}</span></div>` : '';
     const virusHud = room.casinoVirus ? `<div class="static-rain-status virus-only"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s`))}</span></div>` : '';
     const hunterHud = room.hunterWave ? (() => {
       const total = Math.max(0, room.hunterWave.total || 0);
@@ -1306,19 +1323,18 @@ export class Hud {
       const offer = me[P.ROOMWAGER];
       const activeWager = me[P.ACTIVEWAGER];
       if (offer && room.phase === 'install') {
-        const seconds = Math.max(0, Math.ceil(Number(offer.expires || 0)));
-        const key = `offer:${getLang()}:${offer.id || 0}:${offer.text || ''}:${seconds}`;
+        const key = `offer:${getLang()}:${offer.id || 0}:${offer.text || ''}`;
         wagerCard.classList.remove('hidden', 'active');
         wagerCard.classList.add('offer');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
-          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'))}<span>${seconds}s</span></div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
+          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'))}</div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
           const decide = (accept) => (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
             const buttons = [...wagerCard.querySelectorAll('.wager-actions button')];
             if (buttons.some(x => x.disabled)) return;
-            this.playUiSound('ui_click');
+            this.playUiSound(accept ? 'wager_accept_click' : 'wager_skip_click');
             this.net?.sendRoomWager?.(offer.id || 0, accept);
             buttons.forEach(x => { x.disabled = true; });
           };
@@ -1330,7 +1346,7 @@ export class Hud {
           declineBtn?.addEventListener('click', decide(false));
         }
         this.setExplain(wagerCard, localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'), localText('Прими риск для следующего сектора или продолжи без ставки.', 'Accept a risk for the next sector or continue without a wager.'), 'gold');
-      } else if (activeWager && room.phase !== 'install') {
+      } else if (activeWager) {
         const prog = activeWager.progress || {};
         const progKey = localText(prog.textRu || prog.text || '', prog.textEn || prog.text || '');
         const key = `active:${getLang()}:${activeWager.id || 0}:${activeWager.text || ''}:${progKey}`;
@@ -1365,7 +1381,13 @@ export class Hud {
     }
     const multiplayerWait = wait && Math.max(1, wait.total || 1) > 1 && this.net?.mode !== 'solo';
     const shouldShowDataLoading = room.phase === 'install' && multiplayerWait && myWait?.waiting && myWait?.kind !== 'room_wager' && !this.install.skinOnly && (!this.install.open || (this.install.waitingOnly && this.install.dataLoading));
-    if (shouldShowWait) this.showInstallWaiting(wait, me[P.ID]);
+    if (shouldShowWait) {
+      // A player with no pending level must not receive a fake empty upgrade
+      // card while another player is choosing. Keep only the compact HUD state.
+      if (this.install.open && this.install.waitingOnly) this.closeInstall();
+      inst.textContent = localText('ОЖИДАНИЕ ДРУГИХ ИГРОКОВ', 'WAITING FOR OTHER PLAYERS');
+      inst.classList.remove('hidden');
+    }
     else if (shouldShowDataLoading) this.showInstallDataLoading(wait, me[P.ID]);
     else if (room.phase !== 'install' && this.install.open && !this.install.skinOnly) this.closeInstall();
     const sigEl = $('hud-signatures');
@@ -1773,7 +1795,8 @@ export class Hud {
       case 'weapon_get': this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${f.w}`, 'c'); break;
       case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
-      case 'mirror_copy': if (f.id === myId || f.playerId === myId) this.feed(`${localText('КОПИРКА', 'MIRROR')}: ${f.ok ? localText('СКОПИРОВАНО', 'COPIED') : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}`, f.ok ? 'p' : 'r'); break;
+      case 'mirror_copy': if (f.id === myId || f.playerId === myId) this.feed(`${localText('ЗЕРКАЛО', 'MIRROR')}: ${f.ok ? localText('СКОПИРОВАНО', 'COPIED') : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}${f.body ? ` · ${localText(String(f.body).replace('+1 USE', '+1 ПРИМЕНЕНИЕ').replace('TOTAL', 'ВСЕГО'), f.body)}` : ''}`, f.ok ? 'p' : 'r'); break;
+      case 'contract_selected': this.feed(`${localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED')}: ${locLabel(f.label || '')}`, 'g'); break;
       case 'boss_key_used':
         if (f.id === myId || f.playerId === myId) {
           const left = f.left ? ` · ${f.left}` : '';
@@ -2020,7 +2043,7 @@ export class Hud {
     const explainAttr = (title, body, tone = '') => `data-explain-title="${esc(title)}" data-explain="${esc(body)}"${tone ? ` data-explain-tone="${tone}"` : ''}`;
     const tabRoomHint = (r, isNext = false) => `${isNext ? localText('Следующий сектор.', 'Next room.') : localText('Текущий сектор.', 'Current room.')} ${localText('Подчёркнутые правила можно осмотреть.', 'Underlined rules can be inspected.')}`;
     const termLabel = (label, title, body, tone = '') => `<span class="term" ${explainAttr(title, body, tone)}>${esc(label)}</span>`;
-    const modChip = (m, r = room) => `<span class="term" ${explainAttr(roomModLabel(m, r), roomModHint(m, r), m === 'static_rain' || m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'echo_walls' || m === 'casino_virus' ? 'purple' : m === 'greed' ? 'gold' : '')}>${esc(roomModLabel(m, r))}</span>`;
+    const modChip = (m, r = room) => `<span class="term" ${explainAttr(roomModLabel(m, r), roomModHint(m, r), m === 'static_rain' ? 'purple' : m === 'prism_grid' ? 'cyan' : m === 'blood_tax' || m === 'moving_room' || m === 'hunter_contract' ? 'red' : m === 'echo_walls' || m === 'casino_virus' ? 'purple' : m === 'greed' ? 'gold' : '')}>${esc(roomModLabel(m, r))}</span>`;
     const modList = (r) => (r?.mods || []).filter(m => m !== 'static_rain').length ? (r.mods || []).filter(m => m !== 'static_rain').map(m => modChip(m, r)).join(' ') : `<span class="muted">${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;
     const tabStaticBd = room.staticRainBreakdown || { total: room.staticRainStacks || 0, sources: [] };
     const tabNextStaticBd = room.next?.staticRainBreakdown || room.staticRainNextBreakdown || null;
@@ -2049,7 +2072,7 @@ export class Hud {
           `<p><span class="term" ${explainAttr(t('loopTitle'), t('loopBody'))}>${esc(t('loop'))}</span> ${displayLoopNumber(room.loop)} · <span class="term" ${explainAttr(t('depth'), localText('Сколько секторов уже очищено в текущем протоколе.', 'Sectors cleaned in this protocol.'))}>${esc(t('depth'))}</span> ${room.depth}</p>` +
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----'))}</p>` +
           `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда сектор очищен и угрозы удалены.', 'The portal opens when the sector is clean and threats are removed.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
-          `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'cyan')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
+          `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'purple')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the protocol more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
           `${this.compactFavorItems(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), this.compactFavorItems(room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${this.compactFavorItems(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
           `${this.compactFavorItems(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${this.compactFavorItems(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
@@ -2189,6 +2212,12 @@ export class Hud {
     const normalizedChoices = Array.isArray(choices) ? choices.slice(0, 3) : [];
     const nextOfferId = Math.max(0, offerId | 0);
     const currentOfferId = Math.max(0, Number(this.install?.offerId || 0) | 0);
+    // Reject stale/empty normal INSTALL packets. Boss signatures are separate
+    // rewards and are valid without a level-up pending counter.
+    if ((!sig && Math.max(0, Number(pending || 0) | 0) <= 0) || normalizedChoices.length <= 0) {
+      if (this.install.open && !this.install.skinOnly && (!nextOfferId || !currentOfferId || nextOfferId === currentOfferId)) this.closeInstall();
+      return false;
+    }
     // Reliable RTC and relay fallback can briefly overlap. Never let an older
     // packet replace a newer INSTALL that is already visible.
     if (nextOfferId && this.installLatestOfferId && nextOfferId < this.installLatestOfferId) return false;

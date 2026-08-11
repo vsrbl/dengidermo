@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { WEAPON_CHEST_REWARDS } from '../shared/data.v2-1.js';
 import { buildSnapshot, createPlayer, createRun, handleRerollOffer, startRoom } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 import { reconcileRerollAvailability } from '../src/reroll-sync.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|20[0-8])$/);
+assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|(?:20[0-9]|210))$/);
 if (VERSION === 'v2.1.189') assert.equal(BUILD_ID, 'reroll_charge_sync_hotfix');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
