@@ -5,9 +5,9 @@ import { buildSnapshot, createRun, startRoom } from '../shared/sim.v2-1.js';
 import { normalizeRunSeed } from '../src/local.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:199|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:199|20[0-8])$/);
 if (VERSION === 'v2.1.199') assert.equal(BUILD_ID, 'opening_choice_chests_seed_input');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const starterChests = plan => plan.interactables.filter(o => o?.firstRoomGuaranteed);
 const starterBscChests = plan => plan.interactables.filter(o => o?.firstRoomGuaranteedBsc);
@@ -22,7 +22,7 @@ for (const chest of starters) {
   assert.ok(Number.isFinite(chest.x) && Number.isFinite(chest.y), 'starter chest was not placed in the room');
 }
 const starterBsc = starterBscChests(plan);
-assert.equal(starterBsc.length, ['v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204'].includes(VERSION) ? 3 : 0, 'first sector BSC additive count is wrong');
+assert.equal(starterBsc.length, ['v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208'].includes(VERSION) ? 3 : 0, 'first sector BSC additive count is wrong');
 for (const chest of starterBsc) {
   assert.equal(chest.chest, 'basic_chest');
   assert.equal(chest.chestTier, 0);

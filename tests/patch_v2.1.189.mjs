@@ -5,9 +5,9 @@ import { buildSnapshot, createPlayer, createRun, handleRerollOffer, startRoom } 
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 import { reconcileRerollAvailability } from '../src/reroll-sync.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:189|19[0-9]|20[0-8])$/);
 if (VERSION === 'v2.1.189') assert.equal(BUILD_ID, 'reroll_charge_sync_hotfix');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 // Initial authoritative state: two charges are available.
 let sync = reconcileRerollAvailability(2, 0, null);

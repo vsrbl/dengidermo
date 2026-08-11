@@ -18,9 +18,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[2-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[2-9]|20[0-8])$/);
 if (VERSION === 'v2.1.192') assert.equal(BUILD_ID, 'weapon_clock_anchor_floor_control_q');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const close = (actual, expected, eps = 1e-6, message = '') => {
   assert.ok(Math.abs(actual - expected) <= eps, `${message} expected ${expected}, got ${actual}`);

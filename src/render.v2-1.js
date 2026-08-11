@@ -534,7 +534,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0, anchorField = 1] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0, anchorField = 1, triParts = null, triPhase = ''] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -789,6 +789,36 @@ export class Renderer {
         this.label(`SLT ${lives}/3`, ex, ey - size / 2 - 10, frameCol, 9);
         if (isRebuild) this.label('ROLLING', ex, ey + size / 2 + 17, frameCol, 8);
         else if (mode !== 'charger') this.label(mode.toUpperCase().slice(0, 7), ex, ey + size / 2 + 17, frameCol, 8);
+      } else if (kind === 'boss_trinode') {
+        const parts = Array.isArray(triParts) && triParts.length ? triParts : [[ex, ey, hp01, 0]];
+        ctx.save();
+        ctx.globalAlpha = 0.20;
+        ctx.strokeStyle = COL.cyan;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 12]);
+        ctx.beginPath();
+        for (let i = 1; i < parts.length; i++) { ctx.moveTo(parts[i - 1][0], parts[i - 1][1]); ctx.lineTo(parts[i][0], parts[i][1]); }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const [px, py, php = 100, locked = 0] = parts[i];
+          const active = i === 0 && !locked;
+          const col = active ? COL.cyan : COL.purple;
+          this.square(px, py, size, { stroke: col, lw: active ? 5.5 : 3.2, fill: active ? 'rgba(102,246,255,0.075)' : 'rgba(180,92,255,0.045)' });
+          this.square(px, py, size * 0.58, { stroke: active ? COL.fg : COL.purple, lw: 1.5, rotate: active ? Math.sin(now * 4) * 0.12 : 0 });
+          if (locked) {
+            this.square(px, py, size + 12, { stroke: COL.purple, lw: 1.2, rotate: Math.PI / 4 });
+            this.label(`LOCK ${i + 1}`, px, py + size / 2 + 16, COL.purple, 8);
+          }
+          const sw = size * 0.82;
+          ctx.fillStyle = '#222'; ctx.fillRect(px - sw / 2, py - size / 2 - 10, sw, 3);
+          ctx.fillStyle = col; ctx.fillRect(px - sw / 2, py - size / 2 - 10, sw * Math.max(0, Math.min(100, php)) / 100, 3);
+        }
+        const [phase = 'burst', value = ''] = String(triPhase || '').split(':');
+        this.label('TRI', ex, ey - size / 2 - 28, COL.cyan, 12);
+        this.label(phase === 'slow' ? `SLOW ${value}s` : `BURST ${value}`, ex, ey - size / 2 - 15, phase === 'slow' ? COL.purple : COL.red, 8);
+        this.bossHpBar(ex, ey, size, hp01, COL.cyan);
       } else if (kind === 'boss_croupier') {
         this.square(ex, ey, size, { stroke: COL.red, lw: 5.5, fill: 'rgba(255,48,72,0.05)' });
         this.square(ex, ey, size * 0.62, { stroke: COL.gold || '#f5c84b', lw: 2, rotate: Math.sin(now * 1.8) * 0.28 });

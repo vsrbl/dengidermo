@@ -13,9 +13,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[6-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[6-9]|20[0-8])$/);
 if (VERSION === 'v2.1.196') assert.equal(BUILD_ID, 'casino_hit_core_favor_shell_ripper_hotfix');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const enemy = (kind, id, x, y, hp = null) => {
   const def = ENEMIES[kind];
@@ -158,7 +158,7 @@ assert.equal(cleanClearSeen, 0, 'CLEAR STATIC STORM appeared without Core or ban
   assert.equal(wounded.anchorT || 0, 0, 'ability-locked anchor kept its aura active');
   assert.equal(run.enemies.filter(e => e.packRole === 'boss_background').length, 0, 'ability-locked boss summoned adds');
   const lockedRow = buildSnapshot(run, players).enemies.find(row => row[0] === shooter.id);
-  assert.equal(lockedRow.at(-1), 1, 'SHELL LOCK visual state was not serialized');
+  assert.equal(lockedRow[24], 1, 'SHELL LOCK visual state was not serialized');
 }
 
 // ARMOR BREAK mutation is one heavy armor-only blast across the Q activation zone.

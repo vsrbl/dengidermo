@@ -16,9 +16,9 @@ import {
 import { P } from '../src/state.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[34]$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.203' ? 'controlled_split_spawn_tab_build_dossier' : 'armor_spam_anchor_phase_cycle');
-assert.equal(PROTOCOL, 14);
+assert.match(VERSION, /^v2\.1\.20[3-8]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.203' ? 'controlled_split_spawn_tab_build_dossier' : VERSION === 'v2.1.204' ? 'armor_spam_anchor_phase_cycle' : VERSION === 'v2.1.205' ? 'saw_failsafe_static_strike_sync' : VERSION === 'v2.1.206' ? 'low_stake_lock_overload_guard' : VERSION === 'v2.1.207' ? 'install_choice_identity_sync' : 'boss_bag_trinode_q_silence_casino_wpn');
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 function aabbHit(x, y, half, wall) {
   return x + half > wall.x && x - half < wall.x + wall.w && y + half > wall.y && y - half < wall.y + wall.h;

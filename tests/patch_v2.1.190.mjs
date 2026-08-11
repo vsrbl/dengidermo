@@ -11,9 +11,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[0-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[0-9]|20[0-8])$/);
 if (VERSION === 'v2.1.190') assert.equal(BUILD_ID, 'controller_anchor_floor_capacity_duration');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const controller = createPlayer('anchor190', 'ANCHOR', 0, { hero: 'process_controller' });
 assert.equal(quarantineAnchorCapacity(controller), 5);

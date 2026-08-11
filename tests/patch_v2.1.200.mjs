@@ -16,9 +16,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[0-4]$/);
+assert.match(VERSION, /^v2\.1\.20[0-8]$/);
 if (VERSION === 'v2.1.200') assert.equal(BUILD_ID, 'controller_inherited_slots_anchor_pressure');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 function controllerFixture(seed = 200) {
   const player = createPlayer(`ctrl-${seed}`, 'CTRL', 0, { hero: 'process_controller' });

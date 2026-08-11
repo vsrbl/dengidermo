@@ -1,7 +1,7 @@
 // terminal casino roguelike HUD: bars, pips, feed, banners, TAB panel, install + casino modals
 import { P, ENEMY_KINDS } from './state.v2-1.js';
 import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES, ACTIVE_CORES, ACTIVE_MUTATIONS, defaultStats } from '../shared/data.v2-1.js';
-import { t, onLangChange, cleanPlayerText, activeNoneLabel, activeNoneDesc, activeShort as locActiveShort, activeDescFrom, chestDesc, pickupDesc, enemyDesc, weaponDesc, optionDesc, locAction, locRole, locLabel, locReward, disabledReason, objectStateText, priceText, localText, denyText, esc as escHtml } from './i18n.v2-1.js';
+import { t, onLangChange, getLang, cleanPlayerText, activeNoneLabel, activeNoneDesc, activeShort as locActiveShort, activeDescFrom, chestDesc, pickupDesc, enemyDesc, weaponDesc, optionDesc, locAction, locRole, locLabel, locReward, disabledReason, objectStateText, priceText, localText, denyText, esc as escHtml } from './i18n.v2-1.js';
 import { reconcileRerollAvailability } from './reroll-sync.v2-1.js';
 
 const $ = id => document.getElementById(id);
@@ -759,6 +759,7 @@ export class Hud {
     this.casinoSkinChoicePending = false;
     this.casinoPrizeChoicePending = false;
     this.install = { open: false, choices: [], expires: 0, total: 15, locked: false, skinOnly: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: false };
+    this.installLatestOfferId = 0;
     this.installSyncKey = '';
     this.installSyncSeenAt = 0;
     this.skinClaim = null;
@@ -1302,7 +1303,7 @@ export class Hud {
     }
     const wagerCard = $('room-wager-card');
     if (wagerCard) {
-      const offer = me[P.SECTORWAGER];
+      const offer = me[P.ROOMWAGER];
       const activeWager = me[P.ACTIVEWAGER];
       if (offer && room.phase === 'install') {
         const seconds = Math.max(0, Math.ceil(Number(offer.expires || 0)));
@@ -1569,13 +1570,16 @@ export class Hud {
     }
 
     const acd = me[P.ACTIVECD] || 0;
+    const qSilence = Math.max(0, Number(me[P.QSILENCE] || 0));
     const qName = activeLabel(me);
-    const qTxt = qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE'
+    const qTxt = qSilence > 0
+      ? localText(`Q САЙЛЕНС ${qSilence.toFixed(1)}s`, `Q SILENCE ${qSilence.toFixed(1)}s`)
+      : qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE'
       ? t('qNoneLong')
       : (acd > 0 ? `${t('qCd')} ${acd.toFixed ? acd.toFixed(1) : acd}` : (me[P.ACTIVEBUFF] ? t('qOver') : activeShort(me)));
     const lvlEl = $('hud-lvl');
     lvlEl.textContent = `LVL ${me[P.LVL]} · ${qTxt}`;
-    this.setExplain(lvlEl, t('activeQTitle'), `${activeLabel(me)}. ${activeDesc(me)}${qName !== activeNoneLabel() && qName !== 'НЕТ АКТИВКИ' && qName !== 'NO ACTIVE' ? ' ' + t('activeQUse') : ''}`, qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE' ? '' : 'cyan');
+    this.setExplain(lvlEl, t('activeQTitle'), qSilence > 0 ? localText(`Босс заглушил Q ещё на ${qSilence.toFixed(1)} сек. Оружие, рывок и R работают.`, `The boss has silenced Q for ${qSilence.toFixed(1)}s more. Weapons, dash, and R still work.`) : `${activeLabel(me)}. ${activeDesc(me)}${qName !== activeNoneLabel() && qName !== 'НЕТ АКТИВКИ' && qName !== 'NO ACTIVE' ? ' ' + t('activeQUse') : ''}`, qSilence > 0 ? 'purple' : (qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE' ? '' : 'cyan'));
 
     const comboEl = $('hud-combo');
     if (comboEl) {
@@ -1752,6 +1756,13 @@ export class Hud {
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка облика появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('облик ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('ОБЛИК ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
       case 'boss_down': this.banner(t('bossDown'), t('loot'), 'green'); break;
+      case 'boss_q_silence': {
+        const seconds = Math.max(0, Number(f.seconds || 0) | 0);
+        const body = localText(`Q отключена на ${seconds} сек. Оружие, рывок и R доступны.`, `Q disabled for ${seconds}s. Weapons, dash, and R remain available.`);
+        this.banner(localText('САЙЛЕНС БОССА', 'BOSS SILENCE'), body, 'purple');
+        this.feed(`${localText('САЙЛЕНС БОССА', 'BOSS SILENCE')}: Q ${seconds}s`, 'p');
+        break;
+      }
       case 'chest_open': {
         const rewards = (f.rewards || []).map(locReward).join(' + ');
         const paid = f.costPaid ? `-${f.costPaid} ${f.costUnit || 'GLD'} · ` : '';
@@ -2177,6 +2188,12 @@ export class Hud {
     const sig = String(kind || '') === 'boss_signature';
     const normalizedChoices = Array.isArray(choices) ? choices.slice(0, 3) : [];
     const nextOfferId = Math.max(0, offerId | 0);
+    const currentOfferId = Math.max(0, Number(this.install?.offerId || 0) | 0);
+    // Reliable RTC and relay fallback can briefly overlap. Never let an older
+    // packet replace a newer INSTALL that is already visible.
+    if (nextOfferId && this.installLatestOfferId && nextOfferId < this.installLatestOfferId) return false;
+    if (this.install.open && !this.install.waitingOnly && currentOfferId && nextOfferId && nextOfferId < currentOfferId) return false;
+    if (nextOfferId) this.installLatestOfferId = Math.max(this.installLatestOfferId || 0, nextOfferId);
     const nextTotal = Math.max(1, Number(total || 0) || (sig ? 32 : 24));
     const serverLeftRaw = Number(expires || 0);
     const nextExpires = Math.max(0.001, Math.min(nextTotal, Number.isFinite(serverLeftRaw) && serverLeftRaw > 0 ? serverLeftRaw : nextTotal));
@@ -2210,33 +2227,42 @@ export class Hud {
       const u = UPG[id];
       const d = document.createElement('div');
       d.className = 'choice' + (u?.cursed ? ' cursed' : '') + (sig ? ' boss-signature-choice' : '');
+      d.dataset.choiceId = String(id || '');
+      d.dataset.choiceIndex = String(i);
       const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
       const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
       d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
       const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: заряд будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
-      d.addEventListener('click', () => this.pick(i));
+      d.addEventListener('click', () => this.pick(i, nextOfferId, id));
       box.appendChild(d);
     });
     if (sig) this.appendFavorRerollButton(box, 'boss');
     this.appendSkinClaimCard(box);
     modal?.classList.remove('hidden');
+    return true;
   }
-  pick(i) {
+  pick(i, expectedOfferId = 0, expectedChoiceId = '') {
     // guard against double-picks: lock until the next offer (or close) arrives
     if (this.install.locked || !this.install.open) return;
     if (i < 0 || i >= this.install.choices.length) return;
+    const liveOfferId = Math.max(0, Number(this.install.offerId || 0) | 0);
+    const liveChoiceId = String(this.install.choices[i] || '');
+    if (expectedOfferId && liveOfferId && expectedOfferId !== liveOfferId) return;
+    if (expectedChoiceId && expectedChoiceId !== liveChoiceId) return;
     this.install.locked = true;
     this.install.picked = true;
-    const els = document.querySelectorAll('#install-choices .choice');
+    this.install.submittedChoiceId = liveChoiceId;
+    const els = document.querySelectorAll('#install-choices > .choice');
     els.forEach((el, j) => el.classList.add(j === i ? 'picked' : 'dimmed'));
     const waitEl = $('install-wait');
     if (waitEl) {
       waitEl.className = 'install-wait done' + (this.install.bossSignature ? ' boss' : '');
       const solo = this.net?.mode === 'solo';
-      waitEl.innerHTML = solo ? `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b>` : `<b>${esc(localText('ВЫБОР ПРИНЯТ', 'PICK LOCKED'))}</b><br>${esc(localText('ЖДЁМ ОСТАЛЬНЫХ', 'WAITING FOR OTHERS'))}`;
+      const chosen = locLabel(UPG[liveChoiceId]?.label || liveChoiceId);
+      waitEl.innerHTML = `<b>${esc(localText('УСТАНАВЛИВАЕМ', 'INSTALLING'))}: ${esc(chosen)}</b>` + (solo ? '' : `<br>${esc(localText('ПОДТВЕРЖДЕНИЕ УЗЛА', 'NODE CONFIRMATION'))}`);
     }
-    this.net.sendPick(i, this.install.offerId || 0);
+    this.net.sendPick(i, liveOfferId, liveChoiceId);
   }
   pickRandomInstall() {
     if (!this.install.open || this.install.locked || !this.install.choices.length) return false;
@@ -2260,6 +2286,19 @@ export class Hud {
       modal.classList.add('hidden');
     }
     this.hideTip();
+  }
+  closeInstallOffer(offerId = 0) {
+    const closedOfferId = Math.max(0, Number(offerId || 0) | 0);
+    const currentOfferId = Math.max(0, Number(this.install?.offerId || 0) | 0);
+    // A delayed close for offer N must never close a newer offer N+1.
+    if (closedOfferId && this.installLatestOfferId && closedOfferId < this.installLatestOfferId) return false;
+    if (closedOfferId && currentOfferId && closedOfferId < currentOfferId) return false;
+    this.closeInstall();
+    return true;
+  }
+  resetInstallSync() {
+    this.installLatestOfferId = 0;
+    if (this.install.open && !this.install.skinOnly) this.closeInstall();
   }
 
   openSkinClaim(skin = {}) {
@@ -2674,7 +2713,7 @@ export class Hud {
       ДЖК: [localText('ДЖК', 'JCK'), localText('Джекпот.', 'Jackpot.'), 'gold'],
       STC: [localText('STC', 'STC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
       BAD: [localText('BAD', 'BAD'), localText('Пустой / проигрышный блок.', 'Empty / losing block.'), 'red'],
-      ФИКС: [localText('ФИКС', 'LOCK'), localText('Сохраняет выпавший символ до выхода.', 'Holds the rolled symbol until exit.'), 'cyan'],
+      ФИКС: [localText('ФИКС', 'LOCK'), localText('Сохраняет символ до выхода. Два и больше ФИКСА ломают терминал на 10-й прокрутке.', 'Holds the symbol until exit. Two or more LOCKS break the terminal on the 10th spin.'), 'cyan'],
       NEXT: [localText('NEXT', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
       COMBO: [localText('COMBO', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
     };
@@ -2977,15 +3016,16 @@ export class Hud {
     const clean = (x) => locLabel(String(x || '').replace(/^CASINO\s+/i, '').trim());
     const weaponDetail = (x) => {
       const raw = String(x || '').trim();
-      if (/WEAPON DMG/i.test(raw) || /DMG|УРОН/i.test(raw)) return localText('+15% урон оружия', '+15% weapon damage');
-      return clean(raw) || localText('новое оружие добавлено', 'new weapon added');
+      const damagePct = raw.match(/(?:DMG|DAMAGE|УРОН)[^+]*\+(\d+(?:\.\d+)?)%/i)?.[1];
+      if (damagePct) return localText(`урон оружия +${damagePct}%`, `weapon damage +${damagePct}%`);
+      return clean(raw.replace(/^WPN\s+(?:PAIR|TRIPLE):\s*/i, '')) || localText('оружейное улучшение применено', 'weapon upgrade applied');
     };
     const abilityDetail = (x) => clean(x) || localText('новая мутация добавлена', 'new mutation added');
     const rareDetail = (x) => clean(x) || localText('редкое усиление применено', 'rare bonus applied');
     if (f.outcome === 'OVERLOAD') return localText('слот сломан, угрозу собирается', 'slot broken, enemy assembling');
     if (pl.static || pl.staticCount) return `${localText('следующая сектор загрязнена статикой', 'next room gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
     if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${pl.lockLabel}`;
-    if (weaponLabels.length) return weaponDetail(weaponLabels[0]);
+    if (weaponLabels.length) return weaponLabels.map(weaponDetail).filter(Boolean).join(' + ');
     if (abilityLabels.length) return abilityDetail(abilityLabels[0]);
     if (rareLabels.length) return rareDetail(rareLabels[0]);
     if (pl.skinLabel) return `${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`;

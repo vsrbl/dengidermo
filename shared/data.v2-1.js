@@ -79,7 +79,8 @@ export const ENEMIES = {
   boss_hunter_duelist: { label: 'HNT-I', hp: 520, spd: 92, size: 54, dmg: 20, boss: true, bossFragment: true, armor: 0.12, fireCd: 1.65, bulletSpd: 245, xp: 58, gld: 50, score: 9, bossRole: 'hunter fragment' },
   boss_hunter_marksman: { label: 'HNT-II', hp: 460, spd: 64, size: 50, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 1.45, bulletSpd: 300, xp: 54, gld: 48, score: 9, bossRole: 'hunter fragment' },
   boss_hunter_trapper: { label: 'HNT-III', hp: 480, spd: 72, size: 52, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 2.05, bulletSpd: 235, xp: 56, gld: 48, score: 9, bossRole: 'hunter fragment' },
-  boss_q_revisor: { label: 'RUSH', hp: 1460, spd: 68, size: 76, dmg: 25, boss: true, armor: 0.23, fireCd: 1.90, bulletSpd: 245, windup: 0.48, chargeSpd: 720, chargeTime: 0.52, chargeCd: 1.05, xp: 156, gld: 136, score: 23, bossRole: 'dash pressure' }
+  boss_q_revisor: { label: 'RUSH', hp: 1460, spd: 68, size: 76, dmg: 25, boss: true, armor: 0.23, fireCd: 1.90, bulletSpd: 245, windup: 0.48, chargeSpd: 720, chargeTime: 0.52, chargeCd: 1.05, xp: 156, gld: 136, score: 23, bossRole: 'dash pressure' },
+  boss_trinode: { label: 'TRI', hp: 1680, spd: 154, size: 62, dmg: 22, boss: true, armor: 0.18, fireCd: 0.16, bulletSpd: 285, xp: 160, gld: 140, score: 24, bossRole: 'sequential crawler' }
 };
 
 // which kinds can spawn at which loop
@@ -170,6 +171,7 @@ export const UPGRADES = [
   { id: 'ctrl_process_power', label: 'CTRL: КОНТРОЛЬ +', branch: 'CTRL', tier: 1, desc: 'Команды быстрее заполняют захват цели; все атаки процессов становятся сильнее.', apply: s => { s.ctrlPower += 1; } },
   { id: 'ctrl_capture_tier', label: 'CTRL: АССИМИЛЯЦИЯ +', branch: 'CTRL', tier: 1, desc: 'Расширяет пул захвата: I — стойкие и сбойные, II — дальние и полевые, III — дирижёры роя, IV — боссы.', apply: s => { s.ctrlCaptureTier += 1; } },
   { id: 'ctrl_process_fire', label: 'CTRL: ТЕМП АТАК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы атакуют чаще.', apply: s => { s.ctrlFire += 1; } },
+  { id: 'saw_fallback_damage', label: 'SAW: АВАРИЙНЫЙ РАЗБОР', branch: 'CTRL', tier: 2, desc: 'SAW наносит урон целям, которые сейчас невозможно перехватить.', apply: s => { s.sawFallbackDamage = 1; } },
   { id: 'ctrl_process_contact_status', label: 'CTRL: ЖИВОЙ СНАРЯД', branch: 'CTRL', tier: 1, desc: 'Телесные атаки процессов переносят любые текущие и будущие оружейные статусы.', apply: s => { s.ctrlProcessContactStatus = 1; } },
   { id: 'ctrl_process_life', label: 'CTRL: СРОК +', branch: 'CTRL', tier: 1, desc: 'Подконтрольные процессы живут дольше. Срок также зависит от максимального HP процесса до захвата.', apply: s => { s.ctrlLife += 1; } },
   { id: 'ctrl_process_death_heal', label: 'CTRL: ВОЗВРАТ HP', branch: 'CTRL', tier: 1, desc: 'Гибель или завершение срока процесса лечит героя от его максимального HP. Стаки дают 2%, затем +3%, +4% и дальше.', apply: s => { s.ctrlDeathHeal += 1; } },
@@ -227,6 +229,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_process_power', kind: 'weapon_upgrade', upgrade: 'ctrl_process_power', reqWeapon: 'command_pulse', label: 'CTRL: КОНТРОЛЬ +', desc: 'Команды быстрее заполняют захват цели; процессы сильнее атакуют.' },
   { id: 'ctrl_capture_tier', kind: 'weapon_upgrade', upgrade: 'ctrl_capture_tier', reqWeapon: 'command_pulse', label: 'CTRL: АССИМИЛЯЦИЯ +', desc: 'Расширяет захват необычных мобов по ступеням. На четвёртой ступени разрешает перехват босса.' },
   { id: 'ctrl_process_fire', kind: 'weapon_upgrade', upgrade: 'ctrl_process_fire', reqWeapon: 'process_saw', label: 'CTRL: ТЕМП АТАК +', desc: 'Подконтрольные процессы атакуют чаще.' },
+  { id: 'saw_fallback_damage', kind: 'weapon_upgrade', upgrade: 'saw_fallback_damage', reqWeapon: 'process_saw', label: 'SAW: АВАРИЙНЫЙ РАЗБОР', desc: 'Если цель сейчас нельзя перехватить, импульс SAW наносит ей урон. Работает и при заполненных слотах.' },
   { id: 'ctrl_process_contact_status', kind: 'weapon_upgrade', upgrade: 'ctrl_process_contact_status', reqWeapon: 'command_pulse', label: 'CTRL: ЖИВОЙ СНАРЯД', desc: 'Укусы, касания, наскоки, прыжки и самоподрыв переносят любые текущие и будущие оружейные статусы.' },
   { id: 'ctrl_process_life', kind: 'weapon_upgrade', upgrade: 'ctrl_process_life', reqWeapon: 'command_pulse', label: 'CTRL: СРОК +', desc: 'Подконтрольные процессы живут дольше; цели с большим запасом прочности держат контроль дольше.' },
   { id: 'ctrl_process_death_heal', kind: 'weapon_upgrade', upgrade: 'ctrl_process_death_heal', reqWeapon: 'command_pulse', label: 'CTRL: ВОЗВРАТ HP', desc: 'Гибель или завершение срока процесса лечит от его максимального HP. Стаки: 2%, затем +3%, +4% и дальше.' },
@@ -334,7 +337,7 @@ export function defaultStats() {
     dmgMul: 1, weaponDmgMul: 1, fireMul: 1, spdMul: 1, maxHpAdd: 0, magnetMul: 1,
     dashAdd: 0, dashRegenMul: 1, dashDistMul: 1, activeRegenMul: 1, drones: 0, orbitals: 0, luck: 0,
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
-    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
+    bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, sawFallbackDamage: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
@@ -427,6 +430,10 @@ function casinoCleanSymbol(s = '') {
   const x = String(s || '').toUpperCase().replace(/\s+X\d+$/i, '').trim();
   return CASINO_PAY_SYMBOLS.has(x) ? x : '';
 }
+export function casinoSymbolAllowedForStake(symbol = '', stakeKey = 'low') {
+  const clean = casinoCleanSymbol(symbol);
+  return !!clean && !(stakeKey === 'low' && (clean === 'WPN' || clean === 'ABL'));
+}
 function casinoMatch(symbols = []) {
   const clean = symbols.map(casinoCleanSymbol);
   const counts = new Map();
@@ -444,7 +451,11 @@ function casinoApplyMatchReward(payload, symbol, count, stake, rng, stakeKey, lu
     case 'GLD': casinoAdd(payload, 'gld', Math.round(stake * (triple ? (1.35 + rng() * 0.75) : (0.62 + rng() * 0.28)))); casinoAdd(payload, 'gldCount', count); break;
     case 'EXP': casinoAdd(payload, 'xp', Math.round(stake * (triple ? 0.82 : 0.40))); casinoAdd(payload, 'xpCount', count); break;
     case 'HEA': casinoAdd(payload, 'heal', triple ? (24 + Math.round(rng() * 22)) : (14 + Math.round(rng() * 12))); casinoAdd(payload, 'healCount', count); break;
-    case 'WPN': payload.weapon = true; casinoAdd(payload, 'weaponCount', 1); break;
+    case 'WPN':
+      payload.weapon = true;
+      if (triple) casinoAdd(payload, 'weaponUpgradeCount', 1);
+      else casinoAdd(payload, 'weaponPairDamage', 1);
+      break;
     case 'ABL': payload.ability = true; casinoAdd(payload, 'abilityCount', 1); break;
     case 'RAR': payload.rare = true; casinoAdd(payload, 'rareCount', 1); break;
     case 'SKN': {
@@ -463,7 +474,7 @@ function casinoApplyMatchReward(payload, symbol, count, stake, rng, stakeKey, lu
   }
 }
 export function casinoPayloadHasReward(payload = {}) {
-  return !!(payload.gld || payload.xp || payload.heal || payload.weapon || payload.weaponCount || payload.ability || payload.abilityCount || payload.rare || payload.rareCount || payload.skin || payload.skinCount || payload.jackpotCount);
+  return !!(payload.gld || payload.xp || payload.heal || payload.weapon || payload.weaponCount || payload.weaponUpgradeCount || payload.weaponPairDamage || payload.ability || payload.abilityCount || payload.rare || payload.rareCount || payload.skin || payload.skinCount || payload.jackpotCount);
 }
 export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const stake = BET_STAKES[stakeKey];
@@ -472,14 +483,16 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   const hasLockedSkin = SKIN_PRESETS.some(s => s.rarity !== 'basic' && !known.has(s.id));
   const high = stakeKey === 'high';
   const mid = stakeKey === 'mid';
-  const slotLocks = Array.isArray(opts.slotLocks) ? opts.slotLocks.slice(0, 3).map(casinoCleanSymbol) : [];
+  const slotLocks = Array.isArray(opts.slotLocks)
+    ? opts.slotLocks.slice(0, 3).map(symbol => casinoSymbolAllowedForStake(symbol, stakeKey) ? casinoCleanSymbol(symbol) : '')
+    : [];
   while (slotLocks.length < 3) slotLocks.push('');
   const lockChoices = () => {
     const base = high
       ? ['JCK','RAR','WPN','ABL','SKN','GLD','EXP','HEA','STC']
       : mid
         ? ['RAR','WPN','ABL','GLD','EXP','HEA','STC']
-        : ['WPN','GLD','EXP','HEA','STC'];
+        : ['GLD','EXP','HEA','STC'];
     return base.filter(x => x !== 'SKN' || hasLockedSkin);
   };
   const drawLockPrize = () => {
@@ -491,8 +504,8 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     const odds = [
       ['JCK', 0.0022 + (high ? 0.0058 : mid ? 0.0022 : 0) + l * 0.0032],
       ['RAR', (high ? 0.017 : mid ? 0.007 : 0.0025) + l * 0.0045],
-      ['WPN', 0.010 + (high ? 0.010 : mid ? 0.006 : 0) + l * 0.0055],
-      ['ABL', (stakeKey === 'low' ? 0.0035 : (0.012 + (high ? 0.008 : 0))) + l * 0.0055],
+      ['WPN', stakeKey === 'low' ? 0 : 0.010 + (high ? 0.010 : mid ? 0.006 : 0) + l * 0.0055],
+      ['ABL', stakeKey === 'low' ? 0 : 0.012 + (high ? 0.008 : 0) + l * 0.0055],
       ['SKN', hasLockedSkin ? ((high ? 0.013 : mid ? 0.008 : 0.004) + l * 0.0026) : 0],
       ['LOCK', 0.035 + (mid ? 0.016 : high ? 0.024 : 0) + l * 0.0042],
       ['HEA', 0.045 + l * 0.0042],

@@ -2,7 +2,7 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS,
-  rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
+  rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, casinoSymbolAllowedForStake, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
 } from './data.v2-1.js';
 import { generateRoom, spawnPoint, enemySpawnPoint, isEnemySpawnReachable, portalSpot, mulberry32, WALL_T } from './mapgen.v2-1.js';
 
@@ -125,6 +125,7 @@ const BOSS_SIGNATURE_POOLS = {
   boss_hunter_trapper: ['sig_spawn_hold', 'sig_rewind_mark', 'sig_null_revival', 'sig_boss_key'],
   boss_q_revisor: ['sig_redline_boost', 'sig_target_lock', 'sig_null_revival', 'sig_rewind_mark', 'sig_kill_switch'],
   boss_anchor_cashier: ['sig_aegis_process', 'sig_spawn_hold', 'sig_boss_key', 'sig_mirror_payout', 'sig_rewind_mark'],
+  boss_trinode: ['sig_redline_boost', 'sig_aegis_process', 'sig_spawn_hold', 'sig_boss_key', 'sig_rewind_mark'],
   boss: ['sig_target_lock', 'sig_redline_boost', 'sig_aegis_process', 'sig_spawn_hold', 'sig_null_revival']
 };
 const BOSS_SIGNATURE_CHOICE_COUNT = 2;
@@ -2933,6 +2934,7 @@ export function createRun(seedBase) {
     roomStaticRainFalls: 0,
     roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], nextRoomPreview: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(), playerCombos: {},
     runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 },
+    bossOrder: [], bossHistory: [],
     tapeLog: [],
     finalSummary: null, completedAt: 0,
     plan: null,
@@ -3738,6 +3740,15 @@ function controlledProcessDamageValue(p, base, scale = 1) {
   const power = Math.max(0, Number(p?.stats?.ctrlPower || 0) | 0);
   return weaponDamageValue(p, Math.max(0, Number(base) || 0) + power * 1.7, scale);
 }
+function processSawFallbackEnabled(p) {
+  return Math.max(0, Number(p?.stats?.sawFallbackDamage || 0)) > 0;
+}
+function processSawFallbackDamageValue(p) {
+  const power = Math.max(0, Number(p?.stats?.ctrlPower || 0) | 0);
+  // SAW is a Controller weapon: general damage, weapon damage, wagers and
+  // temporary damage bonuses all pass through the shared weapon path.
+  return weaponDamageValue(p, 68 + power * 3.2);
+}
 function controlledProcessContactCarriesStatuses(p) {
   return Math.max(0, Number(p?.stats?.ctrlProcessContactStatus || 0)) > 0;
 }
@@ -4324,6 +4335,22 @@ function stepControlledBoss(run, players, p, pc, m, target, toT, dT, spd, dt, wa
     } else if (m.state === 'cool' && m.st >= (rush ? (def.chargeCd || 1.05) : 0.95)) {
       m.state = 'move'; m.st = 0; m.bossDashCd = rush ? 0.75 : 0; m.bossCastCd = rush ? m.bossCastCd : 0.95;
     }
+  } else if (m.kind === 'boss_trinode') {
+    controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 260, 0.46);
+    if (m.trinodePhase !== 'burst' && m.trinodePhase !== 'slow') { m.trinodePhase = 'burst'; m.trinodeShots = 0; m.trinodePhaseT = 0; }
+    if (m.trinodePhase === 'slow') {
+      m.trinodePhaseT = Math.max(0, Number(m.trinodePhaseT || 0) - dt * fireMul);
+      if (m.bossCastCd <= 0) {
+        controlledBossRadial(run, p, m, 4, m.ctrlBulletSpd || 285, (m.ctrlDmg || 22) * 0.28, 6, 3.0, 0);
+        m.bossCastCd = 1.25;
+      }
+      if (m.trinodePhaseT <= 0) { m.trinodePhase = 'burst'; m.trinodeShots = 0; m.bossCastCd = 0.12; }
+    } else if (m.bossCastCd <= 0) {
+      controlledBossRadial(run, p, m, 4, m.ctrlBulletSpd || 285, (m.ctrlDmg || 22) * 0.22, 6, 3.0, 0);
+      m.trinodeShots = (m.trinodeShots || 0) + 1;
+      m.bossCastCd = 0.16;
+      if (m.trinodeShots >= 10) { m.trinodePhase = 'slow'; m.trinodePhaseT = 5; m.bossCastCd = 0.82; }
+    }
   } else {
     controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 440, 0.18);
     if (m.bossCastCd <= 0) { controlledBossRadial(run, p, m, 10, m.ctrlBulletSpd || def.bulletSpd || 230, (m.ctrlDmg || def.dmg || 26) * 0.60, 9, 3.2, Math.random() * Math.PI * 2); m.bossCastCd = def.fireCd || 2.6; }
@@ -4823,7 +4850,8 @@ function fireProcessControllerProtocol(run, players, p, dt) {
   if (id === 'quarantine_anchor') {
     ok = placeProcessControllerAnchor(run, players, p);
   } else if (id === 'process_saw') {
-    if (processControllerRegularCount(pc) >= processControllerMax(p)) {
+    const fallbackDamage = processSawFallbackEnabled(p);
+    if (processControllerRegularCount(pc) >= processControllerMax(p) && !fallbackDamage) {
       emitProcessSawFailure(run, p, p.aimX || p.x, p.aimY || p.y, 158, 'SAW_NO_SLOT');
       return;
     }
@@ -4832,25 +4860,34 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
     const range = (w.maxDist || 560) * weaponRangeMultiplier(p);
     const radius = 158 + Math.min(92, power * 13);
-    let captured = 0;
+    let captured = 0, damaged = 0;
     const before = pc.controlled.length;
     const candidates = (run.enemies || [])
       .filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e))
       .filter(e => dist2(p.x, p.y, e.x, e.y) <= range * range)
       .filter(e => dist2(ax, ay, e.x, e.y) <= Math.pow(radius + (e.size || 24) / 2, 2))
       .filter(e => !segmentBlockedByWalls(p.x, p.y, e.x, e.y, run.plan?.walls || [], 13))
-      .filter(e => processControllerEnemyCapturable(p, e))
       .sort((a, b) => dist2(a.x, a.y, ax, ay) - dist2(b.x, b.y, ax, ay));
     for (const e of candidates) {
-      if (processControllerRegularCount(pc) >= processControllerMax(p)) break;
-      const n0 = pc.controlled.length;
-      if (captureEnemyAsProcess(run, players, p, e, 'saw')) captured += Math.max(1, pc.controlled.length - n0);
+      const canCapture = processControllerRegularCount(pc) < processControllerMax(p) && processControllerEnemyCapturable(p, e);
+      if (canCapture) {
+        const n0 = pc.controlled.length;
+        if (captureEnemyAsProcess(run, players, p, e, 'saw')) {
+          captured += Math.max(1, pc.controlled.length - n0);
+          continue;
+        }
+      }
+      if (fallbackDamage && e.hp > 0) {
+        damageEnemy(run, players, e, processSawFallbackDamageValue(p), p.id, 0, 0, 0, 'process_saw_fallback');
+        damaged++;
+      }
     }
-    if (captured > 0) {
+    if (captured > 0 || damaged > 0) {
       pc.commandX = ax; pc.commandY = ay; pc.commandT = Math.max(pc.commandT || 0, 2.8 + Math.min(1.4, power * 0.15));
       for (const m of pc.controlled.slice(before)) { if (m) { m.tx = ax; m.ty = ay; m.cmdT = pc.commandT; m.pulse = 0.35; } }
-      run.fx.push({ t: 'ctrl_saw', id: p.id, x: Math.round(ax), y: Math.round(ay), hit: captured, captured, r: Math.round(radius), mass: 1 });
-      run.fx.push({ t: 'active_mutation', label: `SAW MASS ${captured}`, x: Math.round(ax), y: Math.round(ay), r: Math.round(radius), tone: 'purple', owner: p.id });
+      run.fx.push({ t: 'ctrl_saw', id: p.id, x: Math.round(ax), y: Math.round(ay), hit: captured + damaged, captured, damaged, r: Math.round(radius), mass: 1 });
+      const result = captured > 0 && damaged > 0 ? `CAP ${captured} / DMG ${damaged}` : captured > 0 ? `MASS ${captured}` : `DMG ${damaged}`;
+      run.fx.push({ t: 'active_mutation', label: `SAW ${result}`, x: Math.round(ax), y: Math.round(ay), r: Math.round(radius), tone: damaged > 0 ? 'red' : 'purple', owner: p.id });
       ok = true;
     } else {
       // Failed scans remain free, but they now have a clear visual response.
@@ -5393,6 +5430,8 @@ export function startRoom(run, players) {
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.activeTargeting = null; p.roomWagerDecisionDone = false; p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0, weaponSwitch: 0, lcMarks: 0, lcSparks: 0, ctrlCommands: 0, ctrlCaptures: 0 };
+    p.bossQSilenceT = run.plan.category === 'boss' ? 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10 : 0;
+    p.bossQSilenceDenyT = 0;
     p.tempDmgMulRoom = 0;
     if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
@@ -5404,6 +5443,7 @@ export function startRoom(run, players) {
     p.casinoSlotLocks = ['', '', ''];
     p.casinoLockStack = [];
     p.casinoLockSymbol = '';
+    p.casinoFullLockSpins = 0;
     p.casinoSession = { heat: 0, rareProgress: 0, skinProgress: 0, lastSymbols: ['', '', ''], pendingPair: null, pendingSkin: null, pendingPrize: null };
     restoreProcessControllerAfterRoomStart(p, i);
     if (p.nextRoomSparkDrain && isLivingCasinoPlayer(p)) {
@@ -5428,6 +5468,8 @@ export function startRoom(run, players) {
     if (isFinalBossRoom(run)) { boss.maxHp = Math.round((boss.maxHp || boss.hp || 1) * 1.35); boss.hp = boss.maxHp; boss.finalBoss = 1; }
     run.bossKind = bossKind;
     run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
+    const silenceSeconds = 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10;
+    run.fx.push({ t: 'boss_q_silence', label: 'Q SILENCE', seconds: silenceSeconds, x: Math.round(boss.x), y: Math.round(boss.y) });
   }
   else if (run.plan.modifierIds.includes('hunter_contract')) {
     run.fx.push({ t: 'room_event', label: 'ВОЛНЫ ОХОТНИКОВ', body: `0/${run.hunterWave?.total || 2} ВОЛНЫ · ПОРТАЛ ЗАКРЫТ` });
@@ -5460,6 +5502,8 @@ export function resetRun(run, players) {
   run.playerCombos = {};
   run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.nextRoomPreview = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
+  run.bossOrder = [];
+  run.bossHistory = [];
   run.tapeLog = [];
   run.finalSummary = null;
   run.completedAt = 0;
@@ -5505,7 +5549,7 @@ function spawnPool(run) {
   if (run.runDepth === 1) return ['grunt','grunt','runner','shooter'];
   if (run.runDepth === 2) return ['grunt','runner','runner','shooter','charger'];
   if (loop === 1) return ['grunt','runner','shooter','charger','bomber','bouncer','splitter'];
-  if (loop === 2) return ['grunt','runner','shooter','charger','bomber','bouncer','tank','glitch','anchor','leech','pulse','damper','warden'];
+  if (loop === 2) return ['grunt','runner','shooter','charger','bomber','bouncer','wall_jumper','tank','glitch','anchor','leech','pulse','damper','warden'];
   return SPAWN_POOLS[Math.min(loop, SPAWN_POOLS.length - 1)];
 }
 
@@ -5515,7 +5559,7 @@ function spawnPool(run) {
 const MODIFIER_ENEMY_MIN_LOOP = {
   grunt: 0, runner: 0, shooter: 0, charger: 0,
   bomber: 1, bouncer: 1, splitter: 1,
-  tank: 2, glitch: 2, anchor: 2, leech: 2, pulse: 2, damper: 2, warden: 2,
+  tank: 2, glitch: 2, wall_jumper: 2, anchor: 2, leech: 2, pulse: 2, damper: 2, warden: 2,
   echo: 3, orbiter: 3, prism: 3, herald: 3, boss: 99
 };
 function modifierLoop(run) { return Math.max(0, Math.floor((run?.runDepth || 0) / 4)); }
@@ -5572,6 +5616,13 @@ const ENCOUNTER_PACKS = [
     roles: [
       { pick: ['bouncer'], count: [1, 2] },
       { pick: ['runner','bomber','glitch'], count: [2, 4] }
+    ]
+  },
+  {
+    id: 'wall_jumper_ambush', label: 'WALL AMBUSH', intent: 'chaos', minLoop: 2, weight: 2.3, minGap: 6.2, maxGap: 8.8, needsWallAnchor: true,
+    roles: [
+      { pick: ['wall_jumper'], count: [1, 2], opts: { noArmor: true, packRole: 'wall_ambusher' } },
+      { pick: ['runner','shooter','glitch'], count: [2, 3], opts: { noArmor: true, packRole: 'floor_pressure' } }
     ]
   },
   {
@@ -5786,6 +5837,7 @@ function packEligible(run, pack) {
   const df = difficulty(run);
   if ((pack.minLoop ?? 0) > df.loop || (pack.minDepth ?? 0) > run.runDepth) return false;
   if (pack.requireMod && !(run.plan?.modifierIds || []).includes(pack.requireMod)) return false;
+  if (pack.needsWallAnchor && !wallJumperSpawnViable(run)) return false;
   if (pack.intent === 'director' && countLive(run, e => e.kind === 'herald') > 0) return false;
   if (pack.supportCap && countLive(run, e => ['anchor','leech','herald','orbiter','prism','pulse','damper'].includes(e.kind)) >= pack.supportCap) return false;
   if (pack.armorCap && countLive(run, e => (e.shellHp || 0) > 0) >= pack.armorCap) return false;
@@ -5818,11 +5870,17 @@ function modPackFitMul(run, pack) {
   if (mods.includes('moving_room') && ['control','swarm','chaos'].includes(pack.intent)) m *= 1.18;
   return m;
 }
-function choosePack(run) {
+export function choosePack(run) {
   const dir = run.director || createDirectorState(run);
+  const df = difficulty(run);
   const candidates = ENCOUNTER_PACKS.filter(p => packEligible(run, p));
   const pool = spawnPool(run);
   const modeIntents = dir.intents || {};
+  // The wall jumper used to exist only in data: no encounter role could ever pick
+  // it. Give each eligible late cycle one readable ambush without forcing it into
+  // rooms whose geometry has no valid wall surface.
+  const wallAmbush = candidates.find(p => p.id === 'wall_jumper_ambush');
+  if (wallAmbush && df.loop >= 2 && run.wallJumperSeenLoop !== df.loop && (dir.waveIndex || 0) >= 1) return wallAmbush;
   return weightedPick(candidates, p => {
     let w = p.weight || 1;
     w *= modeIntents[p.intent] || 1;
@@ -5831,7 +5889,6 @@ function choosePack(run) {
     if (p.id === dir.lastPack) w *= 0.22;
     if (p.intent === dir.lastIntent) w *= 0.60;
     // If the room is already crowded, favor tiny/simple packs and avoid support/armor escalation.
-    const df = difficulty(run);
     const fullness = run.enemies.length / Math.max(1, df.maxActive);
     if (fullness > 0.62 && ['armor','support','director','control'].includes(p.intent)) w *= 0.45;
     if (p.roles.some(r => r.pick.some(k => pool.includes(k)))) w *= 1.1;
@@ -6172,6 +6229,7 @@ function spawnEncounterPack(run, players, pack, budgetLeft) {
     spawnedEnemies.push(e);
   }
   applyPackFormation(run, pack, spawnedEnemies);
+  if (spawnedEnemies.some(e => e?.kind === 'wall_jumper')) run.wallJumperSeenLoop = difficulty(run).loop;
   run.fx.push({ t: 'director_wave', label: pack.label, intent: pack.intent, x: Math.round(center.x), y: Math.round(center.y), count });
   if (run.director) {
     run.director.waveIndex++;
@@ -6274,6 +6332,14 @@ function finishHeraldSummon(run, players, h, target) {
 function wallJumperIsBound(e) {
   const st = String(e?.state || '');
   return st.startsWith('wall_') && !st.startsWith('wall_leap') && !st.startsWith('wall_shift') && !st.startsWith('wall_recover');
+}
+export function wallJumperSpawnViable(run) {
+  if (!run?.plan || !Array.isArray(run.plan.walls) || !run.plan.walls.length) return false;
+  const probe = { size: ENEMIES.wall_jumper?.size || 26 };
+  const b = enemyArenaBounds(run, probe, 0);
+  const x = (b.left + b.right) * 0.5;
+  const y = (b.top + b.bottom) * 0.5;
+  return wallJumperAnchorCandidates(run, x, y, probe.size / 2, null).length > 0;
 }
 function wallJumperAnchorCandidates(run, x, y, half, target = null) {
   const walls = run?.plan?.walls || [];
@@ -6576,6 +6642,24 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
       e.bossDashCd = 0.65 + rng() * 0.55;
       e.bossVolleyCd = 0.95 + rng() * 0.45;
     }
+    if (kind === 'boss_trinode') {
+      const partHp = Math.floor(e.maxHp / 3);
+      const hpParts = [partHp, partHp, e.maxHp - partHp * 2];
+      const a = rng() * Math.PI * 2;
+      e.trinodeParts = hpParts.map((hp, i) => {
+        const rawX = e.x - Math.cos(a) * i * 72;
+        const rawY = e.y - Math.sin(a) * i * 72;
+        const safe = collideWalls(rawX, rawY, e.size / 2, run.plan?.walls || [], e.x, e.y);
+        return { x: safe.x, y: safe.y, hp, maxHp: hp };
+      });
+      e.trinodePhase = 'burst';
+      e.trinodeShots = 0;
+      e.trinodeShotCd = 0.32;
+      e.trinodePhaseT = 0;
+      e.trinodeUnlockT = 0;
+      e.trinodeTurn = rng() < 0.5 ? -1 : 1;
+      e.state = 'tri_burst:0';
+    }
   }
   if (opts.packRole) e.packRole = opts.packRole;
   if (opts.escortAnchorId) e.escortAnchorId = opts.escortAnchorId;
@@ -6584,11 +6668,27 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
   return e;
 }
 
-const BOSS_ROTATION = ['boss_croupier', 'boss_anchor_cashier', 'boss_hunter_chorus', 'boss_q_revisor'];
+const BOSS_ROTATION = ['boss_croupier', 'boss_anchor_cashier', 'boss_hunter_chorus', 'boss_q_revisor', 'boss', 'boss_trinode'];
+function bossOrderForRun(run) {
+  const valid = new Set(BOSS_ROTATION);
+  const current = Array.isArray(run?.bossOrder) ? run.bossOrder : [];
+  if (current.length === BOSS_ROTATION.length && current.every(x => valid.has(x)) && new Set(current).size === BOSS_ROTATION.length) return current;
+  const order = [...BOSS_ROTATION];
+  const rng = mulberry32(((run?.seedBase || 0) ^ 0xB055B4A6) >>> 0);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  run.bossOrder = order;
+  return order;
+}
 function chooseBossKind(run) {
-  if (isFinalBossRoom(run)) return 'boss_croupier';
-  const idx = Math.max(0, Math.floor((run.runDepth || 0) / 4)) % BOSS_ROTATION.length;
-  return BOSS_ROTATION[idx] || 'boss_croupier';
+  const order = bossOrderForRun(run);
+  const idx = Math.max(0, Number(run?.runMemory?.bossesDefeated || 0) | 0);
+  const kind = order[idx % order.length] || order[0] || 'boss_croupier';
+  if (!Array.isArray(run.bossHistory)) run.bossHistory = [];
+  if (!run.bossHistory.includes(kind)) run.bossHistory.push(kind);
+  return kind;
 }
 function isBossKind(kind) { return !!(ENEMIES[kind] && ENEMIES[kind].boss); }
 function stepBossMarks(run, players, e, dt) {
@@ -6867,6 +6967,100 @@ function stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
   }
   touchDamage(run, e, players, dt);
 }
+function trinodeSyncParts(run, e, dt) {
+  const parts = Array.isArray(e.trinodeParts) ? e.trinodeParts : [];
+  if (!parts.length) return;
+  parts[0].x = e.x;
+  parts[0].y = e.y;
+  const spacing = Math.max(62, (e.size || 62) + 12);
+  for (let i = 1; i < parts.length; i++) {
+    const lead = parts[i - 1], part = parts[i];
+    const dx = lead.x - part.x, dy = lead.y - part.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const targetX = lead.x - (dx / d) * spacing;
+    const targetY = lead.y - (dy / d) * spacing;
+    const follow = Math.min(1, dt * (7.5 + i * 0.8));
+    const safe = collideWalls(part.x + (targetX - part.x) * follow, part.y + (targetY - part.y) * follow, (e.size || 62) / 2, run.plan?.walls || [], part.x, part.y);
+    part.x = safe.x;
+    part.y = safe.y;
+  }
+}
+function trinodeFireVolley(run, e, def) {
+  const parts = Array.isArray(e.trinodeParts) ? e.trinodeParts : [];
+  const need = parts.length * 4;
+  if (!parts.length || run.bullets.length > MAX_BULLETS - need - 2) return false;
+  const speed = def.bulletSpd || 285;
+  const half = (e.size || 62) * 0.5;
+  const damage = enemyDamageValue(e, e.trinodePhase === 'burst' ? 0.22 : 0.28);
+  for (const part of parts) {
+    for (let side = 0; side < 4; side++) {
+      const a = side * Math.PI / 2;
+      const dx = Math.cos(a), dy = Math.sin(a);
+      run.bullets.push({ id: nid(), x: part.x + dx * half, y: part.y + dy * half, vx: dx * speed, vy: dy * speed, dmg: damage, from: 'e', life: 3.0, size: 6, kind: 'trinode_edge' });
+    }
+  }
+  run.fx.push({ t: 'boss_burst', id: e.id, x: Math.round(e.x), y: Math.round(e.y), trinode: 1, phase: e.trinodePhase });
+  return true;
+}
+function trinodeTouchDamage(run, players, e, dt) {
+  if ((e.stunT || 0) > 0 || (e.frozenT || 0) > 0) return;
+  if (!e.touchCds) e.touchCds = new Map();
+  for (const [key, value] of e.touchCds) {
+    const next = value - dt;
+    if (next <= 0) e.touchCds.delete(key); else e.touchCds.set(key, next);
+  }
+  const parts = Array.isArray(e.trinodeParts) ? e.trinodeParts : [];
+  for (const p of players.values()) {
+    if (!p.alive || e.touchCds.has(p.id)) continue;
+    const part = parts.find(x => dist2(x.x, x.y, p.x, p.y) < (((e.size || 62) + PLAYER_SIZE) / 2 + 8) ** 2);
+    if (!part) continue;
+    const n = norm(p.x - part.x, p.y - part.y);
+    const safe = collideWalls(p.x + n.x * 18, p.y + n.y * 18, PLAYER_SIZE / 2, run.plan?.walls || [], p.x, p.y);
+    p.x = safe.x; p.y = safe.y;
+    damagePlayer(run, p, enemyDamageValue(e), part.x, part.y);
+    e.touchCds.set(p.id, TOUCH_CD);
+  }
+}
+function stepTrinodeBoss(run, players, e, def, target, toT, dT, spd, dt) {
+  e.trinodeUnlockT = Math.max(0, Number(e.trinodeUnlockT || 0) - dt);
+  e.trinodeLockFxT = Math.max(0, Number(e.trinodeLockFxT || 0) - dt);
+  const side = { x: -toT.y, y: toT.x };
+  const weave = Math.sin((run.now || 0) * 2.65 + (e.bossPhase || 0)) * 0.72 * (e.trinodeTurn || 1);
+  steerMove(run, e, norm(toT.x + side.x * weave, toT.y + side.y * weave), spd, dt, { target });
+  e.dirX = toT.x; e.dirY = toT.y;
+  trinodeSyncParts(run, e, dt);
+
+  if (e.trinodePhase !== 'burst' && e.trinodePhase !== 'slow') e.trinodePhase = 'burst';
+  e.trinodeShotCd = Math.max(0, Number(e.trinodeShotCd || 0) - dt);
+  if (e.trinodePhase === 'burst') {
+    if (e.trinodeShotCd <= 0) {
+      if (trinodeFireVolley(run, e, def)) e.trinodeShots = Math.max(0, Number(e.trinodeShots || 0) | 0) + 1;
+      e.trinodeShotCd = 0.16;
+      if ((e.trinodeShots || 0) >= 10) {
+        e.trinodePhase = 'slow';
+        e.trinodePhaseT = 5;
+        e.trinodeShotCd = 0.82;
+        run.fx.push({ t: 'trinode_phase', id: e.id, phase: 'slow', seconds: 5, x: Math.round(e.x), y: Math.round(e.y) });
+      }
+    }
+  } else {
+    e.trinodePhaseT = Math.max(0, Number(e.trinodePhaseT || 0) - dt);
+    if (e.trinodeShotCd <= 0) {
+      trinodeFireVolley(run, e, def);
+      e.trinodeShotCd = 1.25;
+    }
+    if (e.trinodePhaseT <= 0) {
+      e.trinodePhase = 'burst';
+      e.trinodeShots = 0;
+      e.trinodeShotCd = 0.12;
+      e.trinodeTurn = -(e.trinodeTurn || 1);
+      e.bossPhase = (e.bossPhase || 0) + 0.7;
+      run.fx.push({ t: 'trinode_phase', id: e.id, phase: 'burst', shots: 10, x: Math.round(e.x), y: Math.round(e.y) });
+    }
+  }
+  e.state = e.trinodePhase === 'burst' ? `tri_burst:${Math.min(10, e.trinodeShots || 0)}` : `tri_slow:${Math.ceil(e.trinodePhaseT || 0)}`;
+  trinodeTouchDamage(run, players, e, dt);
+}
 function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
   stepBossMarks(run, players, e, dt);
   stepBossBackgroundPressure(run, players, e, def, dt);
@@ -6877,6 +7071,7 @@ function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
   if (e.kind === 'boss_hunter_marksman') return stepHunterMarksmanBoss(run, players, e, def, target, toT, dT, spd, dt);
   if (e.kind === 'boss_hunter_trapper') return stepHunterTrapperBoss(run, players, e, def, target, toT, dT, spd, dt);
   if (e.kind === 'boss_q_revisor') return stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls);
+  if (e.kind === 'boss_trinode') return stepTrinodeBoss(run, players, e, def, target, toT, dT, spd, dt);
   steerMove(run, e, toT, spd, dt, { target });
   e.fireCd -= dt;
   if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
@@ -7553,6 +7748,16 @@ function enemyCombatReady(e) {
   return !!e && (e.hp || 0) > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e);
 }
 
+function trinodeHitPartIndex(e, x, y, extra = 0) {
+  if (e?.kind !== 'boss_trinode' || !Array.isArray(e.trinodeParts)) return -1;
+  const radius = Math.max(1, (e.size || 62) / 2 + Math.max(0, extra));
+  for (let i = 0; i < e.trinodeParts.length; i++) {
+    const part = e.trinodeParts[i];
+    if (dist2(part.x, part.y, x, y) <= radius * radius) return i;
+  }
+  return -1;
+}
+
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
   // Spawn warnings are a true staging phase: nothing may chip HP, armor, statuses,
   // lifesteal, combo, or death logic until the enemy has actually materialized.
@@ -7598,7 +7803,24 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
     if (dot > 0.25) { dmg *= (1 - def.shield); run.fx.push({ t: 'shield', x: Math.round(e.x), y: Math.round(e.y), id: e.id }); }
   }
   dmg = Math.max(1, Math.round(dmg));
-  e.hp -= dmg;
+  let trinodeBroke = false;
+  if (e.kind === 'boss_trinode' && Array.isArray(e.trinodeParts) && e.trinodeParts.length) {
+    if ((e.trinodeUnlockT || 0) > 0) return 0;
+    const part = e.trinodeParts[0];
+    dmg = Math.min(dmg, Math.max(0, part.hp || 0));
+    if (dmg <= 0) return 0;
+    part.hp = Math.max(0, part.hp - dmg);
+    e.hp = Math.max(0, e.hp - dmg);
+    if (part.hp <= 0 && e.trinodeParts.length > 1) {
+      const broken = e.trinodeParts.shift();
+      const next = e.trinodeParts[0];
+      e.x = next.x; e.y = next.y;
+      e.trinodeUnlockT = 0.55;
+      trinodeBroke = true;
+      run.fx.push({ t: 'trinode_break', id: e.id, x: Math.round(broken.x), y: Math.round(broken.y), left: e.trinodeParts.length });
+      run.fx.push({ t: 'boss_segment_unlock', id: e.id, x: Math.round(next.x), y: Math.round(next.y), segment: 4 - e.trinodeParts.length });
+    }
+  } else e.hp -= dmg;
   run.fx.push({ t: 'ehit', id: e.id, owner: owner || '', dmg, x: Math.round(e.x), y: Math.round(e.y), source });
   if (e.kind === 'slot_mob' && e.hp <= e.maxHp * 0.5) spawnSlotMobHalfWave(run, players, e);
   if (knock && !def.boss && e.kind !== 'bouncer' && !def.immobile) {
@@ -7620,7 +7842,9 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
       p.hp = Math.min(maxHp(p), p.hp + returned);
     }
   }
+  if (trinodeBroke) return dmg;
   if (e.hp <= 0) killEnemy(run, players, e, p, source);
+  return dmg;
 }
 
 
@@ -8341,7 +8565,20 @@ function stepBullets(run, players, dt) {
       for (const e of run.enemies) {
         if ((e.spawnDelay || 0) > 0) continue;
         if (slotMobIsLockedOut(e)) continue;
-        if (dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2) {
+        const triPart = trinodeHitPartIndex(e, b.x, b.y, (b.size || 4) / 2 + 4);
+        const bodyHit = triPart >= 0 || dist2(e.x, e.y, b.x, b.y) < ((e.size + b.size) / 2 + 4) ** 2;
+        if (bodyHit) {
+          if (triPart > 0) {
+            const locked = e.trinodeParts?.[triPart];
+            const n = norm(b.vx || 1, b.vy || 0);
+            run.fx.push({ t: 'impact', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind, locked: 1, dx: Math.round(n.x * 100), dy: Math.round(n.y * 100) });
+            if ((e.trinodeLockFxT || 0) <= 0) {
+              e.trinodeLockFxT = 0.22;
+              run.fx.push({ t: 'boss_segment_locked', id: e.id, x: Math.round(locked?.x || b.x), y: Math.round(locked?.y || b.y), segment: triPart + 1 });
+            }
+            b.life = -1;
+            break;
+          }
           if (b.aoe) { if ((b.kind === 'rocketgun' || b.mine) && b.from === 'p') rocketExplode(run, players, b, b.x, b.y, b.aoe, b.dmg); else explode(run, players, b.x, b.y, b.aoe, b.dmg, b.owner, b.from === 'e', b.from === 'e' ? 'danger' : 'blast', b.elem || '', b.elemPower || 0); if (b.from === 'p') rocketAftermath(run, players, b); }
           else {
             const n = norm(b.vx, b.vy);
@@ -9634,7 +9871,7 @@ function weightedPickOption(rng, pool, weightFn, used = new Set()) {
 }
 function processControllerChoicePool(p, qualityTier = 0) {
   const allowed = new Set([
-    'ctrl_process_slot', 'ctrl_process_power', 'ctrl_capture_tier', 'ctrl_process_fire', 'ctrl_process_contact_status', 'ctrl_process_life', 'ctrl_process_death_heal', 'ctrl_process_persist',
+    'ctrl_process_slot', 'ctrl_process_power', 'ctrl_capture_tier', 'ctrl_process_fire', 'saw_fallback_damage', 'ctrl_process_contact_status', 'ctrl_process_life', 'ctrl_process_death_heal', 'ctrl_process_persist',
     'qrn_radius', 'qrn_hold', 'qrn_links', 'qrn_damage',
     // Global shooting modules now also tune controlled process fire. Drone tuning remains separate.
     'bullet_ricochet', 'bullet_range', 'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'bullet_chain_status_link', 'drone_element_link'
@@ -9646,6 +9883,7 @@ function processControllerChoicePool(p, qualityTier = 0) {
       if (opt.kind === 'weapon_upgrade' && allowed.has(String(opt.upgrade || opt.id))) {
         if (String(opt.upgrade || opt.id) === 'ctrl_capture_tier' && processControllerCaptureTier(p) >= 4) return false;
         if (String(opt.upgrade || opt.id) === 'qrn_links' && quarantineAnchorCapacity(p) >= 20) return false;
+        if (String(opt.upgrade || opt.id) === 'saw_fallback_damage' && processSawFallbackEnabled(p)) return false;
         return weaponChoiceEligible(p, opt);
       }
       if (opt.kind === 'stat' && (opt.stat === 'dmg' || opt.stat === 'fire')) return true;
@@ -9933,6 +10171,35 @@ function applyRandomCasinoAbility(run, players, p, pl = {}) {
     run.fx = run.fx.filter((f, i) => i < beforeFx || f.t !== 'chest_open');
   }
   return ok;
+}
+
+function casinoWeaponPairDamagePct(stakeKey = 'low') {
+  return stakeKey === 'high' ? 24 : stakeKey === 'mid' ? 14 : 8;
+}
+function applyCasinoWeaponPairDamage(p, stakeKey, pl = {}) {
+  const pct = casinoWeaponPairDamagePct(stakeKey);
+  p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * (1 + pct / 100);
+  if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
+  pl.weaponLabels.push(`WPN PAIR: WEAPON DAMAGE +${pct}%`);
+  pl.weaponLabel = pl.weaponLabels.join(' + ');
+  pl.weaponPairDamagePct = (pl.weaponPairDamagePct || 0) + pct;
+  return pct;
+}
+function applyRandomCasinoWeaponUpgrade(run, players, p, pl = {}, qualityTier = 2) {
+  const choices = makeWeaponChestChoices(p, Math.random, 5, Math.max(2, qualityTier))
+    .filter(opt => opt && !opt.disabled && opt.kind !== 'weapon');
+  const opt = choices[Math.floor(Math.random() * choices.length)] || null;
+  if (!opt) return false;
+  const beforeFx = run.fx.length;
+  const ok = applyWeaponChestOption(run, players, p, opt);
+  if (!ok) return false;
+  if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
+  pl.weaponLabels.push(`WPN TRIPLE: ${opt.label || opt.id || 'UPGRADE'}`);
+  pl.weaponLabel = pl.weaponLabels.join(' + ');
+  // The casino history is the single authoritative receipt. Suppress the
+  // chest duplicate created by the shared WPN application path.
+  run.fx = run.fx.filter((f, i) => i < beforeFx || f.t !== 'chest_open');
+  return true;
 }
 
 function applyProcessControllerWeaponOption(run, players, p, opt) {
@@ -10234,6 +10501,8 @@ export {
   makeAbilityChestChoices, makeWeaponChestChoices, weaponChoiceEligible,
   bossRewardBlockedForPlayer, signalSpikeAimRangeForLevel, signalSpikeRadiusForLevel,
   controlledProcessFireRateMul, controlledProcessDamageValue, controlledProcessContactCarriesStatuses,
+  processSawFallbackEnabled, processSawFallbackDamageValue, fireProcessControllerProtocol,
+  bossOrderForRun, chooseBossKind, casinoWeaponPairDamagePct, applyCasinoWeaponPairDamage, applyRandomCasinoWeaponUpgrade,
   applyControlledProcessStatuses, bulletElementString, damageEnemy, controlledFireBullet,
   stepAnchorCashierBoss,
   captureEnemyAsProcess, damageControlledProcess, expireControlledProcess, stepProcessControllerState,
@@ -10542,7 +10811,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'spawn_boss') {
-    const kinds = ['boss_croupier','boss_hunter_chorus','boss_q_revisor','boss_anchor_cashier','boss'];
+    const kinds = ['boss_croupier','boss_hunter_chorus','boss_q_revisor','boss_anchor_cashier','boss_trinode','boss'];
     const kind = kinds.includes(cmd.kind) ? cmd.kind : 'boss_croupier';
     const b = spawnEnemy(run, players, kind, false, null, { noArmor: true });
     b.hp = b.maxHp;
@@ -10573,7 +10842,7 @@ function casinoFinalOutcome(res = {}) {
   if (pl.tripleMatch && ['GLD','EXP','HEA','WPN','ABL','RAR','SKN'].includes(sym)) return sym;
   if (pl.pairMatch && ['GLD','EXP','HEA','WPN','ABL','RAR','SKN','JCK'].includes(sym)) return sym === 'JCK' ? 'JCK' : 'PAIR';
   if (casinoPayloadHasReward(pl)) {
-    const rewardKinds = ['gld','xp','heal','weaponCount','weaponBoost','abilityCount','activeCdReduce','rareCount','rareProgress','skinCount','skinProgress','jackpotCount'].filter(k => Number(pl[k] || 0) > 0);
+    const rewardKinds = ['gld','xp','heal','weaponCount','weaponBoost','weaponUpgradeCount','weaponPairDamage','abilityCount','activeCdReduce','rareCount','rareProgress','skinCount','skinProgress','jackpotCount'].filter(k => Number(pl[k] || 0) > 0);
     return rewardKinds.length > 1 || pl.mixedBonus ? 'MIX' : (res.outcome === 'PAIR' ? (sym || 'MIX') : (res.outcome || 'MIX'));
   }
   if (pl.staticCount || pl.static) return 'STC';
@@ -10720,7 +10989,19 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
     }
   }
 
-  const weaponCount = Math.max(0, Number(pl.weaponCount || (pl.weapon ? 1 : 0)) | 0);
+  const weaponPairDamage = Math.max(0, Number(pl.weaponPairDamage || 0) | 0);
+  for (let i = 0; i < weaponPairDamage; i++) applyCasinoWeaponPairDamage(p, stakeKey, pl);
+  const weaponUpgradeCount = Math.max(0, Number(pl.weaponUpgradeCount || 0) | 0);
+  for (let i = 0; i < weaponUpgradeCount; i++) {
+    if (!applyRandomCasinoWeaponUpgrade(run, players, p, pl, casinoOfferTier)) {
+      p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
+      if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
+      pl.weaponLabels.push('WPN TRIPLE: WEAPON DAMAGE +18%');
+      pl.weaponLabel = pl.weaponLabels.join(' + ');
+    }
+  }
+  const legacyWeaponCount = !weaponPairDamage && !weaponUpgradeCount && pl.weapon ? 1 : 0;
+  const weaponCount = Math.max(0, Number(pl.weaponCount || legacyWeaponCount) | 0);
   if (weaponCount) {
     if (!p.weaponChestOffer) {
       const choices = makeWeaponChestChoices(p, Math.random, 3, casinoOfferTier);
@@ -10832,12 +11113,18 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     }
     p.economy.money -= stake;
   }
-  const priorSlotLocks = casinoSlotLocksForPlayer(p).slice(0, 3);
-  const fullLockedBeforeSpin = priorSlotLocks.every(Boolean);
-  if (fullLockedBeforeSpin) {
+  // Low stakes never carry WPN/ABL into a roll, including locks restored from an
+  // older save or created at another stake. This keeps the stake restriction
+  // authoritative instead of relying on the HUD.
+  const priorSlotLocks = casinoSlotLocksForPlayer(p).slice(0, 3)
+    .map(symbol => casinoSymbolAllowedForStake(symbol, stakeKey) ? symbol : '');
+  casinoSlotLocksSetForPlayer(p, priorSlotLocks);
+  const lockedBeforeSpin = priorSlotLocks.filter(Boolean).length;
+  const multiLockedBeforeSpin = lockedBeforeSpin >= 2;
+  if (multiLockedBeforeSpin) {
     p.casinoFullLockSpins = Math.max(0, Number(p.casinoFullLockSpins || 0) | 0) + 1;
-    if (p.casinoFullLockSpins > 10) {
-      const lockedText = priorSlotLocks.join(' ');
+    if (p.casinoFullLockSpins >= 10) {
+      const lockedText = priorSlotLocks.filter(Boolean).join(' ');
       casinoSlotLocksSetForPlayer(p, ['', '', '']);
       p.casinoFullLockSpins = 0;
       spawnCasinoOverloadSlotMob(run, players, near, p);
@@ -10854,7 +11141,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   res.stake = stake;
   const pl = res.payload;
   casinoSlotLocksSetForPlayer(p, res.lockSlots || pl.lockSlots || []);
-  if (!casinoSlotLocksForPlayer(p).every(Boolean)) p.casinoFullLockSpins = 0;
+  if (casinoSlotLocksForPlayer(p).filter(Boolean).length < 2) p.casinoFullLockSpins = 0;
   const stakeScale = Math.max(1, stake / Math.max(1, baseStake));
   const greedGoldBonus = isGreedRoom(run) && pl.gld ? 1.35 : 1;
   if (pl.gld) pl.gld = Math.round(pl.gld * stakeScale * greedGoldBonus);
@@ -10886,7 +11173,20 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     }
     pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
   }
-  const weaponCount = Math.max(0, Number(pl.weaponCount || (pl.weapon ? 1 : 0)) | 0);
+  const weaponPairDamage = Math.max(0, Number(pl.weaponPairDamage || 0) | 0);
+  for (let i = 0; i < weaponPairDamage; i++) applyCasinoWeaponPairDamage(p, stakeKey, pl);
+  const weaponUpgradeCount = Math.max(0, Number(pl.weaponUpgradeCount || 0) | 0);
+  const casinoWeaponTier = stakeKey === 'high' ? 2 : stakeKey === 'mid' ? 1 : 0;
+  for (let i = 0; i < weaponUpgradeCount; i++) {
+    if (!applyRandomCasinoWeaponUpgrade(run, players, p, pl, casinoWeaponTier)) {
+      p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
+      if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
+      pl.weaponLabels.push('WPN TRIPLE: WEAPON DAMAGE +18%');
+      pl.weaponLabel = pl.weaponLabels.join(' + ');
+    }
+  }
+  const legacyWeaponCount = !weaponPairDamage && !weaponUpgradeCount && pl.weapon ? 1 : 0;
+  const weaponCount = Math.max(0, Number(pl.weaponCount || legacyWeaponCount) | 0);
   if (weaponCount) {
     pl.weaponLabels = [];
     for (let i = 0; i < weaponCount; i++) {
@@ -11057,7 +11357,7 @@ function beginTransition(run, players) {
   }
 }
 
-export function handlePick(run, players, p, choiceIdx, offerId = 0) {
+export function handlePick(run, players, p, choiceIdx, offerId = 0, choiceId = '') {
   const casinoInstall = !!p.offer && p.offer.kind === 'casino_install' && (run.phase === 'play' || run.phase === 'clear');
   if ((!casinoInstall && run.phase !== 'install') || !p.offer) return false;
   const expectedOfferId = Math.max(0, p.offer.id | 0);
@@ -11066,6 +11366,10 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0) {
   const idx = choiceIdx | 0;
   if (idx < 0 || idx >= p.offer.choices.length) return false;
   const id = p.offer.choices[idx];
+  const incomingChoiceId = String(choiceId || '').trim();
+  // The index alone is not enough when a delayed packet from an older INSTALL
+  // crosses a newer offer. Validate the exact card the client displayed as well.
+  if (incomingChoiceId && incomingChoiceId !== id) return false;
   const u = UPGRADES.find(x => x.id === id);
   if (!u) return false;
   const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
@@ -11685,7 +11989,7 @@ function castActiveCore(run, players, p, opts = {}) {
     activeField(run, {
       kind: 'void_laser', owner: p.id, x: ctx.x, y: ctx.y, r: width,
       x1: Math.round(startX), y1: Math.round(startY), x2: ctx.endX, y2: ctx.endY, width, visualWidth,
-      ttl, tickEvery: 0.18, dmg: playerDamageValue(p, 4 + lvl * 2.4), slow: 0.20, damp: 0.02
+      ttl, tickEvery: 0.72, dmg: playerDamageValue(p, 4 + lvl * 2.4), slow: 0.20, damp: 0.02
     });
     const segTag = ctx.maxSegments > 1 ? ` ${segmentIndex}/${ctx.maxSegments}` : '';
     run.fx.push({ t: 'active_line', kind: 'void_laser', id: p.id, label: `VOID LINK${segTag}${cut ? ' / ERASE ' + cut : ''}`, x1: Math.round(startX), y1: Math.round(startY), x2: ctx.endX, y2: ctx.endY, width: visualWidth, hitWidth: width, laserLen, ttl, tone: 'purple' });
@@ -12009,6 +12313,14 @@ function armVoidCut(run, p) {
 }
 function consumeActiveCastStat(p) { if (p.wagerStats) p.wagerStats.q = (p.wagerStats.q || 0) + 1; }
 function doActive(run, players, p) {
+  if ((p.bossQSilenceT || 0) > 0) {
+    p.activeTargeting = null;
+    if ((p.bossQSilenceDenyT || 0) <= 0) {
+      p.bossQSilenceDenyT = 0.65;
+      run.fx.push({ t: 'active_denied', id: p.id, reason: 'boss_silence', label: `Q SILENCE ${Math.ceil(p.bossQSilenceT)}s`, x: Math.round(p.x), y: Math.round(p.y) });
+    }
+    return;
+  }
   const a = ensureActive(p);
   if (!a.core) {
     run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ ПРОТОКОЛА', x: Math.round(p.x), y: Math.round(p.y) });
@@ -12222,6 +12534,8 @@ function stepPlayers(run, players, dt) {
     ensureHeroRuntimeState(p);
     p.invuln = Math.max(0, p.invuln - dt);
     p.activeCd = Math.max(0, (p.activeCd || 0) - dt);
+    p.bossQSilenceT = Math.max(0, (p.bossQSilenceT || 0) - dt);
+    p.bossQSilenceDenyT = Math.max(0, (p.bossQSilenceDenyT || 0) - dt);
     const weaponClock = weaponClockMultiplier(p);
     p.sekSwarmCd = Math.max(0, (p.sekSwarmCd || 0) - dt * weaponClock);
     p.shgLongshotCd = Math.max(0, (p.shgLongshotCd || 0) - dt * weaponClock);
@@ -12504,7 +12818,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p)
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10
     ]);
   }
   const ctrlLocks = new Map();
@@ -12542,7 +12856,9 @@ export function buildSnapshot(run, players) {
     ctrlLocks.has(e.id) ? 1 : 0,
     ctrlLocks.get(e.id) || 0,
     (e.abilityLockT || 0) > 0 ? 1 : 0,
-    e.kind === 'boss_anchor_cashier' && e.anchorCyclePhase === 'shots' ? 0 : 1
+    e.kind === 'boss_anchor_cashier' && e.anchorCyclePhase === 'shots' ? 0 : 1,
+    e.kind === 'boss_trinode' && Array.isArray(e.trinodeParts) ? e.trinodeParts.map((part, i) => [Math.round(part.x), Math.round(part.y), Math.round((part.hp / Math.max(1, part.maxHp || 1)) * 100), i > 0 || (e.trinodeUnlockT || 0) > 0 ? 1 : 0]) : null,
+    e.kind === 'boss_trinode' ? `${e.trinodePhase || 'burst'}:${e.trinodePhase === 'burst' ? Math.max(0, 10 - (e.trinodeShots || 0)) : Math.ceil(e.trinodePhaseT || 0)}` : ''
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn

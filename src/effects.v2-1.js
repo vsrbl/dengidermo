@@ -208,7 +208,7 @@ export class Effects {
         this.add({ kind: 'warnring', x: f.x, y: f.y, r: f.r, ttl: f.dur, color: f.ally ? '#a8f8ff' : '#b45cff' });
         break;
       case 'rain_hit':
-        if (f.active && f.ally) this.add({ kind: 'staticStrikeFlash', x: f.x, y: f.y, r: f.r, ttl: 0.14, color: '#d9fdff' });
+        if (f.active && f.ally) this.add({ kind: 'staticStrikeFlash', x: f.x, y: f.y, r: f.r, ttl: 0.18, color: '#d9fdff' });
         else this.add({ kind: 'strike', x: f.x, y: f.y, r: f.r, ttl: 0.3, color: f.ally ? '#bdfbff' : '#b45cff' });
         this.kick(3);
         break;
@@ -346,8 +346,11 @@ export class Effects {
         }
         const isBox = f.kind === 'black_box' || String(f.label || '').includes('BLACK BOX');
         const isFreeze = f.kind === 'freeze_aura' || String(f.label || '').includes('FREEZE');
+        const isStaticStrike = f.kind === 'static_strike';
         const col = isBox ? '#b45cff' : f.label && f.label.includes('BLOOD') ? '#ff3048' : (f.label && f.label.includes('RIPPER') ? '#b45cff' : '#66f6ff');
-        this.add({ kind: isBox ? 'blackBoxAura' : 'squareField', activeKind: isBox ? 'black_box' : (isFreeze ? 'freeze_aura' : String(f.label || '').toLowerCase().replace(/ .*/, '')), x: f.x, y: f.y, r: f.r || 160, ttl: isBox ? 0.38 : 0.26, color: col, cast: isBox ? 1 : 0 });
+        // STATIC STRIKE already owns a full-duration rain_warn telegraph. The old
+        // generic 0.26s field vanished long before damage and looked like a miss.
+        if (!isStaticStrike) this.add({ kind: isBox ? 'blackBoxAura' : 'squareField', activeKind: isBox ? 'black_box' : (isFreeze ? 'freeze_aura' : String(f.label || '').toLowerCase().replace(/ .*/, '')), x: f.x, y: f.y, r: f.r || 160, ttl: isBox ? 0.38 : 0.26, color: col, cast: isBox ? 1 : 0 });
         this.float(f.x, f.y - 50, fxLabel(f.label || 'Q'), col, 12);
         break;
       }
@@ -740,9 +743,14 @@ export class Effects {
         ctx.globalAlpha = 1 - p; ctx.fillRect(e.x - 2, e.y - 600, 4, 600);
       } else if (e.kind === 'staticStrikeFlash') {
         // STATIC STRIKE is a single impact, not a lingering field. Draw only a
-        // very short bolt/core flash; never leave a filled radius behind.
+        // very short exact-radius impact flash; never leave a field behind.
         const fade = 1 - p;
         ctx.strokeStyle = e.color; ctx.fillStyle = e.color;
+        ctx.globalAlpha = fade * 0.16;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = fade * 0.95;
+        ctx.lineWidth = Math.max(1, 3 * fade);
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.stroke();
         ctx.globalAlpha = fade;
         ctx.lineWidth = Math.max(1, 4 * fade);
         ctx.beginPath();

@@ -217,7 +217,7 @@ export class Net {
   sendCasinoLock(slot) { this._game({ t: 'casino_lock', slot: Number(slot) | 0 }, true); }
   sendCasinoSkinPick(choice) { this._game({ t: 'casino_skin_pick', choice: Number(choice) | 0 }, true); }
   sendCasinoPrizePick(choice) { this._game({ t: 'casino_prize_pick', choice: Number(choice) | 0 }, true); }
-  sendPick(choice, offerId = 0) { this._game({ t: 'pick', choice, offerId }, true); }
+  sendPick(choice, offerId = 0, choiceId = '') { this._game({ t: 'pick', choice, offerId, choiceId: String(choiceId || '') }, true); }
   sendWeaponPick(choice) { this._game({ t: 'weapon_pick', choice }, true); }
   sendAbilityPick(choice) { this._game({ t: 'ability_pick', choice }, true); }
   sendRarePick(choice) { this._game({ t: 'rare_pick', choice }, true); }

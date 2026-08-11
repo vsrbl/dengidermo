@@ -11,9 +11,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.20[1-4]$/);
+assert.match(VERSION, /^v2\.1\.20[1-8]$/);
 if (VERSION === 'v2.1.201') assert.equal(BUILD_ID, 'static_strike_install_storm_clarity');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 // STATIC STRIKE level I is exactly 1.5x tighter than the previous 88px
 // gameplay radius, while later levels still grow.

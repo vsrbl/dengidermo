@@ -613,6 +613,7 @@ fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '
 
 // ---------------------------------------------------------------- net handlers
 net.on('welcome', (m) => {
+  hud.resetInstallSync?.();
   state.myId = m.id ?? net.id;
   state.setWalls(m.walls, m.world);
   $('menu').classList.add('hidden');
@@ -631,7 +632,7 @@ net.on('s', (m) => {
   }
 });
 net.on('offer', (m) => hud.openInstall(m.choices, m.pending, m.offerId || m.id || 0, m.kind || '', m.expires || 0, m.total || 0));
-net.on('offer_close', () => { if (!hud.install.skinOnly && !(hud.install.picked && state.room?.phase === 'install')) hud.closeInstall(); });
+net.on('offer_close', (m) => { if (!hud.install.skinOnly) hud.closeInstallOffer(m?.offerId || 0); });
 net.on('weapon_offer', (m) => hud.openWeaponChest(m.choices, m.meta));
 net.on('weapon_offer_close', () => hud.closeWeaponChest());
 net.on('ability_offer', (m) => hud.openAbilityChest(m.choices, m.meta));
@@ -704,7 +705,7 @@ function ensureDevPanel() {
     </div>
 
     <div class="dev-section-title">BOSS / SIGNATURE</div>
-    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss">BOS</option></select></div>
+    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss_trinode">TRI</option><option value="boss">BOS</option></select></div>
     <div class="dev-row"><label>REWARD</label><select id="dev-boss-reward">${bossRewardOpts}</select></div>
     <div class="dev-row"><label>R</label><select id="dev-r-active">${rActiveOpts}</select></div>
     <div class="dev-buttons dev-priority">

@@ -1,7 +1,7 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.204';
-export const BUILD_ID = 'armor_spam_anchor_phase_cycle';
-export const PROTOCOL = 14;
+export const VERSION = 'v2.1.208';
+export const BUILD_ID = 'boss_bag_trinode_q_silence_casino_wpn';
+export const PROTOCOL = 15;
 
 export const MAX_PLAYERS = 4;
 export const SIM_HZ = 60;

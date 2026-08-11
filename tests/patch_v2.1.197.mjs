@@ -4,9 +4,9 @@ import { ENEMIES } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[7-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[7-9]|20[0-8])$/);
 if (VERSION === 'v2.1.197') assert.equal(BUILD_ID, 'field_snap_pull_visual_only_hotfix');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const p = createPlayer('snap-visual197', 'SNAP VISUAL', 0);
 const players = new Map([[p.id, p]]);

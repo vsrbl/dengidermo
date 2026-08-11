@@ -10,9 +10,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[89]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[89]|20[0-8])$/);
 if (VERSION === 'v2.1.198') assert.equal(BUILD_ID, 'controller_process_lifetime_heal_hotfix');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 const process = (id, extra = {}) => ({
   id, kind: 'tank', x: 500, y: 500, size: 30,

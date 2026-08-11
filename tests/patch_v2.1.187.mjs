@@ -20,9 +20,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[7-9]|19[0-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:18[7-9]|19[0-9]|20[0-8])$/);
 if (VERSION === 'v2.1.187') assert.equal(BUILD_ID, 'controller_boss_range_blast_sustain_rework');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 // Signal Spike now deploys at the cursor on the first Q; no radius-target state exists.
 const qPlayer = createPlayer('q187', 'Q187', 0);
@@ -78,7 +78,7 @@ const healRun = { fx: [] };
 expireControlledProcess(healRun, healPlayer, { id: 'dead', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'hp');
 assert.equal(healPlayer.hp, 70);
 expireControlledProcess(healRun, healPlayer, { id: 'ttl', kind: 'tank', x: 0, y: 0, size: 30, maxHp: 400 }, 'ttl');
-  assert.equal(healPlayer.hp, ['v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204'].includes(VERSION) ? 90 : 70, 'signal expiry healing does not match this patch generation');
+  assert.equal(healPlayer.hp, ['v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208'].includes(VERSION) ? 90 : 70, 'signal expiry healing does not match this patch generation');
 
 function bossSource(kind, id, hp = null) {
   const def = ENEMIES[kind];

@@ -10,9 +10,9 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[1-9]|20[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:19[1-9]|20[0-8])$/);
 if (VERSION === 'v2.1.191') assert.equal(BUILD_ID, 'r_cooldown_ghost_duration_balance');
-assert.equal(PROTOCOL, 14);
+assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
 assert.deepEqual({
   target_lock: rActiveCooldown('target_lock'),

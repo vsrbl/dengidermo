@@ -135,7 +135,10 @@ export class LocalRoom {
     } else if (m.t === 'pick') {
       const p = this.players.get(playerId);
       if (!p) return;
-      const ok = handlePick(this.run, this.players, p, m.choice, m.offerId || m.id || 0);
+      const requestedOfferId = Math.max(0, Number(m.offerId || m.id || 0) | 0);
+      const requestedChoiceId = String(m.choiceId || '');
+      const handledOfferId = Math.max(0, Number(p.offer?.id || 0) | 0);
+      const ok = handlePick(this.run, this.players, p, m.choice, requestedOfferId, requestedChoiceId);
       if (ok && p.offer) {
         // Send the next queued choice immediately. In multiplayer this prevents the INSTALL phase
         // from looking stuck when one player has several pending choices and others are still choosing.
@@ -143,9 +146,13 @@ export class LocalRoom {
         this.offerSentAt.set(playerId, performance.now());
         this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) }, true);
       }
-      else if (ok && !p.offer) this.sendTo(playerId, { t: 'offer_close', pending: p.economy.pending }, true);
+      else if (ok && !p.offer) {
+        this.offersSent.delete(playerId);
+        this.offerSentAt.delete(playerId);
+        this.sendTo(playerId, { t: 'offer_close', offerId: handledOfferId, pending: p.economy.pending }, true);
+      }
       else if (!ok && p.offer) this.sendTo(playerId, { t: S.OFFER, choices: p.offer.choices, pending: p.economy.pending, offerId: p.offer.id || 0, kind: p.offer.kind || '', expires: Math.max(0, p.offer.expires || 0), total: Math.max(1, p.offer.total || p.offer.expires || 1) }, true);
-      else if (!ok) this.sendTo(playerId, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
+      else if (!ok) this.sendTo(playerId, { t: 'offer_close', offerId: requestedOfferId, pending: p.economy?.pending || 0 }, true);
     } else if (m.t === 'weapon_pick') {
       const p = this.players.get(playerId);
       if (!p) return;
@@ -242,7 +249,7 @@ export class LocalRoom {
       if (!p.offer && sent) {
         this.offersSent.delete(pid);
         this.offerSentAt.delete(pid);
-        this.sendTo(pid, { t: 'offer_close', pending: p.economy?.pending || 0 }, true);
+        this.sendTo(pid, { t: 'offer_close', offerId: Math.max(0, Number(sent?.id || 0) | 0), pending: p.economy?.pending || 0 }, true);
       }
     }
 
