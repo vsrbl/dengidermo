@@ -7939,7 +7939,7 @@ const ROOM_WAGER_PRIZES = [
   { id: 'base_fire_plus', ru: '+18% оружейного такта', en: '+18% Weapon Clock', heroes: ['base'], prize: (run, p) => { p.stats.fireMul *= 1.18; } },
   { id: 'base_power_plus', ru: '+15% мощности оружия', en: '+15% weapon power', heroes: ['base'], prize: (run, p) => { p.stats.weaponDmgMul *= 1.15; p.wagerWeaponDamagePrize = (p.wagerWeaponDamagePrize || 0) + 1; } },
   { id: 'lc_target_plus', ru: '+1 канал цели LVC', en: '+1 LVC target channel', heroes: ['living_casino'], needs: p => livingCasinoBaseTargetMax(ensureLivingCasinoState(p)) < LC_TARGET_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.targets = Math.max(0, lc.upgrades.targets || 0) + 1; } },
-  { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => { const lc = ensureLivingCasinoState(p); return livingCasinoSparksUnlocked(lc) && livingCasinoSparkMax(lc) < LC_SPARK_CAP; }, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
+  { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => { const lc = ensureLivingCasinoState(p); return livingCasinoSparksUnlocked(lc); }, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
   { id: 'lc_spark_damage_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 мощность искр', en: '+1 spark power', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkDamage = Math.max(0, lc.upgrades.sparkDamage || 0) + 1; } },
   { id: 'lc_spark_hold_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 длительность искр', en: '+1 spark duration', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkHold = Math.max(0, lc.upgrades.sparkHold || 0) + 1; } },
   { id: 'lc_spark_range_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 дальность искр', en: '+1 spark range', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkRange = Math.max(0, lc.upgrades.sparkRange || 0) + 1; } },
@@ -7957,7 +7957,13 @@ function roomWagerHeroId(p) {
 }
 function pickRoomWagerItem(list, p) {
   const hero = roomWagerHeroId(p);
-  const pool = list.filter(x => (!x.heroes || x.heroes.includes(hero)) && (!x.needs || x.needs(p)));
+  const pool = list.filter(x => {
+    if (x.heroes && !x.heroes.includes(hero)) return false;
+    // Optional wager content must not be able to stop the authoritative loop
+    // while INSTALL is waiting. A broken entry is skipped, never fatal.
+    try { return !x.needs || !!x.needs(p); }
+    catch { return false; }
+  });
   return pool[Math.floor(Math.random() * pool.length)] || list[0];
 }
 function makeRoomWagerOffer(run, p) {

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { VERSION, BUILD_ID, PROTOCOL } from '../shared/protocol.v2-1.js';
 import {
-  createPlayer, livingCasinoBaseRange, livingCasinoSparkMax, livingCasinoChoicePool,
+  createRun, createPlayer, step, handlePick, handleContractPick, handleRoomWagerDecline,
+  livingCasinoBaseRange, livingCasinoSparkMax, livingCasinoChoicePool,
   applyLivingCasinoWeaponOption, livingCasinoAttachSpark,
   livingCasinoSparkLinks, livingCasinoSparkBlocksContact,
   constrainLivingCasinoSparkTarget, rootNodeMaxHp
@@ -64,4 +65,35 @@ assert.equal(constrainLivingCasinoSparkTarget(run, players, boss, 500, 100), tru
 assert.ok(Math.hypot(boss.x - p.x, boss.y - p.y) >= bossLink.minRange - 3);
 assert.equal(boss.state, 'cool');
 
-console.log('v2.1.220 checks passed: LVC gun range + universal spark tether');
+// Critical regression: selecting the next contract before the boss signature,
+// then closing the signature, must create a valid wager and let INSTALL finish.
+{
+  const queueRun = createRun(22077);
+  const queuePlayer = createPlayer('queue-lvc', 'QUEUE', 0, { hero: 'living_casino' });
+  queuePlayer.stats.roomWagerUnlocked = 1;
+  queuePlayer.livingCasino.upgrades.sparksUnlocked = true;
+  queuePlayer.bossSignaturePending = true;
+  queuePlayer.bossSignatureKind = 'boss';
+  queuePlayer.bossSignatureChoices = ['sig_target_lock', 'sig_redline_boost', 'sig_spawn_hold'];
+  const queuePlayers = new Map([[queuePlayer.id, queuePlayer]]);
+  queueRun.phase = 'install';
+  queueRun.contractChoice = {
+    depth: queueRun.runDepth,
+    choices: [{ id: 'next_test_contract', label: 'NEXT TEST', goal: 'Continue.' }],
+    votes: {}, selected: ''
+  };
+  assert.equal(handleContractPick(queueRun, queuePlayers, queuePlayer, 0), true);
+  step(queueRun, queuePlayers, 1 / 60, 1);
+  assert.equal(queuePlayer.offer?.kind, 'boss_signature');
+  assert.equal(handlePick(queueRun, queuePlayers, queuePlayer, 0, queuePlayer.offer.id, queuePlayer.offer.choices[0]), true);
+  assert.equal(queuePlayer.bossSignaturePending, false);
+  assert.doesNotThrow(() => step(queueRun, queuePlayers, 1 / 60, 1.02));
+  assert.ok(queuePlayer.roomWagerOffer, 'wager must appear after the boss signature without freezing INSTALL');
+  assert.equal(handleRoomWagerDecline(queueRun, queuePlayers, queuePlayer, queuePlayer.roomWagerOffer.id), true);
+  const oldDepth = queueRun.runDepth;
+  step(queueRun, queuePlayers, 1 / 60, 1.04);
+  assert.equal(queueRun.runDepth, oldDepth + 1, 'INSTALL must advance after its last real choice');
+  assert.equal(queueRun.phase, 'play');
+}
+
+console.log('v2.1.220 checks passed: LVC range, universal spark tether, endless sparks, boss-choice queue recovery');
