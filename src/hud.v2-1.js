@@ -810,7 +810,7 @@ export class Hud {
       // paused behind INSTALL, so waiting for a later animation frame can leave
       // the entry animation stuck at its transparent first keyframe.
       this.installPreviewSig = '';
-      if (this.latestRoom) this.renderInstallNextRoom(this.latestRoom);
+      if (this.latestRoom) this.renderInstallNextRoom(this.latestRoom, this.latestMe?.[P.ID] || '');
     });
     const stakesEl = $('casino-stakes');
     this.lastStakePointerAt = 0;
@@ -1142,7 +1142,7 @@ export class Hud {
     card.style.setProperty('pointer-events', 'auto', 'important');
   }
 
-  renderInstallNextRoom(room = {}) {
+  renderInstallNextRoom(room = {}, myId = '') {
     const el = $('install-next-room');
     const hidePreview = () => {
       if (!el) return;
@@ -1201,15 +1201,27 @@ export class Hud {
     const contractChoices = Array.isArray(contractOffer?.choices) ? contractOffer.choices : [];
     const voteCounts = {};
     for (const id of Object.values(contractOffer?.votes || {})) voteCounts[id] = (voteCounts[id] || 0) + 1;
-    const contract = contractChoices.length
-      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const previews = Array.isArray(o.prizePreview) ? o.prizePreview : []; const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Конкретный приз показывается до выбора контракта.', 'The exact prize is shown before the contract is selected.'); return `<button type="button" class="contract-choice-card${contractOffer.selected === o.id ? ' selected' : ''}" data-contract-choice="${i}" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
+    const authoritativeVote = String(contractOffer?.votes?.[myId] || '');
+    const pendingVote = this.pendingContractPick?.depth === contractOffer?.depth ? String(this.pendingContractPick.id || '') : '';
+    if (authoritativeVote) this.pendingContractPick = null;
+    else if (this.pendingContractPick && this.pendingContractPick.depth !== contractOffer?.depth) this.pendingContractPick = null;
+    const myVote = authoritativeVote || pendingVote;
+    const selectedContract = myVote ? (contractChoices.find(o => o.id === contractOffer.selected) || contractChoices.find(o => o.id === myVote)) : null;
+    const selectedContractHtml = selectedContract ? (() => {
+      const previews = Array.isArray(selectedContract.prizePreview) ? selectedContract.prizePreview : [];
+      const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE');
+      const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Приз закреплён за выбранным контрактом.', 'The reward is locked to the selected contract.');
+      return `<div class="install-next-contract contract-selected"><b>${esc(localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED'))}</b><div class="contract-selected-card" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>${esc(locLabel(selectedContract.label || selectedContract.id))}</strong><span>${esc(locLabel(selectedContract.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}</em></div></div>`;
+    })() : '';
+    const contract = selectedContractHtml || (contractChoices.length
+      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const previews = Array.isArray(o.prizePreview) ? o.prizePreview : []; const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Конкретный приз показывается до выбора контракта.', 'The exact prize is shown before the contract is selected.'); return `<button type="button" class="contract-choice-card" data-contract-choice="${i}" data-contract-id="${esc(o.id)}" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
       : next.objective
         ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
-        : '';
+        : '');
     const choiceSig = contractChoices.map(o => `${o.id}:${(o.prizePreview || []).map(x => x?.id || x?.label || '').join('+')}`).join(',');
     const voteSig = Object.entries(voteCounts).sort(([a], [b]) => String(a).localeCompare(String(b))).map(([id, n]) => `${id}:${n}`).join(',');
     const staticSig = staticBd ? JSON.stringify({ total: activeStatic, banked: bankedStatic, deferredCore, sources: staticBd.sources || [], bankedSources: staticBd.bankedSources || [] }) : '';
-    const previewSig = `${next.id}|${next.archetype}|${mods.join(',')}|${staticSig}|${choiceSig}|${voteSig}|${contractOffer?.selected || ''}|${next.objective?.id || ''}|${getLang()}`;
+    const previewSig = `${next.id}|${next.archetype}|${mods.join(',')}|${staticSig}|${choiceSig}|${voteSig}|${contractOffer?.selected || ''}|${myVote}|${next.objective?.id || ''}|${getLang()}`;
     if (this.installPreviewSig === previewSig && el.children.length && el.textContent.trim()) {
       el.classList.remove('hidden');
       el.setAttribute('aria-hidden', 'false');
@@ -1224,8 +1236,12 @@ export class Hud {
       `<div class="install-next-label">${esc(localText('МОДИФИКАТОРЫ', 'MODIFIERS'))}</div>` +
       `<div class="install-next-mods">${modHtml}</div>${staticForecast}${contract}`;
     el.querySelectorAll('[data-contract-choice]').forEach(btn => btn.addEventListener('click', () => {
+      if (this.pendingContractPick || authoritativeVote) return;
+      this.pendingContractPick = { depth: contractOffer?.depth, id: String(btn.dataset.contractId || '') };
       this.net?.sendContractPick?.(Number(btn.dataset.contractChoice) | 0);
       this.playUiSound('pick');
+      this.installPreviewSig = '';
+      this.renderInstallNextRoom(this.latestRoom || room, myId);
     }));
     if (this.installPreviewSig !== previewSig) {
       this.installPreviewSig = previewSig;
@@ -1251,7 +1267,7 @@ export class Hud {
     }
     this.latestRoom = room;
     this.latestMe = me;
-    this.renderInstallNextRoom(room);
+    this.renderInstallNextRoom(room, state.myId);
     if (room.phase === 'won') this.showRunComplete(room); else this.hideRunComplete();
     for (const p of state.latest.players) this.names.set(p[P.ID], p[P.NAME]);
     const aliveNow = !!me[P.ALIVE] && (me[P.HP] > 0);

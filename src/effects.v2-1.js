@@ -90,7 +90,7 @@ export class Effects {
     switch (f.t) {
       case 'ehit': {
         this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18 });
-        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), '#f3f3f3', Math.min(34, 15 + f.dmg * 0.26));
+        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), f.wagerGold ? '#ffd34d' : '#f3f3f3', Math.min(34, 15 + f.dmg * 0.26));
         const myHit = f.owner && f.owner === info.myId;
         if (myHit && Number(f.dmg || 0) >= 55) {
           this.kick(Math.min(7.5, 1.8 + Number(f.dmg || 0) * 0.035));

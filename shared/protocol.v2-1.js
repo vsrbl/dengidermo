@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.216';
-export const BUILD_ID = 'contract_prize_wager_silence_ui';
+export const VERSION = 'v2.1.218';
+export const BUILD_ID = 'contract_choice_confirmation_ui';
 export const PROTOCOL = 15;
 
 export const MAX_PLAYERS = 4;

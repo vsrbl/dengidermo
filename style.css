@@ -294,6 +294,11 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 .contract-choice-card strong { color:var(--gold); font-size:10px; letter-spacing:.08em; }
 .contract-choice-card span { color:var(--fg); font-size:9px; line-height:1.25; margin-top:3px; }
 .contract-choice-card em { color:var(--dim); font-size:8px; font-style:normal; margin-top:3px; }
+.contract-selected-card { width:100%; box-sizing:border-box; padding:8px 9px; border:1px solid var(--gold); background:rgba(255,211,77,.11); box-shadow:0 0 0 1px rgba(255,211,77,.10) inset,0 0 18px rgba(255,211,77,.08); }
+.contract-selected-card strong,.contract-selected-card span,.contract-selected-card em { display:block; }
+.contract-selected-card strong { color:var(--gold); font-size:10px; letter-spacing:.09em; }
+.contract-selected-card span { color:var(--fg); font-size:9px; line-height:1.3; margin-top:4px; }
+.contract-selected-card em { color:var(--gold); font-size:8px; font-style:normal; margin-top:4px; }
 @keyframes installIntelInV2209 { from { opacity:0; transform:translateX(-9px); } to { opacity:1; transform:none; } }
 
 /* Hover feedback must follow the pointer immediately in every picker. */
