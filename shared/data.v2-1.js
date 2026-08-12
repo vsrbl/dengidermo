@@ -70,7 +70,7 @@ export const ENEMIES = {
   damper:   { label: 'DMP', hp: 118,  spd: 38,  size: 44, dmg: 0,  damper: true, fieldR: 280, bulletDamp: 0.018, stopSpd: 42, xp: 30, gld: 18, score: 4, role: 'mobile bullet-safe nest', combo: 'safe-zone pressure' },
   herald:   { label: 'HRD', hp: 180,  spd: 52,  size: 48, dmg: 12, herald: true, summonCd: 4.2, tetherDmg: 3, xp: 36, gld: 28, score: 5, armor: 0.18, role: 'summon director', combo: 'summon pressure' },
 
-  boss:     { label: 'BOS', hp: 1300, spd: 60,  size: 72, dmg: 26, boss: true, armor: 0.25, fireCd: 2.6, bulletSpd: 230, xp: 140, gld: 120, score: 20 },
+  boss:     { label: 'OCT', hp: 2860, spd: 34, size: 92, dmg: 26, boss: true, armor: 0.34, fireCd: 2.6, bulletSpd: 230, xp: 160, gld: 140, score: 24, bossRole: 'rotating laser array' },
 
   // boss rotation v2.1.19
   boss_croupier: { label: 'CRP', hp: 1207, spd: 52, size: 78, dmg: 24, boss: true, armor: 0.24, fireCd: 2.35, bulletSpd: 245, xp: 150, gld: 132, score: 22, bossRole: 'casino rules' },

@@ -477,6 +477,7 @@ function payBloodCost(run, p, hpCost, srcX = p?.x, srcY = p?.y, radius = 48) {
 }
 function forceBigRoomForHunter(run) {
   if (!hasMod(run, 'hunter_contract')) return;
+  if (run.plan?.octLaserArena || run.plan?.rootLockdown || run.plan?.trinodeChase) return;
   run.plan.roomArchetype = 'wide';
 }
 function chestValueInfo(run, o = {}) {
@@ -1716,7 +1717,8 @@ function playableRectForArchetype(archetype) {
     wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 },
     ripped_table: { w: 2200, h: 1500 }, cross_terminal: { w: 2200, h: 1500 }, ring_track: { w: 2200, h: 1500 },
     clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 },
-    root_lockdown: { w: 3100, h: 2150, x: 0, y: 0 }, trinode_chase: { w: 2200, h: 1500 }
+    root_lockdown: { w: 3100, h: 2150, x: 0, y: 0 }, trinode_chase: { w: 2200, h: 1500 },
+    oct_laser_arena: { w: 3100, h: 2130, x: 0, y: 0 }
   };
   const d = defs[archetype] || defs.standard;
   const x = Number.isFinite(d.x) ? d.x : Math.round((2200 - d.w) / 2), y = Number.isFinite(d.y) ? d.y : Math.round((1500 - d.h) / 2);
@@ -1727,7 +1729,7 @@ function rootLockDepthForRun(run) {
   // Boss depths are 3, 7, 11, 15, 19 and 23. Never choose the first boss and
   // never replace TRI's dedicated chase arena with ROOT LOCKDOWN.
   const order = bossOrderForRun(run);
-  const eligible = [1, 2, 3, 4, 5].filter(i => order[i % order.length] !== 'boss_trinode');
+  const eligible = [1, 2, 3, 4, 5].filter(i => !['boss_trinode', 'boss'].includes(order[i % order.length]));
   const pick = (((run?.seedBase || 1) >>> 0) ^ 0x524f4f54) >>> 0;
   const bossIndex = eligible[pick % Math.max(1, eligible.length)] ?? 1;
   return 3 + bossIndex * 4;
@@ -1746,7 +1748,7 @@ function rootLockOuterWalls(w = 3100, h = 2150) {
 }
 function prepareRootLockArena(run, bossKind = '') {
   if (!run?.plan || run.plan.category !== 'boss') return false;
-  if (bossKind === 'boss_trinode') return false;
+  if (bossKind === 'boss_trinode' || bossKind === 'boss') return false;
   if ((run.runDepth || 0) !== rootLockDepthForRun(run)) return false;
   if (run.runMemory?.rootLockDone) return false;
   run.plan.w = 3100; run.plan.h = 2150;
@@ -1778,6 +1780,31 @@ function prepareTrinodeChaseArena(run, bossKind = '') {
   run.plan.roomArchetype = 'trinode_chase';
   run.plan.trinodeChase = 1;
   run.plan.walls = trinodeChaseWalls(run.plan.w, run.plan.h);
+  run.plan.interactables = [];
+  return true;
+}
+
+function octLaserArenaWalls(w = 3100, h = 2130) {
+  const edge = 900;
+  return [
+    { x: -edge, y: -edge, w: w + edge * 2, h: edge }, { x: -edge, y: h, w: w + edge * 2, h: edge },
+    { x: -edge, y: -edge, w: edge, h: h + edge * 2 }, { x: w, y: -edge, w: edge, h: h + edge * 2 },
+    // Thin, staggered cover. Every block has wide paths around both ends, so
+    // the arena stays connected while a player can break line of sight.
+    { x: 430, y: 300, w: 110, h: 430 }, { x: 430, y: 1390, w: 110, h: 430 },
+    { x: 900, y: 570, w: 430, h: 96 }, { x: 900, y: 1460, w: 430, h: 96 },
+    { x: 1495, y: 220, w: 110, h: 400 }, { x: 1495, y: 1510, w: 110, h: 400 },
+    { x: 1770, y: 570, w: 430, h: 96 }, { x: 1770, y: 1460, w: 430, h: 96 },
+    { x: 2560, y: 300, w: 110, h: 430 }, { x: 2560, y: 1390, w: 110, h: 430 },
+    { x: 730, y: 990, w: 300, h: 90 }, { x: 2070, y: 1050, w: 300, h: 90 }
+  ];
+}
+function prepareOctLaserArena(run, bossKind = '') {
+  if (!run?.plan || run.plan.category !== 'boss' || bossKind !== 'boss') return false;
+  run.plan.w = 3100; run.plan.h = 2130;
+  run.plan.roomArchetype = 'oct_laser_arena';
+  run.plan.octLaserArena = 1;
+  run.plan.walls = octLaserArenaWalls(run.plan.w, run.plan.h);
   run.plan.interactables = [];
   return true;
 }
@@ -4532,7 +4559,34 @@ function stepControlledBoss(run, players, p, pc, m, target, toT, dT, spd, dt, wa
   m.bossDashCd = Math.max(0, Number(m.bossDashCd || 0) - dt * fireMul);
   m.bossVolleyCd = Math.max(0, Number(m.bossVolleyCd || 0) - dt * fireMul);
   if (!target) return;
-  if (m.kind === 'boss_croupier') {
+  if (m.kind === 'boss') {
+    if (!Number.isFinite(m.octPhase)) { m.octPhase = 1; m.octPhaseT = 4; m.octAngle = 0; m.octTurn = 1; m.octHitCds = {}; }
+    for (const id of Object.keys(m.octHitCds || {})) m.octHitCds[id] = Math.max(0, (m.octHitCds[id] || 0) - dt * fireMul);
+    const phase = clamp(Math.round(m.octPhase || 1), 1, 8);
+    m.octAngle += (m.octTurn || 1) * OCT_ROTATION_SPEED[phase - 1] * dt * fireMul;
+    m.octPhaseT = Math.max(0, Number(m.octPhaseT || 4) - dt * fireMul);
+    m.fxT = Math.max(0, Number(m.fxT || 0) - dt);
+    for (let i = 0; i < phase; i++) {
+      const a = m.octAngle + i * Math.PI * 2 / 8, dx = Math.cos(a), dy = Math.sin(a);
+      const x1 = m.x + dx * m.size * 0.48, y1 = m.y + dy * m.size * 0.48;
+      const end = octLaserEnd(run, x1, y1, dx, dy);
+      for (const e of run.enemies || []) {
+        if (!enemyCombatReady(e) || (m.octHitCds[e.id] || 0) > 0) continue;
+        if (distToSegment2(e.x, e.y, x1, y1, end.x, end.y) > (18 + (e.size || 24) / 2) ** 2) continue;
+        damageEnemy(run, players, e, controlledProcessDamageValue(p, (m.ctrlDmg || def.dmg || 26) * (phase === 8 ? 0.34 : 0.25)), p.id, 16, dx, dy, 'ctrl_oct_laser');
+        m.octHitCds[e.id] = phase === 8 ? 0.24 : 0.38;
+      }
+      if (m.fxT <= 0) run.fx.push({ t: 'active_line', kind: 'ctrl_oct_laser', x1: Math.round(x1), y1: Math.round(y1), x2: Math.round(end.x), y2: Math.round(end.y), width: phase === 8 ? 21 : 17, tone: phase === 8 ? 'red' : 'purple', owner: p.id, ally: 1 });
+    }
+    if (m.fxT <= 0) { m.fxT = 0.12; run.fx.push({ t: 'oct_laser_pulse', id: m.id, phase, red: phase === 8 ? 1 : 0, owner: p.id, ally: 1 }); }
+    if (m.octPhaseT <= 0) {
+      if (phase >= 8) { m.octPhase = 1; m.octTurn = -(m.octTurn || 1); }
+      else m.octPhase = phase + 1;
+      m.octPhaseT = 4;
+      run.fx.push({ t: 'oct_phase', id: m.id, phase: m.octPhase, lasers: m.octPhase, red: m.octPhase === 8 ? 1 : 0, owner: p.id, ally: 1, x: Math.round(m.x), y: Math.round(m.y) });
+    }
+    controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 480, 0.08);
+  } else if (m.kind === 'boss_croupier') {
     controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 500, 0.22);
     if (m.bossCastCd <= 0) {
       m.bossPhase = (m.bossPhase || 0) + 1;
@@ -5631,8 +5685,9 @@ export function startRoom(run, players) {
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
   const plannedBossKind = run.plan.category === 'boss' ? chooseBossKind(run) : '';
   run.rootLock = null;
-  const rootLockRoom = prepareRootLockArena(run, plannedBossKind);
-  if (!rootLockRoom) prepareTrinodeChaseArena(run, plannedBossKind);
+  const octLaserRoom = prepareOctLaserArena(run, plannedBossKind);
+  const rootLockRoom = !octLaserRoom && prepareRootLockArena(run, plannedBossKind);
+  if (!octLaserRoom && !rootLockRoom) prepareTrinodeChaseArena(run, plannedBossKind);
   activatePendingContractFavors(run, players);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
@@ -5782,7 +5837,13 @@ export function startRoom(run, players) {
   let i = 0;
   for (const p of players.values()) {
     const sp = spawnPoint(i++);
-    p.x = sp.x + (rootLockRoom ? 450 : 0); p.y = sp.y + (rootLockRoom ? 325 : 0);
+    if (octLaserRoom) {
+      const slot = Math.max(0, i - 1);
+      p.x = 250 + (slot % 2) * 95;
+      p.y = 900 + Math.floor(slot / 2) * 125 + (slot % 2) * 45;
+    } else {
+      p.x = sp.x + (rootLockRoom ? 450 : 0); p.y = sp.y + (rootLockRoom ? 325 : 0);
+    }
     p.wagerNoHealRoom = p.nextRoomNoHeal ? 1 : 0; p.nextRoomNoHeal = 0;
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else if (!p.wagerNoHealRoom) p.hp = Math.min(maxHp(p), p.hp + 15);
@@ -5839,6 +5900,9 @@ export function startRoom(run, players) {
   if (run.plan.category === 'boss') {
     const bossKind = plannedBossKind || chooseBossKind(run);
     const boss = spawnEnemy(run, players, bossKind, false);
+    if (octLaserRoom && bossKind === 'boss') {
+      boss.x = run.plan.w / 2; boss.y = run.plan.h / 2; boss.vx = 0; boss.vy = 0;
+    }
     if (isFinalBossRoom(run)) { boss.maxHp = Math.round((boss.maxHp || boss.hp || 1) * 1.35); boss.hp = boss.maxHp; boss.finalBoss = 1; }
     run.bossKind = bossKind;
     if (rootLockRoom) {
@@ -7052,6 +7116,18 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
       e.bossDashCd = 0.65 + rng() * 0.55;
       e.bossVolleyCd = 0.95 + rng() * 0.45;
     }
+    if (kind === 'boss') {
+      e.octPhase = 1;
+      e.octPhaseT = 4;
+      e.octAngle = rng() * Math.PI * 2;
+      e.octTurn = rng() < 0.5 ? -1 : 1;
+      e.octCrashT = 0;
+      e.octPulseT = 0;
+      e.octPhaseAnnounced = 0;
+      e.octHitCds = {};
+      e.octLasers = [];
+      e.state = `oct_phase:1:4:${Math.round(e.octAngle * 1000)}`;
+    }
     if (kind === 'boss_trinode') {
       const partHp = Math.floor(e.maxHp / 3);
       const hpParts = [partHp, partHp, e.maxHp - partHp * 2];
@@ -7483,11 +7559,106 @@ function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
   if (e.kind === 'boss_hunter_trapper') return stepHunterTrapperBoss(run, players, e, def, target, toT, dT, spd, dt);
   if (e.kind === 'boss_q_revisor') return stepQRevisorBoss(run, players, e, def, target, toT, dT, spd, dt, walls);
   if (e.kind === 'boss_trinode') return stepTrinodeBoss(run, players, e, def, target, toT, dT, spd, dt);
+  if (e.kind === 'boss') return stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls);
   steerMove(run, e, toT, spd, dt, { target });
   e.fireCd -= dt;
   if (e.fireCd <= 0 && run.bullets.length < MAX_BULLETS - 12) {
     e.fireCd = def.fireCd * (e.hp < e.maxHp * 0.5 ? 0.65 : 1);
     bossRadial(run, e, 10, def.bulletSpd || 230, enemyDamageValue(e, 0.6), 9, 3.2, Math.random() * Math.PI * 2);
+  }
+  touchDamage(run, e, players, dt);
+}
+
+const OCT_PHASE_SECONDS = [4, 4, 4, 4, 4, 4, 4, 4];
+const OCT_ROTATION_SPEED = [0.10, 0.16, 0.23, 0.31, 0.40, 0.50, 0.64, 0.92];
+export function octLaserPhaseDuration(phase = 1) { return OCT_PHASE_SECONDS[clamp(Math.round(phase), 1, 8) - 1]; }
+function rayAabbEntryDistance(ox, oy, dx, dy, wall, pad = 0) {
+  let entry = -Infinity, exit = Infinity;
+  const axes = [
+    [ox, dx, wall.x - pad, wall.x + wall.w + pad],
+    [oy, dy, wall.y - pad, wall.y + wall.h + pad]
+  ];
+  for (const [origin, dir, min, max] of axes) {
+    if (Math.abs(dir) < 1e-8) {
+      if (origin < min || origin > max) return Infinity;
+      continue;
+    }
+    let a = (min - origin) / dir, b = (max - origin) / dir;
+    if (a > b) [a, b] = [b, a];
+    entry = Math.max(entry, a); exit = Math.min(exit, b);
+    if (entry > exit) return Infinity;
+  }
+  if (exit <= 0) return Infinity;
+  return entry > 0 ? entry : exit;
+}
+function octLaserEnd(run, x, y, dx, dy) {
+  let distance = Math.hypot(run?.plan?.w || 2200, run?.plan?.h || 1500) + 1800;
+  for (const wall of run?.plan?.walls || []) {
+    const hit = rayAabbEntryDistance(x, y, dx, dy, wall, 0);
+    if (hit > 0 && hit < distance) distance = hit;
+  }
+  distance = Math.max(8, distance - 2);
+  return { x: x + dx * distance, y: y + dy * distance };
+}
+export function octLaserClipPoint(run, x, y, dx, dy) { return octLaserEnd(run, x, y, dx, dy); }
+function stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls) {
+  if (!e.octHitCds || typeof e.octHitCds !== 'object') e.octHitCds = {};
+  for (const id of Object.keys(e.octHitCds)) e.octHitCds[id] = Math.max(0, (e.octHitCds[id] || 0) - dt);
+
+  if ((e.octCrashT || 0) > 0) {
+    e.octCrashT = Math.max(0, e.octCrashT - dt);
+    e.octLasers = [];
+    e.state = `oct_crash:${Math.ceil(e.octCrashT * 10) / 10}:${Math.round((e.octAngle || 0) * 1000)}`;
+    if (e.octCrashT <= 0) {
+      e.octPhase = 1; e.octPhaseT = OCT_PHASE_SECONDS[0]; e.octTurn = -(e.octTurn || 1); e.octPhaseAnnounced = 0;
+    }
+    touchDamage(run, e, players, dt);
+    return;
+  }
+
+  const phase = clamp(Math.round(e.octPhase || 1), 1, 8);
+  if (!e.octPhaseAnnounced) {
+    e.octPhaseAnnounced = 1;
+    run.fx.push({ t: 'oct_phase', id: e.id, phase, lasers: phase, red: phase === 8 ? 1 : 0, x: Math.round(e.x), y: Math.round(e.y) });
+  }
+  e.octAngle = (e.octAngle || 0) + (e.octTurn || 1) * OCT_ROTATION_SPEED[phase - 1] * dt;
+  e.octPhaseT = Math.max(0, (e.octPhaseT ?? OCT_PHASE_SECONDS[phase - 1]) - dt);
+  e.octPulseT = Math.max(0, (e.octPulseT || 0) - dt);
+
+  const faceStart = e.size * 0.48;
+  const segments = [];
+  for (let i = 0; i < phase; i++) {
+    const a = e.octAngle + i * Math.PI * 2 / 8;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const x1 = e.x + dx * faceStart, y1 = e.y + dy * faceStart;
+    const end = octLaserEnd(run, x1, y1, dx, dy);
+    segments.push([Math.round(x1), Math.round(y1), Math.round(end.x), Math.round(end.y), phase === 8 ? 1 : 0]);
+    const hitWidth = phase === 8 ? 21 : 17;
+    for (const p of players.values()) {
+      if (!p.alive || (e.octHitCds[p.id] || 0) > 0) continue;
+      if (distToSegment2(p.x, p.y, x1, y1, end.x, end.y) <= (hitWidth + PLAYER_SIZE / 2) ** 2) {
+        damagePlayer(run, p, enemyDamageValue(e, phase === 8 ? 0.34 : 0.25), end.x, end.y);
+        e.octHitCds[p.id] = phase === 8 ? 0.24 : phase === 7 ? 0.30 : 0.38;
+      }
+    }
+  }
+  e.octLasers = segments;
+  if (e.octPulseT <= 0) {
+    e.octPulseT = phase === 8 ? 0.22 : Math.max(0.28, 0.47 - phase * 0.022);
+    run.fx.push({ t: 'oct_laser_pulse', id: e.id, phase, red: phase === 8 ? 1 : 0, x: Math.round(e.x), y: Math.round(e.y) });
+  }
+
+  // OCT is a rotating installation. Keeping its core fixed makes the authored
+  // cover reliable in every phase instead of letting the beams slide around it.
+  e.vx = 0; e.vy = 0;
+  e.state = `oct_phase:${phase}:${Math.ceil(e.octPhaseT)}:${Math.round(e.octAngle * 1000)}`;
+  if (e.octPhaseT <= 0) {
+    if (phase >= 8) {
+      e.octCrashT = 1.5; e.octLasers = []; e.octPhaseAnnounced = 0;
+      run.fx.push({ t: 'oct_crash', id: e.id, x: Math.round(e.x), y: Math.round(e.y), r: Math.round(e.size * 1.8) });
+    } else {
+      e.octPhase = phase + 1; e.octPhaseT = OCT_PHASE_SECONDS[phase]; e.octPhaseAnnounced = 0;
+    }
   }
   touchDamage(run, e, players, dt);
 }
@@ -13530,7 +13701,8 @@ export function buildSnapshot(run, players) {
     (e.abilityLockT || 0) > 0 ? 1 : 0,
     e.kind === 'boss_anchor_cashier' && e.anchorCyclePhase === 'shots' ? 0 : 1,
     e.kind === 'boss_trinode' && Array.isArray(e.trinodeParts) ? e.trinodeParts.map((part, i) => [Math.round(part.x), Math.round(part.y), Math.round((part.hp / Math.max(1, part.maxHp || 1)) * 100), i > 0 || (e.trinodeUnlockT || 0) > 0 ? 1 : 0]) : null,
-    e.kind === 'boss_trinode' ? `${e.trinodePhase || 'burst'}:${e.trinodePhase === 'burst' ? Math.max(0, 10 - (e.trinodeShots || 0)) : Math.ceil(e.trinodePhaseT || 0)}` : ''
+    e.kind === 'boss_trinode' ? `${e.trinodePhase || 'burst'}:${e.trinodePhase === 'burst' ? Math.max(0, 10 - (e.trinodeShots || 0)) : Math.ceil(e.trinodePhaseT || 0)}` : '',
+    e.kind === 'boss' && Array.isArray(e.octLasers) ? e.octLasers : null
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn

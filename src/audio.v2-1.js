@@ -60,7 +60,7 @@ export class AudioBus {
     this.maxVoices = 16;
     this.last = new Map();
     this.cooldowns = {
-      shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32, anchor_phase_field: 0.35, anchor_phase_shots: 0.35,
+      shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32, anchor_phase_field: 0.35, anchor_phase_shots: 0.35, oct_laser: 0.18, oct_phase: 0.30, oct_crash: 0.65,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
       dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
@@ -89,7 +89,7 @@ export class AudioBus {
       dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, anchor_phase_field: 8, anchor_phase_shots: 8, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, wager_complete: 8, boss_silence_enter: 9, boss_silence_exit: 8, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, anchor_phase_field: 8, anchor_phase_shots: 8, oct_laser: 4, oct_phase: 9, oct_crash: 10, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, wager_complete: 8, boss_silence_enter: 9, boss_silence_exit: 8, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
     };
     this.userGestureUnlocked = false;
     this._unlock = ev => {
@@ -665,6 +665,23 @@ export class AudioBus {
         this.tone(329.63, 0.105, 'square', 0.036, 0.68, 0.045);
         this.tone(164.81, 0.135, 'triangle', 0.028, 0.60, 0.105);
         break;
+      case 'oct_laser':
+        this.noise(0.045, 0.026, 5200, 13, 0.000);
+        this.tone(740, 0.070, 'square', 0.025, 0.78, 0.000);
+        this.tone(1480, 0.040, 'triangle', 0.014, 0.64, 0.018);
+        break;
+      case 'oct_phase':
+        this.noise(0.070, 0.035, 3100, 9, 0.000);
+        this.tone(196, 0.085, 'square', 0.045, 1.15, 0.000);
+        this.tone(392, 0.100, 'square', 0.034, 1.12, 0.055);
+        this.tone(784, 0.125, 'triangle', 0.025, 1.08, 0.125);
+        break;
+      case 'oct_crash':
+        this.noise(0.190, 0.120, 480, 1.8, 0.000);
+        this.tone(156, 0.190, 'sawtooth', 0.105, 0.42, 0.000);
+        this.tone(78, 0.300, 'square', 0.075, 0.34, 0.085);
+        this.noise(0.120, 0.045, 4200, 10, 0.045);
+        break;
       case 'jackpot':
         // v2.1.81: short victorious slot melody instead of one dull stab.
         this.noise(0.018, 0.020, 5200, 12, 0.000);
@@ -1164,6 +1181,9 @@ export class AudioBus {
       case 'trinode_shot': this.play('trinode_fire'); break;
       case 'trinode_break': this.play('trinode_section_break'); break;
       case 'anchor_phase': this.play(f.phase === 'field' ? 'anchor_phase_field' : 'anchor_phase_shots'); break;
+      case 'oct_phase': this.play('oct_phase'); if (f.red) this.play('boss_silence_enter'); break;
+      case 'oct_laser_pulse': this.play('oct_laser'); break;
+      case 'oct_crash': this.play('oct_crash'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
       case 'rain_warn': if (f.active && mine) this.play('debt'); break;

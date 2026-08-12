@@ -623,7 +623,7 @@ export class Renderer {
 
     // enemies — silhouette = mechanic
     for (const e of view.enemies) {
-      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0, anchorField = 1, triParts = null, triPhase = ''] = e;
+      const [eid, kindIdx, ex, ey, hp01, size, st, elite, dirX, dirY, shellPct = 0, shellLock = 0, linkId = '', shellType = '', exposed = 0, frozen = 0, burn = 0, poison = 0, chill = 0, stun = 0, shellRegen = 0, spawnDelay = 0, ctrlLock = 0, ctrlPct = 0, abilityLock = 0, anchorField = 1, triParts = null, triPhase = '', octLasers = null] = e;
       const kind = ENEMY_KINDS[kindIdx];
       const isBossKind = !!(ENEMIES[kind]?.boss || kind === 'boss');
       const stroke = elite ? COL.red : COL.fg;
@@ -942,13 +942,57 @@ export class Renderer {
         this.label('RUSH', ex, ey - size / 2 - 14, COL.cyan, 12);
         this.bossHpBar(ex, ey, size, hp01, COL.cyan);
       } else if (kind === 'boss') {
-        this.square(ex, ey, size, { stroke, lw: 6, fill: 'rgba(255,255,255,0.05)' });
-        this.square(ex, ey, size * 0.55, { stroke: COL.red, lw: 2, rotate: now * 1.2 });
-        this.label('BOS', ex, ey - size / 2 - 12, COL.red, 12);
-        // boss hp bar above
-        const bw = size * 1.4;
-        ctx.fillStyle = '#222'; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw, 5);
-        ctx.fillStyle = COL.red; ctx.fillRect(ex - bw / 2, ey - size / 2 - 30, bw * hp01 / 100, 5);
+        const stateParts = String(st || 'oct_phase:1:4:0').split(':');
+        const crashing = stateParts[0] === 'oct_crash';
+        const phase = crashing ? 0 : Math.max(1, Math.min(8, Number(stateParts[1]) || 1));
+        const phaseLeft = Math.max(0, Number(stateParts[2]) || 0);
+        const angle = (Number(stateParts[3] ?? stateParts[2]) || 0) / 1000;
+        const laserCol = phase === 8 ? COL.red : COL.purple;
+        if (Array.isArray(octLasers)) {
+          for (const seg of octLasers) {
+            const [x1, y1, x2, y2, redLaser = 0] = seg;
+            const col = redLaser ? COL.red : COL.purple;
+            ctx.save();
+            ctx.lineCap = 'square';
+            ctx.globalAlpha = 0.16 + Math.sin(now * 21 + x1 * 0.01) * 0.035;
+            ctx.strokeStyle = col; ctx.lineWidth = redLaser ? 23 : 19;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.globalAlpha = 0.90;
+            ctx.strokeStyle = redLaser ? '#ff9aa8' : '#efe3ff'; ctx.lineWidth = redLaser ? 4.5 : 3.5;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.globalAlpha = 0.72; ctx.fillStyle = col;
+            ctx.fillRect(Math.round(x2 - 4), Math.round(y2 - 4), 8, 8);
+            ctx.restore();
+          }
+        }
+        ctx.save();
+        if (crashing) ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+        ctx.translate(ex, ey); ctx.rotate(angle);
+        const drawOctagon = (radius, col, lw, fill) => {
+          ctx.beginPath();
+          for (let i = 0; i < 8; i++) {
+            const a = i * Math.PI * 2 / 8;
+            const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.closePath(); ctx.strokeStyle = col; ctx.lineWidth = lw;
+          if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+          ctx.stroke();
+        };
+        drawOctagon(size * 0.52, crashing ? COL.fg : laserCol, crashing ? 2.5 : 6, crashing ? 'rgba(255,255,255,0.10)' : 'rgba(180,92,255,0.075)');
+        drawOctagon(size * 0.28, crashing ? COL.red : COL.fg, 1.8, 'rgba(0,0,0,0.32)');
+        if (!crashing) {
+          ctx.strokeStyle = laserCol; ctx.lineWidth = 4;
+          for (let i = 0; i < phase; i++) {
+            const a = i * Math.PI * 2 / 8;
+            ctx.beginPath(); ctx.moveTo(Math.cos(a) * size * 0.31, Math.sin(a) * size * 0.31);
+            ctx.lineTo(Math.cos(a) * size * 0.52, Math.sin(a) * size * 0.52); ctx.stroke();
+          }
+        }
+        ctx.restore();
+        this.label('OCT', ex, ey - size / 2 - 14, crashing ? COL.fg : laserCol, 12);
+        this.label(crashing ? 'DESYNC' : `PHASE ${phase}/8 · ${Math.ceil(phaseLeft)}s`, ex, ey + size / 2 + 17, crashing ? COL.red : laserCol, 8);
+        this.bossHpBar(ex, ey, size, hp01, crashing ? COL.fg : laserCol);
       } else {
         // grunt / runner
         this.square(ex, ey, size, { stroke, lw: kind === 'runner' ? 1.5 : 2.5, fill: 'rgba(255,255,255,0.05)' });

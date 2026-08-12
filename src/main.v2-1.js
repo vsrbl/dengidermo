@@ -728,7 +728,7 @@ function ensureDevPanel() {
     </div>
 
     <div class="dev-section-title">BOSS / SIGNATURE</div>
-    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss_trinode">TRI</option><option value="boss">BOS</option></select></div>
+    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss_trinode">TRI</option><option value="boss">OCT</option></select></div>
     <div class="dev-row"><label>REWARD</label><select id="dev-boss-reward">${bossRewardOpts}</select></div>
     <div class="dev-row"><label>R</label><select id="dev-r-active">${rActiveOpts}</select></div>
     <div class="dev-buttons dev-priority">
