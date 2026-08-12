@@ -133,8 +133,9 @@ function renderTabBuild(me) {
     const lc = build.livingCasino || {};
     heroDefs.push(
       { key:'lcTargets', ru:'ЦЕЛИ КАЗИНО', en:'CASINO TARGETS', base:2, value:()=>2 + Number(lc.targets || 0) },
+      { key:'lcGunRange', ru:'ДАЛЬНОСТЬ ПУШЕК', en:'GUN RANGE', value:()=>Number(lc.gunRange || 0) },
       { key:'lcSparks', ru:'КОНТРОЛЬНЫЕ ИСКРЫ', en:'CONTROL SPARKS', kind:'bool', value:()=>lc.sparksUnlocked ? 1 : 0 },
-      { key:'lcSparkCount', ru:'КАНАЛЫ ИСКР', en:'SPARK CHANNELS', base:0, value:()=>lc.sparksUnlocked ? 1 + Number(lc.sparkCount || 0) : 0 },
+      { key:'lcSparkCount', ru:'КАНАЛЫ ИСКР', en:'SPARK CHANNELS', base:0, value:()=>lc.sparksUnlocked ? 3 + Number(lc.sparkCount || 0) : 0 },
       { key:'lcSparkDamage', ru:'УРОН ИСКР', en:'SPARK DAMAGE', value:()=>Number(lc.sparkDamage || 0) },
       { key:'lcSparkHold', ru:'УДЕРЖАНИЕ ИСКР', en:'SPARK HOLD', value:()=>Number(lc.sparkHold || 0) },
       { key:'lcSparkRange', ru:'ДАЛЬНОСТЬ ИСКР', en:'SPARK RANGE', value:()=>Number(lc.sparkRange || 0) }
@@ -188,7 +189,9 @@ function contractFavorPreviewLabel(f = {}) {
   const id = String(f.id || '');
   const ru = {
     free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
-    portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
+    portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ',
+    wpn_clearance: 'WPN-ДОПУСК', abl_clearance: 'ABL-ДОПУСК', rar_clearance: 'RAR-ДОПУСК',
+    mod_veto: 'ВЕТО МОДИФИКАТОРА', credit_pass: 'КРЕДИТНЫЙ ПРОПУСК', salvage_protocol: 'ПРОТОКОЛ СБОРА'
   };
   const en = {
     free_reroll: 'CHEST REROLL', clear_debt: 'CLEAR STATIC STORM',
@@ -209,8 +212,8 @@ function contractFavorPreviewBody(f = {}) {
     abl_clearance: 'До обычного INSTALL откроется отдельное окно на 30 секунд: четыре улучшенных ABL-модуля, один устанавливается бесплатно. После выбора продолжится INSTALL.',
     rar_clearance: 'Следующий RAR-сундук гарантированно поднимается до усиленного безопасного качества.',
     mod_veto: 'Перед ближайшим подходящим сектором автоматически удаляет один опасный модификатор. Хранится, пока не найдётся подходящая цель.',
-    credit_pass: 'Следующий сундук с выбором WPN или ABL открывается бесплатно.',
-    salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP.'
+    credit_pass: 'Следующий платный сундук с выбором WPN или ABL открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
+    salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.'
   };
   const en = {
     free_reroll: 'Fully refreshes one current WPN, ABL, or main-threat prize choice. The charge persists until you use it.',
@@ -579,18 +582,23 @@ function weaponReadability(opt = {}) {
     const lc = {
       lc_spark_unlock: {
         role: 'CONTROL', tone: 'control',
-        ru: 'Открывает модуль искр контроля и вторую линию наведения.', en: 'Unlocks the control-spark module and its second targeting line.',
-        changeRu: 'открыты искры контроля', changeEn: 'control sparks unlocked'
+        ru: 'Открывает модуль с тремя искрами контроля и вторую линию наведения.', en: 'Unlocks the control module with three sparks and its second targeting line.',
+        changeRu: 'открыты 3 искры контроля', changeEn: '3 control sparks unlocked'
       },
       lc_target_slot: {
         role: 'TARGETING', tone: 'control',
         ru: 'Добавляет канал LVC: ещё один выстрел в залпе.', en: 'Adds an LVC channel: one more shot in each volley.',
         changeRu: '+1 отмеченная цель', changeEn: '+1 marked target'
       },
+      lc_gun_range: {
+        role: 'UTILITY', tone: 'utility',
+        ru: 'Увеличивает дальность наведения и полёта выстрелов пушек Живого казино.', en: 'Increases Living Casino gun targeting and projectile range.',
+        changeRu: '+15% дальность пушек', changeEn: '+15% gun range'
+      },
       lc_spark_count: {
         role: 'CONTROL', tone: 'control',
-        ru: 'Добавляет заряд искры и ещё одно указание цели.', en: 'Adds one control spark charge and one target instruction.',
-        changeRu: '+1 искра контроля', changeEn: '+1 control spark'
+        ru: 'Добавляет две одновременные искры и два указания цели. Прокачивается без лимита.', en: 'Adds two simultaneous control sparks and two target instructions. Repeatable without a limit.',
+        changeRu: '+2 искры контроля', changeEn: '+2 control sparks'
       },
       lc_spark_damage: {
         role: 'DPS', tone: 'dps',
@@ -1009,7 +1017,7 @@ export class Hud {
       const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
       if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт сектора, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${locLabel(valueLabel)}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`ИСТОЧНИК: ${locLabel(reason)}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${locLabel(label)}${valueLabel ? ' ' + locLabel(valueLabel) : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const contractFree = !!o[12]; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (contractFree && cost > 0 ? localText(`ЦЕНА ${cost} ${blood ? 'HP' : 'GLD'} ЗАЧЁРКНУТА: КРЕДИТНЫЙ ПРОПУСК`, `PRICE ${cost} ${blood ? 'HP' : 'GLD'} WAIVED: CREDIT PASS`) : cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${locLabel(valueLabel)}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`ИСТОЧНИК: ${locLabel(reason)}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${locLabel(label)}${valueLabel ? ' ' + locLabel(valueLabel) : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: contractFree ? 'gold' : blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
@@ -1750,10 +1758,13 @@ export class Hud {
         this.setExplain(prompt, t('betTitle'), bloodBet ? localText('В BLOOD TAX ставки платятся HP. Красная цена означает риск для жизни.', 'In BLOOD TAX, bets cost HP. Red prices mean real danger.') : t('betInspect'), 'red');
       } else {
         const blood = (room.mods || []).includes('blood_tax');
-        if (near.cost > 0 && blood) prompt.innerHTML = `E / <span class="hp-cost">${near.cost} HP</span> — ${esc(near.label)}`;
+        const creditFree = !!near.contractFree && Math.max(0, Number(me[P.BOSSKEY] || 0) | 0) <= 0;
+        const unit = blood ? 'HP' : 'GLD';
+        if (near.cost > 0 && creditFree) prompt.innerHTML = `E / <span class="contract-free-price"><s>${near.cost} ${unit}</s><b>${esc(localText('БЕСПЛАТНО', 'FREE'))}</b></span> — ${esc(near.label)}`;
+        else if (near.cost > 0 && blood) prompt.innerHTML = `E / <span class="hp-cost">${near.cost} HP</span> — ${esc(near.label)}`;
         else prompt.textContent = near.cost > 0 ? `E / ${near.cost} GLD — ${near.label}` : `E — ${near.label}`;
-        const costTxt = near.cost > 0 ? (blood ? localText(`Нужно ${near.cost} HP. Цена платится здоровьем, не золотом.`, `Need ${near.cost} HP. This price is paid with health, not gold.`) : t('chestNeed', { cost: near.cost })) : t('chestFree');
-        this.setExplain(prompt, `${near.label} / ${t('chestTitle')}`, `${chestDesc(near.label)} ${costTxt}`, blood ? 'red' : (near.label === 'CRS' ? 'purple' : '')); 
+        const costTxt = near.cost > 0 ? (creditFree ? localText(`Цена ${near.cost} ${unit} отменена Кредитным пропуском.`, `The ${near.cost} ${unit} price is waived by Credit Pass.`) : blood ? localText(`Нужно ${near.cost} HP. Цена платится здоровьем, не золотом.`, `Need ${near.cost} HP. This price is paid with health, not gold.`) : t('chestNeed', { cost: near.cost })) : t('chestFree');
+        this.setExplain(prompt, `${near.label} / ${t('chestTitle')}`, `${chestDesc(near.label)} ${costTxt}`, creditFree ? 'gold' : blood ? 'red' : (near.label === 'CRS' ? 'purple' : '')); 
       }
     } else if (!this.promptTimer) prompt.classList.add('hidden');
 
@@ -1927,7 +1938,11 @@ export class Hud {
       case 'room_event': this.banner(locLabel(f.label || localText('СОБЫТИЕ СЕКТОРА', 'SECTOR EVENT')), f.body ? cleanPlayerText(f.body) : localText('Особое правило сектора активно.', 'Special room rule active.'), 'purple'); break;
       case 'room_event_done': this.banner(locLabel(f.label || localText('СОБЫТИЕ', 'EVENT')), f.body ? cleanPlayerText(f.body) : localText('Завершено', 'Done'), 'green'); break;
       case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
-      case 'contract_paid': this.banner(t('contractPaid'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
+      case 'contract_paid': {
+        const prizes = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + ');
+        this.banner(t('contractPaid'), `${locLabel(f.label || '')}${prizes ? ' · ' + prizes : f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green');
+        break;
+      }
       case 'contract_wager': break;
       case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('БОНУС КАЗИНО ЗА СЕКТОР', 'SECTOR CASINO BONUS')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
       case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('БОНУС КАЗИНО СГОРЕЛ', 'CASINO BONUS LOST')}: -${f.stake || 0}`, 'r'); break;
@@ -2506,7 +2521,9 @@ export class Hud {
     const id = String(f.id || '');
     const ru = {
       free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
-      portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ'
+      portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ',
+      wpn_clearance: 'WPN-ДОПУСК', abl_clearance: 'ABL-ДОПУСК', rar_clearance: 'RAR-ДОПУСК',
+      mod_veto: 'ВЕТО МОДИФИКАТОРА', credit_pass: 'КРЕДИТНЫЙ ПРОПУСК', salvage_protocol: 'ПРОТОКОЛ СБОРА'
     };
     const en = {
       free_reroll: 'CHEST REROLL', clear_debt: 'CLEAR STATIC STORM',
@@ -2521,7 +2538,13 @@ export class Hud {
       clear_debt: 'Снимает весь накопленный статик и навсегда глушит шторм Статик-ядра в этом забеге.',
       portal_insurance: 'Один раз в этой секторе смертельный удар оставит тебя живым и даст 50 HP.',
       epic_reroll: 'Два раза обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
-      double_favor: 'Если контракт выполнен, после сектора будет два приза.'
+      double_favor: 'Следующий выполненный контракт выдаёт два разных приза вместо одного. Один контракт расходует один заряд.',
+      wpn_clearance: 'Перед INSTALL открывает отдельный выбор из четырёх улучшенных WPN-модулей. Один модуль устанавливается бесплатно.',
+      abl_clearance: 'Перед INSTALL открывает отдельный выбор из четырёх улучшенных ABL-модулей. Один модуль устанавливается бесплатно.',
+      rar_clearance: 'Следующий RAR-сундук получает усиленное безопасное качество. Один сундук расходует один заряд.',
+      mod_veto: 'Снимает один опасный модификатор со следующего подходящего сектора. Если цели нет, заряд сохраняется.',
+      credit_pass: 'Следующий платный WPN- или ABL-сундук открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
+      salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.'
     };
     const en = {
       free_reroll: 'Refreshes weapon, protocol, or main-threat prize choices once. Persists until used.',
@@ -2530,7 +2553,7 @@ export class Hud {
       epic_reroll: 'Refreshes weapon, protocol, or main-threat prize choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'
     };
-    return (ru[id] || en[id]) ? localText(ru[id] || contractFavorPreviewBody(f), en[id] || contractFavorPreviewBody(f)) : contractFavorPreviewBody(f);
+    return (ru[id] || en[id] || f.descRu || f.desc) ? localText(ru[id] || f.descRu || contractFavorPreviewBody(f), en[id] || f.desc || contractFavorPreviewBody(f)) : contractFavorPreviewBody(f);
   }
   favorStatusText(f = {}) {
     const status = String(f.status || '').toLowerCase();
@@ -2549,9 +2572,19 @@ export class Hud {
     }
     if (id === 'portal_insurance') return localText(`${left} ${left === 1 ? 'защита' : (left >= 2 && left <= 4 ? 'защиты' : 'защит')}`, `${left} save${left === 1 ? '' : 's'}`);
     if (id === 'clear_debt') return localText(`${left} ${left === 1 ? 'очистка' : (left >= 2 && left <= 4 ? 'очистки' : 'очисток')}`, `${left} clear${left === 1 ? '' : 's'}`);
-    if (id === 'double_favor') return localText('следующий контракт', 'next contract');
-    if (status === 'pending') return localText('ждёт активации', 'queued');
-    return localText('активен', 'active');
+    const units = {
+      double_favor: ['контракт', 'контракта', 'контрактов', 'contract'],
+      wpn_clearance: ['WPN-выбор', 'WPN-выбора', 'WPN-выборов', 'WPN choice'],
+      abl_clearance: ['ABL-выбор', 'ABL-выбора', 'ABL-выборов', 'ABL choice'],
+      rar_clearance: ['RAR-сундук', 'RAR-сундука', 'RAR-сундуков', 'RAR chest'],
+      mod_veto: ['вето', 'вето', 'вето', 'veto'],
+      credit_pass: ['открытие', 'открытия', 'открытий', 'opening'],
+      salvage_protocol: ['сектор', 'сектора', 'секторов', 'room']
+    };
+    const u = units[id];
+    if (u) return localText(`${left} ${left === 1 ? u[0] : (left >= 2 && left <= 4 ? u[1] : u[2])}`, `${left} ${u[3]}${left === 1 ? '' : 's'}`);
+    if (status === 'pending') return localText(`${left} в очереди`, `${left} queued`);
+    return localText(`${left} заряд${left === 1 ? '' : (left >= 2 && left <= 4 ? 'а' : 'ов')}`, `${left} charge${left === 1 ? '' : 's'}`);
   }
   activeRerollFavorUses() {
     const active = this.compactFavorItems(this.latestRoom?.contractFavors?.active || []);

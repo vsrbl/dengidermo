@@ -517,9 +517,10 @@ export function optionDesc(opt = {}) {
   const kind = String(opt.kind || '');
   if (kind.startsWith('lc_')) {
     const desc = {
-      lc_spark_unlock: localText('Открывает модуль искр контроля и вторую линию наведения.', 'Unlocks the control-spark module and its second targeting line.'),
+      lc_spark_unlock: localText('Открывает модуль с тремя искрами контроля и вторую линию наведения.', 'Unlocks the control module with three sparks and its second targeting line.'),
       lc_target_slot: localText('Добавляет канал LVC: ещё один выстрел в залпе.', 'Adds an LVC channel: one more shot in each volley.'),
-      lc_spark_count: localText('Добавляет заряд искры и ещё одно указание цели.', 'Adds one control spark charge and one target instruction.'),
+      lc_gun_range: localText('Увеличивает дальность наведения и полёта выстрелов пушек Живого казино на 15%.', 'Increases Living Casino gun targeting and projectile range by 15%.'),
+      lc_spark_count: localText('Добавляет две одновременные искры и два указания цели. Прокачивается без лимита.', 'Adds two simultaneous control sparks and two target instructions. Repeatable without a limit.'),
       lc_spark_damage: localText('Даёт искрам урон во время связи. Без этого усиления они только контролируют угрозу.', 'Gives sparks damage while linked. Without this upgrade they only control the threat.'),
       lc_spark_hold: localText('Искры дольше удерживают угрозу перед отталкиванием.', 'Control sparks hold threats longer before release.'),
       lc_spark_range: localText('Искры замечают угрозы с большего расстояния.', 'Control sparks detect threats from farther away.')
@@ -656,7 +657,7 @@ function dynamicRuLabel(s) {
     'ПУШКА: LVC': 'КАЗИНО-МОДУЛЬ', 'ПУШКА: RLT': 'РУЛЕТКА-МОДУЛЬ', 'ПУШКА: CRD': 'КОЛОДА-МОДУЛЬ',
     'ДЕЙСТВИЕ: GUARD': 'ДЕЙСТВИЕ: ЗАЩИТА', 'ДЕЙСТВИЕ: CHAIN': 'ДЕЙСТВИЕ: ЦЕПЬ', 'ДЕЙСТВИЕ: BET': 'ДЕЙСТВИЕ: СТАВКА',
     'ДЕЙСТВИЕ: COPY': 'ДЕЙСТВИЕ: КОПИЯ', 'ДЕЙСТВИЕ: GHOST': 'ДЕЙСТВИЕ: ПРИЗРАК', 'ДЕЙСТВИЕ: JACKPOT': 'ДЕЙСТВИЕ: ДЖЕКПОТ', 'ДЕЙСТВИЕ: TABLE': 'ДЕЙСТВИЕ: КАРТА',
-    'LVC: TARGET +1': 'LVC: ЦЕЛЬ +1', 'CONTROL SPARK +1': 'ИСКРА КОНТРОЛЯ +1', 'SPARK DAMAGE +': 'ИСКРЫ: УРОН +', 'SPARK HOLD +': 'ИСКРЫ: СВЯЗЬ +', 'SPARK RANGE +': 'ИСКРЫ: ДАЛЬНОСТЬ +', 'LVC AUTOPLAY': 'КАЗИНО: АВТО-ОГОНЬ', 'COPY POWER +10%': 'КОПИЯ: СИЛА +10%', 'BET ODDS +1': 'СТАВКА: ШАНС +1', 'DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'DASH FLOW +20%': 'РЫВОК: ВОССТАНОВЛЕНИЕ +20%', 'MOBILITY +12%': 'СКОРОСТЬ +12%',
+    'LVC: TARGET +1': 'LVC: ЦЕЛЬ +1', 'CONTROL SPARK +1': 'ИСКРА КОНТРОЛЯ +1', 'CONTROL SPARKS +2': 'ИСКРЫ КОНТРОЛЯ +2', 'SPARK DAMAGE +': 'ИСКРЫ: УРОН +', 'SPARK HOLD +': 'ИСКРЫ: СВЯЗЬ +', 'SPARK RANGE +': 'ИСКРЫ: ДАЛЬНОСТЬ +', 'LVC AUTOPLAY': 'КАЗИНО: АВТО-ОГОНЬ', 'COPY POWER +10%': 'КОПИЯ: СИЛА +10%', 'BET ODDS +1': 'СТАВКА: ШАНС +1', 'DASH LENGTH +18%': 'РЫВОК: ДЛИНА +18%', 'DASH FLOW +20%': 'РЫВОК: ВОССТАНОВЛЕНИЕ +20%', 'MOBILITY +12%': 'СКОРОСТЬ +12%',
     'LIVE CASINO': 'ЖИВОЕ КАЗИНО', 'WPN CHEST': 'ОРУЖЕЙНЫЙ СУНДУК', 'ABL CHEST': 'СУНДУК ПРОТОКОЛОВ', 'BOSS SIG OFFER': 'ПРИЗ ГЛАВНОЙ УГРОЗЫ'
   };
   if (exact[out]) return exact[out];
@@ -672,7 +673,7 @@ function dynamicEnLabel(s) {
   const exact = {
     'ПУШКА: LVC': 'CASINO MODULE', 'ПУШКА: RLT': 'ROULETTE MODULE', 'ПУШКА: CRD': 'DECK MODULE',
     'ДЕЙСТВИЕ: GUARD': 'ACTION: GUARD', 'ДЕЙСТВИЕ: CHAIN': 'ACTION: CHAIN', 'ДЕЙСТВИЕ: BET': 'ACTION: BET', 'ДЕЙСТВИЕ: COPY': 'ACTION: COPY', 'ДЕЙСТВИЕ: GHOST': 'ACTION: GHOST', 'ДЕЙСТВИЕ: JACKPOT': 'ACTION: JACKPOT', 'ДЕЙСТВИЕ: TABLE': 'ACTION: TABLE',
-    'LVC: ЦЕЛЬ +1': 'LVC: TARGET +1', 'ИСКРА КОНТРОЛЯ +1': 'CONTROL SPARK +1', 'ИСКРЫ: УРОН +': 'SPARK DAMAGE +', 'ИСКРЫ: СВЯЗЬ +': 'SPARK HOLD +', 'ИСКРЫ: ДАЛЬНОСТЬ +': 'SPARK RANGE +', 'КАЗИНО: АВТО-ОГОНЬ': 'CASINO AUTOFIRE', 'КОПИЯ: СИЛА +10%': 'COPY POWER +10%', 'СТАВКА: ШАНС +1': 'BET ODDS +1'
+    'LVC: ЦЕЛЬ +1': 'LVC: TARGET +1', 'ИСКРА КОНТРОЛЯ +1': 'CONTROL SPARK +1', 'ИСКРЫ КОНТРОЛЯ +2': 'CONTROL SPARKS +2', 'ИСКРЫ: УРОН +': 'SPARK DAMAGE +', 'ИСКРЫ: СВЯЗЬ +': 'SPARK HOLD +', 'ИСКРЫ: ДАЛЬНОСТЬ +': 'SPARK RANGE +', 'КАЗИНО: АВТО-ОГОНЬ': 'CASINO AUTOFIRE', 'КОПИЯ: СИЛА +10%': 'COPY POWER +10%', 'СТАВКА: ШАНС +1': 'BET ODDS +1'
   };
   if (exact[out]) return exact[out];
   out = out.replace(/ГЛАВНАЯ УГРОЗА/g, 'CORE THREAT').replace(/УГРОЗЫ/g, 'THREATS').replace(/УГРОЗА/g, 'THREAT').replace(/ОБЛИК/g, 'SHELL').replace(/СЕКТОР/g, 'SECTOR')
@@ -713,6 +714,7 @@ Object.assign(EN_LABEL, {
   'ИСКРЫ КОНТРОЛЯ': 'CONTROL SPARKS',
   'ЦЕЛЬ LVC +1': 'LVC TARGET +1',
   'ИСКРА КОНТРОЛЯ +1': 'CONTROL SPARK +1',
+  'ИСКРЫ КОНТРОЛЯ +2': 'CONTROL SPARKS +2',
   'УРОН ИСКР +': 'SPARK DAMAGE +',
   'ДЛИТЕЛЬНОСТЬ ИСКР +': 'SPARK DURATION +',
   'ДАЛЬНОСТЬ ИСКР +': 'SPARK RANGE +'

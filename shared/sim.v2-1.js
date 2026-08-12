@@ -468,7 +468,7 @@ function payBloodCost(run, p, hpCost, srcX = p?.x, srcY = p?.y, radius = 48) {
       p.hp = Math.min(maxHp(p), 50);
       p.alive = true;
       p.invuln = Math.max(p.invuln || 0, 1.0);
-      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', playerId: p.id });
+      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
     } else {
       p.hp = 0; p.alive = false; run.fx.push({ t: 'pdown', id: p.id });
     }
@@ -1249,17 +1249,17 @@ function contractChainPayout(depth = 0, chain = 0) {
 }
 
 const CONTRACT_FAVOR_DEFS = {
-  free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL/boss choice reroll. Persists until used.' },
-  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run. Persists until it can clear either source.' },
-  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.' },
-  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.' },
-  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' },
-  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved WPN modules. One module is installed for free.' },
-  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved ABL modules. One module is installed for free.' },
-  rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.' },
-  mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРА', tier: 'rare', uses: 1, desc: 'Removes one dangerous modifier from the next eligible room.' },
-  credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next WPN or ABL choice chest costs nothing.' },
-  salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next room drop x5 team GLD and EXP.' }
+  free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL/boss choice reroll. Persists until used.', descRu: 'Один раз полностью обновляет текущий выбор WPN, ABL или приза босса. Заряд хранится до применения.' },
+  clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run. Persists until it can clear either source.', descRu: 'Снимает весь накопленный Статик-шторм и навсегда глушит шторм Статик-ядра в этом забеге. Новые отдельные источники статика всё ещё могут появляться.' },
+  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.', descRu: 'Один смертельный удар оставляет героя в живых и восстанавливает 50 HP. Заряд хранится до срабатывания.' },
+  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.', descRu: 'Даёт два отдельных переброса выбора WPN, ABL или приза босса. Неиспользованные заряды хранятся.' },
+  double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.', descRu: 'Следующий выполненный контракт выдаёт два разных контрактных приза вместо одного. Один контракт расходует один заряд.' },
+  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved WPN modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных WPN-модулей. Один модуль устанавливается бесплатно.' },
+  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved ABL modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных ABL-модулей. Один модуль устанавливается бесплатно.' },
+  rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.', descRu: 'Следующий RAR-сундук гарантированно получает усиленное безопасное качество. Один сундук расходует один заряд.' },
+  mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРА', tier: 'rare', uses: 1, desc: 'Removes one dangerous modifier from the next eligible room.', descRu: 'Удаляет один опасный модификатор из следующего подходящего сектора. Если цели нет, заряд сохраняется.' },
+  credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next paid WPN or ABL choice chest costs nothing.', descRu: 'Следующий платный сундук с выбором WPN или ABL открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.' },
+  salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next combat room drop x5 team GLD and EXP.', descRu: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.' }
 };
 function favorDef(id) { return CONTRACT_FAVOR_DEFS[String(id || '')] || null; }
 function favorLabel(f = {}) { return String((favorDef(f.id)?.label) || f.label || f.id || 'FAVOR'); }
@@ -1316,6 +1316,13 @@ function consumeContractFavor(run, ids = []) {
   }
   return null;
 }
+function creditPassAppliesToChest(run, o = {}) {
+  return hasActiveContractFavor(run, 'credit_pass')
+    && !isGreedRoom(run)
+    && !o.trojan
+    && ['weapon_chest', 'ability_chest'].includes(String(o.chest || ''))
+    && effectiveChestCost(run, o) > 0;
+}
 export function clearAllBankedStatic(run) {
   if (!run) return 0;
   const curDebt = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
@@ -1365,7 +1372,8 @@ function activatePendingContractFavors(run, players = null) {
         run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: `MODIFIER REMOVED: ${String(removed).toUpperCase()}`, bodyRu: `МОДИФИКАТОР СНЯТ: ${String(removed).toUpperCase()}`, bodyEn: `MODIFIER REMOVED: ${String(removed).toUpperCase()}` });
       }
     }
-    if (f.id === 'salvage_protocol' && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
+    const combatRoom = run.plan?.category !== 'chill' && run.plan?.specialRoomId !== 'chill_room' && run.plan?.special !== 'chill_room';
+    if (f.id === 'salvage_protocol' && combatRoom && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
       run.salvageKillsLeft = 10;
       f.used = (f.used || 0) + 1;
       run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, kills: 10 });
@@ -1395,8 +1403,8 @@ function contractFavorPool(chain = 1, run = null, players = null) {
   if (!hasClearableUpcomingStatic(run, players)) pool = pool.filter(id => id !== 'clear_debt');
   // Double prize only makes sense when the next location actually has a contract target.
   if (!nextRoomHasContractTarget(run)) pool = pool.filter(id => id !== 'double_favor');
-  // When DOUBLE NEXT PRIZE is active, it doubles the next room payout instead of rolling itself again.
-  if (hasActiveContractFavor(run, 'double_favor')) pool = pool.filter(id => id !== 'double_favor');
+  // DOUBLE NEXT PRIZE is charge-based like every other favor: duplicates may
+  // stack, while each completed contract spends only one charge.
   return pool.length ? pool : ['free_reroll'];
 }
 function rollContractFavor(run, players = null, chain = 1, slot = 0) {
@@ -1422,7 +1430,7 @@ function buildContractFavors(run, players = null, chain = 1, count = 1) {
 function favorSnapshotItem(f = {}, active = false) {
   const def = favorDef(f.id) || {};
   const left = active ? Math.max(0, (f.uses || 0) - (f.used || 0)) : Math.max(0, f.uses || 0);
-  return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', nextRoomOnly: 0, persistent: 1 };
+  return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', descRu: def.descRu || '', nextRoomOnly: 0, persistent: 1 };
 }
 function grantContractFavors(run, players = null, chain = 1, count = 1) {
   const want = Math.max(1, Math.min(2, count | 0));
@@ -1430,7 +1438,9 @@ function grantContractFavors(run, players = null, chain = 1, count = 1) {
     ? run.roomObjective.prizePreview.map(f => makeContractFavor(f.id, chain))
     : buildContractFavors(run, players, chain, want);
   // DOUBLE NEXT PRIZE must pay extra prizes, not clone itself into the payout.
-  if (want > 1) planned = planned.filter(f => f.id !== 'double_favor');
+  // Preserve the first previewed prize: the bonus appends an extra different
+  // prize and must never replace what the player was shown before the room.
+  if (want > 1) planned = planned.filter((f, i) => i === 0 || f.id !== 'double_favor');
   const used = new Set(planned.map(f => f.id));
   while (planned.length < want) {
     const extra = buildContractFavors(run, players, chain, want).find(f => !used.has(f.id) && f.id !== 'double_favor') || makeContractFavor('free_reroll', chain);
@@ -1721,6 +1731,9 @@ function rootLockDepthForRun(run) {
   const pick = (((run?.seedBase || 1) >>> 0) ^ 0x524f4f54) >>> 0;
   const bossIndex = eligible[pick % Math.max(1, eligible.length)] ?? 1;
   return 3 + bossIndex * 4;
+}
+function rootNodeMaxHp(loopIndex = 0, teamScale = 1) {
+  return Math.round((430 + Math.max(0, Number(loopIndex) || 0) * 95) * Math.max(1, Number(teamScale) || 1) * 4);
 }
 function rootLockOuterWalls(w = 3100, h = 2150) {
   const t = 180;
@@ -2796,6 +2809,15 @@ function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
   const nx = dx / d;
   const ny = dy / d;
   const overlap = minD - d;
+  // An active LVC spark is a spatial tether. A linked enemy may still use its
+  // own attacks, but movement, dashes, jumps and teleports cannot carry its
+  // body through the owner of that link.
+  if (livingCasinoSparkBlocksContact(new Map([[p.id, p]]), e, p)) {
+    const ec = collideWalls(e.x - nx * (overlap + 2), e.y - ny * (overlap + 2), e.size / 2, walls, e.x, e.y);
+    e.x = ec.x; e.y = ec.y;
+    if (ENEMIES[e.kind]?.boss) clampEnemyToArena(run, e, 18);
+    return null;
+  }
   const bossy = ENEMIES[e.kind]?.boss || e.kind === 'tank';
   const enemyMove = overlap * (bossy ? 0.12 : 0.78);
   const playerMove = overlap * (bossy ? 1.05 : 0.48) + (opts.playerKick ?? 0);
@@ -3279,7 +3301,8 @@ export function dashDistance(p) {
 const LIVING_CASINO_SKIN_ID = 'living_casino';
 const LC_BASE_COLOR = '#ffd34d';
 const LC_SPARK_COLOR = '#66f6ff';
-const LC_BASE_RANGE = 320;
+// v2.1.220: the LVC gun line starts 15% farther out (320 -> 368).
+const LC_BASE_RANGE = 368;
 const LC_BASE_IDLE_LENGTH = 72;
 const LC_SPARK_IDLE_LENGTH = 64;
 const LC_IDLE_TURN_SPEED = 0.42;
@@ -3288,7 +3311,7 @@ const LC_SPARK_TURN_SPEED = 1.95;
 const LC_BASE_COOLDOWN = 0.95;
 const LC_BASE_DAMAGE = 7;
 const LC_TARGET_CAP = 6;
-const LC_SPARK_CAP = 6;
+const LC_SPARK_BASE = 3;
 
 function isLivingCasinoPlayer(p) { return p?.hero === 'living_casino' || p?.skin?.hero === 'living_casino'; }
 function lcAngleDelta(from, to) { return Math.atan2(Math.sin(to - from), Math.cos(to - from)); }
@@ -3302,7 +3325,7 @@ function lcFreshState(p) {
     version: 4,
     base: { angle: Number.isFinite(a) ? a : 0, cd: 0, targetIds: [], shotCursor: 0, aimTargetId: '', acquiredTargetIds: [], volley: [], volleyT: 0 },
     sparks: { angle: Number.isFinite(a) ? a : 0, targetIds: [], aimTargetId: '', acquiredTargetIds: [], active: [], charges: 0, recovering: 0, rechargeT: 0, rechargeMax: 3.8 },
-    upgrades: { targets: 0, sparksUnlocked: false, sparkCount: 0, sparkDamage: 0, sparkHold: 0, sparkRange: 0 },
+    upgrades: { targets: 0, gunRange: 0, sparksUnlocked: false, sparkCount: 0, sparkDamage: 0, sparkHold: 0, sparkRange: 0 },
     leftDown: false
   };
 }
@@ -3331,8 +3354,9 @@ function ensureLivingCasinoState(p) {
   lc.sparks = lc.sparks && typeof lc.sparks === 'object' ? lc.sparks : {};
   lc.upgrades = lc.upgrades && typeof lc.upgrades === 'object' ? lc.upgrades : {};
   lc.upgrades.targets = Math.max(0, Math.min(LC_TARGET_CAP - 2, Number(lc.upgrades.targets || 0) | 0));
+  lc.upgrades.gunRange = Math.max(0, Number(lc.upgrades.gunRange || 0) | 0);
   lc.upgrades.sparksUnlocked = !!lc.upgrades.sparksUnlocked || (Array.isArray(p.weapons) && p.weapons.includes('control_sparks'));
-  lc.upgrades.sparkCount = Math.max(0, Math.min(LC_SPARK_CAP - 1, Number(lc.upgrades.sparkCount || 0) | 0));
+  lc.upgrades.sparkCount = Math.max(0, Number(lc.upgrades.sparkCount || 0) | 0);
   lc.upgrades.sparkDamage = Math.max(0, Number(lc.upgrades.sparkDamage || 0) | 0);
   lc.upgrades.sparkHold = Math.max(0, Number(lc.upgrades.sparkHold || 0) | 0);
   lc.upgrades.sparkRange = Math.max(0, Number(lc.upgrades.sparkRange || 0) | 0);
@@ -3345,14 +3369,15 @@ function ensureLivingCasinoState(p) {
   lc.base.volley = Array.isArray(lc.base.volley) ? lc.base.volley.map(String).filter(Boolean).slice(0, LC_TARGET_CAP) : [];
   lc.base.volleyT = Math.max(0, Number(lc.base.volleyT || 0) || 0);
   lc.sparks.angle = Number.isFinite(lc.sparks.angle) ? lc.sparks.angle : 0;
-  lc.sparks.targetIds = Array.isArray(lc.sparks.targetIds) ? lc.sparks.targetIds.map(String).filter(Boolean).slice(0, 1 + lc.upgrades.sparkCount) : [];
+  lc.sparks.targetIds = Array.isArray(lc.sparks.targetIds) ? lc.sparks.targetIds.map(String).filter(Boolean).slice(0, livingCasinoSparkMax(lc)) : [];
   lc.sparks.aimTargetId = String(lc.sparks.aimTargetId || '');
-  lc.sparks.acquiredTargetIds = Array.isArray(lc.sparks.acquiredTargetIds) ? lc.sparks.acquiredTargetIds.map(String).filter(Boolean).slice(0, LC_SPARK_CAP) : [];
+  lc.sparks.acquiredTargetIds = Array.isArray(lc.sparks.acquiredTargetIds) ? lc.sparks.acquiredTargetIds.map(String).filter(Boolean).slice(0, livingCasinoSparkMax(lc)) : [];
   lc.sparks.active = Array.isArray(lc.sparks.active) ? lc.sparks.active.filter(x => x && x.targetId).map(x => ({
     id: String(x.id || nid()), targetId: String(x.targetId || ''), t: Math.max(0, Number(x.t || 0) || 0),
-    maxT: Math.max(0.1, Number(x.maxT || 0.1) || 0.1), tickT: Math.max(0, Number(x.tickT || 0) || 0), slot: Math.max(0, Number(x.slot || 0) | 0)
+    maxT: Math.max(0.1, Number(x.maxT || 0.1) || 0.1), tickT: Math.max(0, Number(x.tickT || 0) || 0), slot: Math.max(0, Number(x.slot || 0) | 0),
+    minRange: Math.max(0, Number(x.minRange || 0) || 0)
   })) : [];
-  const maxSparks = lc.upgrades.sparksUnlocked ? 1 + lc.upgrades.sparkCount : 0;
+  const maxSparks = livingCasinoSparkMax(lc);
   if (lc.sparks.active.length > maxSparks) lc.sparks.active.length = maxSparks;
   lc.sparks.recovering = Math.max(0, Math.min(maxSparks, Number(lc.sparks.recovering || 0) | 0));
   lc.sparks.charges = Math.max(0, Math.min(Math.max(0, maxSparks - lc.sparks.active.length - lc.sparks.recovering), Number(lc.sparks.charges ?? maxSparks) | 0));
@@ -5159,8 +5184,12 @@ function fireProcessControllerProtocol(run, players, p, dt) {
 
 function livingCasinoBaseTargetMax(lc) { return Math.max(2, Math.min(LC_TARGET_CAP, 2 + Math.max(0, Number(lc?.upgrades?.targets || 0) | 0))); }
 function livingCasinoSparksUnlocked(lc) { return !!lc?.upgrades?.sparksUnlocked; }
-function livingCasinoBaseRange(p) { return Math.max(220, Math.min(1100, LC_BASE_RANGE * weaponRangeMultiplier(p))); }
-function livingCasinoSparkMax(lc) { return livingCasinoSparksUnlocked(lc) ? Math.max(1, Math.min(LC_SPARK_CAP, 1 + Math.max(0, Number(lc?.upgrades?.sparkCount || 0) | 0))) : 0; }
+function livingCasinoBaseRange(p) {
+  const lc = ensureLivingCasinoState(p);
+  const gunRangeMul = 1 + Math.max(0, Number(lc?.upgrades?.gunRange || 0) | 0) * 0.15;
+  return Math.max(220, Math.min(1600, LC_BASE_RANGE * gunRangeMul * weaponRangeMultiplier(p)));
+}
+function livingCasinoSparkMax(lc) { return livingCasinoSparksUnlocked(lc) ? LC_SPARK_BASE + Math.max(0, Number(lc?.upgrades?.sparkCount || 0) | 0) : 0; }
 function livingCasinoSparkRange(p, lc) { return livingCasinoSparksUnlocked(lc) ? (250 + Math.max(0, Number(lc?.upgrades?.sparkRange || 0) | 0) * 55) * weaponRangeMultiplier(p) : 0; }
 function livingCasinoSparkHold(lc) { return 2.45 + Math.max(0, Number(lc?.upgrades?.sparkHold || 0) | 0) * 0.55; }
 function livingCasinoSparkDamage(lc) { const level = Math.max(0, Number(lc?.upgrades?.sparkDamage || 0) | 0); return level > 0 ? 6 + (level - 1) * 4 : 0; }
@@ -5324,7 +5353,15 @@ function livingCasinoAttachSpark(run, p, lc, target) {
   if (!target || (lc.sparks.charges || 0) <= 0) return false;
   const hold = livingCasinoSparkHold(lc);
   lc.sparks.charges = Math.max(0, (lc.sparks.charges || 0) - 1);
-  lc.sparks.active.push({ id: nid(), targetId: target.id, t: hold, maxT: hold, tickT: 0, slot: lc.sparks.active.length });
+  const boss = !!ENEMIES[target.kind]?.boss;
+  const bodyFloor = ((target.size || 24) + PLAYER_SIZE) / 2 + (boss ? 86 : 22);
+  const attachedDistance = Math.hypot(target.x - p.x, target.y - p.y);
+  lc.sparks.active.push({
+    id: nid(), targetId: target.id, t: hold, maxT: hold, tickT: 0, slot: lc.sparks.active.length,
+    // No linked enemy can use movement, a dash, a leap or a teleport to cross
+    // the distance at which the spark caught it. This is a tether, not a stun.
+    minRange: Math.max(bodyFloor, attachedDistance)
+  });
   if (p.wagerStats) p.wagerStats.lcSparks = (p.wagerStats.lcSparks || 0) + 1;
   run.fx.push({ t: 'lc_spark_attach', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 22) });
   return true;
@@ -5357,10 +5394,11 @@ function livingCasinoChoicePool(p, qualityTier = 0) {
   const lc = ensureLivingCasinoState(p); if (!lc) return [];
   const pool = [];
   if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'ЦЕЛЬ LVC +1', actionLabel: 'ADD TARGET', group: 'LIVING CASINO', role: 'TARGETING', desc: 'Adds one more shot to each LVC volley.', valueTier: qualityTier });
+  pool.push({ id: `lc_gun_range_${lc.upgrades.gunRange}`, kind: 'lc_gun_range', label: 'ДАЛЬНОСТЬ ПУШЕК +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'UTILITY', desc: 'Increases LVC gun targeting and projectile range by 15%.', valueTier: qualityTier });
   if (!livingCasinoSparksUnlocked(lc)) {
     pool.push({ id: 'lc_spark_unlock', kind: 'lc_spark_unlock', label: 'ИСКРЫ КОНТРОЛЯ', actionLabel: 'UNLOCK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Unlocks the SPK control module.', valueTier: qualityTier });
   } else {
-    if (livingCasinoSparkMax(lc) < LC_SPARK_CAP) pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'ИСКРА КОНТРОЛЯ +1', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds one simultaneous control spark and one target mark.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'ИСКРЫ КОНТРОЛЯ +2', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds two simultaneous control sparks and two target marks. Repeatable without a limit.', valueTier: qualityTier });
     pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'УРОН ИСКР +', actionLabel: 'AMPLIFY', group: 'LIVING CASINO', role: 'DPS', desc: 'Gives control sparks damage while connected.', valueTier: qualityTier });
     pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'ДЛИТЕЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks remain connected longer.', valueTier: qualityTier });
     pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'ДАЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', valueTier: qualityTier });
@@ -5398,16 +5436,17 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
   } else if (opt.kind === 'lc_spark_unlock') {
     if (livingCasinoSparksUnlocked(lc)) return false;
     lc.upgrades.sparksUnlocked = true;
-    lc.sparks.charges = 1;
+    lc.sparks.charges = LC_SPARK_BASE;
     p.weapons = ['living_casino', 'control_sparks'];
     label = 'ИСКРЫ КОНТРОЛЯ';
     run.fx.push({ t: 'weapon_get', id: p.id, w: 'SPK' });
   } else if (opt.kind === 'lc_target_slot') {
     if (livingCasinoBaseTargetMax(lc) >= LC_TARGET_CAP) return false;
     lc.upgrades.targets++; label = 'ЦЕЛЬ LVC +1';
+  } else if (opt.kind === 'lc_gun_range') {
+    lc.upgrades.gunRange++; label = 'ДАЛЬНОСТЬ ПУШЕК +';
   } else if (opt.kind === 'lc_spark_count') {
-    if (livingCasinoSparkMax(lc) >= LC_SPARK_CAP) return false;
-    lc.upgrades.sparkCount++; lc.sparks.charges++; label = 'ИСКРА КОНТРОЛЯ +1';
+    lc.upgrades.sparkCount += 2; lc.sparks.charges += 2; label = 'ИСКРЫ КОНТРОЛЯ +2';
   } else if (opt.kind === 'lc_spark_damage') { lc.upgrades.sparkDamage++; label = 'УРОН ИСКР +'; }
   else if (opt.kind === 'lc_spark_hold') { lc.upgrades.sparkHold++; label = 'ДЛИТЕЛЬНОСТЬ ИСКР +'; }
   else if (opt.kind === 'lc_spark_range') { lc.upgrades.sparkRange++; label = 'ДАЛЬНОСТЬ ИСКР +'; }
@@ -5416,6 +5455,64 @@ function applyLivingCasinoWeaponOption(run, players, p, opt) {
   run.fx.push({ t: 'weapon_mod', id: p.id, label, w: modWeapon });
   run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
   return true;
+}
+
+function livingCasinoSparkLinks(players, target) {
+  if (!target) return [];
+  const links = [];
+  for (const p of players?.values?.() || []) {
+    if (!p?.alive || !p.connected || !isLivingCasinoPlayer(p)) continue;
+    const lc = ensureLivingCasinoState(p);
+    for (const spark of lc?.sparks?.active || []) {
+      if (spark?.targetId !== target.id || (spark.t || 0) <= 0) continue;
+      const boss = !!ENEMIES[target.kind]?.boss;
+      const floor = ((target.size || 24) + PLAYER_SIZE) / 2 + (boss ? 86 : 22);
+      links.push({ p, spark, minRange: Math.max(floor, Number(spark.minRange || 0) || 0) });
+    }
+  }
+  return links;
+}
+
+function livingCasinoSparkBlocksContact(players, target, p) {
+  return livingCasinoSparkLinks(players, target).some(link => link.p.id === p?.id);
+}
+
+function constrainLivingCasinoSparkTarget(run, players, target, prevX = target?.x, prevY = target?.y) {
+  const links = livingCasinoSparkLinks(players, target);
+  if (!links.length) return false;
+  let blocked = false;
+  for (const link of links) {
+    const p = link.p;
+    let dx = target.x - p.x, dy = target.y - p.y;
+    let d = Math.hypot(dx, dy);
+    if (d >= link.minRange - 0.25) continue;
+    if (d < 0.001) {
+      dx = Number(prevX || 0) - p.x; dy = Number(prevY || 0) - p.y;
+      d = Math.hypot(dx, dy);
+      if (d < 0.001) { dx = -(p.dirX || 1); dy = -(p.dirY || 0); d = Math.hypot(dx, dy) || 1; }
+    }
+    const nx = dx / d, ny = dy / d;
+    const wantedX = p.x + nx * link.minRange;
+    const wantedY = p.y + ny * link.minRange;
+    const c = collideWalls(wantedX, wantedY, (target.size || 24) / 2, run.plan?.walls || [], target.x, target.y);
+    const candidateD = Math.hypot(c.x - p.x, c.y - p.y);
+    const previousD = Math.hypot(Number(prevX ?? target.x) - p.x, Number(prevY ?? target.y) - p.y);
+    if (candidateD >= link.minRange - 3) { target.x = c.x; target.y = c.y; }
+    else if (previousD >= link.minRange - 3) { target.x = Number(prevX); target.y = Number(prevY); }
+    else { target.x = c.x; target.y = c.y; }
+    const inward = (target.vx || 0) * -nx + (target.vy || 0) * -ny;
+    if (inward > 0) { target.vx = (target.vx || 0) + nx * inward; target.vy = (target.vy || 0) + ny * inward; }
+    if (target.state === 'charge') { target.state = 'cool'; target.st = 0; target.bossDashCd = Math.max(target.bossDashCd || 0, 0.75); }
+    if (target.slotChargeState === 'charge') { target.slotChargeState = 'cool'; target.st = 0; }
+    if (String(target.state || '').includes('leap')) { target.state = 'wall_recover'; target.st = 0; }
+    if (ENEMIES[target.kind]?.boss) clampEnemyToArena(run, target, 18);
+    blocked = true;
+  }
+  if (blocked && (run.now || 0) - (target.lcSparkBlockFxAt || -999) > 0.16) {
+    target.lcSparkBlockFxAt = run.now || 0;
+    run.fx.push({ t: 'lc_spark_tick', id: links[0].p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), blocked: 1 });
+  }
+  return blocked;
 }
 function handleLivingCasinoBaseMark(run, players, p) {
   const lc = ensureLivingCasinoState(p); if (!lc) return;
@@ -5759,7 +5856,7 @@ export function startRoom(run, players) {
       for (let ni = 0; ni < positions.length; ni++) {
         const node = spawnEnemy(run, players, 'root_node', false);
         node.x = positions[ni][0]; node.y = positions[ni][1]; node.vx = 0; node.vy = 0; node.spawnDelay = 0.85 + ni * 0.12;
-        node.maxHp = Math.round((430 + loopIndex * 95) * teamScale); node.hp = node.maxHp;
+        node.maxHp = rootNodeMaxHp(loopIndex, teamScale); node.hp = node.maxHp;
         node.rootNode = 1; node.rootIndex = ni + 1; node.shellHp = 0; node.shellMax = 0;
         nodeIds.push(node.id);
       }
@@ -6815,6 +6912,11 @@ function stepWallJumper(run, players, e, target, dt, walls) {
         if (!p.alive || playerHiddenFromEnemy(run, p, e.x, e.y)) continue;
         const rr = e.size / 2 + PLAYER_SIZE / 2 + 7;
         if (dist2(e.x, e.y, p.x, p.y) > rr * rr) continue;
+        if (livingCasinoSparkBlocksContact(players, e, p)) {
+          constrainLivingCasinoSparkTarget(run, players, e, ox, oy);
+          e.st = (def.leapTime || 0.72) + 1;
+          break;
+        }
         damagePlayer(run, p, enemyDamageValue(e), e.x, e.y);
         resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 12, playerKick: 28, fx: true });
         e.st = (def.leapTime || 0.72) + 1;
@@ -8120,7 +8222,7 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
       p.hp = Math.min(maxHp(p), 50);
       p.alive = true;
       p.invuln = Math.max(p.invuln, 1.0);
-      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', playerId: p.id });
+      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
       return;
     }
     p.hp = 0; p.alive = false;
@@ -9235,6 +9337,10 @@ function stepEnemies(run, players, dt) {
   sanitizeEnemiesForRoom(run, players, dt);
   const walls = run.plan.walls;
   stepEnemySynergies(run, players, dt);
+  // Capture the position before any AI movement. The spark constraint is
+  // applied after every enemy has acted, so it also catches blink/teleport and
+  // special movement branches that bypass the ordinary steering helper.
+  const sparkOrigins = new Map(run.enemies.map(e => [e.id, { x: e.x, y: e.y }]));
   for (const e of [...run.enemies]) {
     const def = ENEMIES[e.kind];
     if ((e.spawnDelay || 0) > 0) {
@@ -9682,8 +9788,13 @@ function stepEnemies(run, players, dt) {
   }
   // Anti-zator pass: enemies should surround/flow, not stack into one blocked clump.
   resolveEnemyCrowd(run, walls, dt);
+  for (const e of run.enemies) {
+    const origin = sparkOrigins.get(e.id);
+    constrainLivingCasinoSparkTarget(run, players, e, origin?.x ?? e.x, origin?.y ?? e.y);
+  }
   // Safety pass: even ranged/non-touch enemies must never remain inside a player.
   resolveEnemyPlayerBodies(run, players, walls);
+  for (const e of run.enemies) constrainLivingCasinoSparkTarget(run, players, e, e.x, e.y);
   sanitizeEnemiesForRoom(run, players, dt);
 }
 
@@ -10818,7 +10929,9 @@ function openChest(run, players, p, o) {
   const def = CHESTS[o.chest];
   const keyUsed = spendBossKey(run, p, o);
   let value = chestValueInfo(run, o);
-  const creditPass = !keyUsed && !isGreedRoom(run) && ['weapon_chest', 'ability_chest'].includes(o.chest) ? consumeContractFavor(run, ['credit_pass']) : null;
+  // CREDIT PASS pays only a genuinely paid WPN/ABL chest. Free, Trojan and
+  // Boss-Key chests must never silently eat a saved charge.
+  const creditPass = !keyUsed && creditPassAppliesToChest(run, o) ? consumeContractFavor(run, ['credit_pass']) : null;
   const cost = keyUsed || creditPass ? 0 : effectiveChestCost(run, o);
   if (cost > 0) {
     if (isBloodTaxRoom(run)) {
@@ -10972,6 +11085,7 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
 export {
   handleRoomWagerAccept, handleRoomWagerDecline, handleRarePick,
   queueContractChoicePrizes,
+  compactContractFavors, activeFavorUses, consumeContractFavor, activatePendingContractFavors, creditPassAppliesToChest,
   makeAbilityChestChoices, makeWeaponChestChoices, weaponChoiceEligible,
   bossRewardBlockedForPlayer, signalSpikeAimRangeForLevel, signalSpikeRadiusForLevel,
   controlledProcessFireRateMul, controlledProcessDamageValue, controlledProcessContactCarriesStatuses,
@@ -10980,7 +11094,10 @@ export {
   applyControlledProcessStatuses, bulletElementString, damageEnemy, controlledFireBullet,
   stepAnchorCashierBoss,
   captureEnemyAsProcess, damageControlledProcess, expireControlledProcess, stepProcessControllerState,
-  rareTierTwoChance, rollSafeRareUpgrade, spendBossKey, continueMultiPickChestOffer
+  rareTierTwoChance, rollSafeRareUpgrade, spendBossKey, continueMultiPickChestOffer,
+  livingCasinoBaseRange, livingCasinoSparkMax, livingCasinoChoicePool, applyLivingCasinoWeaponOption,
+  livingCasinoAttachSpark, livingCasinoSparkLinks, livingCasinoSparkBlocksContact,
+  constrainLivingCasinoSparkTarget, rootNodeMaxHp
 };
 
 function choiceIdentity(c) { return String(c?.id || c?.upgrade || c?.weapon || c?.core || c?.mutation || c || ''); }
@@ -11028,7 +11145,8 @@ export function handleRerollOffer(run, players, p, kind = '') {
     p.bossSignatureChoices = choices.slice(0, count);
     p.offer = { ...prev, choices: p.bossSignatureChoices, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else return false;
-  run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: k.toUpperCase() + ' REROLLED', playerId: p.id });
+  const rerollBodyRu = k === 'weapon' ? 'ВЫБОР WPN ПЕРЕБРОШЕН' : k === 'ability' ? 'ВЫБОР ABL ПЕРЕБРОШЕН' : 'ВЫБОР ПРИЗА БОССА ПЕРЕБРОШЕН';
+  run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: k.toUpperCase() + ' REROLLED', bodyRu: rerollBodyRu, bodyEn: k.toUpperCase() + ' REROLLED', playerId: p.id });
   run.fx.push({ t: 'choice_reroll', id: p.id, kind: k, label: favorLabel(favor) });
   return true;
 }
@@ -13493,7 +13611,8 @@ export function buildSnapshot(run, players) {
     return [
       o.id, o.type, o.type === 'chest' ? CHESTS[o.chest].label : 'BET',
       o.x, o.y, o.opened ? 1 : 0, o.type === 'chest' ? (blood ? bloodTaxHpCost(effectiveChestCost(run, o)) : effectiveChestCost(run, o)) : 0,
-      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0, value?.slotCount || 0, value?.reason || ''
+      (o.type === 'chest' && blood) ? 'HP' : 'GLD', value?.label || '', value?.tier || 0, value?.slotCount || 0, value?.reason || '',
+      o.type === 'chest' && creditPassAppliesToChest(run, o) ? 1 : 0
     ];
   });
   const staticMode = staticRainCurrentMode(run);

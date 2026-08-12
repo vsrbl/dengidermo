@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.218';
-export const BUILD_ID = 'contract_choice_confirmation_ui';
+export const VERSION = 'v2.1.220';
+export const BUILD_ID = 'lvc_gun_range_universal_spark_tether';
 export const PROTOCOL = 15;
 
 export const MAX_PLAYERS = 4;
