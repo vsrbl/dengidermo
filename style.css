@@ -253,6 +253,10 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
   font-size: 12px;
   line-height: 1.3;
   text-align: left;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: flex-start;
 }
 .install-next-room.hidden { display: none; }
 .install-next-title { color: var(--cyan); font-weight: 800; letter-spacing: .12em; }
@@ -290,6 +294,12 @@ canvas#game { position: fixed; inset: 0; display: block; cursor: none; }
 .contract-choice-card span { color:var(--fg); font-size:9px; line-height:1.25; margin-top:3px; }
 .contract-choice-card em { color:var(--dim); font-size:8px; font-style:normal; margin-top:3px; }
 @keyframes installIntelInV2209 { from { opacity:0; transform:translateX(-9px); } to { opacity:1; transform:none; } }
+
+/* Hover feedback must follow the pointer immediately in every picker. */
+button, .choice, .weapon-choice, .ability-choice, .ability-card,
+.contract-choice-card, .hero-card, #casino-stakes button {
+  transition: none !important;
+}
 
 @media (max-width: 1080px), (max-height: 720px) {
   #install-modal > .panel { overflow: auto; }

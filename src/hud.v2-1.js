@@ -7,8 +7,8 @@ import { reconcileRerollAvailability } from './reroll-sync.v2-1.js';
 const $ = id => document.getElementById(id);
 const MOD_LABELS = Object.fromEntries(Object.values(SECTOR_MODS).map(m => [m.id, m.label]));
 const WEAPON_BY_LABEL_LOCAL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
-const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR', ripped_table: 'RIPPED TABLE', cross_terminal: 'CROSS TERMINAL', ring_track: 'RING TRACK', clamp_room: 'CLAMP SECTOR', cashier_maze: 'CASHIER MAZE', machine_core: 'MACHINE CORE' };
-const ARCH_LABELS_RU = { panic_box: 'ТЕСНЫЙ СЕКТОР', compact: 'МАЛЫЙ СЕКТОР', standard: 'СТАНДАРТНЫЙ СЕКТОР', wide: 'ШИРОКИЙ СЕКТОР', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'УЗЕЛ ГЛАВНОЙ УГРОЗЫ', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
+const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR', trinode_chase: 'TRI CHASE GRID', ripped_table: 'RIPPED TABLE', cross_terminal: 'CROSS TERMINAL', ring_track: 'RING TRACK', clamp_room: 'CLAMP SECTOR', cashier_maze: 'CASHIER MAZE', machine_core: 'MACHINE CORE' };
+const ARCH_LABELS_RU = { panic_box: 'ТЕСНЫЙ СЕКТОР', compact: 'МАЛЫЙ СЕКТОР', standard: 'СТАНДАРТНЫЙ СЕКТОР', wide: 'ШИРОКИЙ СЕКТОР', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'УЗЕЛ ГЛАВНОЙ УГРОЗЫ', trinode_chase: 'ЛАБИРИНТ TRI', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
 const MOD_LABELS_RU = {
   blackout: 'ТЕМНОТА', static_rain: 'СТАТИК-ШТОРМ', greed: 'ЗОЛОТАЯ ЛИХОРАДКА', debt_floor: 'СТАТИК-ПОЛ', hunter_contract: 'ВОЛНЫ ОХОТНИКОВ',
   casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНЫЙ ЗАЛ', moving_room: 'ДВИЖУЩИЕСЯ ЗОНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ОПЛАТА',
@@ -869,6 +869,8 @@ export class Hud {
     this.domTipActive = false;
     this.tipEl = null;
     this.mouse = { x: 0, y: 0 };
+    this.tipSize = { w: 260, h: 80 };
+    this.tipMoveRaf = 0;
     const explainTarget = (node) => {
       const el = node?.closest?.('[data-explain]') || null;
       if (!el) return null;
@@ -879,26 +881,13 @@ export class Hud {
     };
     const move = (e) => {
       this.mouse.x = e.clientX; this.mouse.y = e.clientY;
-      const under = explainTarget(document.elementFromPoint(e.clientX, e.clientY));
-      // HUD rows are rebuilt every frame. Refresh tooltip data from the element under
-      // the cursor so it cannot stick to a previous row like GOAL/ЦЕЛЬ.
-      if (under) {
-        this.domTipActive = true;
-        const title = under.dataset.explainTitle || localText('ИНФО', 'INFO');
-        const body = under.dataset.explain || '';
-        const tone = under.dataset.explainTone || '';
-        if (this.tipEl !== under || this.tipData?.source !== 'dom' || this.tipData?.title !== title || this.tipData?.body !== body || this.tipData?.tone !== tone) {
-          this.tipEl = under;
-          this.showTip(title, body, tone, 'dom');
-        }
-      } else if (this.tipData?.source === 'dom') {
-        this.domTipActive = false;
-        this.tipEl = null;
-        this.hideTip();
-      }
-      this.placeTip();
+      if (this.tipMoveRaf || !this.tip || this.tip.classList.contains('hidden')) return;
+      this.tipMoveRaf = requestAnimationFrame(() => {
+        this.tipMoveRaf = 0;
+        this.placeTip();
+      });
     };
-    window.addEventListener('mousemove', move, { passive: true });
+    window.addEventListener('pointermove', move, { passive: true });
     document.addEventListener('mouseover', (e) => {
       const el = explainTarget(e.target);
       if (!el) return;
@@ -937,6 +926,8 @@ export class Hud {
     this.tip.className = tone || '';
     this.tip.classList.remove('hidden');
     this.tipData = { title, body, tone, source };
+    const rect = this.tip.getBoundingClientRect();
+    this.tipSize = { w: rect.width || 260, h: rect.height || 80 };
     this.placeTip();
   }
 
@@ -949,8 +940,8 @@ export class Hud {
   placeTip() {
     if (!this.tip || this.tip.classList.contains('hidden')) return;
     const pad = 14;
-    const tw = this.tip.offsetWidth || 260;
-    const th = this.tip.offsetHeight || 80;
+    const tw = this.tipSize?.w || 260;
+    const th = this.tipSize?.h || 80;
     let x = this.mouse.x + 18;
     let y = this.mouse.y + 20;
     if (x + tw + pad > window.innerWidth) x = this.mouse.x - tw - 18;
@@ -1116,6 +1107,18 @@ export class Hud {
       return;
     }
     const mods = (next.mods || []).filter(Boolean).slice(0, 6);
+    const previewStatic = next.staticRainBreakdown || null;
+    const hasStaticIntel = Math.max(0, previewStatic?.total | 0) > 0
+      || Math.max(0, previewStatic?.banked | 0) > 0
+      || Math.max(0, previewStatic?.deferredCore | 0) > 0;
+    const previewContract = room?.contractChoice || null;
+    const hasContractIntel = (Array.isArray(previewContract?.choices) && previewContract.choices.length > 0) || !!next.objective;
+    if (!mods.length && !hasStaticIntel && !hasContractIntel) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      this.installPreviewSig = '';
+      return;
+    }
     const modHtml = mods.length
       ? mods.map(m => `<span>${esc(roomModLabel(m, next))}</span>`).join('')
       : `<span>${esc(localText('ЧИСТО', 'CLEAN'))}</span>`;

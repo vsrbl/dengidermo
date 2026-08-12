@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   createPlayer,
@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[0-9]|(?:20[0-9]|210))$/);
+assert.match(VERSION, /^v2\.1\.(?:19[0-9]|(?:20[0-9]|21[0-4]))$/);
 if (VERSION === 'v2.1.190') assert.equal(BUILD_ID, 'controller_anchor_floor_capacity_duration');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

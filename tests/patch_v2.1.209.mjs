@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, UPGRADES } from '../shared/data.v2-1.js';
 import {
@@ -9,8 +9,8 @@ import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 import { Effects } from '../src/effects.v2-1.js';
 import { P } from '../src/state.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:209|210)$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : 'trinode_parts_radial_break_sync');
+assert.match(VERSION, /^v2\.1\.(?:209|21[0-4])$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : VERSION === 'v2.1.210' ? 'trinode_parts_radial_break_sync' : VERSION === 'v2.1.211' ? 'trinode_chase_loop_hp_splitter_audio' : VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : 'solo_offline_hard_fallback');
 assert.ok(PROTOCOL >= 14);
 
 const enemy = (id, kind = 'grunt', x = 700, y = 500, hp = 100) => ({
@@ -46,6 +46,7 @@ const enemy = (id, kind = 'grunt', x = 700, y = 500, hp = 100) => ({
     const players = new Map([[p.id, p]]);
     const run = createRun(20902);
     run.runDepth = depth;
+    run.runMemory.bossesDefeated = Math.max(0, Math.floor((depth - 3) / 4));
     run.devNextRoomOverride = { category: 'boss', modifierIds: [] };
     startRoom(run, players);
     if (run.rootLock) { fixture = { run, players, p }; break; }

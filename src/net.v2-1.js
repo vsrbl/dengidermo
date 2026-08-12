@@ -32,13 +32,43 @@ export class Net {
     this._dc = null;           // guest: unreliable channel
     this._ctrlDc = null;       // guest: reliable channel
     this._pingTimer = null;
+    this._signalEpoch = 0;
   }
 
   on(type, fn) { this.handlers[type] = fn; }
   emit(type, m) { if (this.handlers[type]) this.handlers[type](m); }
 
   // ---------------------------------------------------------- single-player / host
+  _dropNetworkForSolo() {
+    // SOLO is a hard local mode. Late signaling callbacks must never gate or
+    // overwrite the local run after the player has chosen single-player.
+    this._signalEpoch++;
+    this.connected = false;
+    this.direct = false;
+    this.ctrlDirect = false;
+    if (this._pingTimer) clearInterval(this._pingTimer);
+    this._pingTimer = null;
+    for (const peer of this.peers.values()) {
+      try { peer.dc?.close?.(); } catch {}
+      try { peer.ctrlDc?.close?.(); } catch {}
+      try { peer.pc?.close?.(); } catch {}
+    }
+    this.peers.clear();
+    try { this._dc?.close?.(); } catch {}
+    try { this._ctrlDc?.close?.(); } catch {}
+    try { this._pc?.close?.(); } catch {}
+    this._dc = null;
+    this._ctrlDc = null;
+    this._pc = null;
+    const ws = this.ws;
+    this.ws = null;
+    try { ws?.close?.(); } catch {}
+  }
+
   startSolo(name, skin = null, seedInput = '') {
+    this.room?.close?.();
+    this.room = null;
+    this._dropNetworkForSolo();
     this.mode = 'solo';
     this.id = newId();
     this.roomId = 'SOLO';
@@ -60,12 +90,18 @@ export class Net {
   connect(url, name, skin = null) {
     this._name = name;
     this._skin = skin;
+    const epoch = ++this._signalEpoch;
     return new Promise((resolve, reject) => {
       let settled = false;
       const ws = new WebSocket(url);
       this.ws = ws;
-      ws.onopen = () => { this._wsSend({ t: 'hello', name, skin: this._skin, proto: PROTOCOL }); };
+      const cancelled = () => epoch !== this._signalEpoch || this.mode === 'solo';
+      ws.onopen = () => {
+        if (cancelled()) return;
+        this._wsSend({ t: 'hello', name, skin: this._skin, proto: PROTOCOL });
+      };
       ws.onmessage = (ev) => {
+        if (cancelled()) return;
         let m; try { m = JSON.parse(ev.data); } catch { return; }
         if (m.t === 'hello_ok') {
           this.connected = true;
@@ -74,8 +110,12 @@ export class Net {
         }
         this._onSignal(m);
       };
-      ws.onerror = () => { if (!settled) { settled = true; reject(new Error('ws error')); } };
+      ws.onerror = () => { if (!settled) { settled = true; reject(new Error(cancelled() ? 'connection cancelled' : 'ws error')); } };
       ws.onclose = (ev) => {
+        if (cancelled()) {
+          if (!settled) { settled = true; reject(new Error('connection cancelled')); }
+          return;
+        }
         this.connected = false;
         if (!settled) { settled = true; reject(new Error('closed: ' + ev.code)); }
         // guest on relay (no direct rtc) loses the game when signaling drops

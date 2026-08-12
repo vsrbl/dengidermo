@@ -21,6 +21,8 @@ export class Input {
     // on the same pointer event that updates aim coordinates.
     this.cursorEl = document.getElementById('custom-cursor');
     this._cursorVisible = false;
+    this._cursorLastVisible = null;
+    this._cursorLastInspect = null;
     this.updateCursor();
 
     window.addEventListener('keydown', (e) => {
@@ -58,15 +60,16 @@ export class Input {
         this.mouseY = e.clientY;
       }
       this._cursorVisible = true;
-      this.updateCursor();
+      this.updateCursorPosition();
+      this.updateCursorState();
     };
-    // Prefer one pointer path only. Running raw + pointermove + mousemove together can
-    // apply older fallback events after newer raw coordinates on some browsers.
-    if ('onpointerrawupdate' in window) window.addEventListener('pointerrawupdate', movePointer, { passive: true });
-    else if ('onpointermove' in window) window.addEventListener('pointermove', movePointer, { passive: true });
+    // Raw pointer events can arrive hundreds of times between frames and flood the
+    // main thread with style writes. Browser-coalesced pointermove stays direct and
+    // adds no extra animation-frame queue.
+    if ('onpointermove' in window) window.addEventListener('pointermove', movePointer, { passive: true });
     else window.addEventListener('mousemove', movePointer, { passive: true });
-    window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursor(); });
-    window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursor(); });
+    window.addEventListener('mouseenter', () => { this._cursorVisible = true; this.updateCursorState(); });
+    window.addEventListener('mouseleave', () => { this._cursorVisible = false; this.updateCursorState(); });
     window.addEventListener('mousedown', (e) => {
       if (e.button === 2) {
         e.preventDefault();
@@ -85,11 +88,28 @@ export class Input {
   }
 
   updateCursor() {
+    this.updateCursorPosition();
+    this.updateCursorState(true);
+  }
+
+  updateCursorPosition() {
     if (!this.cursorEl) return;
-    this.cursorEl.classList.toggle('hidden', !this._cursorVisible);
-    this.cursorEl.classList.toggle('inspect', !!this.inspectMode);
     // Hard snap: keep the old visual cursor but remove the sluggish, trailing feel.
     this.cursorEl.style.transform = `translate3d(${Math.round(this.mouseX - 8)}px, ${Math.round(this.mouseY - 8)}px, 0)`;
+  }
+
+  updateCursorState(force = false) {
+    if (!this.cursorEl) return;
+    const visible = !!this._cursorVisible;
+    const inspect = !!this.inspectMode;
+    if (force || visible !== this._cursorLastVisible) {
+      this.cursorEl.classList.toggle('hidden', !visible);
+      this._cursorLastVisible = visible;
+    }
+    if (force || inspect !== this._cursorLastInspect) {
+      this.cursorEl.classList.toggle('inspect', inspect);
+      this._cursorLastInspect = inspect;
+    }
   }
 
   moveVec() {

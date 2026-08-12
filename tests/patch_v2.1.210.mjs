@@ -4,8 +4,8 @@ import { ENEMIES } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, damageEnemy, handleDevCommand, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.210');
-assert.equal(BUILD_ID, 'trinode_parts_radial_break_sync');
+assert.match(VERSION, /^v2\.1\.21[0-4]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.210' ? 'trinode_parts_radial_break_sync' : VERSION === 'v2.1.211' ? 'trinode_chase_loop_hp_splitter_audio' : VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : 'solo_offline_hard_fallback');
 assert.equal(ENEMIES.boss_trinode.spd, 154 * 1.15);
 
 function fixture(seed = 21001) {
@@ -76,7 +76,7 @@ assert.doesNotMatch(triRender, /Math\.PI \/ 4|bossHpBar/);
 assert.match(triRender, /COL\.cyan/);
 assert.match(triRender, /COL\.purple/);
 assert.match(effects, /case 'trinode_break':[\s\S]{0,900}SECTION DESTROYED/);
-assert.match(audio, /case 'trinode_break':[\s\S]{0,160}slot_overload/);
+assert.match(audio, /case 'trinode_break':[\s\S]{0,160}trinode_section_break/);
 assert.doesNotMatch(sim, /ROOM_WAGER_DECISION_TIME|roomWagerOffer\.expires/);
 assert.match(hud, /wager_accept_click/);
 assert.match(hud, /wager_skip_click/);

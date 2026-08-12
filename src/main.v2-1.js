@@ -40,6 +40,7 @@ document.addEventListener('pointerup', (ev) => {
 const status = $('menu-status');
 const menuVersion = $('menu-version');
 const NET_STATUS = {
+  checking: ['ПРОВЕРКА СЕТИ · ОДИНОЧНАЯ ИГРА ГОТОВА', 'NETWORK CHECK · SINGLE PLAYER READY'],
   connecting: ['ПОДКЛЮЧЕНИЕ…', 'CONNECTING…'],
   online: ['В СЕТИ', 'ONLINE'],
   ready: ['СЕТЬ ГОТОВА', 'NETWORK READY'],
@@ -52,7 +53,7 @@ const NET_STATUS = {
   lost: ['СВЯЗЬ ПОТЕРЯНА — ОБНОВИ СТРАНИЦУ', 'CONNECTION LOST — REFRESH PAGE'],
   error: ['СЕТЕВАЯ ОШИБКА', 'NETWORK ERROR']
 };
-let currentStatusKey = 'connecting';
+let currentStatusKey = 'checking';
 let currentStatusClass = '';
 function netStatus(key) { const v = NET_STATUS[key] || NET_STATUS.error; return getLang() === 'en' ? v[1] : v[0]; }
 function setStatusKey(key, cls = '') {
@@ -559,20 +560,36 @@ async function connect() {
   setStatusKey('connecting');
   try {
     await net.connect(WS_URL, playerName(), saveSkin());
+    if (net.mode === 'solo' || inGame) return false;
     setStatusKey('online', 'ok');
     return true;
   } catch (e) {
-    setStatusKey('down', 'err');
+    if (net.mode !== 'solo' && !inGame) setStatusKey('down', 'err');
     return false;
   }
 }
 
 // SINGLE PLAYER: no network at all — works even with the server down
-$('btn-solo').addEventListener('click', () => {
+let soloStarting = false;
+function launchSolo() {
+  if (soloStarting || inGame) return;
+  soloStarting = true;
+  const btn = $('btn-solo');
+  if (btn) btn.disabled = true;
   uiClick('run_start');
+  setStatusKey('checking', 'ok');
   state.localMode = true;
-  net.startSolo(playerName(), saveSkin(), menuSeed());
-});
+  try {
+    net.startSolo(playerName(), saveSkin(), menuSeed());
+  } catch (e) {
+    state.localMode = false;
+    setStatus(localText('НЕ УДАЛОСЬ ЗАПУСТИТЬ ЛОКАЛЬНУЮ ИГРУ', 'LOCAL GAME FAILED'), 'err');
+  } finally {
+    soloStarting = false;
+    if (btn) btn.disabled = false;
+  }
+}
+$('btn-solo').addEventListener('click', launchSolo);
 $('btn-create').addEventListener('click', async () => {
   uiClick('run_start');
   const seedInput = menuSeed();
@@ -595,13 +612,16 @@ $('btn-join').addEventListener('click', async () => {
   $('btn-join').disabled = false;
 });
 $('room-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-join').click(); });
-$('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create').click(); });
+$('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') launchSolo(); });
+$('seed-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') launchSolo(); });
 
 // status probe (informational only — single-player never needs it)
+setStatusKey('checking', 'ok');
 fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '/health')
   .then(r => r.json())
   .then(h => {
     setMenuVersion(h);
+    if (net.mode === 'solo' || inGame) return;
     const serverProto = Number(h?.protocol ?? PROTOCOL);
     if (serverProto !== PROTOCOL) {
       setStatusKey('update', 'err');
@@ -609,7 +629,10 @@ fetch((isLocal ? `http://${location.hostname}:10777` : cfg.BACKEND_HTTP_URL) + '
     }
     setStatusKey('ready', 'ok');
   })
-  .catch(() => { setMenuVersion(); setStatusKey('waking'); });
+  .catch(() => {
+    setMenuVersion();
+    if (net.mode !== 'solo' && !inGame) setStatusKey('down', 'err');
+  });
 
 // ---------------------------------------------------------------- net handlers
 net.on('welcome', (m) => {
@@ -733,6 +756,7 @@ function ensureDevPanel() {
     <div class="dev-buttons">
       <button id="dev-apply">SET Q</button>
       <button id="dev-ready">READY</button>
+      <button id="dev-q-silence">Q SILENCE 30s</button>
       <button id="dev-abl">ABL OFFER</button>
       <button id="dev-pack">SPAWN PACK</button>
       <button id="dev-clear">CLEAR</button>
@@ -787,6 +811,7 @@ function ensureDevPanel() {
     hud.feed(`DEV Q: ${String(core).toUpperCase()}`, 'c');
   });
   devPanel.querySelector('#dev-ready')?.addEventListener('click', () => cmd('reset_cd'));
+  devPanel.querySelector('#dev-q-silence')?.addEventListener('click', () => cmd('boss_q_silence', { seconds: 30 }));
   devPanel.querySelector('#dev-abl')?.addEventListener('click', () => cmd('ability_offer'));
   devPanel.querySelector('#dev-pack')?.addEventListener('click', () => cmd('spawn_pack'));
   devPanel.querySelector('#dev-clear')?.addEventListener('click', () => cmd('clear_enemies'));

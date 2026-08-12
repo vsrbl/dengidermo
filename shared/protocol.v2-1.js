@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.210';
-export const BUILD_ID = 'trinode_parts_radial_break_sync';
+export const VERSION = 'v2.1.214';
+export const BUILD_ID = 'solo_offline_hard_fallback';
 export const PROTOCOL = 15;
 
 export const MAX_PLAYERS = 4;

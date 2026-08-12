@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, spinCasino } from '../shared/data.v2-1.js';
 import {
@@ -7,8 +7,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:20[89]|210)$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.208' ? 'boss_bag_trinode_q_silence_casino_wpn' : VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : 'trinode_parts_radial_break_sync');
+assert.match(VERSION, /^v2\.1\.(?:20[89]|21[0-4])$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.208' ? 'boss_bag_trinode_q_silence_casino_wpn' : VERSION === 'v2.1.209' ? 'contract_choice_root_lock_mirror_static_sync' : VERSION === 'v2.1.210' ? 'trinode_parts_radial_break_sync' : VERSION === 'v2.1.211' ? 'trinode_chase_loop_hp_splitter_audio' : VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : 'solo_offline_hard_fallback');
 assert.equal(PROTOCOL, 15);
 assert.equal(ENEMIES.boss_trinode?.boss, true);
 

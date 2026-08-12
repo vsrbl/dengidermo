@@ -1,10 +1,10 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, defaultStats } from '../shared/data.v2-1.js';
 import { createPlayer, createRun, damageEnemy, pickSlotMobMode, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[5-9]|19[0-9]|(?:20[0-9]|210))$/);
+assert.match(VERSION, /^v2\.1\.(?:18[5-9]|19[0-9]|(?:20[0-9]|21[0-4]))$/);
 if (VERSION === 'v2.1.185') assert.equal(BUILD_ID, 'boss_casino_gold_fever_audit');
 assert.ok(PROTOCOL >= 12);
 assert.equal(ENEMIES.slot_mob.hp, 3060, 'Casino Mob HP was not halved');

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ENEMIES, UPGRADES, WEAPONS, WEAPON_CHEST_REWARDS } from '../shared/data.v2-1.js';
 import { isEnemySpawnReachable } from '../shared/mapgen.v2-1.js';
@@ -18,7 +18,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[2-9]|(?:20[0-9]|210))$/);
+assert.match(VERSION, /^v2\.1\.(?:19[2-9]|(?:20[0-9]|21[0-4]))$/);
 if (VERSION === 'v2.1.192') assert.equal(BUILD_ID, 'weapon_clock_anchor_floor_control_q');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

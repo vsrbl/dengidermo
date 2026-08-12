@@ -31,6 +31,9 @@ export class Renderer {
     this.ctx = canvas.getContext('2d');
     this.cam = { x: 0, y: 0 };
     this.companionTrail = new Map();
+    this.bossSilencePrev = 0;
+    this.bossSilenceEntry = 0;
+    this.bossSilenceLastNow = 0;
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -191,6 +194,98 @@ export class Renderer {
       ctx.globalAlpha = 0.13 + pulse * 0.05;
       ctx.strokeStyle = alt; ctx.lineWidth = 1.1;
       ctx.strokeRect(Math.round(x - 31), Math.round(y - 31), 62, 62);
+    }
+    ctx.restore();
+  }
+
+  drawBossSilenceOverlay(seconds, now) {
+    const left = Math.max(0, Number(seconds || 0));
+    const dt = this.bossSilenceLastNow > 0 ? Math.max(0, Math.min(0.1, now - this.bossSilenceLastNow)) : 0;
+    this.bossSilenceLastNow = now;
+    if (left <= 0) {
+      this.bossSilencePrev = 0;
+      this.bossSilenceEntry = 0;
+      return;
+    }
+    if (this.bossSilencePrev <= 0 || left > this.bossSilencePrev + 1) this.bossSilenceEntry = 1;
+    this.bossSilencePrev = left;
+    this.bossSilenceEntry = Math.max(0, this.bossSilenceEntry - dt * 1.55);
+
+    const ctx = this.ctx, w = this.w, h = this.h;
+    const pulse = 0.5 + 0.5 * Math.sin(now * 5.2);
+    const entry = this.bossSilenceEntry;
+    const edge = 0.12 + pulse * 0.035 + entry * 0.14;
+    const scanY = ((now * 126) % (h + 180)) - 90;
+    const frame = 13 + Math.round(pulse * 3);
+    const labelY = Math.max(74, Math.round(h * 0.145));
+    const label = localText('Q-КАНАЛ ЗАГЛУШЕН', 'Q CHANNEL MUTED');
+    const sub = localText(`БОСС-БЛОКИРОВКА · ${left.toFixed(1)} С`, `BOSS LOCK · ${left.toFixed(1)}s`);
+
+    ctx.save();
+    // Persistent full-screen interference. The middle remains transparent enough
+    // for bullets and enemies; the border, scan and cut lines carry the state.
+    const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.18, w / 2, h / 2, Math.max(w, h) * 0.72);
+    vignette.addColorStop(0, 'rgba(180,92,255,0)');
+    vignette.addColorStop(0.58, `rgba(180,92,255,${edge * 0.22})`);
+    vignette.addColorStop(1, `rgba(84,18,112,${edge})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.globalAlpha = 0.22 + pulse * 0.10 + entry * 0.20;
+    ctx.strokeStyle = '#b45cff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([18, 9, 3, 9]);
+    ctx.strokeRect(frame + 0.5, frame + 0.5, Math.max(1, w - frame * 2 - 1), Math.max(1, h - frame * 2 - 1));
+    ctx.setLineDash([]);
+
+    const corner = Math.max(34, Math.min(72, Math.min(w, h) * 0.08));
+    ctx.globalAlpha = 0.55 + pulse * 0.22;
+    ctx.lineWidth = 3;
+    for (const [x, y, sx, sy] of [[frame,frame,1,1],[w-frame,frame,-1,1],[frame,h-frame,1,-1],[w-frame,h-frame,-1,-1]]) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + sy * corner); ctx.lineTo(x, y); ctx.lineTo(x + sx * corner, y); ctx.stroke();
+    }
+
+    const scan = ctx.createLinearGradient(0, scanY - 36, 0, scanY + 36);
+    scan.addColorStop(0, 'rgba(180,92,255,0)');
+    scan.addColorStop(0.5, `rgba(180,92,255,${0.05 + pulse * 0.035})`);
+    scan.addColorStop(1, 'rgba(180,92,255,0)');
+    ctx.fillStyle = scan;
+    ctx.fillRect(0, scanY - 36, w, 72);
+
+    ctx.fillStyle = '#b45cff';
+    for (let i = 0; i < 7; i++) {
+      const y = Math.round(((i * 137 + now * (38 + i * 4)) % (h + 24)) - 12);
+      const span = Math.max(26, Math.round(w * (0.035 + (i % 3) * 0.018)));
+      const x = Math.round(((i * 263 + now * 51) % (w + span * 2)) - span);
+      ctx.globalAlpha = 0.035 + (i % 2) * 0.025 + entry * 0.035;
+      ctx.fillRect(x, y, span, i % 3 === 0 ? 3 : 1);
+    }
+
+    const bannerW = Math.min(360, Math.max(224, w * 0.36));
+    const bannerH = 48;
+    const bx = Math.round((w - bannerW) / 2), by = Math.round(labelY - bannerH / 2);
+    ctx.globalAlpha = 0.62 + entry * 0.16;
+    ctx.fillStyle = 'rgba(5,5,5,0.84)';
+    ctx.fillRect(bx, by, bannerW, bannerH);
+    ctx.globalAlpha = 0.68 + pulse * 0.22;
+    ctx.strokeStyle = '#b45cff';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx + 0.5, by + 0.5, bannerW - 1, bannerH - 1);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f3f3f3';
+    ctx.globalAlpha = 0.92;
+    ctx.font = `bold ${Math.round(14 + entry * 5)}px 'Courier New', monospace`;
+    ctx.fillText(label, w / 2, labelY - 7);
+    ctx.fillStyle = '#b45cff';
+    ctx.font = `bold 9px 'Courier New', monospace`;
+    ctx.fillText(sub, w / 2, labelY + 12);
+
+    if (entry > 0) {
+      ctx.globalAlpha = entry * 0.11;
+      ctx.fillStyle = '#b45cff';
+      ctx.fillRect(0, 0, w, h);
     }
     ctx.restore();
   }
@@ -1574,5 +1669,6 @@ export class Renderer {
 
     // screen effects
     effects.drawScreen(ctx, this.w, this.h);
+    this.drawBossSilenceOverlay(meRow?.[P.QSILENCE] || 0, now);
   }
 }

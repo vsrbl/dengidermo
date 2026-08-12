@@ -1631,17 +1631,21 @@ function playableRectForArchetype(archetype) {
     wide: { w: 2200, h: 1500 }, long_lane: { w: 2200, h: 920 }, lounge: { w: 1500, h: 920 }, boss: { w: 2200, h: 1500 },
     ripped_table: { w: 2200, h: 1500 }, cross_terminal: { w: 2200, h: 1500 }, ring_track: { w: 2200, h: 1500 },
     clamp_room: { w: 2200, h: 1500 }, cashier_maze: { w: 2200, h: 1500 }, machine_core: { w: 2200, h: 1500 },
-    root_lockdown: { w: 3100, h: 2150, x: 0, y: 0 }
+    root_lockdown: { w: 3100, h: 2150, x: 0, y: 0 }, trinode_chase: { w: 2200, h: 1500 }
   };
   const d = defs[archetype] || defs.standard;
   const x = Number.isFinite(d.x) ? d.x : Math.round((2200 - d.w) / 2), y = Number.isFinite(d.y) ? d.y : Math.round((1500 - d.h) / 2);
   return { x, y, right: x + d.w, bottom: y + d.h };
 }
 
-function rootLockDepthForSeed(seedBase = 1) {
-  // Boss depths are 3, 7, 11, 15, 19 and 23. Never choose the first boss.
-  const slot = (((seedBase >>> 0) ^ 0x524f4f54) >>> 0) % 5;
-  return 7 + slot * 4;
+function rootLockDepthForRun(run) {
+  // Boss depths are 3, 7, 11, 15, 19 and 23. Never choose the first boss and
+  // never replace TRI's dedicated chase arena with ROOT LOCKDOWN.
+  const order = bossOrderForRun(run);
+  const eligible = [1, 2, 3, 4, 5].filter(i => order[i % order.length] !== 'boss_trinode');
+  const pick = (((run?.seedBase || 1) >>> 0) ^ 0x524f4f54) >>> 0;
+  const bossIndex = eligible[pick % Math.max(1, eligible.length)] ?? 1;
+  return 3 + bossIndex * 4;
 }
 function rootLockOuterWalls(w = 3100, h = 2150) {
   const t = 180;
@@ -1652,14 +1656,40 @@ function rootLockOuterWalls(w = 3100, h = 2150) {
     { x: w * 0.5 - 75, y: h * 0.5 + 140, w: 150, h: 120 }
   ];
 }
-function prepareRootLockArena(run) {
+function prepareRootLockArena(run, bossKind = '') {
   if (!run?.plan || run.plan.category !== 'boss') return false;
-  if ((run.runDepth || 0) !== rootLockDepthForSeed(run.seedBase || 1)) return false;
+  if (bossKind === 'boss_trinode') return false;
+  if ((run.runDepth || 0) !== rootLockDepthForRun(run)) return false;
   if (run.runMemory?.rootLockDone) return false;
   run.plan.w = 3100; run.plan.h = 2150;
   run.plan.roomArchetype = 'root_lockdown';
   run.plan.rootLockdown = 1;
   run.plan.walls = rootLockOuterWalls(run.plan.w, run.plan.h);
+  run.plan.interactables = [];
+  return true;
+}
+
+function trinodeChaseWalls(w = 2200, h = 1500) {
+  const edge = 900;
+  return [
+    { x: -edge, y: -edge, w: w + edge * 2, h: edge }, { x: -edge, y: h, w: w + edge * 2, h: edge },
+    { x: -edge, y: -edge, w: edge, h: h + edge * 2 }, { x: w, y: -edge, w: edge, h: h + edge * 2 },
+    // Broken columns and staggered lanes create many corners to run around,
+    // while wide alternating gaps keep every side connected for pathfinding.
+    { x: 300, y: 190, w: 90, h: 350 }, { x: 300, y: 820, w: 90, h: 390 },
+    { x: 620, y: 400, w: 360, h: 76 }, { x: 620, y: 1000, w: 360, h: 76 },
+    { x: 1060, y: 150, w: 86, h: 310 }, { x: 1060, y: 1040, w: 86, h: 310 },
+    { x: 1260, y: 500, w: 390, h: 76 }, { x: 1260, y: 920, w: 390, h: 76 },
+    { x: 1810, y: 190, w: 90, h: 380 }, { x: 1810, y: 840, w: 90, h: 370 },
+    { x: 760, y: 665, w: 250, h: 72 }, { x: 1190, y: 765, w: 250, h: 72 }
+  ];
+}
+function prepareTrinodeChaseArena(run, bossKind = '') {
+  if (!run?.plan || run.plan.category !== 'boss' || bossKind !== 'boss_trinode') return false;
+  run.plan.w = 2200; run.plan.h = 1500;
+  run.plan.roomArchetype = 'trinode_chase';
+  run.plan.trinodeChase = 1;
+  run.plan.walls = trinodeChaseWalls(run.plan.w, run.plan.h);
   run.plan.interactables = [];
   return true;
 }
@@ -5385,8 +5415,10 @@ export function startRoom(run, players) {
   run.bossKind = '';
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
+  const plannedBossKind = run.plan.category === 'boss' ? chooseBossKind(run) : '';
   run.rootLock = null;
-  const rootLockRoom = prepareRootLockArena(run);
+  const rootLockRoom = prepareRootLockArena(run, plannedBossKind);
+  if (!rootLockRoom) prepareTrinodeChaseArena(run, plannedBossKind);
   activatePendingContractFavors(run, players);
   forceBigRoomForHunter(run);
   const naturalStaticRain = run.plan.modifierIds.includes('static_rain');
@@ -5579,7 +5611,7 @@ export function startRoom(run, players) {
     openPortal(run);
   }
   if (run.plan.category === 'boss') {
-    const bossKind = chooseBossKind(run);
+    const bossKind = plannedBossKind || chooseBossKind(run);
     const boss = spawnEnemy(run, players, bossKind, false);
     if (isFinalBossRoom(run)) { boss.maxHp = Math.round((boss.maxHp || boss.hp || 1) * 1.35); boss.hp = boss.maxHp; boss.finalBoss = 1; }
     run.bossKind = bossKind;
@@ -5681,6 +5713,11 @@ function difficulty(run) {
 }
 function scaling(run) {
   return difficulty(run).hp;
+}
+export function bossLoopHpMultiplier(run) {
+  const loop = Math.max(0, Math.floor(Number(run?.runDepth || 0) / 4));
+  const late = Math.max(0, loop - 2);
+  return 1 + loop * 0.25 + Math.pow(late, 1.25) * 0.12;
 }
 function spawnPool(run) {
   const loop = Math.floor(run.runDepth / 4);
@@ -6768,9 +6805,10 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
   if (kind === 'leech') e.healCd = def.healCd * (0.6 + rng() * 0.6);
   if (kind === 'echo') { e.fireCd = echoMimicCooldown('shotgun', def, e) * (0.75 + rng() * 0.5); e.mimicWeapon = 'shotgun'; }
   if (def.boss) {
-    const depthLevel = Math.max(0, Number(run?.runDepth || 0));
-    const bossDepthMul = 1 + Math.min(0.85, depthLevel * 0.015 + Math.floor(depthLevel / 4) * 0.035);
-    e.maxHp = Math.max(1, Math.round(e.maxHp * bossDepthMul));
+    // All bosses, including Hunter fragments, receive an explicit loop HP
+    // multiplier on top of ordinary room difficulty. This makes later-loop
+    // boss durability predictable instead of depending only on room depth.
+    e.maxHp = Math.max(1, Math.round(e.maxHp * bossLoopHpMultiplier(run)));
     e.hp = e.maxHp;
     e.bossKind = kind;
     e.bossCastCd = (def.fireCd || 2.3) * (0.8 + rng() * 0.55);
@@ -7910,6 +7948,27 @@ function trinodeHitPartIndex(e, x, y, extra = 0) {
   return -1;
 }
 
+function spawnTrinodeSplitterPack(run, players, part) {
+  if (!run || !part) return 0;
+  const loop = Math.max(0, difficulty(run).loop || 0);
+  const wanted = 2 + Math.min(2, loop);
+  let made = 0;
+  for (let i = 0; i < wanted && run.enemies.length < MAX_ENEMIES; i++) {
+    const a = (i / wanted) * Math.PI * 2 + ((run.now || 0) * 0.37);
+    const pos = { x: part.x + Math.cos(a) * 72, y: part.y + Math.sin(a) * 72 };
+    const splitter = spawnEnemy(run, players, 'splitter', false, pos, { noSpawnWarn: true, noArmor: true, packRole: 'trinode_splitter_pack' });
+    if (!splitter) continue;
+    splitter.spawnDelay = 0;
+    splitter.splitStage = 0;
+    made++;
+  }
+  if (made > 0) {
+    run.fx.push({ t: 'summon', kind: 'trinode_splitter_pack', x: Math.round(part.x), y: Math.round(part.y), count: made });
+    run.fx.push({ t: 'split', x: Math.round(part.x), y: Math.round(part.y), count: made, boss: 1 });
+  }
+  return made;
+}
+
 function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit') {
   // Spawn warnings are a true staging phase: nothing may chip HP, armor, statuses,
   // lifesteal, combo, or death logic until the enemy has actually materialized.
@@ -7973,6 +8032,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
     if (part.hp <= 0 && e.trinodeParts.length > 1) {
       const broken = e.trinodeParts.shift();
       const next = e.trinodeParts[0];
+      spawnTrinodeSplitterPack(run, players, broken);
       e.x = next.x; e.y = next.y;
       e.trinodeUnlockT = 0.55;
       trinodeBroke = true;
@@ -7981,6 +8041,7 @@ function damageEnemy(run, players, e, dmg, owner, knock, kx, ky, source = 'hit')
     } else if (part.hp <= 0) {
       // The final square gets the same physical break cue before the ordinary
       // boss-down sequence resolves the encounter.
+      spawnTrinodeSplitterPack(run, players, part);
       run.fx.push({ t: 'trinode_break', id: e.id, x: Math.round(part.x), y: Math.round(part.y), size: e.size || 62, left: 0 });
     }
   } else e.hp -= dmg;
@@ -10965,6 +11026,13 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     p.hp = maxHp(p);
     p.invuln = p.devGod ? 999999 : 0;
     run.fx.push({ t: 'active_mutation', label: p.devGod ? 'GOD ON' : 'GOD OFF', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: p.devGod ? 'green' : 'red' });
+    return true;
+  }
+  if (action === 'boss_q_silence') {
+    const seconds = Math.max(1, Math.min(120, Number(cmd.seconds || 30)));
+    p.bossQSilenceT = seconds;
+    p.bossQSilenceDenyT = 0;
+    run.fx.push({ t: 'boss_q_silence', label: 'Q SILENCE', seconds, x: Math.round(p.x), y: Math.round(p.y), id: p.id });
     return true;
   }
 

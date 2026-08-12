@@ -80,7 +80,7 @@ export const ENEMIES = {
   boss_hunter_marksman: { label: 'HNT-II', hp: 460, spd: 64, size: 50, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 1.45, bulletSpd: 300, xp: 54, gld: 48, score: 9, bossRole: 'hunter fragment' },
   boss_hunter_trapper: { label: 'HNT-III', hp: 480, spd: 72, size: 52, dmg: 18, boss: true, bossFragment: true, armor: 0.10, fireCd: 2.05, bulletSpd: 235, xp: 56, gld: 48, score: 9, bossRole: 'hunter fragment' },
   boss_q_revisor: { label: 'RUSH', hp: 1460, spd: 68, size: 76, dmg: 25, boss: true, armor: 0.23, fireCd: 1.90, bulletSpd: 245, windup: 0.48, chargeSpd: 720, chargeTime: 0.52, chargeCd: 1.05, xp: 156, gld: 136, score: 23, bossRole: 'dash pressure' },
-  boss_trinode: { label: 'TRI', hp: 1680, spd: 177.1, size: 62, dmg: 22, boss: true, armor: 0.18, fireCd: 0.16, bulletSpd: 285, xp: 160, gld: 140, score: 24, bossRole: 'sequential crawler' }
+  boss_trinode: { label: 'TRI', hp: 6720, spd: 177.1, size: 62, dmg: 22, boss: true, armor: 0.18, fireCd: 0.16, bulletSpd: 285, xp: 160, gld: 140, score: 24, bossRole: 'sequential crawler' }
   ,root_node: { label: 'ROOT', hp: 520, spd: 0, size: 58, dmg: 0, armor: 0.16, fireCd: 999, bulletSpd: 0, xp: 0, gld: 0, score: 1, immobile: true, rootNode: true }
 };
 
