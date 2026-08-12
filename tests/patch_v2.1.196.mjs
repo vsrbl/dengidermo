@@ -13,7 +13,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[6-9]|(?:20[0-9]|21[0-4]))$/);
+assert.match(VERSION, /^v2\.1\.(?:19[6-9]|(?:20[0-9]|21[0-5]))$/);
 if (VERSION === 'v2.1.196') assert.equal(BUILD_ID, 'casino_hit_core_favor_shell_ripper_hotfix');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

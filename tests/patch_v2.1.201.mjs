@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:20[1-9]|21[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:20[1-9]|21[0-5])$/);
 if (VERSION === 'v2.1.201') assert.equal(BUILD_ID, 'static_strike_install_storm_clarity');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

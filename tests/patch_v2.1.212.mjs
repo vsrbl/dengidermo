@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import { createPlayer, createRun, handleDevCommand, startRoom, step } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.21[2-4]$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : 'solo_offline_hard_fallback');
+assert.match(VERSION, /^v2\.1\.21[2-5]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : VERSION === 'v2.1.215' ? 'install_preview_anchor_phase_signal' : 'solo_offline_hard_fallback');
 assert.equal(PROTOCOL, 15);
 
 // The authoritative boss debuff still owns the duration. The visual reads this

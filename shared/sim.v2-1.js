@@ -27,7 +27,9 @@ const FINAL_TARGET_DEPTH = FINAL_TARGET_LOOPS * ROOMS_PER_LOOP;
 const FINAL_BOSS_DEPTH = FINAL_TARGET_DEPTH - 1;
 const GOLD_FEVER_DAMAGE_MULT = 5;
 const PLAYER_ORBITALS_REMOVED = true;
-const OFFER_TIMEOUT = 48;
+const OFFER_TIMEOUT = 96;
+const BOSS_SIGNATURE_TIMEOUT = 64;
+const CONTRACT_CHOICE_TIMEOUT = 30;
 const STATIC_RAIN_MAX_LEVEL = 99; // no player-facing cap; HUD shows the true stacked level
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
 const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v | 0));
@@ -157,7 +159,7 @@ function makeBossSignatureOffer(run, p) {
   if (run.installOfferSeq <= 0) run.installOfferSeq = 1;
   let choices = (p.bossSignatureChoices || []).filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p)).slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
   if (choices.length < BOSS_SIGNATURE_CHOICE_COUNT) choices = bossSignatureChoicesForKind(p.bossSignatureKind || run.lastBossKind || 'boss', Math.random, p);
-  return { id: run.installOfferSeq, kind: 'boss_signature', choices, expires: OFFER_TIMEOUT + 16, total: OFFER_TIMEOUT + 16 };
+  return { id: run.installOfferSeq, kind: 'boss_signature', choices, expires: BOSS_SIGNATURE_TIMEOUT, total: BOSS_SIGNATURE_TIMEOUT };
 }
 function queueBossSignatureReward(run, players, bossKind = 'boss') {
   run.lastBossKind = bossKind || run.lastBossKind || 'boss';
@@ -207,13 +209,14 @@ function installWaitSnapshot(run, players) {
     if (!p.connected) continue;
     total++;
     const hasOffer = !!p.offer;
+    const hasContractPrizeOffer = !!p.contractPrizeOffer || !!p.weaponChestOffer?.contractPrize || !!p.abilityChestOffer?.contractPrize;
     const hasWagerOffer = !!p.roomWagerOffer;
     const pendingInstall = Math.max(0, p.economy?.pending || 0);
     const pendingSignature = !!p.bossSignaturePending;
-    const needsPick = hasOffer || hasWagerOffer || pendingInstall > 0 || pendingSignature;
+    const needsPick = hasOffer || hasContractPrizeOffer || hasWagerOffer || pendingInstall > 0 || pendingSignature;
     if (needsPick) {
       waiting++;
-      for (const timedOffer of [p.offer, p.roomWagerOffer]) {
+      for (const timedOffer of [p.contractPrizeOffer, p.weaponChestOffer, p.abilityChestOffer, p.offer]) {
         if (!timedOffer || !Number.isFinite(Number(timedOffer.expires))) continue;
         const ex = Math.max(0, Number(timedOffer.expires));
         nextExpires = nextExpires > 0 ? Math.min(nextExpires, ex) : ex;
@@ -228,9 +231,9 @@ function installWaitSnapshot(run, players) {
       picked: needsPick ? 0 : 1,
       pending: pendingInstall,
       signature: pendingSignature ? 1 : 0,
-      offerId: p.offer?.id || p.roomWagerOffer?.id || 0,
-      kind: p.offer?.kind || (pendingSignature ? 'boss_signature' : (hasWagerOffer ? 'room_wager' : '')),
-      total: p.offer?.total || p.roomWagerOffer?.total || 0
+      offerId: p.contractPrizeOffer?.id || p.weaponChestOffer?.offerId || p.abilityChestOffer?.offerId || p.offer?.id || p.roomWagerOffer?.id || 0,
+      kind: p.contractPrizeOffer?.kind || (p.weaponChestOffer?.contractPrize ? 'contract_weapon' : (p.abilityChestOffer?.contractPrize ? 'contract_ability' : (p.offer?.kind || (pendingSignature ? 'boss_signature' : (hasWagerOffer ? 'room_wager' : ''))))),
+      total: p.contractPrizeOffer?.total || p.weaponChestOffer?.total || p.abilityChestOffer?.total || p.offer?.total || 0
     });
   }
   return { total, waiting, ready, players: list, nextExpires: Math.max(0, nextExpires || 0), nextTotal: Math.max(1, nextTotal || nextExpires || 0) };
@@ -1251,8 +1254,8 @@ const CONTRACT_FAVOR_DEFS = {
   portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.' },
   epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.' },
   double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.' },
-  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'The next WPN choice has at least improved quality and one extra option.' },
-  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'The next ABL choice has at least improved quality and one extra option.' },
+  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved WPN modules. One module is installed for free.' },
+  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved ABL modules. One module is installed for free.' },
   rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.' },
   mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРА', tier: 'rare', uses: 1, desc: 'Removes one dangerous modifier from the next eligible room.' },
   credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next WPN or ABL choice chest costs nothing.' },
@@ -1442,6 +1445,78 @@ function grantContractFavors(run, players = null, chain = 1, count = 1) {
   run.fx.push({ t: 'favor_earned', favors: earnedSnapshot });
   run.fx.push({ t: 'favor_active', favors: earnedSnapshot });
   return favors;
+}
+
+function queueContractChoicePrizes(run, players = null, favors = []) {
+  if (!run || !players) return false;
+  const kinds = (Array.isArray(favors) ? favors : []).map(f => String(f?.id || ''))
+    .filter(id => id === 'wpn_clearance' || id === 'abl_clearance')
+    .map(id => id === 'wpn_clearance' ? 'weapon' : 'ability');
+  if (!kinds.length) return false;
+  // These rewards are paid immediately as their own choice windows. Mark the
+  // corresponding persistent clearance entries consumed so they cannot also
+  // upgrade a later paid chest.
+  for (const id of ['wpn_clearance', 'abl_clearance']) {
+    const due = kinds.filter(k => id === 'wpn_clearance' ? k === 'weapon' : k === 'ability').length;
+    let left = due;
+    for (const f of activeContractFavors(run)) {
+      if (f.id !== id || left <= 0) continue;
+      const available = Math.max(0, (f.uses || 0) - (f.used || 0));
+      const take = Math.min(left, available);
+      f.used = (f.used || 0) + take;
+      left -= take;
+    }
+  }
+  for (const p of players.values()) {
+    if (!p?.connected) continue;
+    const offers = kinds.map(kind => ({
+      kind,
+      choices: kind === 'weapon'
+        ? makeWeaponChestChoices(p, Math.random, 4, 2)
+        : makeAbilityChestChoices(p, Math.random, 4, 2)
+    }));
+    p.contractPrizeOffer = {
+      id: `contract_${run.runDepth || 0}_${p.id}`,
+      offers, index: 0,
+      expires: CONTRACT_CHOICE_TIMEOUT, total: CONTRACT_CHOICE_TIMEOUT,
+      kind: offers[0].kind === 'weapon' ? 'contract_weapon' : 'contract_ability'
+    };
+  }
+  return true;
+}
+
+function ensureContractChoicePrize(run, p) {
+  const q = p?.contractPrizeOffer;
+  if (!q || q.index >= q.offers.length) { if (p) p.contractPrizeOffer = null; return null; }
+  const queued = q.offers[q.index] || {};
+  const kind = queued.kind === 'ability' ? 'ability' : 'weapon';
+  q.kind = kind === 'weapon' ? 'contract_weapon' : 'contract_ability';
+  if (kind === 'weapon') {
+    if (!p.weaponChestOffer) p.weaponChestOffer = {
+      choices: queued.choices || [], chestId: q.id, offerId: q.id,
+      valueTier: 2, valueLabel: 'CONTRACT', valueLabelRu: 'КОНТРАКТ', slotCount: 4,
+      rarityReason: 'CONTRACT PRIZE', picksTotal: 1, picksRemaining: 1, pickedLabels: [],
+      contractPrize: 1, expires: q.expires, total: q.total
+    };
+    return p.weaponChestOffer;
+  }
+  if (!p.abilityChestOffer) p.abilityChestOffer = {
+    choices: queued.choices || [], chestId: q.id, offerId: q.id,
+    valueTier: 2, valueLabel: 'CONTRACT', valueLabelRu: 'КОНТРАКТ', slotCount: 4,
+    rarityReason: 'CONTRACT PRIZE', picksTotal: 1, picksRemaining: 1, pickedLabels: [],
+    contractPrize: 1, expires: q.expires, total: q.total
+  };
+  return p.abilityChestOffer;
+}
+
+function finishContractChoicePrize(run, p) {
+  const q = p?.contractPrizeOffer;
+  if (!q) return;
+  q.index++;
+  q.expires = CONTRACT_CHOICE_TIMEOUT;
+  q.total = CONTRACT_CHOICE_TIMEOUT;
+  if (q.index >= q.offers.length) p.contractPrizeOffer = null;
+  else ensureContractChoicePrize(run, p);
 }
 function contractFavorSnapshot(run) {
   return {
@@ -3134,7 +3209,9 @@ export function createPlayer(id, name, idx, skin = null) {
     offer: null, bossSignaturePending: false, bossSignatureChoices: null, bossSignatureKind: '',
     weaponChestOffer: null,
     abilityChestOffer: null,
+    contractPrizeOffer: null,
     rareChestOffer: null,
+    roomWagerOffer: null, roomWagerActive: null, roomWagerPrizePending: '', roomWagerDecisionDone: false,
     bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
@@ -5581,12 +5658,14 @@ export function startRoom(run, players) {
     p.bossQSilenceT = run.plan.category === 'boss' ? 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10 : 0;
     p.bossQSilenceDenyT = 0;
     p.tempDmgMulRoom = 0;
+    activateQueuedRoomWagerPrize(run, p);
     if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     ensureBossKeyCharges(run, p);
     p.offer = null;
     p.weaponChestOffer = null;
     p.abilityChestOffer = null;
+    p.contractPrizeOffer = null;
     p.rareChestOffer = null;
     p.casinoSlotLocks = ['', '', ''];
     p.casinoLockStack = [];
@@ -5684,7 +5763,7 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.rareChestOffer = null; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
     else if ((p.skin?.hero || p.hero) === 'process_controller') setupProcessControllerPlayer(p);
   }
@@ -7725,9 +7804,9 @@ function makeRoomWagerOffer(run, p) {
 }
 function ensureRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; return null; }
-  // A boss signature / INSTALL choice always resolves first. The wager then gets
-  // its own full, visible decision window instead of hiding beside another modal.
-  if (p.offer || p.bossSignaturePending || Math.max(0, p.economy?.pending || 0) > 0) return null;
+  // Contract WPN/ABL prizes own the screen first. Once they resolve, WAGER may
+  // sit beside a regular INSTALL offer; it no longer waits for INSTALL to end.
+  if (p.contractPrizeOffer || p.weaponChestOffer?.contractPrize || p.abilityChestOffer?.contractPrize || p.bossSignaturePending || p.offer?.kind === 'boss_signature') return null;
   if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
   return p.roomWagerOffer;
 }
@@ -7748,21 +7827,57 @@ function handleRoomWagerDecline(run, players, p, offerId = 0, timedOut = false) 
   run.fx.push({ t: 'room_wager_declined', id: p.id, playerId: p.id, timedOut: timedOut ? 1 : 0, x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
-function settleRoomWager(run, players, p) {
+export function settleRoomWager(run, players, p) {
   const w = p?.roomWagerActive;
   if (!w) return;
   p.roomWagerActive = null;
   const cond = ROOM_WAGER_CONDITIONS.find(x => x.id === w.condition);
   const stake = ROOM_WAGER_STAKES.find(x => x.id === w.stake);
   const prize = ROOM_WAGER_PRIZES.find(x => x.id === w.prize);
-  const ok = cond?.ok?.(run, p) ? true : false;
+  const ok = w.completed || cond?.ok?.(run, p) ? true : false;
   if (ok) {
-    prize?.prize?.(run, p);
-    run.fx.push({ t: 'room_wager_paid', id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'gold', body: prize?.ru || w.prizeTextRu || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
+    // Success is acknowledged in the cleared room, but every reward starts
+    // only when the next room begins. This prevents boss-room wagers from
+    // applying a sector/loop bonus retroactively to the fight already won.
+    p.roomWagerPrizePending = prize?.id || w.prize || '';
+    run.fx.push({ t: 'room_wager_paid', silent: 1, queued: 1, id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green', body: prize?.ru || w.prizeTextRu || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   } else {
     stake?.loss?.(run, p);
     run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: stake?.ru || w.stakeTextRu || '', bodyRu: stake?.ru || w.stakeTextRu || '', bodyEn: stake?.en || w.stakeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   }
+}
+
+const ROOM_WAGER_LIVE_LOCK_IDS = new Set([
+  'dash15','q3','r2','kills10','base_switch6','base_kills18',
+  'lc_marks4','lc_marks8','lc_sparks3','lc_sparks6',
+  'ctrl_commands5','ctrl_commands9','ctrl_captures2','ctrl_captures4'
+]);
+export function updateRoomWagerCompletion(run, players) {
+  for (const p of players.values()) {
+    const w = p?.roomWagerActive;
+    if (!p?.connected || !w || w.completed) continue;
+    const cond = ROOM_WAGER_CONDITIONS.find(x => x.id === w.condition);
+    const mayLockNow = ROOM_WAGER_LIVE_LOCK_IDS.has(String(w.condition || '')) || !!run.portal?.open;
+    if (!mayLockNow || !cond?.ok?.(run, p)) continue;
+    w.completed = 1;
+    run.fx.push({
+      t: 'room_wager_complete', id: p.id, playerId: p.id,
+      label: 'WAGER COMPLETE', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green',
+      body: w.prizeTextRu || '', bodyRu: w.prizeTextRu || '', bodyEn: w.prizeTextEn || '',
+      wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || ''
+    });
+  }
+}
+
+export function activateQueuedRoomWagerPrize(run, p) {
+  const id = String(p?.roomWagerPrizePending || '');
+  if (!id) return false;
+  p.roomWagerPrizePending = '';
+  const prize = ROOM_WAGER_PRIZES.find(x => x.id === id);
+  if (!prize) return false;
+  prize.prize?.(run, p);
+  run.fx.push({ t: 'room_wager_reward_active', id: p.id, playerId: p.id, label: 'WAGER REWARD ACTIVE', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'green', body: prize.ru || '', bodyRu: prize.ru || '', bodyEn: prize.en || '' });
+  return true;
 }
 
 function roomWagerProgress(run, p, w = null) {
@@ -10739,7 +10854,10 @@ export function handleWeaponPick(run, players, p, choiceIdx) {
   if (idx < 0 || idx >= prev.choices.length) return false;
   const opt = prev.choices[idx];
   const ok = applyWeaponChestOption(run, players, p, opt);
-  if (ok) p.weaponChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'WPN');
+  if (ok) {
+    p.weaponChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'WPN');
+    if (prev.contractPrize && !p.weaponChestOffer) finishContractChoicePrize(run, p);
+  }
   return ok;
 }
 
@@ -10750,12 +10868,16 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
   if (idx < 0 || idx >= prev.choices.length) return false;
   const opt = prev.choices[idx];
   const ok = applyAbilityChestOption(run, players, p, opt);
-  if (ok) p.abilityChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'ABL');
+  if (ok) {
+    p.abilityChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'ABL');
+    if (prev.contractPrize && !p.abilityChestOffer) finishContractChoicePrize(run, p);
+  }
   return ok;
 }
 
 export {
   handleRoomWagerAccept, handleRoomWagerDecline, handleRarePick,
+  queueContractChoicePrizes,
   makeAbilityChestChoices, makeWeaponChestChoices, weaponChoiceEligible,
   bossRewardBlockedForPlayer, signalSpikeAimRangeForLevel, signalSpikeRadiusForLevel,
   controlledProcessFireRateMul, controlledProcessDamageValue, controlledProcessContactCarriesStatuses,
@@ -10952,7 +11074,18 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     p.roomWagerActive = null;
     p.roomWagerDecisionDone = false;
     p.roomWagerOffer = makeRoomWagerOffer(run, p);
-    if (run.phase !== 'install') { run.phase = 'install'; run.phaseT = 0; }
+    if (run.phase !== 'install') {
+      run.phase = 'install';
+      run.phaseT = 0;
+      // Keep the developer-triggered INSTALL path equivalent to a real room
+      // transition so next-sector intel is available for UI regression checks.
+      run.nextRoomPreview = makeNextRoomPreview(run, players);
+      run.contractChoice = run.nextRoomPreview?.objectiveChoices?.length ? {
+        depth: (run.runDepth || 0) + 1,
+        choices: run.nextRoomPreview.objectiveChoices.map(x => ({ ...x })),
+        votes: {}, selected: ''
+      } : null;
+    }
     run.fx.push({ t: 'active_mutation', label: 'ROOM WAGER OFFER', x: Math.round(p.x), y: Math.round(p.y), r: 105, tone: 'gold', playerId: p.id });
     return true;
   }
@@ -11612,11 +11745,15 @@ function beginTransition(run, players) {
     run.fx.push({ t: 'skin_unlock', skinId: run.skinRoomReward.id, skinRarity: run.skinRoomReward.rarity, source: 'room' });
   }
   run.fx.push({ t: 'transition', skinRarity: run.skinRoomReward?.rarity || '' });
+  // Contract WPN/ABL prizes are their own 30-second choice windows and must
+  // open only after the room has entered INSTALL, before its regular upgrades.
+  queueContractChoicePrizes(run, players, earnedFavors);
   // Combo-prize type choices are side-grades, not a whole upgrade row.
   // In one upgrade-selection phase a player may see at most one such option.
   run.installComboPrizeOfferSeen = {};
   for (const p of players.values()) {
     if (!p.connected) continue;
+    if (p.contractPrizeOffer) continue;
     if (p.bossSignaturePending) p.offer = makeBossSignatureOffer(run, p);
     else if (p.economy.pending > 0) p.offer = makeInstallOffer(run, p);
   }
@@ -11686,19 +11823,36 @@ function stepInstall(run, players, dt) {
       p.offer = null;
       p.bossSignaturePending = false;
       p.bossSignatureChoices = null;
+      p.contractPrizeOffer = null;
+      p.weaponChestOffer = null;
+      p.abilityChestOffer = null;
       continue;
+    }
+    const contractChoice = ensureContractChoicePrize(run, p);
+    if (contractChoice) {
+      const q = p.contractPrizeOffer;
+      q.expires = Math.max(0, Number(q.expires || 0) - dt);
+      contractChoice.expires = q.expires;
+      contractChoice.total = q.total;
+      if (q.expires <= 0) {
+        const valid = (contractChoice.choices || []).map((o, i) => ({ o, i })).filter(x => x.o && !x.o.disabled);
+        const pick = (valid[0] || { i: 0 }).i;
+        if (q.kind === 'contract_weapon') handleWeaponPick(run, players, p, pick);
+        else handleAbilityPick(run, players, p, pick);
+      }
     }
     ensureRoomWagerOffer(run, p);
     if (p.roomWagerOffer) {
       waiting = true;
     }
-    ensureInstallOffer(run, p);
+    if (!p.contractPrizeOffer && !p.weaponChestOffer?.contractPrize && !p.abilityChestOffer?.contractPrize) ensureInstallOffer(run, p);
     if (p.offer) {
       p.offer.expires -= dt;
       if (p.offer.expires <= 0) handlePick(run, players, p, 0, p.offer.id); // auto-pick first, one queued INSTALL at a time
-      ensureInstallOffer(run, p);
+      if (!p.contractPrizeOffer && !p.weaponChestOffer?.contractPrize && !p.abilityChestOffer?.contractPrize) ensureInstallOffer(run, p);
       if (p.offer) waiting = true;
     }
+    if (p.contractPrizeOffer || p.weaponChestOffer?.contractPrize || p.abilityChestOffer?.contractPrize) waiting = true;
   }
   // v2.1 hotfix: do not advance just because a global install timer expired.
   // Multiple players can have multiple queued INSTALL choices; every pending stack must be offered or auto-picked.
@@ -12818,7 +12972,9 @@ function stepPlayers(run, players, dt) {
     ensureHeroRuntimeState(p);
     p.invuln = Math.max(0, p.invuln - dt);
     p.activeCd = Math.max(0, (p.activeCd || 0) - dt);
-    p.bossQSilenceT = Math.max(0, (p.bossQSilenceT || 0) - dt);
+    const silenceBefore = Math.max(0, p.bossQSilenceT || 0);
+    p.bossQSilenceT = Math.max(0, silenceBefore - dt);
+    if (silenceBefore > 0 && p.bossQSilenceT <= 0) run.fx.push({ t: 'boss_q_silence_end', id: p.id, playerId: p.id, label: 'Q CHANNEL RESTORED', x: Math.round(p.x), y: Math.round(p.y), tone: 'cyan' });
     p.bossQSilenceDenyT = Math.max(0, (p.bossQSilenceDenyT || 0) - dt);
     const weaponClock = weaponClockMultiplier(p);
     p.sekSwarmCd = Math.max(0, (p.sekSwarmCd || 0) - dt * weaponClock);
@@ -12985,6 +13141,7 @@ export function step(run, players, dt, now) {
   stepMods(run, players, dt);
   stepCombo(run, players, dt);
   tryCleanupPortal(run);
+  updateRoomWagerCompletion(run, players);
   if (run.roomStats) {
     const team = [...players.values()].filter(p => p.connected && p.alive);
     run.roomStats.teamHpPctMax = team.length ? Math.max(...team.map(p => (p.hp / Math.max(1, maxHp(p))) * 100)) : 100;

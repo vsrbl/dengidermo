@@ -272,8 +272,12 @@ export class Effects {
         break;
       case 'anchor_phase': {
         const field = f.phase === 'field';
-        this.add({ kind: 'squareField', activeKind: 'anchor_phase', x: f.x, y: f.y, r: field ? Math.min(220, f.r || 220) : 120, ttl: 0.28, color: field ? '#b45cff' : '#66f6ff', tick: field ? 0 : 1 });
-        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.18, color: field ? '#b45cff' : '#66f6ff' });
+        const color = field ? '#b45cff' : '#66f6ff';
+        this.add({ kind: 'anchorPhaseShift', phase: f.phase, x: f.x, y: f.y, r: Math.max(180, f.r || 430), ttl: 0.95, color });
+        this.add({ kind: 'squareField', activeKind: 'anchor_phase', x: f.x, y: f.y, r: field ? Math.min(260, f.r || 260) : 150, ttl: 0.62, color, tick: field ? 0 : 1 });
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.34, color });
+        this.float(f.x, f.y - 72, field ? localText('ПОЛЕ ВКЛЮЧЕНО', 'FIELD ONLINE') : localText('ПОЛЕ ОТКЛЮЧЕНО', 'FIELD OFFLINE'), color, 12);
+        this.kick(field ? 4.4 : 3.2);
         break;
       }
       case 'split':
@@ -1625,6 +1629,30 @@ export class Effects {
           ctx.fillStyle = e.color;
           ctx.fillRect(Math.round(e.x - node * 0.28), Math.round(e.y - node * 0.28), Math.round(node * 0.56), Math.round(node * 0.56));
         }
+      } else if (e.kind === 'anchorPhaseShift') {
+        const field = e.phase === 'field';
+        const fade = Math.max(0, 1 - p);
+        const maxSide = Math.max(180, e.r || 430);
+        const side = field ? maxSide * (0.25 + p * 0.75) : maxSide * (1 - p * 0.70);
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 2 + fade * 3;
+        ctx.globalAlpha = fade * 0.78;
+        ctx.setLineDash(field ? [15, 8] : [4, 7]);
+        ctx.strokeRect(Math.round(e.x - side / 2), Math.round(e.y - side / 2), Math.round(side), Math.round(side));
+        ctx.setLineDash([]);
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + (field ? p : -p) * 0.8;
+          const d = side * 0.48;
+          const s = 9 + fade * 10;
+          const x = e.x + Math.cos(a) * d;
+          const y = e.y + Math.sin(a) * d;
+          ctx.globalAlpha = fade * (0.42 + i * 0.08);
+          ctx.strokeRect(Math.round(x - s / 2), Math.round(y - s / 2), Math.round(s), Math.round(s));
+        }
+        ctx.globalAlpha = fade * 0.20;
+        ctx.fillStyle = e.color;
+        const core = 20 + (field ? p : 1 - p) * 34;
+        ctx.fillRect(Math.round(e.x - core / 2), Math.round(e.y - core / 2), Math.round(core), Math.round(core));
       } else if (e.kind === 'line') {
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.85; ctx.lineWidth = e.dash ? 2 : 1.5;
         if (e.dash) ctx.setLineDash([10, 7]);

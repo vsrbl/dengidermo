@@ -12,7 +12,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[5-9]|(?:20[0-9]|21[0-4]))$/);
+assert.match(VERSION, /^v2\.1\.(?:19[5-9]|(?:20[0-9]|21[0-5]))$/);
 if (VERSION === 'v2.1.195') assert.equal(BUILD_ID, 'static_core_strike_spawn_immunity');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 

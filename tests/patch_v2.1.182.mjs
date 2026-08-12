@@ -11,7 +11,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[2-9]|19[0-9]|(?:20[0-9]|21[0-4]))$/);
+assert.match(VERSION, /^v2\.1\.(?:18[2-9]|19[0-9]|(?:20[0-9]|21[0-5]))$/);
 if (VERSION === 'v2.1.183') assert.equal(BUILD_ID, 'projectile_link_status_r_compat');
 assert.ok(PROTOCOL >= 9);
 

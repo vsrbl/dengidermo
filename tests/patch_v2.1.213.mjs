@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import { Net } from '../src/net.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.21[34]$/);
-assert.equal(BUILD_ID, 'solo_offline_hard_fallback');
+assert.match(VERSION, /^v2\.1\.21[3-5]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.215' ? 'install_preview_anchor_phase_signal' : 'solo_offline_hard_fallback');
 assert.equal(PROTOCOL, 15);
 
 // A pending or failed signaling connection must not gate SOLO. Choosing local play

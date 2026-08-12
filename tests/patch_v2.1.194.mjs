@@ -10,7 +10,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:19[4-9]|(?:20[0-9]|21[0-4]))$/);
+assert.match(VERSION, /^v2\.1\.(?:19[4-9]|(?:20[0-9]|21[0-5]))$/);
 if (VERSION === 'v2.1.194') assert.equal(BUILD_ID, 'static_debt_source_audit_contract_clear');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 
@@ -151,7 +151,7 @@ const data = fs.readFileSync(new URL('../shared/data.v2-1.js', import.meta.url),
 const hud = fs.readFileSync(new URL('../src/hud.v2-1.js', import.meta.url), 'utf8');
 const i18n = fs.readFileSync(new URL('../src/i18n.v2-1.js', import.meta.url), 'utf8');
 assert.match(data, /Сама Q не создаёт статик-долг/);
-assert.match(hud, ['v2.1.196', 'v2.1.197', 'v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208', 'v2.1.209', 'v2.1.210', 'v2.1.211', 'v2.1.212', 'v2.1.213', 'v2.1.214'].includes(VERSION)
+assert.match(hud, ['v2.1.196', 'v2.1.197', 'v2.1.198', 'v2.1.199', 'v2.1.200', 'v2.1.201', 'v2.1.202', 'v2.1.203', 'v2.1.204', 'v2.1.205', 'v2.1.206', 'v2.1.207', 'v2.1.208', 'v2.1.209', 'v2.1.210', 'v2.1.211', 'v2.1.212', 'v2.1.213', 'v2.1.214', 'v2.1.215'].includes(VERSION)
   ? /навсегда глушит шторм Статик-ядра/
   : /Полностью снимает весь накопленный статик-долг/);
 assert.match(i18n, /Q itself never creates Static debt/);

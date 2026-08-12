@@ -12,7 +12,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:20[2-9]|21[0-4])$/);
+assert.match(VERSION, /^v2\.1\.(?:20[2-9]|21[0-5])$/);
 if (VERSION === 'v2.1.202') assert.equal(BUILD_ID, 'unlimited_mutation_levels');
 assert.ok(PROTOCOL === 14 || PROTOCOL === 15);
 assert.equal(ACTIVE_MUTATION_SLOTS, Number.POSITIVE_INFINITY);

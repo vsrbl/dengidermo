@@ -12,7 +12,7 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, PROTOCOL, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.(?:18[6-9]|19[0-9]|(?:20[0-9]|21[0-4]))$/);
+assert.match(VERSION, /^v2\.1\.(?:18[6-9]|19[0-9]|(?:20[0-9]|21[0-5]))$/);
 if (VERSION === 'v2.1.186') assert.equal(BUILD_ID, 'active_targeting_controller_cooldowns_hotfix');
 assert.ok(PROTOCOL >= 13);
 

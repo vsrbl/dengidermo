@@ -8,8 +8,8 @@ import {
 } from '../shared/sim.v2-1.js';
 import { BUILD_ID, VERSION } from '../shared/protocol.v2-1.js';
 
-assert.match(VERSION, /^v2\.1\.21[1-4]$/);
-assert.equal(BUILD_ID, VERSION === 'v2.1.211' ? 'trinode_chase_loop_hp_splitter_audio' : VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : 'solo_offline_hard_fallback');
+assert.match(VERSION, /^v2\.1\.21[1-5]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.211' ? 'trinode_chase_loop_hp_splitter_audio' : VERSION === 'v2.1.212' ? 'boss_q_silence_fullscreen_signal' : VERSION === 'v2.1.215' ? 'install_preview_anchor_phase_signal' : 'solo_offline_hard_fallback');
 assert.equal(ENEMIES.boss_trinode.hp, 1680 * 4);
 
 function playerMap(id = 'qa211') {

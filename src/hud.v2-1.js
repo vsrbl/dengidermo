@@ -197,6 +197,36 @@ function contractFavorPreviewLabel(f = {}) {
   const base = localText(ru[id] || f.labelRu || f.label || id.toUpperCase(), en[id] || f.label || id.toUpperCase());
   return `${base}${(f.uses || 0) > 1 ? ' x' + f.uses : ''}`;
 }
+function contractFavorPreviewBody(f = {}) {
+  const id = String(f.id || '');
+  const ru = {
+    free_reroll: 'Один раз полностью обновляет текущие варианты WPN, ABL или приза главной угрозы. Заряд хранится, пока ты сам его не применишь.',
+    clear_debt: 'Снимает весь накопленный Статик-шторм и навсегда отключает шторм от Статик-ядра в этом забеге. Новые явные источники статика всё ещё могут появляться.',
+    portal_insurance: 'Один смертельный удар вместо смерти оставляет тебя в живых и восстанавливает 50 HP. Хранится до срабатывания.',
+    epic_reroll: 'Даёт два отдельных полных переброса выбора WPN, ABL или приза главной угрозы. Заряды не пропадают между секторами.',
+    double_favor: 'Следующий успешно выполненный контракт выдаст два разных контрактных приза вместо одного.',
+    wpn_clearance: 'До обычного INSTALL откроется отдельное окно на 30 секунд: четыре улучшенных WPN-модуля, один устанавливается бесплатно. После выбора продолжится INSTALL.',
+    abl_clearance: 'До обычного INSTALL откроется отдельное окно на 30 секунд: четыре улучшенных ABL-модуля, один устанавливается бесплатно. После выбора продолжится INSTALL.',
+    rar_clearance: 'Следующий RAR-сундук гарантированно поднимается до усиленного безопасного качества.',
+    mod_veto: 'Перед ближайшим подходящим сектором автоматически удаляет один опасный модификатор. Хранится, пока не найдётся подходящая цель.',
+    credit_pass: 'Следующий сундук с выбором WPN или ABL открывается бесплатно.',
+    salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP.'
+  };
+  const en = {
+    free_reroll: 'Fully refreshes one current WPN, ABL, or main-threat prize choice. The charge persists until you use it.',
+    clear_debt: 'Clears all banked Static Storm and permanently disables Static Core storms for this run. New explicit static sources can still appear.',
+    portal_insurance: 'One lethal hit keeps you alive and restores 50 HP. Persists until triggered.',
+    epic_reroll: 'Grants two full rerolls for WPN, ABL, or main-threat prize choices. Charges persist between sectors.',
+    double_favor: 'The next completed contract grants two different contract prizes instead of one.',
+    wpn_clearance: 'Before regular INSTALL, opens a separate 30-second choice: four improved WPN modules, one installed free. INSTALL continues afterward.',
+    abl_clearance: 'Before regular INSTALL, opens a separate 30-second choice: four improved ABL modules, one installed free. INSTALL continues afterward.',
+    rar_clearance: 'The next RAR chest is guaranteed enhanced safe quality.',
+    mod_veto: 'Automatically removes one dangerous modifier from the next eligible sector. Persists until a target exists.',
+    credit_pass: 'The next WPN or ABL choice chest opens for free.',
+    salvage_protocol: 'The first ten kills in the next combat sector grant x5 team GLD and EXP.'
+  };
+  return localText(ru[id] || 'Контрактный приз хранится до подходящего момента применения.', en[id] || f.desc || 'Contract prize persists until it can apply.');
+}
 function contractRewardText(reward = '', obj = null) {
   const preview = Array.isArray(obj?.prizePreview) ? obj.prizePreview : [];
   if (preview.length) return preview.map(contractFavorPreviewLabel).join(' + ');
@@ -774,7 +804,14 @@ export class Hud {
     this.localRerollServerLeft = null;
 
     this.initExplain();
-    onLangChange(() => { this.hideTip(); });
+    onLangChange(() => {
+      this.hideTip();
+      // Rebuild immediately. A language change may happen while the game is
+      // paused behind INSTALL, so waiting for a later animation frame can leave
+      // the entry animation stuck at its transparent first keyframe.
+      this.installPreviewSig = '';
+      if (this.latestRoom) this.renderInstallNextRoom(this.latestRoom);
+    });
     const stakesEl = $('casino-stakes');
     this.lastStakePointerAt = 0;
     const betButtonFromEvent = (ev) => ev.target?.closest?.('button[data-stake]') || null;
@@ -1035,11 +1072,11 @@ export class Hud {
     const progress = w.progress || {};
     const pct = progress.max ? Math.max(0, Math.min(100, Math.round((Number(progress.value || 0) / Math.max(1, Number(progress.max || 1))) * 100))) : 0;
     const progText = String(localText(progress.textRu || progress.text || '', progress.textEn || progress.text || '')).trim();
-    return `<div class="wager-title active">${esc(localText('СТАВКА АКТИВНА', 'WAGER ACTIVE'))}</div>
+    return `<div class="wager-title active">${esc(w.completed ? localText('СТАВКА ВЫПОЛНЕНА', 'WAGER COMPLETE') : localText('СТАВКА АКТИВНА', 'WAGER ACTIVE'))}</div>
       <div class="wager-line"><b>${esc(localText('РИСК', 'RISK'))}</b><span>${esc(this.wagerPart(w, 'stake') || '—')}</span></div>
       <div class="wager-line"><b>${esc(localText('УСЛОВИЕ', 'CONDITION'))}</b><span>${esc(this.wagerPart(w, 'condition') || '—')}</span></div>
       <div class="wager-line"><b>${esc(localText('НАГРАДА', 'PRIZE'))}</b><span>${esc(this.wagerPart(w, 'prize') || '—')}</span></div>
-      ${progText ? `<div class="wager-progress"><span>${esc(progText)}</span><i style="width:${pct}%"></i></div>` : ''}`;
+      ${progText ? `<div class="wager-progress"><span>${esc(w.completed ? localText('ПРИЗ: СО СЛЕДУЮЩЕГО СЕКТОРА', 'REWARD: NEXT SECTOR') : progText)}</span><i style="width:${w.completed ? 100 : pct}%"></i></div>` : ''}`;
   }
 
   positionRightStatusCards() {
@@ -1079,31 +1116,44 @@ export class Hud {
     if (card.parentElement !== document.body) document.body.appendChild(card);
     const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
     if (!panel) {
-      for (const k of ['left','top','right','bottom','transform']) card.style.removeProperty(k);
+      card.classList.add('wager-standalone');
+      card.style.setProperty('left', '50%', 'important');
+      card.style.setProperty('top', '50%', 'important');
+      card.style.setProperty('right', 'auto', 'important');
+      card.style.setProperty('bottom', 'auto', 'important');
+      card.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+      card.style.setProperty('width', 'min(330px, calc(100vw - 40px))', 'important');
       card.style.setProperty('z-index', '520', 'important');
       card.style.setProperty('pointer-events', 'auto', 'important');
       return;
     }
+    card.classList.remove('wager-standalone');
     const r = panel.getBoundingClientRect();
-    const w = Math.max(260, Math.min(320, card.offsetWidth || 306));
     const gap = 14;
-    let left = r.right + gap;
-    if (left + w > window.innerWidth - 14) left = Math.max(14, r.left - w - gap);
-    card.style.setProperty('left', `${Math.round(Math.max(14, left))}px`, 'important');
+    const available = Math.max(190, Math.round(window.innerWidth - r.right - gap - 14));
+    const w = Math.min(306, available);
+    card.style.setProperty('left', `${Math.round(r.right + gap)}px`, 'important');
     card.style.setProperty('right', 'auto', 'important');
     card.style.setProperty('top', `${Math.max(14, Math.round(r.top))}px`, 'important');
     card.style.setProperty('bottom', 'auto', 'important');
     card.style.setProperty('transform', 'none', 'important');
-    card.style.setProperty('width', `min(306px, calc(50vw - 40px))`, 'important');
+    card.style.setProperty('width', `${w}px`, 'important');
     card.style.setProperty('z-index', '520', 'important');
     card.style.setProperty('pointer-events', 'auto', 'important');
   }
 
   renderInstallNextRoom(room = {}) {
     const el = $('install-next-room');
+    const hidePreview = () => {
+      if (!el) return;
+      el.classList.add('hidden');
+      el.replaceChildren();
+      el.setAttribute('aria-hidden', 'true');
+      this.installPreviewSig = '';
+    };
     const next = room?.next || null;
     if (!el || room?.phase !== 'install' || !next) {
-      if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+      hidePreview();
       return;
     }
     const mods = (next.mods || []).filter(Boolean).slice(0, 6);
@@ -1111,12 +1161,16 @@ export class Hud {
     const hasStaticIntel = Math.max(0, previewStatic?.total | 0) > 0
       || Math.max(0, previewStatic?.banked | 0) > 0
       || Math.max(0, previewStatic?.deferredCore | 0) > 0;
-    const previewContract = room?.contractChoice || null;
+    // The authoritative vote payload normally arrives in room.contractChoice.
+    // Keep the preview's baked choices as a fallback so the left INSTALL panel
+    // cannot go blank during the first snapshot / local transition hand-off.
+    const bakedContractChoices = Array.isArray(next.objectiveChoices) ? next.objectiveChoices : [];
+    const previewContract = room?.contractChoice || (bakedContractChoices.length
+      ? { choices: bakedContractChoices, votes: {}, selected: '' }
+      : null);
     const hasContractIntel = (Array.isArray(previewContract?.choices) && previewContract.choices.length > 0) || !!next.objective;
     if (!mods.length && !hasStaticIntel && !hasContractIntel) {
-      el.classList.add('hidden');
-      el.innerHTML = '';
-      this.installPreviewSig = '';
+      hidePreview();
       return;
     }
     const modHtml = mods.length
@@ -1143,15 +1197,28 @@ export class Hud {
     const staticForecast = staticTitle
       ? `<div class="install-next-static"><b>${esc(staticTitle)}</b>${staticParts.length || corePause ? `<div class="install-next-static-sources">${staticParts.map(x => `<span>${esc(x)}</span>`).join('')}${corePause}</div>` : ''}${staticWait}</div>`
       : '';
-    const contractOffer = room?.contractChoice || null;
+    const contractOffer = previewContract;
     const contractChoices = Array.isArray(contractOffer?.choices) ? contractOffer.choices : [];
     const voteCounts = {};
     for (const id of Object.values(contractOffer?.votes || {})) voteCounts[id] = (voteCounts[id] || 0) + 1;
     const contract = contractChoices.length
-      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const prize = Array.isArray(o.prizePreview) && o.prizePreview.length ? o.prizePreview.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); return `<button type="button" class="contract-choice-card${contractOffer.selected === o.id ? ' selected' : ''}" data-contract-choice="${i}"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
+      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const previews = Array.isArray(o.prizePreview) ? o.prizePreview : []; const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Конкретный приз показывается до выбора контракта.', 'The exact prize is shown before the contract is selected.'); return `<button type="button" class="contract-choice-card${contractOffer.selected === o.id ? ' selected' : ''}" data-contract-choice="${i}" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
       : next.objective
         ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
         : '';
+    const choiceSig = contractChoices.map(o => `${o.id}:${(o.prizePreview || []).map(x => x?.id || x?.label || '').join('+')}`).join(',');
+    const voteSig = Object.entries(voteCounts).sort(([a], [b]) => String(a).localeCompare(String(b))).map(([id, n]) => `${id}:${n}`).join(',');
+    const staticSig = staticBd ? JSON.stringify({ total: activeStatic, banked: bankedStatic, deferredCore, sources: staticBd.sources || [], bankedSources: staticBd.bankedSources || [] }) : '';
+    const previewSig = `${next.id}|${next.archetype}|${mods.join(',')}|${staticSig}|${choiceSig}|${voteSig}|${contractOffer?.selected || ''}|${next.objective?.id || ''}|${getLang()}`;
+    if (this.installPreviewSig === previewSig && el.children.length && el.textContent.trim()) {
+      el.classList.remove('hidden');
+      el.setAttribute('aria-hidden', 'false');
+      return;
+    }
+    // Rebuild behind the hard hidden state: a modal transition can never expose
+    // an empty bordered shell while the next-room payload is changing.
+    el.classList.add('hidden');
+    el.setAttribute('aria-hidden', 'true');
     el.innerHTML = `<div class="install-next-title">${esc(localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'))}</div>` +
       `<div class="install-next-arch">${esc(archLabel(next.archetype))}</div>` +
       `<div class="install-next-label">${esc(localText('МОДИФИКАТОРЫ', 'MODIFIERS'))}</div>` +
@@ -1160,19 +1227,28 @@ export class Hud {
       this.net?.sendContractPick?.(Number(btn.dataset.contractChoice) | 0);
       this.playUiSound('pick');
     }));
-    const previewSig = `${next.id}|${mods.join(',')}|${staticTitle}|${contractOffer?.selected || ''}`;
     if (this.installPreviewSig !== previewSig) {
       this.installPreviewSig = previewSig;
       [0, 140, 280].forEach((ms, i) => setTimeout(() => { if (this.installPreviewSig === previewSig) this.playUiSound(i === 2 ? 'pick' : 'hover'); }, ms));
     }
+    if (!el.children.length || !el.textContent.trim()) {
+      hidePreview();
+      return;
+    }
     el.classList.remove('hidden');
+    el.setAttribute('aria-hidden', 'false');
   }
 
   // ------------------------------------------------- per-frame update
   update(state, dt) {
     const me = state.me();
     const room = state.room;
-    if (!me || !room) return;
+    if (!me || !room) {
+      const preview = $('install-next-room');
+      if (preview) { preview.classList.add('hidden'); preview.replaceChildren(); preview.setAttribute('aria-hidden', 'true'); }
+      this.installPreviewSig = '';
+      return;
+    }
     this.latestRoom = room;
     this.latestMe = me;
     this.renderInstallNextRoom(room);
@@ -1352,15 +1428,16 @@ export class Hud {
       } else if (activeWager) {
         const prog = activeWager.progress || {};
         const progKey = localText(prog.textRu || prog.text || '', prog.textEn || prog.text || '');
-        const key = `active:${getLang()}:${activeWager.id || 0}:${activeWager.text || ''}:${progKey}`;
+        const key = `active:${getLang()}:${activeWager.id || 0}:${activeWager.text || ''}:${progKey}:${activeWager.completed ? 1 : 0}`;
         wagerCard.classList.remove('hidden', 'offer');
         wagerCard.classList.add('active');
+        wagerCard.classList.toggle('completed', !!activeWager.completed);
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
           wagerCard.innerHTML = this.roomWagerActiveHtml(activeWager);
         }
-        this.setExplain(wagerCard, 'WAGER ACTIVE', localText('Активная ставка сектора. Сверху показаны риск, условие, награда и текущий прогресс.', 'Active room wager. The card shows risk, condition, reward, and current progress.'), 'cyan');
-      } else { wagerCard.classList.add('hidden'); wagerCard.classList.remove('offer', 'active'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
+        this.setExplain(wagerCard, activeWager.completed ? 'WAGER COMPLETE' : 'WAGER ACTIVE', activeWager.completed ? localText('Условие уже выполнено. Награда сохранена и включится с начала следующего сектора.', 'Condition complete. The reward is queued and activates at the start of the next sector.') : localText('Активная ставка сектора. Сверху показаны риск, условие, награда и текущий прогресс.', 'Active room wager. The card shows risk, condition, reward, and current progress.'), activeWager.completed ? 'green' : 'cyan');
+      } else { wagerCard.classList.add('hidden'); wagerCard.classList.remove('offer', 'active', 'completed', 'wager-standalone'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
     }
     this.positionRoomWagerCard();
     this.positionRightStatusCards();
@@ -1686,6 +1763,21 @@ export class Hud {
         bar.style.width = pct.toFixed(1) + '%';
       }
     }
+    for (const kind of ['weapon', 'ability']) {
+      const state = this[kind];
+      const timer = $(`${kind}-choice-timer`);
+      const timed = !!state?.open && !!state?.meta?.contractPrize;
+      timer?.classList.toggle('hidden', !timed);
+      if (!timed) continue;
+      const label = timer?.querySelector('span');
+      if (label) label.textContent = localText('КОНТРАКТНЫЙ ВЫБОР', 'CONTRACT CHOICE');
+      state.expires = Math.max(0, Number(state.expires || 0) - dt);
+      const pct = Math.max(0, Math.min(100, state.expires / Math.max(0.001, Number(state.total || 30)) * 100));
+      const txt = $(`${kind}-choice-timer-text`);
+      const bar = $(`${kind}-choice-timer-bar`);
+      if (txt) txt.textContent = `${state.expires.toFixed(1)}s`;
+      if (bar) bar.style.width = `${pct.toFixed(1)}%`;
+    }
   }
 
   // ------------------------------------------------- fx handling
@@ -1788,6 +1880,12 @@ export class Hud {
         this.feed(`${localText('САЙЛЕНС БОССА', 'BOSS SILENCE')}: Q ${seconds}s`, 'p');
         break;
       }
+      case 'boss_q_silence_end':
+        if (f.id === myId || f.playerId === myId) {
+          this.banner(localText('Q-КАНАЛ ВОССТАНОВЛЕН', 'Q CHANNEL RESTORED'), localText('Активные Q-протоколы снова доступны.', 'Active Q protocols are available again.'), 'green');
+          this.feed(localText('Q-КАНАЛ ВОССТАНОВЛЕН', 'Q CHANNEL RESTORED'), 'g');
+        }
+        break;
       case 'chest_open': {
         const rewards = (f.rewards || []).map(locReward).join(' + ');
         const paid = f.costPaid ? `-${f.costPaid} ${f.costUnit || 'GLD'} · ` : '';
@@ -1819,7 +1917,9 @@ export class Hud {
       case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('БОНУС КАЗИНО СГОРЕЛ', 'CASINO BONUS LOST')}: -${f.stake || 0}`, 'r'); break;
       case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), body, 'gold'); this.feed(`${localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED')}: ${body}`, 'p'); } break;
       case 'room_wager_declined': if ((f.id === myId || f.playerId === myId) && !f.timedOut) this.feed(localText('СТАВКА ПРОПУЩЕНА', 'WAGER SKIPPED'), ''); break;
-      case 'room_wager_paid': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), body, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID')}: ${body}`, 'g'); } break;
+      case 'room_wager_complete': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER COMPLETE'), `${body} · ${localText('СО СЛЕДУЮЩЕГО СЕКТОРА', 'STARTS NEXT SECTOR')}`, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER COMPLETE')}: ${body}`, 'g'); } break;
+      case 'room_wager_reward_active': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('ПРИЗ СТАВКИ АКТИВЕН', 'WAGER REWARD ACTIVE'), body, 'green'); this.feed(`${localText('ПРИЗ СТАВКИ АКТИВЕН', 'WAGER REWARD ACTIVE')}: ${body}`, 'g'); } break;
+      case 'room_wager_paid': if (!f.silent && (f.id === myId || f.playerId === myId)) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), body, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID')}: ${body}`, 'g'); } break;
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), body, 'red'); this.feed(`${localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST')}: ${body}`, 'r'); } break;
       case 'favor_earned': { this.localRerollSpent = 0; this.localRerollServerLeft = null; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
@@ -2306,6 +2406,9 @@ export class Hud {
     const modal = $('install-modal');
     this.install.open = false; this.install.locked = false; this.install.skinOnly = false; this.install.waitingOnly = false; this.install.dataLoading = false; this.install.picked = false; this.install.bossSignature = false; this.installSyncKey = ''; this.installSyncSeenAt = 0;
     const w = $('install-wait'); if (w) { w.className = 'install-wait hidden'; w.innerHTML = ''; }
+    const preview = $('install-next-room');
+    if (preview) { preview.classList.add('hidden'); preview.replaceChildren(); preview.setAttribute('aria-hidden', 'true'); }
+    this.installPreviewSig = '';
     if (modal && wasBossSignature && !modal.classList.contains('hidden')) {
       modal.classList.remove('waiting-only', 'data-loading', 'sig-opening', 'sig-open');
       modal.classList.add('sig-closing');
@@ -2411,7 +2514,7 @@ export class Hud {
       epic_reroll: 'Refreshes weapon, protocol, or main-threat prize choices twice. Persists until used.',
       double_favor: 'If the contract succeeds, the room grants two prizes.'
     };
-    return localText(ru[id] || 'Бонус контракта действует только в этой секторе.', en[id] || 'Contract bonus for this room only.');
+    return (ru[id] || en[id]) ? localText(ru[id] || contractFavorPreviewBody(f), en[id] || contractFavorPreviewBody(f)) : contractFavorPreviewBody(f);
   }
   favorStatusText(f = {}) {
     const status = String(f.status || '').toLowerCase();
@@ -2495,10 +2598,12 @@ export class Hud {
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const pickText = picksTotal > 1 ? ` · ${esc(localText(`ВЫБЕРИ ${picksRemaining}/${picksTotal}`, `PICK ${picksRemaining}/${picksTotal}`))}` : '';
       const pcCommandChest = kind === 'weapon' && Array.isArray(choices) && choices.length && choices.every(x => x && x.pcOnly);
-      const chestName = kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : (pcCommandChest ? localText('ЯЩИК КОМАНД', 'COMMAND CACHE') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST')));
+      const chestName = meta.contractPrize ? (kind === 'ability' ? localText('КОНТРАКТНЫЙ ABL-ПРИЗ', 'CONTRACT ABL PRIZE') : localText('КОНТРАКТНЫЙ WPN-ПРИЗ', 'CONTRACT WPN PRIZE')) : (kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : (pcCommandChest ? localText('ЯЩИК КОМАНД', 'COMMAND CACHE') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'))));
       title.innerHTML = `${esc(chestName)} <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = chestName;
-      title.dataset.explain = kind === 'rare'
+      title.dataset.explain = meta.contractPrize
+        ? localText('Отдельный бесплатный приз за выполненный контракт. Выбери один модуль за 30 секунд; затем откроется обычный INSTALL.', 'A separate free reward for a completed contract. Pick one module within 30 seconds; regular INSTALL opens afterward.')
+        : kind === 'rare'
         ? localText('Выбери один редкий приз.', 'Choose one rare prize.')
         : (picksTotal > 1 ? (pcCommandChest ? localText('Выбери усиления контроля.', 'Choose control upgrades.') : localText('Выбери два улучшения.', 'Choose two upgrades.')) : (pcCommandChest ? localText('Выбери командный модуль.', 'Choose a command module.') : localText('Выбери один модуль.', 'Choose one module.')));
     }
@@ -2530,7 +2635,7 @@ export class Hud {
   // ------------------------------------------------- WPN chest modal
   openWeaponChest(choices = [], meta = {}) {
     meta = this.normalizeChestPickMeta(meta, choices);
-    this.weapon = { open: true, choices, locked: false, meta };
+    this.weapon = { open: true, choices, locked: false, meta, expires: Math.max(0, Number(meta.expires || 0)), total: Math.max(1, Number(meta.total || meta.expires || 30)) };
     this.setChestOfferHeader('weapon', choices, meta);
     const box = $('weapon-choices');
     box.innerHTML = '';
@@ -2580,12 +2685,12 @@ export class Hud {
     this.pickWeapon(pool[Math.floor(Math.random() * pool.length)].i);
     return true;
   }
-  closeWeaponChest() { this.weapon.open = false; this.weapon.locked = false; $('weapon-modal').classList.add('hidden'); this.hideTip(); }
+  closeWeaponChest() { this.weapon.open = false; this.weapon.locked = false; $('weapon-modal').classList.add('hidden'); $('weapon-choice-timer')?.classList.add('hidden'); this.hideTip(); }
 
   // ------------------------------------------------- ABL chest modal
   openAbilityChest(choices = [], meta = {}) {
     meta = this.normalizeChestPickMeta(meta, choices);
-    this.ability = { open: true, choices, locked: false, meta };
+    this.ability = { open: true, choices, locked: false, meta, expires: Math.max(0, Number(meta.expires || 0)), total: Math.max(1, Number(meta.total || meta.expires || 30)) };
     this.setChestOfferHeader('ability', choices, meta);
     const box = $('ability-choices');
     box.innerHTML = '';
@@ -2640,7 +2745,7 @@ export class Hud {
     this.pickAbility(pool[Math.floor(Math.random() * pool.length)].i);
     return true;
   }
-  closeAbilityChest() { this.ability.open = false; this.ability.locked = false; $('ability-modal').classList.add('hidden'); this.hideTip(); }
+  closeAbilityChest() { this.ability.open = false; this.ability.locked = false; $('ability-modal').classList.add('hidden'); $('ability-choice-timer')?.classList.add('hidden'); this.hideTip(); }
 
 
   // ------------------------------------------------- РЕД chest modal

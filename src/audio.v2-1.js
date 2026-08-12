@@ -60,7 +60,7 @@ export class AudioBus {
     this.maxVoices = 16;
     this.last = new Map();
     this.cooldowns = {
-      shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32,
+      shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32, anchor_phase_field: 0.35, anchor_phase_shots: 0.35,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
       dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
@@ -69,7 +69,7 @@ export class AudioBus {
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, wager_accept_click: 0.08, wager_skip_click: 0.08, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, wager_accept_click: 0.08, wager_skip_click: 0.08, wager_complete: 0.35, boss_silence_enter: 0.45, boss_silence_exit: 0.45, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -89,7 +89,7 @@ export class AudioBus {
       dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
-      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
+      shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, anchor_phase_field: 8, anchor_phase_shots: 8, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, wager_complete: 8, boss_silence_enter: 9, boss_silence_exit: 8, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
     };
     this.userGestureUnlocked = false;
     this._unlock = ev => {
@@ -627,6 +627,22 @@ export class AudioBus {
         this.tone(330, 0.040, 'square', 0.025, 0.82, 0.000);
         this.tone(220, 0.045, 'triangle', 0.018, 0.68, 0.028);
         break;
+      case 'wager_complete':
+        this.noise(0.025, 0.014, 5200, 12, 0.000);
+        this.tone(392.00, 0.075, 'square', 0.042, 1.08, 0.000);
+        this.tone(587.33, 0.090, 'triangle', 0.034, 0.92, 0.055);
+        this.tone(783.99, 0.115, 'triangle', 0.026, 0.84, 0.118);
+        break;
+      case 'boss_silence_enter':
+        this.noise(0.160, 0.075, 740, 2.2, 0.000);
+        this.tone(116.54, 0.240, 'sawtooth', 0.080, 0.48, 0.000);
+        this.tone(77.78, 0.300, 'square', 0.052, 0.42, 0.070);
+        break;
+      case 'boss_silence_exit':
+        this.noise(0.050, 0.020, 4300, 11, 0.000);
+        this.tone(233.08, 0.085, 'square', 0.038, 1.16, 0.000);
+        this.tone(466.16, 0.120, 'triangle', 0.032, 0.92, 0.055);
+        break;
       case 'trinode_fire':
         this.tone(176, 0.040, 'square', 0.028, 0.74, 0.000);
         this.noise(0.018, 0.012, 2100, 6, 0.002);
@@ -636,6 +652,18 @@ export class AudioBus {
         this.tone(128, 0.150, 'square', 0.105, 0.48, 0.000);
         this.tone(256, 0.085, 'sawtooth', 0.048, 0.62, 0.035);
         this.noise(0.055, 0.040, 3600, 9, 0.018);
+        break;
+      case 'anchor_phase_field':
+        this.noise(0.105, 0.050, 760, 2.8, 0.000);
+        this.tone(82.41, 0.220, 'sawtooth', 0.075, 1.80, 0.000);
+        this.tone(164.81, 0.180, 'square', 0.040, 1.35, 0.055);
+        this.tone(329.63, 0.120, 'triangle', 0.025, 1.06, 0.145);
+        break;
+      case 'anchor_phase_shots':
+        this.noise(0.075, 0.040, 3600, 9.0, 0.000);
+        this.tone(659.25, 0.085, 'square', 0.042, 0.72, 0.000);
+        this.tone(329.63, 0.105, 'square', 0.036, 0.68, 0.045);
+        this.tone(164.81, 0.135, 'triangle', 0.028, 0.60, 0.105);
         break;
       case 'jackpot':
         // v2.1.81: short victorious slot melody instead of one dull stab.
@@ -1135,6 +1163,7 @@ export class AudioBus {
       case 'slot_mob_rebuild': if (!f.visualOnly) { this.play(f.spawn ? 'slot_overload' : 'casino_static'); } break;
       case 'trinode_shot': this.play('trinode_fire'); break;
       case 'trinode_break': this.play('trinode_section_break'); break;
+      case 'anchor_phase': this.play(f.phase === 'field' ? 'anchor_phase_field' : 'anchor_phase_shots'); break;
       case 'blood_tax_warn': this.play('debt'); break;
       case 'blood_tax_hit': this.play('blast'); break;
       case 'rain_warn': if (f.active && mine) this.play('debt'); break;
@@ -1155,8 +1184,12 @@ export class AudioBus {
       case 'room_event_done': this.play('casino_win'); break;
       case 'room_event': this.play('contract'); break;
       case 'room_wager_accept': if (mine) { this.play('contract'); this.play('casino_win'); } break;
-      case 'room_wager_paid': if (mine) { this.play('jackpot'); this.play('casino_win'); } break;
+      case 'room_wager_complete': if (mine) this.play('wager_complete'); break;
+      case 'room_wager_reward_active': if (mine) this.play('casino_win'); break;
+      case 'room_wager_paid': if (mine && !f.silent) this.play('wager_complete'); break;
       case 'room_wager_lost': if (mine) { this.play('denied'); this.play('debt'); } break;
+      case 'boss_q_silence': if (!f.id || mine) this.play('boss_silence_enter'); break;
+      case 'boss_q_silence_end': if (mine) this.play('boss_silence_exit'); break;
       case 'contract_fail': this.play('denied'); break;
       case 'debt': this.play('debt'); break;
       case 'shield': this.play('shield'); break;

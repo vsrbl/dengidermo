@@ -217,9 +217,6 @@ export class Renderer {
     const edge = 0.12 + pulse * 0.035 + entry * 0.14;
     const scanY = ((now * 126) % (h + 180)) - 90;
     const frame = 13 + Math.round(pulse * 3);
-    const labelY = Math.max(74, Math.round(h * 0.145));
-    const label = localText('Q-КАНАЛ ЗАГЛУШЕН', 'Q CHANNEL MUTED');
-    const sub = localText(`БОСС-БЛОКИРОВКА · ${left.toFixed(1)} С`, `BOSS LOCK · ${left.toFixed(1)}s`);
 
     ctx.save();
     // Persistent full-screen interference. The middle remains transparent enough
@@ -261,26 +258,6 @@ export class Renderer {
       ctx.globalAlpha = 0.035 + (i % 2) * 0.025 + entry * 0.035;
       ctx.fillRect(x, y, span, i % 3 === 0 ? 3 : 1);
     }
-
-    const bannerW = Math.min(360, Math.max(224, w * 0.36));
-    const bannerH = 48;
-    const bx = Math.round((w - bannerW) / 2), by = Math.round(labelY - bannerH / 2);
-    ctx.globalAlpha = 0.62 + entry * 0.16;
-    ctx.fillStyle = 'rgba(5,5,5,0.84)';
-    ctx.fillRect(bx, by, bannerW, bannerH);
-    ctx.globalAlpha = 0.68 + pulse * 0.22;
-    ctx.strokeStyle = '#b45cff';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(bx + 0.5, by + 0.5, bannerW - 1, bannerH - 1);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f3f3f3';
-    ctx.globalAlpha = 0.92;
-    ctx.font = `bold ${Math.round(14 + entry * 5)}px 'Courier New', monospace`;
-    ctx.fillText(label, w / 2, labelY - 7);
-    ctx.fillStyle = '#b45cff';
-    ctx.font = `bold 9px 'Courier New', monospace`;
-    ctx.fillText(sub, w / 2, labelY + 12);
 
     if (entry > 0) {
       ctx.globalAlpha = entry * 0.11;

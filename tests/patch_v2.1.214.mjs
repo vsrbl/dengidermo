@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { VERSION, BUILD_ID } from '../shared/protocol.v2-1.js';
 
-assert.equal(VERSION, 'v2.1.214');
-assert.equal(BUILD_ID, 'solo_offline_hard_fallback');
+assert.match(VERSION, /^v2\.1\.21[45]$/);
+assert.equal(BUILD_ID, VERSION === 'v2.1.215' ? 'install_preview_anchor_phase_signal' : 'solo_offline_hard_fallback');
 
 const launcher = fs.readFileSync(new URL('../offline-launcher.ps1', import.meta.url), 'utf8');
 const batch = fs.readFileSync(new URL('../PLAY_OFFLINE.bat', import.meta.url), 'utf8');
@@ -24,4 +24,3 @@ assert.match(index, /ЗАПУСТИТЕ PLAY_OFFLINE\.bat/);
 assert.match(fallback, /ЗАПУСТИТЕ PLAY_OFFLINE\.bat/);
 
 console.log('v2.1.214 checks passed: one-click local launcher serves the game without signaling or external runtimes');
-

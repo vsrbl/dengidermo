@@ -95,7 +95,9 @@ export class LocalRoom {
       slots, reason: offer.rarityReason || '',
       cost: offer.costPaid || 0, unit: offer.costUnit || 'GLD', rerollSeq: offer.rerollAnimSeq || 0,
       picksTotal, picksRemaining,
-      pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [], pickSeq: offer.pickSeq || 0
+      pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [], pickSeq: offer.pickSeq || 0,
+      contractPrize: offer.contractPrize ? 1 : 0,
+      expires: Math.max(0, Number(offer.expires || 0)), total: Math.max(0, Number(offer.total || 0))
     };
   }
 
@@ -265,7 +267,12 @@ export class LocalRoom {
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
-      if (!p.weaponChestOffer && sent) this.weaponOffersSent.delete(pid);
+      if (!p.weaponChestOffer && sent) {
+        this.weaponOffersSent.delete(pid);
+        const msg = { t: 'weapon_offer_close' };
+        if (pid === this.hostId) this.onLocal(msg);
+        else this.sendTo(pid, msg, true);
+      }
     }
 
     // ABL chest choice offers
@@ -277,7 +284,12 @@ export class LocalRoom {
         if (pid === this.hostId) this.onLocal(msg);
         else this.sendTo(pid, msg, true);
       }
-      if (!p.abilityChestOffer && sent) this.abilityOffersSent.delete(pid);
+      if (!p.abilityChestOffer && sent) {
+        this.abilityOffersSent.delete(pid);
+        const msg = { t: 'ability_offer_close' };
+        if (pid === this.hostId) this.onLocal(msg);
+        else this.sendTo(pid, msg, true);
+      }
     }
 
     // RAR chest choice offers
