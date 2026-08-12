@@ -5320,6 +5320,27 @@ function livingCasinoAutoTargets(run, p, range, max, seeded = []) {
   if (out.length === 1) while (out.length < max) out.push(out[0]);
   return out;
 }
+export function livingCasinoDistributedSparkTargets(run, p, lc = ensureLivingCasinoState(p), range = livingCasinoSparkRange(p, lc), max = livingCasinoSparkMax(lc)) {
+  if (!lc || !livingCasinoSparksUnlocked(lc) || max <= 0) return [];
+  const ordered = [], used = new Set();
+  const addUnique = e => {
+    if (!e || used.has(e.id) || ordered.length >= max) return;
+    used.add(e.id); ordered.push(e);
+  };
+  // Manual marks retain priority, but duplicate clicks can no longer consume
+  // multiple channels while another valid enemy has no spark assignment.
+  for (const e of livingCasinoTargetsInRange(run, p, lc.sparks.targetIds, range, max)) addUnique(e);
+  const candidates = (run.enemies || [])
+    .filter(e => e && e.hp > 0 && (e.spawnDelay || 0) <= 0 && !slotMobIsLockedOut(e)
+      && dist2(e.x, e.y, p.x, p.y) <= (range + (e.size || 24) / 2) ** 2
+      && livingCasinoHasTargetLine(run, p, e))
+    .sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y));
+  for (const e of candidates) addUnique(e);
+  if (!ordered.length) return [];
+  const uniqueCount = ordered.length;
+  for (let i = 0; ordered.length < max; i++) ordered.push(ordered[i % uniqueCount]);
+  return ordered;
+}
 function livingCasinoAssignTarget(run, p, gun) {
   const lc = ensureLivingCasinoState(p); if (!lc) return false;
   if (gun === 'sparks' && !livingCasinoSparksUnlocked(lc)) return false;
@@ -5419,6 +5440,28 @@ function livingCasinoAttachSpark(run, p, lc, target) {
   if (p.wagerStats) p.wagerStats.lcSparks = (p.wagerStats.lcSparks || 0) + 1;
   run.fx.push({ t: 'lc_spark_attach', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 22) });
   return true;
+}
+export function livingCasinoRebalanceActiveSparks(run, p, lc, sparkTargets = []) {
+  if (!lc?.sparks?.active?.length || !sparkTargets.length) return 0;
+  const uniqueTargets = [...new Map(sparkTargets.map(e => [e?.id, e]).filter(([id, e]) => id && e)).values()];
+  const counts = new Map();
+  for (const spark of lc.sparks.active) counts.set(spark.targetId, (counts.get(spark.targetId) || 0) + 1);
+  let moved = 0;
+  for (const target of uniqueTargets) {
+    if ((counts.get(target.id) || 0) > 0) continue;
+    const spare = lc.sparks.active.find(spark => (counts.get(spark.targetId) || 0) > 1);
+    if (!spare) break;
+    counts.set(spare.targetId, Math.max(0, (counts.get(spare.targetId) || 0) - 1));
+    spare.targetId = target.id;
+    counts.set(target.id, 1);
+    const boss = !!ENEMIES[target.kind]?.boss;
+    const bodyFloor = ((target.size || 24) + PLAYER_SIZE) / 2 + (boss ? 86 : 22);
+    spare.minRange = Math.max(bodyFloor, Math.hypot(target.x - p.x, target.y - p.y));
+    spare.tickT = 0;
+    moved++;
+    run.fx.push({ t: 'lc_spark_attach', id: p.id, targetId: target.id, x: Math.round(target.x), y: Math.round(target.y), r: Math.round((target.size || 24) + 22), retarget: 1 });
+  }
+  return moved;
 }
 function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
   const blockedWeapons = new Set(['shotgun', 'seeker', 'rocketgun', 'roulette', 'deck', 'control_sparks']);
@@ -5651,17 +5694,21 @@ function stepLivingCasinoState(run, players, p, dt) {
 
   const sparkRange = livingCasinoSparkRange(p, lc);
   const sparkMax = livingCasinoSparkMax(lc);
-  const manualSparks = livingCasinoTargetsInRange(run, p, lc.sparks.targetIds, sparkRange, sparkMax);
-  const sparkTargets = livingCasinoAutoTargets(run, p, sparkRange, sparkMax, manualSparks);
+  const sparkTargets = livingCasinoDistributedSparkTargets(run, p, lc, sparkRange, sparkMax);
+  livingCasinoRebalanceActiveSparks(run, p, lc, sparkTargets);
   lc.sparks.acquiredTargetIds = sparkTargets.map(e => e.id);
   const activeCounts = new Map();
   for (const sp of lc.sparks.active) activeCounts.set(sp.targetId, (activeCounts.get(sp.targetId) || 0) + 1);
   const desiredCounts = new Map();
   for (const e of sparkTargets) desiredCounts.set(e.id, (desiredCounts.get(e.id) || 0) + 1);
   let sparkTarget = null;
-  for (const e of sparkTargets) {
-    if ((activeCounts.get(e.id) || 0) < (desiredCounts.get(e.id) || 1)) { sparkTarget = e; break; }
-  }
+  const uniqueSparkTargets = [...new Map(sparkTargets.map(e => [e.id, e])).values()];
+  // Cover every available enemy once before stacking. After that, always add
+  // the next spark to the least-covered target that still needs a channel.
+  const eligibleSparkTargets = uniqueSparkTargets
+    .filter(e => (activeCounts.get(e.id) || 0) < (desiredCounts.get(e.id) || 1))
+    .sort((a, b) => (activeCounts.get(a.id) || 0) - (activeCounts.get(b.id) || 0));
+  sparkTarget = eligibleSparkTargets[0] || null;
   lc.sparks.aimTargetId = sparkTarget?.id || sparkTargets[0]?.id || '';
   if (sparkTarget) {
     lc.sparks.angle = Math.atan2(sparkTarget.y - p.y, sparkTarget.x - p.x);
