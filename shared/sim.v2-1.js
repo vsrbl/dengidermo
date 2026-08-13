@@ -615,10 +615,12 @@ function effectiveChestCost(run, o) {
   const mul = loopCostMul(run, 1.42) * profileMul * info.costValueMul * info.slotCostMul * roomDiscount;
   return roundCost(def.cost * mul);
 }
-function casinoStakeCost(run, stakeKey) {
+export function casinoStakeCost(run, stakeKey) {
   const base = BET_STAKES[stakeKey];
   if (!base) return 0;
-  return roundCost(base * loopCostMul(run, 1.85));
+  const oldScale = loopCostMul(run, 1.85);
+  // Preserve the opening price and triple the old curve's added cost.
+  return roundCost(base * (1 + Math.max(0, oldScale - 1) * 3));
 }
 function takeCasinoHoldChoices(p, max = 2) {
   // Removed BET choice bonus; clear old save residue.
@@ -627,7 +629,7 @@ function takeCasinoHoldChoices(p, max = 2) {
 }
 function casinoLockOptionsForStake(stakeKey = 'low') {
   if (stakeKey === 'high') return ['JCK','RAR','WPN','ABL','SKN','GLD'];
-  if (stakeKey === 'mid') return ['RAR','WPN','ABL','GLD','EXP','HEA'];
+  if (stakeKey === 'mid') return ['WPN','ABL','GLD','EXP','HEA'];
   return ['WPN','GLD','EXP','HEA'];
 }
 
@@ -1368,7 +1370,7 @@ const CONTRACT_FAVOR_DEFS = {
   wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved WPN modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных WPN-модулей. Один модуль устанавливается бесплатно.' },
   abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved ABL modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных ABL-модулей. Один модуль устанавливается бесплатно.' },
   rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.', descRu: 'Следующий RAR-сундук гарантированно получает усиленное безопасное качество. Один сундук расходует один заряд.' },
-  mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРА', tier: 'rare', uses: 1, desc: 'Removes one dangerous modifier from the next eligible room.', descRu: 'Удаляет один опасный модификатор из следующего подходящего сектора. Если цели нет, заряд сохраняется.' },
+  mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРОВ', tier: 'rare', uses: 1, desc: 'Removes every room modifier from the next sector. The charge is spent when that sector begins.', descRu: 'Снимает все модификаторы следующего сектора. Заряд расходуется при входе в этот сектор.' },
   credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next paid WPN or ABL choice chest costs nothing.', descRu: 'Следующий платный сундук с выбором WPN или ABL открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.' },
   salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next combat room drop x5 team GLD and EXP.', descRu: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.' }
 };
@@ -1434,6 +1436,52 @@ function creditPassAppliesToChest(run, o = {}) {
     && ['weapon_chest', 'ability_chest'].includes(String(o.chest || ''))
     && effectiveChestCost(run, o) > 0;
 }
+
+function cleanQuotaForVeto(run) {
+  const saved = Number(run?.plan?.cleanQuota);
+  if (Number.isFinite(saved) && saved >= 0) return Math.round(saved);
+  const plan = run?.plan || {};
+  if (plan.category === 'boss') return 1;
+  const depth = Math.max(0, Number(run?.runDepth || plan.runDepth || 0) | 0);
+  const loop = Math.floor(depth / 4);
+  const inLoop = Math.max(0, Number(plan.roomInLoop ?? (depth % 4)) | 0);
+  const late = Math.max(0, loop - 2);
+  let quota = Math.round((8 + inLoop * 2 + loop * 5 + Math.floor(Math.pow(late, 1.65) * 7)) * 2);
+  if (plan.specialRoomId === 'chill_room' || plan.category === 'chill') quota = 0;
+  if (plan.specialRoomId === 'signal_contract') quota = Math.max(8, Math.round(quota * 0.72));
+  if (plan.roomArchetype === 'cashier_maze') quota = Math.max(16, Math.round(quota * 2));
+  return Math.max(0, quota);
+}
+
+// Resolve VETO before modifier subsystems are initialized. The defensive reset
+// also makes legacy saves safe: no Hunter/Casino timer or hazard queue can keep
+// running after its visible modifier has been removed.
+export function applyRoomModifierVeto(run) {
+  if (!run?.plan) return [];
+  const removed = [...new Set((run.plan.modifierIds || []).filter(Boolean))];
+  run.plan.modifierIds = [];
+  run.roomModifiersVetoed = 1;
+  run.plan.quota = cleanQuotaForVeto(run);
+  for (const o of run.plan.interactables || []) {
+    if (!o) continue;
+    delete o.trojan;
+    delete o.trojanTriggered;
+  }
+  run.roomSockets = [];
+  run.roomWires = [];
+  run.movingWalls = [];
+  run.prismZones = [];
+  run.hunterWave = null;
+  run.casinoVirus = null;
+  run.pendingPrismLanes = [];
+  run.pendingBloodTax = [];
+  run.pendingStrikes = [];
+  run.pendingCasinoRolls = (run.pendingCasinoRolls || []).filter(x => !x?.roomModifier && !x?.casinoVirus);
+  run.spawnRelockActive = false;
+  run.huntedExitSpawnT = 0;
+  run.huntedExitOpenedAt = 0;
+  return removed;
+}
 export function clearAllBankedStatic(run) {
   if (!run) return 0;
   const curDebt = run.staticDebt === true ? 1 : Math.max(0, run.staticDebt || 0);
@@ -1472,16 +1520,17 @@ function activatePendingContractFavors(run, players = null) {
         cleared, coreCleared: coreCleared ? 1 : 0
       });
     }
-    if (f.id === 'mod_veto' && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
-      const priority = ['moving_room', 'hunter_contract', 'blood_tax', 'casino_virus', 'prism_grid', 'static_rain', 'echo_walls', 'blackout', 'greed'];
-      const mods = run.plan?.modifierIds || [];
-      const removed = priority.find(id => mods.includes(id)) || mods.find(id => id && id !== 'skin_cache');
-      if (removed) {
-        run.plan.modifierIds = mods.filter(id => id !== removed);
-        f.used = (f.used || 0) + 1;
-        run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, removed });
-        run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: `MODIFIER REMOVED: ${String(removed).toUpperCase()}`, bodyRu: `МОДИФИКАТОР СНЯТ: ${String(removed).toUpperCase()}`, bodyEn: `MODIFIER REMOVED: ${String(removed).toUpperCase()}` });
-      }
+    if (f.id === 'mod_veto') {
+      const removed = applyRoomModifierVeto(run);
+      f.used = (f.used || 0) + 1;
+      run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, removed: [...removed] });
+      const list = removed.length ? removed.map(x => String(x).toUpperCase()).join(' + ') : 'NO MODIFIERS';
+      run.fx.push({
+        t: 'favor_used', id: f.id, label: favorLabel(f), removed: [...removed],
+        body: removed.length ? `ALL MODIFIERS REMOVED: ${list}` : 'NEXT SECTOR HAD NO MODIFIERS',
+        bodyRu: removed.length ? `ВСЕ МОДИФИКАТОРЫ СНЯТЫ: ${list}` : 'В СЛЕДУЮЩЕМ СЕКТОРЕ НЕТ МОДИФИКАТОРОВ',
+        bodyEn: removed.length ? `ALL MODIFIERS REMOVED: ${list}` : 'NEXT SECTOR HAD NO MODIFIERS'
+      });
     }
     const combatRoom = run.plan?.category !== 'chill' && run.plan?.specialRoomId !== 'chill_room' && run.plan?.special !== 'chill_room';
     if (f.id === 'salvage_protocol' && combatRoom && Number(f.activeDepth ?? run.runDepth) < Number(run.runDepth || 0)) {
@@ -2512,7 +2561,10 @@ function shellMaxForArmor(run, def, e, type) {
   return Math.max(type === 'linked' ? 18 : 12, Math.round(e.maxHp * mul));
 }
 function rollShellArmor(run, kind, def, e, elite) {
-  if (def?.boss) return { type: 'plain', max: shellMaxForArmor(run, def, e, 'plain'), source: 'boss' };
+  if (def?.boss) {
+    if (!(Number(def?.armor || 0) > 0)) return null;
+    return { type: 'plain', max: shellMaxForArmor(run, def, e, 'plain'), source: 'boss' };
+  }
   if (kind === 'warden' || def?.armorWarden) return { type: 'linked', max: shellMaxForArmor(run, def, e, 'linked'), source: 'native' };
   const canLinked = LINKED_ARMOR_KINDS.has(kind);
   const canPlain = PLAIN_ARMOR_KINDS.has(kind);
@@ -3326,7 +3378,7 @@ export function createRun(seedBase) {
     staticRainCanSeedNext: false,
     staticRainFromPending: false,
     roomStaticRainFalls: 0,
-    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], salvageKillsLeft: 0, nextRoomPreview: null, contractChoice: null, pendingRoomObjective: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], prismZones: [], rootLock: null, hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(), playerCombos: {},
+    roomStats: null, roomObjective: null, roomObjectiveSettlement: null, roomObjectiveLiveState: null, roomObjectiveFrozenStats: null, contractFavorsPending: [], contractFavorsActive: [], contractFavorsUsedThisRoom: [], salvageKillsLeft: 0, nextRoomPreview: null, contractChoice: null, pendingRoomObjective: null, devNextRoomOverride: null, roomSockets: [], roomWires: [], movingWalls: [], tempWalls: [], prismZones: [], rootLock: null, hunterWave: null, casinoVirus: null, prismLaneT: 0, pendingPrismLanes: [], pendingBloodTax: [], portalOpenedAt: 0, huntedExitOpenedAt: 0, huntedExitSpawnT: 0, combo: createComboState(), playerCombos: {},
     runMemory: { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1, rootLockDone: 0 },
     bossOrder: [], bossHistory: [],
     tapeLog: [],
@@ -3398,7 +3450,7 @@ export function createPlayer(id, name, idx, skin = null) {
     abilityChestOffer: null,
     contractPrizeOffer: null,
     rareChestOffer: null,
-    roomWagerOffer: null, roomWagerActive: null, roomWagerPrizePending: '', roomWagerDecisionDone: false,
+    roomWagerOffer: null, roomWagerActive: null, roomWagerPrizePending: '', roomWagerDecisionDone: false, roomWagerBossKeyHeld: 0,
     roomWagerSeenOfferId: 0, roomWagerUnseenT: 0,
     bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
@@ -3580,7 +3632,7 @@ const CONTROLLED_SHOOTER_RANGE_MUL = 1.35;
 function allowedWeaponOrderForPlayer(p) {
   if (isLivingCasinoPlayer(p)) return ['living_casino', 'control_sparks'];
   if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
-  if (isImpactDriverPlayer(p)) return ['impact_driver'];
+  if (isImpactDriverPlayer(p)) return p?.stats?.impactWallUnlocked > 0 ? ['impact_wall'] : ['impact_driver'];
   return ['shotgun', 'seeker', 'rocketgun'];
 }
 function isProcessControllerPlayer(p) { return p?.hero === 'process_controller' || p?.skin?.hero === 'process_controller'; }
@@ -3588,7 +3640,9 @@ export function isImpactDriverPlayer(p) { return p?.hero === 'impact_driver' || 
 function setupImpactDriverPlayer(p) {
   if (!p) return p;
   p.hero = 'impact_driver';
-  p.weapons = ['impact_driver'];
+  // DRV has no ordinary weapon. The inert dummy keeps the shared snapshot shape
+  // valid until the separately unlocked firewall becomes its only LMB module.
+  p.weapons = p.stats?.impactWallUnlocked > 0 ? ['impact_wall'] : ['impact_driver'];
   p.weaponIdx = 0;
   p.shgCharges = 0;
   p.shgReload = 0;
@@ -4717,11 +4771,11 @@ function stepControlledBoss(run, players, p, pc, m, target, toT, dT, spd, dt, wa
   m.bossVolleyCd = Math.max(0, Number(m.bossVolleyCd || 0) - dt * fireMul);
   if (!target) return;
   if (m.kind === 'boss') {
-    if (!Number.isFinite(m.octPhase)) { m.octPhase = 1; m.octPhaseT = 4; m.octAngle = 0; m.octTurn = 1; m.octHitCds = {}; }
+    if (!Number.isFinite(m.octPhase)) { m.octPhase = 1; m.octPhaseT = 8; m.octAngle = 0; m.octTurn = 1; m.octHitCds = {}; }
     for (const id of Object.keys(m.octHitCds || {})) m.octHitCds[id] = Math.max(0, (m.octHitCds[id] || 0) - dt * fireMul);
     const phase = clamp(Math.round(m.octPhase || 1), 1, 8);
     m.octAngle += (m.octTurn || 1) * OCT_ROTATION_SPEED[phase - 1] * dt * fireMul;
-    m.octPhaseT = Math.max(0, Number(m.octPhaseT || 4) - dt * fireMul);
+    m.octPhaseT = Math.max(0, Number(m.octPhaseT || 8) - dt * fireMul);
     m.fxT = Math.max(0, Number(m.fxT || 0) - dt);
     for (let i = 0; i < phase; i++) {
       const a = m.octAngle + i * Math.PI * 2 / 8, dx = Math.cos(a), dy = Math.sin(a);
@@ -4739,7 +4793,7 @@ function stepControlledBoss(run, players, p, pc, m, target, toT, dT, spd, dt, wa
     if (m.octPhaseT <= 0) {
       if (phase >= 8) { m.octPhase = 1; m.octTurn = -(m.octTurn || 1); }
       else m.octPhase = phase + 1;
-      m.octPhaseT = 4;
+      m.octPhaseT = 8;
       run.fx.push({ t: 'oct_phase', id: m.id, phase: m.octPhase, lasers: m.octPhase, red: m.octPhase === 8 ? 1 : 0, owner: p.id, ally: 1, x: Math.round(m.x), y: Math.round(m.y) });
     }
     controlledBossMoveKeep(run, m, target, toT, dT, spd, dt, 480, 0.08);
@@ -5885,6 +5939,7 @@ export function startRoom(run, players) {
   // MIRROR charges restore only after boss/core victory, not on loop transition.
   run.plan.finalBoss = (run.plan.category === 'boss' && run.runDepth >= FINAL_BOSS_DEPTH) ? 1 : 0;
   run.bossKind = '';
+  run.roomModifiersVetoed = 0;
   run.plan.modifierIds = normalizeRoomModifiers(run.plan.modifierIds || []);
   if (run.plan.modifierIds.includes('greed')) run.plan.modifierIds = run.plan.modifierIds.filter(m => m !== 'skin_cache');
   const plannedBossKind = run.plan.category === 'boss' ? chooseBossKind(run) : '';
@@ -5938,6 +5993,7 @@ export function startRoom(run, players) {
   run.roomSockets = [];
   run.roomWires = [];
   run.movingWalls = [];
+  run.tempWalls = [];
   run.prismZones = [];
   run.hunterWave = null;
   run.casinoVirus = null;
@@ -6022,7 +6078,7 @@ export function startRoom(run, players) {
       const skin = rollRoomSkin(skinRng, run.runDepth, mods);
       run.skinRoomReward = { id: skin.id, rarity: skin.rarity || 'uncommon', claimed: false };
       run.skinPity = 0;
-      if (!mods.includes('skin_cache')) mods.push('skin_cache');
+      if (!mods.includes('skin_cache') && !run.roomModifiersVetoed) mods.push('skin_cache');
     } else {
       run.skinPity = Math.min(8, pity + 1);
     }
@@ -6167,7 +6223,7 @@ export function resetRun(run, players) {
   run.roomStaticRainFalls = 0;
   run.combo = createComboState();
   run.playerCombos = {};
-  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.salvageKillsLeft = 0; run.nextRoomPreview = null; run.contractChoice = null; run.pendingRoomObjective = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.prismZones = []; run.rootLock = null; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
+  run.roomStats = null; run.roomObjective = null; run.roomObjectiveSettlement = null; run.roomObjectiveLiveState = null; run.roomObjectiveFrozenStats = null; run.contractFavorsPending = []; run.contractFavorsActive = []; run.contractFavorsUsedThisRoom = []; run.salvageKillsLeft = 0; run.nextRoomPreview = null; run.contractChoice = null; run.pendingRoomObjective = null; run.devNextRoomOverride = null; run.roomSockets = []; run.roomWires = []; run.movingWalls = []; run.tempWalls = []; run.prismZones = []; run.rootLock = null; run.hunterWave = null; run.casinoVirus = null; run.pendingPrismLanes = []; run.pendingBloodTax = []; run.pendingStrikes = []; run.pendingActives = []; run.pendingActiveStrikes = []; run.pendingSlotMobs = []; run.portalOpenedAt = 0; run.huntedExitOpenedAt = 0; run.huntedExitSpawnT = 0;
   run.runMemory = { roomsCleared: 0, totalKills: 0, totalGld: 0, totalExp: 0, totalHea: 0, totalDamageTaken: 0, bossesDefeated: 0, loopsCleared: 0, highestDepth: 0, noHitStreak: 0, fastStreak: 0, bestNoHitStreak: 0, bestFastStreak: 0, skinRoomsSeen: 0, staticPaid: 0, shellBreaks: 0, huntedWaves: 0, objectivesSeen: 0, objectivesDone: 0, objectiveGld: 0, objectiveExp: 0, contractStreak: 0, bestContractStreak: 0, contractGld: 0, contractExp: 0, favorsEarned: 0, bestCombo: 1 };
   run.bossOrder = [];
   run.bossHistory = [];
@@ -6180,7 +6236,7 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1; p.jumpT = 0; p.jumpCooldown = 0; p.jumpCooldownMax = 0.5; p.jumpBounces = 0;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.roomWagerBossKeyHeld = 0; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1; p.jumpT = 0; p.jumpCooldown = 0; p.jumpCooldownMax = 0.5; p.jumpBounces = 0;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
     else if ((p.skin?.hero || p.hero) === 'process_controller') setupProcessControllerPlayer(p);
     else if ((p.skin?.hero || p.hero) === 'impact_driver') setupImpactDriverPlayer(p);
@@ -7325,7 +7381,7 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
     }
     if (kind === 'boss') {
       e.octPhase = 1;
-      e.octPhaseT = 4;
+      e.octPhaseT = 8;
       e.octAngle = rng() * Math.PI * 2;
       e.octTurn = rng() < 0.5 ? -1 : 1;
       const bounceAngle = rng() * Math.PI * 2;
@@ -7781,7 +7837,7 @@ function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
   touchDamage(run, e, players, dt);
 }
 
-const OCT_PHASE_SECONDS = [4, 4, 4, 4, 4, 4, 4, 4];
+const OCT_PHASE_SECONDS = [8, 8, 8, 8, 8, 8, 8, 8];
 const OCT_ROTATION_SPEED = [0.10, 0.16, 0.23, 0.31, 0.40, 0.50, 0.64, 0.92];
 export function octLaserPhaseDuration(phase = 1) { return OCT_PHASE_SECONDS[clamp(Math.round(phase), 1, 8) - 1]; }
 function octSeeded01(run, e, salt = 0) {
@@ -8128,7 +8184,8 @@ function ensureBossKeyCharges(run, p) {
   }
   return Math.max(0, Number(p.bossKeyCharges || 0) | 0);
 }
-function bossKeyReady(run, p) { return bossKeyMax(p) > 0 && ensureBossKeyCharges(run, p) > 0; }
+function bossKeySpendableCharges(run, p) { return Math.max(0, ensureBossKeyCharges(run, p) - (p?.roomWagerBossKeyHeld ? 1 : 0)); }
+function bossKeyReady(run, p) { return bossKeyMax(p) > 0 && bossKeySpendableCharges(run, p) > 0; }
 function spendBossKey(run, p, o) {
   if (!o || !['weapon_chest', 'ability_chest'].includes(String(o.chest || '')) || o.trojan || isGreedRoom(run)) return false;
   if (!bossKeyReady(run, p)) return false;
@@ -8336,7 +8393,7 @@ export const ROOM_WAGER_STAKES = [
   { id: 'loop_spd_down', ru: '-30% скорости до конца цикла', en: '-30% speed for the loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'r_forever', ru: 'R-протокол', en: 'R protocol', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
   { id: 'maxhp_forever', ru: '10 max HP', en: '10 max HP', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
-  { id: 'boss_key', ru: '1 BOSS KEY', en: '1 BOSS KEY', needs: p => bossKeyMax(p) > 0, loss: (run, p) => { p.stats.bossKeys = Math.max(0, bossKeyMax(p) - 1); p.bossKeyCharges = Math.min(ensureBossKeyCharges(run, p), bossKeyMax(p)); } },
+  { id: 'boss_key', ru: '1 заряд BOSS KEY', en: '1 BOSS KEY charge', needs: (p, run) => ensureBossKeyCharges(run, p) > 0, loss: (run, p) => { ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1); } },
   { id: 'null_revive', ru: '1 NULL REVIVAL', en: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } },
   { id: 'base_weapon_loss', ru: 'один оружейный модуль', en: 'one weapon module', heroes: ['base'], needs: p => (p?.weapons || []).length > 1, loss: (run, p) => { const i = Math.max(1, Math.min((p.weapons || []).length - 1, p.weaponIdx || 1)); p.weapons.splice(i, 1); p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, p.weaponIdx || 0)); } },
   { id: 'base_fire_loss', ru: '12% оружейного такта', en: '12% Weapon Clock', heroes: ['base'], loss: (run, p) => { p.stats.fireMul = Math.max(0.35, (p.stats.fireMul || 1) / 1.12); } },
@@ -8386,11 +8443,11 @@ export const ROOM_WAGER_CONDITIONS = [
   { id: 'impact_bounce2', ru: 'приземлиться после двух отскоков', en: 'land after two wall rebounds', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactBestBounces || 0) >= 2 },
   { id: 'impact_clean3', ru: 'сделать 3 точных посадки без промаха', en: 'make 3 clean landings without a miss', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 3 && (p.wagerStats?.impactMisses || 0) <= 0 }
 ];
-const ROOM_WAGER_PRIZES = [
+export const ROOM_WAGER_PRIZES = [
   { id: 'dmg100', ru: 'урон x100 на следующий сектор', en: 'x100 damage next sector', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
   { id: 'loop_dmg50', ru: '+50% урона до конца цикла', en: '+50% damage for the loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', ru: '+50% скорости до конца цикла', en: '+50% speed for the loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'aegis', ru: '+1 AEGIS', en: '+1 AEGIS', prize: (run, p) => { p.stats.aegisStacks += 1; } },
+  { id: 'aegis', ru: '+1 AEGIS', en: '+1 AEGIS', prize: (run, p) => { const before = Math.max(0, p.aegisShieldMax || aegisCapacity(p)); p.stats.aegisStacks += 1; p.aegisShieldMax = aegisCapacity(p); p.aegisShield = Math.min(p.aegisShieldMax, Math.max(0, p.aegisShield || 0) + Math.max(0, p.aegisShieldMax - before)); } },
   { id: 'boss_key', ru: '+1 BOSS KEY', en: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
   { id: 'null_revive', ru: '+1 NULL REVIVAL', en: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
   { id: 'mirror', ru: '+1 заряд MIRROR', en: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
@@ -8420,13 +8477,13 @@ function roomWagerHeroId(p) {
   if (isImpactDriverPlayer(p)) return 'impact_driver';
   return 'base';
 }
-function pickRoomWagerItem(list, p) {
+function pickRoomWagerItem(list, p, run = null) {
   const hero = roomWagerHeroId(p);
   const pool = list.filter(x => {
     if (x.heroes && !x.heroes.includes(hero)) return false;
     // Optional wager content must not be able to stop the authoritative loop
     // while INSTALL is waiting. A broken entry is skipped, never fatal.
-    try { return !x.needs || !!x.needs(p); }
+    try { return !x.needs || !!x.needs(p, run); }
     catch { return false; }
   });
   return pool[Math.floor(Math.random() * pool.length)] || list[0];
@@ -8435,9 +8492,9 @@ function makeRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) return null;
   run.roomWagerSeq = ((run.roomWagerSeq || 0) + 1) | 0;
   if (run.roomWagerSeq <= 0) run.roomWagerSeq = 1;
-  const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p);
-  const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p);
-  const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p);
+  const stake = pickRoomWagerItem(ROOM_WAGER_STAKES, p, run);
+  const condition = pickRoomWagerItem(ROOM_WAGER_CONDITIONS, p, run);
+  const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p, run);
   const textRu = `Поставить [${stake.ru}] на [${condition.ru}] → получить [${prize.ru}]`;
   const textEn = `Wager [${stake.en}] on [${condition.en}] → receive [${prize.en}]`;
   // A wager is a deliberate choice, not a reaction check. INSTALL remains open
@@ -8468,6 +8525,10 @@ function handleRoomWagerSeen(run, players, p, offerId = 0) {
 function handleRoomWagerAccept(run, players, p, offerId = 0) {
   if (!p?.roomWagerOffer) return false;
   if (offerId && p.roomWagerOffer.id !== offerId) return false;
+  if (p.roomWagerOffer.stake === 'boss_key') {
+    if (bossKeySpendableCharges(run, p) <= 0) return false;
+    p.roomWagerBossKeyHeld = 1;
+  }
   p.roomWagerActive = { ...p.roomWagerOffer };
   p.roomWagerOffer = null;
   p.roomWagerDecisionDone = true;
@@ -8499,9 +8560,11 @@ export function settleRoomWager(run, players, p) {
     // only when the next room begins. This prevents boss-room wagers from
     // applying a sector/loop bonus retroactively to the fight already won.
     p.roomWagerPrizePending = prize?.id || w.prize || '';
+    p.roomWagerBossKeyHeld = 0;
     run.fx.push({ t: 'room_wager_paid', silent: 1, queued: 1, id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green', body: prize?.ru || w.prizeTextRu || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   } else {
     stake?.loss?.(run, p);
+    p.roomWagerBossKeyHeld = 0;
     run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: stake?.ru || w.stakeTextRu || '', bodyRu: stake?.ru || w.stakeTextRu || '', bodyEn: stake?.en || w.stakeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
   }
 }
@@ -9322,8 +9385,121 @@ function splitRouletteSquare(run, b, nx = 0, ny = 0, reason = 'hit') {
   run.fx.push({ t: 'roulette_split', id: b.owner || '', x: Math.round(b.x), y: Math.round(b.y), reason, count: made, size: Math.round(currentSize), dx: Math.round((baseVx || 0) / 10), dy: Math.round((baseVy || 0) / 10) });
   return made;
 }
+
+function removeImpactTempWall(run, wall, reason = 'expire') {
+  if (!run || !wall) return false;
+  run.tempWalls = (run.tempWalls || []).filter(w => w !== wall && w.id !== wall.id);
+  if (run.plan?.walls) run.plan.walls = run.plan.walls.filter(w => w !== wall && w.id !== wall.id);
+  run._navGridCache?.clear?.();
+  run.fx.push({ t: 'impact_wall_end', id: wall.owner || '', wallId: wall.id || '', x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, reason });
+  return true;
+}
+
+function impactWallRouteExists(run, from, to, half = PLAYER_SIZE / 2) {
+  const walls = run.plan?.walls || [];
+  if (!segmentBlockedByWalls(from.x, from.y, to.x, to.y, walls, half + 3)) return true;
+  const probe = { id: 'temp_wall_route', x: from.x, y: from.y, size: half * 2, stuckT: 1 };
+  return buildEntityNavPath(run, probe, to, half).length > 0;
+}
+
+function impactWallPlacementReason(run, players, p, wall) {
+  const padRect = (r, pad = 0) => ({ x: r.x - pad, y: r.y - pad, w: r.w + pad * 2, h: r.h + pad * 2 });
+  const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  if (wall.x < WALL_T + 16 || wall.y < WALL_T + 16 || wall.x + wall.w > run.plan.w - WALL_T - 16 || wall.y + wall.h > run.plan.h - WALL_T - 16) return 'FWL OUT OF BOUNDS';
+  for (const w of run.plan.walls || []) if (w !== wall && overlaps(padRect(w, 8), wall)) return 'FWL BLOCKED';
+  for (const pl of players.values()) if (pl?.alive && overlaps(wall, { x: pl.x - 40, y: pl.y - 40, w: 80, h: 80 })) return 'FWL PLAYER';
+  for (const e of run.enemies || []) {
+    if (!e || (e.hp || 0) <= 0) continue;
+    const gap = Math.max(34, (e.size || 24) / 2 + 22);
+    if (overlaps(wall, { x: e.x - gap, y: e.y - gap, w: gap * 2, h: gap * 2 })) return ENEMIES[e.kind]?.boss ? 'FWL BOSS' : 'FWL ENEMY';
+  }
+  for (const pl of players.values()) {
+    const pc = ensureProcessControllerState(pl);
+    for (const m of pc?.controlled || []) {
+      const gap = Math.max(30, (m.size || 24) / 2 + 18);
+      if (overlaps(wall, { x: m.x - gap, y: m.y - gap, w: gap * 2, h: gap * 2 })) return 'FWL ALLY';
+    }
+  }
+  const portal = run.portal;
+  if (portal && overlaps(wall, { x: portal.x - 92, y: portal.y - 92, w: 184, h: 184 })) return 'FWL PORTAL';
+  for (const o of run.plan.interactables || []) if (!o.opened && overlaps(wall, { x: o.x - 72, y: o.y - 72, w: 144, h: 144 })) return 'FWL OBJECT';
+  for (const k of run.pickups || []) if (overlaps(wall, { x: k.x - 28, y: k.y - 28, w: 56, h: 56 })) return 'FWL PICKUP';
+  for (const s of run.roomSockets || []) if (overlaps(wall, { x: s.x - 70, y: s.y - 70, w: 140, h: 140 })) return 'FWL OBJECT';
+  for (const w of run.movingWalls || []) if (overlaps(padRect(w, 18), wall)) return 'FWL HAZARD';
+  return '';
+}
+
+function tryPlaceImpactWall(run, players, p) {
+  if (!isImpactDriverPlayer(p) || !(p.stats?.impactWallUnlocked > 0) || p.weapons[p.weaponIdx] !== 'impact_wall') return false;
+  const aim = activeAimPoint(p, 560, 90);
+  const vertical = Math.abs(aim.dir.x) >= Math.abs(aim.dir.y);
+  const wall = {
+    id: nid(), owner: p.id, temp: 1, kind: 'impact_wall',
+    x: Math.round(aim.x - (vertical ? 14 : 76)), y: Math.round(aim.y - (vertical ? 76 : 14)),
+    w: vertical ? 28 : 152, h: vertical ? 152 : 28,
+    ttl: 5 * Math.pow(1.25, Math.max(0, Number(p.stats?.impactWallDuration || 0) | 0)), maxT: 0
+  };
+  wall.maxT = wall.ttl;
+  if (!Array.isArray(run.tempWalls)) run.tempWalls = [];
+  const own = run.tempWalls.filter(w => w.owner === p.id).sort((a, b) => Number(a.placedAt || 0) - Number(b.placedAt || 0));
+  const cap = 1 + Math.max(0, Number(p.stats?.impactWallCount || 0) | 0);
+  const replaced = own.length >= cap ? own[0] : null;
+  if (replaced) {
+    run.tempWalls = run.tempWalls.filter(w => w !== replaced);
+    run.plan.walls = (run.plan.walls || []).filter(w => w !== replaced);
+  }
+  const blocked = impactWallPlacementReason(run, players, p, wall);
+  if (blocked) {
+    if (replaced) { run.tempWalls.push(replaced); run.plan.walls.push(replaced); }
+    run._navGridCache?.clear?.();
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(aim.x), y: Math.round(aim.y), reason: blocked });
+    return false;
+  }
+  wall.placedAt = run.now || 0;
+  run.tempWalls.push(wall);
+  run.plan.walls.push(wall);
+  run._navGridCache?.clear?.();
+  const alivePlayers = [...players.values()].filter(x => x?.alive);
+  const portalTarget = { x: run.portal?.x ?? run.plan.w / 2, y: run.portal?.y ?? run.plan.h / 2 };
+  let routeOk = alivePlayers.every(pl => impactWallRouteExists(run, pl, portalTarget, PLAYER_SIZE / 2));
+  if (routeOk && alivePlayers.length) {
+    routeOk = (run.enemies || []).filter(enemyCombatReady).every(e => {
+      let target = alivePlayers[0], best = dist2(e.x, e.y, target.x, target.y);
+      for (const pl of alivePlayers.slice(1)) { const d = dist2(e.x, e.y, pl.x, pl.y); if (d < best) { best = d; target = pl; } }
+      return impactWallRouteExists(run, e, target, Math.max(8, (e.size || 24) / 2));
+    });
+  }
+  if (!routeOk) {
+    run.tempWalls = run.tempWalls.filter(w => w !== wall);
+    run.plan.walls = run.plan.walls.filter(w => w !== wall);
+    if (replaced) { run.tempWalls.push(replaced); run.plan.walls.push(replaced); }
+    run._navGridCache?.clear?.();
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(aim.x), y: Math.round(aim.y), reason: 'FWL NO ROUTE' });
+    return false;
+  }
+  if (replaced) run.fx.push({ t: 'impact_wall_end', id: p.id, wallId: replaced.id, x: Math.round(replaced.x + replaced.w / 2), y: Math.round(replaced.y + replaced.h / 2), w: replaced.w, h: replaced.h, reason: 'replace' });
+  run.fx.push({ t: 'impact_wall_place', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, ttl: Math.round(wall.ttl * 10) / 10, count: run.tempWalls.filter(w => w.owner === p.id).length, max: cap });
+  return true;
+}
+
+function fireImpactFirewall(run, players, p, dt) {
+  p.cd = Math.max(0, Number(p.cd || 0) - Math.max(0, Number(dt || 0)));
+  if (!p.fire) { p.fireWasDown = false; return; }
+  if (p.fireWasDown || p.cd > 0) return;
+  p.fireWasDown = true;
+  if (tryPlaceImpactWall(run, players, p)) p.cd = 0.22;
+}
+
+function stepImpactTempWalls(run, dt) {
+  if (!Array.isArray(run.tempWalls) || !run.tempWalls.length) return;
+  for (const wall of [...run.tempWalls]) {
+    wall.ttl = Math.max(0, Number(wall.ttl || 0) - dt);
+    if (wall.ttl <= 0) removeImpactTempWall(run, wall, 'expire');
+  }
+}
+
 function fireWeapon(run, players, p, dt) {
-  if (isImpactDriverPlayer(p)) return;
+  if (isImpactDriverPlayer(p)) { fireImpactFirewall(run, players, p, dt); return; }
   if (isLivingCasinoPlayer(p)) { handleLivingCasinoBaseMark(run, players, p, dt); return; }
   if (isProcessControllerPlayer(p)) { fireProcessControllerProtocol(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
@@ -9489,6 +9665,13 @@ function applyDamperFieldsToBullet(run, b, dt) {
     return false;
   }
   return false;
+}
+
+// Player actives/mutations are allowed to manipulate hostile projectiles only.
+// `from: 'p'` is shared by hero weapons, drones, controlled shooters, LVC and
+// friendly modifier-created shots, so one ownership gate protects them all.
+export function activeCanManipulateProjectile(b) {
+  return !!b && b.from === 'e';
 }
 
 function stepBullets(run, players, dt) {
@@ -9912,6 +10095,10 @@ function stepEnemies(run, players, dt) {
       if (typeof e.vx === 'number') e.vx *= Math.pow(0.02, dt * 8);
       if (typeof e.vy === 'number') e.vy *= Math.pow(0.02, dt * 8);
       e.fireCd = Math.max(e.fireCd || 0, 0.12);
+      // OCT beams are an active ability. Never retain their last absolute
+      // segments while the body is stopped; that produced detached damaging
+      // rays which snapped back to the boss when control returned.
+      if (e.kind === 'boss') e.octLasers = [];
       // Frozen or stunned means no movement, firing, abilities, or contact damage.
       continue;
     }
@@ -10988,11 +11175,18 @@ function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qua
 
 const IMPACT_DRIVER_WPN_IDS = new Set([
   'impact_damage', 'impact_radius', 'impact_cycle', 'impact_stun', 'impact_afterfield', 'impact_rebound',
+  'impact_wall_unlock', 'impact_wall_count', 'impact_wall_duration',
   'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'bullet_chain_status_link'
 ]);
 function impactDriverChoicePool(p, qualityTier = 0) {
   const pool = WEAPON_CHEST_REWARDS
-    .filter(opt => opt?.kind === 'weapon_upgrade' && IMPACT_DRIVER_WPN_IDS.has(String(opt.upgrade || opt.id)) && weaponChoiceEligible(p, opt))
+    .filter(opt => {
+      const id = String(opt?.upgrade || opt?.id || '');
+      if (opt?.kind !== 'weapon_upgrade' || !IMPACT_DRIVER_WPN_IDS.has(id) || !weaponChoiceEligible(p, opt)) return false;
+      if (id === 'impact_wall_unlock') return !(p?.stats?.impactWallUnlocked > 0);
+      if (id === 'impact_wall_count' || id === 'impact_wall_duration') return p?.stats?.impactWallUnlocked > 0;
+      return true;
+    })
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, impactOnly: 1, group: 'DRV' }));
   pool.push({ id: 'impact_power_stat', kind: 'stat', stat: 'dmg', label: 'DRV: МОЩНОСТЬ +18%', desc: 'Усиливает взлёт, посадку и след удара.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRV' });
   return pool;
@@ -11341,6 +11535,7 @@ function applyWeaponChestOption(run, players, p, opt) {
       const u = UPGRADES.find(x => x.id === opt.upgrade && IMPACT_DRIVER_WPN_IDS.has(x.id));
       if (!u || weaponChoiceDisabled(p, opt)) return false;
       u.apply(p.stats); label = u.label;
+      setupImpactDriverPlayer(p);
     } else if (opt.kind === 'stat' && opt.stat === 'dmg') {
       p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
     } else return false;
@@ -13141,7 +13336,7 @@ function castActiveCore(run, players, p, opts = {}) {
     ctx.r = activeRadiusForLevel(lvl, 245, 405);
     let cut = 0;
     for (const b of run.bullets) {
-      if (b.from !== 'e') continue;
+      if (!activeCanManipulateProjectile(b)) continue;
       if (dist2(b.x, b.y, p.x, p.y) < (ctx.r + b.size) ** 2) {
         b.vx *= 0.035; b.vy *= 0.035; b.life = Math.min(b.life, 1.65 + lvl * 0.28); cut++;
         run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: 'freeze' });
@@ -13411,7 +13606,7 @@ function stepActiveFields(run, players, dt) {
           e.activeSlowT = Math.max(e.activeSlowT || 0, 0.20);
           e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
         }
-        for (const b of run.bullets) if (b.from === 'e' && distToSegment2(b.x, b.y, f.x1, f.y1, f.x2, f.y2) < (rr + b.size) ** 2) {
+        for (const b of run.bullets) if (activeCanManipulateProjectile(b) && distToSegment2(b.x, b.y, f.x1, f.y1, f.x2, f.y2) < (rr + b.size) ** 2) {
           const damp = Math.pow(activeSoftMul(f.damp || 0.10), dt * 6.0);
           b.vx *= damp; b.vy *= damp;
           if (Math.hypot(b.vx, b.vy) < 85) { b.life = -1; run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: b.kind || '' }); }
@@ -13421,7 +13616,7 @@ function stepActiveFields(run, players, dt) {
         for (const e of run.enemies) if (enemyCombatReady(e) && !f.bulletsOnly && dist2(e.x, e.y, f.x, f.y) < (f.r + e.size / 2) ** 2) {
           activeFreezeEnemy(run, e, f.freezeHold || 0.28);
         }
-        for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
+        for (const b of run.bullets) if (activeCanManipulateProjectile(b) && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
           const damp = Math.pow(activeSoftMul(f.damp || 0.035), dt * 9.0);
           b.vx *= damp; b.vy *= damp;
           if (Math.hypot(b.vx, b.vy) < 18 && Math.random() < dt * 5.0) run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: 'freeze' });
@@ -13434,7 +13629,7 @@ function stepActiveFields(run, players, dt) {
           e.fireCd = Math.max(e.fireCd || 0, 0.16);
         }
         // Light border jam only, so the ability reads as hiding/target drop instead of another BULLET FREEZE.
-        for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2 && Math.random() < dt * 0.85) {
+        for (const b of run.bullets) if (activeCanManipulateProjectile(b) && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2 && Math.random() < dt * 0.85) {
           b.life = -1; run.fx.push({ t: 'bullet_stop', x: Math.round(b.x), y: Math.round(b.y), kind: 'box_jam' });
         }
       } else {
@@ -13443,7 +13638,7 @@ function stepActiveFields(run, players, dt) {
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.55));
         if (f.kind === 'signal_spike' || f.kind === 'anchor_field') { const n = norm(f.x - e.x, f.y - e.y); e.x += n.x * (f.pull || 65) * dt; e.y += n.y * (f.pull || 65) * dt; }
       }
-      for (const b of run.bullets) if (dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
+      for (const b of run.bullets) if (activeCanManipulateProjectile(b) && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) {
         const damp = Math.pow(activeSoftMul(f.damp || 0.45), dt * (f.kind === 'freeze_aura' ? 5.2 : 3.0));
         b.vx *= damp; b.vy *= damp;
         const stopSpeed = f.kind === 'freeze_aura' ? 58 : 32;
@@ -13457,7 +13652,7 @@ function stepActiveFields(run, players, dt) {
         e.activeSlowT = Math.max(e.activeSlowT || 0, 0.18);
         e.activeSlowMul = Math.min(e.activeSlowMul || 1, activeSoftMul(f.slow || 0.72));
       }
-      for (const b of run.bullets) if (b.from === 'e' && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) { const damp = Math.pow(activeSoftMul(f.damp || 0.36), dt * 2.4); b.vx *= damp; b.vy *= damp; }
+      for (const b of run.bullets) if (activeCanManipulateProjectile(b) && dist2(b.x, b.y, f.x, f.y) < (f.r + b.size) ** 2) { const damp = Math.pow(activeSoftMul(f.damp || 0.36), dt * 2.4); b.vx *= damp; b.vy *= damp; }
     }
     if (f.tickT <= 0) {
       f.tickT = f.tickEvery || 0.35;
@@ -13769,7 +13964,7 @@ function clearAirborneActionQueue(p) {
 export function impactDriverProfile(p) {
   const s = p?.stats || {};
   const power = 1 + Math.max(0, s.jumpImpactDamage || 0) * 0.25;
-  const radius = 108 + Math.max(0, s.jumpImpactRadius || 0) * 18;
+  const radius = Math.round(108 * 1.15) + Math.max(0, s.jumpImpactRadius || 0) * 18;
   const rebound = Math.max(0, s.jumpRebound || 0);
   return {
     takeoffDamage: weaponDamageValue(p, 13 * power),
@@ -13777,8 +13972,9 @@ export function impactDriverProfile(p) {
     landingDamage: weaponDamageValue(p, 42 * power),
     landingRadius: radius,
     recovery: Math.max(0.12, 0.52 * Math.pow(0.86, Math.max(0, s.jumpRecovery || 0))),
-    duration: Math.min(1.28, PLAYER_JUMP_DURATION + rebound * 0.055),
-    restitution: Math.min(0.97, PLAYER_JUMP_WALL_RESTITUTION + rebound * 0.035),
+    duration: rebound > 0 ? Math.min(1.28, PLAYER_JUMP_DURATION + rebound * 0.055) : PLAYER_JUMP_DURATION,
+    restitution: rebound > 0 ? Math.min(0.97, PLAYER_JUMP_WALL_RESTITUTION + rebound * 0.035) : 0,
+    reboundUnlocked: rebound > 0,
     stun: s.jumpStun > 0 ? 0.48 + Math.max(0, s.jumpStun - 1) * 0.18 : 0,
     fieldLevel: Math.max(0, s.jumpAfterfield || 0)
   };
@@ -13813,7 +14009,7 @@ function impactDriverPulse(run, players, p, x, y, kind, bounces = 0) {
   if (!isImpactDriverPlayer(p)) return { hits: 0, kills: 0, radius: 0, damage: 0 };
   const profile = impactDriverProfile(p);
   const landing = kind === 'impact_land';
-  const mul = landing ? Math.max(1, 1 + Math.max(0, bounces | 0)) : 1;
+  const mul = landing && profile.reboundUnlocked ? Math.max(1, 1 + Math.max(0, bounces | 0)) : 1;
   const radius = landing ? profile.landingRadius : profile.takeoffRadius;
   const damage = (landing ? profile.landingDamage : profile.takeoffDamage) * mul;
   const pseudo = impactDriverElementBullet(p, damage, kind);
@@ -13893,20 +14089,27 @@ function stepPlayerJump(run, players, p, dt) {
   const hitY = Math.abs(c.y - wantedY) > 0.05;
   p.x = c.x; p.y = c.y;
   const profile = impactDriverProfile(p);
-  if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * profile.restitution;
-  if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * profile.restitution;
+  if ((hitX || hitY) && !profile.reboundUnlocked) {
+    // Before the WPN rebound circuit, a wall is a hard landing: no reflection,
+    // no hidden bounce counter and no damage multiplier.
+    p.jumpT = 0;
+    p.jumpVx = 0; p.jumpVy = 0;
+  } else {
+    if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * profile.restitution;
+    if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * profile.restitution;
+  }
   if ((hitX || hitY) && p.jumpWallFxCd <= 0) {
     p.jumpWallFxCd = PLAYER_JUMP_WALL_FX_CD;
-    p.jumpBounces = Math.max(0, Number(p.jumpBounces || 0) | 0) + 1;
+    if (profile.reboundUnlocked) p.jumpBounces = Math.max(0, Number(p.jumpBounces || 0) | 0) + 1;
     run.fx.push({
       t: 'player_jump_wall', id: p.id, playerId: p.id,
       x: Math.round(p.x), y: Math.round(p.y),
       nx: hitX ? (wantedX > c.x ? -1 : 1) : 0,
       ny: hitY ? (wantedY > c.y ? -1 : 1) : 0,
-      seq: p.jumpSeq, bounces: p.jumpBounces, mul: p.jumpBounces + 1
+      seq: p.jumpSeq, bounces: p.jumpBounces, mul: profile.reboundUnlocked ? p.jumpBounces + 1 : 1, hardLand: profile.reboundUnlocked ? 0 : 1
     });
   }
-  p.jumpT = Math.max(0, before - dt);
+  p.jumpT = Math.max(0, Math.min(p.jumpT, before - dt));
   if (p.jumpT <= 0) {
     p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0;
     const impact = impactDriverPulse(run, players, p, p.x, p.y, 'impact_land', p.jumpBounces || 0);
@@ -14092,6 +14295,7 @@ export function step(run, players, dt, now) {
   stepSignatureModules(run, players, dt);
   stepDecoys(run, dt);
   stepPlayers(run, players, dt);
+  stepImpactTempWalls(run, dt);
   stepActiveFields(run, players, dt);
   director(run, players, dt);
   stepPendingSlotMobs(run, players, dt);
@@ -14224,7 +14428,7 @@ export function buildSnapshot(run, players) {
       Math.round(p.aegisShield || 0), Math.round(aegisCapacity(p)),
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
-      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
+      rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), bossKeySpendableCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
       p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10,
       Math.round(Math.max(0, p.jumpT || 0) * 1000) / 1000, Math.round(Math.max(0.01, p.jumpDuration || PLAYER_JUMP_DURATION) * 1000) / 1000, Math.max(0, Number(p.jumpSeq || 0) | 0),
       Math.max(0, Number(p.jumpBounces || 0) | 0), Math.round(Math.max(0, p.jumpCooldown || 0) * 1000) / 1000, Math.round(Math.max(0.1, p.jumpCooldownMax || 0.5) * 1000) / 1000
@@ -14268,7 +14472,12 @@ export function buildSnapshot(run, players) {
     e.kind === 'boss_anchor_cashier' && e.anchorCyclePhase === 'shots' ? 0 : 1,
     e.kind === 'boss_trinode' && Array.isArray(e.trinodeParts) ? e.trinodeParts.map((part, i) => [Math.round(part.x), Math.round(part.y), Math.round((part.hp / Math.max(1, part.maxHp || 1)) * 100), i > 0 || (e.trinodeUnlockT || 0) > 0 ? 1 : 0]) : null,
     e.kind === 'boss_trinode' ? `${e.trinodePhase || 'burst'}:${e.trinodePhase === 'burst' ? Math.max(0, 10 - (e.trinodeShots || 0)) : Math.ceil(e.trinodePhaseT || 0)}` : '',
-    e.kind === 'boss' && Array.isArray(e.octLasers) ? e.octLasers : null
+    // Send OCT rays relative to its body. The client interpolates enemy motion,
+    // so absolute endpoints from the newest snapshot visibly lagged beside it.
+    e.kind === 'boss' && Array.isArray(e.octLasers) ? e.octLasers.map(seg => [
+      Math.round((seg[0] || 0) - e.x), Math.round((seg[1] || 0) - e.y),
+      Math.round((seg[2] || 0) - e.x), Math.round((seg[3] || 0) - e.y), seg[4] ? 1 : 0
+    ]) : null
   ]);
   const bs = run.bullets
     // Delay-buffered echo/enemy shots exist in simulation before launch, but should not be drawn
@@ -14402,7 +14611,7 @@ export function buildSnapshot(run, players) {
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       contractChoice: run.contractChoice ? { ...run.contractChoice, votes: { ...(run.contractChoice.votes || {}) } } : null,
       rootLock: run.rootLock ? { active: run.rootLock.active ? 1 : 0, bossId: run.rootLock.bossId || '', nodeIds: [...(run.rootLock.nodeIds || [])], total: run.rootLock.total || 4, left: run.rootLock.left || 0 } : null,
-      next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], prismZones: run.prismZones || [],
+      next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], tempWalls: (run.tempWalls || []).map(w => ({ id:w.id, owner:w.owner || '', temp:1, kind:'impact_wall', x:w.x, y:w.y, w:w.w, h:w.h, ttl:Math.max(0, w.ttl || 0), maxT:Math.max(0, w.maxT || 0) })), prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run), contractWagers: { ...(run.roomContractStakes || {}) },
       runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), playerCombos: playerCombosSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players), decoys: (run.decoys || []).map(d => ({ x: Math.round(d.x), y: Math.round(d.y), t: Math.ceil((d.t || 0) * 10) / 10 }))
     },

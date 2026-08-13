@@ -822,17 +822,20 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
   let baseQuota = category === 'boss' ? 1 : Math.round((8 + roomInLoop * 2 + loopIndex * 5 + Math.floor(Math.pow(late, 1.65) * 7)) * 2);
   if (specialRoomId === 'chill_room') baseQuota = 0;
   if (specialRoomId === 'signal_contract') baseQuota = Math.max(8, Math.round(baseQuota * 0.72));
+  if (roomArchetype === 'cashier_maze') baseQuota = Math.max(16, Math.round(baseQuota * 2));
+  // Preserve the clean encounter budget before modifiers replace it with a
+  // synthetic value. MOD VETO can then restore an ordinary finite room.
+  const cleanQuota = baseQuota;
   if (modifierIds.includes('hunter_contract')) baseQuota = 999999;
   // v2.1: Casino Virus still uses normal director pressure while the 3 reels are pending.
   // Keep it slightly under a clean room, but no longer starve the encounter into an empty timer.
   if (modifierIds.includes('casino_virus')) baseQuota = Math.max(10, Math.round(baseQuota * 0.95));
-  if (roomArchetype === 'cashier_maze') baseQuota = Math.max(16, Math.round(baseQuota * 2));
   return {
     seed, runDepth, loopIndex, roomInLoop,
     roomId: `${forced ? 'dev_' : ''}${specialRoomId ? specialRoomId : category}-${String(runDepth).padStart(2, '0')}`,
     category, baseCategory, specialRoomId, activityId, modifierIds, roomArchetype,
     walls, interactables,
-    quota: baseQuota,
+    quota: baseQuota, cleanQuota,
     w: WORLD_W, h: WORLD_H
   };
 }

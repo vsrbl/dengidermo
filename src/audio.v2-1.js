@@ -1129,6 +1129,8 @@ export class AudioBus {
       case 'player_jump_start': if (mine) this.play('jump_takeoff'); break;
       case 'player_jump_wall': if (mine) this.play('jump_wall'); break;
       case 'player_jump_land': if (mine) this.play('jump_land'); break;
+      case 'impact_wall_place': if (mine) { this.play('qrn_place'); this.play('jump_wall'); } break;
+      case 'impact_wall_end': if (mine) this.play('ctrl_proc_expire'); break;
       case 'lc_target_lock': if (mine) this.play(f.enabled ? 'lc_target_lock' : 'lc_target_miss'); break;
       case 'lc_target_miss': if (mine) this.play('lc_target_miss'); break;
       case 'lc_spark_attach': if (mine) this.play('lc_spark_attach'); break;

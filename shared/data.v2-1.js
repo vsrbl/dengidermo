@@ -25,6 +25,10 @@ export const WEAPONS = {
     id: 'impact_driver', label: 'DRV', name: 'УДАРНЫЙ ДРАЙВЕР',
     cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
   },
+  impact_wall: {
+    id: 'impact_wall', label: 'FWL', name: 'ВРЕМЕННЫЙ ФАЙРВОЛ',
+    cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
+  },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
     cooldown: 1.08, pellets: 1, spread: 0.004, dmg: 39, speed: 335, life: 1.50, maxDist: 653, size: 22, knock: 210, bounces: 0
@@ -74,7 +78,7 @@ export const ENEMIES = {
   damper:   { label: 'DMP', hp: 118,  spd: 38,  size: 44, dmg: 0,  damper: true, fieldR: 280, bulletDamp: 0.018, stopSpd: 42, xp: 30, gld: 18, score: 4, role: 'mobile bullet-safe nest', combo: 'safe-zone pressure' },
   herald:   { label: 'HRD', hp: 180,  spd: 52,  size: 48, dmg: 12, herald: true, summonCd: 4.2, tetherDmg: 3, xp: 36, gld: 28, score: 5, armor: 0.18, role: 'summon director', combo: 'summon pressure' },
 
-  boss:     { label: 'OCT', hp: 2860, spd: 205, size: 92, dmg: 26, boss: true, armor: 0.34, fireCd: 2.6, bulletSpd: 230, xp: 160, gld: 140, score: 24, bossRole: 'ricochet laser array' },
+  boss:     { label: 'OCT', hp: 2860, spd: 410, size: 92, dmg: 26, boss: true, armor: 0, fireCd: 2.6, bulletSpd: 230, xp: 160, gld: 140, score: 24, bossRole: 'ricochet laser array' },
 
   // boss rotation v2.1.19
   boss_croupier: { label: 'CRP', hp: 1207, spd: 52, size: 78, dmg: 24, boss: true, armor: 0.24, fireCd: 2.35, bulletSpd: 245, xp: 150, gld: 132, score: 22, bossRole: 'casino rules' },
@@ -147,6 +151,9 @@ export const UPGRADES = [
   { id: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', tier: 1, branch: 'IMPACT', desc: 'Приземление оглушает угрозы. Повторы увеличивают длительность.', apply: s => { s.jumpStun += 1; } },
   { id: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', tier: 1, branch: 'IMPACT', desc: 'На месте приземления остаётся короткий наносящий урон контур. Повторы усиливают его.', apply: s => { s.jumpAfterfield += 1; } },
   { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', tier: 1, branch: 'IMPACT', desc: 'Отскоки от стен сохраняют больше скорости, а полёт длится дольше.', apply: s => { s.jumpRebound += 1; } },
+  { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ', tier: 1, branch: 'IMPACT', desc: 'Открывает ЛКМ-модуль: ставит одну временную стену в свободной достижимой точке.', apply: s => { s.impactWallUnlocked = 1; } },
+  { id: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ +1', tier: 1, branch: 'IMPACT', desc: 'Позволяет одновременно держать ещё одну временную стену.', apply: s => { s.impactWallCount += 1; } },
+  { id: 'impact_wall_duration', label: 'DRV: СРОК ФАЙРВОЛА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает срок существования временных стен.', apply: s => { s.impactWallDuration += 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
   { id: 'shg_longshot', label: 'SHG: ДАЛЬНИЙ ЗАЛП', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK: ФРАГМЕНТЫ',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
@@ -225,6 +232,9 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'impact_stun', kind: 'weapon_upgrade', upgrade: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', desc: 'Оглушает угрозы в области приземления.' },
   { id: 'impact_afterfield', kind: 'weapon_upgrade', upgrade: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', desc: 'Оставляет наносящий урон контур в точке посадки.' },
   { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', desc: 'Лучше сохраняет импульс после столкновения со стеной.' },
+  { id: 'impact_wall_unlock', kind: 'weapon_upgrade', upgrade: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ', desc: 'Открывает установку одной временной стены на ЛКМ.' },
+  { id: 'impact_wall_count', kind: 'weapon_upgrade', upgrade: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ +1', desc: 'Ещё одна одновременно существующая временная стена.' },
+  { id: 'impact_wall_duration', kind: 'weapon_upgrade', upgrade: 'impact_wall_duration', label: 'DRV: СРОК ФАЙРВОЛА +25%', desc: 'Временные стены существуют дольше.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG: ДАЛЬНИЙ ЗАЛП', desc: 'ПКМ тратит все заряды клинового разряда на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK: ФРАГМЕНТЫ', desc: 'Искатель выпускает фрагменты после удаления цели.' },
@@ -357,6 +367,7 @@ export function defaultStats() {
     bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, sawFallbackDamage: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
     jumpImpactDamage: 0, jumpImpactRadius: 0, jumpRecovery: 0, jumpStun: 0, jumpAfterfield: 0, jumpRebound: 0,
+    impactWallUnlocked: 0, impactWallCount: 0, impactWallDuration: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     comboPrize: 'gld', tempFire: 0,
@@ -450,7 +461,9 @@ function casinoCleanSymbol(s = '') {
 }
 export function casinoSymbolAllowedForStake(symbol = '', stakeKey = 'low') {
   const clean = casinoCleanSymbol(symbol);
-  return !!clean && !(stakeKey === 'low' && (clean === 'WPN' || clean === 'ABL'));
+  if (!clean) return false;
+  if (clean === 'RAR') return stakeKey === 'high';
+  return !(stakeKey === 'low' && (clean === 'WPN' || clean === 'ABL'));
 }
 function casinoMatch(symbols = []) {
   const clean = symbols.map(casinoCleanSymbol);
@@ -466,7 +479,7 @@ function casinoAdd(payload, key, value = 1) {
 function casinoApplyMatchReward(payload, symbol, count, stake, rng, stakeKey, luck, unlockedSkins) {
   const triple = count >= 3;
   switch (symbol) {
-    case 'GLD': casinoAdd(payload, 'gld', Math.round(stake * (triple ? (1.35 + rng() * 0.75) : (0.62 + rng() * 0.28)))); casinoAdd(payload, 'gldCount', count); break;
+    case 'GLD': casinoAdd(payload, 'gld', Math.round(stake * (triple ? (1.35 + rng() * 0.75) : (1.10 + rng() * 0.20)))); casinoAdd(payload, 'gldCount', count); break;
     case 'EXP': casinoAdd(payload, 'xp', Math.round(stake * (triple ? 0.82 : 0.40))); casinoAdd(payload, 'xpCount', count); break;
     case 'HEA': casinoAdd(payload, 'heal', triple ? (24 + Math.round(rng() * 22)) : (14 + Math.round(rng() * 12))); casinoAdd(payload, 'healCount', count); break;
     case 'WPN':
@@ -485,8 +498,17 @@ function casinoApplyMatchReward(payload, symbol, count, stake, rng, stakeKey, lu
     case 'STC': payload.static = true; casinoAdd(payload, 'staticCount', 1); break;
     case 'JCK':
       payload.jackpotCount = count;
-      casinoAdd(payload, 'gld', Math.round(stake * (triple ? 2.75 : 1.25)));
-      casinoAdd(payload, 'xp', Math.round(stake * (triple ? 0.80 : 0.28)));
+      // Two JCK are a pure, large cash jackpot. Three JCK keep the larger
+      // cash payout and additionally grant one full WPN, ABL and RAR prize.
+      casinoAdd(payload, 'gld', Math.round(stake * (triple ? 5.0 : 4.0)));
+      if (triple) {
+        payload.weapon = true;
+        casinoAdd(payload, 'weaponUpgradeCount', 1);
+        payload.ability = true;
+        casinoAdd(payload, 'abilityCount', 1);
+        payload.rare = true;
+        casinoAdd(payload, 'rareCount', 1);
+      }
       break;
     case 'BAD': casinoAdd(payload, 'missCount', count); break;
   }
@@ -509,7 +531,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     const base = high
       ? ['JCK','RAR','WPN','ABL','SKN','GLD','EXP','HEA','STC']
       : mid
-        ? ['RAR','WPN','ABL','GLD','EXP','HEA','STC']
+        ? ['WPN','ABL','GLD','EXP','HEA','STC']
         : ['GLD','EXP','HEA','STC'];
     return base.filter(x => x !== 'SKN' || hasLockedSkin);
   };
@@ -521,7 +543,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     const r = rng();
     const odds = [
       ['JCK', 0.0022 + (high ? 0.0058 : mid ? 0.0022 : 0) + l * 0.0032],
-      ['RAR', (high ? 0.017 : mid ? 0.007 : 0.0025) + l * 0.0045],
+      ['RAR', high ? (0.017 + l * 0.0045) : 0],
       ['WPN', stakeKey === 'low' ? 0 : 0.010 + (high ? 0.010 : mid ? 0.006 : 0) + l * 0.0055],
       ['ABL', stakeKey === 'low' ? 0 : 0.012 + (high ? 0.008 : 0) + l * 0.0055],
       ['SKN', hasLockedSkin ? ((high ? 0.013 : mid ? 0.008 : 0.004) + l * 0.0026) : 0],
@@ -544,7 +566,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
   for (let i = 0; i < 3; i++) {
     const locked = casinoCleanSymbol(slotLocks[i]);
     if (locked) {
-      const finalLocked = locked === 'SKN' && !hasLockedSkin ? 'RAR' : locked;
+      const finalLocked = locked === 'SKN' && !hasLockedSkin ? (high ? 'RAR' : 'GLD') : locked;
       nextLocks[i] = finalLocked; symbols[i] = finalLocked; usedLock = true;
       if (!lockAnchorSymbol) lockAnchorSymbol = finalLocked;
       payload.cellRewards.push({ slot: i, raw: finalLocked, symbol: finalLocked, locked: 1 });
@@ -553,11 +575,11 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
     const raw = drawCell();
     if (raw === 'LOCK') {
       const finalSymRaw = lockAnchorSymbol || drawLockPrize();
-      const finalSym = finalSymRaw === 'SKN' && !hasLockedSkin ? 'RAR' : finalSymRaw;
+      const finalSym = finalSymRaw === 'SKN' && !hasLockedSkin ? (high ? 'RAR' : 'GLD') : finalSymRaw;
       lockAnchorSymbol = finalSym; nextLocks[i] = finalSym; symbols[i] = finalSym; createdLock = true;
       payload.cellRewards.push({ slot: i, raw: 'LOCK', symbol: finalSym, lockCreated: 1 });
     } else {
-      const finalSym = raw === 'SKN' && !hasLockedSkin ? 'RAR' : raw;
+      const finalSym = raw === 'SKN' && !hasLockedSkin ? (high ? 'RAR' : 'GLD') : raw;
       nextLocks[i] = ''; symbols[i] = finalSym;
       payload.cellRewards.push({ slot: i, raw, symbol: finalSym });
     }

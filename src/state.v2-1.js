@@ -29,6 +29,7 @@ function collideWalls(x, y, half, walls, ox, oy) {
 export class GameState {
   constructor() {
     this.walls = [];
+    this.baseWalls = [];
     this.world = { w: 2200, h: 1500 };
     this.snaps = [];        // ring of recent snapshots with recv time
     this.latest = null;
@@ -44,7 +45,8 @@ export class GameState {
   }
 
   setWalls(walls, world) {
-    this.walls = walls || [];
+    this.baseWalls = (walls || []).filter(w => !w?.temp);
+    this.walls = [...this.baseWalls];
     if (world) this.world = world;
     this.pred.init = false; // teleported to new room: re-init from next snapshot
     this.history = [];
@@ -56,6 +58,7 @@ export class GameState {
     if (this.snaps.length > 12) this.snaps.shift();
     this.latest = s;
     this.room = s.room;
+    this.walls = [...this.baseWalls, ...((s.room?.tempWalls || []).filter(Boolean))];
     const me = this.me();
     if (me) {
       this.mySpeed = me[P.SPD] || 260;

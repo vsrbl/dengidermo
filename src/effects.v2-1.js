@@ -170,6 +170,14 @@ export class Effects {
         if (f.mul > 1) this.float(f.x, f.y - 38, `IMPACT x${f.mul}`, '#66f6ff', 14);
         if (mine) { this.kick(4.5); this.zoomKick = Math.max(this.zoomKick, 0.075); }
         break;
+      case 'impact_wall_place':
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: '#66f6ff' });
+        this.float(f.x, f.y - 30, `FWL ${f.count || 1}/${f.max || 1}`, '#66f6ff', 11);
+        if (mine) { this.kick(2.4); this.zoomKick = Math.max(this.zoomKick, 0.045); }
+        break;
+      case 'impact_wall_end':
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.28, color: '#b45cff' });
+        break;
       case 'levelup':
         if (mine) {
           this.levelPulse = 1;

@@ -118,7 +118,7 @@ const HEROES = {
     labelRu: 'УДАРНЫЙ ДРАЙВЕР', labelEn: 'IMPACT DRIVER',
     descRu: 'инерционный протокол', descEn: 'inertial impact protocol',
     explainRu: 'Не использует обычное оружие и рывок. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон, а отскоки от стен умножают удар.',
-    explainEn: 'Uses no classic weapon or dash. SPACE launches an inertial jump: takeoff and landing deal damage, while wall rebounds multiply the impact.'
+    explainEn: 'Uses no weapon or dash. SPACE launches an inertial jump. Wall rebounds and the LMB firewall must be unlocked in WPN chests.'
   }
 };
 function readUnlockedHeroes() {

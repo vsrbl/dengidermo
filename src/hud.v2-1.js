@@ -2902,7 +2902,7 @@ export class Hud {
     const unit = blood ? 'HP' : 'GLD';
     const profiles = {
       low: { risk: localText('БАЗОВАЯ', 'BASE'), body: localText('GLD · EXP · HEA', 'GLD · EXP · HEA') },
-      mid: { risk: localText('СБОРКА', 'BUILD'), body: localText('WPN · ABL · РЕД · ФИКС', 'WPN · ABL · RAR · LOCK') },
+      mid: { risk: localText('СБОРКА', 'BUILD'), body: localText('WPN · ABL · ФИКС', 'WPN · ABL · LOCK') },
       high: { risk: localText('ПРЕМИУМ', 'PREMIUM'), body: localText('WPN · ABL · РЕД · ДЖК', 'WPN · ABL · RAR · JCK') }
     };
     const prof = profiles[stakeKey] || profiles.low;
@@ -3258,6 +3258,8 @@ export class Hud {
     if (f.outcome === 'OVERLOAD') return localText('слот сломан, угрозу собирается', 'slot broken, enemy assembling');
     if (pl.static || pl.staticCount) return `${localText('следующая сектор загрязнена статикой', 'next room gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
     if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${pl.lockLabel}`;
+    if ((pl.jackpotCount || 0) >= 3) return `+${pl.gld || 0} GLD + WPN + ABL + RAR`;
+    if ((pl.jackpotCount || 0) === 2) return `+${pl.gld || 0} GLD`;
     if (weaponLabels.length) return weaponLabels.map(weaponDetail).filter(Boolean).join(' + ');
     if (abilityLabels.length) return abilityDetail(abilityLabels[0]);
     if (rareLabels.length) return rareDetail(rareLabels[0]);

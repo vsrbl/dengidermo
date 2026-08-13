@@ -234,7 +234,7 @@ export class LocalRoom {
     if (m.active) p.wantActive = true;
     if (m.ractive) p.wantRActive = true;
     if (m.secondary) p.wantSecondary = true;
-    if (m.jump && this.run.phase === 'play') p.wantJump = true;
+    if (m.jump && this.run.phase === 'play' && (p.hero === 'impact_driver' || p.skin?.hero === 'impact_driver')) p.wantJump = true;
     if (typeof m.wpn === 'number' && m.wpn >= 0 && m.wpn <= 8) p.wantWeapon = m.wpn | 0;
   }
 

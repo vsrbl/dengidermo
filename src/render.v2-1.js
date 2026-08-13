@@ -380,8 +380,20 @@ export class Renderer {
 
     // walls
     for (const w of state.walls) {
-      ctx.fillStyle = COL.wall; ctx.fillRect(w.x, w.y, w.w, w.h);
-      ctx.strokeStyle = COL.wallEdge; ctx.lineWidth = 2; ctx.strokeRect(w.x, w.y, w.w, w.h);
+      if (w.temp || w.kind === 'impact_wall') {
+        const life = Math.max(0, Math.min(1, Number(w.ttl || 0) / Math.max(0.01, Number(w.maxT || 1))));
+        ctx.save();
+        ctx.globalAlpha = 0.48 + life * 0.38;
+        ctx.fillStyle = '#061419'; ctx.fillRect(w.x, w.y, w.w, w.h);
+        ctx.strokeStyle = '#66f6ff'; ctx.lineWidth = 3; ctx.setLineDash([9, 4]); ctx.strokeRect(w.x, w.y, w.w, w.h);
+        ctx.setLineDash([]); ctx.globalAlpha *= 0.55; ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
+        if (w.w > w.h) ctx.strokeRect(w.x + 9, w.y + w.h / 2 - 2, Math.max(0, w.w - 18), 4);
+        else ctx.strokeRect(w.x + w.w / 2 - 2, w.y + 9, 4, Math.max(0, w.h - 18));
+        ctx.restore();
+      } else {
+        ctx.fillStyle = COL.wall; ctx.fillRect(w.x, w.y, w.w, w.h);
+        ctx.strokeStyle = COL.wallEdge; ctx.lineWidth = 2; ctx.strokeRect(w.x, w.y, w.w, w.h);
+      }
     }
 
     const room = state.room;
@@ -1033,7 +1045,10 @@ export class Renderer {
         const laserCol = phase === 8 ? COL.red : COL.purple;
         if (Array.isArray(octLasers)) {
           for (const seg of octLasers) {
-            const [x1, y1, x2, y2, redLaser = 0] = seg;
+            const [rx1, ry1, rx2, ry2, redLaser = 0] = seg;
+            // Beam coordinates are body-relative, so they share the same
+            // interpolation as the boss and cannot drift during stun/freeze.
+            const x1 = ex + rx1, y1 = ey + ry1, x2 = ex + rx2, y2 = ey + ry2;
             const col = redLaser ? COL.red : COL.purple;
             ctx.save();
             ctx.lineCap = 'square';
