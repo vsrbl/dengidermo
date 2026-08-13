@@ -62,14 +62,14 @@ export class AudioBus {
     this.cooldowns = {
       shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32, anchor_phase_field: 0.35, anchor_phase_shots: 0.35, oct_laser: 0.18, oct_phase: 0.30, oct_crash: 0.65,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
-      dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, jump_takeoff: 0.12, jump_wall: 0.10, jump_land: 0.14, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
+      dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, jump_takeoff: 0.12, jump_wall: 0.10, jump_rebound_combo: 0.055, jump_land: 0.14, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
       chest_ability: 0.16, chest_rare: 0.18, chest_cursed: 0.2,
       portal: 0.35, install: 0.18, jackpot: 0.4, active_snap: 0.24, active_blood: 0.24,
       active_over: 0.24, active_void_laser: 0.08, active: 0.24, enemy: 0.18, bet_open: 0.18, casino_win: 0.24,
       casino_lose: 0.28, casino_static: 0.28, casino_weapon: 0.3, casino_ability: 0.3,
       casino_spin: 0.09, casino_reel_stop: 0.06, casino_result: 0.16,
-      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, wager_accept_click: 0.08, wager_skip_click: 0.08, wager_complete: 0.35, boss_silence_enter: 0.45, boss_silence_exit: 0.45, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12
+      contract: 0.35, debt: 0.28, shield: 0.12, echo_shot: 0.10, director_wave: 0.72, levelup: 0.42, run_start: 0.80, run_death: 0.80, static_storm: 0.42, ui_click: 0.045, wager_accept_click: 0.08, wager_skip_click: 0.08, wager_complete: 0.35, boss_silence_enter: 0.45, boss_silence_exit: 0.45, combo_tick: 0.055, combo_drop: 0.18, combo_break: 0.25, casino_mob_defeated: 0.18, lc_target_lock: 0.045, lc_target_miss: 0.08, lc_spark_attach: 0.10, lc_spark_tick: 0.025, lc_spark_release: 0.11, lc_spark_ready: 0.12, impact_wall_push: 0.10, impact_wall_bounce: 0.08, impact_wall_stop: 0.14, impact_wall_hit: 0.045
     };
     this.music = null;
     this.musicPulseT = 0;
@@ -86,8 +86,8 @@ export class AudioBus {
     this.prio = {
       phit: 10, rocket_blast: 9, portal: 8, jackpot: 8, denied: 7,
       casino_static: 8, casino_lose: 7, casino_weapon: 7, casino_ability: 7, casino_win: 6, casino_result: 6, casino_spin: 3, casino_reel_stop: 4,
-      dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, jump_takeoff: 6, jump_wall: 9, jump_land: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
-      active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
+      dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, jump_takeoff: 6, jump_wall: 8, jump_rebound_combo: 9, jump_land: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
+      active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4, impact_wall_push: 6, impact_wall_bounce: 8, impact_wall_stop: 7, impact_wall_hit: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
       shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, anchor_phase_field: 8, anchor_phase_shots: 8, oct_laser: 4, oct_phase: 9, oct_crash: 10, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, wager_complete: 8, boss_silence_enter: 9, boss_silence_exit: 8, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
     };
@@ -240,6 +240,17 @@ export class AudioBus {
     src.start(t); src.stop(t + dur + 0.01);
   }
 
+  playJumpReboundCombo(mult = 2) {
+    if (!this.can('jump_rebound_combo')) return;
+    // Each new x2/x3/x4... step has its own ascending pitch. The climb is
+    // capped in the safe high-mid range so long pinball chains never squeal.
+    const step = Math.max(0, Math.min(24, (Math.max(2, Number(mult) || 2) - 2) * 2));
+    const root = 330 * Math.pow(2, step / 12);
+    this.tone(root, 0.060, 'square', 0.040, 1.08);
+    this.tone(root * 1.5, 0.040, 'triangle', 0.023, 1.03, 0.010);
+    this.noise(0.018, 0.012, 4100 + Math.min(2600, step * 90), 11, 0.004);
+  }
+
   play(type) {
     if (!this.can(type)) return;
     switch (type) {
@@ -355,6 +366,14 @@ export class AudioBus {
         this.noise(0.085, 0.072, 520, 1.8);
         this.tone(290, 0.045, 'square', 0.030, 0.70, 0.020);
         break;
+      case 'impact_wall_push':
+        this.tone(132, 0.090, 'square', 0.060, 1.62); this.tone(528, 0.045, 'triangle', 0.032, 0.78, 0.018); this.noise(0.035, 0.025, 4200, 10); break;
+      case 'impact_wall_bounce':
+        this.tone(112, 0.085, 'square', 0.074, 0.54); this.tone(720, 0.035, 'square', 0.028, 1.18, 0.012); this.noise(0.045, 0.048, 1600, 3.2); break;
+      case 'impact_wall_stop':
+        this.tone(76, 0.130, 'square', 0.082, 0.48); this.noise(0.070, 0.052, 560, 1.8); this.tone(284, 0.040, 'triangle', 0.020, 0.68, 0.024); break;
+      case 'impact_wall_hit':
+        this.noise(0.018, 0.020, 2600, 8); this.tone(310, 0.020, 'square', 0.018, 0.45); break;
       case 'dash_uncommon':
         this.tone(428, 0.050, 'square', 0.056, 1.64);
         this.tone(860, 0.040, 'triangle', 0.026, 0.88, 0.010);
@@ -1127,10 +1146,19 @@ export class AudioBus {
         if (mine) this.play(f.legendarySfx === 'dash_jackpot' ? 'dash_jackpot' : f.legendarySfx === 'dash_dead_channel' ? 'dash_dead_channel' : 'dash');
         break;
       case 'player_jump_start': if (mine) this.play('jump_takeoff'); break;
-      case 'player_jump_wall': if (mine) this.play('jump_wall'); break;
+      case 'player_jump_wall':
+        if (mine) {
+          this.play('jump_wall');
+          if ((f.mul || 1) > 1) this.playJumpReboundCombo(f.mul);
+        }
+        break;
       case 'player_jump_land': if (mine) this.play('jump_land'); break;
       case 'impact_wall_place': if (mine) { this.play('qrn_place'); this.play('jump_wall'); } break;
       case 'impact_wall_end': if (mine) this.play('ctrl_proc_expire'); break;
+      case 'impact_wall_push': if (mine) this.play('impact_wall_push'); break;
+      case 'impact_wall_bounce': if (mine) this.play('impact_wall_bounce'); break;
+      case 'impact_wall_stop': if (mine) this.play('impact_wall_stop'); break;
+      case 'impact_wall_hit': if (mine) this.play('impact_wall_hit'); break;
       case 'lc_target_lock': if (mine) this.play(f.enabled ? 'lc_target_lock' : 'lc_target_miss'); break;
       case 'lc_target_miss': if (mine) this.play('lc_target_miss'); break;
       case 'lc_spark_attach': if (mine) this.play('lc_spark_attach'); break;

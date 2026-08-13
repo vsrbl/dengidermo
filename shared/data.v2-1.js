@@ -26,8 +26,12 @@ export const WEAPONS = {
     cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
   },
   impact_wall: {
-    id: 'impact_wall', label: 'FWL', name: 'ВРЕМЕННЫЙ ФАЙРВОЛ',
-    cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
+    id: 'impact_wall', label: 'FWL', name: 'КВАДРАТНЫЙ ФАЙРВОЛ',
+    cooldown: 2.6, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 66
+  },
+  impact_push: {
+    id: 'impact_push', label: 'PUSH', name: 'ИМПУЛЬС СДВИГА',
+    cooldown: 3.2, pellets: 0, spread: 0, dmg: 20, speed: 520, life: 0, size: 0
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
@@ -104,7 +108,7 @@ export const SPAWN_POOLS = [
 // All stackable. No caps. Balatro rules.
 export const UPGRADES = [
   { id: 'dmg',      label: 'DMG +15%',             tier: 0, desc: 'Весь исходящий урон растёт, включая подконтрольные процессы Контролёра.', apply: s => { s.dmgMul *= 1.15; } },
-  { id: 'fire',     label: 'WEAPON CLOCK +12%',    tier: 0, desc: 'Оружейный такт ускоряет перезарядку всего оружия каждого героя, включая SAW и подконтрольные стрелковые процессы.', apply: s => { s.fireMul *= 1.12; } },
+  { id: 'fire',     label: 'WEAPON CLOCK +12%',    tier: 0, desc: 'Оружейный такт ускоряет циклы оружия, дронов, пушек Живого казино, протоколов Контроллера и его стрелковых процессов. Прыжки, Q и R не ускоряет.', apply: s => { s.fireMul *= 1.12; } },
   { id: 'spd',      label: 'SPD +8%',              tier: 0, desc: 'Скорость движения растёт.', apply: s => { s.spdMul *= 1.08; } },
   { id: 'maxhp',    label: 'HP +20',               tier: 0, desc: 'Максимальное здоровье растёт.', apply: s => { s.maxHpAdd += 20; } },
   { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Подборы притягиваются дальше.', apply: s => { s.magnetMul *= 1.4; } },
@@ -130,13 +134,13 @@ export const UPGRADES = [
   { id: 'sig_kill_switch', label: 'KILL SWITCH', tier: 2, bossSig: true, desc: 'R: каждое применение стирает угрозы на экране, включая главную угрозу. MIRROR PAYOUT добавляет ещё одно применение без ограничения числа зарядов.', apply: s => { if (!s.killSwitchTaken) { s.killSwitchTaken = 1; s.rActiveId = 'kill_switch'; s.rActiveStacks = 1; s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } else if (s.rActiveId === 'kill_switch') { s.rActiveStacks = Math.max(1, s.rActiveStacks || 1) + 1; s.killSwitchCharge = Math.max(0, s.killSwitchCharge || 0) + 1; } } },
   { id: 'sig_spawn_hold', label: 'SPAWN HOLD', tier: 1, bossSig: true, desc: 'Поля предупреждения появления держатся дольше. Повторы усиливают задержку входа угроз.', apply: s => { s.spawnHoldStacks += 1; } },
   { id: 'sig_aegis_process', label: 'AEGIS PROCESS', tier: 1, bossSig: true, desc: 'Антивирус получает защитный слой оболочки. Повторы увеличивают запас защиты.', apply: s => { s.aegisStacks += 1; } },
-  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Копирует следующий усиливаемый приз с выбором. Не копирует саму себя. Заряд возвращается после победы над главной угрозой.', apply: s => { s.mirrorCapacity += 1; } },
+  { id: 'sig_mirror_payout', label: 'MIRROR PAYOUT', tier: 1, bossSig: true, desc: 'Каждое готовое зеркало копирует следующий приз босса. Все готовые зеркала срабатывают вместе и восстанавливаются после следующего босса. Сам MIRROR PAYOUT не копируется.', apply: s => { s.mirrorCapacity += 1; } },
   { id: 'sig_null_revival', label: 'NULL REVIVAL', tier: 2, bossSig: true, desc: 'Резервное восстановление. При сбое возвращает игрока с 45% здоровья. Повторы дают ещё один заряд.', apply: s => { s.nullRevives += 1; } },
   { id: 'sig_boss_key', label: 'BOSS KEY', tier: 1, bossSig: true, desc: 'Первый сундук с выбором в цикле бесплатно становится максимальной редкости. Повторы дают ещё один ключ.', apply: s => { s.bossKeys += 1; } },
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.
   { id: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
-  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%',  tier: 1, branch: 'ALL', desc: 'Увеличивает дальность оружия, автооружия Живого казино и протоколов Контроллера.', apply: s => { s.bulletRange *= 1.22; } },
+  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%',  tier: 1, branch: 'ALL', desc: 'Увеличивает дальность всего оружия, включая пушки героев, дронов, протоколы Контроллера и модули Ударного драйвера.', apply: s => { s.bulletRange *= 1.22; } },
   { id: 'bullet_fire',     label: 'ТЕРМО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды перегревают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
   { id: 'bullet_freeze',   label: 'КРИО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
   { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню и усиливает периодический урон.', apply: s => { s.bulletPoison += 1; } },
@@ -147,13 +151,19 @@ export const UPGRADES = [
   { id: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', tier: 1, branch: 'ALL', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.', apply: s => { s.bulletChainStatuses = 1; } },
   { id: 'impact_damage', label: 'DRV: УДАР +25%', tier: 1, branch: 'IMPACT', desc: 'Усиливает удар при взлёте, приземление и след удара.', apply: s => { s.jumpImpactDamage += 1; } },
   { id: 'impact_radius', label: 'DRV: КОНТУР +18', tier: 1, branch: 'IMPACT', desc: 'Увеличивает точный радиус ударов при взлёте и приземлении.', apply: s => { s.jumpImpactRadius += 1; } },
-  { id: 'impact_cycle', label: 'DRV: ПЕРЕЗАПУСК +14%', tier: 1, branch: 'IMPACT', desc: 'Сокращает паузу перед следующим прыжком.', apply: s => { s.jumpRecovery += 1; } },
+  { id: 'impact_distance', label: 'DRV: ДАЛЬНОСТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает дальность прыжка, не меняя его базовую перезарядку.', apply: s => { s.jumpDistance += 1; } },
   { id: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', tier: 1, branch: 'IMPACT', desc: 'Приземление оглушает угрозы. Повторы увеличивают длительность.', apply: s => { s.jumpStun += 1; } },
   { id: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', tier: 1, branch: 'IMPACT', desc: 'На месте приземления остаётся короткий наносящий урон контур. Повторы усиливают его.', apply: s => { s.jumpAfterfield += 1; } },
-  { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', tier: 1, branch: 'IMPACT', desc: 'Отскоки от стен сохраняют больше скорости, а полёт длится дольше.', apply: s => { s.jumpRebound += 1; } },
-  { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ', tier: 1, branch: 'IMPACT', desc: 'Открывает ЛКМ-модуль: ставит одну временную стену в свободной достижимой точке.', apply: s => { s.impactWallUnlocked = 1; } },
-  { id: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ +1', tier: 1, branch: 'IMPACT', desc: 'Позволяет одновременно держать ещё одну временную стену.', apply: s => { s.impactWallCount += 1; } },
-  { id: 'impact_wall_duration', label: 'DRV: СРОК ФАЙРВОЛА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает срок существования временных стен.', apply: s => { s.impactWallDuration += 1; } },
+  { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', tier: 1, branch: 'IMPACT', desc: 'Открывает множитель отскоков, сохраняет больше скорости и продлевает полёт.', apply: s => { s.jumpRebound += 1; } },
+  { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ-БЛОК', tier: 1, branch: 'IMPACT', desc: 'Открывает ЛКМ-модуль: ставит один временный квадратный блок. У модуля своя перезарядка.', apply: s => { s.impactWallUnlocked = 1; } },
+  { id: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ-БЛОК +1', tier: 1, branch: 'IMPACT', desc: 'Позволяет одновременно держать ещё один квадратный блок.', apply: s => { s.impactWallCount += 1; } },
+  { id: 'impact_wall_duration', label: 'DRV: СРОК БЛОКА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает срок существования квадратных блоков.', apply: s => { s.impactWallDuration += 1; } },
+  { id: 'impact_push_unlock', label: 'DRV: ИМПУЛЬС СДВИГА', tier: 1, branch: 'IMPACT', desc: 'Открывает ПКМ-модуль: запускает выбранный собственный блок от героя.', apply: s => { s.impactPushUnlocked = 1; } },
+  { id: 'impact_push_range', label: 'PUSH: ДАЛЬНОСТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Увеличивает дальность захвата и путь летящего блока. Стакается без ограничений.', apply: s => { s.impactPushRange += 1; } },
+  { id: 'impact_push_damage', label: 'PUSH: УРОН +25%', tier: 1, branch: 'IMPACT', desc: 'Усиливает урон блока при прохождении сквозь угрозы. Стакается без ограничений.', apply: s => { s.impactPushDamage += 1; } },
+  { id: 'impact_push_cooldown', label: 'PUSH: ТАКТ +15%', tier: 1, branch: 'IMPACT', desc: 'Ускоряет восстановление импульса сдвига. Стакается без ограничений.', apply: s => { s.impactPushCooldown += 1; } },
+  { id: 'impact_push_bounce', label: 'PUSH: РИКОШЕТ СТЕНЫ', tier: 1, branch: 'IMPACT', desc: 'Летящий блок начинает отскакивать от стен, пока не исчерпает дальность.', apply: s => { s.impactPushBounce = 1; } },
+  { id: 'impact_push_multiplier', label: 'PUSH: МНОЖИТЕЛЬ ОТСКОКА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый отскок сильнее повышает урон летящего блока. Стакается без ограничений.', apply: s => { s.impactPushMultiplier += 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
   { id: 'shg_longshot', label: 'SHG: ДАЛЬНИЙ ЗАЛП', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK: ФРАГМЕНТЫ',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
@@ -217,7 +227,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: ставится на полу или цепляется за стену и удерживает до 5 угроз.' },
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
-  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Увеличивает дальность оружия, автооружия Живого казино и протоколов Контроллера.' },
+  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Увеличивает дальность всего оружия, включая дроны и модули героев.' },
   { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ТЕРМО-СБОЙ СНАРЯДОВ', desc: 'Снаряды перегревают угрозы.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'КРИО-СБОЙ СНАРЯДОВ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
   { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню.' },
@@ -228,13 +238,19 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'bullet_chain_status_link', kind: 'weapon_upgrade', upgrade: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.' },
   { id: 'impact_damage', kind: 'weapon_upgrade', upgrade: 'impact_damage', label: 'DRV: УДАР +25%', desc: 'Усиливает весь урон взлёта, приземления и следа.' },
   { id: 'impact_radius', kind: 'weapon_upgrade', upgrade: 'impact_radius', label: 'DRV: КОНТУР +18', desc: 'Расширяет точную область ударов.' },
-  { id: 'impact_cycle', kind: 'weapon_upgrade', upgrade: 'impact_cycle', label: 'DRV: ПЕРЕЗАПУСК +14%', desc: 'Быстрее готовит следующий прыжок.' },
+  { id: 'impact_distance', kind: 'weapon_upgrade', upgrade: 'impact_distance', label: 'DRV: ДАЛЬНОСТЬ +20%', desc: 'Каждый уровень увеличивает дальность прыжка без ускорения его перезарядки.' },
   { id: 'impact_stun', kind: 'weapon_upgrade', upgrade: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', desc: 'Оглушает угрозы в области приземления.' },
   { id: 'impact_afterfield', kind: 'weapon_upgrade', upgrade: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', desc: 'Оставляет наносящий урон контур в точке посадки.' },
-  { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', desc: 'Лучше сохраняет импульс после столкновения со стеной.' },
-  { id: 'impact_wall_unlock', kind: 'weapon_upgrade', upgrade: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ', desc: 'Открывает установку одной временной стены на ЛКМ.' },
-  { id: 'impact_wall_count', kind: 'weapon_upgrade', upgrade: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ +1', desc: 'Ещё одна одновременно существующая временная стена.' },
-  { id: 'impact_wall_duration', kind: 'weapon_upgrade', upgrade: 'impact_wall_duration', label: 'DRV: СРОК ФАЙРВОЛА +25%', desc: 'Временные стены существуют дольше.' },
+  { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', desc: 'Открывает множитель отскоков и усиливает сохранение импульса.' },
+  { id: 'impact_wall_unlock', kind: 'weapon_upgrade', upgrade: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ-БЛОК', desc: 'Открывает установку одного временного квадратного блока на ЛКМ. У модуля своя перезарядка.' },
+  { id: 'impact_wall_count', kind: 'weapon_upgrade', upgrade: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ-БЛОК +1', desc: 'Ещё один одновременно существующий квадратный блок.' },
+  { id: 'impact_wall_duration', kind: 'weapon_upgrade', upgrade: 'impact_wall_duration', label: 'DRV: СРОК БЛОКА +25%', desc: 'Квадратные блоки существуют дольше.' },
+  { id: 'impact_push_unlock', kind: 'weapon_upgrade', upgrade: 'impact_push_unlock', label: 'DRV: ИМПУЛЬС СДВИГА', desc: 'Открывает ПКМ-модуль, запускающий выбранный собственный блок от героя.' },
+  { id: 'impact_push_range', kind: 'weapon_upgrade', upgrade: 'impact_push_range', label: 'PUSH: ДАЛЬНОСТЬ +20%', desc: 'Увеличивает дальность захвата и путь блока. Без лимита.' },
+  { id: 'impact_push_damage', kind: 'weapon_upgrade', upgrade: 'impact_push_damage', label: 'PUSH: УРОН +25%', desc: 'Усиливает урон летящего блока. Без лимита.' },
+  { id: 'impact_push_cooldown', kind: 'weapon_upgrade', upgrade: 'impact_push_cooldown', label: 'PUSH: ТАКТ +15%', desc: 'Ускоряет восстановление импульса сдвига. Без лимита.' },
+  { id: 'impact_push_bounce', kind: 'weapon_upgrade', upgrade: 'impact_push_bounce', label: 'PUSH: РИКОШЕТ СТЕНЫ', desc: 'Открывает отскоки летящего блока от стен.' },
+  { id: 'impact_push_multiplier', kind: 'weapon_upgrade', upgrade: 'impact_push_multiplier', label: 'PUSH: МНОЖИТЕЛЬ ОТСКОКА +25%', desc: 'Каждый отскок сильнее повышает урон блока. Без лимита.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG: ДАЛЬНИЙ ЗАЛП', desc: 'ПКМ тратит все заряды клинового разряда на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK: ФРАГМЕНТЫ', desc: 'Искатель выпускает фрагменты после удаления цели.' },
@@ -266,7 +282,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +3', desc: 'Добавляет 3 одновременных захвата. Предел одного якоря — 20 угроз.' },
   { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия. У Контролёра усиливает урон подконтрольных процессов.' },
-  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет перезарядку всего оружия каждого героя, включая SAW и подконтрольные стрелковые процессы.' }
+  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет оружейные циклы героев, дронов, Живого казино, Контроллера и его стрелковых процессов. Не ускоряет прыжки, Q или R.' }
 ];
 
 
@@ -366,8 +382,9 @@ export function defaultStats() {
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
     bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, sawFallbackDamage: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
-    jumpImpactDamage: 0, jumpImpactRadius: 0, jumpRecovery: 0, jumpStun: 0, jumpAfterfield: 0, jumpRebound: 0,
+    jumpImpactDamage: 0, jumpImpactRadius: 0, jumpDistance: 0, jumpStun: 0, jumpAfterfield: 0, jumpRebound: 0,
     impactWallUnlocked: 0, impactWallCount: 0, impactWallDuration: 0,
+    impactPushUnlocked: 0, impactPushRange: 0, impactPushDamage: 0, impactPushCooldown: 0, impactPushBounce: 0, impactPushMultiplier: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     comboPrize: 'gld', tempFire: 0,

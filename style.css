@@ -5213,6 +5213,26 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
 #process-controller-selected.pc-selected.ctrl-main.type-qrn { border-color: rgba(102,246,255,.72) !important; border-bottom-color: transparent !important; }
 
 #weapon-slots { margin-top: 7px !important; }
+#weapon-slots.impact-slots {
+  display:flex !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+  gap:5px !important;
+}
+#weapon-slots.impact-slots .wslot {
+  margin-left:0 !important;
+  padding:3px 7px !important;
+  font-size:12.5px !important;
+  letter-spacing:.035em !important;
+  background:rgba(2,12,16,.68) !important;
+  border-color:rgba(102,246,255,.55) !important;
+  color:#dffcff !important;
+}
+#weapon-slots.impact-slots .wslot.impact-push {
+  border-color:rgba(180,92,255,.62) !important;
+  color:#e8d7ff !important;
+  background:rgba(18,6,28,.66) !important;
+}
 #weapon-slots.ctrl-slots {
   width: min(350px, 42vw) !important;
   display: flex !important;

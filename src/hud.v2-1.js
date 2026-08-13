@@ -144,7 +144,7 @@ function renderTabBuild(me) {
   } else if (build.hero === 'impact_driver') heroDefs.push(
     { key:'jumpImpactDamage', ru:'ПОСАДКА: МОЩНОСТЬ', en:'LANDING: POWER' },
     { key:'jumpImpactRadius', ru:'ПОСАДКА: КОНТУР', en:'LANDING: RADIUS' },
-    { key:'jumpRecovery', ru:'ПРЫЖОК: ПЕРЕЗАПУСК', en:'JUMP: RECOVERY' },
+    { key:'jumpDistance', ru:'ПРЫЖОК: ДАЛЬНОСТЬ', en:'JUMP: RANGE', kind:'pct' },
     { key:'jumpStun', ru:'ПОСАДКА: ОГЛУШЕНИЕ', en:'LANDING: STUN' },
     { key:'jumpAfterfield', ru:'ПОСАДКА: СЛЕД', en:'LANDING: FIELD' },
     { key:'jumpRebound', ru:'ПРЫЖОК: ОТСКОК', en:'JUMP: REBOUND' }
@@ -725,7 +725,7 @@ const BOSS_REWARD_HINTS = {
   'REDLINE BOOST': [localText('КРАСНАЯ ЛИНИЯ', 'REDLINE BOOST'), localText('Рывок ускоряет антивирус. Повторы увеличивают силу и длительность.', 'The dash accelerates the antivirus. Stacks improve force and duration.')],
   'SPAWN HOLD': [localText('ЗАМОРОЗКА СПАВНА', 'SPAWN HOLD'), localText('На старте сектора угрозы задерживаются, чтобы антивирус успел занять позицию.', 'Threats are delayed at sector start so the antivirus can take position.')],
   'KILL SWITCH': [localText('АВАРИЙНАЯ ОЧИСТКА', 'KILL SWITCH'), localText('Один раз за протокол очищает экран от угроз, включая главную угрозу.', 'Once per protocol, clears the screen of threats, including the core threat.')],
-  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Копирует следующий усиливаемый приз с выбором. Заряд возвращается после победы над главной угрозой.', 'Copies the next stackable choice prize. Charge returns after the core threat is cleared.')],
+  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Каждое готовое зеркало копирует следующий приз босса. Все зеркала срабатывают вместе; сам MIRROR PAYOUT не копируется.', 'Every ready mirror copies the next boss reward. All mirrors trigger together; MIRROR PAYOUT cannot copy itself.')],
   'AEGIS PROCESS': [localText('ЭГИДА', 'AEGIS PROCESS'), localText('Даёт защитный слой оболочки. Повторы увеличивают запас защиты.', 'Adds a shell shield layer. Stacks increase its capacity.')],
   'NULL REVIVAL': [localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), localText('Один раз возвращает антивирус после сбоя.', 'Restores the antivirus once after a crash.')],
   'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук с выбором бесплатно и повышает качество награды.', 'Makes the next choice chest free and upgrades its reward quality.')]
@@ -1547,7 +1547,7 @@ export class Hud {
         if (explicit.has(ux)) continue;
         addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
       }
-      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Копирует следующий усиливаемый приз с выбором. Заряд возвращается после главной угрозы.', 'Copies the next stackable choice prize. Charge returns after the core threat.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
+      if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Все готовые зеркала вместе копируют следующий приз босса. Другие награды их не расходуют.', 'All ready mirrors copy the next boss reward together. Other rewards do not spend them.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
       if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, localText(`НУЛЕВОЕ ВОССТАНОВЛЕНИЕ: зарядов ${me[P.REVIVE]}. При сбое возвращает 45% здоровья.`, `NULL REVIVAL: ${me[P.REVIVE]} charge${me[P.REVIVE] === 1 ? '' : 's'}. Restores 45% health after a crash.`), 'cyan');
       const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
       const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
@@ -1770,16 +1770,39 @@ export class Hud {
     const ctrlCapActive = processControllerHero && !!me[P.CTRL]?.captureActive;
     document.body?.classList?.toggle('ctrl-capture-active', ctrlCapActive);
     document.documentElement?.style?.setProperty('--ctrl-capture-pct', `${ctrlCapPct}%`);
+    const impactWall = impactDriverMode ? me[P.BUILD]?.impactWall : null;
     if (slots) {
-      slots.classList.toggle('hidden', livingCasinoHero || impactDriverMode);
+      slots.classList.toggle('hidden', livingCasinoHero || (impactDriverMode && !impactWall));
       slots.classList.toggle('ctrl-slots', processControllerHero && !livingCasinoHero);
+      slots.classList.toggle('impact-slots', impactDriverMode && !!impactWall);
       slots.classList.remove('lc-slots');
     }
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '') + (impactDriverMode ? ':impact' : '');
+    const wallCd = Math.max(0, Number(impactWall?.cd || 0));
+    const pushCd = Math.max(0, Number(impactWall?.pushCd || 0));
+    const pushUnlocked = !!impactWall?.pushUnlocked;
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '') + (impactDriverMode ? `:impact:${wallCd.toFixed(1)}:${pushUnlocked ? 1 : 0}:${pushCd.toFixed(1)}` : '');
     if (slots && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
-      me[P.WEAPONS].forEach((w, i) => {
+      if (impactDriverMode && impactWall) {
+        const s = document.createElement('span');
+        s.className = 'wslot active';
+        s.textContent = wallCd > 0 ? `LMB FWL ${wallCd.toFixed(1)}s` : 'LMB FWL READY';
+        this.setExplain(s, localText('КВАДРАТНЫЙ ФАЙРВОЛ', 'SQUARE FIREWALL'), wallCd > 0
+          ? localText(`Перезарядка: ${wallCd.toFixed(1)} сек.`, `Cooldown: ${wallCd.toFixed(1)} sec.`)
+          : localText('Готов поставить временный квадратный блок.', 'Ready to place a temporary square block.'), wallCd > 0 ? '' : 'cyan');
+        slots.appendChild(s);
+        if (pushUnlocked) {
+          const push = document.createElement('span');
+          push.className = 'wslot impact-push active';
+          push.textContent = pushCd > 0 ? `RMB PUSH ${pushCd.toFixed(1)}s` : 'RMB PUSH READY';
+          this.setExplain(push, localText('ИМПУЛЬС СДВИГА', 'SHIFT IMPULSE'), pushCd > 0
+            ? localText(`Перезарядка: ${pushCd.toFixed(1)} сек.`, `Cooldown: ${pushCd.toFixed(1)} sec.`)
+            : localText('Наведи курсор прямо на свой близкий блок и нажми ПКМ.', 'Aim directly at a nearby owned block and press RMB.'), pushCd > 0 ? '' : 'purple');
+          slots.appendChild(push);
+        }
+      } else {
+        me[P.WEAPONS].forEach((w, i) => {
         const s = document.createElement('span');
         s.className = 'wslot' + (i === me[P.WIDX] ? ' active' : '');
         const wd = WEAPONS[w] || WEAPON_BY_LABEL[w];
@@ -1788,7 +1811,8 @@ export class Hud {
         const desc = weaponDesc(wd, me[P.SHG] ?? 4);
         this.setExplain(s, wd?.name || String(w).toUpperCase(), desc, 'cyan');
         slots.appendChild(s);
-      });
+        });
+      }
     }
 
     // interact prompt
@@ -1970,7 +1994,12 @@ export class Hud {
       case 'weapon_get': this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${f.w}`, 'c'); break;
       case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
-      case 'mirror_copy': if (f.id === myId || f.playerId === myId) this.feed(`${localText('ЗЕРКАЛО', 'MIRROR')}: ${f.ok ? localText('СКОПИРОВАНО', 'COPIED') : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}${f.body ? ` · ${localText(String(f.body).replace('+1 USE', '+1 ПРИМЕНЕНИЕ').replace('TOTAL', 'ВСЕГО'), f.body)}` : ''}`, f.ok ? 'p' : 'r'); break;
+      case 'mirror_copy': if (f.id === myId || f.playerId === myId) {
+        const copies = Math.max(0, Number(f.copies || (f.ok ? 1 : 0)) | 0);
+        const body = localText(f.bodyRu || String(f.body || '').replace('USE', 'ПРИМЕНЕНИЕ').replace('USES', 'ПРИМЕНЕНИЯ').replace('TOTAL', 'ВСЕГО'), f.bodyEn || f.body || '');
+        this.feed(`${localText('ЗЕРКАЛО', 'MIRROR')}: ${f.ok ? `${localText('КОПИИ', 'COPIES')} x${copies}` : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}${body ? ` · ${body}` : ''}`, f.ok ? 'p' : 'r');
+        break;
+      }
       case 'contract_selected': this.feed(`${localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED')}: ${locLabel(f.label || '')}`, 'g'); break;
       case 'boss_key_used':
         if (f.id === myId || f.playerId === myId) {
@@ -2369,21 +2398,16 @@ export class Hud {
     return Math.max(0, Number(me[P.MIRROR] || 0) || 0);
   }
   mirrorMetaForChoice(id, opt = null, context = '') {
-    if (this.mirrorChargesReady() <= 0) return null;
+    const ready = this.mirrorChargesReady();
+    if (ready <= 0) return null;
+    const mirrorCopy = { label: `${localText('ЗЕРКАЛО', 'MIRROR')} x${ready + 1}`, tone: 'purple', works: 1, copies: ready };
+    const mirrorSaved = { label: localText('ЗЕРКАЛО СОХРАНЕНО', 'MIRROR SAVED'), tone: 'purple', works: 0, saved: 1 };
     const bossStack = new Set(['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_null_revival','sig_boss_key']);
     const ctx = String(context || '');
     if (ctx === 'install') return null;
     if (ctx === 'boss') {
       if (String(id || '') === 'sig_mirror_payout') return null;
-      return bossStack.has(String(id || '')) ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
-    }
-    if (ctx === 'weapon') {
-      const k = String(opt?.kind || '');
-      return (k === 'weapon_upgrade' || k === 'stat') ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
-    }
-    if (ctx === 'ability') {
-      const k = String(opt?.kind || '');
-      return (k === 'active_core_install' || k === 'active_core_replace' || k === 'active_upgrade_core' || k === 'ability_upgrade' || k === 'stat') ? { label: localText('ЗЕРКАЛО x2', 'MIRROR x2'), tone: 'purple', works: 1 } : { label: localText('УНИКАЛЬНО', 'UNIQUE'), tone: 'red', works: 0 };
+      return bossStack.has(String(id || '')) ? mirrorCopy : mirrorSaved;
     }
     return null;
   }
@@ -2442,7 +2466,7 @@ export class Hud {
       const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
       const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
       d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      const mirrorHint = m ? (m.works ? localText('ЗЕРКАЛО активно: этот выбор будет скопирован и даст дополнительный уровень/заряд.', 'MIRROR is active: this choice will be copied for an extra stack/charge.') : localText('ЗЕРКАЛО активно, но эта награда уникальна: заряд будет потрачен без копии.', 'MIRROR is active, but this reward is unique: the charge will be spent without a copy.')) : '';
+      const mirrorHint = m ? (m.works ? localText(`Готовые зеркала (${m.copies}) вместе скопируют этот выбор: итог x${m.copies + 1}.`, `${m.copies} ready mirror${m.copies === 1 ? '' : 's'} will copy this choice together: x${m.copies + 1} total.`) : localText('Этот выбор не копируется, но готовые зеркала сохранятся.', 'This choice cannot be copied, but all ready mirrors will be saved.')) : '';
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i, nextOfferId, id));
       box.appendChild(d);
@@ -2744,8 +2768,7 @@ export class Hud {
       const upKey = String(opt.upgrade || opt.id || '');
       const elementClass = meta.element || (upKey === 'bullet_fire' ? 'fire' : upKey === 'bullet_freeze' ? 'freeze' : upKey === 'bullet_poison' ? 'poison' : upKey === 'drone_element_link' ? 'drone' : '');
       const elementTag = elementClass ? `<span class="wpn-tag element ${elementClass}">${esc(weaponElementLabel(elementClass))}</span>` : '';
-      const mirror = this.mirrorMetaForChoice(opt.id || opt.upgrade || opt.weapon || opt.label, opt, 'weapon');
-      const mirrorTag = mirror ? `<span class="wpn-tag mirror ${mirror.works ? 'works' : 'unique'}">${esc(mirror.label)}</span>` : '';
+      const mirrorTag = '';
       const roleName = weaponRoleLabel(meta.role);
       const roleTag = `<span class="wpn-role ${meta.tone || 'utility'}">${esc(roleName)}</span>`;
       d.innerHTML = `
@@ -2753,7 +2776,7 @@ export class Hud {
         <span class="wpn-choice-read">${esc(meta.summary)}</span>
         <span class="wpn-choice-change">${esc(meta.change)}</span>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} · ${roleName}`;
-      const body = `${optionDesc(opt)}${meta.change ? `\n${meta.change}.` : ''}${mirror ? '\n\n' + (mirror.works ? localText('ЗЕРКАЛО: выбор будет скопирован.', 'MIRROR: this choice will be copied.') : localText('ЗЕРКАЛО: уникальный выбор, копии не будет.', 'MIRROR: unique choice, no copy.')) : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
+      const body = `${optionDesc(opt)}${meta.change ? `\n${meta.change}.` : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : (meta.tone === 'dps' ? 'green' : 'cyan'));
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
@@ -2799,8 +2822,7 @@ export class Hud {
       d.className = 'choice ability-choice ability-card' + (opt.disabled ? ' disabled' : '') + ` tone-${tone} rarity-${rarity}`;
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       const role = opt.role ? `<span class="abl-role">${esc(locRole(opt.role))}</span>` : '';
-      const mirror = this.mirrorMetaForChoice(opt.id || opt.upgrade || opt.core || opt.label, opt, 'ability');
-      const mirrorTag = mirror ? `<span class="abl-role mirror ${mirror.works ? 'works' : 'unique'}">${esc(mirror.label)}</span>` : '';
+      const mirrorTag = '';
       const action = opt.actionLabel ? `<div class="abl-action">${esc(locAction(opt.actionLabel))}</div>` : '';
       d.innerHTML = `
         <div class="abl-card-top">
@@ -2812,8 +2834,7 @@ export class Hud {
           <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${mirrorTag}${locked}</div>
         </div>`;
       const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
-      const mirrorHint = mirror ? (mirror.works ? localText('ЗЕРКАЛО: выбор будет скопирован.', 'MIRROR: this choice will be copied.') : localText('ЗЕРКАЛО: уникальный выбор, копии не будет.', 'MIRROR: unique choice, no copy.')) : '';
-      const body = `${optionDesc(opt)}${mirrorHint ? '\n\n' + mirrorHint : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
+      const body = `${optionDesc(opt)}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
@@ -2859,6 +2880,7 @@ export class Hud {
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       const bonus = Math.max(0, Number(meta.bonusGld || 0) | 0);
       const bonusLine = bonus > 0 ? `<div class="abl-action">${esc(localText('БОНУС', 'BONUS'))}: +${bonus} GLD</div>` : '';
+      const mirrorTag = '';
       d.innerHTML = `
         <div class="abl-card-top">
           <span class="key abl-key">[${i + 1}]</span>
@@ -2866,7 +2888,7 @@ export class Hud {
             <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
             ${bonusLine}
           </div>
-          <div class="abl-tags"><span class="rarity-tag">${esc(localText('РЕД', 'RAR'))}</span>${locked}</div>
+          <div class="abl-tags"><span class="rarity-tag">${esc(localText('РЕД', 'RAR'))}</span>${mirrorTag}${locked}</div>
         </div>`;
       const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('Бонус сундука добавится к выбору.', 'Chest bonus is added to the pick.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, `${locLabel(opt.label || opt.id)} / ${localText('РЕД', 'RAR')}`, body, opt.disabled ? 'red' : tone);

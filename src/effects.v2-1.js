@@ -161,9 +161,9 @@ export class Effects {
         if (mine) { this.kick(1.8); this.zoomKick = Math.max(this.zoomKick, 0.035); }
         break;
       case 'player_jump_wall':
-        this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, ttl: 0.30, color: '#f3f3f3' });
-        if (f.mul > 1) this.float(f.x, f.y - 42, `x${f.mul}`, '#66f6ff', 13);
-        if (mine) { this.kick(6.2); this.zoomKick = Math.max(this.zoomKick, 0.10); }
+        this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, mul: f.mul || 1, ttl: 0.18, color: '#f3f3f3' });
+        if (f.mul > 1) this.float(f.x, f.y - 48, `x${f.mul}`, '#66f6ff', Math.min(28, 18 + (f.mul - 2) * 1.3));
+        if (mine) { this.kick(f.mul > 1 ? 4.2 : 3.2); this.zoomKick = Math.max(this.zoomKick, f.mul > 1 ? 0.075 : 0.05); }
         break;
       case 'player_jump_land':
         this.add({ kind: 'jumpLand', x: f.x, y: f.y, r: f.r || 108, ttl: 0.42, color: '#66f6ff' });
@@ -174,6 +174,22 @@ export class Effects {
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: '#66f6ff' });
         this.float(f.x, f.y - 30, `FWL ${f.count || 1}/${f.max || 1}`, '#66f6ff', 11);
         if (mine) { this.kick(2.4); this.zoomKick = Math.max(this.zoomKick, 0.045); }
+        break;
+      case 'impact_wall_push':
+        this.add({ kind: 'impactWallImpulse', x: f.x, y: f.y, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.30, color: '#b45cff' });
+        if (mine) { this.kick(2.1); this.zoomKick = Math.max(this.zoomKick, 0.035); }
+        break;
+      case 'impact_wall_bounce':
+        this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, mul: f.mul || 1, ttl: 0.18, color: '#b45cff' });
+        this.float(f.x, f.y - 34, `PUSH x${f.mul || 1}`, '#b45cff', 12);
+        if (mine) this.kick(3.4);
+        break;
+      case 'impact_wall_stop':
+        this.add({ kind: 'impactWallStop', x: f.x, y: f.y, w: f.w || 66, h: f.h || 66, ttl: 0.34, color: f.settling ? '#ffd34d' : '#66f6ff' });
+        if (mine) this.kick(2.6);
+        break;
+      case 'impact_wall_hit':
+        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18, color: '#b45cff' });
         break;
       case 'impact_wall_end':
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.28, color: '#b45cff' });
@@ -725,6 +741,14 @@ export class Effects {
         ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.32;
         const block = e.weapon === 'rocketgun' ? 18 : 10;
         ctx.fillRect(Math.round(e.x + dx * 10 - block/2), Math.round(e.y + dy * 10 - block/2), block, block);
+      } else if (e.kind === 'impactWallImpulse') {
+        const fade = 1 - p, n = Math.hypot(e.dx || 0, e.dy || 0) || 1, dx = (e.dx || 0) / n, dy = (e.dy || 0) / n, nx = -dy, ny = dx;
+        ctx.strokeStyle = e.color; ctx.lineWidth = 1.4;
+        for (let i = -2; i <= 2; i++) { const side = i * 8; ctx.globalAlpha = fade * (0.66 - Math.abs(i) * 0.08); ctx.beginPath(); ctx.moveTo(e.x - dx * (12 + p * 12) + nx * side, e.y - dy * (12 + p * 12) + ny * side); ctx.lineTo(e.x - dx * (42 + p * 30) + nx * side * 1.2, e.y - dy * (42 + p * 30) + ny * side * 1.2); ctx.stroke(); }
+      } else if (e.kind === 'impactWallStop') {
+        const fade = 1 - p, grow = 1 + p * 0.28;
+        ctx.strokeStyle = e.color; ctx.globalAlpha = fade * 0.82; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+        ctx.strokeRect(e.x - e.w * grow / 2, e.y - e.h * grow / 2, e.w * grow, e.h * grow); ctx.setLineDash([]);
       } else if (e.kind === 'jumpTakeoff') {
         const fade = 1 - p;
         const n = Math.hypot(e.vx || 0, e.vy || 0) || 1;
@@ -742,27 +766,38 @@ export class Effects {
         const fade = 1 - p;
         const nx = e.nx || 0, ny = e.ny || 0;
         const tx = -ny, ty = nx;
-        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = 2;
-        for (let i = -3; i <= 3; i++) {
-          const side = i * 7;
-          const out = 5 + p * (28 + Math.abs(i) * 2);
-          ctx.globalAlpha = fade * (0.82 - Math.abs(i) * 0.07);
-          const px = e.x + tx * side + nx * out, py = e.y + ty * side + ny * out;
-          ctx.strokeRect(Math.round(px - 3), Math.round(py - 3), 6, 6);
+        // Compact white buckshot-like fan: same visual language as SHG muzzle
+        // streaks, but fewer, shorter and thinner so repeated bounces stay clean.
+        ctx.strokeStyle = '#f3f3f3'; ctx.fillStyle = '#f3f3f3'; ctx.lineWidth = 1.25;
+        for (let i = -2; i <= 2; i++) {
+          const side = i * 3.2;
+          const start = 3 + p * 2 + Math.abs(i) * 0.6;
+          const end = 10 + p * (10 + (2 - Math.abs(i)) * 2);
+          ctx.globalAlpha = fade * (0.70 - Math.abs(i) * 0.07);
+          ctx.beginPath();
+          ctx.moveTo(Math.round(e.x + tx * side + nx * start), Math.round(e.y + ty * side + ny * start));
+          ctx.lineTo(Math.round(e.x + tx * side * 1.35 + nx * end), Math.round(e.y + ty * side * 1.35 + ny * end));
+          ctx.stroke();
         }
+        ctx.globalAlpha = fade * 0.42;
+        ctx.fillRect(Math.round(e.x + nx * 6 - 2), Math.round(e.y + ny * 6 - 2), 4, 4);
       } else if (e.kind === 'jumpLand') {
         const fade = 1 - p;
-        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1, 3 - p * 2);
-        const s = 30 + p * Math.max(78, (e.r || 108) * 1.7);
-        ctx.globalAlpha = fade * 0.75;
-        ctx.strokeRect(Math.round(e.x - s/2), Math.round(e.y - s*0.22), Math.round(s), Math.round(s*0.44));
-        for (let i = 0; i < 8; i++) {
-          const a = i * Math.PI / 4;
-          const d = 18 + p * (48 + (i % 3) * 8);
-          const z = Math.max(2, 6 - p * 4);
-          ctx.globalAlpha = fade * (0.56 + (i % 2) * 0.12);
-          ctx.fillRect(Math.round(e.x + Math.cos(a) * d - z/2), Math.round(e.y + Math.sin(a) * d * 0.45 - z/2), Math.round(z), Math.round(z));
-        }
+        // A landing is a floor decal, not a raised shock sphere. Keep the
+        // outer ring at the authoritative hit radius and every detail in the
+        // world plane; no rising debris or vertically compressed volume.
+        const r = Math.max(8, Number(e.r || 108));
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color;
+        ctx.lineWidth = Math.max(1, 3 - p * 1.8);
+        ctx.globalAlpha = fade * 0.13;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = fade * 0.82;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = fade * 0.38;
+        ctx.setLineDash([10, 8]);
+        ctx.lineDashOffset = -p * 30;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r * (0.70 + p * 0.20), 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
       } else if (e.kind === 'impact') {
         const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 2;

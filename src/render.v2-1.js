@@ -58,7 +58,7 @@ export class Renderer {
     ctx.fillText(text, x, y);
   }
 
-  bossHpBar(x, y, size, hp01, color = COL.red) {
+  bossHpBar(x, y, size, hp01, color = COL.red, compact = false) {
     const ctx = this.ctx;
     const pct = Math.max(0, Math.min(100, Number(hp01) || 0));
     const bw = Math.max(82, size * 1.55);
@@ -67,20 +67,22 @@ export class Renderer {
     ctx.save();
     ctx.globalAlpha = 0.94;
     ctx.fillStyle = 'rgba(0,0,0,0.74)';
-    ctx.fillRect(bx - 2, by - 2, bw + 4, 14);
+    ctx.fillRect(bx - 2, by - 2, bw + 4, compact ? 10 : 14);
     ctx.strokeStyle = '#f3f3f3';
     ctx.globalAlpha = 0.34;
-    ctx.strokeRect(bx - 2, by - 2, bw + 4, 14);
+    ctx.strokeRect(bx - 2, by - 2, bw + 4, compact ? 10 : 14);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#202020';
     ctx.fillRect(bx, by, bw, 6);
     ctx.fillStyle = color;
     ctx.fillRect(bx, by, bw * pct / 100, 6);
-    ctx.fillStyle = '#f3f3f3';
-    ctx.font = `700 9px 'Courier New', monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${Math.round(pct)}%`, Math.round(x), by + 6);
+    if (!compact) {
+      ctx.fillStyle = '#f3f3f3';
+      ctx.font = `700 9px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${Math.round(pct)}%`, Math.round(x), by + 6);
+    }
     ctx.restore();
   }
 
@@ -379,20 +381,55 @@ export class Renderer {
     ctx.stroke();
 
     // walls
-    for (const w of state.walls) {
+    for (const w of (state.visualWalls || state.walls)) {
       if (w.temp || w.kind === 'impact_wall') {
         const life = Math.max(0, Math.min(1, Number(w.ttl || 0) / Math.max(0.01, Number(w.maxT || 1))));
         ctx.save();
-        ctx.globalAlpha = 0.48 + life * 0.38;
+        ctx.globalAlpha = w.moving ? 0.72 : (0.48 + life * 0.38);
         ctx.fillStyle = '#061419'; ctx.fillRect(w.x, w.y, w.w, w.h);
-        ctx.strokeStyle = '#66f6ff'; ctx.lineWidth = 3; ctx.setLineDash([9, 4]); ctx.strokeRect(w.x, w.y, w.w, w.h);
+        ctx.strokeStyle = w.moving ? '#b45cff' : '#66f6ff'; ctx.lineWidth = 3; ctx.setLineDash(w.moving ? [4, 3] : [9, 4]); ctx.strokeRect(w.x, w.y, w.w, w.h);
         ctx.setLineDash([]); ctx.globalAlpha *= 0.55; ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
-        if (w.w > w.h) ctx.strokeRect(w.x + 9, w.y + w.h / 2 - 2, Math.max(0, w.w - 18), 4);
-        else ctx.strokeRect(w.x + w.w / 2 - 2, w.y + 9, 4, Math.max(0, w.h - 18));
+        const inset = Math.max(8, Math.min(w.w, w.h) * 0.19);
+        ctx.strokeRect(w.x + inset, w.y + inset, Math.max(0, w.w - inset * 2), Math.max(0, w.h - inset * 2));
+        ctx.beginPath();
+        ctx.moveTo(w.x + inset, w.y + inset); ctx.lineTo(w.x + w.w - inset, w.y + w.h - inset);
+        ctx.moveTo(w.x + w.w - inset, w.y + inset); ctx.lineTo(w.x + inset, w.y + w.h - inset);
+        ctx.stroke();
+        if (w.moving && (w.vx || w.vy)) {
+          const n = Math.hypot(w.vx || 0, w.vy || 0) || 1, dx = (w.vx || 0) / n, dy = (w.vy || 0) / n;
+          const cx = w.x + w.w / 2, cy = w.y + w.h / 2;
+          ctx.globalAlpha = 0.5; ctx.strokeStyle = '#b45cff'; ctx.lineWidth = 2;
+          for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(cx - dx * (28 + i * 12), cy - dy * (28 + i * 12)); ctx.lineTo(cx - dx * (35 + i * 16), cy - dy * (35 + i * 16)); ctx.stroke(); }
+        }
         ctx.restore();
       } else {
         ctx.fillStyle = COL.wall; ctx.fillRect(w.x, w.y, w.w, w.h);
         ctx.strokeStyle = COL.wallEdge; ctx.lineWidth = 2; ctx.strokeRect(w.x, w.y, w.w, w.h);
+      }
+    }
+
+    // PUSH is selected by hovering the wall itself. Show only a light local
+    // direction cue: from the cursor contact point through the block centre.
+    const pushMeRow = (view.players || []).find(p => p[P.ID] === state.myId);
+    const push = pushMeRow?.[P.BUILD]?.impactWall;
+    if (push?.pushUnlocked && Number(push.pushCd || 0) <= 0) {
+      const wx = mouse.x + this.cam.x, wy = mouse.y + this.cam.y;
+      const wall = (state.room?.tempWalls || []).find(w => w?.owner === state.myId && !w.moving && !w.settling && wx >= w.x && wx <= w.x + w.w && wy >= w.y && wy <= w.y + w.h);
+      if (wall) {
+        const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
+        const reach = Math.max(0, Number(push.pushReach || 0));
+        if (Math.hypot(cx - pushMeRow[P.X], cy - pushMeRow[P.Y]) <= reach) {
+          let dx = cx - wx, dy = cy - wy; const n = Math.hypot(dx, dy);
+          if (n >= 2) {
+            dx /= n; dy /= n;
+            const x1 = cx + dx * (wall.w * 0.46), y1 = cy + dy * (wall.h * 0.46), x2 = x1 + dx * 38, y2 = y1 + dy * 38;
+            ctx.save(); ctx.strokeStyle = '#b45cff'; ctx.fillStyle = '#b45cff'; ctx.globalAlpha = 0.70; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            const nx = -dy, ny = dx;
+            ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - dx * 9 + nx * 5, y2 - dy * 9 + ny * 5); ctx.lineTo(x2 - dx * 9 - nx * 5, y2 - dy * 9 - ny * 5); ctx.closePath(); ctx.fill();
+            ctx.restore();
+          }
+        }
       }
     }
 
@@ -1088,9 +1125,10 @@ export class Renderer {
           }
         }
         ctx.restore();
-        // Keep the name inside the body: the shared HP and armor bars own the top stack.
+        // OCT has no armor. Use a compact HP-only strip so the removed armor
+        // layer does not leave an empty field under its health bar.
         this.label('OCT', ex, ey + 4, crashing ? COL.fg : laserCol, 12);
-        this.bossHpBar(ex, ey, size, hp01, COL.red);
+        this.bossHpBar(ex, ey, size, hp01, COL.red, true);
       } else {
         // grunt / runner
         this.square(ex, ey, size, { stroke, lw: kind === 'runner' ? 1.5 : 2.5, fill: 'rgba(255,255,255,0.05)' });
@@ -1659,10 +1697,10 @@ export class Renderer {
         if (bounceMul > 1) {
           ctx.save();
           ctx.fillStyle = 'rgba(0,0,0,.82)'; ctx.strokeStyle = skinOutline; ctx.lineWidth = 2;
-          ctx.fillRect(px - 18, py - jumpVisual.height - 59, 36, 20);
-          ctx.strokeRect(px - 18, py - jumpVisual.height - 59, 36, 20);
-          ctx.fillStyle = skinOutline; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(`x${bounceMul}`, px, py - jumpVisual.height - 49);
+          ctx.fillRect(px - 25, py - jumpVisual.height - 68, 50, 28);
+          ctx.strokeRect(px - 25, py - jumpVisual.height - 68, 50, 28);
+          ctx.fillStyle = skinOutline; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(`x${bounceMul}`, px, py - jumpVisual.height - 54);
           ctx.restore();
         }
         this.label(p[P.NAME], px, py - jumpVisual.height - 31, isMe ? skinOutline : COL.dim, 10);
