@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.222';
-export const BUILD_ID = 'spark_target_distribution';
+export const VERSION = 'v2.1.227';
+export const BUILD_ID = 'full_boss_rotation_transition_audit';
 export const PROTOCOL = 15;
 
 export const MAX_PLAYERS = 4;
@@ -27,6 +27,7 @@ export const C = {
   RARE_PICK: 'rare_pick', // RAR chest pick {choiceIdx}
   REROLL_OFFER: 'reroll_offer',
   ROOM_WAGER: 'room_wager', // wager decision {offerId, accept}
+  ROOM_WAGER_SEEN: 'room_wager_seen', // confirms that the blocking choice is actually visible
   PING: 'ping',
   LEAVE: 'leave'
 };

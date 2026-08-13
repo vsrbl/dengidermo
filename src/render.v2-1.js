@@ -942,11 +942,10 @@ export class Renderer {
         this.label('RUSH', ex, ey - size / 2 - 14, COL.cyan, 12);
         this.bossHpBar(ex, ey, size, hp01, COL.cyan);
       } else if (kind === 'boss') {
-        const stateParts = String(st || 'oct_phase:1:4:0').split(':');
+        const stateParts = String(st || 'oct_phase:1:0').split(':');
         const crashing = stateParts[0] === 'oct_crash';
         const phase = crashing ? 0 : Math.max(1, Math.min(8, Number(stateParts[1]) || 1));
-        const phaseLeft = Math.max(0, Number(stateParts[2]) || 0);
-        const angle = (Number(stateParts[3] ?? stateParts[2]) || 0) / 1000;
+        const angle = (Number(stateParts[crashing ? 1 : 2]) || 0) / 1000;
         const laserCol = phase === 8 ? COL.red : COL.purple;
         if (Array.isArray(octLasers)) {
           for (const seg of octLasers) {
@@ -990,9 +989,9 @@ export class Renderer {
           }
         }
         ctx.restore();
-        this.label('OCT', ex, ey - size / 2 - 14, crashing ? COL.fg : laserCol, 12);
-        this.label(crashing ? 'DESYNC' : `PHASE ${phase}/8 · ${Math.ceil(phaseLeft)}s`, ex, ey + size / 2 + 17, crashing ? COL.red : laserCol, 8);
-        this.bossHpBar(ex, ey, size, hp01, crashing ? COL.fg : laserCol);
+        // Keep the name inside the body: the shared HP and armor bars own the top stack.
+        this.label('OCT', ex, ey + 4, crashing ? COL.fg : laserCol, 12);
+        this.bossHpBar(ex, ey, size, hp01, COL.red);
       } else {
         // grunt / runner
         this.square(ex, ey, size, { stroke, lw: kind === 'runner' ? 1.5 : 2.5, fill: 'rgba(255,255,255,0.05)' });

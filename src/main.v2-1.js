@@ -710,6 +710,7 @@ function ensureDevPanel() {
     <div class="dev-title">DEV MODE <span>F2</span></div>
     <div class="dev-note">SINGLE PLAYER/HOST only · full test lab · F2</div>
     <div class="dev-buttons dev-priority">
+      <button id="dev-repair-transition">FIX STUCK TRANSITION</button>
       <button id="dev-open-portal">OPEN PORTAL NOW</button>
       <button id="dev-wpn-offer">ОРУЖЕЙНЫЙ ВЫБОР</button>
       <button id="dev-wpn-chest">ОРУЖЕЙНЫЙ СУНДУК</button>
@@ -780,6 +781,11 @@ function ensureDevPanel() {
     specialRoomId: devPanel.querySelector('#dev-room-special')?.value || '',
     archetype: devPanel.querySelector('#dev-room-arch')?.value || '',
     modifierIds: [...devPanel.querySelectorAll('#dev-room-mods input:checked')].map(x => x.value)
+  });
+  devPanel.querySelector('#dev-repair-transition')?.addEventListener('click', () => {
+    hud.resetInstallSync?.();
+    cmd('repair_transition');
+    hud.feed('DEV: TRANSITION RECOVERY', 'c');
   });
   devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed('DEV: PORTAL OPEN', 'c'); });
   devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed('DEV: WPN OFFER', 'c'); });

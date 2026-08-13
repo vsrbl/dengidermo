@@ -807,6 +807,7 @@ export class Hud {
     this.ability = { open: false, choices: [], locked: false };
     this.rare = { open: false, choices: [], locked: false };
     this.wagerRenderKey = '';
+    this.wagerSeenOfferId = 0;
     this.names = new Map();
     this.localRerollSpent = 0;
     this.localRerollServerLeft = null;
@@ -1122,7 +1123,10 @@ export class Hud {
     if (card.classList.contains('active')) { this.positionRightStatusCards(); return; }
     const modal = $('install-modal');
     if (card.parentElement !== document.body) document.body.appendChild(card);
-    const panel = modal && !modal.classList.contains('hidden') ? modal.querySelector('.panel') : null;
+    // A signature modal can still exist for its closing animation after the
+    // authoritative choice is done. It must not be used as a positioning anchor.
+    const panel = modal && !modal.classList.contains('hidden') && !modal.classList.contains('sig-closing') && this.install.open
+      ? modal.querySelector('.panel') : null;
     if (!panel) {
       card.classList.add('wager-standalone');
       card.style.setProperty('left', '50%', 'important');
@@ -1138,9 +1142,15 @@ export class Hud {
     card.classList.remove('wager-standalone');
     const r = panel.getBoundingClientRect();
     const gap = 14;
-    const available = Math.max(190, Math.round(window.innerWidth - r.right - gap - 14));
+    const rightSpace = Math.round(window.innerWidth - r.right - gap - 14);
+    const leftSpace = Math.round(r.left - gap - 14);
+    const placeRight = rightSpace >= 230 || rightSpace >= leftSpace;
+    const available = Math.max(190, placeRight ? rightSpace : leftSpace);
     const w = Math.min(306, available);
-    card.style.setProperty('left', `${Math.round(r.right + gap)}px`, 'important');
+    const left = placeRight
+      ? Math.min(window.innerWidth - w - 14, Math.round(r.right + gap))
+      : Math.max(14, Math.round(r.left - gap - w));
+    card.style.setProperty('left', `${left}px`, 'important');
     card.style.setProperty('right', 'auto', 'important');
     card.style.setProperty('top', `${Math.max(14, Math.round(r.top))}px`, 'important');
     card.style.setProperty('bottom', 'auto', 'important');
@@ -1148,6 +1158,22 @@ export class Hud {
     card.style.setProperty('width', `${w}px`, 'important');
     card.style.setProperty('z-index', '520', 'important');
     card.style.setProperty('pointer-events', 'auto', 'important');
+  }
+
+  acknowledgeVisibleRoomWager(offer = null, phase = '') {
+    if (!offer || phase !== 'install') { this.wagerSeenOfferId = 0; return false; }
+    const id = Math.max(0, Number(offer.id || 0) | 0);
+    if (!id || this.wagerSeenOfferId === id) return false;
+    const card = $('room-wager-card');
+    if (!card || card.classList.contains('hidden') || !card.classList.contains('offer')) return false;
+    const style = window.getComputedStyle(card);
+    const r = card.getBoundingClientRect();
+    const onScreen = style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0
+      && r.width >= 120 && r.height >= 40 && r.right > 0 && r.bottom > 0 && r.left < window.innerWidth && r.top < window.innerHeight;
+    if (!onScreen) return false;
+    this.wagerSeenOfferId = id;
+    this.net?.sendRoomWagerSeen?.(id);
+    return true;
   }
 
   renderInstallNextRoom(room = {}, myId = '') {
@@ -1465,6 +1491,7 @@ export class Hud {
     }
     this.positionRoomWagerCard();
     this.positionRightStatusCards();
+    this.acknowledgeVisibleRoomWager(me[P.ROOMWAGER], room.phase);
     const inst = $('hud-install');
     if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');

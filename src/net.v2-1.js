@@ -264,6 +264,7 @@ export class Net {
   sendRarePick(choice) { this._game({ t: 'rare_pick', choice }, true); }
   sendRerollOffer(kind) { this._game({ t: 'reroll_offer', kind }, true); }
   sendRoomWager(offerId = 0, accept = true) { this._game({ t: 'room_wager', offerId, accept: accept !== false }, true); }
+  sendRoomWagerSeen(offerId = 0) { this._game({ t: 'room_wager_seen', offerId: Math.max(0, Number(offerId || 0) | 0) }, true); }
   sendDev(cmd) { this._game({ t: 'dev', cmd }, true); }
   _game(m, reliable = false) {
     if (this.room) { this.room.handleMsg(this.id, m); this.ping = 0; }

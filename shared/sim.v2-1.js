@@ -29,6 +29,10 @@ const GOLD_FEVER_DAMAGE_MULT = 5;
 const PLAYER_ORBITALS_REMOVED = true;
 const OFFER_TIMEOUT = 96;
 const BOSS_SIGNATURE_TIMEOUT = 64;
+// ROOM WAGER intentionally has no choice timer once it is visible. This short
+// handshake guard only releases INSTALL when the client never managed to put
+// the blocking card on screen at all.
+const ROOM_WAGER_UNSEEN_GRACE = 4;
 const CONTRACT_CHOICE_TIMEOUT = 30;
 const STATIC_RAIN_MAX_LEVEL = 99; // no player-facing cap; HUD shows the true stacked level
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
@@ -193,11 +197,99 @@ function syncPermanentRoomWagers(run, players, announce = false) {
 
 function ensureInstallOffer(run, p) {
   if (!p || !p.connected) return null;
+  const liveChoices = Array.isArray(p.offer?.choices) ? p.offer.choices : [];
+  const liveBossOffer = p.offer?.kind === 'boss_signature';
+  const bossChoicesValid = liveBossOffer && liveChoices.length > 0
+    && liveChoices.every(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p));
+  const installChoicesValid = !liveBossOffer && liveChoices.length > 0
+    && liveChoices.every(id => !!UPGRADES.find(u => u.id === id));
+  // Repair malformed/stale authoritative offers before the wait loop can keep
+  // INSTALL alive forever. A pending boss reward always has queue priority.
+  if (p.offer && (!liveChoices.length || (liveBossOffer ? !bossChoicesValid : !installChoicesValid))) p.offer = null;
+  if (p.bossSignaturePending && p.offer && p.offer.kind !== 'boss_signature') p.offer = null;
+  if (!p.bossSignaturePending && p.offer?.kind === 'boss_signature') p.offer = null;
   if (!p.offer && p.bossSignaturePending) p.offer = makeBossSignatureOffer(run, p);
   if (p.offer) return p.offer;
   if ((p.economy?.pending || 0) <= 0) return null;
   if (!p.offer) p.offer = makeInstallOffer(run, p);
   return p.offer;
+}
+
+function repairTransitionQueue(run, players, requestedBy = null) {
+  if (!run || !players || run.phase !== 'install') return { ok: false, state: 'NOT INSTALL', repaired: 0 };
+  let repaired = 0;
+  const details = [];
+  for (const p of players.values()) {
+    if (!p?.connected) continue;
+
+    // Never discard an earned contract choice. Rebuild its concrete WPN/ABL
+    // window when the queue exists but the visible child offer was lost.
+    if (p.contractPrizeOffer) {
+      const q = p.contractPrizeOffer;
+      if (!Array.isArray(q.offers) || q.index >= q.offers.length) {
+        p.contractPrizeOffer = null;
+        p.weaponChestOffer = p.weaponChestOffer?.contractPrize ? null : p.weaponChestOffer;
+        p.abilityChestOffer = p.abilityChestOffer?.contractPrize ? null : p.abilityChestOffer;
+        repaired++;
+      } else {
+        const before = q.kind === 'contract_ability' ? p.abilityChestOffer : p.weaponChestOffer;
+        const live = ensureContractChoicePrize(run, p);
+        if (!before && live) repaired++;
+        details.push(`${p.id}:CONTRACT`);
+        continue;
+      }
+    }
+
+    // Boss reward is mandatory and must be recovered, never skipped. Validate
+    // both its pending marker and payload because an empty/stale offer otherwise
+    // leaves INSTALL waiting with no usable card.
+    if (p.bossSignaturePending || p.offer?.kind === 'boss_signature') {
+      p.bossSignaturePending = true;
+      p.bossSignatureKind = p.bossSignatureKind || run.lastBossKind || run.bossKind || 'boss';
+      let choices = (p.offer?.kind === 'boss_signature' ? p.offer.choices : p.bossSignatureChoices) || [];
+      choices = choices.filter(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p)).slice(0, BOSS_SIGNATURE_CHOICE_COUNT);
+      if (choices.length < BOSS_SIGNATURE_CHOICE_COUNT) choices = bossSignatureChoicesForKind(p.bossSignatureKind, Math.random, p);
+      p.bossSignatureChoices = choices;
+      p.offer = makeBossSignatureOffer(run, p);
+      repaired++;
+      details.push(`${p.id}:BOSS`);
+      continue;
+    }
+
+    // A normal level-up pending without an offer is another legitimate queue
+    // item. Recreate it rather than forcing the transition past earned upgrades.
+    if ((p.economy?.pending || 0) > 0) {
+      p.offer = makeInstallOffer(run, p);
+      repaired++;
+      details.push(`${p.id}:INSTALL`);
+      continue;
+    }
+
+    // Wager is optional. A recovery command may safely decline only this card;
+    // mandatory rewards above are always restored first.
+    if (p.roomWagerOffer) {
+      handleRoomWagerDecline(run, players, p, p.roomWagerOffer.id || 0, true);
+      repaired++;
+      details.push(`${p.id}:WAGER SKIP`);
+    }
+  }
+
+  let waiting = false;
+  for (const p of players.values()) {
+    if (!p?.connected) continue;
+    waiting ||= !!(p.offer || p.contractPrizeOffer || p.weaponChestOffer?.contractPrize || p.abilityChestOffer?.contractPrize || p.roomWagerOffer || p.bossSignaturePending || (p.economy?.pending || 0) > 0);
+  }
+  if (!waiting) {
+    run.runDepth++;
+    startRoom(run, players);
+    details.push('NEXT ROOM');
+  }
+  run.fx.push({
+    t: 'active_mutation', label: waiting ? 'TRANSITION RESTORED' : 'TRANSITION CONTINUED',
+    body: details.join(' · ') || 'QUEUE CLEAN', x: Math.round(requestedBy?.x || run.plan?.w / 2 || 0), y: Math.round(requestedBy?.y || run.plan?.h / 2 || 0),
+    r: 135, tone: waiting ? 'cyan' : 'green', playerId: requestedBy?.id || ''
+  });
+  return { ok: true, state: waiting ? 'RESTORED' : 'CONTINUED', repaired, details };
 }
 
 function installWaitSnapshot(run, players) {
@@ -1977,6 +2069,24 @@ function finalRunSummary(run, players) {
 }
 function completeRun(run, players) {
   if (!run || run.phase === 'won') return;
+  // The sixth boss ends the run directly, so there is no INSTALL phase in
+  // which its queued signature could be consumed. Clear every transition-only
+  // choice before publishing the final snapshot; otherwise a late delivery can
+  // leave a hidden boss card or stale waiting state behind the victory screen.
+  for (const p of players.values()) {
+    if (!p) continue;
+    p.offer = null;
+    p.bossSignaturePending = false;
+    p.bossSignatureChoices = null;
+    p.bossSignatureKind = '';
+    p.contractPrizeOffer = null;
+    p.weaponChestOffer = null;
+    p.abilityChestOffer = null;
+    p.rareChestOffer = null;
+    p.roomWagerOffer = null;
+    p.roomWagerSeenOfferId = 0;
+    p.roomWagerUnseenT = 0;
+  }
   run.finalSummary = finalRunSummary(run, players);
   run.phase = 'won';
   run.phaseT = 0;
@@ -3263,6 +3373,7 @@ export function createPlayer(id, name, idx, skin = null) {
     contractPrizeOffer: null,
     rareChestOffer: null,
     roomWagerOffer: null, roomWagerActive: null, roomWagerPrizePending: '', roomWagerDecisionDone: false,
+    roomWagerSeenOfferId: 0, roomWagerUnseenT: 0,
     bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
@@ -5901,7 +6012,7 @@ export function startRoom(run, players) {
     p.emergencyCleanseUsed = false; p.emergencyCleanseT = 0; p.emergencyCleansePulse = 0;
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
-    p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.activeTargeting = null; p.roomWagerDecisionDone = false;
+    p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.activeTargeting = null; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0;
     p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0, weaponSwitch: 0, lcMarks: 0, lcSparks: 0, ctrlCommands: 0, ctrlCaptures: 0, hitTimes: [], hitBurstBest: 0, sameAttackKey: '', sameAttackKills: 0, sameAttackBest: 0, healed: 0, statusKinds: [], killsWhileQCd: 0, lowHpHold: 0, fastEliteKills: 0, allyProjectileKills: 0, startShield: Math.max(0, p.aegisShieldMax || 0) };
     p.bossQSilenceT = run.plan.category === 'boss' ? 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10 : 0;
     p.bossQSilenceDenyT = 0;
@@ -5948,7 +6059,8 @@ export function startRoom(run, players) {
     const bossKind = plannedBossKind || chooseBossKind(run);
     const boss = spawnEnemy(run, players, bossKind, false);
     if (octLaserRoom && bossKind === 'boss') {
-      boss.x = run.plan.w / 2; boss.y = run.plan.h / 2; boss.vx = 0; boss.vy = 0;
+      boss.x = run.plan.w / 2; boss.y = run.plan.h / 2;
+      seedOctBounceVelocity(run, boss, boss.spd);
     }
     if (isFinalBossRoom(run)) { boss.maxHp = Math.round((boss.maxHp || boss.hp || 1) * 1.35); boss.hp = boss.maxHp; boss.finalBoss = 1; }
     run.bossKind = bossKind;
@@ -6021,7 +6133,7 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
     else if ((p.skin?.hero || p.hero) === 'process_controller') setupProcessControllerPlayer(p);
   }
@@ -7168,12 +7280,17 @@ function spawnEnemy(run, players, kind, canElite = true, pos = null, opts = {}) 
       e.octPhaseT = 4;
       e.octAngle = rng() * Math.PI * 2;
       e.octTurn = rng() < 0.5 ? -1 : 1;
+      const bounceAngle = rng() * Math.PI * 2;
+      e.vx = Math.cos(bounceAngle) * def.spd;
+      e.vy = Math.sin(bounceAngle) * def.spd;
+      e.octBounceSeed = Math.floor(rng() * 0x7fffffff) >>> 0;
+      e.octStuckT = 0;
       e.octCrashT = 0;
       e.octPulseT = 0;
       e.octPhaseAnnounced = 0;
       e.octHitCds = {};
       e.octLasers = [];
-      e.state = `oct_phase:1:4:${Math.round(e.octAngle * 1000)}`;
+      e.state = `oct_phase:1:${Math.round(e.octAngle * 1000)}`;
     }
     if (kind === 'boss_trinode') {
       const partHp = Math.floor(e.maxHp / 3);
@@ -7619,6 +7736,79 @@ function stepBossEnemy(run, players, e, def, target, toT, dT, spd, dt, walls) {
 const OCT_PHASE_SECONDS = [4, 4, 4, 4, 4, 4, 4, 4];
 const OCT_ROTATION_SPEED = [0.10, 0.16, 0.23, 0.31, 0.40, 0.50, 0.64, 0.92];
 export function octLaserPhaseDuration(phase = 1) { return OCT_PHASE_SECONDS[clamp(Math.round(phase), 1, 8) - 1]; }
+function octSeeded01(run, e, salt = 0) {
+  const idSeed = parseInt(String(e?.id || '0'), 36) || 0;
+  const ownSeed = Number(e?.octBounceSeed || 0) || 0;
+  const v = Math.sin((run?.tick || 0) * 12.9898 + idSeed * 78.233 + ownSeed * 0.00017 + salt * 37.719) * 43758.5453;
+  return v - Math.floor(v);
+}
+function seedOctBounceVelocity(run, e, speed = e?.spd || ENEMIES.boss.spd, salt = 0) {
+  const wanted = Math.max(4, Number(speed) || ENEMIES.boss.spd);
+  // OCT is a ricochet hazard, not a pursuer: the heading never targets a player.
+  const a = octSeeded01(run, e, salt + 11) * Math.PI * 2;
+  e.vx = Math.cos(a) * wanted;
+  e.vy = Math.sin(a) * wanted;
+  e.dirX = Math.cos(a);
+  e.dirY = Math.sin(a);
+  e.octStuckT = 0;
+}
+function stepOctBounceMovement(run, players, e, speed, dt, walls) {
+  const wanted = Math.max(4, Number(speed) || Number(e?.spd) || ENEMIES.boss.spd);
+  const half = Math.max(8, Number(e?.size || ENEMIES.boss.size) * 0.5);
+  // Match the global boss containment pad so its safety pass never zeroes a
+  // valid edge bounce on the following frame.
+  const bnd = enemyArenaBounds(run, e, 18);
+  const clearAt = (x, y) => Number.isFinite(x) && Number.isFinite(y)
+    && x >= bnd.left && x <= bnd.right && y >= bnd.top && y <= bnd.bottom
+    && !(walls || []).some(w => aabbHit(x, y, half, w));
+
+  let current = Math.hypot(Number(e.vx) || 0, Number(e.vy) || 0);
+  if (current < Math.max(1.5, wanted * 0.32)) {
+    seedOctBounceVelocity(run, e, wanted, 31 + Math.round((e.octStuckT || 0) * 100));
+    current = wanted;
+  } else if (Math.abs(current - wanted) > Math.max(1, wanted * 0.06)) {
+    e.vx = e.vx / current * wanted;
+    e.vy = e.vy / current * wanted;
+  }
+
+  const ox = e.x, oy = e.y;
+  let nx = ox + e.vx * dt, ny = oy + e.vy * dt;
+  let hitX = nx < bnd.left || nx > bnd.right;
+  let hitY = ny < bnd.top || ny > bnd.bottom;
+  for (const w of walls || []) {
+    if (aabbHit(nx, oy, half, w)) hitX = true;
+    if (aabbHit(ox, ny, half, w)) hitY = true;
+  }
+  if (hitX) { e.vx *= -1; nx = ox + e.vx * dt; }
+  if (hitY) { e.vy *= -1; ny = oy + e.vy * dt; }
+  nx = clamp(nx, bnd.left, bnd.right);
+  ny = clamp(ny, bnd.top, bnd.bottom);
+
+  if (!clearAt(nx, ny)) {
+    const pushed = collideWalls(nx, ny, half, walls || [], ox, oy);
+    nx = clamp(pushed.x, bnd.left, bnd.right);
+    ny = clamp(pushed.y, bnd.top, bnd.bottom);
+  }
+  if (clearAt(nx, ny)) {
+    e.x = nx; e.y = ny;
+  } else {
+    e.x = ox; e.y = oy;
+  }
+
+  const moved = Math.hypot(e.x - ox, e.y - oy);
+  const expected = wanted * dt;
+  if (moved < Math.max(0.5, expected * 0.16)) e.octStuckT = (e.octStuckT || 0) + dt;
+  else e.octStuckT = Math.max(0, (e.octStuckT || 0) - dt * 2.5);
+  if ((e.octStuckT || 0) > 0.28) {
+    // Forced debug spawns, crowd separation and cover can wedge a large body.
+    // Reuse the boss rescue and immediately restore a fresh ricochet vector.
+    rescueBossToArena(run, players, e, 'oct_stuck');
+    seedOctBounceVelocity(run, e, wanted, 71 + Math.round((run.now || 0) * 10));
+  }
+  const finalSpeed = Math.hypot(e.vx || 0, e.vy || 0) || 1;
+  e.dirX = e.vx / finalSpeed;
+  e.dirY = e.vy / finalSpeed;
+}
 function rayAabbEntryDistance(ox, oy, dx, dy, wall, pad = 0) {
   let entry = -Infinity, exit = Infinity;
   const axes = [
@@ -7653,9 +7843,10 @@ function stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
   for (const id of Object.keys(e.octHitCds)) e.octHitCds[id] = Math.max(0, (e.octHitCds[id] || 0) - dt);
 
   if ((e.octCrashT || 0) > 0) {
+    stepOctBounceMovement(run, players, e, spd, dt, walls);
     e.octCrashT = Math.max(0, e.octCrashT - dt);
     e.octLasers = [];
-    e.state = `oct_crash:${Math.ceil(e.octCrashT * 10) / 10}:${Math.round((e.octAngle || 0) * 1000)}`;
+    e.state = `oct_crash:${Math.round((e.octAngle || 0) * 1000)}`;
     if (e.octCrashT <= 0) {
       e.octPhase = 1; e.octPhaseT = OCT_PHASE_SECONDS[0]; e.octTurn = -(e.octTurn || 1); e.octPhaseAnnounced = 0;
     }
@@ -7671,6 +7862,7 @@ function stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
   e.octAngle = (e.octAngle || 0) + (e.octTurn || 1) * OCT_ROTATION_SPEED[phase - 1] * dt;
   e.octPhaseT = Math.max(0, (e.octPhaseT ?? OCT_PHASE_SECONDS[phase - 1]) - dt);
   e.octPulseT = Math.max(0, (e.octPulseT || 0) - dt);
+  stepOctBounceMovement(run, players, e, spd, dt, walls);
 
   const faceStart = e.size * 0.48;
   const segments = [];
@@ -7695,10 +7887,7 @@ function stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
     run.fx.push({ t: 'oct_laser_pulse', id: e.id, phase, red: phase === 8 ? 1 : 0, x: Math.round(e.x), y: Math.round(e.y) });
   }
 
-  // OCT is a rotating installation. Keeping its core fixed makes the authored
-  // cover reliable in every phase instead of letting the beams slide around it.
-  e.vx = 0; e.vy = 0;
-  e.state = `oct_phase:${phase}:${Math.ceil(e.octPhaseT)}:${Math.round(e.octAngle * 1000)}`;
+  e.state = `oct_phase:${phase}:${Math.round(e.octAngle * 1000)}`;
   if (e.octPhaseT <= 0) {
     if (phase >= 8) {
       e.octCrashT = 1.5; e.octLasers = []; e.octPhaseAnnounced = 0;
@@ -8198,12 +8387,25 @@ function makeRoomWagerOffer(run, p) {
   return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.ru, stakeTextRu: stake.ru, stakeTextEn: stake.en, condition: condition.id, conditionText: condition.ru, conditionTextRu: condition.ru, conditionTextEn: condition.en, prize: prize.id, prizeText: prize.ru, prizeTextRu: prize.ru, prizeTextEn: prize.en, text: textRu, textRu, textEn };
 }
 function ensureRoomWagerOffer(run, p) {
-  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; return null; }
+  if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; return null; }
   // Contract WPN/ABL prizes own the screen first. Once they resolve, WAGER may
   // sit beside a regular INSTALL offer; it no longer waits for INSTALL to end.
   if (p.contractPrizeOffer || p.weaponChestOffer?.contractPrize || p.abilityChestOffer?.contractPrize || p.bossSignaturePending || p.offer?.kind === 'boss_signature') return null;
-  if (!p.roomWagerOffer) p.roomWagerOffer = makeRoomWagerOffer(run, p);
+  if (!p.roomWagerOffer) {
+    p.roomWagerOffer = makeRoomWagerOffer(run, p);
+    p.roomWagerSeenOfferId = 0;
+    p.roomWagerUnseenT = 0;
+  }
   return p.roomWagerOffer;
+}
+function handleRoomWagerSeen(run, players, p, offerId = 0) {
+  if (run?.phase !== 'install' || !p?.roomWagerOffer) return false;
+  const liveId = Math.max(0, Number(p.roomWagerOffer.id || 0) | 0);
+  const seenId = Math.max(0, Number(offerId || 0) | 0);
+  if (!seenId || seenId !== liveId) return false;
+  p.roomWagerSeenOfferId = liveId;
+  p.roomWagerUnseenT = 0;
+  return true;
 }
 function handleRoomWagerAccept(run, players, p, offerId = 0) {
   if (!p?.roomWagerOffer) return false;
@@ -8211,6 +8413,8 @@ function handleRoomWagerAccept(run, players, p, offerId = 0) {
   p.roomWagerActive = { ...p.roomWagerOffer };
   p.roomWagerOffer = null;
   p.roomWagerDecisionDone = true;
+  p.roomWagerSeenOfferId = 0;
+  p.roomWagerUnseenT = 0;
   run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', body: p.roomWagerActive?.textRu || '', bodyRu: p.roomWagerActive?.textRu || '', bodyEn: p.roomWagerActive?.textEn || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
   return true;
 }
@@ -8219,6 +8423,8 @@ function handleRoomWagerDecline(run, players, p, offerId = 0, timedOut = false) 
   if (offerId && p.roomWagerOffer.id !== offerId) return false;
   p.roomWagerOffer = null;
   p.roomWagerDecisionDone = true;
+  p.roomWagerSeenOfferId = 0;
+  p.roomWagerUnseenT = 0;
   run.fx.push({ t: 'room_wager_declined', id: p.id, playerId: p.id, timedOut: timedOut ? 1 : 0, x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
@@ -9656,7 +9862,12 @@ function stepEnemies(run, players, dt) {
       // no shots, dashes, healing, summons, auras, boss casts, windups, or phases.
       // The stripped body still walks and deals ordinary contact damage.
       e.fireCd = Math.max(e.fireCd || 0, 0.12);
-      if (target) {
+      if (e.kind === 'boss') {
+        // SHELL RIPPER disables OCT's laser kit, but its stripped body keeps the
+        // defining wall-bounce locomotion instead of turning into a pursuer.
+        e.octLasers = [];
+        stepOctBounceMovement(run, players, e, spd, dt, walls);
+      } else if (target) {
         const lockedToTarget = norm(target.x - e.x, target.y - e.y);
         steerMove(run, e, lockedToTarget, spd, dt, { target });
         e.dirX = lockedToTarget.x;
@@ -11307,7 +11518,7 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
 }
 
 export {
-  handleRoomWagerAccept, handleRoomWagerDecline, handleRarePick,
+  handleRoomWagerAccept, handleRoomWagerDecline, handleRoomWagerSeen, handleRarePick,
   queueContractChoicePrizes,
   compactContractFavors, activeFavorUses, consumeContractFavor, activatePendingContractFavors, creditPassAppliesToChest,
   makeAbilityChestChoices, makeWeaponChestChoices, weaponChoiceEligible,
@@ -11482,6 +11693,9 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     if (p.stats?.rActiveId === 'kill_switch' && !p.stats.killSwitchCharge && p.stats.killSwitchTaken) p.stats.killSwitchCharge = 1;
     run.fx.push({ t: 'active_mutation', label: 'R READY', x: Math.round(p.x), y: Math.round(p.y), r: 90, tone: 'cyan', playerId: p.id });
     return true;
+  }
+  if (action === 'repair_transition') {
+    return repairTransitionQueue(run, players, p).ok;
   }
   if (action === 'give_boss_reward') {
     const id = String(cmd.id || '');
@@ -12282,7 +12496,16 @@ function stepInstall(run, players, dt) {
     }
     ensureRoomWagerOffer(run, p);
     if (p.roomWagerOffer) {
-      waiting = true;
+      const wagerId = Math.max(0, Number(p.roomWagerOffer.id || 0) | 0);
+      if (Math.max(0, Number(p.roomWagerSeenOfferId || 0) | 0) !== wagerId) {
+        p.roomWagerUnseenT = Math.max(0, Number(p.roomWagerUnseenT || 0)) + dt;
+        if (p.roomWagerUnseenT >= ROOM_WAGER_UNSEEN_GRACE) {
+          // Do not let an optional, invisible card destroy a run. A genuinely
+          // visible wager has acknowledged its id and still waits forever, as designed.
+          handleRoomWagerDecline(run, players, p, wagerId, true);
+        }
+      }
+      if (p.roomWagerOffer) waiting = true;
     }
     if (!p.contractPrizeOffer && !p.weaponChestOffer?.contractPrize && !p.abilityChestOffer?.contractPrize) ensureInstallOffer(run, p);
     if (p.offer) {
@@ -12297,7 +12520,7 @@ function stepInstall(run, players, dt) {
   // Multiple players can have multiple queued INSTALL choices; every pending stack must be offered or auto-picked.
   if (!waiting) {
     for (const p of players.values()) {
-      if (p) p.roomWagerOffer = null;
+      if (p) { p.roomWagerOffer = null; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; }
     }
     run.runDepth++;
     startRoom(run, players);

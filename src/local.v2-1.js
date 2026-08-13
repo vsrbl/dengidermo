@@ -3,7 +3,7 @@
 import { S, SIM_HZ, SNAPSHOT_HZ, MAX_PLAYERS, GAME_SPEED } from '../shared/protocol.v2-1.js';
 import {
   createRun, createPlayer, startRoom, step, buildSnapshot, buildWalls,
-  handleCasino, handleCasinoClose, handleCasinoDecision, handleCasinoLock, handleCasinoSkinPick, handleCasinoPrizePick, handlePick, handleContractPick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleDevCommand
+  handleCasino, handleCasinoClose, handleCasinoDecision, handleCasinoLock, handleCasinoSkinPick, handleCasinoPrizePick, handlePick, handleContractPick, handleWeaponPick, handleAbilityPick, handleRarePick, handleRerollOffer, handleRoomWagerAccept, handleRoomWagerDecline, handleRoomWagerSeen, handleDevCommand
 } from '../shared/sim.v2-1.js';
 
 const TICK_MS = 1000 / SIM_HZ;
@@ -36,6 +36,7 @@ export class LocalRoom {
     this.weaponOffersSent = new Map();
     this.abilityOffersSent = new Map();
     this.rareOffersSent = new Map();
+    this.forceOfferResync = new Set();
     this.lastTickAt = performance.now();
     this.simNow = this.lastTickAt / 1000;
     this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -185,6 +186,9 @@ export class LocalRoom {
         ? handleRoomWagerDecline(this.run, this.players, p, m.offerId || 0)
         : handleRoomWagerAccept(this.run, this.players, p, m.offerId || 0);
       if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid room wager' }, true);
+    } else if (m.t === 'room_wager_seen') {
+      const p = this.players.get(playerId);
+      if (p) handleRoomWagerSeen(this.run, this.players, p, m.offerId || 0);
     } else if (m.t === 'reroll_offer') {
       const p = this.players.get(playerId);
       if (!p) return;
@@ -194,7 +198,19 @@ export class LocalRoom {
       if (playerId !== this.hostId) { this.sendTo(playerId, { t: 'error', error: 'dev mode host/single-player only' }, true); return; }
       const p = this.players.get(playerId);
       if (!p) return;
+      const beforeDepth = this.run.runDepth;
+      const beforeSeed = this.run.plan?.seed;
       const ok = handleDevCommand(this.run, this.players, p, m.cmd || {});
+      if (ok && String(m.cmd?.action || '') === 'repair_transition') {
+        // Forget every cached delivery identity. The next tick reliably resends
+        // whichever mandatory window the repaired authoritative queue owns.
+        for (const [pid] of this.players) this.forceOfferResync.add(pid);
+        if (this.run.runDepth !== beforeDepth || this.run.plan?.seed !== beforeSeed) {
+          const wallMsg = { t: 'walls', walls: buildWalls(this.run), world: { w: this.run.plan.w, h: this.run.plan.h } };
+          this.onLocal(wallMsg);
+          this.broadcastGuests(wallMsg, true);
+        }
+      }
       if (!ok) this.sendTo(playerId, { t: 'error', error: 'invalid dev command' }, true);
     } else if (m.t === 'ping') {
       this.sendTo(playerId, { t: 'pong', ts: m.ts }, true);
@@ -241,7 +257,14 @@ export class LocalRoom {
 
     // upgrade offers
     for (const [pid, p] of this.players) {
-      const sent = this.offersSent.get(pid);
+      const forceResync = this.forceOfferResync.delete(pid);
+      const sent = forceResync ? null : this.offersSent.get(pid);
+      if (forceResync) {
+        this.offersSent.delete(pid);
+        this.offerSentAt.delete(pid);
+        this.weaponOffersSent.delete(pid);
+        this.abilityOffersSent.delete(pid);
+      }
       const lastSentAt = this.offerSentAt.get(pid) || 0;
       const resendDue = p.offer && sent === p.offer && (now - lastSentAt) > 850;
       if (p.offer && (sent !== p.offer || resendDue)) {
