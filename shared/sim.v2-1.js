@@ -3656,6 +3656,11 @@ function setupImpactDriverPlayer(p) {
   return p;
 }
 export function weaponRangeMultiplier(p) { return Math.max(0.55, Number(p?.stats?.bulletRange || 1) || 1); }
+export function controllerWeaponRange(p, weaponId = 'command_pulse') {
+  const base = Math.max(0, Number(WEAPONS[weaponId]?.maxDist || 0) || 0);
+  return base * weaponRangeMultiplier(p);
+}
+export function droneWeaponRange(p) { return 480 * weaponRangeMultiplier(p); }
 // One shared weapon clock drives every hero's weapons. This is deliberately not
 // a second stat: old fireMul saves and every existing reward keep working.
 export function weaponClockMultiplier(p) { return Math.max(0.35, Number(p?.stats?.fireMul || 1) || 1) * Math.max(0.1, Number(p?.wagerWeaponClockMulRoom || 1) || 1); }
@@ -4303,7 +4308,7 @@ function controlledFireBullet(run, p, m, target, baseDmg, speed, life, size, kin
   if (run.bullets.length >= MAX_BULLETS - shotCount) return false;
   const base = Math.atan2(target.y - m.y, target.x - m.x);
   const power = Math.max(0, Number(stats.ctrlPower || 0) | 0);
-  const rangeMul = Math.max(0.25, Number(stats.bulletRange || 1) || 1);
+  const rangeMul = weaponRangeMultiplier(p);
   // Ranged controlled processes always inherit weapon statuses. The separate
   // LIVING PROJECTILE WPN passive is only for body/contact attacks.
   const elem = bulletElementString(p, 'control');
@@ -4327,6 +4332,9 @@ function controlledFireBullet(run, p, m, target, baseDmg, speed, life, size, kin
   run.fx.push({ t: 'ctrl_proc_fire', id: m.id || '', owner: p.id, kind, x: Math.round(m.x), y: Math.round(m.y), mx: Math.round(target.x), my: Math.round(target.y), shots: shotCount, echo: echoExtra });
   if (echoExtra > 0) run.fx.push({ t: 'echo_shot', id: p.id, x: Math.round(m.x), y: Math.round(m.y), weapon: 'control', count: echoExtra });
   return true;
+}
+export function controlledProjectileReach(p, speed, life, travelFactor = 0.74) {
+  return Math.max(0, Number(speed) || 0) * Math.max(0, Number(life) || 0) * Math.max(0, Number(travelFactor) || 0) * weaponRangeMultiplier(p);
 }
 function controlledContact(run, players, p, m, target, dt, mult = 1) {
   if (!target || target.hp <= 0) return false;
@@ -5052,14 +5060,26 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
   }
   if (target && m.atkCd <= 0 && !segmentBlockedByWalls(m.x, m.y, target.x, target.y, walls, Math.max(10, m.size * 0.35))) {
     if (m.kind === 'prism') {
-      m.atkCd = Math.max(0.30, (m.ctrlFireBase || def.fireCd || 1.7) * 0.68);
-      controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 9) * 0.78, m.ctrlBulletSpd || def.beamSpd || 310, 1.8, 5, 'ctrl_prism', 0.30, 3);
+      const shotSpeed = m.ctrlBulletSpd || def.beamSpd || 310;
+      const shotLife = 1.8;
+      if (dT <= controlledProjectileReach(p, shotSpeed, shotLife) + (target.size || 24) / 2) {
+        m.atkCd = Math.max(0.30, (m.ctrlFireBase || def.fireCd || 1.7) * 0.68);
+        controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 9) * 0.78, shotSpeed, shotLife, 5, 'ctrl_prism', 0.30, 3);
+      }
     } else if (m.kind === 'pulse') {
-      m.atkCd = Math.max(0.34, (m.ctrlFireBase || def.fireCd || 1.8) * 0.70);
-      controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 10) * 0.78, m.ctrlBulletSpd || def.waveSpd || 360, 1.2, 8, 'ctrl_wave', 0.0, 1);
+      const shotSpeed = m.ctrlBulletSpd || def.waveSpd || 360;
+      const shotLife = 1.2;
+      if (dT <= controlledProjectileReach(p, shotSpeed, shotLife) + (target.size || 24) / 2) {
+        m.atkCd = Math.max(0.34, (m.ctrlFireBase || def.fireCd || 1.8) * 0.70);
+        controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 10) * 0.78, shotSpeed, shotLife, 8, 'ctrl_wave', 0.0, 1);
+      }
     } else if (m.kind === 'orbiter' || m.kind === 'echo') {
-      m.atkCd = Math.max(0.28, (m.ctrlFireBase || def.fireCd || def.mirrorFireCd || 1.2) * 0.72);
-      controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 9) * 0.78, m.ctrlBulletSpd || def.bulletSpd || 285, 1.55, 5, 'ctrl_echo', 0.22, 2);
+      const shotSpeed = m.ctrlBulletSpd || def.bulletSpd || 285;
+      const shotLife = 1.55;
+      if (dT <= controlledProjectileReach(p, shotSpeed, shotLife) + (target.size || 24) / 2) {
+        m.atkCd = Math.max(0.28, (m.ctrlFireBase || def.fireCd || def.mirrorFireCd || 1.2) * 0.72);
+        controlledFireBullet(run, p, m, target, (m.ctrlDmg || def.dmg || 9) * 0.78, shotSpeed, shotLife, 5, 'ctrl_echo', 0.22, 2);
+      }
     } else if (m.kind === 'anchor') {
       m.atkCd = 0.42;
       for (const e of run.enemies || []) {
@@ -5073,7 +5093,7 @@ function stepControlledProcess(run, players, p, pc, m, i, dt, walls) {
     } else if (m.kind === 'shooter' || def.ranged) {
       const shotSpeed = m.ctrlBulletSpd || def.bulletSpd || 275;
       const shotLife = 1.65 * CONTROLLED_SHOOTER_RANGE_MUL;
-      const shotReach = shotSpeed * shotLife * 0.74 * weaponRangeMultiplier(p);
+      const shotReach = controlledProjectileReach(p, shotSpeed, shotLife);
       // SHT must never fire from beyond the distance its own projectile can cover.
       // The 35% base extension is applied to real projectile life, so weapon-range
       // upgrades continue to scale targeting and travel together.
@@ -5267,7 +5287,7 @@ function applyProcessControllerInstability(run, players, p, e, amount = 35, sour
 }
 export function resolveProcessControllerAnchorPlacement(run, p) {
   if (!run?.plan || !p) return null;
-  const range = (WEAPONS.quarantine_anchor.maxDist || 680) * weaponRangeMultiplier(p);
+  const range = controllerWeaponRange(p, 'quarantine_anchor');
   const aimX = Number.isFinite(p.aimX) ? p.aimX : p.x + (p.dirX || 1) * range;
   const aimY = Number.isFinite(p.aimY) ? p.aimY : p.y + (p.dirY || 0) * range;
   const dx = aimX - p.x, dy = aimY - p.y;
@@ -5337,7 +5357,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
       p.fireWasDown = true;
       return;
     }
-    const commandRange = (w.maxDist || 520) * weaponRangeMultiplier(p);
+    const commandRange = controllerWeaponRange(p, id);
     let target = pc.cmdTargetId ? (run.enemies || []).find(e => e && e.id === pc.cmdTargetId) : null;
     const invalidLocked = target && !processControllerTargetValid(run, p, target, commandRange) ? target : null;
     if (!processControllerTargetValid(run, p, target, commandRange)) {
@@ -5400,7 +5420,7 @@ function fireProcessControllerProtocol(run, players, p, dt) {
     const ax = Number.isFinite(p.aimX) ? p.aimX : p.x;
     const ay = Number.isFinite(p.aimY) ? p.aimY : p.y;
     const power = Math.max(0, Number(p.stats?.ctrlPower || 0) | 0);
-    const range = (w.maxDist || 560) * weaponRangeMultiplier(p);
+    const range = controllerWeaponRange(p, id);
     const radius = 158 + Math.min(92, power * 13);
     let captured = 0, damaged = 0;
     const before = pc.controlled.length;
@@ -8165,10 +8185,9 @@ export function ghostDecoyDuration(p) { return Math.round((8.4 + Math.max(0, (p?
 function rewindWindow(p) { return Math.round((6 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 2) * 10) / 10; }
 function rewindStun(p) { return Math.round((1.0 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 0.3) * 10) / 10; }
 function aegisCapacity(p) {
-  // The Driver chassis includes one standard 45-point AEGIS layer. Earned
-  // AEGIS stacks remain additive, exactly like they are for every other hero.
-  const baseStacks = isImpactDriverPlayer(p) ? 1 : 0;
-  return Math.max(0, (baseStacks + Math.max(0, p?.stats?.aegisStacks || 0)) * 45);
+  // No hero receives a free chassis layer. The Driver can still earn normal
+  // 45-point AEGIS stacks from rewards, exactly like every other hero.
+  return Math.max(0, Math.max(0, p?.stats?.aegisStacks || 0) * 45);
 }
 function mirrorCapacity(p) { return Math.max(0, p?.stats?.mirrorCapacity || 0); }
 function mirrorLeft(p) { return Math.max(0, mirrorCapacity(p) - Math.max(0, p?.mirrorUsedLoop || 0)); }
@@ -9319,7 +9338,7 @@ function applyWeaponChain(run, players, startEnemy, b) {
   let dmg = Math.max(1, (b.dmg || 4) * 0.54);
   // Each WPN LINK stack adds both one possible jump and more connection reach.
   // Early stacks are modest; very long builds can eventually bridge whole packs.
-  const linkRange = Math.min(1600, 145 + level * 14);
+  const linkRange = weaponChainRange(owner, level);
   let jumps = 0;
   run.fx.push({ t: 'weapon_chain_lock', x: Math.round(startEnemy.x), y: Math.round(startEnemy.y), r: Math.round((startEnemy.size || 18) + 14), tone: 'cyan' });
   for (let i = 0; i < level; i++) {
@@ -9344,6 +9363,11 @@ function applyWeaponChain(run, players, startEnemy, b) {
     dmg = Math.max(1, dmg * 0.86);
   }
   if (jumps) run.fx.push({ t: 'active_mutation', label: `WPN LINK x${jumps}`, x: Math.round(startEnemy.x), y: Math.round(startEnemy.y), r: Math.round(60 + Math.min(145, jumps * 7)), tone: 'cyan', owner: b.owner || '' });
+}
+
+export function weaponChainRange(p, level = p?.stats?.bulletChain || 0) {
+  const stacks = Math.min(100, Math.max(0, Number(level || 0) | 0));
+  return Math.min(1600, (145 + stacks * 14) * weaponRangeMultiplier(p));
 }
 
 // ---------------------------------------------------------------- shooting
@@ -9424,14 +9448,15 @@ function impactRectOverlap(a, b) {
   return !!a && !!b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 function impactWallCenter(wall) { return { x: wall.x + wall.w / 2, y: wall.y + wall.h / 2 }; }
-function impactPushReach(p) {
+export function impactPushReach(p) {
   const local = Math.pow(1.20, Math.max(0, Number(p?.stats?.impactPushRange || 0) | 0));
   return 215 * weaponRangeMultiplier(p) * local;
 }
-function impactPushTravel(p) {
+export function impactPushTravel(p) {
   const local = Math.pow(1.20, Math.max(0, Number(p?.stats?.impactPushRange || 0) | 0));
   return 390 * weaponRangeMultiplier(p) * local;
 }
+export function impactWallPlacementRange(p) { return 560 * weaponRangeMultiplier(p); }
 function impactPushCooldown(p) {
   const local = Math.pow(1.15, Math.max(0, Number(p?.stats?.impactPushCooldown || 0) | 0));
   return weaponCycleSeconds(p, (WEAPONS.impact_push?.cooldown || 3.2) / local, 1, 0.35);
@@ -9589,7 +9614,7 @@ function impactWallPlacementReason(run, players, p, wall) {
 
 function tryPlaceImpactWall(run, players, p) {
   if (!isImpactDriverPlayer(p) || !(p.stats?.impactWallUnlocked > 0) || p.weapons[p.weaponIdx] !== 'impact_wall') return false;
-  const aim = activeAimPoint(p, 560, 90);
+  const aim = activeAimPoint(p, impactWallPlacementRange(p), 90);
   const blockSize = Math.max(32, Number(WEAPONS.impact_wall?.size || 66) || 66);
   const wall = {
     id: nid(), owner: p.id, temp: 1, kind: 'impact_wall',
@@ -9716,7 +9741,7 @@ function fireWeapon(run, players, p, dt) {
   const echoMul = w.id === 'seeker' ? 0.38 : (w.id === 'rocketgun' ? 0.18 : (w.id === 'roulette' ? 0.42 : 1));
   const shots = 1 + chanceStacks(echoBase * echoMul);
   const pellets = w.pellets + (w.id === 'shotgun' ? p.stats.shgPellets : 0) + (w.id === 'deck' ? Math.max(0, p.stats.crdCards || 0) + Math.floor(Math.max(0, lcWeaponLvl - 1) / 2) : 0);
-  const rangeMul = Math.max(0.25, p.stats.bulletRange || 1);
+  const rangeMul = weaponRangeMultiplier(p);
   const homing = (w.homing || 0) + (w.id === 'seeker' ? p.stats.sekChain * 0.7 : 0);
   const life = (w.life + (w.id === 'seeker' ? p.stats.sekChain * 0.10 : 0)) * rangeMul;
   const maxDist = w.maxDist ? Math.round(w.maxDist * rangeMul + (w.id === 'seeker' ? p.stats.sekChain * 35 : 0)) : 0;
@@ -10767,7 +10792,8 @@ function stepCompanions(run, players, dt, now) {
         p.droneCd = weaponCycleSeconds(p, 0.8 / Math.sqrt(p.stats.drones), 1, 0.10);
         const di = Math.floor(Math.random() * p.stats.drones);
         const dp = orbitalPos(p, di, Math.max(1, p.stats.drones), now + 100);
-        let best = null, bd = 480 * 480;
+        const acquireRange = droneWeaponRange(p);
+        let best = null, bd = acquireRange * acquireRange;
         for (const e of run.enemies) {
           if (!e || e.hp <= 0 || (e.spawnDelay || 0) > 0 || slotMobIsLockedOut(e)) continue;
           // v2.1.125: drones fire only at threats they can actually see. This prevents
@@ -10786,7 +10812,8 @@ function stepCompanions(run, players, dt, now) {
           const n = norm(best.x - dp.x, best.y - dp.y);
           const elem = bulletElementString(p, 'drone');
           const elemPower = bulletElementPower(p, 'drone');
-          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: weaponDamageValue(p, 8), from: 'p', owner: p.id, life: 1.1 * (p.stats.bulletRange || 1), size: 4, proc: alliedProjectileBlastChance(p, 'drone'), kind: 'drone', source: 'drone', travelled: 0, maxDist: Math.round(570 * (p.stats.bulletRange || 1)), bounces: p.stats.bulletBounce || 0, rangeMul: p.stats.bulletRange || 1, elem, elemPower });
+          const rangeMul = weaponRangeMultiplier(p);
+          run.bullets.push({ id: nid(), x: dp.x, y: dp.y, vx: n.x * 520, vy: n.y * 520, dmg: weaponDamageValue(p, 8), from: 'p', owner: p.id, life: 1.1 * rangeMul, size: 4, proc: alliedProjectileBlastChance(p, 'drone'), kind: 'drone', source: 'drone', travelled: 0, maxDist: Math.round(570 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem, elemPower });
         }
       }
     }
@@ -11390,13 +11417,25 @@ function impactDriverChoicePool(p, qualityTier = 0) {
   pool.push({ id: 'impact_clock_stat', kind: 'stat', stat: 'fire', label: 'DRV: ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет ЛКМ-файрвол, PUSH и дроны. Прыжок не ускоряет.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRV' });
   return pool;
 }
+export function impactDriverWeaponChoiceWeight(p, opt, qualityTier = 0) {
+  const base = weaponChoiceWeight(p, opt, qualityTier);
+  const id = String(opt?.upgrade || opt?.id || '');
+  const wallUnlocked = p?.stats?.impactWallUnlocked > 0;
+  const pushUnlocked = p?.stats?.impactPushUnlocked > 0;
+  // The Driver's two actual gun modules are discovered in order. While the
+  // current discovery is missing, its normal WPN weight is doubled; upgrades
+  // and generic stats keep their existing odds.
+  if (!wallUnlocked && id === 'impact_wall_unlock') return base * 2;
+  if (wallUnlocked && !pushUnlocked && id === 'impact_push_unlock') return base * 2;
+  return base;
+}
 function makeImpactDriverWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   const pool = impactDriverChoicePool(p, qualityTier);
   const choices = [];
   const used = new Set();
   const want = Math.max(1, Math.min(5, count | 0));
   while (choices.length < want && pool.length) {
-    const opt = weightedPickOption(rng, pool, x => weaponChoiceWeight(p, x, qualityTier), used);
+    const opt = weightedPickOption(rng, pool, x => impactDriverWeaponChoiceWeight(p, x, qualityTier), used);
     if (!opt) break;
     used.add(opt.id); choices.push(opt);
   }
@@ -12014,7 +12053,7 @@ export {
   stepAnchorCashierBoss,
   captureEnemyAsProcess, damageControlledProcess, expireControlledProcess, stepProcessControllerState,
   rareTierTwoChance, rollSafeRareUpgrade, spendBossKey, continueMultiPickChestOffer,
-  livingCasinoBaseRange, livingCasinoSparkMax, livingCasinoChoicePool, applyLivingCasinoWeaponOption,
+  livingCasinoBaseRange, livingCasinoSparkRange, livingCasinoSparkMax, livingCasinoChoicePool, applyLivingCasinoWeaponOption,
   livingCasinoAttachSpark, livingCasinoSparkLinks, livingCasinoSparkBlocksContact,
   constrainLivingCasinoSparkTarget, rootNodeMaxHp
 };
@@ -13231,7 +13270,7 @@ function activeCrackShell(run, e, dmg, forceBreakLink = false) {
 }
 function activeShrapnel(run, p, x, y, power = 1, mutationLevel = 1) {
   const n = Math.min(18, 8 + Math.floor(power * 3) + ensureActive(p).mutations.length);
-  const rangeMul = p.stats.bulletRange || 1;
+  const rangeMul = weaponRangeMultiplier(p);
   for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.12;
     run.bullets.push({ id: nid(), x, y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: activeScale(weaponDamageValue(p, 7 + power * 2)), from: 'p', owner: p.id, life: 0.75 * rangeMul, size: 4, proc: p.stats.procBlast * 0.35, kind: 'active_shrapnel', travelled: 0, maxDist: Math.round(450 * rangeMul), bounces: p.stats.bulletBounce || 0, rangeMul, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon') });
@@ -13315,7 +13354,7 @@ function activeHasAll(p, ...ids) {
   return ids.every(id => muts.includes(id));
 }
 function activeNeedles(run, p, x, y, count, speed, dmg, kind = 'active_noise') {
-  const rangeMul = p.stats.bulletRange || 1;
+  const rangeMul = weaponRangeMultiplier(p);
   const n = Math.max(1, Math.min(18, count | 0));
   const off = Math.random() * Math.PI * 2;
   for (let i = 0; i < n && run.bullets.length < MAX_BULLETS; i++) {
@@ -14010,7 +14049,7 @@ function spawnSeekerSwarm(run, players, p) {
   const w = WEAPONS.seeker;
   const count = Math.min(35, lvl * 5);
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
-  const rangeMul = Math.max(0.25, p.stats.bulletRange || 1);
+  const rangeMul = weaponRangeMultiplier(p);
   const elem = bulletElementString(p, 'weapon');
   const elemPower = bulletElementPower(p, 'weapon');
   const homing = (w.homing || 0) + (p.stats.sekChain || 0) * 0.85 + 1.0;
@@ -14068,7 +14107,7 @@ function fireShotgunLongshot(run, players, p) {
   const dir = norm(p.aimX - p.x, p.aimY - p.y);
   const rangeStack = 1.5 + lvl * 0.5; // lvl1=2x, lvl2=2.5x, lvl3=3x
   const dmgStack = 1.0 + lvl * 0.2;   // lvl1=1.2x, lvl2=1.4x, lvl3=1.6x
-  const rangeMul = Math.max(0.25, p.stats.bulletRange || 1) * rangeStack;
+  const rangeMul = weaponRangeMultiplier(p) * rangeStack;
   const pellets = w.pellets + (p.stats.shgPellets || 0);
   const elem = bulletElementString(p, 'weapon');
   const elemPower = bulletElementPower(p, 'weapon');
@@ -14151,7 +14190,11 @@ function clearAirborneActionQueue(p) {
 export function impactDriverProfile(p) {
   const s = p?.stats || {};
   const power = 1 + Math.max(0, s.jumpImpactDamage || 0) * 0.25;
-  const radius = Math.round(108 * 1.15) + Math.max(0, s.jumpImpactRadius || 0) * 18;
+  // v2.1.234: the old 15%-boosted landing footprint is reduced by exactly 1.5x.
+  // CONTOUR then adds 10% of that base radius per stack; every visual
+  // receives this same authoritative value through the jump/field events.
+  const baseRadius = (108 * 1.15) / 1.5;
+  const radius = Math.round(baseRadius * (1 + Math.max(0, Number(s.jumpImpactRadius || 0) | 0) * 0.10));
   const rebound = Math.max(0, s.jumpRebound || 0);
   return {
     takeoffDamage: weaponDamageValue(p, 13 * power),
@@ -14601,7 +14644,9 @@ function playerBuildSnapshot(p) {
       pushUnlocked: p.stats?.impactPushUnlocked > 0 ? 1 : 0,
       pushCd: Math.ceil(Math.max(0, Number(p.impactPushCd || 0)) * 10) / 10,
       pushCdMax: Math.ceil(Math.max(0.1, Number(p.impactPushCdMax || impactPushCooldown(p))) * 10) / 10,
-      pushReach: Math.round(impactPushReach(p))
+      placementRange: Math.round(impactWallPlacementRange(p)),
+      pushReach: Math.round(impactPushReach(p)),
+      pushTravel: Math.round(impactPushTravel(p))
     } : null
   };
 }

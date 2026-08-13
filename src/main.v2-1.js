@@ -117,8 +117,8 @@ const HEROES = {
     id: 'impact_driver',
     labelRu: 'УДАРНЫЙ ДРАЙВЕР', labelEn: 'IMPACT DRIVER',
     descRu: 'инерционный протокол', descEn: 'inertial impact protocol',
-    explainRu: 'Не использует обычное оружие и рывок. Начинает с Эгидой 45. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон, а от стен герой отскакивает сразу. Множитель отскоков открывается отдельно.',
-    explainEn: 'Uses no weapon or dash and starts with a 45-point AEGIS. SPACE launches an inertial jump whose takeoff and landing deal damage. Wall rebounds are innate; their damage multiplier is unlocked separately.'
+    explainRu: 'Не использует обычное оружие и рывок. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон, а от стен герой отскакивает сразу. Множитель отскоков открывается отдельно.',
+    explainEn: 'Uses no conventional weapon or dash. SPACE launches an inertial jump whose takeoff and landing deal damage. Wall rebounds are innate; their damage multiplier is unlocked separately.'
   }
 };
 function readUnlockedHeroes() {

@@ -469,12 +469,16 @@ export class Effects {
       case 'active_field': {
         const col = f.tone === 'red' ? '#ff3048' : (f.tone === 'purple' ? '#b45cff' : '#66f6ff');
         if (f.kind === 'quarantine_anchor') this.add({ kind: 'chainLock', activeKind: 'quarantine_anchor', x: f.x, y: f.y, r: 38, ttl: 0.22, color: col });
+        else if (f.kind === 'impact_field') this.add({ kind: 'impactAfterfield', x: f.x, y: f.y, r: f.r || 84, ttl: 0.28, color: col, tick: 0 });
         else this.add({ kind: f.kind === 'black_box' ? 'blackBoxAura' : 'squareField', activeKind: String(f.kind || ''), x: f.x, y: f.y, r: f.r || 130, ttl: f.kind === 'black_box' ? 0.34 : 0.30, color: col });
         break;
       }
-      case 'active_tick':
-        this.add({ kind: 'squareField', activeKind: String(f.kind || '') + '_tick', x: f.x, y: f.y, r: f.r || 130, ttl: 0.12, color: f.tone === 'red' ? '#ff3048' : (f.tone === 'purple' ? '#b45cff' : '#66f6ff'), tick: 1 });
+      case 'active_tick': {
+        const col = f.tone === 'red' ? '#ff3048' : (f.tone === 'purple' ? '#b45cff' : '#66f6ff');
+        if (f.kind === 'impact_field') this.add({ kind: 'impactAfterfield', x: f.x, y: f.y, r: f.r || 84, ttl: 0.22, color: col, tick: 1 });
+        else this.add({ kind: 'squareField', activeKind: String(f.kind || '') + '_tick', x: f.x, y: f.y, r: f.r || 130, ttl: 0.12, color: col, tick: 1 });
         break;
+      }
       case 'redline_boost': {
         if (mine) { this.slam = Math.max(this.slam, 0.18); this.kick(7 + Math.min(8, f.stack || 1)); }
         const stack = Math.max(1, Number(f.stack || 1) | 0);
@@ -798,6 +802,39 @@ export class Effects {
         ctx.lineDashOffset = -p * 30;
         ctx.beginPath(); ctx.arc(e.x, e.y, r * (0.70 + p * 0.20), 0, Math.PI * 2); ctx.stroke();
         ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      } else if (e.kind === 'impactAfterfield') {
+        // Dedicated floor contour for the Driver's damaging afterfield. The
+        // outer circle is the authoritative gameplay radius: no square proxy,
+        // no volume/fill, and no misleading area beyond the actual hit zone.
+        const fade = Math.max(0, 1 - p);
+        const r = Math.max(8, Number(e.r || 84));
+        ctx.save();
+        // Dark keyline keeps the boundary readable over bright rooms/walls.
+        ctx.globalAlpha = fade * (e.tick ? 0.72 : 0.56);
+        ctx.strokeStyle = '#071317';
+        ctx.lineWidth = e.tick ? 6 : 5;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.stroke();
+        // Exact, unbroken outer boundary.
+        ctx.globalAlpha = fade * (e.tick ? 1 : 0.92);
+        ctx.strokeStyle = e.color || '#66f6ff';
+        ctx.lineWidth = e.tick ? 3.2 : 2.6;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.stroke();
+        // Segmented inner circuit distinguishes the lingering field from the
+        // one-shot landing ring without adding a hazy filled disc.
+        ctx.globalAlpha = fade * (e.tick ? 0.88 : 0.58);
+        ctx.lineWidth = e.tick ? 2.2 : 1.6;
+        ctx.setLineDash([12, 7]);
+        ctx.lineDashOffset = -p * 22;
+        ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.84, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        // A damage tick travels only inside the established boundary.
+        if (e.tick) {
+          const pulseR = r * (0.18 + 0.70 * p);
+          ctx.globalAlpha = fade * 0.72;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.arc(e.x, e.y, pulseR, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
       } else if (e.kind === 'impact') {
         const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 2;
