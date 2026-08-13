@@ -62,7 +62,7 @@ export class AudioBus {
     this.cooldowns = {
       shot_shg: 0.028, shot_sek: 0.12, shot: 0.04, impact: 0.028, trinode_fire: 0.11, trinode_section_break: 0.32, anchor_phase_field: 0.35, anchor_phase_shots: 0.35, oct_laser: 0.18, oct_phase: 0.30, oct_crash: 0.65,
       rocket_launch: 0.10, rocket_blast: 0.16, blast: 0.11,
-      dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
+      dash: 0.07, dash_uncommon: 0.08, dash_rare: 0.09, dash_superrare: 0.11, dash_jackpot: 0.16, dash_dead_channel: 0.16, jump_takeoff: 0.12, jump_wall: 0.10, jump_land: 0.14, skin_legendary: 0.55, gld: 0.055, exp: 0.055, hea: 0.09, pickup: 0.05,
       hit: 0.05, phit: 0.12, denied: 0.22, chest_basic: 0.12, chest_weapon: 0.16,
       chest_ability: 0.16, chest_rare: 0.18, chest_cursed: 0.2,
       portal: 0.35, install: 0.18, jackpot: 0.4, active_snap: 0.24, active_blood: 0.24,
@@ -86,7 +86,7 @@ export class AudioBus {
     this.prio = {
       phit: 10, rocket_blast: 9, portal: 8, jackpot: 8, denied: 7,
       casino_static: 8, casino_lose: 7, casino_weapon: 7, casino_ability: 7, casino_win: 6, casino_result: 6, casino_spin: 3, casino_reel_stop: 4,
-      dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
+      dash: 6, dash_uncommon: 6, dash_rare: 7, dash_superrare: 8, dash_jackpot: 8, dash_dead_channel: 8, jump_takeoff: 6, jump_wall: 9, jump_land: 8, skin_legendary: 9, chest_weapon: 6, chest_ability: 6, chest_rare: 7, chest_cursed: 7,
       active_snap: 7, active_blood: 7, active_over: 7, active_void_laser: 7, active: 7, enemy: 4,
       blast: 5, rocket_launch: 5, hit: 4, gld: 3, exp: 3, hea: 5, pickup: 3,
       shot_shg: 3, shot_sek: 3, shot: 2, impact: 2, trinode_fire: 4, trinode_section_break: 9, anchor_phase_field: 8, anchor_phase_shots: 8, oct_laser: 4, oct_phase: 9, oct_crash: 10, install: 5, contract: 7, debt: 7, shield: 4, echo_shot: 5, director_wave: 6, levelup: 8, run_start: 8, run_death: 9, static_storm: 7, ui_click: 3, wager_accept_click: 5, wager_skip_click: 4, wager_complete: 8, boss_silence_enter: 9, boss_silence_exit: 8, combo_tick: 4, combo_drop: 5, combo_break: 5, casino_mob_defeated: 8, lc_target_lock: 5, lc_target_miss: 4, lc_spark_attach: 6, lc_spark_tick: 2, lc_spark_release: 6, lc_spark_ready: 7
@@ -339,6 +339,21 @@ export class AudioBus {
         this.tone(390, 0.045, 'square', 0.065, 2.25);
         this.tone(1050, 0.032, 'square', 0.045, 0.58, 0.015);
         this.noise(0.035, 0.032, 4600, 12);
+        break;
+      case 'jump_takeoff':
+        this.tone(185, 0.080, 'square', 0.050, 1.75);
+        this.tone(620, 0.055, 'triangle', 0.030, 1.12, 0.025);
+        this.noise(0.045, 0.025, 3600, 9);
+        break;
+      case 'jump_wall':
+        this.tone(104, 0.095, 'square', 0.085, 0.52);
+        this.noise(0.060, 0.065, 980, 2.4);
+        this.noise(0.030, 0.032, 4800, 12, 0.008);
+        break;
+      case 'jump_land':
+        this.tone(72, 0.150, 'square', 0.100, 0.46);
+        this.noise(0.085, 0.072, 520, 1.8);
+        this.tone(290, 0.045, 'square', 0.030, 0.70, 0.020);
         break;
       case 'dash_uncommon':
         this.tone(428, 0.050, 'square', 0.056, 1.64);
@@ -1111,6 +1126,9 @@ export class AudioBus {
       case 'dash':
         if (mine) this.play(f.legendarySfx === 'dash_jackpot' ? 'dash_jackpot' : f.legendarySfx === 'dash_dead_channel' ? 'dash_dead_channel' : 'dash');
         break;
+      case 'player_jump_start': if (mine) this.play('jump_takeoff'); break;
+      case 'player_jump_wall': if (mine) this.play('jump_wall'); break;
+      case 'player_jump_land': if (mine) this.play('jump_land'); break;
       case 'lc_target_lock': if (mine) this.play(f.enabled ? 'lc_target_lock' : 'lc_target_miss'); break;
       case 'lc_target_miss': if (mine) this.play('lc_target_miss'); break;
       case 'lc_spark_attach': if (mine) this.play('lc_spark_attach'); break;

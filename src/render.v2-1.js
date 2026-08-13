@@ -95,6 +95,90 @@ export class Renderer {
     ctx.restore();
   }
 
+  drawJumpCube(x, y, row, meta, now) {
+    const ctx = this.ctx;
+    const left = Math.max(0, Number(row?.[P.JUMP] || 0));
+    const duration = Math.max(0.01, Number(row?.[P.JUMPMAX] || 0.92));
+    const t = Math.max(0, Math.min(1, 1 - left / duration));
+    if (left <= 0) return false;
+    const seq = Math.max(0, Number(row?.[P.JUMPSEQ] || 0) | 0);
+    // Ballistic arc: fast departure, a deliberately slow apex, then accelerating fall.
+    const arc = 4 * t * (1 - t);
+    const height = 112 * Math.pow(Math.max(0, arc), 0.82);
+    const ease = t * t * (3 - 2 * t);
+    const dir = seq % 2 ? 1 : -1;
+    const ax = Math.PI * 2 * ease;
+    const ay = Math.PI * 2 * ease * dir;
+    const az = Math.PI * 2 * ease * (seq % 3 === 0 ? -1 : 1);
+    const sx = Math.sin(ax), cx = Math.cos(ax);
+    const sy = Math.sin(ay), cy = Math.cos(ay);
+    const sz = Math.sin(az), cz = Math.cos(az);
+    const rot = ([vx, vy, vz]) => {
+      let y1 = vy * cx - vz * sx, z1 = vy * sx + vz * cx, x1 = vx;
+      let x2 = x1 * cy + z1 * sy, z2 = -x1 * sy + z1 * cy, y2 = y1;
+      return [x2 * cz - y2 * sz, x2 * sz + y2 * cz, z2];
+    };
+    const half = 17;
+    const verts = [
+      [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+      [-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]
+    ].map(v => {
+      const r = rot(v);
+      return { x: x + (r[0] + r[2] * 0.42) * half, y: y - height + (r[1] - r[2] * 0.55) * half, d: r[2] - r[0] * 0.42 + r[1] * 0.55 };
+    });
+    const faces = [
+      { v:[0,1,2,3], shade:0.58 }, { v:[4,7,6,5], shade:1.0 },
+      { v:[0,4,5,1], shade:0.76 }, { v:[3,2,6,7], shade:0.90 },
+      { v:[0,3,7,4], shade:0.66 }, { v:[1,5,6,2], shade:0.84 }
+    ];
+    const tint = (hex, k) => {
+      const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+      if (!m) return hex || COL.fg;
+      const n = parseInt(m[1], 16);
+      const c = s => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * k)));
+      return `rgb(${c(16)},${c(8)},${c(0)})`;
+    };
+    faces.forEach(f => { f.depth = f.v.reduce((sum, i) => sum + verts[i].d, 0) / 4; });
+    faces.sort((a,b) => a.depth - b.depth);
+    // Ground shadow never rotates, so the arc remains readable over busy rooms.
+    ctx.save();
+    const shadowW = 38 - arc * 16;
+    ctx.globalAlpha = 0.28 - arc * 0.10;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(Math.round(x - shadowW / 2), Math.round(y - 5 + arc * 3), Math.round(shadowW), Math.max(4, Math.round(9 - arc * 3)));
+    ctx.globalAlpha = 0.30 + arc * 0.18;
+    ctx.strokeStyle = meta.outline || COL.green;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(x - shadowW / 2 - 2), Math.round(y - 7 + arc * 3), Math.round(shadowW + 4), Math.max(7, Math.round(13 - arc * 3)));
+    ctx.restore();
+    ctx.save();
+    ctx.lineJoin = 'miter';
+    for (let fi = 0; fi < faces.length; fi++) {
+      const f = faces[fi];
+      const pts = f.v.map(i => verts[i]);
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      ctx.fillStyle = tint(meta.fill || COL.fg, f.shade);
+      ctx.globalAlpha = 0.97;
+      ctx.fill();
+      ctx.strokeStyle = meta.outline || COL.green;
+      ctx.lineWidth = fi >= 3 ? 2.0 : 1.25;
+      ctx.globalAlpha = 0.96;
+      ctx.stroke();
+      // Every authored skin keeps a crisp signal mark on the three nearest faces.
+      if (fi >= 3) {
+        const cxp = pts.reduce((s,p) => s+p.x,0)/4, cyp = pts.reduce((s,p) => s+p.y,0)/4;
+        ctx.fillStyle = meta.barrel || meta.outline || COL.green;
+        ctx.globalAlpha = 0.68;
+        const mark = 2.2 + (seq % 2);
+        ctx.fillRect(Math.round(cxp-mark), Math.round(cyp-mark), Math.round(mark*2), Math.round(mark*2));
+      }
+    }
+    ctx.restore();
+    return { height, t, arc };
+  }
+
 
   drawActiveTargeting(row, now, localPos = null) {
     const data = row?.[P.ACTIVEAIM];
@@ -1552,6 +1636,12 @@ export class Renderer {
           ctx.stroke();
         }
         ctx.restore();
+      }
+      const jumpVisual = this.drawJumpCube(px, py, p, skinMetaLocal, now);
+      if (jumpVisual) {
+        ctx.restore();
+        this.label(p[P.NAME], px, py - jumpVisual.height - 31, isMe ? skinOutline : COL.dim, 10);
+        continue;
       }
       this.drawSkinAura(px, py, skinMetaLocal, now);
       const shMax = Math.max(0, p[P.SHIELDMAX] || 0);

@@ -10,7 +10,8 @@ export const P = {
   ID: 0, X: 1, Y: 2, HP: 3, MAXHP: 4, ALIVE: 5, AX: 6, AY: 7, WIDX: 8, WEAPONS: 9,
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
-  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47, RMARKX: 48, RMARKY: 49, BOSSKEYMAX: 50, LVC: 51, LUCK: 52, CTRL: 53, DASHDIST: 54, CASINO: 55, ACTIVEAIM: 56, BUILD: 57, QSILENCE: 58
+  ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47, RMARKX: 48, RMARKY: 49, BOSSKEYMAX: 50, LVC: 51, LUCK: 52, CTRL: 53, DASHDIST: 54, CASINO: 55, ACTIVEAIM: 56, BUILD: 57, QSILENCE: 58,
+  JUMP: 59, JUMPMAX: 60, JUMPSEQ: 61
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -61,6 +62,7 @@ export class GameState {
       // reconcile prediction
       const sx = me[P.X], sy = me[P.Y];
       const lastSeq = me[P.LASTSEQ];
+      const airborne = Number(me[P.JUMP] || 0) > 0;
       this.history = this.history.filter(h => h.seq > lastSeq);
       let px = sx, py = sy;
       for (const h of this.history) {
@@ -77,9 +79,10 @@ export class GameState {
           px = c.x; py = c.y;
         }
       }
-      if (!this.pred.init || !me[P.ALIVE]) {
+      if (!this.pred.init || !me[P.ALIVE] || airborne) {
         this.pred = { x: sx, y: sy, init: true };
         this.smooth = { x: sx, y: sy };
+        if (airborne) this.history = [];
       } else {
         // pull predicted toward replayed authoritative result
         const err = Math.hypot(px - this.pred.x, py - this.pred.y);
@@ -95,12 +98,13 @@ export class GameState {
   }
 
   // apply local input for prediction; returns input packet to send
-  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false, ractive = false) {
+  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false, ractive = false, jump = false) {
     const me = this.me();
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
+    const airborne = !!me && Number(me[P.JUMP] || 0) > 0;
     this.seq++;
-    if (alive && playPhase && this.pred.init) {
+    if (alive && playPhase && this.pred.init && !airborne && !jump) {
       const adir = { x: aim.x - this.pred.x, y: aim.y - this.pred.y };
       const al = Math.hypot(adir.x, adir.y) || 1;
       if (dash && me && me[P.DASH] > 0) {
@@ -121,8 +125,9 @@ export class GameState {
     return {
       seq: this.seq, mx: mv.x, my: mv.y,
       ax: Math.round(aim.x), ay: Math.round(aim.y),
-      fire, dash: dash || undefined, inter: inter || undefined, active: active || undefined, ractive: ractive || undefined, secondary: secondary || undefined,
-      wpn: wpn >= 0 ? wpn : undefined
+      fire: airborne ? false : fire, dash: (!airborne && dash) || undefined, inter: (!airborne && inter) || undefined, active: (!airborne && active) || undefined, ractive: (!airborne && ractive) || undefined, secondary: (!airborne && secondary) || undefined,
+      jump: (!airborne && jump) || undefined,
+      wpn: !airborne && wpn >= 0 ? wpn : undefined
     };
   }
 
@@ -131,7 +136,7 @@ export class GameState {
   // Guest now follows local prediction directly; remote entities are still interpolated.
   myRenderPos(dt) {
     const me = this.me();
-    if (this.localMode && me) return { x: me[P.X], y: me[P.Y] };
+    if ((this.localMode || Number(me?.[P.JUMP] || 0) > 0) && me) return { x: me[P.X], y: me[P.Y] };
     if (!this.pred.init) {
       if (me) return { x: me[P.X], y: me[P.Y] };
       return { x: this.world.w / 2, y: this.world.h / 2 };
@@ -178,6 +183,7 @@ export class GameState {
         const out = r.slice();
         out[xi] = pa[xi] + (r[xi] - pa[xi]) * t;
         out[yi] = pa[yi] + (r[yi] - pa[yi]) * t;
+        if (xi === P.X && yi === P.Y && pa[P.JUMPSEQ] === r[P.JUMPSEQ]) out[P.JUMP] = pa[P.JUMP] + (r[P.JUMP] - pa[P.JUMP]) * t;
         return out;
       });
     };

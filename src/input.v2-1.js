@@ -8,6 +8,7 @@ export class Input {
     this.interEdge = false;
     this.activeEdge = false;
     this.rActiveEdge = false;
+    this.jumpEdge = false;
     this.weaponSel = -1;
     this.tabOpen = false;      // toggle helper panel: press TAB once to open/close
     this.inspectMode = false;  // retained for renderer compatibility; world inspect mode is disabled
@@ -42,6 +43,7 @@ export class Input {
       if (c === 'KeyE') this.interEdge = true;
       if (c === 'KeyQ') this.activeEdge = true;
       if (c === 'KeyR') this.rActiveEdge = true;
+      if (c === 'Space') { e.preventDefault(); this.jumpEdge = true; }
     });
     window.addEventListener('keyup', (e) => {
       const c = e.code;
@@ -128,6 +130,7 @@ export class Input {
   takeInter() { const v = this.interEdge; this.interEdge = false; return v; }
   takeActive() { const v = this.activeEdge; this.activeEdge = false; return v; }
   takeRActive() { const v = this.rActiveEdge; this.rActiveEdge = false; return v; }
+  takeJump() { const v = this.jumpEdge; this.jumpEdge = false; return v; }
   takeSecondary() { const v = this.secondaryEdge; this.secondaryEdge = false; return v; }
   takeWeapon(count) {
     let w = this.weaponSel; this.weaponSel = -1;

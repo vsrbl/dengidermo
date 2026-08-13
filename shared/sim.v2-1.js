@@ -16,6 +16,11 @@ const PICKUP_BASE_MAGNET = 95;
 const PICKUP_COLLECT = 30;
 const TOUCH_CD = 0.6;
 const PLAYER_HIT_INVULN = 0.12;
+const PLAYER_JUMP_DURATION = 0.92;
+const PLAYER_JUMP_SPEED_MUL = 1.24;
+const PLAYER_JUMP_MIN_SPEED = 310;
+const PLAYER_JUMP_WALL_RESTITUTION = 0.82;
+const PLAYER_JUMP_WALL_FX_CD = 0.12;
 const DIFFICULTY_MULT = 2; // requested harder pass: roughly 2x pressure versus v2.0.2
 const MAX_ENEMIES = 60;
 const MAX_BULLETS = 220;
@@ -562,7 +567,7 @@ function payBloodCost(run, p, hpCost, srcX = p?.x, srcY = p?.y, radius = 48) {
       p.invuln = Math.max(p.invuln || 0, 1.0);
       run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
     } else {
-      p.hp = 0; p.alive = false; run.fx.push({ t: 'pdown', id: p.id });
+      p.hp = 0; p.alive = false; p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0; run.fx.push({ t: 'pdown', id: p.id });
     }
   }
   return true;
@@ -2931,7 +2936,7 @@ function stepEnemySynergies(run, players, dt) {
 }
 
 function resolveEnemyPlayerOverlap(run, e, p, walls, opts = {}) {
-  if (!p || !p.alive || !e) return null;
+  if (!p || !p.alive || !e || playerAirborne(p)) return null;
   const pad = opts.pad ?? 7;
   const minD = (PLAYER_SIZE + e.size) / 2 + pad;
   let dx = p.x - e.x;
@@ -3376,7 +3381,8 @@ export function createPlayer(id, name, idx, skin = null) {
     roomWagerSeenOfferId: 0, roomWagerUnseenT: 0,
     bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
-    wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false,
+    wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false, wantJump: false,
+    jumpT: 0, jumpDuration: PLAYER_JUMP_DURATION, jumpVx: 0, jumpVy: 0, jumpSeq: 0, jumpWallFxCd: 0,
     activeTargeting: null,
     connected: true
   };
@@ -6006,6 +6012,7 @@ export function startRoom(run, players) {
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else if (!p.wagerNoHealRoom) p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
+    p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0; p.wantJump = false;
     p.quarantineT = 0; p.quarantineHp = 0;
     p.aegisShieldMax = aegisCapacity(p);
     p.aegisShield = p.aegisShieldMax > 0 ? p.aegisShieldMax : 0;
@@ -7132,7 +7139,7 @@ function stepWallJumper(run, players, e, target, dt, walls) {
     const shifting = state === 'wall_shift_leap';
     if (!shifting) {
       for (const p of players.values()) {
-        if (!p.alive || playerHiddenFromEnemy(run, p, e.x, e.y)) continue;
+        if (!p.alive || playerAirborne(p) || playerHiddenFromEnemy(run, p, e.x, e.y)) continue;
         const rr = e.size / 2 + PLAYER_SIZE / 2 + 7;
         if (dist2(e.x, e.y, p.x, p.y) > rr * rr) continue;
         if (livingCasinoSparkBlocksContact(players, e, p)) {
@@ -7662,7 +7669,7 @@ function trinodeTouchDamage(run, players, e, dt) {
   }
   const parts = Array.isArray(e.trinodeParts) ? e.trinodeParts : [];
   for (const p of players.values()) {
-    if (!p.alive || e.touchCds.has(p.id)) continue;
+    if (!p.alive || playerAirborne(p) || e.touchCds.has(p.id)) continue;
     const part = parts.find(x => dist2(x.x, x.y, p.x, p.y) < (((e.size || 62) + PLAYER_SIZE) / 2 + 8) ** 2);
     if (!part) continue;
     const n = norm(p.x - part.x, p.y - part.y);
@@ -8655,7 +8662,7 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
       run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
       return;
     }
-    p.hp = 0; p.alive = false;
+    p.hp = 0; p.alive = false; p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0;
     run.fx.push({ t: 'pdown', id: p.id });
   }
 }
@@ -10238,7 +10245,7 @@ function touchDamage(run, e, players, dt) {
   const walls = run.plan?.walls || [];
   if (!e.touchCds) e.touchCds = new Map();
   for (const p of players.values()) {
-    if (!p.alive || playerHiddenFromEnemy(run, p, e.x, e.y)) continue;
+    if (!p.alive || playerAirborne(p) || playerHiddenFromEnemy(run, p, e.x, e.y)) continue;
     const key = p.id;
     const sep = resolveEnemyPlayerOverlap(run, e, p, walls, { pad: 9, playerKick: 6, fx: true });
     const cd = e.touchCds.get(key) || 0;
@@ -13628,6 +13635,76 @@ function detonateOldestRemoteRocket(run, players, p) {
   return true;
 }
 
+function playerAirborne(p) {
+  return !!p && Number(p.jumpT || 0) > 0;
+}
+
+function clearAirborneActionQueue(p) {
+  p.wantDash = false;
+  p.wantInteract = false;
+  p.wantActive = false;
+  p.wantRActive = false;
+  p.wantSecondary = false;
+  p.wantWeapon = -1;
+  // A trigger held in the air must be released before a semi-auto weapon can
+  // fire after landing. Nothing pressed during the jump is buffered.
+  if (p.fire) p.fireWasDown = true;
+}
+
+function startPlayerJump(run, p, mx, my) {
+  let dx = mx, dy = my;
+  if (Math.hypot(dx, dy) < 0.01) {
+    const aim = norm((p.aimX || p.x + 1) - p.x, (p.aimY || p.y) - p.y);
+    dx = aim.x; dy = aim.y;
+  }
+  const dir = norm(dx, dy);
+  const launchSpeed = Math.max(PLAYER_JUMP_MIN_SPEED, speed(p) * PLAYER_JUMP_SPEED_MUL);
+  p.jumpDuration = PLAYER_JUMP_DURATION;
+  p.jumpT = PLAYER_JUMP_DURATION;
+  p.jumpVx = dir.x * launchSpeed;
+  p.jumpVy = dir.y * launchSpeed;
+  p.jumpSeq = (Number(p.jumpSeq || 0) + 1) | 0;
+  p.jumpWallFxCd = 0;
+  p.recoilT = 0;
+  run.fx.push({
+    t: 'player_jump_start', id: p.id, playerId: p.id,
+    x: Math.round(p.x), y: Math.round(p.y),
+    vx: Math.round(p.jumpVx), vy: Math.round(p.jumpVy), seq: p.jumpSeq
+  });
+}
+
+function stepPlayerJump(run, p, dt) {
+  const before = Math.max(0, Number(p.jumpT || 0));
+  if (before <= 0) return false;
+  p.jumpWallFxCd = Math.max(0, Number(p.jumpWallFxCd || 0) - dt);
+  const moveDt = Math.min(dt, before);
+  const ox = p.x, oy = p.y;
+  const wantedX = ox + Number(p.jumpVx || 0) * moveDt;
+  const wantedY = oy + Number(p.jumpVy || 0) * moveDt;
+  const c = collideWalls(wantedX, wantedY, PLAYER_SIZE / 2, run.plan.walls || [], ox, oy);
+  const hitX = Math.abs(c.x - wantedX) > 0.05;
+  const hitY = Math.abs(c.y - wantedY) > 0.05;
+  p.x = c.x; p.y = c.y;
+  if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * PLAYER_JUMP_WALL_RESTITUTION;
+  if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * PLAYER_JUMP_WALL_RESTITUTION;
+  if ((hitX || hitY) && p.jumpWallFxCd <= 0) {
+    p.jumpWallFxCd = PLAYER_JUMP_WALL_FX_CD;
+    run.fx.push({
+      t: 'player_jump_wall', id: p.id, playerId: p.id,
+      x: Math.round(p.x), y: Math.round(p.y),
+      nx: hitX ? (wantedX > c.x ? -1 : 1) : 0,
+      ny: hitY ? (wantedY > c.y ? -1 : 1) : 0,
+      seq: p.jumpSeq
+    });
+  }
+  p.jumpT = Math.max(0, before - dt);
+  if (p.jumpT <= 0) {
+    p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0;
+    run.fx.push({ t: 'player_jump_land', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), seq: p.jumpSeq });
+  }
+  return true;
+}
+
 function stepPlayers(run, players, dt) {
   for (const p of players.values()) {
     if (!p.connected) continue;
@@ -13675,7 +13752,7 @@ function stepPlayers(run, players, dt) {
       const every = shgDef.chargeRegen;
       while (p.shgCharges < shgDef.charges && p.shgReload >= every) { p.shgReload -= every; p.shgCharges++; }
     } else p.shgReload = 0;
-    if ((p.recoilT || 0) > 0 && run.phase === 'play') {
+    if ((p.recoilT || 0) > 0 && run.phase === 'play' && !playerAirborne(p)) {
       const step = Math.min(dt, p.recoilT);
       const c = collideWalls(p.x + (p.recoilX || 0) * step, p.y + (p.recoilY || 0) * step, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
       p.x = c.x; p.y = c.y; p.recoilT -= step;
@@ -13693,13 +13770,17 @@ function stepPlayers(run, players, dt) {
     let mx = p.moveX, my = p.moveY;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
-    if (ml > 0.01 && run.phase === 'play') {
+    if (p.wantJump && !playerAirborne(p) && run.phase === 'play') startPlayerJump(run, p, mx, my);
+    p.wantJump = false;
+    const wasAirborne = stepPlayerJump(run, p, dt);
+    if (wasAirborne) clearAirborneActionQueue(p);
+    if (!wasAirborne && ml > 0.01 && run.phase === 'play') {
       const s = speed(p);
       const c = collideWalls(p.x + mx * s * dt, p.y + my * s * dt, PLAYER_SIZE / 2, run.plan.walls, p.x, p.y);
       p.x = c.x; p.y = c.y;
     }
     // dash
-    if (p.wantDash && p.dashCharges > 0 && run.phase === 'play') {
+    if (!wasAirborne && p.wantDash && p.dashCharges > 0 && run.phase === 'play') {
       let dx = mx, dy = my;
       if (Math.hypot(dx, dy) < 0.01) { const n = norm(p.aimX - p.x, p.aimY - p.y); dx = n.x; dy = n.y; }
       const n = norm(dx, dy);
@@ -13750,11 +13831,11 @@ function stepPlayers(run, players, dt) {
       p.invuln = Math.max(p.invuln, DASH_INVULN);
     }
     p.wantDash = false;
-    if (p.wantActive && run.phase === 'play') doActive(run, players, p);
+    if (!wasAirborne && p.wantActive && run.phase === 'play') doActive(run, players, p);
     p.wantActive = false;
-    if (p.wantRActive && run.phase === 'play') doRActive(run, players, p);
+    if (!wasAirborne && p.wantRActive && run.phase === 'play') doRActive(run, players, p);
     p.wantRActive = false;
-    if (p.wantSecondary && run.phase === 'play') {
+    if (!wasAirborne && p.wantSecondary && run.phase === 'play') {
       if (isLivingCasinoPlayer(p)) livingCasinoAssignTarget(run, p, 'sparks');
       else if (isProcessControllerPlayer(p)) commandProcessController(run, p);
       else doSecondaryWeapon(run, players, p);
@@ -13762,16 +13843,16 @@ function stepPlayers(run, players, dt) {
     p.wantSecondary = false;
     // Living Casino runs both autonomous guns in parallel and has no active weapon slot.
     if (isLivingCasinoPlayer(p)) p.weaponIdx = 0;
-    else if (p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) {
+    else if (!wasAirborne && p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) {
       if (p.weaponIdx !== p.wantWeapon && p.wagerStats) p.wagerStats.weaponSwitch = (p.wagerStats.weaponSwitch || 0) + 1;
       p.weaponIdx = p.wantWeapon;
     }
     p.wantWeapon = -1;
     // interact
-    if (p.wantInteract && run.phase === 'play') tryInteract(run, players, p);
+    if (!wasAirborne && p.wantInteract && run.phase === 'play') tryInteract(run, players, p);
     p.wantInteract = false;
     // fire
-    if (run.phase === 'play') fireWeapon(run, players, p, dt);
+    if (!wasAirborne && run.phase === 'play') fireWeapon(run, players, p, dt);
   }
 }
 
@@ -13931,7 +14012,8 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10,
+      Math.round(Math.max(0, p.jumpT || 0) * 1000) / 1000, Math.round(Math.max(0.01, p.jumpDuration || PLAYER_JUMP_DURATION) * 1000) / 1000, Math.max(0, Number(p.jumpSeq || 0) | 0)
     ]);
   }
   const ctrlLocks = new Map();

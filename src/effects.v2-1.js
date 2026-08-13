@@ -156,6 +156,18 @@ export class Effects {
         if (mine) { this.zoomKick = legendary ? 0.68 : 0.42; this.kick(legendary ? 7 : superRare ? 4 : 3); }
         break;
       }
+      case 'player_jump_start':
+        this.add({ kind: 'jumpTakeoff', x: f.x, y: f.y, vx: f.vx || 0, vy: f.vy || 0, ttl: 0.32, color: '#66f6ff' });
+        if (mine) { this.kick(1.8); this.zoomKick = Math.max(this.zoomKick, 0.035); }
+        break;
+      case 'player_jump_wall':
+        this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, ttl: 0.30, color: '#f3f3f3' });
+        if (mine) { this.kick(6.2); this.zoomKick = Math.max(this.zoomKick, 0.10); }
+        break;
+      case 'player_jump_land':
+        this.add({ kind: 'jumpLand', x: f.x, y: f.y, ttl: 0.42, color: '#66f6ff' });
+        if (mine) { this.kick(4.5); this.zoomKick = Math.max(this.zoomKick, 0.075); }
+        break;
       case 'levelup':
         if (mine) {
           this.levelPulse = 1;
@@ -703,6 +715,44 @@ export class Effects {
         ctx.fillStyle = e.color; ctx.globalAlpha = (1 - p) * 0.32;
         const block = e.weapon === 'rocketgun' ? 18 : 10;
         ctx.fillRect(Math.round(e.x + dx * 10 - block/2), Math.round(e.y + dy * 10 - block/2), block, block);
+      } else if (e.kind === 'jumpTakeoff') {
+        const fade = 1 - p;
+        const n = Math.hypot(e.vx || 0, e.vy || 0) || 1;
+        const dx = (e.vx || 1) / n, dy = (e.vy || 0) / n;
+        const nx = -dy, ny = dx;
+        ctx.fillStyle = e.color; ctx.strokeStyle = e.color;
+        for (let i = -3; i <= 3; i++) {
+          const side = i * 7;
+          const back = 8 + p * (34 + Math.abs(i) * 3);
+          const s = Math.max(2, 6 - p * 4);
+          ctx.globalAlpha = fade * (0.62 - Math.abs(i) * 0.055);
+          ctx.fillRect(Math.round(e.x + nx * side - dx * back - s/2), Math.round(e.y + ny * side - dy * back - s/2), Math.round(s), Math.round(s));
+        }
+      } else if (e.kind === 'jumpWallHit') {
+        const fade = 1 - p;
+        const nx = e.nx || 0, ny = e.ny || 0;
+        const tx = -ny, ty = nx;
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = 2;
+        for (let i = -3; i <= 3; i++) {
+          const side = i * 7;
+          const out = 5 + p * (28 + Math.abs(i) * 2);
+          ctx.globalAlpha = fade * (0.82 - Math.abs(i) * 0.07);
+          const px = e.x + tx * side + nx * out, py = e.y + ty * side + ny * out;
+          ctx.strokeRect(Math.round(px - 3), Math.round(py - 3), 6, 6);
+        }
+      } else if (e.kind === 'jumpLand') {
+        const fade = 1 - p;
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1, 3 - p * 2);
+        const s = 30 + p * 78;
+        ctx.globalAlpha = fade * 0.75;
+        ctx.strokeRect(Math.round(e.x - s/2), Math.round(e.y - s*0.22), Math.round(s), Math.round(s*0.44));
+        for (let i = 0; i < 8; i++) {
+          const a = i * Math.PI / 4;
+          const d = 18 + p * (48 + (i % 3) * 8);
+          const z = Math.max(2, 6 - p * 4);
+          ctx.globalAlpha = fade * (0.56 + (i % 2) * 0.12);
+          ctx.fillRect(Math.round(e.x + Math.cos(a) * d - z/2), Math.round(e.y + Math.sin(a) * d * 0.45 - z/2), Math.round(z), Math.round(z));
+        }
       } else if (e.kind === 'impact') {
         const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
         ctx.strokeStyle = e.color; ctx.globalAlpha = (1 - p) * 0.9; ctx.lineWidth = 2;

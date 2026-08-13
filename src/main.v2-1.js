@@ -897,10 +897,11 @@ function frame(now) {
     const active = input.takeActive();
     const ractive = input.takeRActive();
     const secondary = input.takeSecondary();
+    const jump = input.takeJump();
     const livingCasinoActive = me?.[P.LVC]?.hero === 'living_casino';
     const rawWeapon = input.takeWeapon(me ? me[P.WEAPONS].length : 1);
     const wpn = livingCasinoActive ? -1 : rawWeapon;
-    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen, ractive && !modalOpen);
+    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen, ractive && !modalOpen, jump && !modalOpen);
     net.sendInput(pkt);
   }
 
