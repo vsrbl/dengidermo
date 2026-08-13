@@ -40,6 +40,7 @@ const BOSS_SIGNATURE_TIMEOUT = 64;
 const ROOM_WAGER_UNSEEN_GRACE = 4;
 const CONTRACT_CHOICE_TIMEOUT = 30;
 const STATIC_RAIN_MAX_LEVEL = 99; // no player-facing cap; HUD shows the true stacked level
+const STATIC_CORE_STORM_PER_STACK = 3;
 const HERALD_PATH_FOLLOW_SPEED = 145; // v2.1: herald call-line reroutes slowly; dash changes the route, it does not cancel the line.
 const clampStaticRainLevel = v => Math.max(0, Math.min(STATIC_RAIN_MAX_LEVEL, v | 0));
 
@@ -57,6 +58,7 @@ function playerHasBulletElement(p) {
 function installUpgradeBlockedReason(p, id) {
   const s = p?.stats || {};
   if (!id) return 'NO UPGRADE';
+  if (isImpactDriverPlayer(p) && ['dash', 'dash_length', 'voidstep', 'dashcut', 'dashclone'].includes(String(id))) return 'NO DASH';
   // Upgrade should never appear before its base system exists.
   if (id === 'droneproc' && !(s.drones > 0)) return 'NEED DRONE';
   if (id === 'drone_element_link' && !(s.drones > 0)) return 'NEED DRONE';
@@ -447,7 +449,9 @@ function playerDebtEngineStacks(players) {
   return Math.min(STATIC_RAIN_MAX_LEVEL, n | 0);
 }
 function activeDebtEngineStacks(run, players) {
-  return run?.staticCoreStormDisabled ? 0 : playerDebtEngineStacks(players);
+  return run?.staticCoreStormDisabled
+    ? 0
+    : clampStaticRainLevel(playerDebtEngineStacks(players) * STATIC_CORE_STORM_PER_STACK);
 }
 function debtEngineEligiblePlan(plan) {
   // STATIC CORE is a run-long source. Boss rooms do not pause or hide it;
@@ -1076,22 +1080,29 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
   return { id: 'clean_signal', label: 'FULL CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy in the room.' };
 }
-function newContractObjectives(plan = {}, depth = 0) {
-  const quota = Math.max(8, Number(plan.quota || 8));
+function contractTeamPlayers(players) { return players instanceof Map ? [...players.values()].filter(p => p?.connected !== false) : []; }
+function newContractObjectives(plan = {}, depth = 0, players = null) {
+  const team = contractTeamPlayers(players);
+  const hasImpact = team.some(isImpactDriverPlayer);
+  const onlyImpact = team.length > 0 && team.every(isImpactDriverPlayer);
   const out = [
     { id: 'silent_protocol', label: 'SILENT PROTOCOL', reward: 'FAVOR', goal: 'Clear the sector without using Q.' },
-    { id: 'no_escape', label: 'NO ESCAPE', reward: 'FAVOR', goal: 'Clear the sector without dashing.' },
     { id: 'five_channels', label: 'FIVE CHANNELS', reward: 'FAVOR', goal: 'Score kills with at least five different damage sources.', target: 5 },
-    { id: 'long_chain', label: 'LONG CHAIN', reward: 'FAVOR', goal: 'Reach the required combo multiplier.', target: Math.min(6, 3 + Math.floor(depth / 8)) },
-    { id: 'long_account', label: 'LONG ACCOUNT', reward: 'FAVOR', goal: 'Score kills from long range.', target: Math.max(5, Math.min(14, Math.round(quota * 0.28))) }
+    { id: 'long_chain', label: 'LONG CHAIN', reward: 'FAVOR', goal: 'Reach the required combo multiplier.', target: Math.min(6, 3 + Math.floor(depth / 8)) }
   ];
+  if (!onlyImpact) out.push({ id: 'no_escape', label: 'NO ESCAPE', reward: 'FAVOR', goal: 'Clear the sector without dashing.' });
+  if (hasImpact) {
+    out.push({ id: 'impact_cycles', label: 'IMPACT CYCLE', reward: 'FAVOR', goal: 'Land six damaging jumps, then clear the sector.', target: 6 });
+    out.push({ id: 'impact_cluster', label: 'CLUSTER DROP', reward: 'FAVOR', goal: 'Hit four threats with one landing, then clear the sector.', target: 4 });
+    out.push({ id: 'impact_rebound', label: 'WALL DIVIDEND', reward: 'FAVOR', goal: 'Land after at least two wall rebounds, then clear the sector.', target: 2 });
+  }
   if (!(plan.modifierIds || []).includes('greed')) out.push({ id: 'last_reserve', label: 'LAST RESERVE', reward: 'FAVOR', goal: 'Finish with every hero at 35% HP or less.', target: 35 });
   return out;
 }
-function contractChoicesForPlan(plan = {}, depth = 0, seed = 1) {
+function contractChoicesForPlan(plan = {}, depth = 0, seed = 1, players = null) {
   const contextual = roomObjectiveForPlan(plan, depth);
   if (!contextual || contextual.id === 'lounge_cashout') return [];
-  const pool = [contextual, ...newContractObjectives(plan, depth)].filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
+  const pool = [contextual, ...newContractObjectives(plan, depth, players)].filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
   const rng = mulberry32(((seed || 1) ^ 0xC04E7A11 ^ ((depth || 0) * 1597334677)) >>> 0);
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   // Keep the room-specific contract represented while still changing its slot.
@@ -1323,8 +1334,10 @@ function roomObjectiveProgress(run, st = run?.roomStats || {}) {
     no_escape: `${st.dashUses || 0} DASH`,
     five_channels: `${(st.damageSources || []).length}/${obj.target || 5} SOURCES`,
     long_chain: `x${Math.round((st.maxCombo || 1) * 10) / 10}/x${obj.target || 3}`,
-    long_account: `${st.longRangeKills || 0}/${obj.target || 5} KILLS`,
-    last_reserve: `${Math.round(st.teamHpPctMax ?? 100)}%/${obj.target || 35}% HP`
+    last_reserve: `${Math.round(st.teamHpPctMax ?? 100)}%/${obj.target || 35}% HP`,
+    impact_cycles: `${Math.min(obj.target || 6, st.impactLandings || 0)}/${obj.target || 6} LANDINGS`,
+    impact_cluster: `${Math.min(obj.target || 4, st.impactBestHits || 0)}/${obj.target || 4} HITS`,
+    impact_rebound: `x${1 + Math.min(obj.target || 2, st.impactBestBounces || 0)}/x${1 + (obj.target || 2)}`
   };
   return progress[obj.id] || '—';
 }
@@ -1674,8 +1687,10 @@ function roomObjectiveDoneRaw(obj, run, st = {}, time = 0) {
   if (obj.id === 'no_escape') return (st.dashUses || 0) <= 0 && !roomHasLiveEnemies(run);
   if (obj.id === 'five_channels') return (st.damageSources || []).length >= (obj.target || 5) && !roomHasLiveEnemies(run);
   if (obj.id === 'long_chain') return (st.maxCombo || 1) >= (obj.target || 3) && !roomHasLiveEnemies(run);
-  if (obj.id === 'long_account') return (st.longRangeKills || 0) >= (obj.target || 5) && !roomHasLiveEnemies(run);
   if (obj.id === 'last_reserve') return (st.teamHpPctMax ?? 100) <= (obj.target || 35) && !roomHasLiveEnemies(run);
+  if (obj.id === 'impact_cycles') return (st.impactLandings || 0) >= (obj.target || 6) && !roomHasLiveEnemies(run);
+  if (obj.id === 'impact_cluster') return (st.impactBestHits || 0) >= (obj.target || 4) && !roomHasLiveEnemies(run);
+  if (obj.id === 'impact_rebound') return (st.impactBestBounces || 0) >= (obj.target || 2) && !roomHasLiveEnemies(run);
   return false;
 }
 function roomObjectiveFailReason(obj, run, st = {}, time = 0) {
@@ -1691,8 +1706,10 @@ function roomObjectiveFailReason(obj, run, st = {}, time = 0) {
   if (obj.id === 'no_escape' && (st.dashUses || 0) > 0) return 'DASH USED';
   if (obj.id === 'five_channels' && (st.damageSources || []).length < (obj.target || 5)) return 'NOT ENOUGH SOURCES';
   if (obj.id === 'long_chain' && (st.maxCombo || 1) < (obj.target || 3)) return 'COMBO TOO LOW';
-  if (obj.id === 'long_account' && (st.longRangeKills || 0) < (obj.target || 5)) return 'RANGE KILLS MISSING';
   if (obj.id === 'last_reserve' && (st.teamHpPctMax ?? 100) > (obj.target || 35)) return 'HP TOO HIGH';
+  if (obj.id === 'impact_cycles' && (st.impactLandings || 0) < (obj.target || 6)) return 'NOT ENOUGH LANDINGS';
+  if (obj.id === 'impact_cluster' && (st.impactBestHits || 0) < (obj.target || 4)) return 'NOT ENOUGH TARGETS';
+  if (obj.id === 'impact_rebound' && (st.impactBestBounces || 0) < (obj.target || 2)) return 'NOT ENOUGH REBOUNDS';
   if (['virus_clean','hunter_waves','grid_slow_clear','blood_paid','static_clean','cache_claim','fast_clear','no_hit','clean_signal'].includes(obj.id) && roomHasLiveEnemies(run)) return 'ENEMIES LEFT';
   if (!solved) return '';
   if (obj.id === 'hunter_waves' && !run?.hunterWave?.done) return 'WAVES LEFT';
@@ -1997,7 +2014,7 @@ function makeNextRoomPreview(run, players = null) {
   if (plan.modifierIds.includes('greed')) plan.modifierIds = plan.modifierIds.filter(m => m !== 'skin_cache');
   const intel = roomIntel(plan, 0, '');
   const offer = shouldOfferRoomContract(plan, depth, seed);
-  const objectiveChoices = offer ? contractChoicesForPlan(plan, depth, seed) : [];
+  const objectiveChoices = offer ? contractChoicesForPlan(plan, depth, seed, players) : [];
   const obj = objectiveChoices[0] || null;
   const previewChain = Math.max(1, (run.runMemory?.contractStreak || 0) + 1);
   for (let i = 0; i < objectiveChoices.length; i++) {
@@ -2015,7 +2032,7 @@ function initRoomStats(run) {
   run.roomObjectiveSettlement = null;
   run.roomObjectiveLiveState = null;
   run.roomObjectiveFrozenStats = null;
-  run.roomStats = { kills: 0, gld: 0, exp: 0, hea: 0, damageTaken: 0, shellBreaks: 0, prismHits: 0, bloodTaxes: 0, wireTouches: 0, huntedWaves: 0, qUses: 0, dashUses: 0, damageSources: [], maxCombo: 1, longRangeKills: 0, teamHpPctMax: 100, startedAt: run.now || 0, solvedAt: 0 };
+  run.roomStats = { kills: 0, gld: 0, exp: 0, hea: 0, damageTaken: 0, shellBreaks: 0, prismHits: 0, bloodTaxes: 0, wireTouches: 0, huntedWaves: 0, qUses: 0, dashUses: 0, impactLandings: 0, impactLandingHits: 0, impactBestHits: 0, impactBestBounces: 0, impactKills: 0, damageSources: [], maxCombo: 1, teamHpPctMax: 100, startedAt: run.now || 0, solvedAt: 0 };
 }
 function markRoomSolved(run, reason = 'portal_open') {
   if (!run) return;
@@ -3130,7 +3147,10 @@ function applyComboReelOutcome(run, players, owner, outcome, kills = 0, mult = 1
   if (outcome === 'GLD') { val = Math.round(base * 0.55 * econ); owner.economy.money += val; label = `GLD +${val}`; }
   else if (outcome === 'EXP') { val = Math.round(base * 0.45 * econ); addXp(run, owner, val); label = `EXP +${val}`; }
   else if (outcome === 'HEA') { val = Math.max(1, Math.round(base * 0.08)); healPlayer(run, owner, val); label = `HP +${val}`; }
-  else if (outcome === 'DASH') { owner.dashCharges = Math.min(dashMax(owner), owner.dashCharges + 1); label = 'DASH CHARGE'; }
+  else if (outcome === 'DASH') {
+    if (isImpactDriverPlayer(owner)) { owner.stats.jumpRecovery = Math.max(0, owner.stats.jumpRecovery || 0) + 1; label = 'DRV RECOVERY +1'; }
+    else { owner.dashCharges = Math.min(dashMax(owner), owner.dashCharges + 1); label = 'DASH CHARGE'; }
+  }
   else if (outcome === 'WPN') { const unowned = allowedWeaponOrderForPlayer(owner).filter(w => !owner.weapons.includes(w)); if (unowned.length) { const w = unowned[Math.floor(Math.random() * unowned.length)]; owner.weapons.push(w); label = `WPN ${WEAPONS[w].label}`; } else { owner.stats.weaponDmgMul = Math.max(0.05, Number(owner.stats.weaponDmgMul) || 1) * 1.10; label = 'WPN DMG +10%'; } }
   else if (outcome === 'JCK') { val = Math.round(base * 1.6 * econ); owner.economy.money += val; label = `JACKPOT GLD +${val}`; }
   run.fx.push({ t: 'combo_reel', id: owner.id, name: owner.name || '', personal: 1, outcome, label, symbols, kills, mult: Math.round(mult * 10) / 10 });
@@ -3337,6 +3357,7 @@ function heroId(v) {
   const x = String(v || 'base').trim().toLowerCase();
   if (x === 'living_casino') return 'living_casino';
   if (x === 'process_controller') return 'process_controller';
+  if (x === 'impact_driver') return 'impact_driver';
   return 'base';
 }
 export function sanitizeSkin(skin = {}) {
@@ -3383,11 +3404,13 @@ export function createPlayer(id, name, idx, skin = null) {
     touch: new Map(),
     wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false, wantJump: false,
     jumpT: 0, jumpDuration: PLAYER_JUMP_DURATION, jumpVx: 0, jumpVy: 0, jumpSeq: 0, jumpWallFxCd: 0,
+    jumpCooldown: 0, jumpCooldownMax: 0.5, jumpBounces: 0,
     activeTargeting: null,
     connected: true
   };
   if (safeSkin.hero === 'living_casino') setupLivingCasinoPlayer(p);
   else if (safeSkin.hero === 'process_controller') setupProcessControllerPlayer(p);
+  else if (safeSkin.hero === 'impact_driver') setupImpactDriverPlayer(p);
   return p;
 }
 export function maxHp(p) { return Math.max(20, PLAYER_HP + p.stats.maxHpAdd); }
@@ -3433,7 +3456,7 @@ export function speed(p) {
   const route = Math.min(0.18, ((p.huntRouteT || 0) / Math.max(1, 4.0)) * 0.14 * Math.max(0, p.stats?.sigHuntRoute || 0));
   return PLAYER_SPEED * p.stats.spdMul * Math.max(0.05, Number(p.wagerSpeedMul || 1) || 1) * Math.max(0.1, Number(p.wagerSpeedMulRoom || 1) || 1) * (1 + route) * ((p.redlineT || 0) > 0 ? redlineSpeedMul(p) : 1) * (p.slowT > 0 ? (p.slowMul || 0.6) : 1);
 }
-export function dashMax(p) { return 1 + p.stats.dashAdd; }
+export function dashMax(p) { return isImpactDriverPlayer(p) ? 0 : 1 + p.stats.dashAdd; }
 function effectiveDashMax(p) { return Math.max(0, dashMax(p) - Math.max(0, Number(p?.wagerDashPenaltyRoom || 0) | 0)); }
 export function dashDistance(p) {
   const mul = Math.max(0.65, Math.min(2.35, Number(p?.stats?.dashDistMul || 1) || 1));
@@ -3557,9 +3580,25 @@ const CONTROLLED_SHOOTER_RANGE_MUL = 1.35;
 function allowedWeaponOrderForPlayer(p) {
   if (isLivingCasinoPlayer(p)) return ['living_casino', 'control_sparks'];
   if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
+  if (isImpactDriverPlayer(p)) return ['impact_driver'];
   return ['shotgun', 'seeker', 'rocketgun'];
 }
 function isProcessControllerPlayer(p) { return p?.hero === 'process_controller' || p?.skin?.hero === 'process_controller'; }
+export function isImpactDriverPlayer(p) { return p?.hero === 'impact_driver' || p?.skin?.hero === 'impact_driver'; }
+function setupImpactDriverPlayer(p) {
+  if (!p) return p;
+  p.hero = 'impact_driver';
+  p.weapons = ['impact_driver'];
+  p.weaponIdx = 0;
+  p.shgCharges = 0;
+  p.shgReload = 0;
+  p.dashCharges = 0;
+  p.dashTimer = 0;
+  p.jumpCooldown = Math.max(0, Number(p.jumpCooldown || 0));
+  p.jumpCooldownMax = Math.max(0.1, Number(p.jumpCooldownMax || 0.5));
+  p.jumpBounces = Math.max(0, Number(p.jumpBounces || 0) | 0);
+  return p;
+}
 export function weaponRangeMultiplier(p) { return Math.max(0.55, Number(p?.stats?.bulletRange || 1) || 1); }
 // One shared weapon clock drives every hero's weapons. This is deliberately not
 // a second stat: old fireMul saves and every existing reward keep working.
@@ -3734,6 +3773,7 @@ function ensureHeroRuntimeState(p) {
   if (!p) return p;
   if (isLivingCasinoPlayer(p)) ensureLivingCasinoState(p);
   else if (isProcessControllerPlayer(p)) ensureProcessControllerState(p);
+  else if (isImpactDriverPlayer(p)) setupImpactDriverPlayer(p);
   return p;
 }
 
@@ -6020,7 +6060,7 @@ export function startRoom(run, players) {
     p.insuranceProcessUsed = false;
     p.huntRouteT = 0; p.redOverdriveShots = 0; p.aimGlitchT = 0;
     p.targetLockT = 0; p.targetLockTargetId = ''; p.redlineT = 0; p.ghostT = 0; p.rewindT = 0; p.rewindMark = null; p.activeTargeting = null; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0;
-    p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0, weaponSwitch: 0, lcMarks: 0, lcSparks: 0, ctrlCommands: 0, ctrlCaptures: 0, hitTimes: [], hitBurstBest: 0, sameAttackKey: '', sameAttackKills: 0, sameAttackBest: 0, healed: 0, statusKinds: [], killsWhileQCd: 0, lowHpHold: 0, fastEliteKills: 0, allyProjectileKills: 0, startShield: Math.max(0, p.aegisShieldMax || 0) };
+    p.wagerStats = { dash: 0, q: 0, r: 0, damage: 0, kills: 0, weaponSwitch: 0, lcMarks: 0, lcSparks: 0, ctrlCommands: 0, ctrlCaptures: 0, impactLandings: 0, impactLandingHits: 0, impactBestHits: 0, impactBestBounces: 0, impactKills: 0, impactMisses: 0, hitTimes: [], hitBurstBest: 0, sameAttackKey: '', sameAttackKills: 0, sameAttackBest: 0, healed: 0, statusKinds: [], killsWhileQCd: 0, lowHpHold: 0, fastEliteKills: 0, allyProjectileKills: 0, startShield: Math.max(0, p.aegisShieldMax || 0) };
     p.bossQSilenceT = run.plan.category === 'boss' ? 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10 : 0;
     p.bossQSilenceDenyT = 0;
     p.tempDmgMulRoom = 0;
@@ -6140,9 +6180,10 @@ export function resetRun(run, players) {
     p.stats = defaultStats();
     p.active = { core: null, level: 0, mutations: [], mutationLevels: {} };
     p.economy = { money: 0, xp: 0, level: 0, nextLevelXp: 40, pending: 0, lifetimeXp: 0 };
-    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1;
+    p.dashCharges = 1; p.activeCd = 0; p.activeBuffT = 0; p.alive = true; p.hp = PLAYER_HP; p.offer = null; p.bossSignaturePending = false; p.bossSignatureChoices = null; p.bossSignatureKind = ''; p.weaponChestOffer = null; p.abilityChestOffer = null; p.contractPrizeOffer = null; p.rareChestOffer = null; p.roomWagerOffer = null; p.roomWagerActive = null; p.roomWagerPrizePending = ''; p.roomWagerDecisionDone = false; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; p.bossKeyCharges = 0; p.bossKeyChargeLoop = -1; p.jumpT = 0; p.jumpCooldown = 0; p.jumpCooldownMax = 0.5; p.jumpBounces = 0;
     if ((p.skin?.hero || p.hero) === 'living_casino') setupLivingCasinoPlayer(p);
     else if ((p.skin?.hero || p.hero) === 'process_controller') setupProcessControllerPlayer(p);
+    else if ((p.skin?.hero || p.hero) === 'impact_driver') setupImpactDriverPlayer(p);
   }
   startRoom(run, players);
 }
@@ -6173,7 +6214,7 @@ function scaling(run) {
 export function bossLoopHpMultiplier(run) {
   const loop = Math.max(0, Math.floor(Number(run?.runDepth || 0) / 4));
   const late = Math.max(0, loop - 2);
-  return 1 + loop * 0.25 + Math.pow(late, 1.25) * 0.12;
+  return 1 + loop * 0.50 + Math.pow(late, 1.25) * 0.24;
 }
 function spawnPool(run) {
   const loop = Math.floor(run.runDepth / 4);
@@ -8305,10 +8346,12 @@ export const ROOM_WAGER_STAKES = [
   { id: 'lc_spark_loss', ru: 'один канал искр', en: 'one spark channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.sparkCount || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, (lc.upgrades.sparkCount || 0) - 1); lc.sparks.charges = Math.min(lc.sparks.charges || 0, livingCasinoSparkMax(lc)); lc.sparks.targetIds = lc.sparks.targetIds.slice(0, livingCasinoSparkMax(lc)); } } },
   { id: 'ctrl_release', ru: 'все перехваченные процессы', en: 'all captured processes', heroes: ['process_controller'], needs: p => (p?.processController?.controlled || []).length > 0, loss: (run, p) => { const pc = ensureProcessControllerState(p); if (pc) { for (const m of pc.controlled || []) if (m) expireControlledProcess(run, p, m, 'released'); pc.controlled = []; } } },
   { id: 'ctrl_slot_loss', ru: 'один слот процесса', en: 'one process slot', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlMax || 0) > 0, loss: (run, p) => { p.stats.ctrlMax = Math.max(0, (p.stats.ctrlMax || 0) - 1); const pc = ensureProcessControllerState(p); if (pc) pc.controlled = processControllerTrimControlled(p, pc); } },
-  { id: 'ctrl_power_loss', ru: 'один уровень контроля', en: 'one control level', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlPower || 0) > 0, loss: (run, p) => { p.stats.ctrlPower = Math.max(0, (p.stats.ctrlPower || 0) - 1); } }
+  { id: 'ctrl_power_loss', ru: 'один уровень контроля', en: 'one control level', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlPower || 0) > 0, loss: (run, p) => { p.stats.ctrlPower = Math.max(0, (p.stats.ctrlPower || 0) - 1); } },
+  { id: 'impact_power_loss', ru: 'один уровень силы посадки', en: 'one landing-power level', heroes: ['impact_driver'], needs: p => (p?.stats?.jumpImpactDamage || 0) > 0, loss: (run, p) => { p.stats.jumpImpactDamage = Math.max(0, (p.stats.jumpImpactDamage || 0) - 1); } },
+  { id: 'impact_radius_loss', ru: 'один уровень контура посадки', en: 'one landing-radius level', heroes: ['impact_driver'], needs: p => (p?.stats?.jumpImpactRadius || 0) > 0, loss: (run, p) => { p.stats.jumpImpactRadius = Math.max(0, (p.stats.jumpImpactRadius || 0) - 1); } }
 ];
 export const ROOM_WAGER_CONDITIONS = [
-  { id: 'dash15', ru: 'сделать 15 рывков', en: 'dash 15 times', ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
+  { id: 'dash15', ru: 'сделать 15 рывков', en: 'dash 15 times', heroes: ['base', 'living_casino', 'process_controller'], ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
   { id: 'no_damage', ru: 'не получить урон', en: 'take no damage', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
   { id: 'damage10', ru: 'держать нулевой урон 10 секунд', en: 'hold zero damage for 10 seconds', ok: (run, p) => roomSolvedTime(run) >= 10 && (p.wagerStats?.damage || 0) <= 0 },
   { id: 'q3', ru: 'использовать Q 3 раза', en: 'use Q 3 times', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
@@ -8337,7 +8380,11 @@ export const ROOM_WAGER_CONDITIONS = [
   { id: 'ctrl_commands9', ru: 'отдать 9 приказов', en: 'issue 9 commands', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCommands || 0) >= 9 },
   { id: 'ctrl_captures2', ru: 'перехватить 2 процесса', en: 'capture 2 processes', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCaptures || 0) >= 2 },
   { id: 'ctrl_captures4', ru: 'перехватить 4 процесса', en: 'capture 4 processes', heroes: ['process_controller'], ok: (run, p) => (p.wagerStats?.ctrlCaptures || 0) >= 4 },
-  { id: 'ctrl_full_team', ru: 'закончить с полным контуром', en: 'finish with a full process grid', heroes: ['process_controller'], ok: (run, p) => (ensureProcessControllerState(p)?.controlled || []).length >= processControllerMax(p) }
+  { id: 'ctrl_full_team', ru: 'закончить с полным контуром', en: 'finish with a full process grid', heroes: ['process_controller'], ok: (run, p) => (ensureProcessControllerState(p)?.controlled || []).length >= processControllerMax(p) },
+  { id: 'impact_land6', ru: 'нанести урон шестью приземлениями', en: 'deal damage with six landings', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 6 },
+  { id: 'impact_multi4', ru: 'задеть 4 угрозы одним приземлением', en: 'hit 4 threats with one landing', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactBestHits || 0) >= 4 },
+  { id: 'impact_bounce2', ru: 'приземлиться после двух отскоков', en: 'land after two wall rebounds', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactBestBounces || 0) >= 2 },
+  { id: 'impact_clean3', ru: 'сделать 3 точных посадки без промаха', en: 'make 3 clean landings without a miss', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 3 && (p.wagerStats?.impactMisses || 0) <= 0 }
 ];
 const ROOM_WAGER_PRIZES = [
   { id: 'dmg100', ru: 'урон x100 на следующий сектор', en: 'x100 damage next sector', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
@@ -8362,11 +8409,15 @@ const ROOM_WAGER_PRIZES = [
   { id: 'ctrl_tier_plus', ru: '+1 уровень ассимиляции', en: '+1 assimilation tier', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlCaptureTier || 0) < 4, prize: (run, p) => { p.stats.ctrlCaptureTier = Math.min(4, Math.max(0, p.stats.ctrlCaptureTier || 0) + 1); } },
   { id: 'ctrl_fire_plus', ru: '+1 огонь процессов', en: '+1 process fire', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlFire = Math.max(0, p.stats.ctrlFire || 0) + 1; } },
   { id: 'ctrl_life_plus', ru: '+1 ресурс процессов', en: '+1 process integrity', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlLife = Math.max(0, p.stats.ctrlLife || 0) + 1; } },
-  { id: 'ctrl_persist_plus', ru: '+1 сохранение процессов', en: '+1 process persistence', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlPersist = Math.max(0, p.stats.ctrlPersist || 0) + 1; } }
+  { id: 'ctrl_persist_plus', ru: '+1 сохранение процессов', en: '+1 process persistence', heroes: ['process_controller'], prize: (run, p) => { p.stats.ctrlPersist = Math.max(0, p.stats.ctrlPersist || 0) + 1; } },
+  { id: 'impact_power_plus', ru: '+1 сила посадки', en: '+1 landing power', heroes: ['impact_driver'], prize: (run, p) => { p.stats.jumpImpactDamage = Math.max(0, p.stats.jumpImpactDamage || 0) + 1; } },
+  { id: 'impact_radius_plus', ru: '+1 контур посадки', en: '+1 landing radius', heroes: ['impact_driver'], prize: (run, p) => { p.stats.jumpImpactRadius = Math.max(0, p.stats.jumpImpactRadius || 0) + 1; } },
+  { id: 'impact_rebound_plus', ru: '+1 упругий контур', en: '+1 rebound circuit', heroes: ['impact_driver'], prize: (run, p) => { p.stats.jumpRebound = Math.max(0, p.stats.jumpRebound || 0) + 1; } }
 ];
 function roomWagerHeroId(p) {
   if (isLivingCasinoPlayer(p)) return 'living_casino';
   if (isProcessControllerPlayer(p)) return 'process_controller';
+  if (isImpactDriverPlayer(p)) return 'impact_driver';
   return 'base';
 }
 function pickRoomWagerItem(list, p) {
@@ -8459,7 +8510,8 @@ const ROOM_WAGER_LIVE_LOCK_IDS = new Set([
   'dash15','q3','r2','kills10','base_kills18','hits20_5s','six_one_attack',
   'heal20pct','three_statuses','kills_q_cooldown10','low_hp_hold15','elite_fast8','ally_projectile_kills6',
   'lc_marks4','lc_marks8','lc_sparks3','lc_sparks6',
-  'ctrl_commands5','ctrl_commands9','ctrl_captures2','ctrl_captures4'
+  'ctrl_commands5','ctrl_commands9','ctrl_captures2','ctrl_captures4',
+  'impact_land6','impact_multi4','impact_bounce2'
 ]);
 export function updateRoomWagerCompletion(run, players) {
   for (const p of players.values()) {
@@ -8495,6 +8547,10 @@ function roomWagerProgress(run, p, w = null) {
   const solved = Math.max(0, roomSolvedTime(run));
   const dmg = Math.max(0, st.damage || 0);
   if (id === 'dash15') return { value: Math.min(15, st.dash || 0), max: 15, text: `${Math.min(15, st.dash || 0)}/15 DASH`, textRu: `${Math.min(15, st.dash || 0)}/15 РЫВКОВ`, textEn: `${Math.min(15, st.dash || 0)}/15 DASHES` };
+  if (id === 'impact_land6') return { value: Math.min(6, st.impactLandings || 0), max: 6, textRu: `${Math.min(6, st.impactLandings || 0)}/6 ПОСАДОК`, textEn: `${Math.min(6, st.impactLandings || 0)}/6 LANDINGS` };
+  if (id === 'impact_multi4') return { value: Math.min(4, st.impactBestHits || 0), max: 4, textRu: `${Math.min(4, st.impactBestHits || 0)}/4 УГРОЗЫ`, textEn: `${Math.min(4, st.impactBestHits || 0)}/4 THREATS` };
+  if (id === 'impact_bounce2') return { value: Math.min(2, st.impactBestBounces || 0), max: 2, textRu: `${Math.min(2, st.impactBestBounces || 0)}/2 ОТСКОКА`, textEn: `${Math.min(2, st.impactBestBounces || 0)}/2 REBOUNDS` };
+  if (id === 'impact_clean3') return { value: (st.impactMisses || 0) > 0 ? 0 : Math.min(3, st.impactLandings || 0), max: 3, textRu: (st.impactMisses || 0) > 0 ? 'ПРОМАХ' : `${Math.min(3, st.impactLandings || 0)}/3 ТОЧНО`, textEn: (st.impactMisses || 0) > 0 ? 'MISSED' : `${Math.min(3, st.impactLandings || 0)}/3 CLEAN` };
   if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 Q`, textRu: `${Math.min(3, st.q || 0)}/3 Q`, textEn: `${Math.min(3, st.q || 0)}/3 Q` };
   if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 R`, textRu: `${Math.min(2, st.r || 0)}/2 R`, textEn: `${Math.min(2, st.r || 0)}/2 R` };
   if (id === 'kills10') return { value: Math.min(10, st.kills || 0), max: 10, text: `${Math.min(10, st.kills || 0)}/10 KILL`, textRu: `${Math.min(10, st.kills || 0)}/10 УГРОЗ`, textEn: `${Math.min(10, st.kills || 0)}/10 THREATS` };
@@ -8874,7 +8930,6 @@ function killEnemy(run, players, e, killer, source = 'hit') {
     const sources = new Set(Array.isArray(run.roomStats.damageSources) ? run.roomStats.damageSources : []);
     sources.add(method === 'hit' ? 'weapon' : method);
     run.roomStats.damageSources = [...sources].slice(0, 32);
-    if (Math.hypot((killer.x || 0) - (e.x || 0), (killer.y || 0) - (e.y || 0)) >= 520) run.roomStats.longRangeKills = (run.roomStats.longRangeKills || 0) + 1;
   }
   if (killer?.wagerStats) {
     killer.wagerStats.kills = (killer.wagerStats.kills || 0) + 1;
@@ -9268,6 +9323,7 @@ function splitRouletteSquare(run, b, nx = 0, ny = 0, reason = 'hit') {
   return made;
 }
 function fireWeapon(run, players, p, dt) {
+  if (isImpactDriverPlayer(p)) return;
   if (isLivingCasinoPlayer(p)) { handleLivingCasinoBaseMark(run, players, p, dt); return; }
   if (isProcessControllerPlayer(p)) { fireProcessControllerProtocol(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
@@ -10930,9 +10986,34 @@ function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qua
   return choices;
 }
 
+const IMPACT_DRIVER_WPN_IDS = new Set([
+  'impact_damage', 'impact_radius', 'impact_cycle', 'impact_stun', 'impact_afterfield', 'impact_rebound',
+  'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'bullet_chain_status_link'
+]);
+function impactDriverChoicePool(p, qualityTier = 0) {
+  const pool = WEAPON_CHEST_REWARDS
+    .filter(opt => opt?.kind === 'weapon_upgrade' && IMPACT_DRIVER_WPN_IDS.has(String(opt.upgrade || opt.id)) && weaponChoiceEligible(p, opt))
+    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, impactOnly: 1, group: 'DRV' }));
+  pool.push({ id: 'impact_power_stat', kind: 'stat', stat: 'dmg', label: 'DRV: МОЩНОСТЬ +18%', desc: 'Усиливает взлёт, посадку и след удара.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRV' });
+  return pool;
+}
+function makeImpactDriverWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
+  const pool = impactDriverChoicePool(p, qualityTier);
+  const choices = [];
+  const used = new Set();
+  const want = Math.max(1, Math.min(5, count | 0));
+  while (choices.length < want && pool.length) {
+    const opt = weightedPickOption(rng, pool, x => weaponChoiceWeight(p, x, qualityTier), used);
+    if (!opt) break;
+    used.add(opt.id); choices.push(opt);
+  }
+  return choices;
+}
+
 function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   if (isLivingCasinoPlayer(p)) return makeLivingCasinoWeaponChoices(p, rng, count, qualityTier);
   if (isProcessControllerPlayer(p)) return makeProcessControllerWeaponChoices(p, rng, count, qualityTier);
+  if (isImpactDriverPlayer(p)) return makeImpactDriverWeaponChoices(p, rng, count, qualityTier);
   const pool = WEAPON_CHEST_REWARDS
     .filter(opt => weaponChoiceEligible(p, opt))
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier }));
@@ -11253,6 +11334,21 @@ function applyWeaponChestOption(run, players, p, opt) {
   if (!opt) return false;
   if (isLivingCasinoPlayer(p)) return applyLivingCasinoWeaponOption(run, players, p, opt);
   if (isProcessControllerPlayer(p)) return applyProcessControllerWeaponOption(run, players, p, opt);
+  if (isImpactDriverPlayer(p)) {
+    if (!opt.impactOnly) return false;
+    let label = opt.label || 'DRV';
+    if (opt.kind === 'weapon_upgrade') {
+      const u = UPGRADES.find(x => x.id === opt.upgrade && IMPACT_DRIVER_WPN_IDS.has(x.id));
+      if (!u || weaponChoiceDisabled(p, opt)) return false;
+      u.apply(p.stats); label = u.label;
+    } else if (opt.kind === 'stat' && opt.stat === 'dmg') {
+      p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
+    } else return false;
+    if (!opt._mirrorCopy) useMirrorIfPossible(run, p, label, true, () => applyWeaponChestOption(run, players, p, { ...opt, _mirrorCopy: 1 }));
+    run.fx.push({ t: 'weapon_mod', id: p.id, label, w: 'DRV' });
+    run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
+    return true;
+  }
   const disabledReason = weaponChoiceDisabled(p, opt);
   if (disabledReason) {
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, chest: 'WPN' });
@@ -12013,7 +12109,10 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
       pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
     }
   }
-  if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  if (pl.dash) {
+    if (isImpactDriverPlayer(p)) { p.stats.jumpRecovery += 1; pl.abilityLabel = 'DRV RECOVERY +1'; }
+    else { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  }
 
   const activeCdReduce = Math.max(0, Number(pl.activeCdReduce || 0));
   if (activeCdReduce) {
@@ -12035,8 +12134,8 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
       for (let i = 0; i < abilityCount; i++) {
         const tmp = {};
         if (!applyRandomCasinoAbility(run, players, p, tmp)) {
-          p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1';
-          p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+          if (isImpactDriverPlayer(p)) { p.stats.jumpRecovery += 1; tmp.abilityLabel = 'DRV RECOVERY +1'; }
+          else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
         }
         pl.abilityLabels.push(tmp.abilityLabel || 'ABL');
       }
@@ -12213,7 +12312,10 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
     for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
     pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
   }
-  if (pl.dash) { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  if (pl.dash) {
+    if (isImpactDriverPlayer(p)) { p.stats.jumpRecovery += 1; pl.abilityLabel = 'DRV RECOVERY +1'; }
+    else { p.stats.dashAdd += 1; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+  }
   const abilityCount = Math.max(0, Number(pl.abilityCount || (pl.ability ? 1 : 0)) | 0);
   if (abilityCount) {
     pl.abilityLabels = [];
@@ -12221,8 +12323,8 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       const before = pl.abilityLabel || '';
       const tmp = {};
       if (!applyRandomCasinoAbility(run, players, p, tmp)) {
-        p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1';
-        p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1);
+        if (isImpactDriverPlayer(p)) { p.stats.jumpRecovery += 1; tmp.abilityLabel = 'DRV RECOVERY +1'; }
+        else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
       }
       pl.abilityLabels.push(tmp.abilityLabel || before || 'ABL');
     }
@@ -13289,6 +13391,19 @@ function stepActiveFields(run, players, dt) {
       stepQuarantineAnchorField(run, players, f, dt);
       continue;
     }
+    if (f.kind === 'impact_field') {
+      if (f.tickT <= 0) {
+        f.tickT = f.tickEvery || 0.46;
+        const p = players.get(f.owner);
+        const pseudo = { from: 'p', owner: f.owner, kind: 'impact_driver', source: 'weapon', dmg: f.dmg || 4, knock: 18, elem: f.elem || '', elemPower: f.elemPower || 0 };
+        for (const e of [...activeTargets(run, f.x, f.y, f.r)]) {
+          applyBulletElements(run, players, e, pseudo, 0.42);
+          if (enemyCombatReady(e)) damageEnemy(run, players, e, bulletCorrosionArmorDamage(players, e, pseudo, f.dmg || 4), f.owner, 18, 0, 0, 'impact_field');
+        }
+        run.fx.push({ t: 'active_tick', kind: 'impact_field', x: Math.round(f.x), y: Math.round(f.y), r: f.r, tone: 'cyan', owner: p?.id || f.owner });
+      }
+      continue;
+    }
     if (f.kind === 'static' || f.kind === 'red_static' || f.kind === 'freeze_aura' || f.kind === 'signal_spike' || f.kind === 'black_box' || f.kind === 'void_tear' || f.kind === 'void_line' || f.kind === 'void_laser' || f.kind === 'anchor_field') {
       if ((f.kind === 'void_line' || f.kind === 'void_laser')) {
         const rr = (f.width || f.r || 42);
@@ -13651,7 +13766,96 @@ function clearAirborneActionQueue(p) {
   if (p.fire) p.fireWasDown = true;
 }
 
-function startPlayerJump(run, p, mx, my) {
+export function impactDriverProfile(p) {
+  const s = p?.stats || {};
+  const power = 1 + Math.max(0, s.jumpImpactDamage || 0) * 0.25;
+  const radius = 108 + Math.max(0, s.jumpImpactRadius || 0) * 18;
+  const rebound = Math.max(0, s.jumpRebound || 0);
+  return {
+    takeoffDamage: weaponDamageValue(p, 13 * power),
+    takeoffRadius: Math.round(radius * 0.72),
+    landingDamage: weaponDamageValue(p, 42 * power),
+    landingRadius: radius,
+    recovery: Math.max(0.12, 0.52 * Math.pow(0.86, Math.max(0, s.jumpRecovery || 0))),
+    duration: Math.min(1.28, PLAYER_JUMP_DURATION + rebound * 0.055),
+    restitution: Math.min(0.97, PLAYER_JUMP_WALL_RESTITUTION + rebound * 0.035),
+    stun: s.jumpStun > 0 ? 0.48 + Math.max(0, s.jumpStun - 1) * 0.18 : 0,
+    fieldLevel: Math.max(0, s.jumpAfterfield || 0)
+  };
+}
+
+function impactDriverElementBullet(p, damage, source) {
+  return {
+    from: 'p', owner: p.id, kind: 'impact_driver', source: 'weapon', dmg: damage, knock: source === 'impact_land' ? 125 : 45,
+    elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon')
+  };
+}
+
+function recordImpactDriverLanding(run, p, hits, bounces, kills = 0) {
+  if (run.roomStats) {
+    if (hits > 0) run.roomStats.impactLandings = (run.roomStats.impactLandings || 0) + 1;
+    run.roomStats.impactLandingHits = (run.roomStats.impactLandingHits || 0) + hits;
+    run.roomStats.impactBestHits = Math.max(run.roomStats.impactBestHits || 0, hits);
+    run.roomStats.impactBestBounces = Math.max(run.roomStats.impactBestBounces || 0, bounces);
+    run.roomStats.impactKills = (run.roomStats.impactKills || 0) + kills;
+  }
+  if (p.wagerStats) {
+    if (hits > 0) p.wagerStats.impactLandings = (p.wagerStats.impactLandings || 0) + 1;
+    p.wagerStats.impactLandingHits = (p.wagerStats.impactLandingHits || 0) + hits;
+    p.wagerStats.impactBestHits = Math.max(p.wagerStats.impactBestHits || 0, hits);
+    p.wagerStats.impactBestBounces = Math.max(p.wagerStats.impactBestBounces || 0, bounces);
+    p.wagerStats.impactKills = (p.wagerStats.impactKills || 0) + kills;
+    if (!hits) p.wagerStats.impactMisses = (p.wagerStats.impactMisses || 0) + 1;
+  }
+}
+
+function impactDriverPulse(run, players, p, x, y, kind, bounces = 0) {
+  if (!isImpactDriverPlayer(p)) return { hits: 0, kills: 0, radius: 0, damage: 0 };
+  const profile = impactDriverProfile(p);
+  const landing = kind === 'impact_land';
+  const mul = landing ? Math.max(1, 1 + Math.max(0, bounces | 0)) : 1;
+  const radius = landing ? profile.landingRadius : profile.takeoffRadius;
+  const damage = (landing ? profile.landingDamage : profile.takeoffDamage) * mul;
+  const pseudo = impactDriverElementBullet(p, damage, kind);
+  const targets = [...activeTargets(run, x, y, radius)];
+  let hits = 0, kills = 0, first = null;
+  for (const e of targets) {
+    const beforeHp = Math.max(0, e.hp || 0);
+    const beforeShell = Math.max(0, e.shellHp || 0);
+    const n = norm(e.x - x, e.y - y);
+    applyBulletElements(run, players, e, pseudo, landing ? 1 : 0.72);
+    if (!enemyCombatReady(e)) { kills++; continue; }
+    damageEnemy(run, players, e, bulletCorrosionArmorDamage(players, e, pseudo, damage), p.id, pseudo.knock, n.x, n.y, kind);
+    const dealt = (e.hp || 0) < beforeHp || (e.shellHp || 0) < beforeShell;
+    if (dealt) { hits++; if (!first) first = e; }
+    if (beforeHp > 0 && (e.hp || 0) <= 0) kills++;
+    if (landing && profile.stun > 0 && e.hp > 0) {
+      const stun = ENEMIES[e.kind]?.boss ? profile.stun * 0.35 : profile.stun;
+      e.stunT = Math.max(e.stunT || 0, stun);
+      e.activeSlowT = Math.max(e.activeSlowT || 0, stun);
+      e.activeSlowMul = Math.min(e.activeSlowMul || 1, 0.04);
+      e.fireCd = Math.max(e.fireCd || 0, Math.min(0.35, stun));
+      run.fx.push({ t: 'dash_stun', id: p.id, x: Math.round(e.x), y: Math.round(e.y), r: Math.round((e.size || 24) + 24), dur: Math.round(stun * 10) / 10, count: 1 });
+    }
+  }
+  if (first && (p.stats?.bulletChain || 0) > 0) applyWeaponChain(run, players, first, pseudo);
+  const blasts = chanceStacks(Math.max(0, p.stats?.procBlast || 0));
+  for (let i = 0; i < blasts; i++) explode(run, players, x, y, Math.round(radius * 0.62), damage * 0.62, p.id, false, 'blast');
+  if (landing) {
+    recordImpactDriverLanding(run, p, hits, bounces, kills);
+    if (profile.fieldLevel > 0) {
+      activeField(run, {
+        kind: 'impact_field', owner: p.id, x, y, r: Math.round(radius * 0.78),
+        ttl: 1.8 + profile.fieldLevel * 0.42, tickEvery: 0.46,
+        dmg: weaponDamageValue(p, (3.5 + profile.fieldLevel * 2.2) * (1 + Math.max(0, p.stats?.jumpImpactDamage || 0) * 0.25)),
+        elem: pseudo.elem, elemPower: pseudo.elemPower
+      });
+    }
+  }
+  return { hits, kills, radius, damage, mul };
+}
+
+function startPlayerJump(run, players, p, mx, my) {
   let dx = mx, dy = my;
   if (Math.hypot(dx, dy) < 0.01) {
     const aim = norm((p.aimX || p.x + 1) - p.x, (p.aimY || p.y) - p.y);
@@ -13659,21 +13863,24 @@ function startPlayerJump(run, p, mx, my) {
   }
   const dir = norm(dx, dy);
   const launchSpeed = Math.max(PLAYER_JUMP_MIN_SPEED, speed(p) * PLAYER_JUMP_SPEED_MUL);
-  p.jumpDuration = PLAYER_JUMP_DURATION;
-  p.jumpT = PLAYER_JUMP_DURATION;
+  const profile = impactDriverProfile(p);
+  p.jumpDuration = profile.duration;
+  p.jumpT = profile.duration;
   p.jumpVx = dir.x * launchSpeed;
   p.jumpVy = dir.y * launchSpeed;
   p.jumpSeq = (Number(p.jumpSeq || 0) + 1) | 0;
   p.jumpWallFxCd = 0;
+  p.jumpBounces = 0;
   p.recoilT = 0;
+  const impact = impactDriverPulse(run, players, p, p.x, p.y, 'impact_takeoff', 0);
   run.fx.push({
     t: 'player_jump_start', id: p.id, playerId: p.id,
     x: Math.round(p.x), y: Math.round(p.y),
-    vx: Math.round(p.jumpVx), vy: Math.round(p.jumpVy), seq: p.jumpSeq
+    vx: Math.round(p.jumpVx), vy: Math.round(p.jumpVy), seq: p.jumpSeq, r: impact.radius, damage: Math.round(impact.damage), hits: impact.hits
   });
 }
 
-function stepPlayerJump(run, p, dt) {
+function stepPlayerJump(run, players, p, dt) {
   const before = Math.max(0, Number(p.jumpT || 0));
   if (before <= 0) return false;
   p.jumpWallFxCd = Math.max(0, Number(p.jumpWallFxCd || 0) - dt);
@@ -13685,22 +13892,27 @@ function stepPlayerJump(run, p, dt) {
   const hitX = Math.abs(c.x - wantedX) > 0.05;
   const hitY = Math.abs(c.y - wantedY) > 0.05;
   p.x = c.x; p.y = c.y;
-  if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * PLAYER_JUMP_WALL_RESTITUTION;
-  if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * PLAYER_JUMP_WALL_RESTITUTION;
+  const profile = impactDriverProfile(p);
+  if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * profile.restitution;
+  if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * profile.restitution;
   if ((hitX || hitY) && p.jumpWallFxCd <= 0) {
     p.jumpWallFxCd = PLAYER_JUMP_WALL_FX_CD;
+    p.jumpBounces = Math.max(0, Number(p.jumpBounces || 0) | 0) + 1;
     run.fx.push({
       t: 'player_jump_wall', id: p.id, playerId: p.id,
       x: Math.round(p.x), y: Math.round(p.y),
       nx: hitX ? (wantedX > c.x ? -1 : 1) : 0,
       ny: hitY ? (wantedY > c.y ? -1 : 1) : 0,
-      seq: p.jumpSeq
+      seq: p.jumpSeq, bounces: p.jumpBounces, mul: p.jumpBounces + 1
     });
   }
   p.jumpT = Math.max(0, before - dt);
   if (p.jumpT <= 0) {
     p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0;
-    run.fx.push({ t: 'player_jump_land', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), seq: p.jumpSeq });
+    const impact = impactDriverPulse(run, players, p, p.x, p.y, 'impact_land', p.jumpBounces || 0);
+    p.jumpCooldownMax = profile.recovery;
+    p.jumpCooldown = profile.recovery;
+    run.fx.push({ t: 'player_jump_land', id: p.id, playerId: p.id, x: Math.round(p.x), y: Math.round(p.y), seq: p.jumpSeq, r: impact.radius, damage: Math.round(impact.damage), hits: impact.hits, bounces: p.jumpBounces || 0, mul: impact.mul || 1 });
   }
   return true;
 }
@@ -13720,6 +13932,7 @@ function stepPlayers(run, players, dt) {
     if (silenceBefore > 0 && p.bossQSilenceT <= 0) run.fx.push({ t: 'boss_q_silence_end', id: p.id, playerId: p.id, label: 'Q CHANNEL RESTORED', x: Math.round(p.x), y: Math.round(p.y), tone: 'cyan' });
     p.bossQSilenceDenyT = Math.max(0, (p.bossQSilenceDenyT || 0) - dt);
     const weaponClock = weaponClockMultiplier(p);
+    p.jumpCooldown = Math.max(0, Number(p.jumpCooldown || 0) - dt * weaponClock);
     p.sekSwarmCd = Math.max(0, (p.sekSwarmCd || 0) - dt * weaponClock);
     p.shgLongshotCd = Math.max(0, (p.shgLongshotCd || 0) - dt * weaponClock);
     p.spikePlaceCd = Math.max(0, (p.spikePlaceCd || 0) - dt);
@@ -13770,9 +13983,9 @@ function stepPlayers(run, players, dt) {
     let mx = p.moveX, my = p.moveY;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
-    if (p.wantJump && !playerAirborne(p) && run.phase === 'play') startPlayerJump(run, p, mx, my);
+    if (p.wantJump && isImpactDriverPlayer(p) && !playerAirborne(p) && (p.jumpCooldown || 0) <= 0 && run.phase === 'play') startPlayerJump(run, players, p, mx, my);
     p.wantJump = false;
-    const wasAirborne = stepPlayerJump(run, p, dt);
+    const wasAirborne = stepPlayerJump(run, players, p, dt);
     if (wasAirborne) clearAirborneActionQueue(p);
     if (!wasAirborne && ml > 0.01 && run.phase === 'play') {
       const s = speed(p);
@@ -14013,7 +14226,8 @@ export function buildSnapshot(run, players) {
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), ensureBossKeyCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
       p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10,
-      Math.round(Math.max(0, p.jumpT || 0) * 1000) / 1000, Math.round(Math.max(0.01, p.jumpDuration || PLAYER_JUMP_DURATION) * 1000) / 1000, Math.max(0, Number(p.jumpSeq || 0) | 0)
+      Math.round(Math.max(0, p.jumpT || 0) * 1000) / 1000, Math.round(Math.max(0.01, p.jumpDuration || PLAYER_JUMP_DURATION) * 1000) / 1000, Math.max(0, Number(p.jumpSeq || 0) | 0),
+      Math.max(0, Number(p.jumpBounces || 0) | 0), Math.round(Math.max(0, p.jumpCooldown || 0) * 1000) / 1000, Math.round(Math.max(0.1, p.jumpCooldownMax || 0.5) * 1000) / 1000
     ]);
   }
   const ctrlLocks = new Map();

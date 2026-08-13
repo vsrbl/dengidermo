@@ -88,7 +88,7 @@ let skinIndex = 0;
 let selectedSkinId = DEFAULT_UNLOCKED_SKINS[0] || SKIN_PRESETS[0]?.id || 'terminal_mint';
 const heroSaveKey = 'tcr_selected_hero_v1';
 const heroUnlockKey = 'tcr_heroes_unlocked_v1';
-const DEFAULT_UNLOCKED_HEROES = ['base'];
+const DEFAULT_UNLOCKED_HEROES = ['base', 'impact_driver'];
 const HEROES = {
   base: {
     id: 'base',
@@ -112,6 +112,13 @@ const HEROES = {
     explainRu: 'Ядро контроля: перехватывает процессы, отдаёт приказы и ставит карантинные якоря.',
     explainEn: 'Control core: captures processes, issues orders, and deploys quarantine anchors.',
     unlockRu: 'Завершить очистку.', unlockEn: 'Complete the cleanup.'
+  },
+  impact_driver: {
+    id: 'impact_driver',
+    labelRu: 'УДАРНЫЙ ДРАЙВЕР', labelEn: 'IMPACT DRIVER',
+    descRu: 'инерционный протокол', descEn: 'inertial impact protocol',
+    explainRu: 'Не использует обычное оружие и рывок. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон, а отскоки от стен умножают удар.',
+    explainEn: 'Uses no classic weapon or dash. SPACE launches an inertial jump: takeoff and landing deal damage, while wall rebounds multiply the impact.'
   }
 };
 function readUnlockedHeroes() {

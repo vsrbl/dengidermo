@@ -4752,7 +4752,7 @@ body[data-skin-id="bone_static"] #custom-cursor .cc {
   letter-spacing: .18em;
 }
 #hero-status { color: var(--fg); }
-.hero-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hero-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .hero-card {
   min-height: 66px;
   padding: 9px 10px;

@@ -1,7 +1,7 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.228';
-export const BUILD_ID = 'inertial_cube_jump';
-export const PROTOCOL = 15;
+export const VERSION = 'v2.1.230';
+export const BUILD_ID = 'impact_driver_jump_combat';
+export const PROTOCOL = 16;
 
 export const MAX_PLAYERS = 4;
 export const SIM_HZ = 60;

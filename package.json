@@ -1,6 +1,6 @@
 {
   "name": "terminal-casino-roguelike",
-  "version": "2.1.228",
+  "version": "2.1.230",
   "private": true,
   "type": "module",
   "scripts": {

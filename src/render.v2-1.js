@@ -1640,6 +1640,16 @@ export class Renderer {
       const jumpVisual = this.drawJumpCube(px, py, p, skinMetaLocal, now);
       if (jumpVisual) {
         ctx.restore();
+        const bounceMul = 1 + Math.max(0, Number(p[P.JUMPBOUNCES] || 0) | 0);
+        if (bounceMul > 1) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(0,0,0,.82)'; ctx.strokeStyle = skinOutline; ctx.lineWidth = 2;
+          ctx.fillRect(px - 18, py - jumpVisual.height - 59, 36, 20);
+          ctx.strokeRect(px - 18, py - jumpVisual.height - 59, 36, 20);
+          ctx.fillStyle = skinOutline; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(`x${bounceMul}`, px, py - jumpVisual.height - 49);
+          ctx.restore();
+        }
         this.label(p[P.NAME], px, py - jumpVisual.height - 31, isMe ? skinOutline : COL.dim, 10);
         continue;
       }

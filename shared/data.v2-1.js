@@ -21,6 +21,10 @@ export const WEAPONS = {
     id: 'control_sparks', label: 'SPK', name: 'ИСКРЫ КОНТРОЛЯ',
     cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
   },
+  impact_driver: {
+    id: 'impact_driver', label: 'DRV', name: 'УДАРНЫЙ ДРАЙВЕР',
+    cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 0
+  },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
     cooldown: 1.08, pellets: 1, spread: 0.004, dmg: 39, speed: 335, life: 1.50, maxDist: 653, size: 22, knock: 210, bounces: 0
@@ -137,6 +141,12 @@ export const UPGRADES = [
   { id: 'element_spread', label: 'ПЕРЕНОС СБОЯ', tier: 1, branch: 'ALL', desc: 'Удаление угрозы переносит статусный сбой на ближайшие цели.', apply: s => { s.elementSpread += 1; } },
   { id: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Попадание оружием связывает ближайшие угрозы. Повторные выборы продлевают цепь.', apply: s => { s.bulletChain += 1; } },
   { id: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', tier: 1, branch: 'ALL', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.', apply: s => { s.bulletChainStatuses = 1; } },
+  { id: 'impact_damage', label: 'DRV: УДАР +25%', tier: 1, branch: 'IMPACT', desc: 'Усиливает удар при взлёте, приземление и след удара.', apply: s => { s.jumpImpactDamage += 1; } },
+  { id: 'impact_radius', label: 'DRV: КОНТУР +18', tier: 1, branch: 'IMPACT', desc: 'Увеличивает точный радиус ударов при взлёте и приземлении.', apply: s => { s.jumpImpactRadius += 1; } },
+  { id: 'impact_cycle', label: 'DRV: ПЕРЕЗАПУСК +14%', tier: 1, branch: 'IMPACT', desc: 'Сокращает паузу перед следующим прыжком.', apply: s => { s.jumpRecovery += 1; } },
+  { id: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', tier: 1, branch: 'IMPACT', desc: 'Приземление оглушает угрозы. Повторы увеличивают длительность.', apply: s => { s.jumpStun += 1; } },
+  { id: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', tier: 1, branch: 'IMPACT', desc: 'На месте приземления остаётся короткий наносящий урон контур. Повторы усиливают его.', apply: s => { s.jumpAfterfield += 1; } },
+  { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', tier: 1, branch: 'IMPACT', desc: 'Отскоки от стен сохраняют больше скорости, а полёт длится дольше.', apply: s => { s.jumpRebound += 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
   { id: 'shg_longshot', label: 'SHG: ДАЛЬНИЙ ЗАЛП', tier: 1, branch: 'SHG', desc: 'ПКМ тратит все заряды SHG на один дальний тяжёлый выстрел. Повторные выборы усиливают его, но перезарядка становится дольше.', apply: s => { s.shgLongshot += 1; } },
   { id: 'sek_split',  label: 'SEK: ФРАГМЕНТЫ',  tier: 1, branch: 'SEK', desc: 'Убийства SEK выпускают маленькие самонаводящиеся фрагменты.', apply: s => { s.sekSplit += 1; } },
@@ -158,7 +168,7 @@ export const UPGRADES = [
 
   // high rarity rule-breakers
   { id: 'droneproc', label: 'DRONE BLAST CHANCE',  tier: 2, desc: 'Пули дронов иногда создают маленькие взрывы.', apply: s => { s.droneProc += 1; } },
-  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но боевые секторы получают статик-шторм. Контрактное очищение навсегда глушит шторм ядра.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
+  { id: 'debtengine',label: 'STATIC CORE',         tier: 2, cursed: true, desc: 'Большой урон и удача, но каждый стак добавляет 3 уровня Статик-шторма. Контрактное очищение навсегда глушит шторм ядра.', apply: s => { s.dmgMul *= 1.35; s.luck += 2; s.debtEngine += 1; } },
   { id: 'overload',  label: 'DMG +50% / HP -15',  tier: 2, cursed: true, apply: s => { s.dmgMul *= 1.5; s.maxHpAdd -= 15; } },
   { id: 'gamble',    label: 'LUCK +3 / SPD -10%', tier: 2, cursed: true, apply: s => { s.luck += 3; s.spdMul *= 0.9; } },
   { id: 'rlt_square_damage', label: 'RLT: УРОН +', branch: 'RLT', tier: 1, desc: 'Квадраты рулетки бьют сильнее.', apply: s => { s.rltDmg += 1; } },
@@ -188,7 +198,7 @@ export const CURSED_UPGRADE_IDS = UPGRADES.filter(u => u.cursed).map(u => u.id);
 
 // INSTALL upgrades are HERO ONLY.
 // Weapon-specific branches live in WPN chest choices, not INSTALL offers.
-export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT', 'RLT', 'CRD', 'CTRL', 'QRN'];
+export const WEAPON_BRANCHES = ['ALL', 'SHG', 'SEK', 'RKT', 'RLT', 'CRD', 'CTRL', 'QRN', 'IMPACT'];
 export const HERO_UPGRADES = UPGRADES.filter(u => !u.bossSig && !WEAPON_BRANCHES.includes(u.branch) && u.branch !== 'Q');
 export const BOSS_SIGNATURE_UPGRADE_IDS = UPGRADES.filter(u => u.bossSig).map(u => u.id);
 export const WEAPON_UPGRADE_IDS = UPGRADES.filter(u => WEAPON_BRANCHES.includes(u.branch)).map(u => u.id);
@@ -209,6 +219,12 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'element_spread', kind: 'weapon_upgrade', upgrade: 'element_spread', label: 'ПЕРЕНОС СБОЯ', desc: 'Статусные сбои с удалённых угроз переходят на ближайшие цели.' },
   { id: 'bullet_chain', kind: 'weapon_upgrade', upgrade: 'bullet_chain', label: 'СВЯЗЬ СНАРЯДОВ +1', desc: 'Попадание оружием передаёт часть урона дальше. Статусы сами по цепи не переходят.' },
   { id: 'bullet_chain_status_link', kind: 'weapon_upgrade', upgrade: 'bullet_chain_status_link', label: 'СТАТУСНЫЙ КАНАЛ СВЯЗИ', desc: 'Связь снарядов переносит любые текущие и будущие оружейные статусы.' },
+  { id: 'impact_damage', kind: 'weapon_upgrade', upgrade: 'impact_damage', label: 'DRV: УДАР +25%', desc: 'Усиливает весь урон взлёта, приземления и следа.' },
+  { id: 'impact_radius', kind: 'weapon_upgrade', upgrade: 'impact_radius', label: 'DRV: КОНТУР +18', desc: 'Расширяет точную область ударов.' },
+  { id: 'impact_cycle', kind: 'weapon_upgrade', upgrade: 'impact_cycle', label: 'DRV: ПЕРЕЗАПУСК +14%', desc: 'Быстрее готовит следующий прыжок.' },
+  { id: 'impact_stun', kind: 'weapon_upgrade', upgrade: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', desc: 'Оглушает угрозы в области приземления.' },
+  { id: 'impact_afterfield', kind: 'weapon_upgrade', upgrade: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', desc: 'Оставляет наносящий урон контур в точке посадки.' },
+  { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', desc: 'Лучше сохраняет импульс после столкновения со стеной.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
   { id: 'shg_longshot', kind: 'weapon_upgrade', upgrade: 'shg_longshot', reqWeapon: 'shotgun', label: 'SHG: ДАЛЬНИЙ ЗАЛП', desc: 'ПКМ тратит все заряды клинового разряда на один дальний тяжёлый выстрел.' },
   { id: 'sek_split', kind: 'weapon_upgrade', upgrade: 'sek_split', reqWeapon: 'seeker', label: 'SEK: ФРАГМЕНТЫ', desc: 'Искатель выпускает фрагменты после удаления цели.' },
@@ -340,6 +356,7 @@ export function defaultStats() {
     procBlast: 0, echoShot: 0, lifesteal: 0, goldMul: 1,
     bulletBounce: 0, bulletRange: 1, bulletFire: 0, bulletFreeze: 0, bulletPoison: 0, bulletChain: 0, bulletChainStatuses: 0, droneElementLink: 0, bulletElementAmp: 0, elementSpread: 0, shgBounce: 0, shgPellets: 0, shgLongshot: 0, sekSplit: 0, sekChain: 0, sekSwarm: 0, rktCluster: 0, rktMines: 0, rktStun: 0, rktScatter: 0, rktRemote: 0, rltBounce: 0, rltZero: 0, rltDmg: 0, rltSize: 0, rltFrag: 0, rltDepth: 0, rltWallBuff: 0, rltSpeed: 0, crdCards: 0, crdDmg: 0, crdBounce: 0, ctrlMax: 0, ctrlPower: 0, ctrlCaptureTier: 0, ctrlFire: 0, sawFallbackDamage: 0, ctrlProcessContactStatus: 0, ctrlLife: 0, ctrlDeathHeal: 0, ctrlPersist: 0, qrRadius: 0, qrHold: 0, qrLinks: 0, qrDamage: 0,
     voidStep: 0, dashCut: 0, dashClone: 0,
+    jumpImpactDamage: 0, jumpImpactRadius: 0, jumpRecovery: 0, jumpStun: 0, jumpAfterfield: 0, jumpRebound: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     comboPrize: 'gld', tempFire: 0,

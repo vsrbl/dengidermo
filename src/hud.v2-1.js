@@ -81,6 +81,7 @@ function renderTabBuild(me) {
     { key:'dashRegenMul', ru:'ВОССТ. РЫВКА', en:'DASH RECOVERY', kind:'mult' },
     { key:'activeRegenMul', ru:'ВОССТ. Q', en:'Q RECOVERY', kind:'mult' }
   ];
+  if (build.hero === 'impact_driver') coreDefs.splice(12, 3);
   const armoryDefs = [
     { key:'bulletRange', ru:'ДАЛЬНОСТЬ ОРУЖИЯ', en:'WEAPON RANGE', kind:'mult' },
     { key:'bulletBounce', ru:'РИКОШЕТЫ', en:'RICOCHETS' },
@@ -140,7 +141,14 @@ function renderTabBuild(me) {
       { key:'lcSparkHold', ru:'УДЕРЖАНИЕ ИСКР', en:'SPARK HOLD', value:()=>Number(lc.sparkHold || 0) },
       { key:'lcSparkRange', ru:'ДАЛЬНОСТЬ ИСКР', en:'SPARK RANGE', value:()=>Number(lc.sparkRange || 0) }
     );
-  } else heroDefs.push(
+  } else if (build.hero === 'impact_driver') heroDefs.push(
+    { key:'jumpImpactDamage', ru:'ПОСАДКА: МОЩНОСТЬ', en:'LANDING: POWER' },
+    { key:'jumpImpactRadius', ru:'ПОСАДКА: КОНТУР', en:'LANDING: RADIUS' },
+    { key:'jumpRecovery', ru:'ПРЫЖОК: ПЕРЕЗАПУСК', en:'JUMP: RECOVERY' },
+    { key:'jumpStun', ru:'ПОСАДКА: ОГЛУШЕНИЕ', en:'LANDING: STUN' },
+    { key:'jumpAfterfield', ru:'ПОСАДКА: СЛЕД', en:'LANDING: FIELD' },
+    { key:'jumpRebound', ru:'ПРЫЖОК: ОТСКОК', en:'JUMP: REBOUND' }
+  ); else heroDefs.push(
     { key:'voidStep', ru:'РЫВОК: ФАЗА', en:'DASH: PHASE' },
     { key:'dashCut', ru:'РЫВОК: РАЗРЕЗ', en:'DASH: CUT' },
     { key:'dashClone', ru:'РЫВОК: ПРИЗРАК', en:'DASH: GHOST' }
@@ -1583,6 +1591,16 @@ export class Hud {
     // dash pips: stable right edge. Cooldown and casino charge overflow live on the LEFT,
     // so the charge squares never shove the hand/weapon HUD when seconds or extra charges appear.
     const pips = $('dash-pips');
+    const impactDriverHero = me[P.BUILD]?.hero === 'impact_driver';
+    if (impactDriverHero) {
+      const jumpCd = Math.max(0, Number(me[P.JUMPCD] || 0));
+      const wantJump = `jump:${jumpCd.toFixed(2)}:${Number(me[P.JUMP] || 0).toFixed(2)}`;
+      if (pips.dataset.v !== wantJump) {
+        pips.dataset.v = wantJump;
+        pips.innerHTML = `<span class="dash-cd-mini ${jumpCd > 0 ? '' : 'empty'}">${jumpCd > 0 ? jumpCd.toFixed(1) : 'SPACE'}</span><span class="dash-overmax-mini">JUMP</span>`;
+        this.setExplain(pips, localText('ПРЫЖОК ДРАЙВЕРА', 'DRIVER JUMP'), jumpCd > 0 ? localText(`Перезапуск: ${jumpCd.toFixed(1)} сек.`, `Recovery: ${jumpCd.toFixed(1)} sec.`) : localText('Готов. SPACE запускает инерционный прыжок.', 'Ready. SPACE launches the inertial jump.'), 'cyan');
+      }
+    } else {
     const dashCd = Math.max(0, Number(me[P.DASHCD] || 0));
     const dashCdMax = Math.max(0.01, Number(me[P.DASHCDMAX] || 0.01));
     const dashCharge01 = dashCd > 0 ? Math.max(0, Math.min(1, 1 - dashCd / dashCdMax)) : 1;
@@ -1614,6 +1632,7 @@ export class Hud {
         this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
         pips.appendChild(d);
       }
+    }
     }
 
     let lcHud = $('living-casino-selected');
@@ -1745,17 +1764,18 @@ export class Hud {
     const slots = $('weapon-slots');
     const livingCasinoHero = !!(me[P.LVC] && me[P.LVC].hero === 'living_casino');
     const processControllerHero = !!(me[P.CTRL] && me[P.CTRL].hero === 'process_controller');
+    const impactDriverMode = me[P.BUILD]?.hero === 'impact_driver';
     document.body?.classList?.toggle('process-controller-mode', processControllerHero && !livingCasinoHero);
     const ctrlCapPct = processControllerHero ? Math.max(0, Math.min(100, Number(me[P.CTRL]?.capturePct || 0) || 0)) : 0;
     const ctrlCapActive = processControllerHero && !!me[P.CTRL]?.captureActive;
     document.body?.classList?.toggle('ctrl-capture-active', ctrlCapActive);
     document.documentElement?.style?.setProperty('--ctrl-capture-pct', `${ctrlCapPct}%`);
     if (slots) {
-      slots.classList.toggle('hidden', livingCasinoHero);
+      slots.classList.toggle('hidden', livingCasinoHero || impactDriverMode);
       slots.classList.toggle('ctrl-slots', processControllerHero && !livingCasinoHero);
       slots.classList.remove('lc-slots');
     }
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '');
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '') + (impactDriverMode ? ':impact' : '');
     if (slots && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';

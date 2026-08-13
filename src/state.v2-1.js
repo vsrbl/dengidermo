@@ -11,7 +11,7 @@ export const P = {
   DASH: 10, DASHMAX: 11, LVL: 12, PEND: 13, GLD: 14, XP: 15, NEXTXP: 16,
   DRONES: 17, ORBITALS: 18, LASTSEQ: 19, NAME: 20, INV: 21, SPD: 22, ACTIVECD: 23, ACTIVEBUFF: 24,
   ACTIVELABEL: 25, ACTIVEDESC: 26, SHG: 27, SHGRELOAD: 28, SKINFILL: 29, SKINOUTLINE: 30, SKINBARREL: 31, SKINID: 32, DASHCD: 33, DASHCDMAX: 34, CASINOLOCK: 35, SHIELD: 36, SHIELDMAX: 37, RCD: 38, RT: 39, RLABEL: 40, RDESC: 41, MIRROR: 42, MIRRORMAX: 43, REVIVE: 44, BOSSKEY: 45, ROOMWAGER: 46, ACTIVEWAGER: 47, RMARKX: 48, RMARKY: 49, BOSSKEYMAX: 50, LVC: 51, LUCK: 52, CTRL: 53, DASHDIST: 54, CASINO: 55, ACTIVEAIM: 56, BUILD: 57, QSILENCE: 58,
-  JUMP: 59, JUMPMAX: 60, JUMPSEQ: 61
+  JUMP: 59, JUMPMAX: 60, JUMPSEQ: 61, JUMPBOUNCES: 62, JUMPCD: 63, JUMPCDMAX: 64
 };
 export const ENEMY_KINDS = Object.keys(ENEMIES);
 export const ENEMY_LABELS = ENEMY_KINDS.map(k => ENEMIES[k].label || k.toUpperCase());
@@ -103,8 +103,9 @@ export class GameState {
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
     const airborne = !!me && Number(me[P.JUMP] || 0) > 0;
+    const jumpReady = !!(jump && me?.[P.BUILD]?.hero === 'impact_driver' && Number(me?.[P.JUMPCD] || 0) <= 0);
     this.seq++;
-    if (alive && playPhase && this.pred.init && !airborne && !jump) {
+    if (alive && playPhase && this.pred.init && !airborne && !jumpReady) {
       const adir = { x: aim.x - this.pred.x, y: aim.y - this.pred.y };
       const al = Math.hypot(adir.x, adir.y) || 1;
       if (dash && me && me[P.DASH] > 0) {
@@ -126,7 +127,7 @@ export class GameState {
       seq: this.seq, mx: mv.x, my: mv.y,
       ax: Math.round(aim.x), ay: Math.round(aim.y),
       fire: airborne ? false : fire, dash: (!airborne && dash) || undefined, inter: (!airborne && inter) || undefined, active: (!airborne && active) || undefined, ractive: (!airborne && ractive) || undefined, secondary: (!airborne && secondary) || undefined,
-      jump: (!airborne && jump) || undefined,
+      jump: (!airborne && jumpReady) || undefined,
       wpn: !airborne && wpn >= 0 ? wpn : undefined
     };
   }

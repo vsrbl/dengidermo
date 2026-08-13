@@ -162,10 +162,12 @@ export class Effects {
         break;
       case 'player_jump_wall':
         this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, ttl: 0.30, color: '#f3f3f3' });
+        if (f.mul > 1) this.float(f.x, f.y - 42, `x${f.mul}`, '#66f6ff', 13);
         if (mine) { this.kick(6.2); this.zoomKick = Math.max(this.zoomKick, 0.10); }
         break;
       case 'player_jump_land':
-        this.add({ kind: 'jumpLand', x: f.x, y: f.y, ttl: 0.42, color: '#66f6ff' });
+        this.add({ kind: 'jumpLand', x: f.x, y: f.y, r: f.r || 108, ttl: 0.42, color: '#66f6ff' });
+        if (f.mul > 1) this.float(f.x, f.y - 38, `IMPACT x${f.mul}`, '#66f6ff', 14);
         if (mine) { this.kick(4.5); this.zoomKick = Math.max(this.zoomKick, 0.075); }
         break;
       case 'levelup':
@@ -743,7 +745,7 @@ export class Effects {
       } else if (e.kind === 'jumpLand') {
         const fade = 1 - p;
         ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1, 3 - p * 2);
-        const s = 30 + p * 78;
+        const s = 30 + p * Math.max(78, (e.r || 108) * 1.7);
         ctx.globalAlpha = fade * 0.75;
         ctx.strokeRect(Math.round(e.x - s/2), Math.round(e.y - s*0.22), Math.round(s), Math.round(s*0.44));
         for (let i = 0; i < 8; i++) {

@@ -127,8 +127,11 @@ const EN_UPGRADE = {
   q_snap: 'Q pulls enemies inward, stuns them for a long time, and leaves a slowing field without dealing damage.', q_blood: 'Q spends health for a red square blast.', q_over: 'Q briefly speeds up weapon and controlled process fire.',
   combo_gld: 'Combo payout gives GLD when the chain ends.', combo_exp: 'Combo payout gives EXP when the chain ends.', combo_hp: 'Combo payout heals you when the chain ends.',
   sig_quarantine_buffer: '10-second temporary shield at the start of each room.', sig_emergency_cleanse: 'At low health, erases nearby enemy bullets for 20 seconds.', sig_payout_swap: 'Small chance to double GLD or healing.', sig_false_zero: 'Enemy bullets sometimes count as zero and deal no damage.', sig_deaf_command: 'Some enemies receive the start-room order late.', sig_hunt_route: 'Keep moving to gain a small speed trace.', sig_red_overdrive: 'After dash, the next shot hits harder.', sig_aim_glitch: 'After dash, nearby enemy bullets drift off course.', sig_incomplete_delete: 'Strong enemies can leave a small healing fragment.', sig_insurance_process: 'At 10% health, nearby enemies are thrown outward once per room.',
-  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck, but combat rooms gain a Static Storm. Contract cleansing permanently silences the core storm.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
+  droneproc: 'Drone bullets can create small blasts.', orbreflect: 'Orbitals still seek nearby enemies. When enemy bullets pass close, they intercept them too.', debtengine: 'Great power and luck, but each stack adds 3 Static Storm levels. Contract cleansing permanently silences the core storm.', overload: 'Much more damage, but lower maximum health.', gamble: 'More luck, but lower movement speed.'
 };
+Object.assign(EN_UPGRADE, {
+  impact_damage: 'Increases takeoff, landing, and impact-field damage.', impact_radius: 'Expands the exact takeoff and landing hit area.', impact_cycle: 'Shortens recovery before the next jump.', impact_stun: 'Landing stuns threats; repeats extend the lock.', impact_afterfield: 'Landing leaves a short damaging field; repeats strengthen it.', impact_rebound: 'Wall rebounds retain more inertia and slightly extend airtime.'
+});
 const RU_UPGRADE_CLEAN = {
   dmg: 'Весь исходящий урон растёт, включая атаки подконтрольных процессов.', fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', spd: 'Скорость движения растёт.', maxhp: 'Максимальное здоровье растёт.', magnet: 'Подборы притягиваются дальше.', dash: 'Добавляет один заряд рывка.', dash_length: 'Рывок проходит дальше.', drone: 'Добавляет автостреляющего дрона.', orbital: 'Добавляет орбиталь, которая бьёт ближайших угроз.', orb_speed: 'Орбитали быстрее тянутся к угрозам.', orb_range: 'Орбитали замечают угроз и пули дальше.', luck: 'Лучше исходы улучшений и казино.', proc: 'Выстрелы героя и стрелковых процессов могут создавать маленький взрыв. Дронам нужен DRONE BLAST.', echo: 'Иногда появляется дополнительный выстрел.', leech: 'Урон возвращает здоровье. В Золотой лихорадке — кредиты вместо HP.', goldgun: 'Угрозы дают больше кредитов при очистке.',
   voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', abl_voidstep: 'Рывок оставляет по траектории опасный разрез пустоты.', dashcut: 'Рывок оглушает угроз рядом с траекторией.', dashclone: 'После рывка в точке старта остаётся короткий ударный след.', abl_dashcut: 'Рывок оглушает угроз рядом с траекторией.', abl_dashclone: 'После рывка в точке старта остаётся короткий ударный след.',
@@ -139,8 +142,11 @@ const RU_UPGRADE_CLEAN = {
   wpn_dmg: 'Повышает урон оружия и процессов.', wpn_fire: 'Оружейный такт ускоряет перезарядку всего оружия, включая пушки казино, SAW и стрелковые процессы.', abl_dash: 'Добавляет один заряд рывка.', abl_dash_length: 'Рывок проходит дальше.', abl_speed: 'Скорость движения растёт.', abl_dashflow: 'Заряды рывка восстанавливаются быстрее.',
   combo_gld: 'Комбо при завершении выдаёт кредиты.', combo_exp: 'Комбо при завершении выдаёт опыт.', combo_hp: 'Комбо при завершении лечит.',
   sig_quarantine_buffer: 'В начале каждого сектора включается щит на 10 секунд.', sig_emergency_cleanse: 'При низком здоровье 20 секунд стирает ближайшие вражеские пули.', sig_payout_swap: 'Маленький шанс удвоить кредиты или лечение.', sig_false_zero: 'Вражеские пули иногда считаются нулём и не наносят урон.', sig_deaf_command: 'Часть угроз получает приказ с задержкой.', sig_hunt_route: 'Пока двигаешься, появляется небольшой след скорости.', sig_red_overdrive: 'После рывка следующий выстрел сильнее.', sig_aim_glitch: 'После рывка ближайшие вражеские пули сбиваются с курса.', sig_incomplete_delete: 'Сильные угрозы иногда оставляют небольшой лечебный обломок.', sig_insurance_process: 'При 10% здоровье угрозы разбрасываются в стороны. Один раз за сектор.',
-  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача, но боевые секторы получают статик-шторм. Контрактное очищение навсегда глушит шторм ядра.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
+  droneproc: 'Пули дронов могут создавать маленькие взрывы.', orbreflect: 'Орбитали всё ещё тянутся к угрозам, а рядом с вражескими пулями перехватывают их.', debtengine: 'Большой урон и удача, но каждый стак добавляет 3 уровня Статик-шторма. Контрактное очищение навсегда глушит шторм ядра.', overload: 'Сильно повышает урон, но снижает максимум здоровье.', gamble: 'Даёт больше удачи, но снижает скорость движения.'
 };
+Object.assign(RU_UPGRADE_CLEAN, {
+  impact_damage: 'Усиливает урон при взлёте, приземлении и от следа удара.', impact_radius: 'Расширяет точную область удара при взлёте и посадке.', impact_cycle: 'Сокращает восстановление перед следующим прыжком.', impact_stun: 'Приземление оглушает угрозы; повторы продлевают блокировку.', impact_afterfield: 'Посадка оставляет короткий наносящий урон контур; повторы усиливают его.', impact_rebound: 'Отскоки от стен сохраняют больше инерции и немного продлевают полёт.'
+});
 const EN_CORE = {
   blood_ring: 'Press Q to deploy the blood ring around you.',
   field_snap: 'Press Q to pull and strongly stun nearby threats, then leave a harmless control field.',
@@ -557,8 +563,9 @@ const RU_LABEL = {
   'WIRE GHOST': 'ПРОЙТИ БЕЗ ПРОВОДОВ', 'GRID WALKER': 'ПРОЙТИ СЕТКУ', 'BLOOD PAID': 'КРОВАВАЯ ОПЛАТА', 'STATIC CLEAN': 'ЧИСТАЯ СТАТИКА',
   'CACHE CLAIM': 'ЗАБРАТЬ ОБЛИК', 'FAST CLEAN': 'БЫСТРАЯ ЗАЧИСТКА', 'NO HIT TAPE': 'БЕЗ УРОНА', 'CLEAN SIGNAL': 'ЧИСТЫЙ СИГНАЛ',
   'NEXT SECTOR FAVOR': 'ПРИЗ СЛЕДУЮЩЕГО СЕКТОРА', 'NEXT SECTOR PRIZE': 'ПРИЗ СЛЕДУЮЩЕГО СЕКТОРА', 'NEXT SECTOR BONUS': 'БОНУС СЛЕДУЮЩЕГО СЕКТОРА',
-  'SILENT PROTOCOL': 'ТИХИЙ ПРОТОКОЛ', 'NO ESCAPE': 'БЕЗ РЫВКОВ', 'FIVE CHANNELS': 'ПЯТЬ КАНАЛОВ', 'LONG CHAIN': 'ДЛИННАЯ ЦЕПЬ', 'LONG ACCOUNT': 'ДАЛЬНИЙ СЧЁТ', 'LAST RESERVE': 'ПОСЛЕДНИЙ РЕЗЕРВ',
-  'Clear the sector without using Q.': 'Зачистить сектор без Q.', 'Clear the sector without dashing.': 'Зачистить сектор без рывков.', 'Score kills with at least five different damage sources.': 'Совершить убийства минимум пятью источниками урона.', 'Reach the required combo multiplier.': 'Достичь нужного множителя комбо.', 'Score the required number of long-range kills.': 'Совершить нужное число дальних убийств.', 'Finish with every hero at 35% HP or less.': 'Завершить бой, когда у всех героев не больше 35% HP.',
+  'SILENT PROTOCOL': 'ТИХИЙ ПРОТОКОЛ', 'NO ESCAPE': 'БЕЗ РЫВКОВ', 'FIVE CHANNELS': 'ПЯТЬ КАНАЛОВ', 'LONG CHAIN': 'ДЛИННАЯ ЦЕПЬ', 'LAST RESERVE': 'ПОСЛЕДНИЙ РЕЗЕРВ', 'IMPACT CYCLE': 'ЦИКЛ УДАРА', 'CLUSTER DROP': 'ГРУППОВАЯ ПОСАДКА', 'WALL DIVIDEND': 'ДИВИДЕНД СТЕНЫ',
+  'Land six damaging jumps, then clear the sector.': 'Нанести урон шестью приземлениями и зачистить сектор.', 'Hit four threats with one landing, then clear the sector.': 'Задеть четыре угрозы одним приземлением и зачистить сектор.', 'Land after at least two wall rebounds, then clear the sector.': 'Приземлиться после двух отскоков от стен и зачистить сектор.',
+  'Clear the sector without using Q.': 'Зачистить сектор без Q.', 'Clear the sector without dashing.': 'Зачистить сектор без рывков.', 'Score kills with at least five different damage sources.': 'Совершить убийства минимум пятью источниками урона.', 'Reach the required combo multiplier.': 'Достичь нужного множителя комбо.', 'Finish with every hero at 35% HP or less.': 'Завершить бой, когда у всех героев не больше 35% HP.',
   'ROOT LOCKDOWN': 'КОРНЕВАЯ БЛОКИРОВКА', 'ROOT NODE ERASED': 'КОРНЕВОЙ УЗЕЛ УДАЛЁН', 'ROOT LOCK BROKEN': 'КОРНЕВАЯ БЛОКИРОВКА СНЯТА', 'ACCESS DENIED': 'ДОСТУП ЗАКРЫТ', 'BOSS EXPOSED': 'БОСС ОТКРЫТ',
   'WPN CLEARANCE': 'WPN-ДОПУСК', 'ABL CLEARANCE': 'ABL-ДОПУСК', 'RAR CLEARANCE': 'RAR-ДОПУСК', 'MOD VETO': 'ВЕТО МОДИФИКАТОРА', 'CREDIT PASS': 'КРЕДИТНЫЙ ПРОПУСК', 'SALVAGE PROTOCOL': 'ПРОТОКОЛ СБОРА',
 
@@ -718,6 +725,15 @@ Object.assign(EN_LABEL, {
   'УРОН ИСКР +': 'SPARK DAMAGE +',
   'ДЛИТЕЛЬНОСТЬ ИСКР +': 'SPARK DURATION +',
   'ДАЛЬНОСТЬ ИСКР +': 'SPARK RANGE +'
+});
+Object.assign(EN_LABEL, {
+  'DRV: УДАР +25%': 'DRV: IMPACT +25%',
+  'DRV: КОНТУР +18': 'DRV: RADIUS +18',
+  'DRV: ПЕРЕЗАПУСК +14%': 'DRV: RECOVERY +14%',
+  'DRV: ЖЁСТКАЯ ПОСАДКА': 'DRV: HARD LANDING',
+  'DRV: СЛЕД УДАРА': 'DRV: IMPACT FIELD',
+  'DRV: УПРУГИЙ КОНТУР': 'DRV: REBOUND CIRCUIT',
+  'DRV: МОЩНОСТЬ +18%': 'DRV: POWER +18%'
 });
 Object.assign(RU_LABEL, {
   'FIRE BULLETS': 'ТЕРМО-СБОЙ СНАРЯДОВ',
