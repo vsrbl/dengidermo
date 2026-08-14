@@ -209,7 +209,7 @@ function ensureInstallOffer(run, p) {
   const bossChoicesValid = liveBossOffer && liveChoices.length > 0
     && liveChoices.every(id => BOSS_SIGNATURE_UPGRADE_IDS.includes(id) && !bossRewardBlockedForPlayer(id, p));
   const installChoicesValid = !liveBossOffer && liveChoices.length > 0
-    && liveChoices.every(id => !!UPGRADES.find(u => u.id === id));
+    && liveChoices.every(id => !!HERO_UPGRADES.find(u => u.id === id) && installUpgradeEligible(p, id));
   // Repair malformed/stale authoritative offers before the wait loop can keep
   // INSTALL alive forever. A pending boss reward always has queue priority.
   if (p.offer && (!liveChoices.length || (liveBossOffer ? !bossChoicesValid : !installChoicesValid))) p.offer = null;
@@ -1087,6 +1087,7 @@ function newContractObjectives(plan = {}, depth = 0, players = null) {
   const team = contractTeamPlayers(players);
   const hasImpact = team.some(isImpactDriverPlayer);
   const onlyImpact = team.length > 0 && team.every(isImpactDriverPlayer);
+  const hasImpactReboundCounter = team.some(p => isImpactDriverPlayer(p) && Number(p?.stats?.jumpRebound || 0) > 0);
   const out = [
     { id: 'silent_protocol', label: 'SILENT PROTOCOL', reward: 'FAVOR', goal: 'Clear the sector without using Q.' },
     { id: 'five_channels', label: 'FIVE CHANNELS', reward: 'FAVOR', goal: 'Score kills with at least five different damage sources.', target: 5 },
@@ -1096,7 +1097,7 @@ function newContractObjectives(plan = {}, depth = 0, players = null) {
   if (hasImpact) {
     out.push({ id: 'impact_cycles', label: 'IMPACT CYCLE', reward: 'FAVOR', goal: 'Land six damaging jumps, then clear the sector.', target: 6 });
     out.push({ id: 'impact_cluster', label: 'CLUSTER DROP', reward: 'FAVOR', goal: 'Hit four threats with one landing, then clear the sector.', target: 4 });
-    out.push({ id: 'impact_rebound', label: 'WALL DIVIDEND', reward: 'FAVOR', goal: 'Land after at least two wall rebounds, then clear the sector.', target: 2 });
+    if (hasImpactReboundCounter) out.push({ id: 'impact_rebound', label: 'WALL DIVIDEND', reward: 'FAVOR', goal: 'Land after at least two wall rebounds, then clear the sector.', target: 2 });
   }
   if (!(plan.modifierIds || []).includes('greed')) out.push({ id: 'last_reserve', label: 'LAST RESERVE', reward: 'FAVOR', goal: 'Finish with every hero at 35% HP or less.', target: 35 });
   return out;
@@ -3632,7 +3633,7 @@ const CONTROLLED_SHOOTER_RANGE_MUL = 1.35;
 function allowedWeaponOrderForPlayer(p) {
   if (isLivingCasinoPlayer(p)) return ['living_casino', 'control_sparks'];
   if (isProcessControllerPlayer(p)) return [...PROCESS_CONTROLLER_COMMANDS];
-  if (isImpactDriverPlayer(p)) return p?.stats?.impactWallUnlocked > 0 ? ['impact_wall'] : ['impact_driver'];
+  if (isImpactDriverPlayer(p)) return ['impact_wall'];
   return ['shotgun', 'seeker', 'rocketgun'];
 }
 function isProcessControllerPlayer(p) { return p?.hero === 'process_controller' || p?.skin?.hero === 'process_controller'; }
@@ -3640,9 +3641,11 @@ export function isImpactDriverPlayer(p) { return p?.hero === 'impact_driver' || 
 function setupImpactDriverPlayer(p) {
   if (!p) return p;
   p.hero = 'impact_driver';
-  // DRV has no ordinary weapon. The inert dummy keeps the shared snapshot shape
-  // valid until the separately unlocked firewall becomes its only LMB module.
-  p.weapons = p.stats?.impactWallUnlocked > 0 ? ['impact_wall'] : ['impact_driver'];
+  // Both signature modules are part of the Driver's base kit. Setting the flags
+  // here also migrates older Driver state without asking for unlock cards again.
+  p.stats.impactWallUnlocked = 1;
+  p.stats.impactPushUnlocked = 1;
+  p.weapons = ['impact_wall'];
   p.weaponIdx = 0;
   p.shgCharges = 0;
   p.shgReload = 0;
@@ -5701,6 +5704,7 @@ function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
   return WEAPON_CHEST_REWARDS
     .filter(opt => {
       if (!opt) return false;
+      if (opt.heroOnly) return false;
       const kind = String(opt.kind || '');
       if (kind === 'weapon') return false;
       if (kind === 'weapon_upgrade') {
@@ -5750,6 +5754,7 @@ function makeLivingCasinoWeaponChoices(p, rng = Math.random, count = 3, qualityT
 }
 function applyLivingCasinoWeaponOption(run, players, p, opt) {
   const lc = ensureLivingCasinoState(p); if (!lc || !opt) return false;
+  if (opt.heroOnly) return false;
   let label = opt.label || 'LIVING CASINO';
   let modWeapon = String(opt.kind || '').startsWith('lc_spark') ? 'SPK' : 'LVC';
   if (opt.lcGeneral || ['weapon_upgrade', 'stat'].includes(String(opt.kind || ''))) {
@@ -5954,6 +5959,9 @@ function stepLivingCasinoState(run, players, p, dt) {
 }
 
 export function startRoom(run, players) {
+  // Reconcile hero-specific base kits before any room preview, contract or
+  // chest state is generated. This also upgrades old Driver state on load.
+  for (const p of players.values()) if (p?.connected !== false) ensureHeroRuntimeState(p);
   const seed = (run.seedBase + run.runDepth * 7919) >>> 0;
   const loopIndex = Math.floor(run.runDepth / 4);
   run.plan = generateRoom(seed, run.runDepth, loopIndex, run.devNextRoomOverride || null);
@@ -8447,7 +8455,7 @@ export const ROOM_WAGER_CONDITIONS = [
   { id: 'dash15', ru: 'сделать 15 рывков', en: 'dash 15 times', heroes: ['base', 'living_casino', 'process_controller'], ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
   { id: 'no_damage', ru: 'не получить урон', en: 'take no damage', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
   { id: 'damage10', ru: '10 секунд подряд без потери HP', en: 'avoid HP damage for 10 seconds straight', ok: (run, p) => !!p.wagerStats?.damage10Complete || (p.wagerStats?.damage10Hold || 0) >= 10 },
-  { id: 'q3', ru: 'использовать Q 3 раза', en: 'use Q 3 times', ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
+  { id: 'q3', ru: 'использовать Q 3 раза', en: 'use Q 3 times', needs: p => !!p?.active?.core, ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
   { id: 'r2', ru: 'использовать R 2 раза', en: 'use R 2 times', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
   { id: 'kills10', ru: 'удалить 10 угроз', en: 'delete 10 threats', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
   { id: 'kills12_no_hp', ru: 'удалить 12 угроз без урона по HP', en: 'delete 12 threats without HP damage', ok: (run, p) => (p.wagerStats?.kills || 0) >= 12 && (p.wagerStats?.damage || 0) <= 0 },
@@ -8476,7 +8484,7 @@ export const ROOM_WAGER_CONDITIONS = [
   { id: 'ctrl_full_team', ru: 'закончить с полным контуром', en: 'finish with a full process grid', heroes: ['process_controller'], ok: (run, p) => (ensureProcessControllerState(p)?.controlled || []).length >= processControllerMax(p) },
   { id: 'impact_land6', ru: 'нанести урон шестью приземлениями', en: 'deal damage with six landings', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 6 },
   { id: 'impact_multi4', ru: 'задеть 4 угрозы одним приземлением', en: 'hit 4 threats with one landing', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactBestHits || 0) >= 4 },
-  { id: 'impact_bounce2', ru: 'приземлиться после двух отскоков', en: 'land after two wall rebounds', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactBestBounces || 0) >= 2 },
+  { id: 'impact_bounce2', ru: 'приземлиться после двух отскоков', en: 'land after two wall rebounds', heroes: ['impact_driver'], needs: p => Number(p?.stats?.jumpRebound || 0) > 0, ok: (run, p) => (p.wagerStats?.impactBestBounces || 0) >= 2 },
   { id: 'impact_clean3', ru: 'сделать 3 точных посадки без промаха', en: 'make 3 clean landings without a miss', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 3 && (p.wagerStats?.impactMisses || 0) <= 0 }
 ];
 export const ROOM_WAGER_PRIZES = [
@@ -11302,6 +11310,8 @@ function tryInteract(run, players, p) {
 
 function weaponChoiceDisabled(p, opt) {
   if (!opt) return 'НЕТ ВАРИАНТА';
+  if (opt.heroOnly === 'impact_driver' && !isImpactDriverPlayer(p)) return 'ТОЛЬКО ДЛЯ DRV';
+  if (opt.heroOnly && opt.heroOnly !== 'impact_driver') return 'ДРУГОЙ АНТИВИРУС';
   if (isLivingCasinoPlayer(p)) return '';
   if (isProcessControllerPlayer(p)) {
     if (opt.kind === 'weapon' && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
@@ -11393,8 +11403,8 @@ function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qua
 
 const IMPACT_DRIVER_WPN_IDS = new Set([
   'impact_damage', 'impact_radius', 'impact_distance', 'impact_stun', 'impact_afterfield', 'impact_rebound',
-  'impact_wall_unlock', 'impact_wall_count', 'impact_wall_duration',
-  'impact_push_unlock', 'impact_push_range', 'impact_push_damage', 'impact_push_cooldown', 'impact_push_bounce', 'impact_push_multiplier',
+  'impact_wall_count', 'impact_wall_duration',
+  'impact_push_range', 'impact_push_damage', 'impact_push_cooldown', 'impact_push_bounce', 'impact_push_multiplier',
   'bullet_range', 'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'bullet_chain_status_link'
 ]);
 function impactDriverChoicePool(p, qualityTier = 0) {
@@ -11402,9 +11412,7 @@ function impactDriverChoicePool(p, qualityTier = 0) {
     .filter(opt => {
       const id = String(opt?.upgrade || opt?.id || '');
       if (opt?.kind !== 'weapon_upgrade' || !IMPACT_DRIVER_WPN_IDS.has(id) || !weaponChoiceEligible(p, opt)) return false;
-      if (id === 'impact_wall_unlock') return !(p?.stats?.impactWallUnlocked > 0);
       if (id === 'impact_wall_count' || id === 'impact_wall_duration') return p?.stats?.impactWallUnlocked > 0;
-      if (id === 'impact_push_unlock') return p?.stats?.impactWallUnlocked > 0 && !(p?.stats?.impactPushUnlocked > 0);
       if (id === 'impact_push_range' || id === 'impact_push_damage' || id === 'impact_push_cooldown' || id === 'impact_push_bounce') {
         if (!(p?.stats?.impactPushUnlocked > 0)) return false;
         if (id === 'impact_push_bounce' && p?.stats?.impactPushBounce > 0) return false;
@@ -11418,16 +11426,8 @@ function impactDriverChoicePool(p, qualityTier = 0) {
   return pool;
 }
 export function impactDriverWeaponChoiceWeight(p, opt, qualityTier = 0) {
-  const base = weaponChoiceWeight(p, opt, qualityTier);
-  const id = String(opt?.upgrade || opt?.id || '');
-  const wallUnlocked = p?.stats?.impactWallUnlocked > 0;
-  const pushUnlocked = p?.stats?.impactPushUnlocked > 0;
-  // The Driver's two actual gun modules are discovered in order. While the
-  // current discovery is missing, its normal WPN weight is doubled; upgrades
-  // and generic stats keep their existing odds.
-  if (!wallUnlocked && id === 'impact_wall_unlock') return base * 2;
-  if (wallUnlocked && !pushUnlocked && id === 'impact_push_unlock') return base * 2;
-  return base;
+  // Both modules now belong to the base kit; WPN contains upgrades only.
+  return weaponChoiceWeight(p, opt, qualityTier);
 }
 function makeImpactDriverWeaponChoices(p, rng = Math.random, count = 3, qualityTier = 0) {
   const pool = impactDriverChoicePool(p, qualityTier);
@@ -11447,7 +11447,7 @@ function makeWeaponChestChoices(p, rng = Math.random, count = 3, qualityTier = 0
   if (isProcessControllerPlayer(p)) return makeProcessControllerWeaponChoices(p, rng, count, qualityTier);
   if (isImpactDriverPlayer(p)) return makeImpactDriverWeaponChoices(p, rng, count, qualityTier);
   const pool = WEAPON_CHEST_REWARDS
-    .filter(opt => weaponChoiceEligible(p, opt))
+    .filter(opt => !opt?.heroOnly && weaponChoiceEligible(p, opt))
     .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier }));
   const choices = [];
   const used = new Set();
@@ -12044,7 +12044,7 @@ export {
   handleRoomWagerAccept, handleRoomWagerDecline, handleRoomWagerSeen, handleRarePick,
   queueContractChoicePrizes,
   compactContractFavors, activeFavorUses, consumeContractFavor, activatePendingContractFavors, creditPassAppliesToChest,
-  makeAbilityChestChoices, makeWeaponChestChoices, weaponChoiceEligible,
+  makeAbilityChestChoices, makeWeaponChestChoices, makeRoomWagerOffer, weaponChoiceEligible,
   bossRewardBlockedForPlayer, signalSpikeAimRangeForLevel, signalSpikeRadiusForLevel,
   controlledProcessFireRateMul, controlledProcessDamageValue, controlledProcessContactCarriesStatuses,
   processSawFallbackEnabled, processSawFallbackDamageValue, fireProcessControllerProtocol,
@@ -12086,12 +12086,14 @@ export function handleRerollOffer(run, players, p, kind = '') {
   }
   if (k === 'weapon') {
     const prev = p.weaponChestOffer;
-    const count = Math.max(1, Math.min(5, prev.slotCount || prev.choices?.length || 3));
+    // A five-slot chest has only four cards after its first of two picks. A
+    // reroll must preserve that live remainder instead of inflating it to five.
+    const count = Math.max(1, Math.min(5, prev.choices?.length || prev.slotCount || 3));
     const choices = rerollChoicesDifferent(() => makeWeaponChestChoices(p, Math.random, count, prev.valueTier || 0), prev.choices, count, makeWeaponChestChoices(p, Math.random, 5, prev.valueTier || 0));
     p.weaponChestOffer = { ...prev, choices, chestId: prev.chestId || 'favor', slotCount: count, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else if (k === 'ability') {
     const prev = p.abilityChestOffer;
-    const count = Math.max(1, Math.min(5, prev.slotCount || prev.choices?.length || 3));
+    const count = Math.max(1, Math.min(5, prev.choices?.length || prev.slotCount || 3));
     const choices = rerollChoicesDifferent(() => makeAbilityChestChoices(p, Math.random, count, prev.valueTier || 0), prev.choices, count, makeAbilityChestChoices(p, Math.random, 5, prev.valueTier || 0));
     p.abilityChestOffer = { ...prev, choices, chestId: prev.chestId || 'favor', slotCount: count, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else if (k === 'boss' || k === 'signature' || k === 'boss_signature') {
@@ -12299,7 +12301,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'give_all_weapons') {
-    p.weapons = [...new Set([...p.weapons, ...WEAPON_ORDER])];
+    p.weapons = [...new Set([...p.weapons, ...allowedWeaponOrderForPlayer(p)])];
     p.weaponIdx = Math.min(p.weaponIdx || 0, p.weapons.length - 1);
     run.fx.push({ t: 'weapon_mod', id: p.id, label: 'ALL WPN', w: 'ALL' });
     return true;
@@ -12354,10 +12356,13 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     return true;
   }
   if (action === 'give_all_weapon_mods') {
-    p.weapons = [...new Set([...p.weapons, ...WEAPON_ORDER])];
+    p.weapons = [...new Set([...p.weapons, ...allowedWeaponOrderForPlayer(p)])];
     for (const r of WEAPON_CHEST_REWARDS) {
       const id = r?.upgrade;
       if (!id || String(id).startsWith('orb')) continue;
+      // Debug grants must obey the same hero boundary as real WPN rewards.
+      if (r.heroOnly && r.heroOnly !== roomWagerHeroId(p)) continue;
+      if (isImpactDriverPlayer(p) && !IMPACT_DRIVER_WPN_IDS.has(String(id))) continue;
       const u = UPGRADES.find(x => x.id === id);
       if (u) { try { u.apply(p.stats); } catch {} }
     }
@@ -12951,9 +12956,11 @@ export function handlePick(run, players, p, choiceIdx, offerId = 0, choiceId = '
   // The index alone is not enough when a delayed packet from an older INSTALL
   // crosses a newer offer. Validate the exact card the client displayed as well.
   if (incomingChoiceId && incomingChoiceId !== id) return false;
-  const u = UPGRADES.find(x => x.id === id);
-  if (!u) return false;
   const wasBossSignature = p.offer?.kind === 'boss_signature' || BOSS_SIGNATURE_UPGRADE_IDS.includes(id);
+  const u = wasBossSignature
+    ? UPGRADES.find(x => x.id === id && x.bossSig)
+    : HERO_UPGRADES.find(x => x.id === id && installUpgradeEligible(p, id));
+  if (!u) return false;
   const mirrorSelfPick = id === 'sig_mirror_payout';
   const canMirror = wasBossSignature && !mirrorSelfPick && upgradeCanMirror(id);
   u.apply(p.stats);
@@ -13930,7 +13937,9 @@ export function voidPreviewEnd(run, p, startX, startY) {
   // The first Q anchors the chain exactly at the cursor. Until the mouse moves away
   // from that anchor there is no valid direction, so render no invented side line.
   if (Math.hypot(cursorX - startX, cursorY - startY) < 4) return { x: Math.round(startX), y: Math.round(startY) };
-  const aim = aimPointFrom(p, startX, startY, voidLaserSegmentLen(lvl), 80);
+  // Keep only a tiny safety gap so a VOID CUT link may end almost directly on
+  // its start node. The old 80px clamp made short, precise cuts impossible.
+  const aim = aimPointFrom(p, startX, startY, voidLaserSegmentLen(lvl), 10);
   const walls = run.plan?.walls || [];
   let x = startX, y = startY;
   const steps = Math.max(1, Math.ceil(Math.hypot(aim.x - startX, aim.y - startY) / 14));
@@ -14178,7 +14187,10 @@ function playerAirborne(p) {
 function clearAirborneActionQueue(p) {
   p.wantDash = false;
   p.wantInteract = false;
-  p.wantActive = false;
+  // Impact Driver may cast Q while airborne. The input is consumed later in
+  // the same simulation tick without changing jump position, velocity or time.
+  // Every other blocked airborne action is still discarded and never buffered.
+  if (!isImpactDriverPlayer(p)) p.wantActive = false;
   p.wantRActive = false;
   p.wantSecondary = false;
   p.wantWeapon = -1;
@@ -14485,7 +14497,7 @@ function stepPlayers(run, players, dt) {
       p.invuln = Math.max(p.invuln, DASH_INVULN);
     }
     p.wantDash = false;
-    if (!wasAirborne && p.wantActive && run.phase === 'play') doActive(run, players, p);
+    if ((!wasAirborne || isImpactDriverPlayer(p)) && p.wantActive && run.phase === 'play') doActive(run, players, p);
     p.wantActive = false;
     if (!wasAirborne && p.wantRActive && run.phase === 'play') doRActive(run, players, p);
     p.wantRActive = false;
