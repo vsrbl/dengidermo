@@ -117,8 +117,8 @@ const HEROES = {
     id: 'impact_driver',
     labelRu: 'УДАРНЫЙ ДРАЙВЕР', labelEn: 'IMPACT DRIVER',
     descRu: 'инерционный протокол', descEn: 'inertial impact protocol',
-    explainRu: 'Не использует обычное оружие и рывок. Сразу имеет Файрвол-блок на ЛКМ и Импульс сдвига на ПКМ. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон, а Q доступна прямо в полёте. От стен герой отскакивает сразу; множитель урона отскоков открывается отдельно.',
-    explainEn: 'Uses no conventional weapon or dash. Starts with Firewall Block on LMB and Shift Impulse on RMB. SPACE launches an inertial jump whose takeoff and landing deal damage, and Q remains available in flight. Wall rebounds are innate; their damage multiplier is unlocked separately.'
+    explainRu: 'Не использует обычное оружие и рывок. ЛКМ ставит Файрвол-блок, ПКМ запускает блок строго от точки клика через его центр. Оба модуля и Q работают в полёте. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон. От стен герой отскакивает сразу; множитель и дополнительная дальность отскока открываются отдельно.',
+    explainEn: 'Uses no conventional weapon or dash. LMB places a Firewall Block; RMB launches it from the clicked point through its centre. Both modules and Q work in mid-air. SPACE launches an inertial jump whose takeoff and landing deal damage. Wall rebounds are innate; their multiplier and extra rebound travel are unlocked separately.'
   }
 };
 function readUnlockedHeroes() {

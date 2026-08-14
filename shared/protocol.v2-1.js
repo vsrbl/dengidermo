@@ -1,6 +1,6 @@
 // terminal casino roguelike protocol + version constants (single source of truth)
-export const VERSION = 'v2.1.237';
-export const BUILD_ID = 'driver_base_modules_reward_isolation';
+export const VERSION = 'v2.1.238';
+export const BUILD_ID = 'driver_firewall_phase_push_feedback';
 export const PROTOCOL = 17;
 
 export const MAX_PLAYERS = 4;

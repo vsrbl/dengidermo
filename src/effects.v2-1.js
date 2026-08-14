@@ -89,8 +89,11 @@ export class Effects {
     const mine = f.id === info.myId;
     switch (f.t) {
       case 'ehit': {
-        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18 });
-        if (f.dmg >= 1) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), f.wagerGold ? '#ffd34d' : '#f3f3f3', Math.min(34, 15 + f.dmg * 0.26));
+        const pushed = f.source === 'impact_wall_push';
+        const phased = f.source === 'impact_wall_phase';
+        const hitColor = pushed ? '#b45cff' : (phased ? '#ffd34d' : (f.wagerGold ? '#ffd34d' : '#f3f3f3'));
+        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: pushed || phased ? 0.26 : 0.18, color: hitColor });
+        if (f.dmg >= 1 && !pushed && !phased) this.float(f.x + (Math.random() - 0.5) * 18, f.y - 16, String(f.dmg), hitColor, Math.min(34, 15 + f.dmg * 0.26));
         const myHit = f.owner && f.owner === info.myId;
         if (myHit && Number(f.dmg || 0) >= 55) {
           this.kick(Math.min(7.5, 1.8 + Number(f.dmg || 0) * 0.035));
@@ -171,13 +174,15 @@ export class Effects {
         if (mine) { this.kick(4.5); this.zoomKick = Math.max(this.zoomKick, 0.075); }
         break;
       case 'impact_wall_place':
-        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: '#66f6ff' });
-        this.float(f.x, f.y - 30, `FWL ${f.count || 1}/${f.max || 1}`, '#66f6ff', 11);
+        this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: f.phased ? '#ffd34d' : '#66f6ff' });
+        this.float(f.x, f.y - 30, f.phased ? `FWL PHASE · ${f.count || 1}/${f.max || 1}` : `FWL ${f.count || 1}/${f.max || 1}`, f.phased ? '#ffd34d' : '#66f6ff', 11);
         if (mine) { this.kick(2.4); this.zoomKick = Math.max(this.zoomKick, 0.045); }
         break;
       case 'impact_wall_push':
-        this.add({ kind: 'impactWallImpulse', x: f.x, y: f.y, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.30, color: '#b45cff' });
-        if (mine) { this.kick(2.1); this.zoomKick = Math.max(this.zoomKick, 0.035); }
+        this.add({ kind: 'impactWallImpulse', x: f.x, y: f.y, contactX: f.contactX, contactY: f.contactY, w: f.w || 66, h: f.h || 66, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.44, color: '#b45cff' });
+        this.add({ kind: 'impactWallStop', x: f.x, y: f.y, w: f.w || 66, h: f.h || 66, ttl: 0.20, color: '#f3f3f3' });
+        this.float(f.x, f.y - 42, 'PUSH', '#b45cff', 15);
+        if (mine) { this.kick(5.4); this.zoomKick = Math.max(this.zoomKick, 0.095); }
         break;
       case 'impact_wall_bounce':
         this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, mul: f.mul || 1, ttl: 0.18, color: '#b45cff' });
@@ -189,7 +194,14 @@ export class Effects {
         if (mine) this.kick(2.6);
         break;
       case 'impact_wall_hit':
-        this.add({ kind: 'hitmark', x: f.x, y: f.y, ttl: 0.18, color: '#b45cff' });
+        this.add({ kind: 'impactWallDamage', x: f.x, y: f.y, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.34, color: f.armor ? '#66f6ff' : '#b45cff' });
+        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 32, f.armor ? `PUSH -${f.damage} ARMOR` : `PUSH -${f.damage}`, f.armor ? '#66f6ff' : '#b45cff', 15);
+        if (mine) { this.kick(4.8); this.zoomKick = Math.max(this.zoomKick, 0.07); }
+        break;
+      case 'impact_wall_phase_hit':
+        this.add({ kind: 'impactWallDamage', x: f.x, y: f.y, dx: 0, dy: -100, ttl: 0.28, color: '#ffd34d' });
+        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 24, `FWL -${f.damage}`, '#ffd34d', 14);
+        if (mine) this.kick(2.2);
         break;
       case 'impact_wall_end':
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.28, color: '#b45cff' });
@@ -747,8 +759,23 @@ export class Effects {
         ctx.fillRect(Math.round(e.x + dx * 10 - block/2), Math.round(e.y + dy * 10 - block/2), block, block);
       } else if (e.kind === 'impactWallImpulse') {
         const fade = 1 - p, n = Math.hypot(e.dx || 0, e.dy || 0) || 1, dx = (e.dx || 0) / n, dy = (e.dy || 0) / n, nx = -dy, ny = dx;
-        ctx.strokeStyle = e.color; ctx.lineWidth = 1.4;
-        for (let i = -2; i <= 2; i++) { const side = i * 8; ctx.globalAlpha = fade * (0.66 - Math.abs(i) * 0.08); ctx.beginPath(); ctx.moveTo(e.x - dx * (12 + p * 12) + nx * side, e.y - dy * (12 + p * 12) + ny * side); ctx.lineTo(e.x - dx * (42 + p * 30) + nx * side * 1.2, e.y - dy * (42 + p * 30) + ny * side * 1.2); ctx.stroke(); }
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1.5, 4 - p * 2.4);
+        const front = 26 + p * 94;
+        for (let i = -3; i <= 3; i++) { const side = i * 9; ctx.globalAlpha = fade * (0.92 - Math.abs(i) * 0.09); ctx.beginPath(); ctx.moveTo(e.x + dx * (8 + p * 18) + nx * side, e.y + dy * (8 + p * 18) + ny * side); ctx.lineTo(e.x + dx * front + nx * side * 0.48, e.y + dy * front + ny * side * 0.48); ctx.stroke(); }
+        ctx.globalAlpha = fade * 0.72;
+        const frame = Math.max(e.w || 66, e.h || 66) * (0.60 + p * 0.62);
+        ctx.strokeRect(e.x - frame / 2, e.y - frame / 2, frame, frame);
+        for (let i = -2; i <= 2; i++) {
+          const side = i * 11, back = 32 + p * (58 + Math.abs(i) * 8), size = Math.max(3, 8 - p * 4);
+          ctx.globalAlpha = fade * (0.62 - Math.abs(i) * 0.07);
+          ctx.fillRect(Math.round(e.x - dx * back + nx * side - size / 2), Math.round(e.y - dy * back + ny * side - size / 2), size, size);
+        }
+      } else if (e.kind === 'impactWallDamage') {
+        const fade = 1 - p, n = Math.hypot(e.dx || 0, e.dy || -1) || 1, dx = (e.dx || 0) / n, dy = (e.dy || -1) / n, nx = -dy, ny = dx;
+        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1, 4 - p * 2.4); ctx.globalAlpha = fade * 0.92;
+        const s = 18 + p * 52;
+        ctx.strokeRect(e.x - s / 2, e.y - s / 2, s, s);
+        for (let i = -3; i <= 3; i++) { const side = i * 8, len = 24 + p * 38 + Math.abs(i) * 3; ctx.globalAlpha = fade * (0.88 - Math.abs(i) * 0.10); ctx.beginPath(); ctx.moveTo(e.x - dx * 8 + nx * side, e.y - dy * 8 + ny * side); ctx.lineTo(e.x + dx * len + nx * side * 0.4, e.y + dy * len + ny * side * 0.4); ctx.stroke(); }
       } else if (e.kind === 'impactWallStop') {
         const fade = 1 - p, grow = 1 + p * 0.28;
         ctx.strokeStyle = e.color; ctx.globalAlpha = fade * 0.82; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);

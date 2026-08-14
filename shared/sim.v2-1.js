@@ -9469,16 +9469,31 @@ function impactPushCooldown(p) {
   const local = Math.pow(1.15, Math.max(0, Number(p?.stats?.impactPushCooldown || 0) | 0));
   return weaponCycleSeconds(p, (WEAPONS.impact_push?.cooldown || 3.2) / local, 1, 0.35);
 }
+function impactWallUnderAim(p, walls) {
+  const ax = Number(p?.aimX), ay = Number(p?.aimY);
+  if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
+  // Newest block wins only when two owned blocks physically overlap. Merely
+  // moving the mouse never changes a block: this helper only chooses the exact
+  // stationary square under the click for the one authoritative launch below.
+  for (let i = (walls || []).length - 1; i >= 0; i--) {
+    const wall = walls[i];
+    if (!wall || wall.owner !== p.id || wall.moving || wall.settling) continue;
+    if (ax >= wall.x && ax <= wall.x + wall.w && ay >= wall.y && ay <= wall.y + wall.h) return wall;
+  }
+  return null;
+}
 function impactWallPushVector(p, wall) {
   if (!p || !wall || wall.owner !== p.id || wall.moving || wall.settling) return null;
   const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
-  if (dist2(p.x, p.y, cx, cy) > impactPushReach(p) ** 2) return null;
   const ax = Number(p.aimX), ay = Number(p.aimY);
   if (!Number.isFinite(ax) || !Number.isFinite(ay) || ax < wall.x || ax > wall.x + wall.w || ay < wall.y || ay > wall.y + wall.h) return null;
   let dx = cx - ax, dy = cy - ay;
-  if (Math.hypot(dx, dy) < 2) return null;
+  // The exact centre has no contact normal. Fall back to "away from hero" so
+  // a centre click is still reliable instead of silently denying a valid wall.
+  if (Math.hypot(dx, dy) < 2) { dx = cx - p.x; dy = cy - p.y; }
+  if (Math.hypot(dx, dy) < 2) { dx = p.dirX || 1; dy = p.dirY || 0; }
   const dir = norm(dx, dy);
-  return { x: dir.x, y: dir.y, cx, cy };
+  return { x: dir.x, y: dir.y, cx, cy, contactX: ax, contactY: ay };
 }
 function detachImpactWallCollision(run, wall) {
   if (!run?.plan?.walls) return;
@@ -9493,7 +9508,10 @@ function attachImpactWallCollision(run, wall) {
 function impactWallOccupants(run, players, wall) {
   const ids = [];
   for (const e of run.enemies || []) {
-    if (!enemyCombatReady(e)) continue;
+    // Spawn-warning enemies count as occupants too. The wall stays phased while
+    // they materialize, so a warning cannot turn into a mob trapped in new solid
+    // collision. Damage still waits for enemyCombatReady in the tick routine.
+    if (!e || (e.hp || 0) <= 0) continue;
     if (rectHitCircle(e.x, e.y, Math.max(6, (e.size || 24) / 2), wall)) ids.push(`e:${e.id}`);
   }
   for (const p of players.values()) if (p?.alive && rectHitCircle(p.x, p.y, PLAYER_SIZE / 2, wall)) ids.push(`p:${p.id}`);
@@ -9507,7 +9525,7 @@ function impactOccupantStillInside(run, players, wall, token) {
   const [kind, id, childId] = String(token || '').split(':');
   if (kind === 'e') {
     const e = (run.enemies || []).find(x => String(x?.id || '') === id);
-    return !!e && enemyCombatReady(e) && rectHitCircle(e.x, e.y, Math.max(6, (e.size || 24) / 2), wall);
+    return !!e && (e.hp || 0) > 0 && rectHitCircle(e.x, e.y, Math.max(6, (e.size || 24) / 2), wall);
   }
   if (kind === 'c') {
     const pc = ensureProcessControllerState(players.get(id));
@@ -9545,12 +9563,21 @@ function stopImpactWall(run, players, wall, reason = 'range') {
 }
 function startImpactWallPush(run, players, p) {
   if (!isImpactDriverPlayer(p) || !(p.stats?.impactPushUnlocked > 0) || (p.impactPushCd || 0) > 0) return false;
-  const wall = (run.tempWalls || []).find(w => impactWallPushVector(p, w));
+  const wall = impactWallUnderAim(p, run.tempWalls || []);
   if (!wall) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'AIM AT NEAR FWL' });
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'PUSH AIM AT FWL' });
+    return false;
+  }
+  const center = impactWallCenter(wall);
+  if (dist2(p.x, p.y, center.x, center.y) > impactPushReach(p) ** 2) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH OUT OF RANGE' });
     return false;
   }
   const vector = impactWallPushVector(p, wall);
+  if (!vector) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH TOUCH AN EDGE' });
+    return false;
+  }
   const speed = Math.max(260, Number(WEAPONS.impact_push?.speed || 520));
   detachImpactWallCollision(run, wall);
   wall.moving = 1; wall.settling = 0; wall.settlingIds = [];
@@ -9560,7 +9587,7 @@ function startImpactWallPush(run, players, p) {
   wall.pushBounceUnlocked = p.stats?.impactPushBounce > 0 ? 1 : 0;
   wall.pushBounceAmp = 0.50 + Math.max(0, Number(p.stats?.impactPushMultiplier || 0)) * 0.25;
   p.impactPushCdMax = impactPushCooldown(p); p.impactPushCd = p.impactPushCdMax;
-  run.fx.push({ t: 'impact_wall_push', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(vector.cx), y: Math.round(vector.cy), dx: Math.round(vector.x * 100), dy: Math.round(vector.y * 100), range: Math.round(wall.pushLeft) });
+  run.fx.push({ t: 'impact_wall_push', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(vector.cx), y: Math.round(vector.cy), contactX: Math.round(vector.contactX), contactY: Math.round(vector.contactY), w: wall.w, h: wall.h, dx: Math.round(vector.x * 100), dy: Math.round(vector.y * 100), range: Math.round(wall.pushLeft) });
   return true;
 }
 function hitEnemiesWithImpactWall(run, players, wall) {
@@ -9576,14 +9603,40 @@ function hitEnemiesWithImpactWall(run, players, wall) {
     wall.pushHitKeys[key] = 1;
     const dmg = pseudo.dmg * mul;
     pseudo.dmg = dmg;
+    const beforeHp = Math.max(0, Number(e.hp || 0));
+    const beforeShell = Math.max(0, Number(e.shellHp || 0));
     applyBulletElements(run, players, e, pseudo, 1);
     damageEnemy(run, players, e, bulletCorrosionArmorDamage(players, e, pseudo, dmg), p.id, 0, 0, 0, 'impact_wall_push');
+    const dealt = Math.max(0, beforeHp - Math.max(0, Number(e.hp || 0))) + Math.max(0, beforeShell - Math.max(0, Number(e.shellHp || 0)));
     applyWeaponChain(run, players, e, pseudo);
     const blasts = chanceStacks(pseudo.proc || 0);
     for (let i = 0; i < blasts; i++) explode(run, players, e.x, e.y, 70, dmg * 0.8, p.id, false, 'proc');
-    run.fx.push({ t: 'impact_wall_hit', id: p.id, x: Math.round(e.x), y: Math.round(e.y), dmg: Math.round(dmg), mul: Math.round(mul * 100) / 100 });
+    const move = norm(wall.vx || 0, wall.vy || 0);
+    run.fx.push({ t: 'impact_wall_hit', id: p.id, x: Math.round(e.x), y: Math.round(e.y), dx: Math.round(move.x * 100), dy: Math.round(move.y * 100), dmg: Math.round(dmg), damage: Math.round(dealt), armor: beforeShell > Math.max(0, Number(e.shellHp || 0)) ? 1 : 0, mul: Math.round(mul * 100) / 100 });
     pseudo.dmg = wall.pushDamage || 1;
   }
+}
+
+function damageEnemiesInsideImpactWall(run, players, wall) {
+  const p = players.get(wall.owner);
+  if (!p) return 0;
+  const damage = weaponDamageValue(p, (WEAPONS.impact_push?.dmg || 40) * 0.30);
+  const pseudo = { from: 'p', owner: p.id, kind: 'impact_wall_phase', source: 'weapon', dmg: damage, knock: 0, elem: bulletElementString(p, 'weapon'), elemPower: bulletElementPower(p, 'weapon'), proc: p.stats?.procBlast || 0 };
+  let hits = 0;
+  for (const e of run.enemies || []) {
+    if (!enemyCombatReady(e) || !rectHitCircle(e.x, e.y, Math.max(5, (e.size || 24) / 2), wall)) continue;
+    const beforeHp = Math.max(0, Number(e.hp || 0));
+    const beforeShell = Math.max(0, Number(e.shellHp || 0));
+    applyBulletElements(run, players, e, pseudo, 0.65);
+    damageEnemy(run, players, e, bulletCorrosionArmorDamage(players, e, pseudo, damage), p.id, 0, 0, 0, 'impact_wall_phase');
+    const dealt = Math.max(0, beforeHp - Math.max(0, Number(e.hp || 0))) + Math.max(0, beforeShell - Math.max(0, Number(e.shellHp || 0)));
+    applyWeaponChain(run, players, e, pseudo);
+    const blasts = chanceStacks(pseudo.proc || 0);
+    for (let i = 0; i < blasts; i++) explode(run, players, e.x, e.y, 62, damage * 0.65, p.id, false, 'proc');
+    run.fx.push({ t: 'impact_wall_phase_hit', id: p.id, wallId: wall.id, x: Math.round(e.x), y: Math.round(e.y), damage: Math.round(dealt), dmg: Math.round(damage) });
+    hits++;
+  }
+  return hits;
 }
 
 function impactWallRouteExists(run, from, to, half = PLAYER_SIZE / 2) {
@@ -9598,12 +9651,13 @@ function impactWallPlacementReason(run, players, p, wall) {
   const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   if (wall.x < WALL_T + 16 || wall.y < WALL_T + 16 || wall.x + wall.w > run.plan.w - WALL_T - 16 || wall.y + wall.h > run.plan.h - WALL_T - 16) return 'FWL OUT OF BOUNDS';
   for (const w of run.plan.walls || []) if (w !== wall && overlaps(padRect(w, 8), wall)) return 'FWL BLOCKED';
-  for (const pl of players.values()) if (pl?.alive && overlaps(wall, { x: pl.x - 40, y: pl.y - 40, w: 80, h: 80 })) return 'FWL PLAYER';
-  for (const e of run.enemies || []) {
-    if (!e || (e.hp || 0) <= 0) continue;
-    const gap = Math.max(34, (e.size || 24) / 2 + 22);
-    if (overlaps(wall, { x: e.x - gap, y: e.y - gap, w: gap * 2, h: gap * 2 })) return ENEMIES[e.kind]?.boss ? 'FWL BOSS' : 'FWL ENEMY';
-  }
+  for (const w of run.tempWalls || []) if (w !== wall && overlaps(padRect(w, 8), wall)) return 'FWL BLOCKED';
+  // The block may be placed almost flush with a hero. Reject only an actual
+  // body overlap plus a tiny three-pixel readability gap, not the old 80px box.
+  for (const pl of players.values()) if (pl?.alive && rectHitCircle(pl.x, pl.y, PLAYER_SIZE / 2 + 3, wall)) return 'FWL PLAYER';
+  // Hostile processes deliberately do not block placement. When a block is
+  // created over them it stays non-solid, lets every occupant walk out, and
+  // deals periodic contact damage until its volume becomes empty.
   for (const pl of players.values()) {
     const pc = ensureProcessControllerState(pl);
     for (const m of pc?.controlled || []) {
@@ -9622,8 +9676,23 @@ function impactWallPlacementReason(run, players, p, wall) {
 
 function tryPlaceImpactWall(run, players, p) {
   if (!isImpactDriverPlayer(p) || !(p.stats?.impactWallUnlocked > 0) || p.weapons[p.weaponIdx] !== 'impact_wall') return false;
-  const aim = activeAimPoint(p, impactWallPlacementRange(p), 90);
   const blockSize = Math.max(32, Number(WEAPONS.impact_wall?.size || 66) || 66);
+  const rawDx = (p.aimX ?? p.x + (p.dirX || 1)) - p.x, rawDy = (p.aimY ?? p.y + (p.dirY || 0)) - p.y;
+  const rawLen = Math.hypot(rawDx, rawDy);
+  const aimDir = rawLen > 0.001 ? norm(rawDx, rawDy) : norm(p.dirX || 1, p.dirY || 0);
+  const half = blockSize / 2, bodyGap = PLAYER_SIZE / 2 + 4;
+  // Axis-aligned squares need a direction-aware tangent: a diagonal placement
+  // needs more centre distance than a cardinal one to keep its corner clear.
+  let lo = 0, hi = half * Math.SQRT2 + bodyGap + 2;
+  for (let i = 0; i < 22; i++) {
+    const mid = (lo + hi) / 2;
+    const gapX = Math.max(0, Math.abs(aimDir.x * mid) - half);
+    const gapY = Math.max(0, Math.abs(aimDir.y * mid) - half);
+    if (Math.hypot(gapX, gapY) < bodyGap) lo = mid; else hi = mid;
+  }
+  const placementRange = impactWallPlacementRange(p);
+  const aimLen = Math.max(hi, Math.min(placementRange, rawLen || hi));
+  const aim = { x: p.x + aimDir.x * aimLen, y: p.y + aimDir.y * aimLen, dir: aimDir, len: aimLen };
   const wall = {
     id: nid(), owner: p.id, temp: 1, kind: 'impact_wall',
     x: Math.round(aim.x - blockSize / 2), y: Math.round(aim.y - blockSize / 2),
@@ -9647,13 +9716,16 @@ function tryPlaceImpactWall(run, players, p) {
     return false;
   }
   wall.placedAt = run.now || 0;
+  wall.settlingIds = impactWallOccupants(run, players, wall).filter(id => String(id).startsWith('e:'));
+  wall.settling = wall.settlingIds.length ? 1 : 0;
+  wall.phaseDamageT = 0;
   run.tempWalls.push(wall);
-  run.plan.walls.push(wall);
+  if (!wall.settling) run.plan.walls.push(wall);
   run._navGridCache?.clear?.();
   const alivePlayers = [...players.values()].filter(x => x?.alive);
   const portalTarget = { x: run.portal?.x ?? run.plan.w / 2, y: run.portal?.y ?? run.plan.h / 2 };
-  let routeOk = alivePlayers.every(pl => impactWallRouteExists(run, pl, portalTarget, PLAYER_SIZE / 2));
-  if (routeOk && alivePlayers.length) {
+  let routeOk = wall.settling || alivePlayers.every(pl => impactWallRouteExists(run, pl, portalTarget, PLAYER_SIZE / 2));
+  if (!wall.settling && routeOk && alivePlayers.length) {
     routeOk = (run.enemies || []).filter(enemyCombatReady).every(e => {
       let target = alivePlayers[0], best = dist2(e.x, e.y, target.x, target.y);
       for (const pl of alivePlayers.slice(1)) { const d = dist2(e.x, e.y, pl.x, pl.y); if (d < best) { best = d; target = pl; } }
@@ -9669,7 +9741,7 @@ function tryPlaceImpactWall(run, players, p) {
     return false;
   }
   if (replaced) run.fx.push({ t: 'impact_wall_end', id: p.id, wallId: replaced.id, x: Math.round(replaced.x + replaced.w / 2), y: Math.round(replaced.y + replaced.h / 2), w: replaced.w, h: replaced.h, reason: 'replace' });
-  run.fx.push({ t: 'impact_wall_place', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, ttl: Math.round(wall.ttl * 10) / 10, count: run.tempWalls.filter(w => w.owner === p.id).length, max: cap });
+  run.fx.push({ t: 'impact_wall_place', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, ttl: Math.round(wall.ttl * 10) / 10, count: run.tempWalls.filter(w => w.owner === p.id).length, max: cap, phased: wall.settling ? 1 : 0 });
   return true;
 }
 
@@ -9691,6 +9763,12 @@ function stepImpactTempWalls(run, players, dt) {
     if (wall.settling) {
       const current = impactWallOccupants(run, players, wall);
       wall.settlingIds = [...new Set([...(wall.settlingIds || []).filter(id => impactOccupantStillInside(run, players, wall, id)), ...current])];
+      const hostileInside = current.some(id => String(id).startsWith('e:'));
+      wall.phaseDamageT = Math.max(0, Number(wall.phaseDamageT || 0) - dt);
+      if (hostileInside && wall.phaseDamageT <= 0) {
+        damageEnemiesInsideImpactWall(run, players, wall);
+        wall.phaseDamageT = 0.36;
+      }
       if (!wall.settlingIds.length) { wall.settling = 0; finalizeImpactWallCollision(run, players, wall); }
       continue;
     }
@@ -14187,16 +14265,13 @@ function playerAirborne(p) {
 function clearAirborneActionQueue(p) {
   p.wantDash = false;
   p.wantInteract = false;
-  // Impact Driver may cast Q while airborne. The input is consumed later in
-  // the same simulation tick without changing jump position, velocity or time.
-  // Every other blocked airborne action is still discarded and never buffered.
-  if (!isImpactDriverPlayer(p)) p.wantActive = false;
+  // Impact Driver may cast Q and operate both Firewall modules while airborne.
+  // These inputs are consumed later in the same tick without changing jump
+  // position, velocity or time. Other heroes keep the strict airborne lock.
+  if (!isImpactDriverPlayer(p)) { p.wantActive = false; p.wantSecondary = false; }
   p.wantRActive = false;
-  p.wantSecondary = false;
   p.wantWeapon = -1;
-  // A trigger held in the air must be released before a semi-auto weapon can
-  // fire after landing. Nothing pressed during the jump is buffered.
-  if (p.fire) p.fireWasDown = true;
+  if (p.fire && !isImpactDriverPlayer(p)) p.fireWasDown = true;
 }
 
 export function impactDriverProfile(p) {
@@ -14215,11 +14290,12 @@ export function impactDriverProfile(p) {
     landingRadius: radius,
     recovery: 0,
     distanceMul: 1 + Math.max(0, Number(s.jumpDistance || 0)) * 0.20,
-    duration: rebound > 0 ? Math.min(1.28, PLAYER_JUMP_DURATION + rebound * 0.055) : PLAYER_JUMP_DURATION,
+    duration: PLAYER_JUMP_DURATION,
     // Physical wall reflection is part of the Driver's base movement. The
     // upgrade below only unlocks the bounce counter/damage combo and improves
     // the retained inertia; an unupgraded wall hit must never hard-land.
-    restitution: Math.min(0.97, PLAYER_JUMP_WALL_RESTITUTION + rebound * 0.035),
+    restitution: PLAYER_JUMP_WALL_RESTITUTION,
+    reboundDistanceBonus: rebound * 0.25,
     reboundUnlocked: rebound > 0,
     stun: s.jumpStun > 0 ? 0.48 + Math.max(0, s.jumpStun - 1) * 0.18 : 0,
     fieldLevel: Math.max(0, s.jumpAfterfield || 0)
@@ -14313,6 +14389,7 @@ function startPlayerJump(run, players, p, mx, my) {
   p.jumpSeq = (Number(p.jumpSeq || 0) + 1) | 0;
   p.jumpWallFxCd = 0;
   p.jumpBounces = 0;
+  p.jumpReboundRangeApplied = 0;
   p.recoilT = 0;
   const impact = impactDriverPulse(run, players, p, p.x, p.y, 'impact_takeoff', 0);
   run.fx.push({
@@ -14337,6 +14414,14 @@ function stepPlayerJump(run, players, p, dt) {
   const profile = impactDriverProfile(p);
   if (hitX) p.jumpVx = -Number(p.jumpVx || 0) * profile.restitution;
   if (hitY) p.jumpVy = -Number(p.jumpVy || 0) * profile.restitution;
+  if ((hitX || hitY) && profile.reboundUnlocked && !p.jumpReboundRangeApplied) {
+    // One speed grant per jump gives +25% post-rebound travel per stack without
+    // changing airtime or rewinding the fake-3D cube's animation at the wall.
+    const reboundRangeMul = 1 + profile.reboundDistanceBonus;
+    p.jumpVx *= reboundRangeMul;
+    p.jumpVy *= reboundRangeMul;
+    p.jumpReboundRangeApplied = 1;
+  }
   if ((hitX || hitY) && p.jumpWallFxCd <= 0) {
     p.jumpWallFxCd = PLAYER_JUMP_WALL_FX_CD;
     if (profile.reboundUnlocked) p.jumpBounces = Math.max(0, Number(p.jumpBounces || 0) | 0) + 1;
@@ -14350,7 +14435,7 @@ function stepPlayerJump(run, players, p, dt) {
   }
   p.jumpT = Math.max(0, Math.min(p.jumpT, before - dt));
   if (p.jumpT <= 0) {
-    p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0;
+    p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0; p.jumpReboundRangeApplied = 0;
     const impact = impactDriverPulse(run, players, p, p.x, p.y, 'impact_land', p.jumpBounces || 0);
     p.jumpCooldownMax = 0;
     p.jumpCooldown = 0;
@@ -14501,7 +14586,7 @@ function stepPlayers(run, players, dt) {
     p.wantActive = false;
     if (!wasAirborne && p.wantRActive && run.phase === 'play') doRActive(run, players, p);
     p.wantRActive = false;
-    if (!wasAirborne && p.wantSecondary && run.phase === 'play') {
+    if ((!wasAirborne || isImpactDriverPlayer(p)) && p.wantSecondary && run.phase === 'play') {
       if (isLivingCasinoPlayer(p)) livingCasinoAssignTarget(run, p, 'sparks');
       else if (isProcessControllerPlayer(p)) commandProcessController(run, p);
       else doSecondaryWeapon(run, players, p);
@@ -14518,7 +14603,7 @@ function stepPlayers(run, players, dt) {
     if (!wasAirborne && p.wantInteract && run.phase === 'play') tryInteract(run, players, p);
     p.wantInteract = false;
     // fire
-    if (!wasAirborne && run.phase === 'play') fireWeapon(run, players, p, dt);
+    if ((!wasAirborne || isImpactDriverPlayer(p)) && run.phase === 'play') fireWeapon(run, players, p, dt);
   }
 }
 

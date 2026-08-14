@@ -31,7 +31,7 @@ export const WEAPONS = {
   },
   impact_push: {
     id: 'impact_push', label: 'PUSH', name: 'ИМПУЛЬС СДВИГА',
-    cooldown: 3.2, pellets: 0, spread: 0, dmg: 20, speed: 520, life: 0, size: 0
+    cooldown: 3.2, pellets: 0, spread: 0, dmg: 40, speed: 520, life: 0, size: 0
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
@@ -154,12 +154,12 @@ export const UPGRADES = [
   { id: 'impact_distance', label: 'DRV: ДАЛЬНОСТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает дальность прыжка, не меняя его базовую перезарядку.', apply: s => { s.jumpDistance += 1; } },
   { id: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', tier: 1, branch: 'IMPACT', desc: 'Приземление оглушает угрозы. Повторы увеличивают длительность.', apply: s => { s.jumpStun += 1; } },
   { id: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', tier: 1, branch: 'IMPACT', desc: 'На месте приземления остаётся короткий наносящий урон контур. Повторы усиливают его.', apply: s => { s.jumpAfterfield += 1; } },
-  { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР', tier: 1, branch: 'IMPACT', desc: 'Открывает множитель отскоков, сохраняет больше скорости и продлевает полёт.', apply: s => { s.jumpRebound += 1; } },
+  { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР +25%', tier: 1, branch: 'IMPACT', desc: 'Открывает множитель отскоков. Каждый стак добавляет 25% дальности полёта после первого отскока от стены.', apply: s => { s.jumpRebound += 1; } },
   { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ-БЛОК', tier: 1, branch: 'IMPACT', desc: 'Базовый ЛКМ-модуль Драйвера: ставит временный квадратный блок. У модуля своя перезарядка.', apply: s => { s.impactWallUnlocked = 1; } },
   { id: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ-БЛОК +1', tier: 1, branch: 'IMPACT', desc: 'Позволяет одновременно держать ещё один квадратный блок.', apply: s => { s.impactWallCount += 1; } },
   { id: 'impact_wall_duration', label: 'DRV: СРОК БЛОКА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает срок существования квадратных блоков.', apply: s => { s.impactWallDuration += 1; } },
-  { id: 'impact_push_unlock', label: 'DRV: ИМПУЛЬС СДВИГА', tier: 1, branch: 'IMPACT', desc: 'Базовый ПКМ-модуль Драйвера: запускает выбранный собственный блок от героя.', apply: s => { s.impactPushUnlocked = 1; } },
-  { id: 'impact_push_range', label: 'PUSH: ДАЛЬНОСТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Увеличивает дальность захвата и путь летящего блока. Стакается без ограничений.', apply: s => { s.impactPushRange += 1; } },
+  { id: 'impact_push_unlock', label: 'DRV: ИМПУЛЬС СДВИГА', tier: 1, branch: 'IMPACT', desc: 'Базовый ПКМ-модуль Драйвера: запускает блок строго от точки клика через его центр.', apply: s => { s.impactPushUnlocked = 1; } },
+  { id: 'impact_push_range', label: 'PUSH: ДАЛЬНОСТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Увеличивает дальность захвата и путь летящего блока на 20%. Стакается без ограничений.', apply: s => { s.impactPushRange += 1; } },
   { id: 'impact_push_damage', label: 'PUSH: УРОН +25%', tier: 1, branch: 'IMPACT', desc: 'Усиливает урон блока при прохождении сквозь угрозы. Стакается без ограничений.', apply: s => { s.impactPushDamage += 1; } },
   { id: 'impact_push_cooldown', label: 'PUSH: ТАКТ +15%', tier: 1, branch: 'IMPACT', desc: 'Ускоряет восстановление импульса сдвига. Стакается без ограничений.', apply: s => { s.impactPushCooldown += 1; } },
   { id: 'impact_push_bounce', label: 'PUSH: РИКОШЕТ СТЕНЫ', tier: 1, branch: 'IMPACT', desc: 'Летящий блок начинает отскакивать от стен, пока не исчерпает дальность.', apply: s => { s.impactPushBounce = 1; } },
@@ -241,10 +241,10 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'impact_distance', kind: 'weapon_upgrade', upgrade: 'impact_distance', heroOnly: 'impact_driver', label: 'DRV: ДАЛЬНОСТЬ +20%', desc: 'Каждый уровень увеличивает дальность прыжка без ускорения его перезарядки.' },
   { id: 'impact_stun', kind: 'weapon_upgrade', upgrade: 'impact_stun', heroOnly: 'impact_driver', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', desc: 'Оглушает угрозы в области приземления.' },
   { id: 'impact_afterfield', kind: 'weapon_upgrade', upgrade: 'impact_afterfield', heroOnly: 'impact_driver', label: 'DRV: СЛЕД УДАРА', desc: 'Оставляет наносящий урон контур в точке посадки.' },
-  { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', heroOnly: 'impact_driver', label: 'DRV: УПРУГИЙ КОНТУР', desc: 'Открывает множитель отскоков и усиливает сохранение импульса.' },
+  { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', heroOnly: 'impact_driver', label: 'DRV: УПРУГИЙ КОНТУР +25%', desc: 'Открывает множитель отскоков. Каждый стак даёт +25% дальности после первого отскока.' },
   { id: 'impact_wall_count', kind: 'weapon_upgrade', upgrade: 'impact_wall_count', heroOnly: 'impact_driver', label: 'DRV: ФАЙРВОЛ-БЛОК +1', desc: 'Ещё один одновременно существующий квадратный блок.' },
   { id: 'impact_wall_duration', kind: 'weapon_upgrade', upgrade: 'impact_wall_duration', heroOnly: 'impact_driver', label: 'DRV: СРОК БЛОКА +25%', desc: 'Квадратные блоки существуют дольше.' },
-  { id: 'impact_push_range', kind: 'weapon_upgrade', upgrade: 'impact_push_range', heroOnly: 'impact_driver', label: 'PUSH: ДАЛЬНОСТЬ +20%', desc: 'Увеличивает дальность захвата и путь блока. Без лимита.' },
+  { id: 'impact_push_range', kind: 'weapon_upgrade', upgrade: 'impact_push_range', heroOnly: 'impact_driver', label: 'PUSH: ДАЛЬНОСТЬ +20%', desc: 'Увеличивает дальность захвата и путь блока на 20%. Без лимита.' },
   { id: 'impact_push_damage', kind: 'weapon_upgrade', upgrade: 'impact_push_damage', heroOnly: 'impact_driver', label: 'PUSH: УРОН +25%', desc: 'Усиливает урон летящего блока. Без лимита.' },
   { id: 'impact_push_cooldown', kind: 'weapon_upgrade', upgrade: 'impact_push_cooldown', heroOnly: 'impact_driver', label: 'PUSH: ТАКТ +15%', desc: 'Ускоряет восстановление импульса сдвига. Без лимита.' },
   { id: 'impact_push_bounce', kind: 'weapon_upgrade', upgrade: 'impact_push_bounce', heroOnly: 'impact_driver', label: 'PUSH: РИКОШЕТ СТЕНЫ', desc: 'Открывает отскоки летящего блока от стен.' },

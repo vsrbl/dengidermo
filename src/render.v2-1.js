@@ -385,9 +385,9 @@ export class Renderer {
       if (w.temp || w.kind === 'impact_wall') {
         const life = Math.max(0, Math.min(1, Number(w.ttl || 0) / Math.max(0.01, Number(w.maxT || 1))));
         ctx.save();
-        ctx.globalAlpha = w.moving ? 0.72 : (0.48 + life * 0.38);
+        ctx.globalAlpha = w.moving ? 0.78 : (w.settling ? 0.58 + Math.abs(Math.sin(now * 9)) * 0.24 : (0.48 + life * 0.38));
         ctx.fillStyle = '#061419'; ctx.fillRect(w.x, w.y, w.w, w.h);
-        ctx.strokeStyle = w.moving ? '#b45cff' : '#66f6ff'; ctx.lineWidth = 3; ctx.setLineDash(w.moving ? [4, 3] : [9, 4]); ctx.strokeRect(w.x, w.y, w.w, w.h);
+        ctx.strokeStyle = w.moving ? '#b45cff' : (w.settling ? '#ffd34d' : '#66f6ff'); ctx.lineWidth = w.settling ? 4 : 3; ctx.setLineDash(w.moving ? [4, 3] : (w.settling ? [3, 3] : [9, 4])); ctx.strokeRect(w.x, w.y, w.w, w.h);
         ctx.setLineDash([]); ctx.globalAlpha *= 0.55; ctx.strokeStyle = '#f3f3f3'; ctx.lineWidth = 1;
         const inset = Math.max(8, Math.min(w.w, w.h) * 0.19);
         ctx.strokeRect(w.x + inset, w.y + inset, Math.max(0, w.w - inset * 2), Math.max(0, w.h - inset * 2));
@@ -401,6 +401,7 @@ export class Renderer {
           ctx.globalAlpha = 0.5; ctx.strokeStyle = '#b45cff'; ctx.lineWidth = 2;
           for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(cx - dx * (28 + i * 12), cy - dy * (28 + i * 12)); ctx.lineTo(cx - dx * (35 + i * 16), cy - dy * (35 + i * 16)); ctx.stroke(); }
         }
+        if (w.settling) this.label(localText('ФАЗА · УРОН', 'PHASE · DAMAGE'), w.x + w.w / 2, w.y - 9, '#ffd34d', 9);
         ctx.restore();
       } else {
         ctx.fillStyle = COL.wall; ctx.fillRect(w.x, w.y, w.w, w.h);
@@ -408,28 +409,42 @@ export class Renderer {
       }
     }
 
-    // PUSH is selected by hovering the wall itself. Show only a light local
-    // direction cue: from the cursor contact point through the block centre.
+    // Mouse movement only selects a square; it never rotates or moves it. A
+    // launch direction is sampled once, on RMB, and visualized by the launch FX.
+    // Ready blocks receive a stable frame; the hovered block explains range/CD.
     const pushMeRow = (view.players || []).find(p => p[P.ID] === state.myId);
     const push = pushMeRow?.[P.BUILD]?.impactWall;
-    if (push?.pushUnlocked && Number(push.pushCd || 0) <= 0) {
+    if (push?.pushUnlocked) {
       const wx = mouse.x + this.cam.x, wy = mouse.y + this.cam.y;
-      const wall = (state.room?.tempWalls || []).find(w => w?.owner === state.myId && !w.moving && !w.settling && wx >= w.x && wx <= w.x + w.w && wy >= w.y && wy <= w.y + w.h);
-      if (wall) {
+      const reach = Math.max(0, Number(push.pushReach || 0));
+      const ready = Number(push.pushCd || 0) <= 0;
+      const own = (state.room?.tempWalls || []).filter(w => w?.owner === state.myId && !w.moving && !w.settling);
+      const hovered = [...own].reverse().find(w => wx >= w.x && wx <= w.x + w.w && wy >= w.y && wy <= w.y + w.h) || null;
+      for (const wall of own) {
         const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
-        const reach = Math.max(0, Number(push.pushReach || 0));
-        if (Math.hypot(cx - pushMeRow[P.X], cy - pushMeRow[P.Y]) <= reach) {
-          let dx = cx - wx, dy = cy - wy; const n = Math.hypot(dx, dy);
-          if (n >= 2) {
-            dx /= n; dy /= n;
-            const x1 = cx + dx * (wall.w * 0.46), y1 = cy + dy * (wall.h * 0.46), x2 = x1 + dx * 38, y2 = y1 + dy * 38;
-            ctx.save(); ctx.strokeStyle = '#b45cff'; ctx.fillStyle = '#b45cff'; ctx.globalAlpha = 0.70; ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-            const nx = -dy, ny = dx;
-            ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - dx * 9 + nx * 5, y2 - dy * 9 + ny * 5); ctx.lineTo(x2 - dx * 9 - nx * 5, y2 - dy * 9 - ny * 5); ctx.closePath(); ctx.fill();
-            ctx.restore();
+        const inRange = Math.hypot(cx - pushMeRow[P.X], cy - pushMeRow[P.Y]) <= reach;
+        if (wall !== hovered && (!ready || !inRange)) continue;
+        const selected = wall === hovered;
+        const color = !inRange ? '#ff3048' : (!ready ? '#ffd34d' : '#00ff66');
+        const pulse = 0.70 + Math.abs(Math.sin(now * 6.5)) * 0.22;
+        const pad = selected ? 7 : 4;
+        ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha = selected ? pulse : 0.28; ctx.lineWidth = selected ? 3.5 : 1.5;
+        if (!inRange) ctx.setLineDash([5, 4]);
+        ctx.strokeRect(wall.x - pad, wall.y - pad, wall.w + pad * 2, wall.h + pad * 2);
+        ctx.setLineDash([]);
+        if (selected) {
+          const c = 12;
+          for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+            const x = sx < 0 ? wall.x - pad : wall.x + wall.w + pad;
+            const y = sy < 0 ? wall.y - pad : wall.y + wall.h + pad;
+            ctx.beginPath(); ctx.moveTo(x, y + sy * c); ctx.lineTo(x, y); ctx.lineTo(x + sx * c, y); ctx.stroke();
           }
+          const label = !inRange
+            ? localText('PUSH · ДАЛЕКО', 'PUSH · OUT OF RANGE')
+            : (!ready ? `PUSH · ${Number(push.pushCd || 0).toFixed(1)}s` : localText('ПКМ · PUSH ГОТОВ', 'RMB · PUSH READY'));
+          this.label(label, cx, wall.y - 17, color, 10);
         }
+        ctx.restore();
       }
     }
 

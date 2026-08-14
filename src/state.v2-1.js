@@ -110,6 +110,7 @@ export class GameState {
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
     const airborne = !!me && Number(me[P.JUMP] || 0) > 0;
+    const airborneDriver = airborne && me?.[P.BUILD]?.hero === 'impact_driver';
     const jumpReady = !!(jump && me?.[P.BUILD]?.hero === 'impact_driver' && Number(me?.[P.JUMPCD] || 0) <= 0);
     this.seq++;
     if (alive && playPhase && this.pred.init && !airborne && !jumpReady) {
@@ -133,7 +134,7 @@ export class GameState {
     return {
       seq: this.seq, mx: mv.x, my: mv.y,
       ax: Math.round(aim.x), ay: Math.round(aim.y),
-      fire: airborne ? false : fire, dash: (!airborne && dash) || undefined, inter: (!airborne && inter) || undefined, active: (!airborne && active) || undefined, ractive: (!airborne && ractive) || undefined, secondary: (!airborne && secondary) || undefined,
+      fire: airborne && !airborneDriver ? false : fire, dash: (!airborne && dash) || undefined, inter: (!airborne && inter) || undefined, active: ((!airborne || airborneDriver) && active) || undefined, ractive: (!airborne && ractive) || undefined, secondary: ((!airborne || airborneDriver) && secondary) || undefined,
       jump: (!airborne && jumpReady) || undefined,
       wpn: !airborne && wpn >= 0 ? wpn : undefined
     };
