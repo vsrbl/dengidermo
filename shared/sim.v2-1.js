@@ -8034,8 +8034,10 @@ function stepOctLaserBoss(run, players, e, def, target, toT, dT, spd, dt, walls)
 
 function stepBossBackgroundPressure(run, players, boss, def, dt) {
   // Additive pressure only: existing boss attacks, unique summons and the director's
-  // low-HP add packs remain untouched. Fragments do not each start their own stream.
-  if (!boss || !def?.boss || def.bossFragment || boss.hp <= 0) return;
+  // low-HP add packs remain untouched. The three-life Casino Mob uses this exact
+  // same stream, while boss fragments never start independent summon timers.
+  const casinoMob = boss?.kind === 'slot_mob' && !!def?.slotMob;
+  if (!boss || (!def?.boss && !casinoMob) || def.bossFragment || boss.hp <= 0) return;
   if (!Number.isFinite(boss.backgroundAddCd)) boss.backgroundAddCd = 2.8;
   boss.backgroundAddCd -= dt;
   if (boss.backgroundAddCd > 0) return;
@@ -8062,7 +8064,7 @@ function stepBossBackgroundPressure(run, players, boss, def, dt) {
     made++;
   }
   if (openingAnchorWave) boss.anchorOpeningPressureDone = 1;
-  if (firstAdd) run.fx.push({ t: 'director_wave', label: 'BOSS PRESSURE', intent: 'boss_background', x: Math.round(firstAdd.x), y: Math.round(firstAdd.y), count: made });
+  if (firstAdd) run.fx.push({ t: 'director_wave', label: casinoMob ? 'CASINO PRESSURE' : 'BOSS PRESSURE', intent: 'boss_background', x: Math.round(firstAdd.x), y: Math.round(firstAdd.y), count: made });
   boss.backgroundAddCd = Math.max(5.4, 7.4 - Math.min(1.3, df.loop * 0.22)) + Math.random() * 1.5;
 }
 
@@ -9456,10 +9458,7 @@ function impactRectOverlap(a, b) {
   return !!a && !!b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 function impactWallCenter(wall) { return { x: wall.x + wall.w / 2, y: wall.y + wall.h / 2 }; }
-export function impactPushReach(p) {
-  const local = Math.pow(1.20, Math.max(0, Number(p?.stats?.impactPushRange || 0) | 0));
-  return 215 * weaponRangeMultiplier(p) * local;
-}
+export function impactPushReach(_p) { return Number.POSITIVE_INFINITY; }
 export function impactPushTravel(p) {
   const local = Math.pow(1.20, Math.max(0, Number(p?.stats?.impactPushRange || 0) | 0));
   return 390 * weaponRangeMultiplier(p) * local;
@@ -9472,13 +9471,13 @@ function impactPushCooldown(p) {
 function impactWallUnderAim(p, walls) {
   const ax = Number(p?.aimX), ay = Number(p?.aimY);
   if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
-  // Newest block wins only when two owned blocks physically overlap. Merely
-  // moving the mouse never changes a block: this helper only chooses the exact
-  // stationary square under the click for the one authoritative launch below.
+  // The interaction halo is deliberately larger than the physical square.
+  // Newest wins if two halos overlap; collision geometry stays unchanged.
   for (let i = (walls || []).length - 1; i >= 0; i--) {
     const wall = walls[i];
     if (!wall || wall.owner !== p.id || wall.moving || wall.settling) continue;
-    if (ax >= wall.x && ax <= wall.x + wall.w && ay >= wall.y && ay <= wall.y + wall.h) return wall;
+    const pad = Math.max(16, Math.min(28, Math.min(wall.w || 0, wall.h || 0) * 0.30));
+    if (ax >= wall.x - pad && ax <= wall.x + wall.w + pad && ay >= wall.y - pad && ay <= wall.y + wall.h + pad) return wall;
   }
   return null;
 }
@@ -9486,12 +9485,11 @@ function impactWallPushVector(p, wall) {
   if (!p || !wall || wall.owner !== p.id || wall.moving || wall.settling) return null;
   const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
   const ax = Number(p.aimX), ay = Number(p.aimY);
-  if (!Number.isFinite(ax) || !Number.isFinite(ay) || ax < wall.x || ax > wall.x + wall.w || ay < wall.y || ay > wall.y + wall.h) return null;
-  let dx = cx - ax, dy = cy - ay;
-  // The exact centre has no contact normal. Fall back to "away from hero" so
-  // a centre click is still reliable instead of silently denying a valid wall.
-  if (Math.hypot(dx, dy) < 2) { dx = cx - p.x; dy = cy - p.y; }
-  if (Math.hypot(dx, dy) < 2) { dx = p.dirX || 1; dy = p.dirY || 0; }
+  if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
+  // Copy the hero's aim ray exactly. The selected square's centre/edge normal
+  // never participates in the launch-vector calculation.
+  let dx = ax - p.x, dy = ay - p.y;
+  if (Math.hypot(dx, dy) < 1) { dx = p.dirX || 1; dy = p.dirY || 0; }
   const dir = norm(dx, dy);
   return { x: dir.x, y: dir.y, cx, cy, contactX: ax, contactY: ay };
 }
@@ -9569,13 +9567,11 @@ function startImpactWallPush(run, players, p) {
     return false;
   }
   const center = impactWallCenter(wall);
-  if (dist2(p.x, p.y, center.x, center.y) > impactPushReach(p) ** 2) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH OUT OF RANGE' });
-    return false;
-  }
+  // Owned blocks can be selected across the entire room and through walls.
+  // Flight distance after launch remains the separate upgradeable stat.
   const vector = impactWallPushVector(p, wall);
   if (!vector) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH TOUCH AN EDGE' });
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH NO AIM' });
     return false;
   }
   const speed = Math.max(260, Number(WEAPONS.impact_push?.speed || 520));
@@ -10244,6 +10240,10 @@ function spawnSlotMobHalfWave(run, players, e) {
 }
 function stepSlotMob(run, players, e, target, toT, dT, spd, dt, walls) {
   const def = ENEMIES.slot_mob;
+  // Casino Mob now maintains the same capped grunt/runner pressure stream as a
+  // regular boss. This is an active ability, so the caller's stun/freeze/SHELL
+  // RIPPER gates suspend both its cooldown and the actual summon.
+  stepBossBackgroundPressure(run, players, e, def, dt);
   // Mode is chosen only after each rebuild roll.
   const mode = String(e.slotMode || 'runner');
   syncSlotMobState(e);
@@ -13297,7 +13297,7 @@ export function staticStrikeProfile(level = 1) {
   // 1.5x smaller than the original 132-unit base profile.
   const baseRadius = activeScale(132) / 1.5;
   return {
-    damage: 72 + extra * 30,
+    damage: 144 + extra * 30,
     radius: Math.round(baseRadius + activeScale(extra * 42)),
     cooldownBase: Math.max(3.6, 9.0 - extra * 1.35),
     delay: 1.15
@@ -13854,7 +13854,7 @@ function stepActiveFields(run, players, dt) {
     let hits = 0;
     for (const e of [...run.enemies].filter(e => staticStrikeHitsEnemy(strike, e))) {
       const before = e.hp;
-      activeDamageEnemy(run, players, e, strike.dmg || 72, strike.owner, 'static_strike');
+      activeDamageEnemy(run, players, e, strike.dmg || 144, strike.owner, 'static_strike');
       if (e.hp < before) hits++;
     }
     run.fx.push({ t: 'rain_hit', id: strike.owner, strikeId: strike.id, owner: strike.owner, x: Math.round(strike.x), y: Math.round(strike.y), r: strike.r, stacks: 1, tone: 'cyan', ally: 1, active: 1, hits });
@@ -14365,7 +14365,7 @@ function impactDriverPulse(run, players, p, x, y, kind, bounces = 0) {
       activeField(run, {
         kind: 'impact_field', owner: p.id, x, y, r: Math.round(radius * 0.78),
         ttl: 1.8 + profile.fieldLevel * 0.42, tickEvery: 0.46,
-        dmg: weaponDamageValue(p, (3.5 + profile.fieldLevel * 2.2) * (1 + Math.max(0, p.stats?.jumpImpactDamage || 0) * 0.25)),
+        dmg: weaponDamageValue(p, (7 + profile.fieldLevel * 4.4) * (1 + Math.max(0, p.stats?.jumpImpactDamage || 0) * 0.25)),
         elem: pseudo.elem, elemPower: pseudo.elemPower
       });
     }
@@ -14742,7 +14742,7 @@ function playerBuildSnapshot(p) {
       pushCd: Math.ceil(Math.max(0, Number(p.impactPushCd || 0)) * 10) / 10,
       pushCdMax: Math.ceil(Math.max(0.1, Number(p.impactPushCdMax || impactPushCooldown(p))) * 10) / 10,
       placementRange: Math.round(impactWallPlacementRange(p)),
-      pushReach: Math.round(impactPushReach(p)),
+      pushReach: -1,
       pushTravel: Math.round(impactPushTravel(p))
     } : null
   };

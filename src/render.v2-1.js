@@ -409,41 +409,22 @@ export class Renderer {
       }
     }
 
-    // Mouse movement only selects a square; it never rotates or moves it. A
-    // launch direction is sampled once, on RMB, and visualized by the launch FX.
-    // Ready blocks receive a stable frame; the hovered block explains range/CD.
+    // RMB selection stays quiet: one light dashed outline around a slightly
+    // enlarged interaction halo. Direction itself comes from the hero aim ray.
     const pushMeRow = (view.players || []).find(p => p[P.ID] === state.myId);
     const push = pushMeRow?.[P.BUILD]?.impactWall;
     if (push?.pushUnlocked) {
       const wx = mouse.x + this.cam.x, wy = mouse.y + this.cam.y;
-      const reach = Math.max(0, Number(push.pushReach || 0));
-      const ready = Number(push.pushCd || 0) <= 0;
       const own = (state.room?.tempWalls || []).filter(w => w?.owner === state.myId && !w.moving && !w.settling);
-      const hovered = [...own].reverse().find(w => wx >= w.x && wx <= w.x + w.w && wy >= w.y && wy <= w.y + w.h) || null;
-      for (const wall of own) {
-        const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
-        const inRange = Math.hypot(cx - pushMeRow[P.X], cy - pushMeRow[P.Y]) <= reach;
-        if (wall !== hovered && (!ready || !inRange)) continue;
-        const selected = wall === hovered;
-        const color = !inRange ? '#ff3048' : (!ready ? '#ffd34d' : '#00ff66');
-        const pulse = 0.70 + Math.abs(Math.sin(now * 6.5)) * 0.22;
-        const pad = selected ? 7 : 4;
-        ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha = selected ? pulse : 0.28; ctx.lineWidth = selected ? 3.5 : 1.5;
-        if (!inRange) ctx.setLineDash([5, 4]);
-        ctx.strokeRect(wall.x - pad, wall.y - pad, wall.w + pad * 2, wall.h + pad * 2);
-        ctx.setLineDash([]);
-        if (selected) {
-          const c = 12;
-          for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
-            const x = sx < 0 ? wall.x - pad : wall.x + wall.w + pad;
-            const y = sy < 0 ? wall.y - pad : wall.y + wall.h + pad;
-            ctx.beginPath(); ctx.moveTo(x, y + sy * c); ctx.lineTo(x, y); ctx.lineTo(x + sx * c, y); ctx.stroke();
-          }
-          const label = !inRange
-            ? localText('PUSH · ДАЛЕКО', 'PUSH · OUT OF RANGE')
-            : (!ready ? `PUSH · ${Number(push.pushCd || 0).toFixed(1)}s` : localText('ПКМ · PUSH ГОТОВ', 'RMB · PUSH READY'));
-          this.label(label, cx, wall.y - 17, color, 10);
-        }
+      const hovered = [...own].reverse().find(w => {
+        const hitPad = Math.max(16, Math.min(28, Math.min(w.w || 0, w.h || 0) * 0.30));
+        return wx >= w.x - hitPad && wx <= w.x + w.w + hitPad && wy >= w.y - hitPad && wy <= w.y + w.h + hitPad;
+      }) || null;
+      if (hovered) {
+        const pad = 6;
+        ctx.save(); ctx.strokeStyle = '#c8fbff'; ctx.globalAlpha = 0.58; ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(hovered.x - pad, hovered.y - pad, hovered.w + pad * 2, hovered.h + pad * 2);
         ctx.restore();
       }
     }

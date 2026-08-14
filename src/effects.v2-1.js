@@ -854,13 +854,7 @@ export class Effects {
         ctx.lineDashOffset = -p * 22;
         ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.84, 0, Math.PI * 2); ctx.stroke();
         ctx.setLineDash([]); ctx.lineDashOffset = 0;
-        // A damage tick travels only inside the established boundary.
-        if (e.tick) {
-          const pulseR = r * (0.18 + 0.70 * p);
-          ctx.globalAlpha = fade * 0.72;
-          ctx.lineWidth = 1.8;
-          ctx.beginPath(); ctx.arc(e.x, e.y, pulseR, 0, Math.PI * 2); ctx.stroke();
-        }
+        // Damage ticks keep the established contour stable; no inner pulse.
         ctx.restore();
       } else if (e.kind === 'impact') {
         const dx = e.dx || 1, dy = e.dy || 0; const nx = -dy, ny = dx;
