@@ -1,14 +1,19 @@
 // terminal casino roguelike HUD: bars, pips, feed, banners, TAB panel, install + casino modals
 import { P, ENEMY_KINDS } from './state.v2-1.js';
-import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES, ACTIVE_CORES, ACTIVE_MUTATIONS, defaultStats } from '../shared/data.v2-1.js';
+import { UPGRADES, WEAPONS, CHESTS, SECTOR_MODS, BET_STAKES, ENEMIES, ACTIVE_CORES, ACTIVE_MUTATIONS, SKIN_PRESETS, defaultStats, contentText } from '../shared/data.v2-1.js';
 import { t, onLangChange, getLang, cleanPlayerText, activeNoneLabel, activeNoneDesc, activeShort as locActiveShort, activeDescFrom, chestDesc, pickupDesc, enemyDesc, weaponDesc, optionDesc, locAction, locRole, locLabel, locReward, disabledReason, objectStateText, priceText, localText, denyText, esc as escHtml } from './i18n.v2-1.js';
 import { reconcileRerollAvailability } from './reroll-sync.v2-1.js';
 
 const $ = id => document.getElementById(id);
+const content = (entry, field = 'label') => contentText(entry, getLang(), field);
+const pairedContent = (entry, field = 'label') => entry?.[`${field}${getLang() === 'ru' ? 'Ru' : 'En'}`] ?? '';
 const MOD_LABELS = Object.fromEntries(Object.values(SECTOR_MODS).map(m => [m.id, m.label]));
 const WEAPON_BY_LABEL_LOCAL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
+const SKIN_BY_ID_LOCAL = Object.fromEntries(SKIN_PRESETS.map(s => [s.id, s]));
+const WEAPON_CODE_RU = { SHG: 'КЛН', SEK: 'ИСК', RKT: 'РЗМ', LVC: 'ЖКЗ', SPK: 'ИКР', DRV: 'УДР', FWL: 'БЛК', PUSH: 'ВЕК', RLT: 'РУЛ', CRD: 'КЛД', CMD: 'КМД', QRN: 'ЯКР', SAW: 'РАЗ' };
+const weaponHudCode = weapon => localText(WEAPON_CODE_RU[String(weapon?.label || '').toUpperCase()] || content(weapon, 'name'), weapon?.label || content(weapon, 'name'));
 const ARCH_LABELS = { panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE FIELD', long_lane: 'LONG LANE', lounge: 'CASINO LOUNGE', boss: 'BOSS FLOOR', trinode_chase: 'TRI CHASE GRID', ripped_table: 'RIPPED TABLE', cross_terminal: 'CROSS TERMINAL', ring_track: 'RING TRACK', clamp_room: 'CLAMP SECTOR', cashier_maze: 'CASHIER MAZE', machine_core: 'MACHINE CORE' };
-const ARCH_LABELS_RU = { panic_box: 'ТЕСНЫЙ СЕКТОР', compact: 'МАЛЫЙ СЕКТОР', standard: 'СТАНДАРТНЫЙ СЕКТОР', wide: 'ШИРОКИЙ СЕКТОР', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'УЗЕЛ ГЛАВНОЙ УГРОЗЫ', trinode_chase: 'ЛАБИРИНТ TRI', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
+const ARCH_LABELS_RU = { panic_box: 'ТЕСНЫЙ СЕКТОР', compact: 'МАЛЫЙ СЕКТОР', standard: 'СТАНДАРТНЫЙ СЕКТОР', wide: 'ШИРОКИЙ СЕКТОР', long_lane: 'ДЛИННЫЙ КОРИДОР', lounge: 'КАЗИНО-ЛАУНЖ', boss: 'УЗЕЛ ГЛАВНОЙ УГРОЗЫ', trinode_chase: 'ЛАБИРИНТ ТРОЙНОГО УЗЛА', ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК', clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА' };
 const MOD_LABELS_RU = {
   blackout: 'ТЕМНОТА', static_rain: 'СТАТИК-ШТОРМ', greed: 'ЗОЛОТАЯ ЛИХОРАДКА', debt_floor: 'СТАТИК-ПОЛ', hunter_contract: 'ВОЛНЫ ОХОТНИКОВ',
   casino_virus: 'КАЗИНО-ВИРУС', mirror_room: 'ЗЕРКАЛЬНЫЙ ЗАЛ', moving_room: 'ДВИЖУЩИЕСЯ ЗОНЫ', prism_grid: 'ПРИЗМ-СЕТКА', blood_tax: 'КРОВАВАЯ ОПЛАТА',
@@ -16,12 +21,12 @@ const MOD_LABELS_RU = {
 };
 const TAG_RU = {
   'NORMAL CLEAR': 'ОБЫЧНАЯ ЗАЧИСТКА', 'NORMAL REWARD': 'ОБЫЧНАЯ НАГРАДА', LANES: 'ЛИНИИ', STATIC: 'СТАТИКА', GREED: 'ЗОЛОТО', ARMOR: 'БРОНЯ',
-  'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'GLD↑', 'BET↑': 'BET↑',
-  'SHELL GLD': 'GLD ЗА ЩИТЫ', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'ОБЛИК', 'SKN CACHE': 'ОБЛИК-ТАЙНИК',
+  'ARMOR WALL': 'СТЕНА БРОНИ', CONTROL: 'КОНТРОЛЬ', SWARM: 'РОЙ', RANGED: 'ДАЛЬНИЙ БОЙ', CHAOS: 'ХАОС', 'GLD↑': 'КРЕДИТЫ↑', 'BET↑': 'СТАВКА↑',
+  'SHELL GLD': 'КРЕДИТЫ ЗА ЩИТЫ', 'EARLY EXIT': 'РАННИЙ ВЫХОД', 'OVERSTAY HUNTERS': 'ОХОТА ЗА ЗАДЕРЖКУ', SKIN: 'ОБЛИК', 'SKN CACHE': 'ОБЛИК-ТАЙНИК',
   'CLOSE RANGE': 'БЛИЖНИЙ БОЙ', 'DASH SPACE': 'ПРОСТОР ДЛЯ РЫВКА', CROSSFIRE: 'ПЕРЕКРЁСТНЫЙ ОГОНЬ', SHOP: 'ПОКУПКИ', 'LOCKED WAVES': 'ЗАКРЫТЫЕ ВОЛНЫ',
   '3 VIRUS SPINS': '3 БРОСКА ВИРУСА', 'DANGER ZONES': 'ОПАСНЫЕ ЗОНЫ', 'PRISM SLOW': 'ПРИЗМ-ЗАМЕДЛЕНИЕ', 'GRAVITY SOCKETS': 'ГРАВИТАЦИОННЫЕ УЗЛЫ',
-  'HP SHOP': 'ПОКУПКИ ЗА HP', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ УГРОЗ',
-  'GLD BONUS': 'БОНУС GLD', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ HP', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН', 'INFECTED CHEST': 'ЗАРАЖЁННЫЙ СУНДУК', 'CHEST SWARM': 'РОЙ ИЗ СУНДУКА'
+  'HP SHOP': 'ПОКУПКИ ЗА ЗДОРОВЬЕ', '50% ECHO SHOTS': '50% ЭХО-ВЫСТРЕЛОВ', 'PRIORITY TARGET': 'ВАЖНАЯ ЦЕЛЬ', 'NO ENEMIES': 'БЕЗ УГРОЗ',
+  'GLD BONUS': 'БОНУС КРЕДИТОВ', '3 SPINS': '3 БРОСКА', 'HP COSTS': 'ЦЕНЫ ЗДОРОВЬЯ', 'REWARD↑': 'НАГРАДА↑', 'SAFE / SHOP': 'БЕЗОПАСНО / МАГАЗИН', 'INFECTED CHEST': 'ЗАРАЖЁННЫЙ СУНДУК', 'CHEST SWARM': 'РОЙ ИЗ СУНДУКА'
 };
 function roman(n) { const map = ['','I','II','III','IV','V','VI','VII','VIII','IX','X']; n = Math.max(1, Math.min(10, Number(n || 1) | 0)); return map[n] || String(n); }
 const BUILD_BASE_STATS = defaultStats();
@@ -33,7 +38,7 @@ function buildValue(value, kind = 'level') {
   const n = Number(value || 0);
   if (kind === 'mult') return `×${buildNum(n)}`;
   if (kind === 'pct') return `${buildNum(n * 100, 1)}%`;
-  if (kind === 'seconds') return `${buildNum(n, 1)}s`;
+  if (kind === 'seconds') return localText(`${buildNum(n, 1).replace('.', ',')}с`, `${buildNum(n, 1)}s`);
   if (kind === 'units') return buildNum(n, 0);
   if (kind === 'bool') return n > 0 ? localText('ДА', 'YES') : localText('НЕТ', 'NO');
   return buildNum(n, 1);
@@ -67,11 +72,11 @@ function renderTabBuild(me) {
     { key:'dmgMul', ru:'ВЕСЬ ИСХОДЯЩИЙ УРОН', en:'ALL OUTGOING DAMAGE', kind:'mult', value:()=>build.derived?.damageMul ?? s.dmgMul },
     { key:'weaponDmgMul', ru:'ДОБАВКА ОРУЖИЯ', en:'WEAPON DAMAGE BONUS', kind:'mult' },
     { key:'fireMul', ru:'СКОРОСТЬ ОРУЖИЯ', en:'WEAPON CLOCK', kind:'mult' },
-    { key:'maxHpAdd', ru:'МАКС. HP', en:'MAX HP', kind:'units', base:100, value:(_,p)=>p[P.MAXHP] },
+    { key:'maxHpAdd', ru:'МАКС. ЗДОРОВЬЕ', en:'MAX HEALTH', kind:'units', base:100, value:(_,p)=>p[P.MAXHP] },
     { key:'spdMul', ru:'СКОРОСТЬ', en:'MOVE SPEED', kind:'units', base:260, value:(_,p)=>p[P.SPD] },
     { key:'magnetMul', ru:'МАГНИТ ДАННЫХ', en:'DATA MAGNET', kind:'mult' },
     { key:'luck', ru:'УДАЧА', en:'LUCK', kind:'level' },
-    { key:'goldMul', ru:'ДОХОД GLD', en:'GLD INCOME', kind:'mult' },
+    { key:'goldMul', ru:'ДОХОД КРЕДИТОВ', en:'CREDIT INCOME', kind:'mult' },
     { key:'lifesteal', ru:'ВАМПИРИЗМ', en:'LIFESTEAL', kind:'pct' },
     { key:'procBlast', ru:'ШАНС ВЗРЫВА', en:'BLAST CHANCE', kind:'pct' },
     { key:'echoShot', ru:'ЭХО-ВЫСТРЕЛ', en:'ECHO SHOT', kind:'pct' },
@@ -92,25 +97,25 @@ function renderTabBuild(me) {
     { key:'elementSpread', ru:'ПЕРЕНОС СТАТУСОВ', en:'STATUS SPREAD' },
     { key:'bulletChain', ru:'СВЯЗЬ СНАРЯДОВ', en:'PROJECTILE LINK' },
     { key:'bulletChainStatuses', ru:'СТАТУСЫ ПО СВЯЗИ', en:'LINKED STATUSES', kind:'bool' },
-    { key:'droneElementLink', ru:'СТАТУСЫ КОНТАКТА CTRL', en:'CTRL CONTACT STATUS', kind:'bool' },
+    { key:'droneElementLink', ru:'СТАТУСЫ КОНТАКТА КОНТРОЛЛЕРА', en:'CONTROLLER CONTACT STATUS', kind:'bool' },
     { key:'droneProc', ru:'ВЗРЫВЫ СПУТНИКОВ', en:'DRONE BLAST' }
   ];
   const weapons = new Set(build.weapons || []);
   const branches = [
     ['shotgun', [
-      { key:'shgPellets', ru:'SHG: ДРОБЬ', en:'SHG: PELLETS' }, { key:'shgBounce', ru:'SHG: РИКОШЕТ', en:'SHG: BOUNCE' }, { key:'shgLongshot', ru:'SHG: ДАЛЬНИЙ БОЙ', en:'SHG: LONGSHOT' }
+      { key:'shgPellets', ru:'КЛИНОВОЙ: ДРОБЬ', en:'WEDGE: PELLETS' }, { key:'shgBounce', ru:'КЛИНОВОЙ: РИКОШЕТ', en:'WEDGE: BOUNCE' }, { key:'shgLongshot', ru:'КЛИНОВОЙ: ДАЛЬНИЙ БОЙ', en:'WEDGE: LONGSHOT' }
     ]],
     ['seeker', [
-      { key:'sekSplit', ru:'SEK: ДЕЛЕНИЕ', en:'SEK: SPLIT' }, { key:'sekChain', ru:'SEK: ЦЕПЬ', en:'SEK: CHAIN' }, { key:'sekSwarm', ru:'SEK: РОЙ', en:'SEK: SWARM' }
+      { key:'sekSplit', ru:'ИСКАТЕЛЬ: ДЕЛЕНИЕ', en:'SEEKER: SPLIT' }, { key:'sekChain', ru:'ИСКАТЕЛЬ: ЦЕПЬ', en:'SEEKER: CHAIN' }, { key:'sekSwarm', ru:'ИСКАТЕЛЬ: РОЙ', en:'SEEKER: SWARM' }
     ]],
     ['rocketgun', [
-      { key:'rktCluster', ru:'RKT: КАССЕТА', en:'RKT: CLUSTER' }, { key:'rktMines', ru:'RKT: МИНЫ', en:'RKT: MINES' }, { key:'rktStun', ru:'RKT: ОГЛУШЕНИЕ', en:'RKT: STUN' }, { key:'rktScatter', ru:'RKT: РАЗБРОС', en:'RKT: SCATTER' }, { key:'rktRemote', ru:'RKT: ПОДРЫВ', en:'RKT: REMOTE' }
+      { key:'rktCluster', ru:'РАЗЛОМ: КАССЕТА', en:'BREACH: CLUSTER' }, { key:'rktMines', ru:'РАЗЛОМ: МИНЫ', en:'BREACH: MINES' }, { key:'rktStun', ru:'РАЗЛОМ: ОГЛУШЕНИЕ', en:'BREACH: STUN' }, { key:'rktScatter', ru:'РАЗЛОМ: РАЗБРОС', en:'BREACH: SCATTER' }, { key:'rktRemote', ru:'РАЗЛОМ: ПОДРЫВ', en:'BREACH: REMOTE' }
     ]],
     ['roulette', [
-      { key:'rltDmg', ru:'RLT: УРОН', en:'RLT: DAMAGE' }, { key:'rltSize', ru:'RLT: РАЗМЕР', en:'RLT: SIZE' }, { key:'rltFrag', ru:'RLT: ОСКОЛКИ', en:'RLT: FRAGMENTS' }, { key:'rltDepth', ru:'RLT: ГЛУБИНА', en:'RLT: DEPTH' }, { key:'rltBounce', ru:'RLT: РИКОШЕТ', en:'RLT: BOUNCE' }, { key:'rltSpeed', ru:'RLT: СКОРОСТЬ', en:'RLT: SPEED' }
+      { key:'rltDmg', ru:'РУЛЕТКА: УРОН', en:'ROULETTE: DAMAGE' }, { key:'rltSize', ru:'РУЛЕТКА: РАЗМЕР', en:'ROULETTE: SIZE' }, { key:'rltFrag', ru:'РУЛЕТКА: ОСКОЛКИ', en:'ROULETTE: FRAGMENTS' }, { key:'rltDepth', ru:'РУЛЕТКА: ГЛУБИНА', en:'ROULETTE: DEPTH' }, { key:'rltBounce', ru:'РУЛЕТКА: РИКОШЕТ', en:'ROULETTE: BOUNCE' }, { key:'rltSpeed', ru:'РУЛЕТКА: СКОРОСТЬ', en:'ROULETTE: SPEED' }
     ]],
     ['deck', [
-      { key:'crdCards', ru:'CRD: КАРТЫ', en:'CRD: CARDS' }, { key:'crdDmg', ru:'CRD: УРОН', en:'CRD: DAMAGE' }, { key:'crdBounce', ru:'CRD: РИКОШЕТ', en:'CRD: BOUNCE' }
+      { key:'crdCards', ru:'КОЛОДА: КАРТЫ', en:'DECK: CARDS' }, { key:'crdDmg', ru:'КОЛОДА: УРОН', en:'DECK: DAMAGE' }, { key:'crdBounce', ru:'КОЛОДА: РИКОШЕТ', en:'DECK: BOUNCE' }
     ]]
   ];
   for (const [weapon, defs] of branches) if (weapons.has(weapon) || defs.some(d => Number(s[d.key] || 0) > 0)) armoryDefs.push(...defs);
@@ -123,7 +128,7 @@ function renderTabBuild(me) {
     { key:'ctrlFire', ru:'ОГОНЬ ПРОЦЕССОВ', en:'PROCESS FIRE RATE' },
     { key:'ctrlProcessContactStatus', ru:'СТАТУСЫ ТЕЛОМ', en:'CONTACT STATUSES', kind:'bool' },
     { key:'ctrlLife', ru:'СРОК КОНТРОЛЯ', en:'CONTROL LIFETIME' },
-    { key:'ctrlDeathHeal', ru:'ВОЗВРАТ HP', en:'PROCESS HP RETURN' },
+    { key:'ctrlDeathHeal', ru:'ВОЗВРАТ ЗДОРОВЬЯ', en:'PROCESS HEALTH RETURN' },
     { key:'ctrlPersist', ru:'ПЕРЕХОД МЕЖДУ СЕКТОРАМИ', en:'ROOM PERSISTENCE', kind:'bool' },
     { key:'qrRadius', ru:'ЯКОРЬ: РАДИУС', en:'ANCHOR: RADIUS' },
     { key:'qrHold', ru:'ЯКОРЬ: ДЛИТЕЛЬНОСТЬ', en:'ANCHOR: DURATION' },
@@ -161,12 +166,16 @@ function renderTabBuild(me) {
   const active = build.active || {};
   const core = ACTIVE_CORES[active.core] || null;
   const mutationRows = [];
-  mutationRows.push(`<div class="tab-build-q term" data-explain-title="${esc(core?.label || localText('Q НЕ УСТАНОВЛЕНА', 'NO Q INSTALLED'))}" data-explain="${esc(core?.desc || localText('Активный протокол ещё не выбран.', 'No active protocol selected yet.'))}"><span>Q</span><b>${esc(core?.label || '—')}</b><small>${esc(localText('УРОВЕНЬ', 'LEVEL'))} ${esc(active.level || 0)}</small></div>`);
+  const coreName = core ? (content(core) || locLabel(core.label || active.core)) : localText('Q НЕ УСТАНОВЛЕНА', 'NO Q INSTALLED');
+  const coreBody = core ? (content(core, 'desc') || optionDesc({ core: active.core, desc: core.desc || '' })) : localText('Активный протокол ещё не выбран.', 'No active protocol selected yet.');
+  mutationRows.push(`<div class="tab-build-q term" data-explain-title="${esc(coreName)}" data-explain="${esc(coreBody)}"><span>Q</span><b>${esc(core ? coreName : '—')}</b><small>${esc(localText('УРОВЕНЬ', 'LEVEL'))} ${esc(active.level || 0)}</small></div>`);
   for (const owned of active.mutations || []) {
     const mut = ACTIVE_MUTATIONS[owned.id];
     if (!mut) continue;
     const lv = Math.max(1, Number(owned.level || 1) | 0);
-    mutationRows.push(`<div class="tab-build-mutation term tone-${esc(mut.tone || 'cyan')}" data-explain-title="${esc(mut.label)} ${esc(lv <= 10 ? roman(lv) : `LV ${lv}`)}" data-explain="${esc(mut.desc || '')}"><span>${esc(mut.role || localText('МУТАЦИЯ', 'MUTATION'))}</span><b>${esc(mut.label)}</b><small>LV ${esc(lv)} · ${esc(mut.stackable === false ? localText('УНИКАЛЬНАЯ', 'UNIQUE') : localText('СТАКАЕТСЯ', 'STACKABLE'))}</small></div>`);
+    const mutationName = content(mut) || locLabel(mut.label || owned.id);
+    const mutationBody = content(mut, 'desc') || optionDesc({ mutation: owned.id, mutationLevel: lv, kind: lv > 1 ? 'active_upgrade_mutation' : 'active_mutation', desc: mut.desc || '', repeatable: mut.stackable === false ? 0 : 1 });
+    mutationRows.push(`<div class="tab-build-mutation term tone-${esc(mut.tone || 'cyan')}" data-explain-title="${esc(mutationName)} ${esc(lv <= 10 ? roman(lv) : `${localText('УР', 'LV')} ${lv}`)}" data-explain="${esc(mutationBody)}"><span>${esc(content(mut, 'role') || locRole(mut.role || localText('МУТАЦИЯ', 'MUTATION')))}</span><b>${esc(mutationName)}</b><small>${esc(localText('УР', 'LV'))} ${esc(lv)} · ${esc(mut.stackable === false ? localText('УНИКАЛЬНАЯ', 'UNIQUE') : localText('СКЛАДЫВАЕТСЯ', 'STACKABLE'))}</small></div>`);
   }
   if (!(active.mutations || []).length) mutationRows.push(`<p class="muted">${esc(localText('МУТАЦИЙ ПОКА НЕТ', 'NO MUTATIONS YET'))}</p>`);
 
@@ -186,7 +195,12 @@ function locProgress(v) {
   let s = String(v || '—');
   if (s === '—') return s;
   if (document.documentElement.lang === 'en') return s;
-  return s.replace(/READY/g, 'ГОТОВО').replace(/CLEAR/g, 'ЗАЧИСТКА').replace(/CLEAN/g, 'ЧИСТО').replace(/WAVES/g, 'ВОЛНЫ').replace(/SPINS LEFT/g, 'БРОСКОВ ОСТАЛОСЬ').replace(/HP PRICES/g, 'ЦЕНЫ HP').replace(/TOUCH/g, 'КАСАНИЕ').replace(/HIT/g, 'ПОПАДАНИЕ').replace(/DMG/g, 'УРОН').replace(/ENEMIES/g, 'УГРОЗЫ').replace(/LEFT/g, 'ОСТАЛОСЬ');
+  return s.replace(/SPINS LEFT/gi, 'БРОСКОВ ОСТАЛОСЬ').replace(/HP PRICES/gi, 'ЦЕНЫ ЗДОРОВЬЯ')
+    .replace(/ENEMIES/gi, 'УГРОЗЫ').replace(/LANDINGS/gi, 'ПРИЗЕМЛЕНИЙ').replace(/SOURCES/gi, 'ИСТОЧНИКОВ')
+    .replace(/TOUCH(?:ES)?/gi, 'КАСАНИЙ').replace(/HITS/gi, 'ПОПАДАНИЙ').replace(/HIT/gi, 'ПОПАДАНИЕ')
+    .replace(/WAVES/gi, 'ВОЛНЫ').replace(/SPINS/gi, 'БРОСКИ').replace(/DASH/gi, 'РЫВКОВ').replace(/DMG/gi, 'УРОН')
+    .replace(/READY/gi, 'ГОТОВО').replace(/CLEAR/gi, 'ЗАЧИСТКА').replace(/CLEAN/gi, 'ЧИСТО').replace(/LEFT/gi, 'ОСТАЛОСЬ')
+    .replace(/HP/gi, 'ЗДОРОВЬЯ').replace(/(\d+(?:\.\d+)?)s\b/g, '$1с');
 }
 function locFail(v) {
   const s = String(v || '');
@@ -198,12 +212,14 @@ function contractFavorPreviewLabel(f = {}) {
   const ru = {
     free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
     portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ',
-    wpn_clearance: 'WPN-ДОПУСК', abl_clearance: 'ABL-ДОПУСК', rar_clearance: 'RAR-ДОПУСК',
+    wpn_clearance: 'ОРУЖЕЙНЫЙ ДОПУСК', abl_clearance: 'ДОПУСК ПРОТОКОЛОВ', rar_clearance: 'РЕДКИЙ ДОПУСК',
     mod_veto: 'ВЕТО МОДИФИКАТОРА', credit_pass: 'КРЕДИТНЫЙ ПРОПУСК', salvage_protocol: 'ПРОТОКОЛ СБОРА'
   };
   const en = {
     free_reroll: 'CHEST REROLL', clear_debt: 'CLEAR STATIC STORM',
-    portal_insurance: 'DEATH INSURANCE', epic_reroll: 'DOUBLE REROLL', double_favor: 'DOUBLE NEXT PRIZE'
+    portal_insurance: 'DEATH INSURANCE', epic_reroll: 'DOUBLE REROLL', double_favor: 'DOUBLE NEXT PRIZE',
+    wpn_clearance: 'WEAPON CLEARANCE', abl_clearance: 'PROTOCOL CLEARANCE', rar_clearance: 'RARE CLEARANCE',
+    mod_veto: 'MODIFIER VETO', credit_pass: 'CREDIT PASS', salvage_protocol: 'SALVAGE PROTOCOL'
   };
   const base = localText(ru[id] || f.labelRu || f.label || id.toUpperCase(), en[id] || f.label || id.toUpperCase());
   return `${base}${(f.uses || 0) > 1 ? ' x' + f.uses : ''}`;
@@ -211,17 +227,17 @@ function contractFavorPreviewLabel(f = {}) {
 function contractFavorPreviewBody(f = {}) {
   const id = String(f.id || '');
   const ru = {
-    free_reroll: 'Один раз полностью обновляет текущие варианты WPN, ABL или приза главной угрозы. Заряд хранится, пока ты сам его не применишь.',
+    free_reroll: 'Один раз полностью обновляет текущие варианты оружия, протоколов или приза главной угрозы. Заряд хранится до применения.',
     clear_debt: 'Снимает весь накопленный Статик-шторм и навсегда отключает шторм от Статик-ядра в этом забеге. Новые явные источники статика всё ещё могут появляться.',
-    portal_insurance: 'Один смертельный удар вместо смерти оставляет тебя в живых и восстанавливает 50 HP. Хранится до срабатывания.',
-    epic_reroll: 'Даёт два отдельных полных переброса выбора WPN, ABL или приза главной угрозы. Заряды не пропадают между секторами.',
+    portal_insurance: 'Один смертельный удар оставляет тебя в живых и восстанавливает 50 здоровья. Хранится до срабатывания.',
+    epic_reroll: 'Даёт два отдельных полных переброса выбора оружия, протоколов или приза главной угрозы. Заряды не пропадают между секторами.',
     double_favor: 'Следующий успешно выполненный контракт выдаст два разных контрактных приза вместо одного.',
-    wpn_clearance: 'До обычного INSTALL откроется отдельное окно на 30 секунд: четыре улучшенных WPN-модуля, один устанавливается бесплатно. После выбора продолжится INSTALL.',
-    abl_clearance: 'До обычного INSTALL откроется отдельное окно на 30 секунд: четыре улучшенных ABL-модуля, один устанавливается бесплатно. После выбора продолжится INSTALL.',
-    rar_clearance: 'Следующий RAR-сундук гарантированно поднимается до усиленного безопасного качества.',
+    wpn_clearance: 'Перед обычной установкой на 30 секунд откроется отдельный выбор из четырёх улучшенных оружейных модулей. Один модуль устанавливается бесплатно.',
+    abl_clearance: 'Перед обычной установкой на 30 секунд откроется отдельный выбор из четырёх улучшенных модулей протокола. Один модуль устанавливается бесплатно.',
+    rar_clearance: 'Следующий редкий сундук гарантированно получает усиленное безопасное качество.',
     mod_veto: 'Перед ближайшим подходящим сектором автоматически удаляет один опасный модификатор. Хранится, пока не найдётся подходящая цель.',
-    credit_pass: 'Следующий платный сундук с выбором WPN или ABL открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
-    salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.'
+    credit_pass: 'Следующий платный сундук с выбором оружия или протокола открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
+    salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные кредиты и опыт. Один сектор расходует один заряд.'
   };
   const en = {
     free_reroll: 'Fully refreshes one current WPN, ABL, or main-threat prize choice. The charge persists until you use it.',
@@ -242,7 +258,7 @@ function contractRewardText(reward = '', obj = null) {
   const preview = Array.isArray(obj?.prizePreview) ? obj.prizePreview : [];
   if (preview.length) return preview.map(contractFavorPreviewLabel).join(' + ');
   const s = String(reward || 'NEXT SECTOR FAVOR');
-  if (/NEXT SECTOR/i.test(s) || /FAVOR/i.test(s)) return localText('конкретный бонус следующей сектора', 'specific next-room bonus');
+  if (/NEXT SECTOR/i.test(s) || /FAVOR/i.test(s)) return localText('конкретный бонус следующего сектора', 'specific next-sector bonus');
   return cleanPlayerText(locLabel(s));
 }
 const nextStaticEligible = nx => !!nx && nx.cat !== 'boss' && nx.special !== 'chill_room';
@@ -294,14 +310,14 @@ function roomModHint(m, room = {}) {
     static_rain: String(mode).startsWith('paid')
       ? localText(`Статик-шторм ур. ${lvl}: опасные области появляются и затем бьют разрядом.`, `Static Storm LVL ${lvl}: danger areas appear, then lightning strikes them.`)
       : localText(`Статик-шторм ур. ${Math.max(1, lvl)}: сектор помечает опасные области и бьёт разрядом.`, `Static Storm LVL ${Math.max(1, lvl)}: the room marks danger areas and strikes them.`),
-    greed: localText('Золотая лихорадка: больше GLD; вампиризм возвращает кредиты вместо HP.', 'Gold Fever: more GLD; lifesteal returns credits instead of HP.'),
+    greed: localText('Золотая лихорадка: больше кредитов; вампиризм возвращает кредиты вместо здоровья.', 'Gold Fever: more credits; lifesteal returns credits instead of health.'),
     debt_floor: localText('Статик-пол: выгодные сделки усиливают следующий шторм.', 'Static Floor: good deals strengthen the next storm.'),
     hunter_contract: localText('Волны охотников: портал закрыт до конца волн.', 'Hunter Waves: portal is locked until the waves end.'),
     casino_virus: localText('Казино-вирус: три броска дают награды, штрафы или угроз.', 'Casino Virus: three spins give rewards, penalties, or enemy packs.'),
     mirror_room: localText('Зеркальный зал: больше эхо-пуль.', 'Mirror Room: more echo shots.'),
     moving_room: localText('Движущиеся зоны: красные области замедляют и бьют.', 'Shifting Zones: red areas slow and damage inside.'),
     prism_grid: localText('Призм-сетка: светлые клетки замедляют движение и пули.', 'Prism Grid: pale cells slow movement and bullets.'),
-    blood_tax: localText('Кровавая оплата: ставки и покупки стоят HP.', 'Blood Payment: bets and buys cost HP.'),
+    blood_tax: localText('Кровавая оплата: ставки и покупки стоят здоровья.', 'Blood Payment: bets and purchases cost health.'),
     shell_market: localText('Биржа щитов: у угроз чаще есть защита.', 'Shell Market: enemies more often have shields.'),
     echo_walls: localText('Эхо-выстрелы: часть пуль получает копию.', 'Echo Shots: some bullets get a copy.'),
     static_wires: localText('Статик-провода: линии замедляют движение.', 'Static Wires: thin lines slow movement.'),
@@ -344,9 +360,9 @@ function comboMethodLabel(m) {
 }
 function comboPrizeLabel(type) {
   const key = String(type || 'gld').toLowerCase();
-  if (key === 'exp') return 'EXP';
-  if (key === 'hp') return 'HP';
-  return 'GLD';
+  if (key === 'exp') return localText('ОПЫТ', 'EXPERIENCE');
+  if (key === 'hp') return localText('ЗДОРОВЬЕ', 'HEALTH');
+  return localText('КРЕДИТЫ', 'CREDITS');
 }
 function comboPrizeReadout(c = {}) {
   const label = comboPrizeLabel(c.prizeType || c.prizeLabel || 'gld');
@@ -363,7 +379,7 @@ function renderComboHud(c = {}) {
   const prizeLine = comboPrizeReadout(c);
   return `<div class="combo-readout${c.flash > 0 ? ' combo-pop' : ''}${c.drop > 0 ? ' combo-hit' : ''}">` +
     `<div class="combo-prize">${esc(prizeLine)}</div>` +
-    `<div class="combo-main"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>x${mult.toFixed(1)}</b><em>${esc(localText('УБИТО', 'KILLS'))} ${count}</em></div>` +
+    `<div class="combo-main"><span>${esc(localText('КОМБО', 'COMBO'))}</span><b>×${mult.toFixed(1)}</b><em>${esc(localText('УБИТО', 'KILLS'))} ${count}</em></div>` +
     `<div class="combo-used">${esc(methodLine)}</div>` +
     `<div class="combo-timer"><i style="width:${pct.toFixed(0)}%"></i></div>` +
   `</div>`;
@@ -372,7 +388,7 @@ function roomIntelExplain(room = {}, isNext = false) {
   const mods = (room.mods || []).map(m => roomModLabel(m, room)).join(' / ') || localText('без модификаторов', 'no modifiers');
   const threats = tagJoin(room.threatTags, localText('обычная зачистка', 'normal clear'));
   const rewards = tagJoin(room.rewardTags, localText('обычная награда', 'normal reward'));
-  const headline = isNext ? localText('Короткий прогноз следующей сектора.', 'Short preview of the next room.') : localText('Короткая сводка текущей сектора.', 'Short summary of the current room.');
+  const headline = isNext ? localText('Короткий прогноз следующего сектора.', 'Short preview of the next room.') : localText('Короткая сводка текущего сектора.', 'Short summary of the current room.');
   return `${headline}
 ${dangerLabel(room)}
 ${localText('Правила', 'Rules')}: ${mods}
@@ -383,7 +399,7 @@ ${localText('Подсказка', 'Hint')}: ${localText('подчёркнуты�
 
 
 function objectiveExplain(obj = {}) {
-  if (!obj?.id) return localText('Контракт сектора. Выполни условие, чтобы получить бонус для следующей сектора.', 'Room contract. Complete the condition to earn a next-room bonus.');
+  if (!obj?.id) return localText('Контракт сектора. Выполни условие, чтобы получить бонус для следующего сектора.', 'Sector contract. Complete the condition to earn a next-sector bonus.');
   const map = {
     boss_cut: localText('Уничтожь главную угрозу и забери приз после сектора.', 'Destroy the core threat and claim the sector prize.'),
     lounge_cashout: localText('Безопасный сектор: покупай, ставь и выходи, когда готов.', 'Safe sector: shop, wager, and leave when ready.'),
@@ -398,13 +414,27 @@ function objectiveExplain(obj = {}) {
     no_hit: localText('Зачисти все угрозы без полученного урона.', 'Clear every threat without taking damage.'),
     clean_signal: localText('Зачисти все угрозы сектора.', 'Clear every threat in the sector.')
   };
-  const status = obj.statusLabel ? `${localText('Состояние', 'State')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + locFail(obj.failReason) : ''}` : `${localText('Состояние', 'State')}: ${localText('идёт', 'active')}`;
+  const condition = map[obj.id] || cleanPlayerText(locLabel(obj.goal || obj.label || '')) || localText('Выполни указанное условие в этом секторе.', 'Complete the stated condition in this sector.');
+  const status = obj.statusLabel ? `${localText('СОСТОЯНИЕ', 'STATUS')}: ${objectiveStatusText(obj)}${obj.failReason ? ' / ' + locFail(obj.failReason) : ''}` : `${localText('СОСТОЯНИЕ', 'STATUS')}: ${localText('АКТИВЕН', 'ACTIVE')}`;
   const prize = contractRewardText(obj.reward, obj);
-  return `${map[obj.id] || localText('Контракт сектора.', 'Sector contract.')}
+  return `${localText('УСЛОВИЕ', 'CONDITION')}: ${condition}
 ${status}
-${localText('Ход', 'Progress')}: ${locProgress(obj.progress || '—')}
-${localText('Приз', 'Prize')}: ${prize}
-${localText('Приз появится после сектора.', 'The prize appears after the sector.')}`;
+${localText('ПРОГРЕСС', 'PROGRESS')}: ${locProgress(obj.progress || '—')}
+${localText('НАГРАДА', 'REWARD')}: ${prize}
+${localText('ВЫДАЧА', 'DELIVERY')}: ${localText('после успешного завершения сектора', 'after the sector is completed successfully')}`;
+}
+
+function contractChoiceExplain(obj = {}) {
+  const previews = Array.isArray(obj.prizePreview) ? obj.prizePreview : [];
+  const condition = cleanPlayerText(locLabel(obj.goal || obj.label || '')) || localText('Выполни условие контракта в следующем секторе.', 'Complete the contract condition in the next sector.');
+  const reward = previews.length
+    ? previews.map(f => `${contractFavorPreviewLabel(f)} — ${contractFavorPreviewBody(f)}`).join('\n\n')
+    : localText('Контрактный приз будет сохранён до подходящего момента применения.', 'The contract reward persists until it can be applied.');
+  return `${localText('УСЛОВИЕ', 'CONDITION')}: ${condition}
+
+${localText('НАГРАДА', 'REWARD')}: ${reward}
+
+${localText('ПОЛУЧЕНИЕ', 'DELIVERY')}: ${localText('после успешного завершения следующего сектора', 'after the next sector is completed successfully')}`;
 }
 function objectiveStatusText(obj = {}) {
   const status = String(obj.status || '').toLowerCase();
@@ -442,7 +472,7 @@ const UPG = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
 const WEAPON_BY_LABEL = Object.fromEntries(Object.values(WEAPONS).map(w => [w.label, w]));
 const CHEST_BY_LABEL = Object.fromEntries(Object.entries(CHESTS).map(([id, c]) => [c.label, { id, ...c }]));
 const CHEST_DESC = {
-  BSC: 'Бесплатный базовый сундук: GLD/EXP и редкий HEA. Хорошая безопасная награда.',
+  BSC: 'Бесплатный базовый сундук: кредиты, опыт и иногда лечение. Хорошая безопасная награда.',
   WPN: 'Оружейный сундук: пушки, усиления пушек или общий прирост силы.',
   ABL: 'Сундук протоколов: Q-протоколы, мутации и модули движения.',
   РЕД: 'Редкий сундук: сильное усиление протокола.',
@@ -481,8 +511,8 @@ function weaponReadability(opt = {}) {
     },
     bullet_range: {
       role: 'RANGE', tone: 'range',
-      ru: 'Увеличивает дальность оружия всех героев, включая Живое казино и Контроллера.', en: 'Increases weapon range for every hero, including Living Casino and Controller.',
-      changeRu: '+22% ко всей дальности оружия', changeEn: '+22% to all weapon range'
+      ru: 'Увеличивает дальность оружия всех героев и их дронов. У Драйвера увеличивает путь толчка и притягивания блока.', en: 'Increases weapon range for every hero and their drones. For the Driver it increases both push and pull block travel.',
+      changeRu: '+22% к оружию, дронам и пути блока', changeEn: '+22% to weapons, drones, and block travel'
     },
     bullet_fire: {
       role: 'STATUS', tone: 'status', element: 'fire',
@@ -546,7 +576,7 @@ function weaponReadability(opt = {}) {
     },
     sek_swarm: {
       role: 'DPS', tone: 'dps',
-      ru: 'правая кнопка выпускает рой SEK-пуль.', en: 'RMB releases a burst swarm of SEK bullets.',
+      ru: 'Правая кнопка выпускает рой самонаводящихся пуль.', en: 'RMB releases a burst swarm of SEK bullets.',
       changeRu: 'рой сигнальных снарядов', changeEn: 'homing bullet swarm'
     },
     rkt_cluster: {
@@ -581,7 +611,7 @@ function weaponReadability(opt = {}) {
     },
     wpn_fire: {
       role: 'DPS', tone: 'dps',
-      ru: 'Оружейный такт ускоряет перезарядку всего оружия каждого героя, включая пушки Живого казино, SAW и стрелковые процессы.', en: 'Weapon Clock shortens every hero weapon cycle, including Living Casino guns, Controller SAW, and ranged controlled processes.',
+      ru: 'Оружейный такт ускоряет оружие, пушки Живого казино, пилу Контроллера, стрелковые процессы и дроны. Мгновенные действия Драйвера с блоками не имеют перезарядки.', en: 'Weapon Clock shortens weapon, Living Casino gun, Controller SAW, ranged-process, and drone cycles. The Driver instant block actions have no cooldown.',
       changeRu: '+14% оружейный такт', changeEn: '+14% Weapon Clock'
     }
   };
@@ -595,7 +625,7 @@ function weaponReadability(opt = {}) {
       },
       lc_target_slot: {
         role: 'TARGETING', tone: 'control',
-        ru: 'Добавляет канал LVC: ещё один выстрел в залпе.', en: 'Adds an LVC channel: one more shot in each volley.',
+        ru: 'Добавляет канал Живого казино: ещё один выстрел в залпе.', en: 'Adds an LVC channel: one more shot in each volley.',
         changeRu: '+1 отмеченная цель', changeEn: '+1 marked target'
       },
       lc_gun_range: {
@@ -624,7 +654,7 @@ function weaponReadability(opt = {}) {
         changeRu: 'дальность искр', changeEn: 'spark range'
       }
     };
-    const out = lc[key] || { role: 'UTILITY', tone: 'utility', ru: cleanPlayerText(opt.desc || 'Усиление Живого казино.'), en: cleanPlayerText(opt.desc || 'Living Casino upgrade.'), changeRu: 'усиление', changeEn: 'upgrade' };
+    const out = lc[key] || { role: 'UTILITY', tone: 'utility', ru: cleanPlayerText(opt.descRu || opt.previewRu || 'Усиление Живого казино.'), en: cleanPlayerText(opt.descEn || opt.previewEn || 'Living Casino upgrade.'), changeRu: 'усиление', changeEn: 'upgrade' };
     return { role: out.role, tone: out.tone, summary: localText(out.ru, out.en), change: localText(out.changeRu, out.changeEn) };
   }
   if (opt.pcOnly) {
@@ -635,20 +665,20 @@ function weaponReadability(opt = {}) {
       ctrl_process_fire: { role: 'DPS', tone: 'dps', ru: 'Подконтрольные процессы атакуют чаще.', en: 'Controlled processes attack more often.', changeRu: 'чаще атаки процессов', changeEn: 'faster process attacks' },
       ctrl_process_contact_status: { role: 'SYNERGY', tone: 'synergy', ru: 'Телесные атаки процессов становятся живыми снарядами и переносят любые текущие и будущие статусы.', en: 'Process body attacks become living projectiles and carry all current and future statuses.', changeRu: 'укусы · касания · прыжки · самоподрыв', changeEn: 'bites · contact · leaps · self-destruct' },
       ctrl_process_life: { role: 'CONTROL', tone: 'control', ru: 'Подконтрольные процессы дольше держат сигнал. Цели с большим запасом прочности получают более долгий срок контроля.', en: 'Controlled processes keep their signal longer. Higher-durability targets get a longer control timer.', changeRu: 'дольше срок контроля', changeEn: 'longer process life' },
-      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Гибель или завершение срока процесса возвращает герою часть HP от максимального здоровья процесса.', en: 'A process death or completed control lifetime restores hero HP based on that process maximum health.', changeRu: '2% · затем +3% · +4% · дальше', changeEn: '2% · then +3% · +4% · onward' },
+      ctrl_process_death_heal: { role: 'SUSTAIN', tone: 'sustain', ru: 'Гибель или завершение срока процесса возвращает герою часть здоровья от максимального здоровья процесса.', en: 'A process death or completed control lifetime restores hero HP based on that process maximum health.', changeRu: '2% · затем +3% · +4% · дальше', changeEn: '2% · then +3% · +4% · onward' },
       ctrl_process_persist: { role: 'CONTROL', tone: 'control', ru: 'Процессы не очищаются у портала и аккуратно переносятся в следующий сектор.', en: 'Processes survive portal transition and are safely repositioned in the next sector.', changeRu: 'перенос через портал', changeEn: 'portal carry' },
       qrn_radius: { role: 'CONTROL', tone: 'control', ru: 'Якорь цепляет угрозы дальше от напольного или настенного маркера.', en: 'The anchor can chain threats farther from its floor or wall marker.', changeRu: 'дальше цепи', changeEn: 'longer chains' },
       qrn_hold: { role: 'CONTROL', tone: 'control', ru: 'Каждый уровень сильно увеличивает срок работы якоря.', en: 'Each level strongly extends anchor duration.', changeRu: 'сильно дольше работа', changeEn: 'strongly longer duration' },
       qrn_links: { role: 'CONTROL', tone: 'control', ru: 'Добавляет 3 одновременных захвата. Базово — 5, максимум — 20.', en: 'Adds 3 simultaneous captures. Base capacity is 5; maximum is 20.', changeRu: '+3 захвата · максимум 20', changeEn: '+3 captures · maximum 20' },
       qrn_damage: { role: 'DPS', tone: 'dps', ru: 'Каждый уровень заметно усиливает разряд и ускоряет его повторение.', en: 'Each level noticeably strengthens the discharge and makes it repeat faster.', changeRu: 'сильнее и чаще разряд', changeEn: 'stronger, faster discharge' },
     };
-    const out = pc[key] || { role: 'CONTROL', tone: 'control', ru: cleanPlayerText(opt.desc || 'Усиление команды контроля.'), en: cleanPlayerText(opt.desc || 'Control command upgrade.'), changeRu: 'усиление контроля', changeEn: 'control upgrade' };
+    const out = pc[key] || { role: 'CONTROL', tone: 'control', ru: cleanPlayerText(opt.descRu || opt.previewRu || 'Усиление команды контроля.'), en: cleanPlayerText(opt.descEn || opt.previewEn || 'Control command upgrade.'), changeRu: 'усиление контроля', changeEn: 'control upgrade' };
     return { ...out, summary: localText(out.ru, out.en), change: localText(out.changeRu, out.changeEn) };
   }
   const out = m[key] || {
     role: opt.kind === 'weapon' ? 'NEW' : opt.kind === 'stat' ? 'DPS' : 'UTILITY', tone: opt.kind === 'weapon' ? 'new' : 'utility',
-    ru: cleanPlayerText(opt.desc || opt.preview || 'Усиление выбранного ядра.'),
-    en: cleanPlayerText(opt.desc || opt.preview || 'Core upgrade.'),
+    ru: cleanPlayerText(opt.descRu || opt.previewRu || 'Усиление выбранного ядра.'),
+    en: cleanPlayerText(opt.descEn || opt.previewEn || 'Core upgrade.'),
     changeRu: req ? `нужно ${req}` : 'усиление ядра',
     changeEn: req ? `needs ${req}` : 'core upgrade'
   };
@@ -690,26 +720,26 @@ function finalGoalLine(room = {}) {
 }
 function finalSummaryRows(sum = {}) {
   const players = Array.isArray(sum.players) ? sum.players : [];
-  const weaponText = players.map(p => `${p.name || 'P'}: ${(p.weapons || []).join('/') || '—'}`).join(' · ');
-  const playerText = players.map(p => `${p.name || 'P'} ${localText('HP', 'HP')} ${p.hp || 0}/${p.maxHp || 0} · ${localText('УРОВЕНЬ', 'LVL')} ${p.level || 0} · GLD ${p.gld || 0} · ${p.skin || localText('облик', 'skin')}`).join(' | ');
-  const qText = players.map(p => `${p.name || 'P'}: ${p.q || '—'}`).join(' | ');
-  const companionText = players.map(p => `${p.name || 'P'}: ${localText('РЫВОК', 'DASH')} ${p.dash || 1} · ${localText('ДРОНЫ', 'DRN')} ${p.drones || 0}`).join(' | ');
+  const weaponText = players.map(p => `${p.name || localText('ИГРОК', 'PLAYER')}: ${(p.weapons || []).map(locLabel).join('/') || '—'}`).join(' · ');
+  const playerText = players.map(p => `${p.name || localText('ИГРОК', 'PLAYER')} ${localText('ЗДОРОВЬЕ', 'HEALTH')} ${p.hp || 0}/${p.maxHp || 0} · ${localText('УРОВЕНЬ', 'LEVEL')} ${p.level || 0} · ${localText('КРЕДИТЫ', 'CREDITS')} ${p.gld || 0} · ${p.skin || localText('облик', 'shell')}`).join(' | ');
+  const qText = players.map(p => `${p.name || localText('ИГРОК', 'PLAYER')}: ${locLabel(p.q || '—')}`).join(' | ');
+  const companionText = players.map(p => `${p.name || localText('ИГРОК', 'PLAYER')}: ${localText('РЫВОК', 'DASH')} ${p.dash || 1} · ${localText('ДРОНЫ', 'DRONES')} ${p.drones || 0}`).join(' | ');
   return [
     [localText('ЦИКЛЫ', 'LOOPS'), `${sum.loopsCleared || 0}/${sum.loopsTarget || 6}`],
     [localText('СЕКТОРА', 'SECTORS'), String(sum.roomsCleared || 0)],
     [localText('УБИЙСТВА', 'KILLS'), String(sum.kills || 0)],
     [localText('ГЛАВНЫЕ УГРОЗЫ', 'CORE THREATS'), String(sum.bosses || 0)],
-    ['GLD', String(sum.gld || 0)],
-    ['EXP', String(sum.exp || 0)],
-    ['HEA', String(sum.hea || 0)],
+    [localText('КРЕДИТЫ', 'CREDITS'), String(sum.gld || 0)],
+    [localText('ОПЫТ', 'EXPERIENCE'), String(sum.exp || 0)],
+    [localText('ЛЕЧЕНИЕ', 'HEALING'), String(sum.hea || 0)],
     [localText('УРОН ПОЛУЧЕН', 'DAMAGE TAKEN'), String(sum.damage || 0)],
-    [localText('ЛУЧШЕЕ КОМБО', 'BEST COMBO'), `x${Number(sum.bestCombo || 1).toFixed(1)}`],
+    [localText('ЛУЧШЕЕ КОМБО', 'BEST COMBO'), `×${Number(sum.bestCombo || 1).toFixed(1)}`],
     [localText('БЕЗ УРОНА', 'NO HIT'), String(sum.noHitBest || 0)],
     [localText('БЫСТРЫЕ СЕКТОРА', 'FAST SECTORS'), String(sum.fastBest || 0)],
     [localText('КОНТРАКТЫ', 'CONTRACTS'), `${sum.contractsDone || 0}/${sum.contractsSeen || 0}`],
     [localText('СИГНАТУРЫ', 'SIGNATURES'), String(sum.signatures || 0)],
     [localText('ИГРОКИ', 'PLAYERS'), playerText || '—'],
-    ['WPN', weaponText || '—'],
+    [localText('ОРУЖИЕ', 'WEAPONS'), weaponText || '—'],
     ['Q', qText || '—'],
     [localText('СПУТНИКИ', 'COMPANIONS'), companionText || '—']
   ];
@@ -718,6 +748,8 @@ function finalSummaryRows(sum = {}) {
 const activeLabel = p => p?.[P.ACTIVELABEL] || activeNoneLabel();
 const activeDesc = p => activeDescFrom(activeLabel(p), p?.[P.ACTIVEDESC] || activeNoneDesc());
 const activeShort = p => locActiveShort(activeLabel(p));
+const playerTextPack = (state, p) => state?.latest?.playerText?.[p?.[P.ID]] || {};
+const packedText = (pack, field, fallback = '') => cleanPlayerText(localText(pack?.[`${field}Ru`] || fallback, pack?.[`${field}En`] || fallback));
 
 const BOSS_REWARD_HINTS = {
   'TARGET LOCK': [localText('МЕТКА ЦЕЛИ', 'TARGET LOCK'), localText('Наводка усиливает точность и давление по отмеченным угрозам.', 'Marking improves accuracy and pressure against tagged threats.')],
@@ -725,7 +757,7 @@ const BOSS_REWARD_HINTS = {
   'REDLINE BOOST': [localText('КРАСНАЯ ЛИНИЯ', 'REDLINE BOOST'), localText('Рывок ускоряет антивирус. Повторы увеличивают силу и длительность.', 'The dash accelerates the antivirus. Stacks improve force and duration.')],
   'SPAWN HOLD': [localText('ЗАМОРОЗКА СПАВНА', 'SPAWN HOLD'), localText('На старте сектора угрозы задерживаются, чтобы антивирус успел занять позицию.', 'Threats are delayed at sector start so the antivirus can take position.')],
   'KILL SWITCH': [localText('АВАРИЙНАЯ ОЧИСТКА', 'KILL SWITCH'), localText('Один раз за протокол очищает экран от угроз, включая главную угрозу.', 'Once per protocol, clears the screen of threats, including the core threat.')],
-  'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Каждое готовое зеркало копирует следующий приз босса. Все зеркала срабатывают вместе; сам MIRROR PAYOUT не копируется.', 'Every ready mirror copies the next boss reward. All mirrors trigger together; MIRROR PAYOUT cannot copy itself.')],
+    'MIRROR PAYOUT': [localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PAYOUT'), localText('Каждое готовое зеркало копирует следующий приз главной угрозы. Все зеркала срабатывают вместе; зеркальный приз не копирует сам себя.', 'Every ready mirror copies the next core-threat reward. All mirrors trigger together; Mirror Payout cannot copy itself.')],
   'AEGIS PROCESS': [localText('ЭГИДА', 'AEGIS PROCESS'), localText('Даёт защитный слой оболочки. Повторы увеличивают запас защиты.', 'Adds a shell shield layer. Stacks increase its capacity.')],
   'NULL REVIVAL': [localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), localText('Один раз возвращает антивирус после сбоя.', 'Restores the antivirus once after a crash.')],
   'BOSS KEY': [localText('КЛЮЧ ЯДРА', 'CORE KEY'), localText('Открывает следующий сундук с выбором бесплатно и повышает качество награды.', 'Makes the next choice chest free and upgrades its reward quality.')]
@@ -775,14 +807,31 @@ function casinoCellLine(c = {}) {
   const raw = String(c.raw || '').toUpperCase();
   const sym = String(c.symbol || '').toUpperCase();
   const shown = casinoDisplaySymbol(sym || raw || '—');
-  if (raw === 'LOCK' || raw === 'ФИКС') return `S${slot}: ${casinoDisplaySymbol('LOCK')}`;
-  if (c.locked) return `S${slot}: ${shown} ${casinoDisplaySymbol('ФИКС')}`;
-  return `S${slot}: ${shown}`;
+  const slotLabel = localText(`ЯЧ${slot}`, `S${slot}`);
+  if (raw === 'LOCK' || raw === 'ФИКС') return `${slotLabel}: ${casinoDisplaySymbol('LOCK')}`;
+  if (c.locked) return `${slotLabel}: ${shown} ${casinoDisplaySymbol('LOCK')}`;
+  return `${slotLabel}: ${shown}`;
 }
 function casinoDisplaySymbol(symbol = '') {
   const x = String(symbol || '').toUpperCase().trim();
-  const ru = { 'ДЖК': 'ДЖК', JCK: 'ДЖК', 'РЕД': 'РЕД', RAR: 'РЕД', 'ФИКС': 'ФИКС', LOCK: 'ФИКС' };
-  const en = { 'ДЖК': 'JCK', JCK: 'JCK', 'РЕД': 'RAR', RAR: 'RAR', 'ФИКС': 'LOCK', LOCK: 'LOCK' };
+  const ru = {
+    GLD: 'КРД', EXP: 'ОПТ', WPN: 'ОРЖ', ABL: 'ПРТ', SKN: 'ОБЛ',
+    STC: 'СТК', BAD: 'ДОЛ', HEA: 'ЛЕЧ', HP: 'ЗДР',
+    MOB: 'МОБ', RAIN: 'ЛИВ', BIG: 'ГИГ', ELT: 'ЭЛТ', HER: 'ГЛШ', BOSS: 'БОС',
+    PAY: 'ВЫП', BET: 'СТВ', VIR: 'ВИР', ROLL: 'БРОС', DMG: 'УРОН', COPY: 'КОП',
+    STORM: 'ШТОР', UP: 'РОСТ', OK: 'НОРМ', PACK: 'СТАЯ', RED: 'КРАС', LVL2: 'УР2', LVL5: 'УР5',
+    'ДЖК': 'ДЖК', JCK: 'ДЖК', 'РЕД': 'РЕД', RAR: 'РЕД',
+    'ФИКС': 'ФИКС', LOCK: 'ФИКС', ERR: 'ОШБ'
+  };
+  const en = {
+    GLD: 'CRED', EXP: 'EXP', WPN: 'WPN', ABL: 'ABL', SKN: 'SKN',
+    STC: 'STC', BAD: 'DEBT', HEA: 'HEAL', HP: 'HP',
+    MOB: 'MOB', RAIN: 'RAIN', BIG: 'BIG', ELT: 'ELT', HER: 'HER', BOSS: 'BOSS',
+    PAY: 'PAY', BET: 'BET', VIR: 'VIR', ROLL: 'ROLL', DMG: 'DMG', COPY: 'COPY',
+    STORM: 'STORM', UP: 'UP', OK: 'OK', PACK: 'PACK', RED: 'RED', LVL2: 'LVL2', LVL5: 'LVL5',
+    'ДЖК': 'JCK', JCK: 'JCK', 'РЕД': 'RAR', RAR: 'RAR',
+    'ФИКС': 'LOCK', LOCK: 'LOCK', ERR: 'ERR'
+  };
   return localText(ru[x] || x || '—', en[x] || x || '—');
 }
 
@@ -1020,19 +1069,20 @@ export class Hud {
     const room = state.room;
     if (room?.portal) {
       const [x, y, open] = room.portal;
-      if (dist2(x, y) < 38 ** 2) found = { title: `PRT / ${t('portalTitle')}`, body: open ? t('portalOpenBody') : t('portalClosedBody'), tone: open ? '' : 'red' };
+      if (dist2(x, y) < 38 ** 2) found = { title: t('portalTitle'), body: open ? t('portalOpenBody') : t('portalClosedBody'), tone: open ? '' : 'red' };
     }
     if (!found) for (const o of state.latest.objects || []) {
       const [, type, label, x, y, opened, cost, currency, valueLabel, valueTier] = o;
       if (dist2(x, y) > 34 ** 2) continue;
-      if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} LOW ${bs.low} / MID ${bs.mid} / HIGH ${bs.high} ${blood ? 'HP' : 'GLD'}. ${localText('Ставки также усиливают контракт сектора, если он активен.', 'Bets also wager on the room contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
-      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const contractFree = !!o[12]; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (contractFree && cost > 0 ? localText(`ЦЕНА ${cost} ${blood ? 'HP' : 'GLD'} ЗАЧЁРКНУТА: КРЕДИТНЫЙ ПРОПУСК`, `PRICE ${cost} ${blood ? 'HP' : 'GLD'} WAIVED: CREDIT PASS`) : cost > 0 && blood ? localText(`СТОИТ HP: ${cost} — платится здоровьем`, `HP COST: ${cost} — paid with health`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${locLabel(valueLabel)}. `, `RARITY: ${valueLabel}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`ИСТОЧНИК: ${locLabel(reason)}. `, `SOURCE: ${reason}. `) : ''; found = { title: `${locLabel(label)}${valueLabel ? ' ' + locLabel(valueLabel) : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: contractFree ? 'gold' : blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
+      if (type === 'bet') { const bs = room?.betStakes; const blood = (room?.mods || []).includes('blood_tax'); const unit = blood ? localText('здоровья', 'health') : localText('кредитов', 'credits'); found = { title: t('betTitle'), body: bs ? `${t('betInspect')} ${localText('МАЛАЯ', 'LOW')} ${bs.low} / ${localText('СРЕДНЯЯ', 'MID')} ${bs.mid} / ${localText('ВЫСОКАЯ', 'HIGH')} ${bs.high} ${unit}. ${localText('Ставки также усиливают контракт сектора, если он активен.', 'Bets also wager on the sector contract when one is active.')}` : t('betInspect'), tone: 'red' }; }
+      else { const blood = (room?.mods || []).includes('blood_tax') || String(currency).toUpperCase() === 'HP'; const slotCount = Math.max(0, Number(o[10] || 0) | 0); const reason = String(o[11] || '').trim(); const contractFree = !!o[12]; const costBody = opened ? objectStateText(opened, cost, blood ? 'HP' : 'GLD') : (contractFree && cost > 0 ? localText(`ЦЕНА ${cost} ${blood ? 'ЗДОРОВЬЯ' : 'КРЕДИТОВ'} ЗАЧЁРКНУТА: КРЕДИТНЫЙ ПРОПУСК`, `PRICE ${cost} ${blood ? 'HEALTH' : 'CREDITS'} WAIVED: CREDIT PASS`) : cost > 0 && blood ? localText(`ЦЕНА: ${cost} ЗДОРОВЬЯ`, `HEALTH COST: ${cost}`) : objectStateText(opened, cost, currency || 'GLD')); const valueText = valueLabel ? localText(`РЕДКОСТЬ: ${locLabel(valueLabel)}. `, `RARITY: ${locLabel(valueLabel)}. `) : ''; const slotText = slotCount ? localText(`СЛОТЫ: ${slotCount}. `, `SLOTS: ${slotCount}. `) : ''; const reasonText = reason ? localText(`ИСТОЧНИК: ${locLabel(reason)}. `, `SOURCE: ${locLabel(reason)}. `) : ''; const chestName = CHEST_BY_LABEL[label] ? content(CHEST_BY_LABEL[label], 'name') : locLabel(label); found = { title: `${chestName}${valueLabel ? ' ' + locLabel(valueLabel) : ''} / ${t('chestTitle')}`, body: `${valueText}${slotText}${reasonText}${chestDesc(label)} ${costBody}`, tone: contractFree ? 'gold' : blood ? 'red' : (label === 'CRS' ? 'purple' : valueTier >= 2 ? 'gold' : '') }; }
       break;
     }
     if (!found) for (const pk of state.latest.pickups || []) {
       const [, type, x, y, val] = pk;
       if (dist2(x, y) > 22 ** 2) continue;
-      found = { title: `${type} +${val ?? ''}`.trim(), body: pickupDesc(type), tone: type === 'EXP' ? 'cyan' : '' };
+      const pickupLabel = type === 'EXP' ? localText('ОПЫТ', 'EXPERIENCE') : type === 'HEA' ? localText('ЗДОРОВЬЕ', 'HEALTH') : localText('КРЕДИТЫ', 'CREDITS');
+      found = { title: `${pickupLabel} +${val ?? ''}`.trim(), body: pickupDesc(type), tone: type === 'EXP' ? 'cyan' : '' };
       break;
     }
     if (!found) for (const e of state.latest.enemies || []) {
@@ -1040,7 +1090,7 @@ export class Hud {
       if (dist2(x, y) > Math.max(24, size * 0.75) ** 2) continue;
       const kind = ENEMY_KINDS[kindIdx] || 'enemy';
       const def = ENEMIES[kind] || {};
-      found = { title: `${elite ? localText('ЭЛИТНЫЙ ', 'ELITE ') : ''}${def.label || kind.toUpperCase()}`, body: `${enemyDesc(kind)} ${localText('Здоровье', 'Health')} ${Math.round(hp01)}%.${elite ? ' ' + localText('Элитный: сильнее и даёт лучшую награду.', 'Elite: stronger and better reward.') : ''}${st && st !== 'move' ? ' ' + localText('Состояние', 'State') + ': ' + st + '.' : ''}`, tone: elite || (ENEMIES[kind]?.boss) ? 'red' : '' };
+      found = { title: `${elite ? localText('ЭЛИТНЫЙ ', 'ELITE ') : ''}${content(def, 'name') || locLabel(def.label || kind.toUpperCase())}`, body: `${enemyDesc(kind)} ${localText('Здоровье', 'Health')} ${Math.round(hp01)}%.${elite ? ' ' + localText('Элитный: сильнее и даёт лучшую награду.', 'Elite: stronger and grants a better reward.') : ''}${st && st !== 'move' ? ' ' + localText('Состояние', 'State') + ': ' + locLabel(st) + '.' : ''}`, tone: elite || (ENEMIES[kind]?.boss) ? 'red' : '' };
       break;
     }
     if (found) this.showTip(found.title, found.body, found.tone, 'inspect');
@@ -1078,11 +1128,37 @@ export class Hud {
 
 
   wagerPart(w = {}, key = '') {
-    return localText(w[`${key}TextRu`] || w[`${key}Text`] || '', w[`${key}TextEn`] || w[`${key}Text`] || '');
+    const fields = {
+      stake: [w.stakeTextRu || w.stakeText || '', w.stakeTextEn || w.stakeText || ''],
+      condition: [w.conditionTextRu || w.conditionText || '', w.conditionTextEn || w.conditionText || ''],
+      prize: [w.prizeTextRu || w.prizeText || '', w.prizeTextEn || w.prizeText || '']
+    };
+    const pair = fields[key] || [w[`${key}TextRu`] || w[`${key}Text`] || '', w[`${key}TextEn`] || w[`${key}Text`] || ''];
+    return cleanPlayerText(localText(pair[0], pair[1]));
   }
 
   wagerFxBody(f = {}) {
     return cleanPlayerText(localText(f.bodyRu || f.body || '', f.bodyEn || f.body || ''));
+  }
+
+  localizedFxLabel(f = {}, fallbackRu = '', fallbackEn = '') {
+    return cleanPlayerText(localText(f.labelRu || f.label || fallbackRu, f.labelEn || f.label || fallbackEn));
+  }
+
+  wagerExplain(w = {}, state = 'offer') {
+    const stake = this.wagerPart(w, 'stake') || '—';
+    const condition = this.wagerPart(w, 'condition') || '—';
+    const prize = this.wagerPart(w, 'prize') || '—';
+    const progress = w.progress || {};
+    const progressText = String(localText(progress.textRu || progress.text || '', progress.textEn || progress.text || '')).trim();
+    const timing = state === 'complete' || w.completed
+      ? localText('Награда уже сохранена и включится в начале следующего сектора.', 'The reward is queued and activates when the next sector begins.')
+      : localText('Условие проверяется в следующем секторе. При успехе награда включится ещё через один переход.', 'The condition is checked in the next sector. On success, the reward activates after the following transition.');
+    return `${localText('УСЛОВИЕ', 'CONDITION')}: ${condition}
+${progressText ? `${localText('ПРОГРЕСС', 'PROGRESS')}: ${progressText}\n` : ''}${localText('СТАВКА', 'STAKE')}: ${stake}
+${localText('ПРОВАЛ', 'FAILURE')}: ${localText('если условие не выполнено к завершению сектора, поставленный ресурс или эффект теряется', 'if the condition is incomplete when the sector ends, the staked resource or effect is lost')}
+${localText('НАГРАДА', 'REWARD')}: ${prize}
+${localText('ПРИМЕНЕНИЕ', 'ACTIVATION')}: ${timing}`;
   }
 
   roomWagerActiveHtml(w = {}) {
@@ -1252,11 +1328,11 @@ export class Hud {
     const selectedContractHtml = selectedContract ? (() => {
       const previews = Array.isArray(selectedContract.prizePreview) ? selectedContract.prizePreview : [];
       const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE');
-      const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Приз закреплён за выбранным контрактом.', 'The reward is locked to the selected contract.');
-      return `<div class="install-next-contract contract-selected"><b>${esc(localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED'))}</b><div class="contract-selected-card" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>${esc(locLabel(selectedContract.label || selectedContract.id))}</strong><span>${esc(locLabel(selectedContract.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}</em></div></div>`;
+      const detail = contractChoiceExplain(selectedContract);
+      return `<div class="install-next-contract contract-selected"><b>${esc(localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED'))}</b><div class="contract-selected-card" data-explain-title="${esc(localText('КОНТРАКТ', 'CONTRACT'))}: ${esc(locLabel(selectedContract.label || selectedContract.id))}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>${esc(locLabel(selectedContract.label || selectedContract.id))}</strong><span>${esc(locLabel(selectedContract.goal || ''))}</span><em>${esc(localText('НАГРАДА', 'REWARD'))}: ${esc(prize)}</em></div></div>`;
     })() : '';
     const contract = selectedContractHtml || (contractChoices.length
-      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const previews = Array.isArray(o.prizePreview) ? o.prizePreview : []; const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); const detail = previews.length ? previews.map(f => `${contractFavorPreviewLabel(f)}: ${contractFavorPreviewBody(f)}`).join('\n\n') : localText('Конкретный приз показывается до выбора контракта.', 'The exact prize is shown before the contract is selected.'); return `<button type="button" class="contract-choice-card" data-contract-choice="${i}" data-contract-id="${esc(o.id)}" data-explain-title="${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}: ${esc(prize)}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('ПРИЗ', 'PRIZE'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} VOTE` : ''}</em></button>`; }).join('')}</div>`
+      ? `<div class="install-next-contract contract-choice"><b>${esc(localText('ВЫБЕРИ КОНТРАКТ', 'CHOOSE CONTRACT'))}</b>${contractChoices.map((o, i) => { const previews = Array.isArray(o.prizePreview) ? o.prizePreview : []; const prize = previews.length ? previews.map(contractFavorPreviewLabel).join(' + ') : localText('КОНТРАКТНЫЙ ПРИЗ', 'CONTRACT PRIZE'); const detail = contractChoiceExplain(o); return `<button type="button" class="contract-choice-card" data-contract-choice="${i}" data-contract-id="${esc(o.id)}" data-explain-title="${esc(localText('КОНТРАКТ', 'CONTRACT'))}: ${esc(locLabel(o.label || o.id))}" data-explain="${esc(detail)}" data-explain-tone="gold"><strong>[${i + 1}] ${esc(locLabel(o.label || o.id))}</strong><span>${esc(locLabel(o.goal || ''))}</span><em>${esc(localText('НАГРАДА', 'REWARD'))}: ${esc(prize)}${voteCounts[o.id] ? ` · ${voteCounts[o.id]} ${esc(localText('ГОЛОС', 'VOTE'))}` : ''}</em></button>`; }).join('')}</div>`
       : next.objective
         ? `<div class="install-next-contract"><b>${esc(localText('КОНТРАКТ', 'CONTRACT'))}</b>${objectiveChip(next.objective, 'CONTRACT')}</div>`
         : '');
@@ -1309,6 +1385,7 @@ export class Hud {
     }
     this.latestRoom = room;
     this.latestMe = me;
+    const meText = playerTextPack(state, me);
     this.renderInstallNextRoom(room, state.myId);
     if (room.phase === 'won') this.showRunComplete(room); else this.hideRunComplete();
     for (const p of state.latest.players) this.names.set(p[P.ID], p[P.NAME]);
@@ -1330,7 +1407,11 @@ export class Hud {
     const visibleMods = (room.mods || []).filter(m => m !== 'static_rain');
     $('hud-mods').innerHTML = visibleMods.map(m => `<span class="term" data-explain-title="${esc(roomModLabel(m, room))}" data-explain="${esc(roomModHint(m, room))}"${modTone(m) ? ` data-explain-tone="${modTone(m)}"` : ''}>${esc(roomModLabel(m, room))}</span>`).join(' · ');
     if (room.betStakes) {
-      const names = { low: 'LOW', mid: 'MID', high: 'HIGH' };
+      const names = {
+        low: localText('МАЛАЯ', 'LOW'),
+        mid: localText('СРЕДНЯЯ', 'MID'),
+        high: localText('ВЫСОКАЯ', 'HIGH')
+      };
       const blood = (room.mods || []).includes('blood_tax');
       this.updateCasinoHelpLanguage();
       document.querySelectorAll('#casino-stakes button').forEach(btn => {
@@ -1348,9 +1429,9 @@ export class Hud {
       this.updateCasinoLuckCard(me);
       if (!this.casino.spinning) this.paintStoredCasinoLockCells(false);
     }
-    $('hud-ping').textContent = this.net.ping ? `${this.net.ping}ms` : '';
+    $('hud-ping').textContent = this.net.ping ? localText(`${this.net.ping} мс`, `${this.net.ping} ms`) : '';
     const obj = $('hud-objective');
-    const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ ОБЛИК', 'HIDDEN SHELL'))}" data-explain="${esc(localText('В этой секторе есть скрытый облик. После зачистки появится отдельная карточка облика, даже если выбора улучшения нет.', 'This sector has a hidden shell. After cleanup, a separate shell card appears even if there is no install choice.'))}">${esc(localText('ОБЛИК', 'SKIN'))} ${rarityText(room.skinReward)}</span>` : '';
+    const skn = room.skinReward ? ` · <span class="term" data-explain-title="${esc(localText('СКРЫТЫЙ ОБЛИК', 'HIDDEN SHELL'))}" data-explain="${esc(localText('В этом секторе есть скрытый облик. После зачистки появится отдельная карточка облика, даже если выбора улучшения нет.', 'This sector has a hidden shell. After cleanup, a separate shell card appears even if there is no install choice.'))}">${esc(localText('ОБЛИК', 'SHELL'))} ${rarityText(room.skinReward)}</span>` : '';
     const curRain = Math.max(0, room.staticRainStacks | 0);
     const nx = room.next || null;
     const currentStaticBd = room.staticRainBreakdown || { total: curRain, rawTotal: curRain, sources: curRain ? [{ id: 'static_debt', level: curRain }] : [] };
@@ -1362,7 +1443,7 @@ export class Hud {
       ? staticBreakdownExplain(currentStaticBd)
       : (nextStaticBd ? staticBreakdownExplain(nextStaticBd, nextStaticBd.banked || 0) : '');
     const rainHud = staticLine ? `<div class="static-rain-status"><span class="term" data-explain-title="${esc(localText('ОБЩИЙ СТАТИК-ШТОРМ', 'TOTAL STATIC STORM'))}" data-explain="${esc(staticExplain)}" data-explain-tone="purple">${esc(staticLine)}</span></div>` : '';
-    const virusHud = room.casinoVirus ? `<div class="static-rain-status virus-only"><span class="term" data-explain-title="CASINO VIRUS" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s`))}</span></div>` : '';
+    const virusHud = room.casinoVirus ? `<div class="static-rain-status virus-only"><span class="term" data-explain-title="${esc(localText('ВИРУС КАЗИНО', 'CASINO VIRUS'))}" data-explain="${esc(roomModHint('casino_virus', room))}">${esc(localText(`ВИРУС КАЗИНО · ОСТАЛОСЬ ${Math.max(0, room.casinoVirus.spinsLeft || 0)} · СЛЕД. ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}с`, `CASINO VIRUS · ${Math.max(0, room.casinoVirus.spinsLeft || 0)} SPINS LEFT · NEXT ${Math.max(0, Math.ceil(room.casinoVirus.nextSpin || 0))}s`))}</span></div>` : '';
     const hunterHud = room.hunterWave ? (() => {
       const total = Math.max(0, room.hunterWave.total || 0);
       const done = !!room.hunterWave.done;
@@ -1437,19 +1518,21 @@ export class Hud {
     $('hp-text').textContent = `${hp} / ${mhp}`;
     $('xp-bar').style.width = Math.max(0, me[P.XP] / me[P.NEXTXP] * 100) + '%';
     $('xp-text').textContent = `${me[P.XP]} / ${me[P.NEXTXP]}`;
-    $('hud-gld').textContent = `GLD ${me[P.GLD]}`;
-    $('hud-lvl').textContent = `LVL ${me[P.LVL]}`;
+    $('hud-gld').textContent = `${localText('КРЕДИТЫ', 'CREDITS')} ${me[P.GLD]}`;
+    $('hud-lvl').textContent = `${localText('УРОВЕНЬ', 'LEVEL')} ${me[P.LVL]}`;
     const rEl = $('hud-r-active');
     if (rEl) {
-      const rLabel = String(me[P.RLABEL] || 'R EMPTY');
+      const rawRLabel = String(me[P.RLABEL] || 'R EMPTY');
+      const rLabel = packedText(meText, 'specialLabel', rawRLabel);
+      const rDesc = packedText(meText, 'specialDesc', String(me[P.RDESC] || ''));
       const rCd = Number(me[P.RCD] || 0), rT = Number(me[P.RT] || 0);
-      const hasR = rLabel && rLabel !== 'R EMPTY';
+      const hasR = rawRLabel && rawRLabel !== 'R EMPTY';
       if (hasR) {
-        const stateTxt = rT > 0 ? `${rT}s` : rCd > 0 ? `${rCd}s CD` : localText('ГОТОВА', 'READY');
+        const stateTxt = rT > 0 ? `${rT} ${localText('СЕК', 'SEC')}` : rCd > 0 ? `${rCd} ${localText('СЕК ДО ГОТОВНОСТИ', 'SEC COOLDOWN')}` : localText('ГОТОВА', 'READY');
         rEl.classList.remove('hidden', 'ready', 'cooldown', 'active', 'empty');
         rEl.classList.add(rT > 0 ? 'active' : rCd > 0 ? 'cooldown' : 'ready');
-        rEl.textContent = `R ${locLabel(rLabel)} · ${stateTxt}`;
-        this.setExplain(rEl, locLabel(rLabel), String(me[P.RDESC] || '').trim() || rEl.textContent || '', 'cyan');
+        rEl.textContent = `R ${rLabel} · ${stateTxt}`;
+        this.setExplain(rEl, rLabel, rDesc || rEl.textContent || '', 'cyan');
       } else {
         rEl.classList.add('hidden');
         rEl.textContent = 'R —';
@@ -1465,7 +1548,11 @@ export class Hud {
         wagerCard.classList.add('offer');
         if (this.wagerRenderKey !== key) {
           this.wagerRenderKey = key;
-          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'))}</div><div class="wager-body">${esc(localText(offer.textRu || offer.text || '', offer.textEn || offer.text || ''))}</div><div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
+          wagerCard.innerHTML = `<div class="wager-title">${esc(localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'))}</div>
+            <div class="wager-line"><b>${esc(localText('СТАВКА', 'STAKE'))}</b><span>${esc(this.wagerPart(offer, 'stake') || '—')}</span></div>
+            <div class="wager-line"><b>${esc(localText('УСЛОВИЕ', 'CONDITION'))}</b><span>${esc(this.wagerPart(offer, 'condition') || '—')}</span></div>
+            <div class="wager-line"><b>${esc(localText('НАГРАДА', 'REWARD'))}</b><span>${esc(this.wagerPart(offer, 'prize') || '—')}</span></div>
+            <div class="wager-actions"><button id="room-wager-accept" type="button">${esc(localText('ПРИНЯТЬ', 'ACCEPT'))}</button><button id="room-wager-decline" type="button">${esc(localText('ПРОПУСТИТЬ', 'SKIP'))}</button></div>`;
           const decide = (accept) => (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -1482,7 +1569,7 @@ export class Hud {
           declineBtn?.addEventListener('pointerdown', decide(false));
           declineBtn?.addEventListener('click', decide(false));
         }
-        this.setExplain(wagerCard, localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'), localText('Прими риск для следующего сектора или продолжи без ставки.', 'Accept a risk for the next sector or continue without a wager.'), 'gold');
+        this.setExplain(wagerCard, localText('СТАВКА НА СЛЕДУЮЩИЙ СЕКТОР', 'NEXT-SECTOR WAGER'), this.wagerExplain(offer, 'offer'), 'gold');
       } else if (activeWager) {
         const prog = activeWager.progress || {};
         const progKey = localText(prog.textRu || prog.text || '', prog.textEn || prog.text || '');
@@ -1494,14 +1581,14 @@ export class Hud {
           this.wagerRenderKey = key;
           wagerCard.innerHTML = this.roomWagerActiveHtml(activeWager);
         }
-        this.setExplain(wagerCard, activeWager.completed ? 'WAGER COMPLETE' : 'WAGER ACTIVE', activeWager.completed ? localText('Условие уже выполнено. Награда сохранена и включится с начала следующего сектора.', 'Condition complete. The reward is queued and activates at the start of the next sector.') : localText('Активная ставка сектора. Сверху показаны риск, условие, награда и текущий прогресс.', 'Active room wager. The card shows risk, condition, reward, and current progress.'), activeWager.completed ? 'green' : 'cyan');
+        this.setExplain(wagerCard, activeWager.completed ? localText('СТАВКА ВЫПОЛНЕНА', 'WAGER COMPLETE') : localText('СТАВКА АКТИВНА', 'WAGER ACTIVE'), this.wagerExplain(activeWager, activeWager.completed ? 'complete' : 'active'), activeWager.completed ? 'green' : 'cyan');
       } else { wagerCard.classList.add('hidden'); wagerCard.classList.remove('offer', 'active', 'completed', 'wager-standalone'); wagerCard.innerHTML = ''; this.wagerRenderKey = ''; }
     }
     this.positionRoomWagerCard();
     this.positionRightStatusCards();
     this.acknowledgeVisibleRoomWager(me[P.ROOMWAGER], room.phase);
     const inst = $('hud-install');
-    if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${me[P.PEND]}`; inst.classList.remove('hidden'); }
+    if (me[P.PEND] > 0) { inst.textContent = `${localText('УЛУЧШЕНИЕ', 'INSTALL')} ×${me[P.PEND]}`; inst.classList.remove('hidden'); }
     else inst.classList.add('hidden');
     const wait = room.installWait || null;
     const waitPlayers = Array.isArray(wait?.players) ? wait.players : [];
@@ -1548,7 +1635,7 @@ export class Hud {
         addBadge(x, '', ux.includes('MIRROR') ? 'purple' : 'gold');
       }
       if (me[P.MIRRORMAX] > 0) addBadge(`${localText('ЗЕРКАЛО', 'MIRROR')} ${me[P.MIRROR]}/${me[P.MIRRORMAX]}`, `${localText('ЗЕРКАЛЬНЫЙ ПРИЗ', 'MIRROR PRIZE')}: ${me[P.MIRROR]}/${me[P.MIRRORMAX]}. ${localText('Все готовые зеркала вместе копируют следующий приз босса. Другие награды их не расходуют.', 'All ready mirrors copy the next boss reward together. Other rewards do not spend them.')}`, me[P.MIRROR] > 0 ? 'purple' : '');
-      if (me[P.REVIVE] > 0) addBadge(`REVIVE x${me[P.REVIVE]}`, localText(`НУЛЕВОЕ ВОССТАНОВЛЕНИЕ: зарядов ${me[P.REVIVE]}. При сбое возвращает 45% здоровья.`, `NULL REVIVAL: ${me[P.REVIVE]} charge${me[P.REVIVE] === 1 ? '' : 's'}. Restores 45% health after a crash.`), 'cyan');
+      if (me[P.REVIVE] > 0) addBadge(localText(`ВОЗВРАТ ×${me[P.REVIVE]}`, `REVIVE ×${me[P.REVIVE]}`), localText(`НУЛЕВОЕ ВОССТАНОВЛЕНИЕ: зарядов ${me[P.REVIVE]}. При сбое возвращает 45% здоровья.`, `NULL REVIVAL: ${me[P.REVIVE]} charge${me[P.REVIVE] === 1 ? '' : 's'}. Restores 45% health after a crash.`), 'cyan');
       const bossKeyCur = Math.max(0, Number(me[P.BOSSKEY] || 0) | 0);
       const bossKeyMax = Math.max(bossKeyCur, Number(me[P.BOSSKEYMAX] || 0) | 0);
       if (bossKeyMax > 0) addBadge(`${localText('КЛЮЧ', 'KEY')} ${bossKeyCur}/${bossKeyMax}`, `${localText('КЛЮЧ ЯДРА', 'CORE KEY')}: ${bossKeyCur}/${bossKeyMax}. ${localText('Следующий сундук с выбором станет бесплатным и получит лучшую редкость.', 'The next choice chest becomes free and rolls top rarity.')}`, bossKeyCur > 0 ? 'gold' : '');
@@ -1580,7 +1667,7 @@ export class Hud {
         favorEl.classList.remove('hidden', 'pending');
         favorEl.classList.add('used');
         favorEl.innerHTML = `<b>${esc(localText('ПРИЗ', 'PRIZE'))}</b> ${esc(this.favorUiLabel(f))} <em>${esc(localText('ИСПОЛЬЗОВАН', 'USED'))}</em>`;
-        this.setExplain(favorEl, localText('ПРИЗ ИСПОЛЬЗОВАН', 'PRIZE USED'), localText('Этот приз контракта уже сработал в этой секторе.', 'This contract prize has already triggered in this room.'), 'gold');
+        this.setExplain(favorEl, localText('ПРИЗ ИСПОЛЬЗОВАН', 'PRIZE USED'), localText('Этот приз контракта уже сработал в этом секторе.', 'This contract prize has already triggered in this sector.'), 'gold');
       } else {
         favorEl.classList.add('hidden');
         favorEl.innerHTML = '';
@@ -1597,8 +1684,8 @@ export class Hud {
       const wantJump = `jump:${jumpCd.toFixed(2)}:${Number(me[P.JUMP] || 0).toFixed(2)}`;
       if (pips.dataset.v !== wantJump) {
         pips.dataset.v = wantJump;
-        pips.innerHTML = `<span class="dash-cd-mini ${jumpCd > 0 ? '' : 'empty'}">${jumpCd > 0 ? jumpCd.toFixed(1) : 'SPACE'}</span><span class="dash-overmax-mini">JUMP</span>`;
-        this.setExplain(pips, localText('ПРЫЖОК ДРАЙВЕРА', 'DRIVER JUMP'), jumpCd > 0 ? localText(`Перезапуск: ${jumpCd.toFixed(1)} сек.`, `Recovery: ${jumpCd.toFixed(1)} sec.`) : localText('Готов. SPACE запускает инерционный прыжок.', 'Ready. SPACE launches the inertial jump.'), 'cyan');
+        pips.innerHTML = `<span class="dash-cd-mini ${jumpCd > 0 ? '' : 'empty'}">${jumpCd > 0 ? localText(`${jumpCd.toFixed(1).replace('.', ',')}с`, `${jumpCd.toFixed(1)}s`) : 'SHIFT'}</span><span class="dash-overmax-mini">${localText('ПРЫЖОК', 'JUMP')}</span>`;
+        this.setExplain(pips, localText('ПРЫЖОК ДРАЙВЕРА', 'DRIVER JUMP'), jumpCd > 0 ? localText(`Перезапуск: ${jumpCd.toFixed(1)} сек.`, `Recovery: ${jumpCd.toFixed(1)} sec.`) : localText('Готов. SHIFT запускает инерционный прыжок.', 'Ready. SHIFT launches the inertial jump.'), 'cyan');
       }
     } else {
     const dashCd = Math.max(0, Number(me[P.DASHCD] || 0));
@@ -1611,14 +1698,14 @@ export class Hud {
 
       const cd = document.createElement('span');
       cd.className = 'dash-cd-mini' + (dashCd > 0 ? '' : ' empty');
-      cd.textContent = dashCd > 0 ? dashCd.toFixed(1) : '0.0';
-      this.setExplain(cd, t('dashChargeTitle'), dashCd > 0 ? `${t('dashEmpty')} · ${dashCd.toFixed(1)}s` : t('dashReady'), 'cyan');
+      cd.textContent = dashCd > 0 ? localText(dashCd.toFixed(1).replace('.', ','), dashCd.toFixed(1)) : localText('0,0', '0.0');
+      this.setExplain(cd, t('dashChargeTitle'), dashCd > 0 ? `${t('dashEmpty')} · ${localText(`${dashCd.toFixed(1).replace('.', ',')}с`, `${dashCd.toFixed(1)}s`)}` : t('dashReady'), 'cyan');
       pips.appendChild(cd);
 
       if (me[P.DASHMAX] > 14) {
         const over = document.createElement('span');
         over.className = 'dash-overmax-mini';
-        over.textContent = `x${me[P.DASHMAX]}`;
+        over.textContent = `×${me[P.DASHMAX]}`;
         this.setExplain(over, t('dashChargeTitle'), `${t('dashReady')} · ${me[P.DASH]}/${me[P.DASHMAX]}`, 'cyan');
         pips.appendChild(over);
       }
@@ -1629,7 +1716,7 @@ export class Hud {
         const isCharging = !isReady && i === me[P.DASH] && dashCd > 0;
         d.className = 'pip' + (isReady ? ' full' : '') + (isCharging ? ' charging' : '');
         if (isCharging) d.style.setProperty('--dash-charge', `${Math.round(dashCharge01 * 100)}%`);
-        this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${dashCd.toFixed(1)}s`, 'cyan');
+        this.setExplain(d, t('dashChargeTitle'), isReady ? t('dashReady') : `${t('dashEmpty')} · ${localText(`${dashCd.toFixed(1).replace('.', ',')}с`, `${dashCd.toFixed(1)}s`)}`, 'cyan');
         pips.appendChild(d);
       }
     }
@@ -1659,10 +1746,10 @@ export class Hud {
         lcHud.innerHTML = `
           <div class="lc-dual-head"><b>${escHtml(localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'))}</b><em>${escHtml(localText('АВТОКОНТУР', 'AUTO CIRCUIT'))}</em></div>
           <div class="lc-gun-row lc-base">
-            <strong>LVC</strong><span>${escHtml(localText('КАНАЛЫ', 'CHANNELS'))} ${Number(base.maxTargets || 1)}</span><em>${escHtml(baseStatus)}</em>
+            <strong>${escHtml(localText('КАЗИНО', 'LVC'))}</strong><span>${escHtml(localText('КАНАЛЫ', 'CHANNELS'))} ${Number(base.maxTargets || 1)}</span><em>${escHtml(baseStatus)}</em>
           </div>
           ${sparks.unlocked ? `<div class="lc-gun-row lc-sparks">
-            <strong>SPK</strong><span>${escHtml(localText('ЗАРЯДЫ', 'CHARGES'))} ${Number(sparks.charges || 0)}/${Number(sparks.maxCharges || 1)} · ${escHtml(localText('КАНАЛЫ', 'CHANNELS'))} ${Number(sparks.instructionMax || 1)}</span><em>${escHtml(sparkStatus)}</em>
+            <strong>${escHtml(localText('ИСКРЫ', 'SPK'))}</strong><span>${escHtml(localText('ЗАРЯДЫ', 'CHARGES'))} ${Number(sparks.charges || 0)}/${Number(sparks.maxCharges || 1)} · ${escHtml(localText('КАНАЛЫ', 'CHANNELS'))} ${Number(sparks.instructionMax || 1)}</span><em>${escHtml(sparkStatus)}</em>
           </div>` : ''}`;
         this.setExplain(lcHud, localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'), sparks.unlocked
           ? localText('Обе пушки работают одновременно. Отмеченные цели имеют приоритет.', 'Both guns run simultaneously. Marked targets have priority.')
@@ -1698,10 +1785,10 @@ export class Hud {
         const cd = Math.max(0, Number(pc.cd || 0) || 0);
         const cdPct = Math.max(0, Math.min(100, Number(pc.cdPct || 0) || 0));
         const persist = !!pc.persist;
-        const selected = String(pc.selected || 'CMD').toUpperCase();
-        const selectedName = String(pc.selectedName || selected).toUpperCase();
+        const selected = String(localText(pc.selectedRu || pc.selected || 'КОМАНДА', pc.selectedEn || pc.selected || 'COMMAND')).toUpperCase();
+        const selectedName = String(localText(pc.selectedNameRu || pc.selectedName || selected, pc.selectedNameEn || pc.selectedName || selected)).toUpperCase();
         const capPct = Math.max(0, Math.min(100, Number(pc.capturePct || 0) || 0));
-        const capLabel = String(pc.captureLabel || '').trim();
+        const capLabel = String(localText(pc.captureLabelRu || pc.captureLabel || '', pc.captureLabelEn || pc.captureLabel || '')).trim();
         const status = cd > 0 ? localText(`ПЕРЕЗАРЯДКА ${cd.toFixed(1)}`, `COOLDOWN ${cd.toFixed(1)}`) : pc.captureActive ? localText(`ЗАХВАТ ${capPct}%${capLabel ? ' · ' + capLabel : ''}`, `CAPTURE ${capPct}%${capLabel ? ' · ' + capLabel : ''}`) : cmd > 0 ? localText(`ПРИКАЗ ${cmd.toFixed(1)}`, `ORDER ${cmd.toFixed(1)}`) : cap > 0 ? localText('ПЕРЕХВАТ', 'CAPTURED') : localText('ГОТОВО', 'READY');
         const allProcs = Array.isArray(pc.processes) ? pc.processes : [];
         const procs = allProcs.filter(pr => !pr?.bonus).slice(0, Math.min(10, max));
@@ -1711,13 +1798,13 @@ export class Hud {
           const pr = procs[i] || null;
           const l = pr ? Math.max(0, Math.min(100, Number(pr.life || 0) || 0)) : 0;
           const h = pr ? Math.max(0, Math.min(100, Number(pr.hp || 0) || 0)) : 0;
-          const label = pr ? String(pr.label || 'PRC').slice(0, 3).toUpperCase() : String(i + 1).padStart(2, '0');
+          const label = pr ? String(localText(pr.labelRu || pr.label || 'ПРОЦЕСС', pr.labelEn || pr.label || 'PROCESS')).slice(0, 3).toUpperCase() : String(i + 1).padStart(2, '0');
           chips.push(`<i class="pc-life-chip ${pr ? 'filled' : 'empty'}" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`);
         }
         const temporaryChips = temporaryProcs.map(pr => {
           const l = Math.max(0, Math.min(100, Number(pr.life || 0) || 0));
           const h = Math.max(0, Math.min(100, Number(pr.hp || 0) || 0));
-          const label = String(pr.label || 'TMP').slice(0, 3).toUpperCase();
+          const label = String(localText(pr.labelRu || pr.label || 'ВРЕМ', pr.labelEn || pr.label || 'TEMP')).slice(0, 3).toUpperCase();
           return `<i class="pc-life-chip filled temporary" style="--life:${l}%;--hp:${h}%"><b>${escHtml(label)}</b><span></span></i>`;
         });
         if (pcRack) {
@@ -1743,15 +1830,16 @@ export class Hud {
 
     const acd = me[P.ACTIVECD] || 0;
     const qSilence = Math.max(0, Number(me[P.QSILENCE] || 0));
-    const qName = activeLabel(me);
+    const qName = packedText(meText, 'activeLabel', activeLabel(me));
+    const qDesc = packedText(meText, 'activeDesc', activeDesc(me));
     const qTxt = qSilence > 0
-      ? localText(`Q САЙЛЕНС ${qSilence.toFixed(1)}s`, `Q SILENCE ${qSilence.toFixed(1)}s`)
+      ? localText(`Q ЗАГЛУШЕНА ${qSilence.toFixed(1).replace('.', ',')}с`, `Q SILENCE ${qSilence.toFixed(1)}s`)
       : qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE'
       ? t('qNoneLong')
-      : (acd > 0 ? `${t('qCd')} ${acd.toFixed ? acd.toFixed(1) : acd}` : (me[P.ACTIVEBUFF] ? t('qOver') : activeShort(me)));
+      : (acd > 0 ? `${t('qCd')} ${acd.toFixed ? acd.toFixed(1) : acd}` : (me[P.ACTIVEBUFF] ? t('qOver') : locActiveShort(qName)));
     const lvlEl = $('hud-lvl');
-    lvlEl.textContent = `LVL ${me[P.LVL]} · ${qTxt}`;
-    this.setExplain(lvlEl, t('activeQTitle'), qSilence > 0 ? localText(`Босс заглушил Q ещё на ${qSilence.toFixed(1)} сек. Оружие, рывок и R работают.`, `The boss has silenced Q for ${qSilence.toFixed(1)}s more. Weapons, dash, and R still work.`) : `${activeLabel(me)}. ${activeDesc(me)}${qName !== activeNoneLabel() && qName !== 'НЕТ АКТИВКИ' && qName !== 'NO ACTIVE' ? ' ' + t('activeQUse') : ''}`, qSilence > 0 ? 'purple' : (qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE' ? '' : 'cyan'));
+    lvlEl.textContent = `${localText('УРОВЕНЬ', 'LEVEL')} ${me[P.LVL]} · ${qTxt}`;
+    this.setExplain(lvlEl, t('activeQTitle'), qSilence > 0 ? localText(`Главная угроза заглушила Q ещё на ${qSilence.toFixed(1)} сек. Оружие, рывок и R работают.`, `The core threat has silenced Q for ${qSilence.toFixed(1)}s more. Weapons, dash, and R still work.`) : `${qName}. ${qDesc}${qName !== activeNoneLabel() && qName !== 'НЕТ АКТИВКИ' && qName !== 'NO ACTIVE' ? ' ' + t('activeQUse') : ''}`, qSilence > 0 ? 'purple' : (qName === activeNoneLabel() || qName === 'НЕТ АКТИВКИ' || qName === 'NO ACTIVE' ? '' : 'cyan'));
 
     const comboEl = $('hud-combo');
     if (comboEl) {
@@ -1777,28 +1865,26 @@ export class Hud {
       slots.classList.toggle('impact-slots', impactDriverMode && !!impactWall);
       slots.classList.remove('lc-slots');
     }
-    const wallCd = Math.max(0, Number(impactWall?.cd || 0));
-    const pushCd = Math.max(0, Number(impactWall?.pushCd || 0));
+    const wallCount = Math.max(0, Number(impactWall?.count || 0) | 0);
+    const wallMax = Math.max(1, Number(impactWall?.max || 1) | 0);
     const pushUnlocked = !!impactWall?.pushUnlocked;
-    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '') + (impactDriverMode ? `:impact:${wallCd.toFixed(1)}:${pushUnlocked ? 1 : 0}:${pushCd.toFixed(1)}` : '');
+    const wKey = me[P.WEAPONS].join(',') + me[P.WIDX] + (livingCasinoHero ? ':lvc' : '') + (processControllerHero ? ':ctrl' : '') + (impactDriverMode ? `:impact:${wallCount}/${wallMax}:${pushUnlocked ? 1 : 0}` : '');
     if (slots && slots.dataset.v !== wKey) {
       slots.dataset.v = wKey;
       slots.innerHTML = '';
       if (impactDriverMode && impactWall) {
         const s = document.createElement('span');
         s.className = 'wslot active';
-        s.textContent = wallCd > 0 ? `LMB FWL ${wallCd.toFixed(1)}s` : 'LMB FWL READY';
-        this.setExplain(s, localText('КВАДРАТНЫЙ ФАЙРВОЛ', 'SQUARE FIREWALL'), wallCd > 0
-          ? localText(`Перезарядка: ${wallCd.toFixed(1)} сек.`, `Cooldown: ${wallCd.toFixed(1)} sec.`)
-          : localText('Готов поставить временный квадратный блок.', 'Ready to place a temporary square block.'), wallCd > 0 ? '' : 'cyan');
+        s.textContent = `${localText('[ПРОБЕЛ] БЛОКИ', '[SPACE] BLOCKS')} ${wallCount}/${wallMax}`;
+        this.setExplain(s, localText('КВАДРАТНЫЙ ФАЙРВОЛ', 'SQUARE FIREWALL'), wallCount >= wallMax
+          ? localText('Все слоты заняты. Новый блок станет доступен, когда освободится слот.', 'All slots are full. A new block becomes available when a slot is freed.')
+          : localText('Ставит блок сразу, без перезарядки, пока есть свободный слот.', 'Places a block instantly with no cooldown while a slot is free.'), wallCount >= wallMax ? '' : 'cyan');
         slots.appendChild(s);
         if (pushUnlocked) {
           const push = document.createElement('span');
           push.className = 'wslot impact-push active';
-          push.textContent = pushCd > 0 ? `RMB PUSH ${pushCd.toFixed(1)}s` : 'RMB PUSH READY';
-          this.setExplain(push, localText('ИМПУЛЬС СДВИГА', 'SHIFT IMPULSE'), pushCd > 0
-            ? localText(`Перезарядка: ${pushCd.toFixed(1)} сек.`, `Cooldown: ${pushCd.toFixed(1)} sec.`)
-            : localText('Наведи курсор прямо на свой близкий блок и нажми ПКМ.', 'Aim directly at a nearby owned block and press RMB.'), pushCd > 0 ? '' : 'purple');
+          push.textContent = localText('ЛКМ: ВЫБРАТЬ · ПКМ: БЛИЖАЙШИЙ', 'LMB: SELECT · RMB: NEAREST');
+          this.setExplain(push, localText('ВЕКТОР БЛОКА', 'BLOCK VECTOR'), localText('Без перезарядки. ЛКМ толкает блок, выделенный рамкой. ПКМ без области наведения притягивает доступный собственный блок, ближайший к курсору. Дистанция и стены выбору не мешают.', 'No cooldown. LMB pushes the framed block. RMB has no targeting area and pulls the available owned block nearest the cursor. Distance and walls do not limit selection.'), 'purple');
           slots.appendChild(push);
         }
       } else {
@@ -1806,10 +1892,10 @@ export class Hud {
         const s = document.createElement('span');
         s.className = 'wslot' + (i === me[P.WIDX] ? ' active' : '');
         const wd = WEAPONS[w] || WEAPON_BY_LABEL[w];
-        s.textContent = processControllerHero ? `${wd?.label || w}` : `${i + 1} ${wd?.label || w}`;
+        s.textContent = processControllerHero ? weaponHudCode(wd) : `${i + 1} ${weaponHudCode(wd)}`;
         if (livingCasinoHero) s.classList.add(i === 0 ? 'lc-slot-base' : 'lc-slot-sparks');
         const desc = weaponDesc(wd, me[P.SHG] ?? 4);
-        this.setExplain(s, wd?.name || String(w).toUpperCase(), desc, 'cyan');
+        this.setExplain(s, wd ? content(wd, 'name') : String(w).toUpperCase(), desc, 'cyan');
         slots.appendChild(s);
         });
       }
@@ -1826,16 +1912,17 @@ export class Hud {
       } else if (near.kind === 'bet') {
         prompt.textContent = t('betPrompt');
         const bloodBet = (room.mods || []).includes('blood_tax');
-        this.setExplain(prompt, t('betTitle'), bloodBet ? localText('В BLOOD TAX ставки платятся HP. Красная цена означает риск для жизни.', 'In BLOOD TAX, bets cost HP. Red prices mean real danger.') : t('betInspect'), 'red');
+        this.setExplain(prompt, t('betTitle'), bloodBet ? localText('При кровавой оплате ставки платятся здоровьем. Красная цена означает риск для жизни.', 'In BLOOD TAX, bets cost HP. Red prices mean real danger.') : t('betInspect'), 'red');
       } else {
         const blood = (room.mods || []).includes('blood_tax');
         const creditFree = !!near.contractFree && Math.max(0, Number(me[P.BOSSKEY] || 0) | 0) <= 0;
-        const unit = blood ? 'HP' : 'GLD';
-        if (near.cost > 0 && creditFree) prompt.innerHTML = `E / <span class="contract-free-price"><s>${near.cost} ${unit}</s><b>${esc(localText('БЕСПЛАТНО', 'FREE'))}</b></span> — ${esc(near.label)}`;
-        else if (near.cost > 0 && blood) prompt.innerHTML = `E / <span class="hp-cost">${near.cost} HP</span> — ${esc(near.label)}`;
-        else prompt.textContent = near.cost > 0 ? `E / ${near.cost} GLD — ${near.label}` : `E — ${near.label}`;
-        const costTxt = near.cost > 0 ? (creditFree ? localText(`Цена ${near.cost} ${unit} отменена Кредитным пропуском.`, `The ${near.cost} ${unit} price is waived by Credit Pass.`) : blood ? localText(`Нужно ${near.cost} HP. Цена платится здоровьем, не золотом.`, `Need ${near.cost} HP. This price is paid with health, not gold.`) : t('chestNeed', { cost: near.cost })) : t('chestFree');
-        this.setExplain(prompt, `${near.label} / ${t('chestTitle')}`, `${chestDesc(near.label)} ${costTxt}`, creditFree ? 'gold' : blood ? 'red' : (near.label === 'CRS' ? 'purple' : '')); 
+        const unit = blood ? localText('ЗДОРОВЬЯ', 'HP') : localText('КРЕДИТОВ', 'CREDITS');
+        const chestLabel = CHEST_BY_LABEL[near.label] ? content(CHEST_BY_LABEL[near.label], 'name') : locLabel(near.label);
+        if (near.cost > 0 && creditFree) prompt.innerHTML = `E / <span class="contract-free-price"><s>${near.cost} ${unit}</s><b>${esc(localText('БЕСПЛАТНО', 'FREE'))}</b></span> — ${esc(chestLabel)}`;
+        else if (near.cost > 0 && blood) prompt.innerHTML = `E / <span class="hp-cost">${near.cost} ${esc(localText('ЗДОРОВЬЯ', 'HP'))}</span> — ${esc(chestLabel)}`;
+        else prompt.textContent = near.cost > 0 ? `E / ${near.cost} ${unit} — ${chestLabel}` : `E — ${chestLabel}`;
+        const costTxt = near.cost > 0 ? (creditFree ? localText(`Цена ${near.cost} ${unit} отменена Кредитным пропуском.`, `The ${near.cost} ${unit} price is waived by Credit Pass.`) : blood ? localText(`Нужно ${near.cost} здоровья. Цена платится здоровьем, не золотом.`, `Need ${near.cost} HP. This price is paid with health, not gold.`) : t('chestNeed', { cost: near.cost })) : t('chestFree');
+        this.setExplain(prompt, `${chestLabel} / ${t('chestTitle')}`, `${chestDesc(near.label)} ${costTxt}`, creditFree ? 'gold' : blood ? 'red' : (near.label === 'CRS' ? 'purple' : '')); 
       }
     } else if (!this.promptTimer) prompt.classList.add('hidden');
 
@@ -1873,7 +1960,7 @@ export class Hud {
       const pct = Math.max(0, Math.min(100, state.expires / Math.max(0.001, Number(state.total || 30)) * 100));
       const txt = $(`${kind}-choice-timer-text`);
       const bar = $(`${kind}-choice-timer-bar`);
-      if (txt) txt.textContent = `${state.expires.toFixed(1)}s`;
+      if (txt) txt.textContent = localText(`${state.expires.toFixed(1).replace('.', ',')}с`, `${state.expires.toFixed(1)}s`);
       if (bar) bar.style.width = `${pct.toFixed(1)}%`;
     }
   }
@@ -1903,8 +1990,8 @@ export class Hud {
         if (f.fast) marks.push(localText('БЫСТРО', 'FAST'));
         if (f.staticPaid) marks.push(localText('СТАТИКА ОПЛАЧЕНА', 'STATIC PAID'));
         // Static preview is shown only in the unified top-right readout.
-        if (f.bonusGld) marks.push(`${localText('БОНУС GLD', 'BONUS GLD')} +${f.bonusGld}`);
-        if (f.bonusExp) marks.push(`${localText('БОНУС EXP', 'BONUS EXP')} +${f.bonusExp}`);
+        if (f.bonusGld) marks.push(`${localText('БОНУС КРЕДИТОВ', 'CREDIT BONUS')} +${f.bonusGld}`);
+        if (f.bonusExp) marks.push(`${localText('БОНУС ОПЫТА', 'EXPERIENCE BONUS')} +${f.bonusExp}`);
         if (f.objective) {
           if (f.objective.done) {
             const fs = this.compactFavorItems(f.contractFavorsEarned || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + ');
@@ -1913,10 +2000,10 @@ export class Hud {
             marks.push(`${localText('КОНТРАКТ ПРОВАЛЕН', 'CONTRACT FAILED')} ${locLabel(f.objective.label)}${f.objective.failReason ? ' / ' + locFail(f.objective.failReason) : ''}`);
           }
         }
-        if (f.contractChain >= 2) marks.push(`${localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN')} x${f.contractChain}`);
+        if (f.contractChain >= 2) marks.push(`${localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN')} ×${f.contractChain}`);
         const tapes = Array.isArray(f.tapes) && f.tapes.length ? ` · ${localText('ПЛЁНКА', 'TAPE')}: ${f.tapes.map(locLabel).join(' / ')}` : '';
-        const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${localText('РЕШЕНО', 'SOLVED')} ${Math.max(0, Math.round(Number(f.solvedTime)))}s` : '';
-        const line = `${localText('УБИЙСТВА', 'KILLS')} ${f.kills || 0}${solved} · GLD +${f.gld || 0} · EXP +${f.exp || 0} · ${localText('УРОН', 'DMG')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
+        const solved = Number.isFinite(Number(f.solvedTime)) ? ` · ${localText('РЕШЕНО', 'SOLVED')} ${localText(`${Math.max(0, Math.round(Number(f.solvedTime)))}с`, `${Math.max(0, Math.round(Number(f.solvedTime)))}s`)}` : '';
+        const line = `${localText('УБИЙСТВА', 'KILLS')} ${f.kills || 0}${solved} · ${localText('КРЕДИТЫ', 'CREDITS')} +${f.gld || 0} · ${localText('ОПЫТ', 'EXPERIENCE')} +${f.exp || 0} · ${localText('УРОН', 'DAMAGE')} ${f.dmg || 0}${marks.length ? ' · ' + marks.join(' / ') : ''}${tapes}`;
         this.banner(localText('ИТОГ СЕКТОРА', 'SECTOR RESULT'), line, f.noHit || f.fast ? 'green' : '');
         this.feed(`${localText('ИТОГ СЕКТОРА', 'SECTOR RESULT')}: ${line}`, f.noHit ? 'g' : '');
         break;
@@ -1926,22 +2013,22 @@ export class Hud {
       case 'pick': {
         if (f.personal) {
           const who = name(f.id);
-          const label = f.type === 'EXP' ? 'EXP' : f.type === 'HEA' ? 'HP' : 'GLD';
+          const label = f.type === 'EXP' ? localText('ОПЫТ', 'EXPERIENCE') : f.type === 'HEA' ? localText('ЗДОРОВЬЕ', 'HEALTH') : localText('КРЕДИТЫ', 'CREDITS');
           this.feed(`${who}: ${locLabel(f.label || localText('ЛИЧНАЯ НАГРАДА', 'PERSONAL REWARD'))} +${f.val || 0} ${label}`, f.type === 'HEA' ? 'g' : 'c');
         }
         break;
       }
       case 'levelup':
-        if (f.id === myId) { this.feed(`${localText('УРОВЕНЬ', 'LEVEL UP')} → ${f.level} · ${localText('УЛУЧШЕНИЕ', 'INSTALL')} x${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
+        if (f.id === myId) { this.feed(`${localText('УРОВЕНЬ', 'LEVEL UP')} → ${f.level} · ${localText('УЛУЧШЕНИЕ', 'INSTALL')} ×${f.pending}`, 'g'); document.getElementById('hud-left')?.classList.add('level-pulse'); setTimeout(() => document.getElementById('hud-left')?.classList.remove('level-pulse'), 850); }
         break;
       case 'pdown': this.feed(`${name(f.id)} ${t('down')}`, 'r'); if (f.id === myId) { this.cancelActiveRoll(); this.closeCasino(); this.banner(t('youDown'), t('carry'), 'red'); } break;
       case 'director_room':
         this.feed(`${t('eventSignal')}: ${localText('новая угроза', 'new threat')}`, 'c');
         break;
-      case 'gld_hit': if (f.id === myId) { this.feed(`${localText('ЖАДНОСТЬ УДАР', 'GREED HIT')} -${f.cost || 0} GLD · BAL ${f.balance ?? 0}`, 'r'); } break;
+      case 'gld_hit': if (f.id === myId) { this.feed(`${localText('УДАР ЖАДНОСТИ', 'GREED HIT')} -${f.cost || 0} ${localText('КРЕДИТОВ', 'CREDITS')} · ${localText('ОСТАТОК', 'BALANCE')} ${f.balance ?? 0}`, 'r'); } break;
       case 'casino_mob_defeated':
-        this.banner(localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), `${localText('ЖИВОЕ КАЗИНО ДОСТУПНО', 'LIVING CASINO AVAILABLE')} · GLD +${f.gld || 0}`, 'gold');
-        this.feed(`${localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED')} · GLD +${f.gld || 0}`, 'g');
+        this.banner(localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED'), `${localText('ЖИВОЕ КАЗИНО ДОСТУПНО', 'LIVING CASINO AVAILABLE')} · ${localText('КРЕДИТЫ', 'CREDITS')} +${f.gld || 0}`, 'gold');
+        this.feed(`${localText('СКРЫТЫЙ КАЗИНО-ВИРУС УДАЛЁН', 'HIDDEN CASINO VIRUS DELETED')} · ${localText('КРЕДИТЫ', 'CREDITS')} +${f.gld || 0}`, 'g');
         break;
       case 'room_wager_unlocked':
         if (f.id === myId || f.playerId === myId) {
@@ -1949,7 +2036,7 @@ export class Hud {
           this.feed(localText('ПРОТОКОЛ СТАВОК АКТИВЕН', 'WAGER PROTOCOL ONLINE'), 'g');
         }
         break;
-      case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${locLabel(f.label || 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
+      case 'casino_virus_spin': this.virusRoll(f); this.feed(`${localText('КАЗИНО-ВИРУС', 'CASINO VIRUS')}: ${this.localizedFxLabel(f, 'СОБЫТИЕ', 'EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'p'); break;
       case 'director_wave':
         this.feed(`${localText('ВОЛНА', 'WAVE')} · ${f.count || 0}`, f.intent === 'armor' ? 'p' : (f.intent === 'ranged' || f.intent === 'control' ? 'c' : 'r'));
         break;
@@ -1958,15 +2045,15 @@ export class Hud {
         const kills = Math.max(0, f.kills | 0);
         const mult = Number(f.mult || 1).toFixed(1);
         const amount = Math.max(0, f.amount | 0);
-        const link = f.link ? ` · ${localText('LINK x2', 'LINK x2')}` : '';
-        this.feed(`${name(f.id)}: ${localText('КОМБО', 'COMBO')} ${kills} × x${mult}${link} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
+        const link = f.link ? ` · ${localText('СВЯЗЬ ×2', 'LINK ×2')}` : '';
+        this.feed(`${name(f.id)}: ${localText('КОМБО', 'COMBO')} ${kills} ×${mult}${link} → +${amount} ${prize}`, f.type === 'hp' ? 'g' : 'c');
         break;
       }
       case 'combo_reel': {
-        this.feed(`${name(f.id)}: ${localText('КОМБО-ВЫПЛАТА', 'COMBO REEL')} ${Array.isArray(f.symbols) ? f.symbols.join(' ') : ''} → ${locLabel(f.label || f.outcome)}`, f.outcome === 'STC' ? 'p' : 'g');
+        this.feed(`${name(f.id)}: ${localText('КОМБО-ВЫПЛАТА', 'COMBO REEL')} ${Array.isArray(f.symbols) ? f.symbols.map(casinoDisplaySymbol).join(' ') : ''} → ${locLabel(f.label || f.outcome)}`, f.outcome === 'STC' ? 'p' : 'g');
         break;
       }
-      case 'combo_link_break': if (f.id === myId) this.feed(`${localText('COMBO LINK сорван уроном', 'COMBO LINK broken by damage')}`, 'r'); break;
+      case 'combo_link_break': if (f.id === myId) this.feed(localText('СВЯЗЬ КОМБО СОРВАНА УРОНОМ', 'COMBO LINK BROKEN BY DAMAGE'), 'r'); break;
       case 'skin_room': break;
       case 'skin_room_ready': this.banner(t('skinReady'), `${localText('карточка облика появится отдельно', 'skin card appears separately')} · ${rarityText(f.skinRarity)}`, 'purple'); this.feed(`${t('skinReady')} · ${rarityText(f.skinRarity)}`, 'p'); break;
       case 'portal_open': this.banner(t('portalOpen'), f.skinRarity ? `${localText('облик ждёт отдельной карточкой', 'skin waits as a separate card')} · ${rarityText(f.skinRarity)}` : t('portalNext'), f.skinRarity ? 'purple' : 'green'); this.feed(f.skinRarity ? `${t('portalOpen')} · ${localText('ОБЛИК ГОТОВ', 'SKIN READY')} ${rarityText(f.skinRarity)}` : t('portalOpen'), f.skinRarity ? 'p' : 'g'); break;
@@ -1974,8 +2061,8 @@ export class Hud {
       case 'boss_q_silence': {
         const seconds = Math.max(0, Number(f.seconds || 0) | 0);
         const body = localText(`Q отключена на ${seconds} сек. Оружие, рывок и R доступны.`, `Q disabled for ${seconds}s. Weapons, dash, and R remain available.`);
-        this.banner(localText('САЙЛЕНС БОССА', 'BOSS SILENCE'), body, 'purple');
-        this.feed(`${localText('САЙЛЕНС БОССА', 'BOSS SILENCE')}: Q ${seconds}s`, 'p');
+        this.banner(localText('ЗАГЛУШЕНИЕ БОССА', 'BOSS SILENCE'), body, 'purple');
+        this.feed(`${localText('ЗАГЛУШЕНИЕ БОССА', 'BOSS SILENCE')}: Q ${localText(`${seconds}с`, `${seconds}s`)}`, 'p');
         break;
       }
       case 'boss_q_silence_end':
@@ -1986,41 +2073,46 @@ export class Hud {
         break;
       case 'chest_open': {
         const rewards = (f.rewards || []).map(locReward).join(' + ');
-        const paid = f.costPaid ? `-${f.costPaid} ${f.costUnit || 'GLD'} · ` : '';
+        const paidUnit = String(f.costUnit || 'GLD').toUpperCase() === 'HP' ? localText('ЗДОРОВЬЯ', 'HEALTH') : localText('КРЕДИТОВ', 'CREDITS');
+        const paid = f.costPaid ? `-${f.costPaid} ${paidUnit} · ` : '';
         const prefix = (f.personal || f.costPaid) ? `${name(f.id)}: ` : '';
         this.feed(`${prefix}${locLabel(f.chest)}: ${paid}${rewards}`, f.cursed ? 'p' : 'g');
         break;
       }
-      case 'weapon_get': this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${f.w}`, 'c'); break;
-      case 'weapon_mod': this.feed(`${name(f.id)}: WPN ${locLabel(f.label)}`, 'c'); break;
+      case 'weapon_get': {
+        const weapon = WEAPONS[f.w] || WEAPON_BY_LABEL_LOCAL[f.w];
+        this.feed(`${name(f.id)} ${localText('ВЗЯЛ', 'TOOK')} ${weapon ? content(weapon, 'name') : locLabel(f.w)}`, 'c');
+        break;
+      }
+      case 'weapon_mod': this.feed(`${name(f.id)}: ${localText('ОРУЖИЕ', 'WEAPON')} ${locLabel(f.label)}`, 'c'); break;
       case 'ability_get': this.feed(`${name(f.id)}: ${locLabel(f.label)}`, 'c'); break;
       case 'mirror_copy': if (f.id === myId || f.playerId === myId) {
         const copies = Math.max(0, Number(f.copies || (f.ok ? 1 : 0)) | 0);
         const body = localText(f.bodyRu || String(f.body || '').replace('USE', 'ПРИМЕНЕНИЕ').replace('USES', 'ПРИМЕНЕНИЯ').replace('TOTAL', 'ВСЕГО'), f.bodyEn || f.body || '');
-        this.feed(`${localText('ЗЕРКАЛО', 'MIRROR')}: ${f.ok ? `${localText('КОПИИ', 'COPIES')} x${copies}` : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}${body ? ` · ${body}` : ''}`, f.ok ? 'p' : 'r');
+        this.feed(`${localText('ЗЕРКАЛО', 'MIRROR')}: ${f.ok ? `${localText('КОПИИ', 'COPIES')} ×${copies}` : localText('НЕ СРАБОТАЛО', 'FAILED')} ${locLabel(f.label || '')}${body ? ` · ${body}` : ''}`, f.ok ? 'p' : 'r');
         break;
       }
       case 'contract_selected': this.feed(`${localText('КОНТРАКТ ВЫБРАН', 'CONTRACT SELECTED')}: ${locLabel(f.label || '')}`, 'g'); break;
       case 'boss_key_used':
         if (f.id === myId || f.playerId === myId) {
           const left = f.left ? ` · ${f.left}` : '';
-          this.banner(localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED'), localText('Сундук с выбором открыт бесплатно и поднят до max rarity.', 'Choice chest opened for free and upgraded to max rarity.') + left, 'gold');
-          this.feed(`${localText('BOSS KEY ИСПОЛЬЗОВАН', 'BOSS KEY USED')}: ${localText('бесплатный max-rarity сундук с выбором', 'free max-rarity choice chest')}${left}`, 'p');
+          this.banner(localText('КЛЮЧ ЯДРА ИСПОЛЬЗОВАН', 'CORE KEY USED'), localText('Сундук с выбором открыт бесплатно и усилен до максимальной редкости.', 'Choice chest opened for free and upgraded to maximum rarity.') + left, 'gold');
+          this.feed(`${localText('КЛЮЧ ЯДРА ИСПОЛЬЗОВАН', 'CORE KEY USED')}: ${localText('бесплатный сундук с выбором максимальной редкости', 'free maximum-rarity choice chest')}${left}`, 'p');
         }
         break;
       case 'active': if (f.id === myId) this.feed(`Q: ${locLabel(f.label)}`, 'c'); break;
       case 'active_denied': if (f.id === myId) { const msg = denyText(f); if (msg) { this.denyPrompt(msg); this.feed(`Q: ${msg}`, 'r'); } } break;
       case 'contract': this.banner(locLabel(f.label || t('contract')), t('contractBody'), 'red'); break;
-      case 'room_event': this.banner(locLabel(f.label || localText('СОБЫТИЕ СЕКТОРА', 'SECTOR EVENT')), f.body ? cleanPlayerText(f.body) : localText('Особое правило сектора активно.', 'Special room rule active.'), 'purple'); break;
-      case 'room_event_done': this.banner(locLabel(f.label || localText('СОБЫТИЕ', 'EVENT')), f.body ? cleanPlayerText(f.body) : localText('Завершено', 'Done'), 'green'); break;
-      case 'contract_done': this.banner(t('contractDone'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green'); break;
+      case 'room_event': this.banner(this.localizedFxLabel(f, 'СОБЫТИЕ СЕКТОРА', 'SECTOR EVENT'), this.wagerFxBody(f) || localText('Особое правило сектора активно.', 'Special sector rule active.'), 'purple'); break;
+      case 'room_event_done': this.banner(this.localizedFxLabel(f, 'СОБЫТИЕ', 'EVENT'), this.wagerFxBody(f) || localText('Завершено', 'Done'), 'green'); break;
+      case 'contract_done': this.banner(t('contractDone'), `${this.localizedFxLabel(f)}${this.wagerFxBody(f) ? ' · ' + this.wagerFxBody(f) : ''}`, 'green'); break;
       case 'contract_paid': {
         const prizes = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + ');
-        this.banner(t('contractPaid'), `${locLabel(f.label || '')}${prizes ? ' · ' + prizes : f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'green');
+        this.banner(t('contractPaid'), `${this.localizedFxLabel(f)}${prizes ? ' · ' + prizes : this.wagerFxBody(f) ? ' · ' + this.wagerFxBody(f) : ''}`, 'green');
         break;
       }
       case 'contract_wager': break;
-      case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('БОНУС КАЗИНО ЗА СЕКТОР', 'SECTOR CASINO BONUS')} +${f.gld || 0} GLD +${f.exp || 0} EXP`, 'g'); break;
+      case 'contract_wager_paid': this.feed(`${name(f.id)}: ${localText('БОНУС КАЗИНО ЗА СЕКТОР', 'SECTOR CASINO BONUS')} +${f.gld || 0} ${localText('КРЕДИТОВ', 'CREDITS')} +${f.exp || 0} ${localText('ОПЫТА', 'EXPERIENCE')}`, 'g'); break;
       case 'contract_wager_lost': if (f.id === myId) this.feed(`${localText('БОНУС КАЗИНО СГОРЕЛ', 'CASINO BONUS LOST')}: -${f.stake || 0}`, 'r'); break;
       case 'room_wager_accept': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED'), body, 'gold'); this.feed(`${localText('СТАВКА ПРИНЯТА', 'WAGER ACCEPTED')}: ${body}`, 'p'); } break;
       case 'room_wager_declined': if ((f.id === myId || f.playerId === myId) && !f.timedOut) this.feed(localText('СТАВКА ПРОПУЩЕНА', 'WAGER SKIPPED'), ''); break;
@@ -2028,14 +2120,14 @@ export class Hud {
       case 'room_wager_reward_active': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('ПРИЗ СТАВКИ АКТИВЕН', 'WAGER REWARD ACTIVE'), body, 'green'); this.feed(`${localText('ПРИЗ СТАВКИ АКТИВЕН', 'WAGER REWARD ACTIVE')}: ${body}`, 'g'); } break;
       case 'room_wager_paid': if (!f.silent && (f.id === myId || f.playerId === myId)) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID'), body, 'green'); this.feed(`${localText('СТАВКА ВЫПОЛНЕНА', 'WAGER PAID')}: ${body}`, 'g'); } break;
       case 'room_wager_lost': if (f.id === myId || f.playerId === myId) { const body = this.wagerFxBody(f); this.banner(localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST'), body, 'red'); this.feed(`${localText('СТАВКА ПРОВАЛЕНА', 'WAGER LOST')}: ${body}`, 'r'); } break;
-      case 'favor_earned': { this.localRerollSpent = 0; this.localRerollServerLeft = null; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('Следующая сектор', 'Next room'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
+      case 'favor_earned': { this.localRerollSpent = 0; this.localRerollServerLeft = null; const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); this.banner(localText('ПРИЗ ПОЛУЧЕН', 'PRIZE RECEIVED'), fs || localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'), 'gold'); this.feed(`${localText('ПОЛУЧЕН ПРИЗ', 'PRIZE RECEIVED')}: ${fs}`, 'g'); break; }
       case 'favor_active': { const fs = this.compactFavorItems(f.favors || []).map(x => `${this.favorUiLabel(x)}${(x.uses || 0) > 1 ? ' x' + x.uses : ''}`).join(' + '); if (fs) this.feed(`${localText('БОНУС КОНТРАКТА АКТИВЕН', 'CONTRACT BONUS ACTIVE')}: ${fs}`, 'g'); break; }
       case 'favor_used': {
         const body = this.wagerFxBody(f);
         this.banner(localText('БОНУС ИСПОЛЬЗОВАН', 'BONUS USED'), `${this.favorUiLabel(f)}${body ? ' · ' + body : ''}`, 'gold');
         break;
       }
-      case 'contract_fail': this.banner(t('contractFail'), `${locLabel(f.label || '')}${f.body ? ' · ' + cleanPlayerText(f.body) : ''}`, 'red'); break;
+      case 'contract_fail': this.banner(t('contractFail'), `${this.localizedFxLabel(f)}${this.wagerFxBody(f) ? ' · ' + this.wagerFxBody(f) : ''}`, 'red'); break;
       case 'ctrl_capture': {
         const who = name(f.id || f.owner);
         const label = locLabel(f.label || f.kind || localText('ПРОЦЕСС', 'PROCESS'));
@@ -2113,7 +2205,7 @@ export class Hud {
   virusRoll(f) {
     const el = $('virus-roll');
     if (!el) {
-      this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'purple');
+      this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${this.localizedFxLabel(f, 'ВИРУСНОЕ СОБЫТИЕ', 'VIRUS EVENT')} · ${f.spinsLeft || 0} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, 'purple');
       return;
     }
     this.clearVirusRollSpin();
@@ -2130,7 +2222,7 @@ export class Hud {
     const spans = [...el.querySelectorAll('.roll-symbols span')];
     spans.forEach((sp, i) => {
       const iv = setInterval(() => {
-        sp.textContent = reelPool[Math.floor(Math.random() * reelPool.length)];
+        sp.textContent = casinoDisplaySymbol(reelPool[Math.floor(Math.random() * reelPool.length)]);
         if (i === 0) this.playUiSound('casino_spin');
       }, 58 + i * 8);
       this.virusRollSpin.intervals.push(iv);
@@ -2143,17 +2235,17 @@ export class Hud {
           if (this.virusRollSpin.token !== token) return;
           const iv = this.virusRollSpin.intervals[i];
           if (iv) clearInterval(iv);
-          sp.textContent = String(symbols[i] || '?').slice(0, 4);
+          sp.textContent = casinoDisplaySymbol(String(symbols[i] || '?')).slice(0, 4);
           sp.classList.add(bad ? 'lose' : 'win');
           this.playUiSound('casino_reel_stop');
           if (i === 2) {
             this.virusRollSpin.intervals.forEach(x => clearInterval(x));
             this.virusRollSpin.intervals = [];
             const res = el.querySelector('.roll-result');
-            if (res) res.textContent = locLabel(f.label || 'VIRUS EVENT');
+            if (res) res.textContent = this.localizedFxLabel(f, 'ВИРУСНОЕ СОБЫТИЕ', 'VIRUS EVENT');
             const left = el.querySelector('.roll-left');
             if (left) left.textContent = `${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`;
-            this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${locLabel(f.label || 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
+            this.banner(localText('КАЗИНО-ВИРУС', 'CASINO VIRUS'), `${this.localizedFxLabel(f, 'ВИРУСНОЕ СОБЫТИЕ', 'VIRUS EVENT')} · ${Math.max(0, f.spinsLeft || 0)} ${localText('БРОСКОВ ОСТАЛОСЬ', 'SPINS LEFT')}`, bad ? 'red' : 'purple');
             this.playUiSound(bad ? 'casino_static' : 'casino_result');
             const hide = setTimeout(() => { if (this.virusRollSpin.token === token) el.classList.add('hidden'); }, 1700);
             this.virusRollSpin.timers.push(hide);
@@ -2184,7 +2276,7 @@ export class Hud {
       const spans = [...el.querySelectorAll('.roll-symbols span')];
       spans.forEach((sp, i) => {
         const iv = setInterval(() => {
-          sp.textContent = casinoSymbols[Math.floor(Math.random() * casinoSymbols.length)];
+          sp.textContent = casinoDisplaySymbol(casinoSymbols[Math.floor(Math.random() * casinoSymbols.length)]);
           if (i === 0) this.playUiSound('casino_spin');
         }, 64 + i * 8);
         this.activeRollSpin.intervals.push(iv);
@@ -2213,15 +2305,15 @@ export class Hud {
         if (this.activeRollSpin.token !== token) return;
         const iv = this.activeRollSpin.intervals[i];
         if (iv) clearInterval(iv);
-        sp.textContent = esc(String(symbols[i] || '?').slice(0, 4));
+        sp.textContent = casinoDisplaySymbol(String(symbols[i] || '?')).slice(0, 4);
         sp.classList.add(f.outcome === 'HIT' || f.outcome === 'DEBT' ? 'lose' : 'win');
         this.playUiSound('casino_reel_stop');
         if (i === 2) {
           this.activeRollSpin.intervals.forEach(x => clearInterval(x));
           this.activeRollSpin.intervals = [];
           const res = el.querySelector('.roll-result');
-          if (res) res.textContent = locLabel(f.label || f.outcome || 'ROLL');
-          this.feed(`${localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION')}: ${locLabel(f.label || f.outcome || 'ROLL')}`, tone === 'red' ? 'r' : tone === 'purple' ? 'p' : 'g');
+          if (res) res.textContent = this.localizedFxLabel(f, 'БРОСОК', 'ROLL');
+          this.feed(`${localText('МУТАЦИЯ КАЗИНО', 'CASINO MUTATION')}: ${this.localizedFxLabel(f, 'БРОСОК', 'ROLL')}`, tone === 'red' ? 'r' : tone === 'purple' ? 'p' : 'g');
           this.playUiSound(f.outcome === 'HIT' || f.outcome === 'DEBT' ? 'casino_static' : f.outcome === 'TEN' ? 'jackpot' : 'casino_ability');
           this.activeRollTimer = setTimeout(() => el.classList.add('hidden'), 1550);
         }
@@ -2267,15 +2359,15 @@ export class Hud {
         `<div class="tab-card current"><h3><span class="term" ${explainAttr(localText('ТЕКУЩИЙ СЕКТОР', 'CURRENT SECTOR'), tabRoomHint(room, false), 'cyan')}>${esc(localText('СЕЙЧАС', 'NOW'))}</span> ${esc(archLabel(room.archetype))}</h3>` +
           `<div>${modList(room)}</div>` +
           `<p><span class="term" ${explainAttr(localText('ОПАСНОСТЬ', 'DANGER'), localText('Общий риск сектора: угрозы, правила и темп волн.', 'Overall sector risk: threats, rules, and wave pressure.'), 'red')}>${esc(dangerLabel(room))}</span></p>` +
-          `<p>${termLabel(localText('УГРОЗЫ', 'THREAT'), localText('УГРОЗЫ', 'THREAT'), localText('Короткие теги того, что опаснее всего в этой секторе.', 'Short tags for the main dangers in this room.'), 'red')}: ${esc(tagJoin(room.threatTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
+          `<p>${termLabel(localText('УГРОЗЫ', 'THREATS'), localText('УГРОЗЫ', 'THREATS'), localText('Короткие метки самых опасных факторов в этом секторе.', 'Short tags for the main dangers in this sector.'), 'red')}: ${esc(tagJoin(room.threatTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
           `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Что здесь можно получить.', 'What this room can pay out.'), 'gold')}: ${esc(tagJoin(room.rewardTags, localText('ОБЫЧНО', 'NORMAL')))}</p>` +
           (room.objective ? `<p>${objectiveChip(room.objective, 'CONTRACT')}</p>` : '') +
           `</div>` +
         `<div class="tab-card next"><h3><span class="term" ${explainAttr(localText('СЛЕДУЮЩИЙ СЕКТОР', 'NEXT SECTOR'), next ? tabRoomHint(next, true) : '—', 'cyan')}>${esc(localText('ДАЛЬШЕ', 'NEXT'))}</span> ${next ? esc(archLabel(next.archetype)) : '—'}</h3>` +
           `<div>${next ? modList(next) : '<span class="muted">—</span>'}</div>` +
           `<p>${next ? termLabel(dangerLabel(next), localText('ОПАСНОСТЬ', 'DANGER'), localText('Примерный риск следующего сектора.', 'Estimated risk of the next room.'), 'red') : esc(localText('ОПАСНОСТЬ —', 'DANGER —'))}</p>` +
-          `<p>${termLabel(localText('УГРОЗЫ', 'THREAT'), localText('УГРОЗЫ', 'THREAT'), localText('Короткие теги опасностей следующей сектора.', 'Short danger tags for the next room.'), 'red')}: ${next ? esc(tagJoin(next.threatTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
-          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Что может дать следующая сектор.', 'What the next room can pay out.'), 'gold')}: ${next ? esc(tagJoin(next.rewardTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
+          `<p>${termLabel(localText('УГРОЗЫ', 'THREAT'), localText('УГРОЗЫ', 'THREAT'), localText('Короткие теги опасностей следующего сектора.', 'Short danger tags for the next room.'), 'red')}: ${next ? esc(tagJoin(next.threatTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
+          `<p>${termLabel(localText('НАГРАДА', 'REWARD'), localText('НАГРАДА', 'REWARD'), localText('Что может дать следующий сектор.', 'What the next sector can pay out.'), 'gold')}: ${next ? esc(tagJoin(next.rewardTags, localText('ОБЫЧНО', 'NORMAL'))) : '—'}</p>` +
           (next?.objective ? `<p>${objectiveChip(next.objective, 'CONTRACT')}</p>` : '') +
           `</div>` +
         `<div class="tab-card protocol"><h3>${esc(localText('ЗАБЕГ', 'RUN'))}</h3>` +
@@ -2283,37 +2375,38 @@ export class Hud {
           `<p><span class="term" ${explainAttr(t('room'), t('roomBody'))}>${esc(t('room'))}</span> ${esc(room.id)} · <span class="term" ${explainAttr(t('code'), t('codeBody'))}>${esc(t('code'))}</span> ${esc(this.net?.mode === 'solo' ? localText('ОДИНОЧНАЯ ИГРА', 'SINGLE PLAYER') : (this.net.roomId || '----'))}</p>` +
           `<p><span class="term" ${explainAttr(t('goal'), localText('Портал откроется, когда сектор очищен и угрозы удалены.', 'The portal opens when the sector is clean and threats are removed.'))}>${esc(t('clear'))}</span> ${esc(Math.min(Math.max(0, room.kills || 0), Math.max(0, room.quota || 0)))}/${esc(Math.max(0, room.quota || 0))} · ${esc(localText('ЖИВЫХ', 'ALIVE'))} ${esc(Math.max(0, room.liveEnemies || 0))} · ${esc(localText('ПОРТАЛ', 'PORTAL'))} ${esc(portalState)}</p>` +
           `<p><span class="term" ${explainAttr(localText('СТАТИК-ШТОРМ', 'STATIC STORM'), staticBreakdownExplain(tabStaticBd.total ? tabStaticBd : (tabNextStaticBd || {}), tabNextStaticBd?.banked || 0), 'purple')}>${esc(localText('СТАТИК', 'STATIC'))}</span> ${esc(nextStaticLine)}</p>` +
-          `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the protocol more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> x${esc(mem.contractStreak || 0)} / BEST x${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
-          `${this.compactFavorItems(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), this.compactFavorItems(room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${this.compactFavorItems(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` x${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
+          `<p><span class="term" ${explainAttr(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'), localText('Чем дольше серия выполненных контрактов, тем ценнее забег.', 'A longer contract streak makes the protocol more valuable.'), 'gold')}>${esc(localText('СЕРИЯ КОНТРАКТОВ', 'CONTRACT CHAIN'))}</span> ×${esc(mem.contractStreak || 0)} / ${esc(localText('ЛУЧШАЯ', 'BEST'))} ×${esc(mem.bestContractStreak || 0)} · ${esc(localText('ПРИЗЫ', 'PRIZES'))} ${esc(mem.favorsEarned || 0)}</p>` +
+          `${this.compactFavorItems(room.contractFavors?.active || []).length ? `<p><span class="term" ${explainAttr(localText('БОНУСЫ КОНТРАКТА', 'CONTRACT BONUSES'), this.compactFavorItems(room.contractFavors.active || []).map(f => `${this.favorUiLabel(f)}: ${this.favorUiBody(f)} (${this.favorStatusText(f)})`).join('\n'), 'gold')}>${esc(localText('БОНУСЫ', 'BONUSES'))}</span> ${this.compactFavorItems(room.contractFavors.active || []).map(f => `${esc(this.favorUiLabel(f))} · ${esc(this.favorStatusText(f))}${f.uses ? ` ×${esc(f.uses)}` : ''}`).join(' · ')}</p>` : ''}` +
           `${this.compactFavorItems(room.contractFavors?.pending || []).length ? `<p><span class="term" ${explainAttr(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'), localText('Эти бонусы хранятся, пока не будут использованы.', 'These bonuses persist until used.'), 'gold')}>${esc(localText('ПРИЗ', 'PRIZE'))}</span> ${this.compactFavorItems(room.contractFavors.pending || []).map(f => esc(contractFavorPreviewLabel(f))).join(' · ')}</p>` : ''}</div>` +
       `</div>`;
     $('tab-build').innerHTML = renderTabBuild(state.me());
     const table = $('tab-table');
     let html = '<tr>' +
       `<th><span class="term" data-explain-title="${esc(t('player'))}" data-explain="${esc(t('nameBody'))}">${esc(t('player'))}</span></th>` +
-      `<th><span class="term" data-explain-title="${esc(t('health'))}" data-explain="${esc(t('hpBody'))}">HP</span></th>` +
+      `<th><span class="term" data-explain-title="${esc(t('health'))}" data-explain="${esc(t('hpBody'))}">${esc(localText('ЗДОР.', 'HEALTH'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('level'))}" data-explain="${esc(t('lvlBody'))}">LVL</span></th>` +
-      `<th><span class="term" data-explain-title="${esc(t('money'))}" data-explain="${esc(t('gldBody'))}">GLD</span></th>` +
+      `<th><span class="term" data-explain-title="${esc(t('money'))}" data-explain="${esc(t('gldBody'))}">${esc(localText('КРЕД.', 'CREDITS'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(localText('ОПЫТ', 'EXP'))}" data-explain="${esc(t('xpBody'))}">${esc(localText('ОПЫТ', 'EXP'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(localText('СКОРОСТЬ', 'SPEED'))}" data-explain="${esc(localText('Текущая скорость антивируса.', 'Current antivirus movement speed.'))}">${esc(localText('СКР', 'SPD'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('dash').toUpperCase())}" data-explain="${esc(t('dashReady'))}">${esc(localText('РЫВОК', 'DASH'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('drones'))}" data-explain="${esc(localText('Автостреляющие спутники антивируса.', 'Auto-firing antivirus drones.'))}">${esc(localText('СПТ', 'DRN'))}</span></th>` +
-      `<th><span class="term" data-explain-title="${esc(localText('ОРУЖИЕ', 'WEAPONS'))}" data-explain="${esc(localText('Оружие антивируса. Активный слот помечен звёздочкой. Наведи на оружие для описания.', 'Antivirus weapons. Active slot is marked with an asterisk. Hover a weapon for details.'))}">${esc(localText('ОРУЖ.', 'WPN'))}</span></th>` +
+      `<th><span class="term" data-explain-title="${esc(localText('ОРУЖИЕ', 'WEAPONS'))}" data-explain="${esc(localText('Оружие антивируса. Активный слот помечен звёздочкой. Наведи на оружие для описания.', 'Antivirus weapons. Active slot is marked with an asterisk. Hover a weapon for details.'))}">${esc(localText('ОРУЖ.', 'WEAP.'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('qAbility'))}" data-explain="${esc(t('activeQTitle'))}">Q</span></th>` +
       `<th><span class="term" data-explain-title="${esc(localText('ОБЛИК', 'SHELL'))}" data-explain="${esc(localText('Текущий облик антивируса.', 'Current antivirus shell.'))}">${esc(localText('ОБЛИК', 'SHELL'))}</span></th>` +
       `<th><span class="term" data-explain-title="${esc(t('installTitle'))}" data-explain="${esc(t('installBody'))}">${esc(t('installTitle'))}</span></th>` +
       '</tr>';
     for (const p of state.latest.players) {
       const cls = p[P.ID] === state.myId ? 'me' : (!p[P.ALIVE] ? 'dead' : '');
-      const qTitle = esc(activeLabel(p));
-      const qBody = esc(activeDesc(p));
+      const textPack = playerTextPack(state, p);
+      const qTitle = esc(packedText(textPack, 'activeLabel', activeLabel(p)));
+      const qBody = esc(packedText(textPack, 'activeDesc', activeDesc(p)));
       const qCell = `<span class="term" data-explain-title="${qTitle}" data-explain="${qBody}">${qTitle}</span>`;
       const weaponNames = (p[P.WEAPONS] || []).map((w, i) => {
         const wd = WEAPONS[w] || WEAPON_BY_LABEL_LOCAL[w] || { label: String(w || '').toUpperCase(), name: String(w || '').toUpperCase() };
         const active = i === p[P.WIDX] ? '*' : '';
-        const title = localText(locLabel(wd.name || wd.label || w), wd.name || wd.label || w);
+        const title = wd ? content(wd, 'name') : locLabel(w);
         const body = weaponDesc(wd, p[P.SHG] ?? 4);
-        return `<span class="term weapon-term" data-explain-title="${esc(active + title)}" data-explain="${esc(body)}" data-explain-tone="cyan">${esc(active + (wd.label || w))}</span>`;
+        return `<span class="term weapon-term" data-explain-title="${esc(active + title)}" data-explain="${esc(body)}" data-explain-tone="cyan">${esc(active + weaponHudCode(wd))}</span>`;
       }).join(' / ');
       const shellLabel = locLabel(p[P.SKINID] || '—');
       html += `<tr class="${cls}"><td>${esc(p[P.NAME])}</td><td>${p[P.ALIVE] ? p[P.HP] + '/' + p[P.MAXHP] : t('eliminated')}</td>` +
@@ -2343,7 +2436,7 @@ export class Hud {
     const players = Array.isArray(wait?.players) ? wait.players : [];
     const waiting = players.filter(p => p && p.waiting);
     const meWaiting = waiting.some(p => String(p.id) === String(myId));
-    const names = waiting.map(p => String(p.name || p.id || 'PLAYER')).slice(0, 4).join(' · ');
+    const names = waiting.map(p => String(p.name || p.id || localText('ИГРОК', 'PLAYER'))).slice(0, 4).join(' · ');
     const count = Math.max(0, Number(wait?.waiting || waiting.length || 0));
     const total = Math.max(count, Number(wait?.total || players.length || 0));
     if (meWaiting) {
@@ -2400,7 +2493,7 @@ export class Hud {
   mirrorMetaForChoice(id, opt = null, context = '') {
     const ready = this.mirrorChargesReady();
     if (ready <= 0) return null;
-    const mirrorCopy = { label: `${localText('ЗЕРКАЛО', 'MIRROR')} x${ready + 1}`, tone: 'purple', works: 1, copies: ready };
+    const mirrorCopy = { label: `${localText('ЗЕРКАЛО', 'MIRROR')} ×${ready + 1}`, tone: 'purple', works: 1, copies: ready };
     const mirrorSaved = { label: localText('ЗЕРКАЛО СОХРАНЕНО', 'MIRROR SAVED'), tone: 'purple', works: 0, saved: 1 };
     const bossStack = new Set(['sig_target_lock','sig_redline_boost','sig_ghost_decoy','sig_rewind_mark','sig_kill_switch','sig_spawn_hold','sig_aegis_process','sig_null_revival','sig_boss_key']);
     const ctx = String(context || '');
@@ -2436,7 +2529,7 @@ export class Hud {
       // Host resends the same offer for reliability. Do not rebuild the modal or refill the timer.
       this.install.total = Math.max(1, this.install.total || nextTotal);
       this.install.expires = Math.max(0, Math.min(this.install.expires || nextExpires, nextExpires));
-      const p = $('install-pending'); if (p) p.textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
+      const p = $('install-pending'); if (p) p.textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `×${pending}`;
       return;
     }
     this.install = { open: true, choices: normalizedChoices, offerId: nextOfferId, expires: nextExpires, total: nextTotal, locked: false, waitingOnly: false, dataLoading: false, picked: false, bossSignature: sig };
@@ -2454,7 +2547,7 @@ export class Hud {
       modal.classList.remove('sig-opening', 'sig-open');
     }
     const waitEl = $('install-wait'); if (waitEl) { waitEl.className = 'install-wait hidden'; waitEl.innerHTML = ''; }
-    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `x${pending}`;
+    $('install-pending').textContent = sig ? localText('СИГНАТУРА', 'SIGNATURE') : `×${pending}`;
     const box = $('install-choices');
     box.innerHTML = '';
     normalizedChoices.forEach((id, i) => {
@@ -2466,7 +2559,7 @@ export class Hud {
       const m = sig ? this.mirrorMetaForChoice(id, null, 'boss') : null;
       const mirrorTag = m ? `<span class="mirror-choice-tag ${m.works ? 'works' : 'unique'}">${esc(m.label)}</span>` : '';
       d.innerHTML = sig ? `<div class="sig-choice-top"><span class="key sig-key">[${i + 1}]</span><b>${esc(locLabel(u?.label || id))}</b>${mirrorTag}</div><span class="choice-sub">${esc(optionDesc(u || { id }))}</span>` : `<span class="key">[${i + 1}]</span>${esc(locLabel(u?.label || id))}`;
-      const mirrorHint = m ? (m.works ? localText(`Готовые зеркала (${m.copies}) вместе скопируют этот выбор: итог x${m.copies + 1}.`, `${m.copies} ready mirror${m.copies === 1 ? '' : 's'} will copy this choice together: x${m.copies + 1} total.`) : localText('Этот выбор не копируется, но готовые зеркала сохранятся.', 'This choice cannot be copied, but all ready mirrors will be saved.')) : '';
+      const mirrorHint = m ? (m.works ? localText(`Готовые зеркала (${m.copies}) вместе скопируют этот выбор: итог ×${m.copies + 1}.`, `${m.copies} ready mirror${m.copies === 1 ? '' : 's'} will copy this choice together: ×${m.copies + 1} total.`) : localText('Этот выбор не копируется, но готовые зеркала сохранятся.', 'This choice cannot be copied, but all ready mirrors will be saved.')) : '';
       this.setExplain(d, sig ? localText('СИГНАТУРА УГРОЗЫ', 'THREAT SIGNATURE') + ' / ' + locLabel(u?.label || id) : locLabel(u?.label || id), `${optionDesc(u || { id })}${mirrorHint ? '\n\n' + mirrorHint : ''}`, sig ? 'gold' : (u?.cursed ? 'purple' : (u?.branch === 'Q' || u?.branch === 'DASH' ? 'cyan' : '')));
       d.addEventListener('click', () => this.pick(i, nextOfferId, id));
       box.appendChild(d);
@@ -2544,7 +2637,7 @@ export class Hud {
     const box = $('install-choices');
     if (!this.install.open) {
       this.install = { open: true, choices: [], expires: 15, total: 15, locked: false, skinOnly: true, waitingOnly: false, dataLoading: false };
-      $('install-pending').textContent = localText('SKN', 'SKN');
+      $('install-pending').textContent = localText('ОБЛИК', 'SHELL');
       if (box) box.innerHTML = '';
       $('install-modal')?.classList.remove('hidden');
     }
@@ -2557,10 +2650,10 @@ export class Hud {
     const d = document.createElement('div');
     d.className = `choice skin-claim-card rarity-${String(skin.rarity || (skin.allOwned ? 'complete' : '')).replace(/[^a-z0-9_-]/gi, '')}`;
     if (skin.allOwned) {
-      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ВСЕ ОБЛИКИ ОТКРЫТЫ', 'ALL SKINS UNLOCKED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Коллекция уже полная.', 'Collection already complete.'))}</span>`;
+      d.innerHTML = `<div class="skin-claim-top"><span class="key">${esc(localText('ОБЛИК', 'SHELL'))}</span><span class="skin-claim-title">${esc(localText('ВСЕ ОБЛИКИ ОТКРЫТЫ', 'ALL SHELLS UNLOCKED'))}</span><span class="skin-claim-rarity">100%</span></div><span class="choice-sub">${esc(localText('Коллекция уже полная.', 'Collection already complete.'))}</span>`;
       this.setExplain(d, localText('КОЛЛЕКЦИЯ ЗАВЕРШЕНА', 'COLLECTION COMPLETE'), localText('Все доступные облики уже открыты.', 'Every available look is already unlocked.'), 'gold');
     } else {
-      d.innerHTML = `<div class="skin-claim-top"><span class="key">SKN</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ ОБЛИК', 'CLAIM SKIN'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || 'SKIN')}</span>`;
+      d.innerHTML = `<div class="skin-claim-top"><span class="key">${esc(localText('ОБЛИК', 'SHELL'))}</span><span class="skin-claim-title">${esc(localText('ЗАБРАТЬ ОБЛИК', 'CLAIM SHELL'))}</span><span class="skin-claim-rarity">${esc(rarityText(skin.rarity || 'skin'))}</span></div><span class="choice-sub">${esc(skin.name || skin.id || localText('ОБЛИК', 'SHELL'))}</span>`;
       this.setExplain(d, localText('ОБЛИК ГОТОВ', 'SKIN READY'), localText('Нажми, чтобы закрыть карточку.', 'Click to close this card.'), 'purple');
     }
     d.addEventListener('click', () => { this.playUiSound(skin.allOwned ? 'ui_click' : 'install'); this.skinClaim.claimed = true; d.classList.add('picked'); d.remove(); if (this.install.skinOnly) this.closeInstall(); });
@@ -2593,7 +2686,7 @@ export class Hud {
     const ru = {
       free_reroll: 'ПЕРЕБРОС ВЫБОРА', clear_debt: 'СНЯТЬ СТАТИК-ШТОРМ',
       portal_insurance: 'СТРАХОВКА ОТ СМЕРТИ', epic_reroll: 'ДВА ПЕРЕБРОСА ВЫБОРА', double_favor: 'ДВОЙНОЙ СЛЕД. ПРИЗ',
-      wpn_clearance: 'WPN-ДОПУСК', abl_clearance: 'ABL-ДОПУСК', rar_clearance: 'RAR-ДОПУСК',
+      wpn_clearance: 'ОРУЖЕЙНЫЙ ДОПУСК', abl_clearance: 'ДОПУСК ПРОТОКОЛОВ', rar_clearance: 'РЕДКИЙ ДОПУСК',
       mod_veto: 'ВЕТО МОДИФИКАТОРА', credit_pass: 'КРЕДИТНЫЙ ПРОПУСК', salvage_protocol: 'ПРОТОКОЛ СБОРА'
     };
     const en = {
@@ -2607,15 +2700,15 @@ export class Hud {
     const ru = {
       free_reroll: 'Один раз обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
       clear_debt: 'Снимает весь накопленный статик и навсегда глушит шторм Статик-ядра в этом забеге.',
-      portal_insurance: 'Один раз в этой секторе смертельный удар оставит тебя живым и даст 50 HP.',
+      portal_insurance: 'Один раз в этом секторе смертельный удар оставит тебя живым и восстановит 50 здоровья.',
       epic_reroll: 'Два раза обновляет варианты оружия, протоколов или призов главной угрозы. Хранится, пока не используешь.',
       double_favor: 'Следующий выполненный контракт выдаёт два разных приза вместо одного. Один контракт расходует один заряд.',
-      wpn_clearance: 'Перед INSTALL открывает отдельный выбор из четырёх улучшенных WPN-модулей. Один модуль устанавливается бесплатно.',
-      abl_clearance: 'Перед INSTALL открывает отдельный выбор из четырёх улучшенных ABL-модулей. Один модуль устанавливается бесплатно.',
-      rar_clearance: 'Следующий RAR-сундук получает усиленное безопасное качество. Один сундук расходует один заряд.',
+      wpn_clearance: 'Перед окном установки открывает отдельный выбор из четырёх улучшенных оружейных модулей. Один модуль устанавливается бесплатно.',
+      abl_clearance: 'Перед окном установки открывает отдельный выбор из четырёх улучшенных модулей протоколов. Один модуль устанавливается бесплатно.',
+      rar_clearance: 'Следующий редкий сундук получает усиленное безопасное качество. Один сундук расходует один заряд.',
       mod_veto: 'Снимает один опасный модификатор со следующего подходящего сектора. Если цели нет, заряд сохраняется.',
-      credit_pass: 'Следующий платный WPN- или ABL-сундук открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
-      salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.'
+      credit_pass: 'Следующий платный оружейный сундук или сундук протоколов открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.',
+      salvage_protocol: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные кредиты и опыт. Один сектор расходует один заряд.'
     };
     const en = {
       free_reroll: 'Refreshes weapon, protocol, or main-threat prize choices once. Persists until used.',
@@ -2645,9 +2738,9 @@ export class Hud {
     if (id === 'clear_debt') return localText(`${left} ${left === 1 ? 'очистка' : (left >= 2 && left <= 4 ? 'очистки' : 'очисток')}`, `${left} clear${left === 1 ? '' : 's'}`);
     const units = {
       double_favor: ['контракт', 'контракта', 'контрактов', 'contract'],
-      wpn_clearance: ['WPN-выбор', 'WPN-выбора', 'WPN-выборов', 'WPN choice'],
-      abl_clearance: ['ABL-выбор', 'ABL-выбора', 'ABL-выборов', 'ABL choice'],
-      rar_clearance: ['RAR-сундук', 'RAR-сундука', 'RAR-сундуков', 'RAR chest'],
+      wpn_clearance: ['оружейный выбор', 'оружейных выбора', 'оружейных выборов', 'weapon choice'],
+      abl_clearance: ['выбор протокола', 'выбора протоколов', 'выборов протоколов', 'protocol choice'],
+      rar_clearance: ['редкий сундук', 'редких сундука', 'редких сундуков', 'rare chest'],
       mod_veto: ['вето', 'вето', 'вето', 'veto'],
       credit_pass: ['открытие', 'открытия', 'открытий', 'opening'],
       salvage_protocol: ['сектор', 'сектора', 'секторов', 'room']
@@ -2670,7 +2763,7 @@ export class Hud {
     if (!box || uses <= 0) return;
     const d = document.createElement('div');
     d.className = 'choice favor-reroll';
-    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">x${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · пока не используешь', 'CHOICE REROLL · persists until used'))}</span>`;
+    d.innerHTML = `<div class="favor-reroll-top"><span class="key favor-key">↻</span><span class="favor-reroll-title">${esc(localText('ПРИЗ КОНТРАКТА', 'CONTRACT PRIZE'))}</span><span class="favor-uses">×${uses}</span></div><span class="choice-sub">${esc(localText('ПЕРЕБРОС ВЫБОРА · пока не используешь', 'CHOICE REROLL · persists until used'))}</span>`;
     this.setExplain(d, localText('ПЕРЕБРОС ВЫБОРА', 'CHOICE REROLL'), localText('Обновляет варианты этого выбора с анимацией. Новые варианты не повторяют текущие, если в пуле есть замена. Работает на выбор оружия, протоколов и призы главной угрозы.', 'Animates and refreshes this choice. New options avoid the current ones when the pool allows it. Works on weapon, protocol, and main-threat prize choices.'), 'gold');
     d.addEventListener('click', () => {
       if (d.dataset.locked === '1' || uses <= 0) return;
@@ -2684,7 +2777,7 @@ export class Hud {
       this.net.sendRerollOffer(kind);
       if (uses <= 0) d.remove();
       else {
-        const u = d.querySelector('.favor-uses'); if (u) u.textContent = `x${uses}`;
+        const u = d.querySelector('.favor-uses'); if (u) u.textContent = `×${uses}`;
         setTimeout(() => { if (d.isConnected) { d.dataset.locked = '0'; d.classList.remove('picked'); } }, 250);
       }
     });
@@ -2702,15 +2795,30 @@ export class Hud {
   chestOfferLabel(meta = {}) {
     const label = String(meta.label || '').toUpperCase();
     const ru = String(meta.labelRu || '').trim();
-    const outRu = ru || ({ SIMPLE: 'ПРОСТОЙ', GOOD: 'ХОРОШИЙ', VALUABLE: 'ЦЕННЫЙ', RARE: 'РЕДКИЙ' }[label] || label || 'СУНДУК');
-    return localText(outRu, label || 'CHEST');
+    const en = String(meta.labelEn || label || '').trim();
+    const outRu = ru || ({ SIMPLE: 'ПРОСТОЙ', GOOD: 'ХОРОШИЙ', VALUABLE: 'ЦЕННЫЙ', RARE: 'РЕДКИЙ', UNIQUE: 'УНИКАЛЬНЫЙ' }[label] || label || 'СУНДУК');
+    return localText(outRu, en || 'CHEST');
+  }
+  chestReasonLabel(reason = '') {
+    const raw = String(reason || '').trim();
+    if (!raw || getLang() === 'en') return raw;
+    const map = {
+      BASIC: 'БАЗОВЫЙ', 'RARE TYPE': 'РЕДКИЙ ТИП', CURSED: 'ПРОКЛЯТЫЙ',
+      'REWARD POCKET': 'КАРМАН НАГРАДЫ', CONTRACT: 'КОНТРАКТ', 'CONTRACT PRIZE': 'ПРИЗ КОНТРАКТА',
+      'CHILL ROOM': 'ХОЛОДНЫЙ СЕКТОР', 'GOLD FEVER': 'ЗОЛОТАЯ ЛИХОРАДКА', 'CASINO VIRUS': 'КАЗИНО-ВИРУС',
+      'BLOOD PAYMENT': 'КРОВАВАЯ ОПЛАТА', 'STATIC STORM': 'СТАТИК-ШТОРМ', 'BOSS KEY': 'КЛЮЧ ЯДРА',
+      'WPN CLEARANCE': 'ДОПУСК К ОРУЖИЮ', DEV: 'ОТЛАДКА', 'BET TERMINAL': 'ТЕРМИНАЛ СТАВОК',
+      'FIRST SECTOR': 'ПЕРВЫЙ СЕКТОР', 'FIRST SECTOR BSC': 'БАЗОВЫЙ СУНДУК ПЕРВОГО СЕКТОРА',
+      'BOOSTED BSC': 'УСИЛЕННЫЙ БАЗОВЫЙ СУНДУК', UNIQUE: 'УНИКАЛЬНЫЙ', RARE: 'РЕДКИЙ', VALUABLE: 'ЦЕННЫЙ', GOOD: 'ХОРОШИЙ', SIMPLE: 'ПРОСТОЙ'
+    };
+    return raw.split(/\s*\+\s*/).map(part => map[part] || (/^LOOP\s+\d+$/i.test(part) ? part.replace(/^LOOP/i, 'ЦИКЛ') : locLabel(part))).join(' + ');
   }
   setChestOfferHeader(kind = 'weapon', choices = [], meta = {}) {
     const modal = (kind === 'ability' || kind === 'rare') ? $('ability-modal') : $('weapon-modal');
     if (!modal) return;
     const title = modal.querySelector('.panel-title');
     const slots = Math.max(1, Math.min(5, Number(meta.slots || choices.length || 1) | 0));
-    const tier = Math.max(0, Math.min(3, Number(meta.tier || 0) | 0));
+    const tier = Math.max(0, Math.min(4, Number(meta.tier || 0) | 0));
     const label = this.chestOfferLabel(meta);
         if (title) {
       const slotWord = localText(slots === 1 ? 'СЛОТ' : 'СЛОТОВ', slots === 1 ? 'SLOT' : 'SLOTS');
@@ -2718,11 +2826,11 @@ export class Hud {
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const pickText = picksTotal > 1 ? ` · ${esc(localText(`ВЫБЕРИ ${picksRemaining}/${picksTotal}`, `PICK ${picksRemaining}/${picksTotal}`))}` : '';
       const pcCommandChest = kind === 'weapon' && Array.isArray(choices) && choices.length && choices.every(x => x && x.pcOnly);
-      const chestName = meta.contractPrize ? (kind === 'ability' ? localText('КОНТРАКТНЫЙ ABL-ПРИЗ', 'CONTRACT ABL PRIZE') : localText('КОНТРАКТНЫЙ WPN-ПРИЗ', 'CONTRACT WPN PRIZE')) : (kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : (pcCommandChest ? localText('ЯЩИК КОМАНД', 'COMMAND CACHE') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'))));
+      const chestName = meta.contractPrize ? (kind === 'ability' ? localText('КОНТРАКТНЫЙ ПРИЗ ПРОТОКОЛА', 'CONTRACT PROTOCOL PRIZE') : localText('КОНТРАКТНЫЙ ОРУЖЕЙНЫЙ ПРИЗ', 'CONTRACT WEAPON PRIZE')) : (kind === 'rare' ? localText('РЕДКИЙ СУНДУК', 'RARE CHEST') : (kind === 'ability' ? localText('СУНДУК ПРОТОКОЛОВ', 'PROTOCOL CHEST') : (pcCommandChest ? localText('ЯЩИК КОМАНД', 'COMMAND CACHE') : localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST'))));
       title.innerHTML = `${esc(chestName)} <span class="subtle chest-title-meta">${esc(label)} · ${slots} ${esc(slotWord)}${pickText}</span>`;
       title.dataset.explainTitle = chestName;
       title.dataset.explain = meta.contractPrize
-        ? localText('Отдельный бесплатный приз за выполненный контракт. Выбери один модуль за 30 секунд; затем откроется обычный INSTALL.', 'A separate free reward for a completed contract. Pick one module within 30 seconds; regular INSTALL opens afterward.')
+        ? localText('Отдельный бесплатный приз за выполненный контракт. Выбери один модуль за 30 секунд; затем откроется обычная установка.', 'A separate free reward for a completed contract. Pick one module within 30 seconds; regular installation opens afterward.')
         : kind === 'rare'
         ? localText('Выбери один редкий приз.', 'Choose one rare prize.')
         : (picksTotal > 1 ? (pcCommandChest ? localText('Выбери усиления контроля.', 'Choose control upgrades.') : localText('Выбери два улучшения.', 'Choose two upgrades.')) : (pcCommandChest ? localText('Выбери командный модуль.', 'Choose a command module.') : localText('Выбери один модуль.', 'Choose one module.')));
@@ -2736,13 +2844,18 @@ export class Hud {
     if (metaEl) {
       metaEl.className = `chest-offer-meta tier-${tier}`;
       const cost = Math.max(0, Number(meta.cost || 0) | 0);
-      const unit = String(meta.unit || 'GLD').toUpperCase();
+      const rawUnit = String(meta.unit || 'GLD').toUpperCase();
+      const unit = rawUnit === 'HP' ? localText('ЗДОРОВЬЕ', 'HEALTH') : rawUnit === 'GLD' ? localText('КРЕДИТЫ', 'CREDITS') : locLabel(rawUnit);
       const reason = String(meta.reason || '').trim();
       const picksTotal = Math.max(1, Number(meta.picksTotal || 1) | 0);
       const picksRemaining = Math.max(1, Number(meta.picksRemaining || picksTotal) | 0);
       const picks = picksTotal > 1 ? `<span>${esc(localText('ВЫБОРЫ', 'PICKS'))}: <b>${picksRemaining}/${picksTotal}</b></span>` : '';
-      const picked = Array.isArray(meta.pickedLabels) && meta.pickedLabels.length ? `<span class="chest-reason">${esc(localText('ВЗЯТО', 'TAKEN'))}: ${esc(meta.pickedLabels.map(locLabel).join(' + '))}</span>` : '';
-      metaEl.innerHTML = `<span>${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(locLabel(reason))}</span>` : ''}${picked}`;
+      const pickedPairs = Array.isArray(meta.pickedLabelPairs) ? meta.pickedLabelPairs : [];
+      const pickedNames = pickedPairs.length
+        ? pickedPairs.map(pair => getLang() === 'ru' ? (pair?.labelRu || pair?.labelEn || '') : (pair?.labelEn || pair?.labelRu || ''))
+        : (Array.isArray(meta.pickedLabels) ? meta.pickedLabels.map(locLabel) : []);
+      const picked = pickedNames.length ? `<span class="chest-reason">${esc(localText('ВЗЯТО', 'TAKEN'))}: ${esc(pickedNames.join(' + '))}</span>` : '';
+      metaEl.innerHTML = `<span class="chest-rarity-badge">${esc(localText('РЕДКОСТЬ', 'RARITY'))}: <b>${esc(label)}</b></span><span>${esc(localText('СЛОТЫ', 'SLOTS'))}: <b>${slots}</b></span>${picks}${cost ? `<span>${esc(localText('ЦЕНА', 'PRICE'))}: <b>${cost} ${esc(unit)}</b></span>` : ''}${reason ? `<span class="chest-reason">${esc(this.chestReasonLabel(reason))}</span>` : ''}${picked}`;
     }
     const hintTerm = modal.querySelector('.hint .term');
     if (hintTerm) {
@@ -2762,6 +2875,7 @@ export class Hud {
     choices.forEach((opt, i) => {
       const d = document.createElement('div');
       const meta = weaponReadability(opt);
+      const optionName = pairedContent(opt, 'label') || locLabel(opt.label || opt.id);
       d.className = `choice weapon-choice tone-${meta.tone || 'utility'}` + (opt.disabled ? ' disabled' : '');
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       // Element tag is only for real elemental bullet upgrades. `wpn_fire` is fire-rate, not FIRE element.
@@ -2772,10 +2886,10 @@ export class Hud {
       const roleName = weaponRoleLabel(meta.role);
       const roleTag = `<span class="wpn-role ${meta.tone || 'utility'}">${esc(roleName)}</span>`;
       d.innerHTML = `
-        <div class="wpn-choice-top"><span><span class="key">[${i + 1}]</span>${esc(locLabel(opt.label || opt.id))}</span><span class="wpn-tags">${roleTag}${elementTag}${mirrorTag}</span>${locked}</div>
+        <div class="wpn-choice-top"><span><span class="key">[${i + 1}]</span>${esc(optionName)}</span><span class="wpn-tags">${roleTag}${elementTag}${mirrorTag}</span>${locked}</div>
         <span class="wpn-choice-read">${esc(meta.summary)}</span>
         <span class="wpn-choice-change">${esc(meta.change)}</span>`;
-      const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} · ${roleName}`;
+      const title = opt.disabled ? `${optionName} / ${t('unavailable').toUpperCase()}` : `${optionName} · ${roleName}`;
       const body = `${optionDesc(opt)}${meta.change ? `\n${meta.change}.` : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : (meta.tone === 'dps' ? 'green' : 'cyan'));
       d.addEventListener('click', () => {
@@ -2815,25 +2929,29 @@ export class Hud {
     box.innerHTML = '';
     choices.forEach((opt, i) => {
       const d = document.createElement('div');
+      const optionName = pairedContent(opt, 'label') || locLabel(opt.label || opt.id);
       const group = opt.group || (String(opt.kind || '').includes('mutation') ? 'MUTATION' : String(opt.kind || '').includes('core') ? 'Q' : 'SIDE');
-      const groupLabel = group === 'CORE' ? 'Q' : group === 'MUTATION' ? localText('МУТАЦИЯ', 'MUTATION') : group === 'SIDE' ? localText('ДОП.', 'SIDE') : group;
+      const explicitGroup = pairedContent(opt, 'group');
+      const groupLabel = explicitGroup || (group === 'CORE' ? 'Q' : group === 'MUTATION' ? localText('МУТАЦИЯ', 'MUTATION') : group === 'SIDE' ? localText('ДОП.', 'SIDE') : locLabel(group));
       const rarity = opt.rarity || opt.tone || (String(opt.actionLabel || '').includes('ЗАМЕНИТ') ? 'rare' : group.toLowerCase());
       const tone = opt.disabled ? 'red' : (opt.tone || (rarity === 'cursed' ? 'red' : rarity === 'rare' ? 'purple' : (group === 'CORE' || group === 'Q') ? 'cyan' : 'green'));
       d.className = 'choice ability-choice ability-card' + (opt.disabled ? ' disabled' : '') + ` tone-${tone} rarity-${rarity}`;
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
-      const role = opt.role ? `<span class="abl-role">${esc(locRole(opt.role))}</span>` : '';
+      const roleText = pairedContent(opt, 'role') || (opt.role ? locRole(opt.role) : '');
+      const role = roleText ? `<span class="abl-role">${esc(roleText)}</span>` : '';
       const mirrorTag = '';
-      const action = opt.actionLabel ? `<div class="abl-action">${esc(locAction(opt.actionLabel))}</div>` : '';
+      const actionText = pairedContent(opt, 'actionLabel') || (opt.actionLabel ? locAction(opt.actionLabel) : '');
+      const action = actionText ? `<div class="abl-action">${esc(actionText)}</div>` : '';
       d.innerHTML = `
         <div class="abl-card-top">
           <span class="key abl-key">[${i + 1}]</span>
           <div class="abl-title-wrap">
-            <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
+            <div class="abl-name">${esc(optionName)}</div>
             ${action}
           </div>
           <div class="abl-tags"><span class="rarity-tag">${esc(String(groupLabel).toUpperCase())}</span>${role}${mirrorTag}${locked}</div>
         </div>`;
-      const title = opt.disabled ? `${locLabel(opt.label || opt.id)} / ${t('unavailable').toUpperCase()}` : `${locLabel(opt.label || opt.id)} / ${String(groupLabel).toUpperCase()}`;
+      const title = opt.disabled ? `${optionName} / ${t('unavailable').toUpperCase()}` : `${optionName} / ${String(groupLabel).toUpperCase()}`;
       const body = `${optionDesc(opt)}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
       this.setExplain(d, title, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
@@ -2874,24 +2992,25 @@ export class Hud {
     box.innerHTML = '';
     choices.forEach((opt, i) => {
       const d = document.createElement('div');
+      const optionName = pairedContent(opt, 'label') || locLabel(opt.label || opt.id);
       const tier = Math.max(1, Number(opt.tier || 1) | 0);
       const tone = opt.disabled ? 'red' : (opt.tone || (opt.cursed ? 'red' : tier >= 2 ? 'purple' : 'gold'));
       d.className = `choice ability-choice ability-card rare-choice tone-${tone} rarity-rare` + (opt.disabled ? ' disabled' : '');
       const locked = opt.disabled ? `<span class="lock">${esc(disabledReason(opt.disabledReason))}</span>` : '';
       const bonus = Math.max(0, Number(meta.bonusGld || 0) | 0);
-      const bonusLine = bonus > 0 ? `<div class="abl-action">${esc(localText('БОНУС', 'BONUS'))}: +${bonus} GLD</div>` : '';
+      const bonusLine = bonus > 0 ? `<div class="abl-action">${esc(localText('БОНУС', 'BONUS'))}: +${bonus} ${esc(localText('КРЕДИТОВ', 'CREDITS'))}</div>` : '';
       const mirrorTag = '';
       d.innerHTML = `
         <div class="abl-card-top">
           <span class="key abl-key">[${i + 1}]</span>
           <div class="abl-title-wrap">
-            <div class="abl-name">${esc(locLabel(opt.label || opt.id))}</div>
+            <div class="abl-name">${esc(optionName)}</div>
             ${bonusLine}
           </div>
           <div class="abl-tags"><span class="rarity-tag">${esc(localText('РЕД', 'RAR'))}</span>${mirrorTag}${locked}</div>
         </div>`;
       const body = `${optionDesc(opt)}${bonus > 0 ? '\n\n' + localText('Бонус сундука добавится к выбору.', 'Chest bonus is added to the pick.') : ''}${opt.disabled ? `\n\n${t('unavailable')}: ${disabledReason(opt.disabledReason)}.` : ''}`;
-      this.setExplain(d, `${locLabel(opt.label || opt.id)} / ${localText('РЕД', 'RAR')}`, body, opt.disabled ? 'red' : tone);
+      this.setExplain(d, `${optionName} / ${localText('РЕДКИЙ', 'RARE')}`, body, opt.disabled ? 'red' : tone);
       d.addEventListener('click', () => {
         if (opt.disabled) { this.playUiSound('denied'); return; }
         this.pickRare(i);
@@ -2921,11 +3040,11 @@ export class Hud {
 
 
   casinoStakeProfile(stakeKey = 'low', cost = 0, blood = false, room = null) {
-    const unit = blood ? 'HP' : 'GLD';
+    const unit = blood ? localText('ЗДОРОВЬЕ', 'HEALTH') : localText('КРЕДИТЫ', 'CREDITS');
     const profiles = {
-      low: { risk: localText('БАЗОВАЯ', 'BASE'), body: localText('GLD · EXP · HEA', 'GLD · EXP · HEA') },
-      mid: { risk: localText('СБОРКА', 'BUILD'), body: localText('WPN · ABL · ФИКС', 'WPN · ABL · LOCK') },
-      high: { risk: localText('ПРЕМИУМ', 'PREMIUM'), body: localText('WPN · ABL · РЕД · ДЖК', 'WPN · ABL · RAR · JCK') }
+      low: { risk: localText('БАЗОВАЯ', 'BASE'), body: localText('КРЕДИТЫ · ОПЫТ · ЛЕЧЕНИЕ', 'CREDITS · EXPERIENCE · HEALING') },
+      mid: { risk: localText('СБОРКА', 'BUILD'), body: localText('ОРУЖИЕ · ПРОТОКОЛ · ФИКСАЦИЯ', 'WEAPON · PROTOCOL · LOCK') },
+      high: { risk: localText('ПРЕМИУМ', 'PREMIUM'), body: localText('ОРУЖИЕ · ПРОТОКОЛ · РЕДКИЙ · ДЖЕКПОТ', 'WEAPON · PROTOCOL · RARE · JACKPOT') }
     };
     const prof = profiles[stakeKey] || profiles.low;
     return { unit, risk: prof.risk, body: prof.body, text: `${cost} ${unit}` };
@@ -2936,13 +3055,13 @@ export class Hud {
     const o = ({ JCK: 'ДЖК', RAR: 'РЕД', LOCK: 'ФИКС' })[rawOutcome] || rawOutcome;
     const map = {
       ДЖК: [localText('ДЖЕКПОТ', 'JACKPOT'), '', 'gold'],
-      GLD: ['GLD', '', 'green'],
-      EXP: ['EXP', '', 'cyan'],
-      HEA: ['HEA', '', 'green'],
-      WPN: ['WPN', '', 'cyan'],
-      ABL: ['ABL', '', 'cyan'],
+      GLD: [localText('КРЕДИТЫ', 'CREDITS'), '', 'green'],
+      EXP: [localText('ОПЫТ', 'EXPERIENCE'), '', 'cyan'],
+      HEA: [localText('ЛЕЧЕНИЕ', 'HEALING'), '', 'green'],
+      WPN: [localText('ОРУЖИЕ', 'WEAPON'), '', 'cyan'],
+      ABL: [localText('ПРОТОКОЛ', 'PROTOCOL'), '', 'cyan'],
       РЕД: [localText('РЕД', 'RAR'), '', 'gold'],
-      SKN: ['SKN', '', 'gold'],
+      SKN: [localText('ОБЛИК', 'SHELL'), '', 'gold'],
       ФИКС: [localText('ФИКС', 'LOCK'), '', 'cyan'],
       PAIR: [localText('ПАРА', 'PAIR'), '', 'gold'],
       MIX: [localText('ПРИЗ', 'REWARD'), '', 'green'],
@@ -2958,19 +3077,19 @@ export class Hud {
     const raw = String(symbol || '').toUpperCase();
     const x = ({ JCK: 'ДЖК', RAR: 'РЕД', LOCK: 'ФИКС' })[raw] || raw;
     const map = {
-      GLD: [localText('GLD', 'GLD'), localText('Деньги.', 'Money.'), 'green'],
-      EXP: [localText('EXP', 'EXP'), localText('Опыт.', 'Experience.'), 'cyan'],
-      HEA: [localText('HEA', 'HEA'), localText('Лечение.', 'Heal.'), 'green'],
-      WPN: [localText('WPN', 'WPN'), localText('Оружейный приз.', 'Weapon prize.'), 'cyan'],
-      ABL: [localText('ABL', 'ABL'), localText('Приз способности.', 'Ability prize.'), 'cyan'],
+      GLD: [localText('КРЕДИТЫ', 'CREDITS'), localText('Игровая валюта.', 'Game currency.'), 'green'],
+      EXP: [localText('ОПЫТ', 'EXPERIENCE'), localText('Опыт.', 'Experience.'), 'cyan'],
+      HEA: [localText('ЛЕЧЕНИЕ', 'HEALING'), localText('Восстанавливает здоровье.', 'Restores health.'), 'green'],
+      WPN: [localText('ОРУЖИЕ', 'WEAPON'), localText('Оружейный приз.', 'Weapon prize.'), 'cyan'],
+      ABL: [localText('ПРОТОКОЛ', 'PROTOCOL'), localText('Приз протокола.', 'Protocol prize.'), 'cyan'],
       РЕД: [localText('РЕД', 'RAR'), localText('Редкий приз.', 'Rare prize.'), 'gold'],
-      SKN: [localText('SKN', 'SKN'), localText('Облик.', 'Skin.'), 'gold'],
+      SKN: [localText('ОБЛИК', 'SHELL'), localText('Облик.', 'Shell.'), 'gold'],
       ДЖК: [localText('ДЖК', 'JCK'), localText('Джекпот.', 'Jackpot.'), 'gold'],
-      STC: [localText('STC', 'STC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
-      BAD: [localText('BAD', 'BAD'), localText('Пустой / проигрышный блок.', 'Empty / losing block.'), 'red'],
+      STC: [localText('СТАТИК', 'STATIC'), localText('Статик-долг.', 'Static debt.'), 'purple'],
+      BAD: [localText('СБОЙ', 'FAULT'), localText('Пустой или проигрышный блок.', 'Empty or losing block.'), 'red'],
       ФИКС: [localText('ФИКС', 'LOCK'), localText('Сохраняет символ до выхода. Два и больше ФИКСА ломают терминал на 10-й прокрутке.', 'Holds the symbol until exit. Two or more LOCKS break the terminal on the 10th spin.'), 'cyan'],
-      NEXT: [localText('NEXT', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
-      COMBO: [localText('COMBO', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
+      NEXT: [localText('СЛЕДУЮЩАЯ', 'NEXT'), localText('Следующая ставка.', 'Next bet.'), 'cyan'],
+      COMBO: [localText('КОМБО', 'COMBO'), localText('Комбо-награда.', 'Combo reward.'), 'purple']
     };
     const [title, body, tone] = map[x] || [locLabel(x || 'BET'), localText('Значение ставки.', 'Bet value.'), ''];
     return { title, body, tone };
@@ -3197,7 +3316,7 @@ export class Hud {
         r.classList.remove('spin', 'lock-preview');
         if (f && f.outcome === 'OVERLOAD') {
           const rawSym = String(f.symbols?.[i] || 'ERR').toUpperCase();
-          r.textContent = i === 1 ? 'ERR' : rawSym;
+          r.textContent = casinoDisplaySymbol(i === 1 ? 'ERR' : rawSym);
           r.dataset.final = 'ERR';
           r.className = 'reel locked lose slot-overload-break';
           this.setExplain(r, localText('ПЕРЕГРУЗКА', 'OVERLOAD'), localText('Слот-терминал сломался и выпустил угрозу.', 'The slot terminal broke and released a threat.'), 'red');
@@ -3208,16 +3327,16 @@ export class Hud {
           const finalSymbol = String(c.symbol || f.symbols?.[i] || '—').toUpperCase();
           const created = !!c.lockCreated || raw === 'ФИКС';
           if (created) {
-            r.textContent = 'ФИКС';
+            r.textContent = casinoDisplaySymbol('LOCK');
             r.dataset.final = 'ФИКС';
             r.className = 'reel locked lock-vanish win lock-cell';
-            this.setExplain(r, 'ФИКС', localText('ФИКС растворяется и превращается в фиксированный слот до закрытия терминала.', 'LOCK dissolves into a fixed slot until the terminal closes.'), 'cyan');
+            this.setExplain(r, localText('ФИКС', 'LOCK'), localText('ФИКС растворяется и превращается в фиксированный слот до закрытия терминала.', 'LOCK dissolves into a fixed slot until the terminal closes.'), 'cyan');
             this.playUiSound('casino_reel_stop');
             const morphSpin = setTimeout(() => {
               r.className = 'reel spin lock-morph';
               let n = 0;
               r._iv = setInterval(() => {
-                r.textContent = spinSyms[(n++ + i) % spinSyms.length];
+                r.textContent = casinoDisplaySymbol(spinSyms[(n++ + i) % spinSyms.length]);
                 this.playUiSound('casino_spin');
               }, 48);
             }, 230);
@@ -3261,11 +3380,12 @@ export class Hud {
     this.setCasinoPanelState(localText('ОТКАЗ', 'DENIED'), 'red');
     document.querySelectorAll('.reel').forEach(r => { r.textContent = localText('ОТК', 'NO'); r.className = 'reel lose locked'; });
     const el = $('casino-result');
-    const errors = { 'BET FAILED': t('betFailed'), 'not enough GLD': t('gldLack'), 'НЕДОСТАТОЧНО GLD': t('gldLack'), 'НЕДОСТАТОЧНО HP': localText('НЕТ HP', 'NO HP'), 'not enough HP': localText('НЕТ HP', 'NO HP'), 'invalid stake': t('invalidStake') };
-    const msg = errors[f.error] || f.error || t('betFailed');
+    const errors = { 'BET FAILED': t('betFailed'), 'not enough GLD': t('gldLack'), 'НЕДОСТАТОЧНО GLD': t('gldLack'), 'НЕДОСТАТОЧНО HP': localText('НЕТ ЗДОРОВЬЯ', 'NO HP'), 'not enough HP': localText('НЕТ ЗДОРОВЬЯ', 'NO HP'), 'invalid stake': t('invalidStake') };
+    const fallback = errors[f.error] || f.error || t('betFailed');
+    const msg = localText(f.errorRu || fallback, f.errorEn || fallback);
     el.textContent = msg;
     el.style.color = '#ff3048';
-    this.feed(`${localText('BET ОТКАЗАН', 'BET DENIED')} · ${msg}`, 'r');
+    this.feed(`${localText('СТАВКА ОТКЛОНЕНА', 'BET DENIED')} · ${msg}`, 'r');
   }
   casinoPrizeLineForResult(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
     const clean = (x) => locLabel(String(x || '').replace(/^CASINO\s+/i, '').trim());
@@ -3278,36 +3398,42 @@ export class Hud {
     const abilityDetail = (x) => clean(x) || localText('новая мутация добавлена', 'new mutation added');
     const rareDetail = (x) => clean(x) || localText('редкое усиление применено', 'rare bonus applied');
     if (f.outcome === 'OVERLOAD') return localText('слот сломан, угрозу собирается', 'slot broken, enemy assembling');
-    if (pl.static || pl.staticCount) return `${localText('следующая сектор загрязнена статикой', 'next room gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
-    if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${pl.lockLabel}`;
-    if ((pl.jackpotCount || 0) >= 3) return `+${pl.gld || 0} GLD + WPN + ABL + RAR`;
-    if ((pl.jackpotCount || 0) === 2) return `+${pl.gld || 0} GLD`;
+    if (pl.static || pl.staticCount) return `${localText('следующий сектор загрязнён статикой', 'next sector gets static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`;
+    if (pl.lockLabel) return `${localText('зафиксировано', 'fixed')} ${casinoDisplaySymbol(pl.lockLabel)}`;
+    if ((pl.jackpotCount || 0) >= 3) return localText(`+${pl.gld || 0} КРЕДИТОВ + ОРУЖИЕ + ПРОТОКОЛ + РЕДКИЙ ПРИЗ`, `+${pl.gld || 0} CREDITS + WEAPON + PROTOCOL + RARE PRIZE`);
+    if ((pl.jackpotCount || 0) === 2) return `+${pl.gld || 0} ${localText('КРЕДИТОВ', 'CREDITS')}`;
     if (weaponLabels.length) return weaponLabels.map(weaponDetail).filter(Boolean).join(' + ');
     if (abilityLabels.length) return abilityDetail(abilityLabels[0]);
     if (rareLabels.length) return rareDetail(rareLabels[0]);
-    if (pl.skinLabel) return `${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`;
-    if (pl.gld) return `+${pl.gld} GLD`;
-    if (pl.xp) return `+${pl.xp} EXP`;
-    if (pl.heal) return `+${pl.heal} HP`;
+    if (pl.skinLabel) {
+      const skin = SKIN_BY_ID_LOCAL[pl.skinId];
+      return `${skin ? content(skin, 'name') : locLabel(pl.skinLabel)}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`;
+    }
+    if (pl.gld) return `+${pl.gld} ${localText('КРЕДИТОВ', 'CREDITS')}`;
+    if (pl.xp) return `+${pl.xp} ${localText('ОПЫТА', 'EXPERIENCE')}`;
+    if (pl.heal) return `+${pl.heal} ${localText('ЗДОРОВЬЯ', 'HEALTH')}`;
     if (pl.dash) return locLabel('DASH +1');
     return `-${paid} ${paidUnit}`;
   }
   casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels = [], weaponLabels = [], rareLabels = []) {
     const list = [];
     const add = (x) => { const s = locLabel(String(x || '').trim()); if (s && !list.includes(s)) list.push(s); };
-    if (f.outcome === 'OVERLOAD') add(localText('перегрузка закрыла терминал и вызвала SLOT MOB', 'overload closed the terminal and spawned SLOT MOB'));
-    if (pl.lockLabel) add(`${localText('фикс', 'fixed')}: ${pl.lockLabel}`);
-    if (pl.gld) add(`+${pl.gld} GLD`);
-    if (pl.xp) add(`+${pl.xp} EXP`);
-    if (pl.heal) add(`+${pl.heal} HP`);
+    if (f.outcome === 'OVERLOAD') add(localText('перегрузка закрыла терминал и вызвала слот-угрозу', 'overload closed the terminal and spawned a slot threat'));
+    if (pl.lockLabel) add(`${localText('фикс', 'fixed')}: ${casinoDisplaySymbol(pl.lockLabel)}`);
+    if (pl.gld) add(`+${pl.gld} ${localText('КРЕДИТОВ', 'CREDITS')}`);
+    if (pl.xp) add(`+${pl.xp} ${localText('ОПЫТА', 'EXPERIENCE')}`);
+    if (pl.heal) add(`+${pl.heal} ${localText('ЗДОРОВЬЯ', 'HEALTH')}`);
     if (pl.dash) add('DASH +1');
     for (const x of weaponLabels) add(this.casinoPrizeLineForResult({ outcome: 'WPN' }, {}, paid, paidUnit, [], [x], []));
     for (const x of abilityLabels) add(this.casinoPrizeLineForResult({ outcome: 'ABL' }, {}, paid, paidUnit, [x], [], []));
     for (const x of rareLabels) add(this.casinoPrizeLineForResult({ outcome: 'РЕД' }, {}, paid, paidUnit, [], [], [x]));
-    if (pl.skinLabel) add(`${pl.skinLabel}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+    if (pl.skinLabel) {
+      const skin = SKIN_BY_ID_LOCAL[pl.skinId];
+      add(`${skin ? content(skin, 'name') : locLabel(pl.skinLabel)}${pl.skinRarity ? ' / ' + rarityText(pl.skinRarity) : ''}`);
+    }
     if (pl.static || pl.staticCount) add(`${localText('статик-долг', 'static debt')}${pl.staticCount > 1 ? ' x' + pl.staticCount : ''}`);
-    if (pl.tripleMatch) add(`${localText('три одинаковых', 'three of a kind')}: ${String(pl.paySymbol || '').toUpperCase()}`);
-    else if (pl.pairMatch) add(`${localText('пара', 'pair')}: ${String(pl.paySymbol || '').toUpperCase()}`);
+    if (pl.tripleMatch) add(`${localText('три одинаковых', 'three of a kind')}: ${casinoDisplaySymbol(pl.paySymbol)}`);
+    else if (pl.pairMatch) add(`${localText('пара', 'pair')}: ${casinoDisplaySymbol(pl.paySymbol)}`);
     if (pl.noMatch && !pl.lockLabel && f.outcome !== 'OVERLOAD') add(localText('линия не собрана', 'no line'));
     add(`-${paid} ${paidUnit}`);
     return list.slice(0, 8);
@@ -3317,7 +3443,7 @@ export class Hud {
     if (f.ok === false) { this.casinoDenied(f); return; }
     if (f.id !== myId) {
       const RES = { ДЖК: localText(t('jackpot'), 'JACKPOT'), JCK: localText(t('jackpot'), 'JACKPOT'), PAIR: localText('ПАРА', 'PAIR'), LOSE: t('lose'), STC: t('staticDebt'), SKN: t('skin'), ФИКС: localText('ФИКС', 'LOCK'), РЕД: localText('РЕД', 'RARE'), OVERLOAD: localText('ПЕРЕГРУЗКА', 'OVERLOAD') };
-      this.feed(`${this.names.get(f.id) || '??'} BET ${f.stake} → ${RES[f.outcome] || f.outcome}`, f.outcome === 'LOSE' ? 'r' : 'g');
+      this.feed(`${this.names.get(f.id) || '??'} ${localText('СТАВКА', 'BET')} ${f.stake} → ${RES[f.outcome] || casinoDisplaySymbol(f.outcome)}`, f.outcome === 'LOSE' ? 'r' : 'g');
       return;
     }
     if (f.seq && this.casino.lastResultSeq === f.seq) return; // direct result + later snapshot duplicate
@@ -3329,11 +3455,15 @@ export class Hud {
       if (resultToken !== this.casino.spinToken) return;
       const el = $('casino-result');
       const pl = f.payload || {};
-      const paidUnit = f.bloodTax ? 'HP' : 'GLD';
+      const paidUnit = f.bloodTax ? localText('ЗДОРОВЬЯ', 'HEALTH') : localText('КРЕДИТОВ', 'CREDITS');
       const paid = f.bloodTax ? (f.hpStake || f.stake) : f.stake;
-      const abilityLabels = Array.isArray(pl.abilityLabels) && pl.abilityLabels.length ? pl.abilityLabels : (pl.abilityLabel ? [pl.abilityLabel] : []);
-      const weaponLabels = Array.isArray(pl.weaponLabels) && pl.weaponLabels.length ? pl.weaponLabels : (pl.weaponLabel ? [pl.weaponLabel] : []);
-      const rareLabels = Array.isArray(pl.rareLabels) && pl.rareLabels.length ? pl.rareLabels : (pl.rareLabel ? [pl.rareLabel] : []);
+      const localizeReceipt = (values, pairs = []) => values.map((value, i) => localText(pairs[i]?.labelRu || value, pairs[i]?.labelEn || value));
+      const rawAbilityLabels = Array.isArray(pl.abilityLabels) && pl.abilityLabels.length ? pl.abilityLabels : (pl.abilityLabel ? [pl.abilityLabel] : []);
+      const rawWeaponLabels = Array.isArray(pl.weaponLabels) && pl.weaponLabels.length ? pl.weaponLabels : (pl.weaponLabel ? [pl.weaponLabel] : []);
+      const rawRareLabels = Array.isArray(pl.rareLabels) && pl.rareLabels.length ? pl.rareLabels : (pl.rareLabel ? [pl.rareLabel] : []);
+      const abilityLabels = localizeReceipt(rawAbilityLabels, pl.abilityLabelPairs || (pl.abilityLabelPair ? [pl.abilityLabelPair] : []));
+      const weaponLabels = localizeReceipt(rawWeaponLabels, pl.weaponLabelPairs || []);
+      const rareLabels = localizeReceipt(rawRareLabels, pl.rareLabelPairs || []);
       const parts = this.casinoDetailSummary(f, pl, paid, paidUnit, abilityLabels, weaponLabels, rareLabels);
       const info = this.casinoOutcomeInfo(f.outcome, pl);
       const modal = $('casino-modal');
@@ -3352,7 +3482,7 @@ export class Hud {
       this.setExplain(el, info.title, fullResultText, info.tone);
       el.innerHTML = `<span class="casino-result-title${toneCls}">${esc(info.title)}</span><span class="casino-result-flow compact" title="${esc(fullResultText)}"><b>${esc(resultLine)}</b></span>`;
       const who = f.id === myId ? t('you') : (this.names.get(f.id) || '??');
-      this.feed(`${who}: ${localText('BET', 'BET')} · ${parts.map(locLabel).join(' · ')}`, (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
+      this.feed(`${who}: ${localText('СТАВКА', 'BET')} · ${parts.map(locLabel).join(' · ')}`, (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? 'r' : f.outcome === 'STC' ? 'p' : 'g');
       el.style.color = (f.outcome === 'LOSE' || f.outcome === 'OVERLOAD') ? '#ff3048' : f.outcome === 'STC' ? '#b45cff' : '#00ff66';
       this.casinoSlotLocks = casinoNormalizeSlotLocks(f.lockSlots || pl.lockSlots || this.casinoSlotLocks || []);
       this.paintStoredCasinoLockCells(false);

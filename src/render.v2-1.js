@@ -9,6 +9,32 @@ const COL = {
   wall: '#0d0d0d', wallEdge: '#2c2c2c', grid: '#0b0b0b'
 };
 
+const CANVAS_LABEL_RU = {
+  CUT: 'РАЗРЕЗ', ANC: 'ЯКР', 'SLOW x3': 'ЗАМЕДЛЕНИЕ ×3', 'DAMAGE ZONE': 'ЗОНА УРОНА',
+  PRT: 'ПРТ', GLD: 'КРД', EXP: 'ОПТ', HEA: 'ЛЕЧ', WPN: 'ОРЖ', ABL: 'ПРТ', BSC: 'БАЗ', CRS: 'ПРК', BET: 'СТВ', SKN: 'ОБЛ', STC: 'СТК', BAD: 'ДОЛ', RAR: 'РЕД', JCK: 'ДЖК',
+  GRT: 'РЯД', RUN: 'БЕГ', TNK: 'ТАН', SHT: 'СТР', CHG: 'ТАР', BMB: 'БОМ', BNC: 'ОТСК', GLT: 'СБОЙ', ROOT: 'КОР',
+  WJP: 'НПР', RUSH: 'РЫВОК', ECH: 'ЭХО', ORB: 'ОРБ', SPL: 'ДЕЛ', PRS: 'ПРЗ', PLS: 'ИМП', LCH: 'ПИЯ', DMP: 'ГЛШ', WRD: 'СТР', HRD: 'ВЕСТ',
+  SLT: 'СЛТ', SHOOTER: 'СТРЕЛОК', CHARGER: 'ТАРАН', RUNNER: 'БЕГУН', PULSE: 'ИМПУЛЬС',
+  ASSEMBLE: 'СБОРКА', ROLLING: 'ВРАЩЕНИЕ', LOCK: 'ЗАМОК', TRI: 'ТРИ', CRP: 'КРП', 'ANC+': 'ЯКР+', HNT: 'ОХТ', OCT: 'ОКТ',
+  FROZEN: 'ЗАМОРОЖЕН', CHILL: 'ХОЛОД', STUN: 'ОГЛУШЁН', 'SHELL LOCK': 'БРОНЯ ЗАГЛУШЕНА', EXPOSED: 'УЯЗВИМ',
+  VOLATILE: 'НЕСТАБИЛЕН', BURN: 'ОГОНЬ', POISON: 'ЯД', 'ARMOR LOCK': 'БРОНЯ ЗАКРЫТА', 'LINK SHELL': 'СВЯЗАННАЯ БРОНЯ',
+  ELITE: 'ЭЛИТА', DECOY: 'ПРИМАНКА', SPK: 'ИСК', LVC: 'ЖКЗ', DOWN: 'СБОЙ', GHOST: 'ПРИЗРАК', SHG: 'КЛН', REWIND: 'ОТКАТ'
+};
+function canvasLabelText(value) {
+  const text = String(value ?? '');
+  if (localText('ru', 'en') === 'en') return text;
+  if (CANVAS_LABEL_RU[text]) return CANVAS_LABEL_RU[text];
+  let m = text.match(/^CUT\s+(.+)$/); if (m) return `РАЗРЕЗ ${m[1]}`;
+  m = text.match(/^ACCESS DENIED\s*·\s*ROOT\s+(.+)$/); if (m) return `ДОСТУП ЗАКРЫТ · КОРЕНЬ ${m[1]}`;
+  m = text.match(/^LOCK\s+(.+)$/); if (m) return `ЗАМОК ${m[1]}`;
+  m = text.match(/^SLOW\s+(.+?)s$/); if (m) return `ЗАМЕДЛЕНИЕ ${m[1]}с`;
+  m = text.match(/^BURST\s+(.+)$/); if (m) return `ЗАЛП ${m[1]}`;
+  m = text.match(/^SLT\s+(.+)$/); if (m) return `СЛТ ${m[1]}`;
+  m = text.match(/^HNT(-I+)?$/); if (m) return `ОХТ${m[1] || ''}`;
+  m = text.match(/^(SPK|LVC)(\s+×.+)?$/); if (m) return `${CANVAS_LABEL_RU[m[1]]}${m[2] || ''}`;
+  return text;
+}
+
 const SKIN_META_BY_ID = Object.fromEntries(SKIN_PRESETS.map(s => [s.id, s]));
 function rgba(hex, a = 1) {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
@@ -55,7 +81,7 @@ export class Renderer {
     ctx.fillStyle = color;
     ctx.font = `${size}px 'Courier New', monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(text, x, y);
+    ctx.fillText(canvasLabelText(text), x, y);
   }
 
   bossHpBar(x, y, size, hp01, color = COL.red, compact = false) {
@@ -395,11 +421,30 @@ export class Renderer {
         ctx.moveTo(w.x + inset, w.y + inset); ctx.lineTo(w.x + w.w - inset, w.y + w.h - inset);
         ctx.moveTo(w.x + w.w - inset, w.y + inset); ctx.lineTo(w.x + inset, w.y + w.h - inset);
         ctx.stroke();
+        if (w.moving && w.elem) {
+          // The moving square uses the same three weapon-status signals as
+          // projectiles, scaled to its body without obscuring the block.
+          const es = String(w.elem), pulse = 0.78 + Math.sin(now * 12) * 0.10;
+          if (es.includes('fire')) {
+            ctx.globalAlpha = 0.66 * pulse; ctx.strokeStyle = COL.red; ctx.lineWidth = 2;
+            ctx.strokeRect(w.x - 4, w.y - 4, w.w + 8, w.h + 8);
+          }
+          if (es.includes('freeze')) {
+            ctx.globalAlpha = 0.68 * pulse; ctx.strokeStyle = COL.cyan; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+            ctx.strokeRect(w.x - 8, w.y - 8, w.w + 16, w.h + 16); ctx.setLineDash([]);
+          }
+          if (es.includes('poison')) {
+            ctx.globalAlpha = 0.58 * pulse; ctx.strokeStyle = COL.green; ctx.lineWidth = 2;
+            ctx.strokeRect(w.x - 11, w.y - 11, w.w + 22, w.h + 22);
+            ctx.globalAlpha = 0.12; ctx.fillStyle = COL.green; ctx.fillRect(w.x - 3, w.y - 3, w.w + 6, w.h + 6);
+          }
+        }
         if (w.moving && (w.vx || w.vy)) {
           const n = Math.hypot(w.vx || 0, w.vy || 0) || 1, dx = (w.vx || 0) / n, dy = (w.vy || 0) / n;
           const cx = w.x + w.w / 2, cy = w.y + w.h / 2;
-          ctx.globalAlpha = 0.5; ctx.strokeStyle = '#b45cff'; ctx.lineWidth = 2;
-          for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(cx - dx * (28 + i * 12), cy - dy * (28 + i * 12)); ctx.lineTo(cx - dx * (35 + i * 16), cy - dy * (35 + i * 16)); ctx.stroke(); }
+          const edge = Math.max(w.w, w.h) / 2;
+          ctx.globalAlpha = 0.28; ctx.strokeStyle = w.motionMode === 'pull' ? '#66f6ff' : '#b45cff'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(cx - dx * (edge + 4), cy - dy * (edge + 4)); ctx.lineTo(cx - dx * (edge + 18), cy - dy * (edge + 18)); ctx.stroke(); ctx.setLineDash([]);
         }
         if (w.settling) this.label(localText('ФАЗА · УРОН', 'PHASE · DAMAGE'), w.x + w.w / 2, w.y - 9, '#ffd34d', 9);
         ctx.restore();
@@ -409,17 +454,20 @@ export class Renderer {
       }
     }
 
-    // RMB selection stays quiet: one light dashed outline around a slightly
-    // enlarged interaction halo. Direction itself comes from the hero aim ray.
+    // Both mouse actions share one generous selection halo. If halos overlap,
+    // the square whose centre is nearest the cursor wins authoritatively too.
     const pushMeRow = (view.players || []).find(p => p[P.ID] === state.myId);
     const push = pushMeRow?.[P.BUILD]?.impactWall;
     if (push?.pushUnlocked) {
       const wx = mouse.x + this.cam.x, wy = mouse.y + this.cam.y;
       const own = (state.room?.tempWalls || []).filter(w => w?.owner === state.myId && !w.moving && !w.settling);
-      const hovered = [...own].reverse().find(w => {
-        const hitPad = Math.max(16, Math.min(28, Math.min(w.w || 0, w.h || 0) * 0.30));
-        return wx >= w.x - hitPad && wx <= w.x + w.w + hitPad && wy >= w.y - hitPad && wy <= w.y + w.h + hitPad;
-      }) || null;
+      let hovered = null, bestDist = Number.POSITIVE_INFINITY;
+      for (const w of own) {
+        const hitPad = Math.max(44, Math.min(64, Math.min(w.w || 0, w.h || 0) * 0.85));
+        if (wx < w.x - hitPad || wx > w.x + w.w + hitPad || wy < w.y - hitPad || wy > w.y + w.h + hitPad) continue;
+        const d = (wx - (w.x + w.w / 2)) ** 2 + (wy - (w.y + w.h / 2)) ** 2;
+        if (d < bestDist) { hovered = w; bestDist = d; }
+      }
       if (hovered) {
         const pad = 6;
         ctx.save(); ctx.strokeStyle = '#c8fbff'; ctx.globalAlpha = 0.58; ctx.lineWidth = 1.5;
@@ -776,7 +824,7 @@ export class Renderer {
             const px = ex + Math.cos(a) * d;
             const py = ey + Math.sin(a) * d;
             ctx.globalAlpha = 0.38 + ((i % 3) * 0.08);
-            ctx.fillText(syms[i % syms.length], Math.round(px), Math.round(py));
+            ctx.fillText(canvasLabelText(syms[i % syms.length]), Math.round(px), Math.round(py));
           }
           ctx.restore();
           continue;
@@ -960,7 +1008,7 @@ export class Renderer {
             const py = ey + Math.sin(a) * d;
             ctx.globalAlpha = 0.28 + (i % 5) * 0.08;
             ctx.fillStyle = i % 3 === 0 ? COL.cyan : (i % 3 === 1 ? COL.gold : COL.fg);
-            ctx.fillText(syms[i % syms.length], Math.round(px), Math.round(py));
+            ctx.fillText(canvasLabelText(syms[i % syms.length]), Math.round(px), Math.round(py));
           }
           ctx.globalAlpha = 0.55 + pulse * 0.20;
           ctx.strokeStyle = COL.gold; ctx.lineWidth = 2; ctx.setLineDash([8, 5]);
@@ -996,7 +1044,7 @@ export class Renderer {
         ctx.font = '700 10px var(--mono, monospace)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(isRebuild ? reelSyms[idx] : fixedModeSym, Math.round(ex), Math.round(ey));
+        ctx.fillText(canvasLabelText(isRebuild ? reelSyms[idx] : fixedModeSym), Math.round(ex), Math.round(ey));
         ctx.globalAlpha = 0.55;
         ctx.strokeStyle = frameCol;
         ctx.lineWidth = 1;
@@ -1696,7 +1744,7 @@ export class Renderer {
           ctx.fillRect(px - 25, py - jumpVisual.height - 68, 50, 28);
           ctx.strokeRect(px - 25, py - jumpVisual.height - 68, 50, 28);
           ctx.fillStyle = skinOutline; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(`x${bounceMul}`, px, py - jumpVisual.height - 54);
+          ctx.fillText(`×${bounceMul}`, px, py - jumpVisual.height - 54);
           ctx.restore();
         }
         this.label(p[P.NAME], px, py - jumpVisual.height - 31, isMe ? skinOutline : COL.dim, 10);

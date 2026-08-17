@@ -6,17 +6,72 @@ function fxAabbHit(x, y, half, w) { return x + half > w.x && x - half < w.x + w.
 function fxHitsWalls(x, y, half, walls = []) { return walls.some(w => fxAabbHit(x, y, half, w)); }
 function safeCol(v, fallback) { const x = String(v || '').trim(); return HEX.test(x) ? x : fallback; }
 function fxLabel(v) {
+  if (v && typeof v === 'object') {
+    const localized = localText(v.labelRu || v.label || '', v.labelEn || v.label || '');
+    return fxLabel(localized);
+  }
   const s = String(v || '');
   const map = {
     'CASINO ROLL': localText('КАЗИНО-БРОСОК', 'CASINO ROLL'),
     'ROLLING...': localText('КРУТИТСЯ...', 'ROLLING...'),
-    'CASINO GLD': localText('КАЗИНО GLD', 'CASINO GLD'),
-    'CASINO EXP': localText('КАЗИНО EXP', 'CASINO EXP'),
-    'CASINO HEAL': localText('КАЗИНО HP', 'CASINO HEAL'),
+    'CASINO GLD': localText('КАЗИНО: КРЕДИТЫ', 'CASINO CREDITS'),
+    'CASINO EXP': localText('КАЗИНО: ОПЫТ', 'CASINO EXPERIENCE'),
+    'CASINO HEAL': localText('КАЗИНО: ЛЕЧЕНИЕ', 'CASINO HEAL'),
     'CASINO HIT': localText('КАЗИНО УДАР', 'CASINO HIT'),
-    'STATIC STORM': localText('СТАТИК-ШТОРМ', 'STATIC STORM')
+    'STATIC STORM': localText('СТАТИК-ШТОРМ', 'STATIC STORM'),
+    ROLL: localText('БРОСОК', 'ROLL'),
+    LVC: localText('ЖИВОЕ КАЗИНО', 'LIVING CASINO'),
+    SPK: localText('ИСКРЫ', 'SPARKS')
   };
-  return map[s] || locLabel(s);
+  if (map[s]) return map[s];
+  if (localText('ru', 'en') === 'ru') {
+    const exact = {
+      'TRANSITION RESTORED': 'ПЕРЕХОД ВОССТАНОВЛЕН', 'TRANSITION CONTINUED': 'ПЕРЕХОД ПРОДОЛЖЕН',
+      BURN: 'ОГОНЬ', POISON: 'ЯД', 'VOLATILE MIX': 'НЕСТАБИЛЬНАЯ СМЕСЬ',
+      'ANCHOR FIELD': 'ПОЛЕ ЯКОРЯ', 'DMP NEST': 'ГНЕЗДО ГЛУШИТЕЛЯ', 'HERALD RALLY': 'СБОР ГЛАШАТАЯ', 'ORB GUARD': 'ЗАЩИТА ОРБИТЕРА',
+      'WARDEN LINK': 'СВЯЗЬ СТРАЖА', 'ARMOR LINK': 'СВЯЗЬ БРОНИ', 'SPL SWARM': 'РОЙ ДЕЛИТЕЛЕЙ',
+      'CTRL HUNTER SPLIT': 'КОНТРОЛЛЕР: ДЕЛЕНИЕ ОХОТНИКА', 'QRN ANCHOR': 'КАРАНТИННЫЙ ЯКОРЬ', 'SPK EMPTY': 'ИСКРЫ РАЗРЯЖЕНЫ',
+      'MIRROR FAILED': 'ЗЕРКАЛО НЕ СРАБОТАЛО', 'LOCK RELEASED': 'ЗАХВАТ СНЯТ', 'GHOST MODE': 'РЕЖИМ ПРИЗРАКА',
+      'KILL SWITCH': 'КНОПКА УДАЛЕНИЯ', 'REWIND EXPIRED': 'МЕТКА ОТКАТА ИСЧЕЗЛА', 'INSURANCE PROCESS': 'СТРАХОВОЙ ПРОЦЕСС',
+      'EMERGENCY CLEANSE': 'АВАРИЙНАЯ ОЧИСТКА', 'FALSE ZERO': 'ЛОЖНЫЙ НОЛЬ', 'QUARANTINE BUFFER': 'КАРАНТИННЫЙ БУФЕР',
+      'AEGIS BREAK': 'ЭГИДА РАЗБИТА', 'AEGIS SHELL': 'ОБОЛОЧКА ЭГИДЫ', 'NULL REVIVAL': 'НУЛЕВОЕ ВОЗВРАЩЕНИЕ',
+      'STATUS SPREAD': 'ПЕРЕНОС СТАТУСА', 'ROOT LOCK BROKEN · BOSS EXPOSED': 'КОРНЕВОЙ ЗАМОК СЛОМАН · БОСС УЯЗВИМ',
+      'INCOMPLETE DELETE': 'НЕПОЛНОЕ УДАЛЕНИЕ', 'THERMAL CRACK': 'ТЕРМИЧЕСКИЙ РАЗЛОМ', 'RED OVERDRIVE': 'КРАСНЫЙ ФОРСАЖ',
+      'PORTAL LOCKED': 'ПОРТАЛ ЗАКРЫТ', READY: 'ГОТОВО', 'R READY': 'R ГОТОВА', 'WAGERS OFF': 'СТАВКИ ОТКЛЮЧЕНЫ',
+      'HIDDEN CASINO VIRUS': 'СКРЫТЫЙ ВИРУС КАЗИНО', 'ROOM WAGER OFFER': 'ПРЕДЛОЖЕНИЕ СТАВКИ', 'KILL SWITCH RESET': 'КНОПКА УДАЛЕНИЯ ВОССТАНОВЛЕНА',
+      'PORTAL OPEN': 'ПОРТАЛ ОТКРЫТ', 'NEXT: AUTO': 'СЛЕДУЮЩИЙ: АВТО', 'KILL ALL': 'УДАЛИТЬ ВСЕХ', 'GOD ON': 'НЕУЯЗВИМОСТЬ ВКЛ.',
+      'GOD OFF': 'НЕУЯЗВИМОСТЬ ВЫКЛ.', 'ALL INSTALLS': 'ВСЕ УЛУЧШЕНИЯ', 'FINAL DEPTH READY': 'ФИНАЛЬНАЯ ГЛУБИНА ГОТОВА', EXPOSED: 'УЯЗВИМ',
+      'RED STATIC': 'КРАСНЫЙ СТАТИК', 'BAD COPY': 'ПЛОХАЯ КОПИЯ', 'SLOW NEEDLES': 'МЕДЛЕННЫЕ ИГЛЫ', 'SHELL FEED': 'ПОДПИТКА БРОНИ',
+      'FALSE WIN': 'ЛОЖНЫЙ ВЫИГРЫШ', 'VOID CREDIT': 'КРЕДИТ ПУСТОТЫ', SHATTER: 'РАСКОЛ', 'SHELL SHARDS': 'ОСКОЛКИ БРОНИ',
+      'LATE PULSE': 'ПОЗДНИЙ ИМПУЛЬС', 'DEAD ZONE': 'МЁРТВАЯ ЗОНА', 'RED HUNGER': 'КРАСНЫЙ ГОЛОД', 'FALSE REEL': 'ЛОЖНЫЙ БАРАБАН'
+    };
+    if (exact[s]) return exact[s];
+    return s
+      .replace(/^RED FEED\b/, 'КРАСНАЯ ПОДПИТКА').replace(/^CTRL SPLIT\b/, 'КОНТРОЛЛЕР: ДЕЛЕНИЕ').replace(/^CTRL HP\b/, 'КОНТРОЛЛЕР: ЗДОРОВЬЕ')
+      .replace(/^CTRL HERALD\b/, 'КОНТРОЛЛЕР: ГЛАШАТАЙ').replace(/^CTRL\b/, 'КОНТРОЛЬ').replace(/^CMD\b/, 'ЗАХВАТ').replace(/^SAW\b/, 'РАЗБОР')
+      .replace(/^BOSS KEY USED\b/, 'КЛЮЧ БОССА ИСПОЛЬЗОВАН').replace(/^BOSS KEY\b/, 'КЛЮЧ БОССА').replace(/^MIRRORED KILL SWITCH\b/, 'КОПИЯ КНОПКИ УДАЛЕНИЯ')
+      .replace(/^MIRRORED\b/, 'СКОПИРОВАНО').replace(/^MIRROR RESTORED\b/, 'ЗЕРКАЛО ВОССТАНОВЛЕНО').replace(/^FIELD CLEARED · KILL SWITCH BURNT$/, 'ПОЛЕ ОЧИЩЕНО · КНОПКА УДАЛЕНИЯ ИЗРАСХОДОВАНА')
+      .replace(/^FIELD CLEARED · KILL SWITCH\b/, 'ПОЛЕ ОЧИЩЕНО · КНОПКА УДАЛЕНИЯ').replace(/^PAYOUT\b/, 'ВЫПЛАТА').replace(/^CLEANSE\b/, 'ОЧИЩЕНО')
+      .replace(/^SALVAGE x5\b/, 'СБОР ×5').replace(/^WPN LINK\b/, 'СВЯЗЬ ОРУЖИЯ').replace(/^VOID POINTS\b/, 'ТОЧКИ ПУСТОТЫ')
+      .replace(/^WPN CHEST\b/, 'ОРУЖЕЙНЫЙ СУНДУК').replace(/^LUCK\b/, 'УДАЧА').replace(/^NEXT:\s*/, 'СЛЕДУЮЩИЙ: ')
+      .replace(/^STATIC\b/, 'СТАТИК').replace(/^BLOOD\b/, 'КРОВЬ').replace(/^ECHO ARMED\b/, 'ЭХО ЗАРЯЖЕНО').replace(/^VOID PHASE\b/, 'ФАЗА ПУСТОТЫ')
+      .replace(/^LEECH\b/, 'ВАМПИРИЗМ').replace(/^ARMOR BREAK\b/, 'РАЗЛОМ БРОНИ').replace(/^ANCHOR\b/, 'ЯКОРЬ').replace(/^HUNGER PULSE\b/, 'ИМПУЛЬС ГОЛОДА')
+      .replace(/^BAD TAPE\b/, 'ПЛОХАЯ ПЛЁНКА').replace(/^SHELL LOCK\b/, 'БЛОКИРОВКА БРОНИ').replace(/^VOID LINK\b/, 'СВЯЗЬ ПУСТОТЫ').replace(/^VOID LASER\b/, 'ЛУЧ ПУСТОТЫ')
+      .replace(/^SHRAPNEL\b/, 'ОСКОЛКИ').replace(/^SEK SWARM\b/, 'РОЙ ИСКАТЕЛЯ').replace(/^SHG LONGSHOT\b/, 'ДАЛЬНИЙ ЗАЛП').replace(/^RKT DETONATE\b/, 'ПОДРЫВ РАЗЛОМА')
+      .replace(/^SPIKE CHARGE\b/, 'ЗАРЯД ШИПА').replace(/\bTARGETS\b/g, 'ЦЕЛЕЙ').replace(/\bDAMAGE\b/g, 'УРОН').replace(/\bTOTAL\b/g, 'ВСЕГО')
+      .replace(/\bLEFT\b/g, 'ОСТАЛОСЬ').replace(/\bCAPTURED?\b/g, 'ЗАХВАТ').replace(/\bKILL SWITCH\b/g, 'КНОПКА УДАЛЕНИЯ')
+      .replace(/\bMIRROR PAYOUT\b/g, 'ЗЕРКАЛЬНЫЙ ПРИЗ').replace(/\bAEGIS PROCESS\b/g, 'ПРОЦЕСС ЭГИДЫ').replace(/\bNULL REVIVAL\b/g, 'НУЛЕВОЕ ВОЗВРАЩЕНИЕ')
+      .replace(/\bWPN\b/g, 'ОРУЖИЕ').replace(/\bABL\b/g, 'ПРОТОКОЛ').replace(/\bRAR\b/g, 'РЕДКИЙ').replace(/\bSHG\b/g, 'КЛИНОВОЙ РАЗРЯД')
+      .replace(/\bSEK\b/g, 'ИСКАТЕЛЬ').replace(/\bRKT\b/g, 'РАЗЛОМНЫЙ ЗАРЯД').replace(/\bDRV\b/g, 'ДРАЙВЕР').replace(/\bRANGE\b/g, 'ДАЛЬНОСТЬ')
+      .replace(/\bBASIC\b/g, 'БАЗОВЫЙ').replace(/\bUNCOMMON\b/g, 'НЕОБЫЧНЫЙ').replace(/\bUNIQUE\b/g, 'УНИКАЛЬНЫЙ').replace(/\bRARE\b/g, 'РЕДКИЙ').replace(/\bEPIC\b/g, 'ЭПИЧЕСКИЙ').replace(/\bLEGENDARY\b/g, 'ЛЕГЕНДАРНЫЙ')
+      .replace(/\bGLD\b/g, 'КРЕДИТЫ').replace(/\bEXP\b/g, 'ОПЫТ').replace(/\bHEAL\b/g, 'ЛЕЧЕНИЕ').replace(/\bx(?=\d)/g, '×');
+  }
+  return locLabel(s);
+}
+function casinoSymbolText(value) {
+  const s = String(value || '?').toUpperCase();
+  const ru = { GLD:'КРД', EXP:'ОПТ', STC:'СТК', WPN:'ОРЖ', ABL:'ПРТ', BAD:'ДОЛ', JCK:'ДЖК', RAR:'РЕД', HP:'ЗДР', WIN:'ПРИЗ', LOSE:'МИМО', PAY:'ВЫП', BET:'СТВ' };
+  return localText(ru[s] || s, s);
 }
 
 export class Effects {
@@ -108,8 +163,8 @@ export class Effects {
       case 'gld_hit':
         if (mine) { this.hitFlash = Math.min(0.50, 0.22); this.kick(Math.min(2.8, 0.8 + (f.cost || 0) * 0.012)); }
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.24, color: '#ffd34d' });
-        this.float(f.x + (Math.random() - 0.5) * 20, f.y - 20, `-${f.cost || 0} GLD`, '#ffd34d', 13);
-        if (mine) this.float(f.x, f.y - 38, `BAL ${f.balance ?? 0}`, '#ff3048', 10);
+        this.float(f.x + (Math.random() - 0.5) * 20, f.y - 20, `-${f.cost || 0} ${localText('КРЕДИТОВ', 'CREDITS')}`, '#ffd34d', 13);
+        if (mine) this.float(f.x, f.y - 38, `${localText('ОСТАТОК', 'BALANCE')} ${f.balance ?? 0}`, '#ff3048', 10);
         break;
       case 'shot': {
         const dx = (f.dx || 100) / 100, dy = (f.dy || 0) / 100;
@@ -165,28 +220,28 @@ export class Effects {
         break;
       case 'player_jump_wall':
         this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, mul: f.mul || 1, ttl: 0.18, color: '#f3f3f3' });
-        if (f.mul > 1) this.float(f.x, f.y - 48, `x${f.mul}`, '#66f6ff', Math.min(28, 18 + (f.mul - 2) * 1.3));
+        if (f.mul > 1) this.float(f.x, f.y - 48, `×${f.mul}`, '#66f6ff', Math.min(28, 18 + (f.mul - 2) * 1.3));
         if (mine) { this.kick(f.mul > 1 ? 4.2 : 3.2); this.zoomKick = Math.max(this.zoomKick, f.mul > 1 ? 0.075 : 0.05); }
         break;
       case 'player_jump_land':
         this.add({ kind: 'jumpLand', x: f.x, y: f.y, r: f.r || 108, ttl: 0.42, color: '#66f6ff' });
-        if (f.mul > 1) this.float(f.x, f.y - 38, `IMPACT x${f.mul}`, '#66f6ff', 14);
+        if (f.mul > 1) this.float(f.x, f.y - 38, `${localText('УДАР', 'IMPACT')} ×${f.mul}`, '#66f6ff', 14);
         if (mine) { this.kick(4.5); this.zoomKick = Math.max(this.zoomKick, 0.075); }
         break;
       case 'impact_wall_place':
         this.add({ kind: 'denybox', x: f.x, y: f.y, ttl: 0.42, color: f.phased ? '#ffd34d' : '#66f6ff' });
-        this.float(f.x, f.y - 30, f.phased ? `FWL PHASE · ${f.count || 1}/${f.max || 1}` : `FWL ${f.count || 1}/${f.max || 1}`, f.phased ? '#ffd34d' : '#66f6ff', 11);
+        this.float(f.x, f.y - 30, f.phased ? `${localText('БЛОК: ФАЗА', 'BLOCK PHASE')} · ${f.count || 1}/${f.max || 1}` : `${localText('БЛОК', 'BLOCK')} ${f.count || 1}/${f.max || 1}`, f.phased ? '#ffd34d' : '#66f6ff', 11);
         if (mine) { this.kick(2.4); this.zoomKick = Math.max(this.zoomKick, 0.045); }
         break;
       case 'impact_wall_push':
-        this.add({ kind: 'impactWallImpulse', x: f.x, y: f.y, contactX: f.contactX, contactY: f.contactY, w: f.w || 66, h: f.h || 66, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.44, color: '#b45cff' });
+        this.add({ kind: 'impactWallImpulse', x: f.x, y: f.y, contactX: f.contactX, contactY: f.contactY, w: f.w || 66, h: f.h || 66, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.22, color: f.mode === 'pull' ? '#66f6ff' : '#b45cff' });
         this.add({ kind: 'impactWallStop', x: f.x, y: f.y, w: f.w || 66, h: f.h || 66, ttl: 0.20, color: '#f3f3f3' });
-        this.float(f.x, f.y - 42, 'PUSH', '#b45cff', 15);
+        this.float(f.x, f.y - 42, f.mode === 'pull' ? localText('ПРИТЯЖЕНИЕ', 'PULL') : localText('ТОЛЧОК', 'PUSH'), f.mode === 'pull' ? '#66f6ff' : '#b45cff', 15);
         if (mine) { this.kick(5.4); this.zoomKick = Math.max(this.zoomKick, 0.095); }
         break;
       case 'impact_wall_bounce':
         this.add({ kind: 'jumpWallHit', x: f.x, y: f.y, nx: f.nx || 0, ny: f.ny || 0, mul: f.mul || 1, ttl: 0.18, color: '#b45cff' });
-        this.float(f.x, f.y - 34, `PUSH x${f.mul || 1}`, '#b45cff', 12);
+        this.float(f.x, f.y - 34, `${localText('ТОЛЧОК', 'PUSH')} ×${f.mul || 1}`, '#b45cff', 12);
         if (mine) this.kick(3.4);
         break;
       case 'impact_wall_stop':
@@ -195,12 +250,12 @@ export class Effects {
         break;
       case 'impact_wall_hit':
         this.add({ kind: 'impactWallDamage', x: f.x, y: f.y, dx: f.dx || 0, dy: f.dy || 0, ttl: 0.34, color: f.armor ? '#66f6ff' : '#b45cff' });
-        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 32, f.armor ? `PUSH -${f.damage} ARMOR` : `PUSH -${f.damage}`, f.armor ? '#66f6ff' : '#b45cff', 15);
+        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 32, f.armor ? `${localText('ТОЛЧОК', 'PUSH')} -${f.damage} ${localText('БРОНИ', 'ARMOR')}` : `${localText('ТОЛЧОК', 'PUSH')} -${f.damage}`, f.armor ? '#66f6ff' : '#b45cff', 15);
         if (mine) { this.kick(4.8); this.zoomKick = Math.max(this.zoomKick, 0.07); }
         break;
       case 'impact_wall_phase_hit':
         this.add({ kind: 'impactWallDamage', x: f.x, y: f.y, dx: 0, dy: -100, ttl: 0.28, color: '#ffd34d' });
-        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 24, `FWL -${f.damage}`, '#ffd34d', 14);
+        if (Number(f.damage || 0) > 0) this.float(f.x, f.y - 24, `${localText('БЛОК', 'BLOCK')} -${f.damage}`, '#ffd34d', 14);
         if (mine) this.kick(2.2);
         break;
       case 'impact_wall_end':
@@ -216,8 +271,8 @@ export class Effects {
         break;
       case 'pick':
         if (f.type === 'GLD') this.float(f.x, f.y, `+${f.val}`, '#00ff66', 12);
-        else if (f.type === 'EXP') this.float(f.x, f.y, `+${f.val} EXP`, '#66f6ff', 11);
-        else if (f.type === 'HEA') this.float(f.x, f.y, `+${f.val} HP`, '#00ff66', 13);
+        else if (f.type === 'EXP') this.float(f.x, f.y, `+${f.val} ${localText('ОПЫТ', 'EXPERIENCE')}`, '#66f6ff', 11);
+        else if (f.type === 'HEA') this.float(f.x, f.y, `+${f.val} ${localText('ЗДОРОВЬЕ', 'HEALTH')}`, '#00ff66', 13);
         break;
       case 'denied':
         if (mine) {
@@ -309,13 +364,13 @@ export class Effects {
         break;
       case 'armor_break':
         this.add({ kind: 'rocketBlast', x: f.x, y: f.y, r: 72, ttl: 0.24, color: '#66f6ff' });
-        this.float(f.x, f.y - 42, 'SHELL BREAK', '#66f6ff', 12);
+        this.float(f.x, f.y - 42, localText('БРОНЯ РАЗБИТА', 'ARMOR BROKEN'), '#66f6ff', 12);
         this.kick(4);
         break;
       case 'shell_lock':
         this.add({ kind: 'chainLock', activeKind: 'shell_lock', x: f.x, y: f.y, r: f.r || 54, ttl: 0.34, color: '#b45cff' });
         this.add({ kind: 'squareField', activeKind: 'shell_lock_core', x: f.x, y: f.y, r: Math.max(28, (f.r || 54) * 0.62), ttl: 0.26, color: '#66f6ff', tick: 1 });
-        this.float(f.x, f.y - 42, 'SHELL LOCK', '#b45cff', 10);
+        this.float(f.x, f.y - 42, localText('БРОНЯ ЗАПЕРТА', 'ARMOR LOCKED'), '#b45cff', 10);
         break;
       case 'armor_link':
         this.add({ kind: 'line', x: f.x, y: f.y, x2: f.x2, y2: f.y2, ttl: 0.26, color: '#ff3048', dash: true });
@@ -397,12 +452,12 @@ export class Effects {
         break;
       case 'dash_stun':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: f.r || 72, ttl: 0.30, color: '#f3f3f3', tick: 1 });
-        this.float(f.x, f.y - 36, `STUN x${f.count || 1}`, '#f3f3f3', 10);
+        this.float(f.x, f.y - 36, `${localText('ОГЛУШЕНИЕ', 'STUN')} ×${f.count || 1}`, '#f3f3f3', 10);
         if (mine) this.kick(2);
         break;
       case 'dash_void': {
         this.add({ kind: 'voidDashRift', x: f.x1, y: f.y1, x2: f.x2, y2: f.y2, w: f.w || 48, ttl: 0.30, color: '#b45cff' });
-        if (f.count) this.float((f.x1 + f.x2) / 2, (f.y1 + f.y2) / 2 - 34, `VOID x${f.count}`, '#b45cff', 10);
+        if (f.count) this.float((f.x1 + f.x2) / 2, (f.y1 + f.y2) / 2 - 34, `${localText('ПУСТОТА', 'VOID')} ×${f.count}`, '#b45cff', 10);
         if (mine) this.kick(2);
         break;
       }
@@ -423,7 +478,7 @@ export class Effects {
         // STATIC STRIKE already owns a full-duration rain_warn telegraph. The old
         // generic 0.26s field vanished long before damage and looked like a miss.
         if (!isStaticStrike) this.add({ kind: isBox ? 'blackBoxAura' : 'squareField', activeKind: isBox ? 'black_box' : (isFreeze ? 'freeze_aura' : String(f.label || '').toLowerCase().replace(/ .*/, '')), x: f.x, y: f.y, r: f.r || 160, ttl: isBox ? 0.38 : 0.26, color: col, cast: isBox ? 1 : 0 });
-        this.float(f.x, f.y - 50, fxLabel(f.label || 'Q'), col, 12);
+        this.float(f.x, f.y - 50, fxLabel({ ...f, label: f.label || 'Q' }), col, 12);
         break;
       }
       case 'black_box_cast':
@@ -466,7 +521,7 @@ export class Effects {
         const r = Math.max(36, Number(f.size || 24) + 32);
         this.add({ kind: 'chainLock', activeKind: 'ctrl_proc_expire', x: f.x, y: f.y, r, ttl: 0.32, color: col });
         this.add({ kind: 'squareField', activeKind: 'ctrl_proc_expire_core', x: f.x, y: f.y, r: Math.max(26, r * 0.55), ttl: 0.28, color: col, tick: 1 });
-        if (f.label) this.float(f.x, f.y - Math.max(34, Number(f.size || 24)), `${localText('ПРОЦЕСС ЗАВЕРШЁН', 'PROCESS END')} ${fxLabel(f.label || '')}`.trim(), col, 9);
+        if (f.label || f.labelRu || f.labelEn) this.float(f.x, f.y - Math.max(34, Number(f.size || 24)), `${localText('ПРОЦЕСС ЗАВЕРШЁН', 'PROCESS END')} ${fxLabel(f)}`.trim(), col, 9);
         break;
       }
       case 'weapon_chain_lock':
@@ -475,7 +530,7 @@ export class Effects {
       case 'element_hit': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : '#66f6ff';
         this.add({ kind: 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 48, ttl: 0.18, color: col, tick: 1 });
-        if (f.label) this.float(f.x, f.y - 34, fxLabel(f.label), col, 8);
+        if (f.label || f.labelRu || f.labelEn) this.float(f.x, f.y - 34, fxLabel(f), col, 8);
         break;
       }
       case 'active_field': {
@@ -501,26 +556,26 @@ export class Effects {
           const a = (i / Math.max(1, Math.min(6, 2 + stack))) * Math.PI * 2;
           this.add({ kind: 'squareField', activeKind: 'redline_speed_line', x: f.x + Math.cos(a) * 24, y: f.y + Math.sin(a) * 24, r: 42 + stack * 5, ttl: 0.18 + i * 0.025, color: '#ff3048', tick: 1 });
         }
-        this.float(f.x, f.y - 56, `REDLINE x${stack}`, '#ff3048', 13);
+        this.float(f.x, f.y - 56, `${localText('КРАСНАЯ ЛИНИЯ', 'REDLINE')} ×${stack}`, '#ff3048', 13);
         break;
       }
       case 'ghost_decoy': {
         if (mine) { this.slam = Math.max(this.slam, 0.10); this.kick(5); }
         this.add({ kind: 'squareField', activeKind: 'ghost_decoy_start', x: f.x, y: f.y, r: f.r || 125, ttl: 0.42, color: '#66f6ff', tick: 1 });
-        this.float(f.x, f.y - 56, 'GHOST MODE', '#66f6ff', 13);
+        this.float(f.x, f.y - 56, localText('РЕЖИМ ПРИЗРАКА', 'GHOST MODE'), '#66f6ff', 13);
         break;
       }
       case 'active_mutation': {
         const col = f.tone === 'red' ? '#ff3048' : f.tone === 'green' ? '#00ff66' : f.tone === 'purple' ? '#b45cff' : '#66f6ff';
         this.add({ kind: f.squareBlast ? 'rocketBlast' : 'squareField', activeKind: String(f.label || '').toLowerCase(), x: f.x, y: f.y, r: f.r || 95, ttl: f.squareBlast ? 0.22 : 0.24, color: col });
-        if (f.label && !f.noFloat) this.float(f.x, f.y - 42, fxLabel(f.label), col, 10);
+        if ((f.label || f.labelRu || f.labelEn) && !f.noFloat) this.float(f.x, f.y - 42, fxLabel(f), col, 10);
         break;
       }
       case 'lc_target_lock': {
         const col = f.gun === 'sparks' ? '#b45cff' : '#00ff66';
         if (mine) this.kick(f.enabled ? 1.6 : 0.8);
         this.add({ kind: 'squareField', activeKind: 'lc_target_lock', x: f.x, y: f.y, r: f.r || 48, ttl: 0.22, color: col, tick: 1 });
-        this.float(f.x, f.y - 32, f.enabled ? fxLabel(f.gun === 'sparks' ? 'SPK MARK' : 'LVC MARK') : fxLabel('MARK OFF'), col, 10);
+        this.float(f.x, f.y - 32, f.enabled ? localText(f.gun === 'sparks' ? 'МЕТКА ИСКР' : 'МЕТКА КАЗИНО', f.gun === 'sparks' ? 'SPARK MARK' : 'CASINO MARK') : localText('МЕТКА СНЯТА', 'MARK OFF'), col, 10);
         break;
       }
       case 'lc_target_miss': {
@@ -551,11 +606,11 @@ export class Effects {
       }
       case 'rewind_mark':
         if (mine) { this.rewindPulse = 0.42; this.kick(3); }
-        this.float(f.x, f.y - 42, 'REWIND MARK', '#b45cff', 10);
+        this.float(f.x, f.y - 42, localText('МЕТКА ОТКАТА', 'REWIND MARK'), '#b45cff', 10);
         break;
       case 'rewind_return':
         if (mine) { this.rewindPulse = 0.82; this.slam = Math.max(this.slam, 0.12); this.kick(9); }
-        this.float(f.x, f.y - 56, `REWIND STUN x${f.hit || 0}`, '#b45cff', 13);
+        this.float(f.x, f.y - 56, `${localText('ОГЛУШЕНИЕ ОТКАТА', 'REWIND STUN')} ×${f.hit || 0}`, '#b45cff', 13);
         break;
       case 'kill_switch_screen':
         if (mine) { this.killSwitchFlash = 1; this.slam = Math.max(this.slam, 0.35); this.kick(14); }
@@ -564,7 +619,7 @@ export class Effects {
       case 'null_revival_screen':
         if (mine) { this.nullRevivalFlash = 1; this.slam = Math.max(this.slam, 0.26); this.kick(11); }
         this.add({ kind: 'squareField', activeKind: 'null_revival_screen', x: f.x, y: f.y, r: 560, ttl: 0.70, color: '#b45cff' });
-        this.float(f.x, f.y - 68, fxLabel(f.label || 'NULL REVIVAL'), '#b45cff', 16);
+        this.float(f.x, f.y - 68, fxLabel((f.label || f.labelRu || f.labelEn) ? f : localText('НУЛЕВОЕ ВОЗВРАЩЕНИЕ', 'NULL REVIVAL')), '#b45cff', 16);
         break;
       case 'combo_tick': {
         const mult = Number(f.mult || 1);
@@ -581,12 +636,12 @@ export class Effects {
         break;
       case 'director_room':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 190, ttl: 0.55, color: '#66f6ff' });
-        this.float(f.x, f.y - 58, fxLabel(f.label || 'DIRECTOR'), '#66f6ff', 12);
+        this.float(f.x, f.y - 58, fxLabel((f.label || f.labelRu || f.labelEn) ? f : localText('ДИРЕКТОР', 'DIRECTOR')), '#66f6ff', 12);
         break;
       case 'director_wave': {
         const col = f.intent === 'armor' ? '#b45cff' : (f.intent === 'ranged' || f.intent === 'control' ? '#66f6ff' : '#ff3048');
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 140 + Math.min(80, (f.count || 1) * 12), ttl: 0.44, color: col });
-        this.float(f.x, f.y - 48, fxLabel(f.label || 'WAVE'), col, 11);
+        this.float(f.x, f.y - 48, fxLabel((f.label || f.labelRu || f.labelEn) ? f : localText('ВОЛНА', 'WAVE')), col, 11);
         break;
       }
       case 'path_turn':
@@ -627,13 +682,15 @@ export class Effects {
         // breaks into 4 colored physical quarters, then the quarters magnetize back.
         // The slot mob entity is not present in the snapshot until this chain has fully ended.
         this.add({ kind: 'slotBreakChunks', x: f.x, y: f.y, x2: f.sx || f.x, y2: f.sy || f.y, ttl: d + hold + dur * 4 + step * 3 + 2.35, color: '#ffd34d', delay: 0, preBreak: d, hold, gatherStep: step, gatherDur: dur, heavy: 1, physical: 1, spawn: 1, mobSize: f.mobSize || 44 });
-        this.float(f.x, f.y - 70, fxLabel(f.label || 'SLOT OVERLOAD'), '#ff3048', 16);
+        this.float(f.x, f.y - 70, fxLabel((f.label || f.labelRu || f.labelEn) ? f : localText('ПЕРЕГРУЗКА СЛОТА', 'SLOT OVERLOAD')), '#ff3048', 16);
         this.slam = 0.55; this.kick(10);
         break;
       }
       case 'slot_mob_roll':
         this.add({ kind: 'squareField', x: f.x, y: f.y, r: 96, ttl: 0.34, color: '#ffd34d' });
-        this.float(f.x, f.y - 42, String(f.mode || 'ROLL').toUpperCase(), '#ffd34d', 9);
+        const slotMode = String(f.mode || 'ROLL').toUpperCase();
+        const slotModeRu = { ROLL: 'БРОСОК', RUNNER: 'БЕГУН', SHOOTER: 'СТРЕЛОК', CHARGER: 'ТАРАН', PULSE: 'ИМПУЛЬС', REBUILD: 'ПЕРЕСБОРКА' }[slotMode] || 'СЛОТ';
+        this.float(f.x, f.y - 42, localText(slotModeRu, slotMode), '#ffd34d', 9);
         break;
       case 'slot_mob_roll_tick':
         this.add({ kind: 'slotTick', x: f.x, y: f.y, ttl: 0.22, color: '#ffd34d' });
@@ -759,17 +816,13 @@ export class Effects {
         ctx.fillRect(Math.round(e.x + dx * 10 - block/2), Math.round(e.y + dy * 10 - block/2), block, block);
       } else if (e.kind === 'impactWallImpulse') {
         const fade = 1 - p, n = Math.hypot(e.dx || 0, e.dy || 0) || 1, dx = (e.dx || 0) / n, dy = (e.dy || 0) / n, nx = -dy, ny = dx;
-        ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1.5, 4 - p * 2.4);
-        const front = 26 + p * 94;
-        for (let i = -3; i <= 3; i++) { const side = i * 9; ctx.globalAlpha = fade * (0.92 - Math.abs(i) * 0.09); ctx.beginPath(); ctx.moveTo(e.x + dx * (8 + p * 18) + nx * side, e.y + dy * (8 + p * 18) + ny * side); ctx.lineTo(e.x + dx * front + nx * side * 0.48, e.y + dy * front + ny * side * 0.48); ctx.stroke(); }
-        ctx.globalAlpha = fade * 0.72;
-        const frame = Math.max(e.w || 66, e.h || 66) * (0.60 + p * 0.62);
-        ctx.strokeRect(e.x - frame / 2, e.y - frame / 2, frame, frame);
-        for (let i = -2; i <= 2; i++) {
-          const side = i * 11, back = 32 + p * (58 + Math.abs(i) * 8), size = Math.max(3, 8 - p * 4);
-          ctx.globalAlpha = fade * (0.62 - Math.abs(i) * 0.07);
-          ctx.fillRect(Math.round(e.x - dx * back + nx * side - size / 2), Math.round(e.y - dy * back + ny * side - size / 2), size, size);
+        ctx.strokeStyle = e.color; ctx.lineWidth = 1.35; ctx.setLineDash([4, 4]);
+        for (let i = -1; i <= 1; i++) {
+          const side = i * 7, start = 20 + p * 5, end = 31 + p * 8;
+          ctx.globalAlpha = fade * (i === 0 ? 0.56 : 0.34);
+          ctx.beginPath(); ctx.moveTo(e.x + dx * start + nx * side, e.y + dy * start + ny * side); ctx.lineTo(e.x + dx * end + nx * side, e.y + dy * end + ny * side); ctx.stroke();
         }
+        ctx.setLineDash([]);
       } else if (e.kind === 'impactWallDamage') {
         const fade = 1 - p, n = Math.hypot(e.dx || 0, e.dy || -1) || 1, dx = (e.dx || 0) / n, dy = (e.dy || -1) / n, nx = -dy, ny = dx;
         ctx.strokeStyle = e.color; ctx.fillStyle = e.color; ctx.lineWidth = Math.max(1, 4 - p * 2.4); ctx.globalAlpha = fade * 0.92;
@@ -1192,7 +1245,7 @@ export class Effects {
             ctx.strokeStyle = ctx.fillStyle;
             ctx.lineWidth = 1.5;
             ctx.strokeRect(-sz/2, -sz/2, sz, sz);
-          } else ctx.fillText(bit.sym, 0, 0);
+          } else ctx.fillText(casinoSymbolText(bit.sym), 0, 0);
           ctx.restore();
         }
         ctx.restore();
@@ -1335,7 +1388,7 @@ export class Effects {
           }
           ctx.globalAlpha = fade * 0.62;
           ctx.fillStyle = col;
-          ctx.fillText('JCK', Math.round(e.x2 + nx * 26), Math.round(e.y2 + ny * 26));
+          ctx.fillText(casinoSymbolText('JCK'), Math.round(e.x2 + nx * 26), Math.round(e.y2 + ny * 26));
         } else if (style === 'dead_channel') {
           // DEAD CHANNEL: broken TV frames, scanline debris, antenna glyphs, NO SIG tag.
           ctx.globalAlpha = fade * 0.68;
@@ -1373,7 +1426,7 @@ export class Effects {
           ctx.font = `bold ${Math.max(8, Math.round(10 + 2 * fade))}px 'Courier New', monospace`;
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.globalAlpha = fade * 0.52; ctx.fillStyle = alt;
-          ctx.fillText('NO SIG', Math.round(e.x2 + nx * 30), Math.round(e.y2 + ny * 30));
+          ctx.fillText(localText('НЕТ СИГНАЛА', 'NO SIGNAL'), Math.round(e.x2 + nx * 30), Math.round(e.y2 + ny * 30));
           ctx.globalAlpha = fade * 0.26; ctx.fillStyle = col;
           for (let i = 0; i < 12; i++) {
             const q = (i + 0.2) / 12;
@@ -1698,7 +1751,7 @@ export class Effects {
           ctx.fillRect(Math.round(bx - 6), Math.round(by - 6), 12, 12);
         }
         ctx.font = `bold 10px 'Courier New', monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('HRD CALL', Math.round(e.x), Math.round(e.y - base * 0.95));
+        ctx.fillText(localText('ПРИЗЫВ ВЕСТНИКА', 'HERALD CALL'), Math.round(e.x), Math.round(e.y - base * 0.95));
         ctx.restore();
       } else if (e.kind === 'casinoRollSlotsFollow') {
         const fade = Math.max(0, 1 - p);
@@ -1727,7 +1780,7 @@ export class Effects {
           ctx.fillRect(Math.round(x - w / 2 + 2), Math.round(y - h / 2 + 2 + pulse), w - 4, h - 4);
           ctx.globalAlpha = fade * (locked ? 0.92 : 0.58);
           ctx.fillStyle = locked ? '#f3f3f3' : (e.color || '#ffd34d');
-          ctx.fillText(sym.slice(0, 4), Math.round(x), Math.round(y + 1 + pulse));
+          ctx.fillText(casinoSymbolText(sym).slice(0, 4), Math.round(x), Math.round(y + 1 + pulse));
         }
         ctx.setLineDash([]);
         ctx.restore();
@@ -1747,7 +1800,7 @@ export class Effects {
           ctx.strokeRect(Math.round(x - w / 2), Math.round(y - h / 2), w, h);
           ctx.globalAlpha = fade * 0.38;
           ctx.fillStyle = e.color || '#00ff66';
-          ctx.fillText(String(slots[i] || '?').slice(0, 4), Math.round(x), Math.round(y + 1));
+          ctx.fillText(casinoSymbolText(slots[i]).slice(0, 4), Math.round(x), Math.round(y + 1));
           ctx.globalAlpha = fade * 0.72;
         }
         ctx.setLineDash([]);
@@ -1903,7 +1956,7 @@ export class Effects {
       ctx.font = `bold ${Math.round(16 + 2 * p)}px 'Courier New', monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this.levelLabel || 'LEVEL UP', cx, cy - 3);
+      ctx.fillText(this.levelLabel || localText('НОВЫЙ УРОВЕНЬ', 'LEVEL UP'), cx, cy - 3);
       ctx.font = `bold 9px 'Courier New', monospace`;
       ctx.fillText(localText('УЛУЧШЕНИЕ ГОТОВО', 'INSTALL READY'), cx, cy + 12);
       ctx.restore();
@@ -1918,7 +1971,7 @@ export class Effects {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = `rgba(243,243,243,${0.70 * p})`;
-      ctx.fillText('REWIND', cx, cy - 56);
+      ctx.fillText(localText('ОТКАТ', 'REWIND'), cx, cy - 56);
       ctx.restore();
     }
     if (this.killSwitchFlash > 0) {
@@ -1935,9 +1988,9 @@ export class Effects {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = `rgba(243,243,243,${0.95 * p})`;
-      ctx.fillText('KILL SWITCH', w / 2, h * 0.38);
+      ctx.fillText(localText('КНОПКА УДАЛЕНИЯ', 'KILL SWITCH'), w / 2, h * 0.38);
       ctx.font = `bold 11px 'Courier New', monospace`;
-      ctx.fillText('FIELD CLEARED', w / 2, h * 0.38 + 26);
+      ctx.fillText(localText('ПОЛЕ ОЧИЩЕНО', 'FIELD CLEARED'), w / 2, h * 0.38 + 26);
       ctx.restore();
     }
     if (this.nullRevivalFlash > 0) {
@@ -1958,7 +2011,7 @@ export class Effects {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = `rgba(243,243,243,${0.96 * p})`;
-      ctx.fillText('NULL REVIVAL', cx, cy - 4);
+      ctx.fillText(localText('НУЛЕВОЕ ВОССТАНОВЛЕНИЕ', 'NULL REVIVAL'), cx, cy - 4);
       ctx.font = `bold 11px 'Courier New', monospace`;
       ctx.fillText(localText('СМЕРТЬ ОТМЕНЕНА · ВОЗВРАТ В ЦЕНТР', 'DEATH DENIED · CENTER REBOOT'), cx, cy + 25);
       ctx.restore();

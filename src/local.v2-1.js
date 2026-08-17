@@ -96,7 +96,8 @@ export class LocalRoom {
       slots, reason: offer.rarityReason || '',
       cost: offer.costPaid || 0, unit: offer.costUnit || 'GLD', rerollSeq: offer.rerollAnimSeq || 0,
       picksTotal, picksRemaining,
-      pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [], pickSeq: offer.pickSeq || 0,
+      pickedLabels: Array.isArray(offer.pickedLabels) ? offer.pickedLabels : [],
+      pickedLabelPairs: Array.isArray(offer.pickedLabelPairs) ? offer.pickedLabelPairs : [], pickSeq: offer.pickSeq || 0,
       contractPrize: offer.contractPrize ? 1 : 0,
       expires: Math.max(0, Number(offer.expires || 0)), total: Math.max(0, Number(offer.total || 0))
     };
@@ -235,6 +236,7 @@ export class LocalRoom {
     if (m.ractive) p.wantRActive = true;
     if (m.secondary) p.wantSecondary = true;
     if (m.jump && this.run.phase === 'play' && (p.hero === 'impact_driver' || p.skin?.hero === 'impact_driver')) p.wantJump = true;
+    if (m.wall && this.run.phase === 'play' && (p.hero === 'impact_driver' || p.skin?.hero === 'impact_driver')) p.wantWall = true;
     if (typeof m.wpn === 'number' && m.wpn >= 0 && m.wpn <= 8) p.wantWeapon = m.wpn | 0;
   }
 

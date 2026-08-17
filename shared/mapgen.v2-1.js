@@ -632,21 +632,18 @@ function chestRarityProfile(rng, chest, loopIndex = 0, greed = false, modIds = [
   if (mood > 0.86) score += 0.10;
 
   let chestTier = 0;
-  if (score >= 1.02) chestTier = 3;
+  // Five fixed visual bands for paid choice chests:
+  // simple / good / valuable / rare / unique = 1 / 2 / 3 / 4 / 5 slots.
+  // UNIQUE inherits the old top-band threshold so the former best chest keeps
+  // its frequency; RARE takes only the upper slice of the old valuable band.
+  if (score >= 1.02) chestTier = 4;
+  else if (score >= 0.94) chestTier = 3;
   else if (score >= 0.76) chestTier = 2;
   else if (score >= 0.46) chestTier = 1;
   if (rareBase) chestTier = Math.max(chestTier, 2);
   if (cursed) chestTier = Math.max(chestTier, 2);
 
-  let slotCount = 0;
-  if (paidChoice) {
-    if (chestTier >= 3) slotCount = 5;
-    else if (chestTier === 2) slotCount = rng() < 0.70 ? 3 : 2;
-    // Simple/good paid chests must stay compact: never more than two choices.
-    // The big 5-slot / double-pick rule is reserved for the most valuable tier only.
-    else if (chestTier === 1) slotCount = rng() < 0.72 ? 2 : 1;
-    else slotCount = rng() < 0.62 ? 1 : 2;
-  }
+  const slotCount = paidChoice ? chestTier + 1 : 0;
 
   // Cost is calculated in sim from tier + slotCount. Keep costMul as a small profile override only.
   const costMul = 1;
@@ -682,9 +679,9 @@ function genInteractables(rng, category, loopIndex, greed, modIds = [], specialR
     objs.push(makeChestObj(`c${id++}`, rng, 'basic_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, costMul: 0, bscBoost: 2, rarityReason: 'CHILL ROOM + BOOSTED BSC' }));
     objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
     objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 2, slotCount: 3, costMul: 1.42, rarityReason: 'CHILL ROOM' }));
-    objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + RARE' }));
-    objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + RARE' }));
-    if (loopIndex >= 3) objs.push(makeChestObj(`c${id++}`, rng, 'rare_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 3, costMul: 2.05, rarityReason: 'CHILL ROOM + LOOP' }));
+    objs.push(makeChestObj(`c${id++}`, rng, 'weapon_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 4, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + UNIQUE' }));
+    objs.push(makeChestObj(`c${id++}`, rng, 'ability_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 4, slotCount: 5, costMul: 2.15, rarityReason: 'CHILL ROOM + UNIQUE' }));
+    if (loopIndex >= 3) objs.push(makeChestObj(`c${id++}`, rng, 'rare_chest', loopIndex, greed, modIds, specialRoomId, mood, { chestTier: 4, costMul: 2.05, rarityReason: 'CHILL ROOM + LOOP' }));
     return objs;
   }
   const density = rng() * 1.35 + loopIndex * 0.055 + (greed ? 0.28 : 0) + (debtFloor ? 0.45 : 0) + (rewardPocket ? 0.6 : 0);
@@ -792,9 +789,10 @@ export function generateRoom(seed, runDepth, loopIndex, override = null) {
     for (let i = 0; i < 2; i++) {
       const chest = starterRng() < 0.5 ? 'weapon_chest' : 'ability_chest';
       interactables.push(makeChestObj(`starter_choice_${i + 1}`, starterRng, chest, loopIndex, greed, modifierIds, specialRoomId, 0.5, {
-        chestTier: 0,
+        chestTier: 1,
         slotCount: 2,
-        costMul: 0.55,
+        // Preserve the old first-room final price after SIMPLE -> GOOD.
+        costMul: 0.43,
         rarityReason: 'FIRST SECTOR',
         firstRoomGuaranteed: 1
       }));

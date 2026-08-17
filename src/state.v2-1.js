@@ -105,7 +105,7 @@ export class GameState {
   }
 
   // apply local input for prediction; returns input packet to send
-  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false, ractive = false, jump = false) {
+  applyLocalInput(mv, aim, fire, dash, inter, active, wpn, dt, secondary = false, ractive = false, jump = false, wall = false) {
     const me = this.me();
     const alive = me ? !!me[P.ALIVE] : true;
     const playPhase = !this.room || this.room.phase === 'play';
@@ -136,6 +136,7 @@ export class GameState {
       ax: Math.round(aim.x), ay: Math.round(aim.y),
       fire: airborne && !airborneDriver ? false : fire, dash: (!airborne && dash) || undefined, inter: (!airborne && inter) || undefined, active: ((!airborne || airborneDriver) && active) || undefined, ractive: (!airborne && ractive) || undefined, secondary: ((!airborne || airborneDriver) && secondary) || undefined,
       jump: (!airborne && jumpReady) || undefined,
+      wall: ((!airborne || airborneDriver) && wall) || undefined,
       wpn: !airborne && wpn >= 0 ? wpn : undefined
     };
   }

@@ -27,11 +27,11 @@ export const WEAPONS = {
   },
   impact_wall: {
     id: 'impact_wall', label: 'FWL', name: 'КВАДРАТНЫЙ ФАЙРВОЛ',
-    cooldown: 2.6, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 66
+    cooldown: 0, pellets: 0, spread: 0, dmg: 0, speed: 0, life: 0, size: 66
   },
   impact_push: {
-    id: 'impact_push', label: 'PUSH', name: 'ИМПУЛЬС СДВИГА',
-    cooldown: 3.2, pellets: 0, spread: 0, dmg: 40, speed: 520, life: 0, size: 0
+    id: 'impact_push', label: 'PUSH', name: 'ВЕКТОР БЛОКА',
+    cooldown: 0, pellets: 0, spread: 0, dmg: 40, speed: 520, life: 0, size: 0
   },
   roulette: {
     id: 'roulette', label: 'RLT', name: 'РУЛЕТКА',
@@ -108,7 +108,7 @@ export const SPAWN_POOLS = [
 // All stackable. No caps. Balatro rules.
 export const UPGRADES = [
   { id: 'dmg',      label: 'DMG +15%',             tier: 0, desc: 'Весь исходящий урон растёт, включая подконтрольные процессы Контролёра.', apply: s => { s.dmgMul *= 1.15; } },
-  { id: 'fire',     label: 'WEAPON CLOCK +12%',    tier: 0, desc: 'Оружейный такт ускоряет циклы оружия, дронов, пушек Живого казино, протоколов Контроллера и его стрелковых процессов. Прыжки, Q и R не ускоряет.', apply: s => { s.fireMul *= 1.12; } },
+  { id: 'fire',     label: 'WEAPON CLOCK +12%',    tier: 0, desc: 'Оружейный такт ускоряет циклы оружия, дронов, пушек Живого казино, протоколов Контроллера и Вектор блока Драйвера. Установка блоков, прыжки, Q и R не ускоряются.', apply: s => { s.fireMul *= 1.12; } },
   { id: 'spd',      label: 'SPD +8%',              tier: 0, desc: 'Скорость движения растёт.', apply: s => { s.spdMul *= 1.08; } },
   { id: 'maxhp',    label: 'HP +20',               tier: 0, desc: 'Максимальное здоровье растёт.', apply: s => { s.maxHpAdd += 20; } },
   { id: 'magnet',   label: 'MAGNET +40%',          tier: 0, desc: 'Подборы притягиваются дальше.', apply: s => { s.magnetMul *= 1.4; } },
@@ -140,7 +140,7 @@ export const UPGRADES = [
 
   // weapon branches. These are WPN-chest rewards only, not INSTALL rewards.
   { id: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', tier: 1, branch: 'ALL', desc: 'Все твои снаряды получают дополнительный отскок от стен. Повторные выборы дают больше отскоков.', apply: s => { s.bulletBounce += 1; } },
-  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%',  tier: 1, branch: 'ALL', desc: 'Увеличивает дальность текущего и открытого позже оружия: пушек героев, дронов, связей, протоколов Контроллера и модулей Драйвера.', apply: s => { s.bulletRange *= 1.22; } },
+  { id: 'bullet_range',    label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%',  tier: 1, branch: 'ALL', desc: 'Увеличивает дальность текущего и открытого позже оружия, включая пули дронов всех героев. У Драйвера увеличивает путь толчка и притягивания блока.', apply: s => { s.bulletRange *= 1.22; } },
   { id: 'bullet_fire',     label: 'ТЕРМО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды перегревают угрозы и наносят периодический урон.', apply: s => { s.bulletFire += 1; } },
   { id: 'bullet_freeze',   label: 'КРИО-СБОЙ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.', apply: s => { s.bulletFreeze += 1; } },
   { id: 'bullet_poison',   label: 'КОРРОЗИЯ СНАРЯДОВ', tier: 1, branch: 'ALL', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню и усиливает периодический урон.', apply: s => { s.bulletPoison += 1; } },
@@ -155,13 +155,12 @@ export const UPGRADES = [
   { id: 'impact_stun', label: 'DRV: ЖЁСТКАЯ ПОСАДКА', tier: 1, branch: 'IMPACT', desc: 'Приземление оглушает угрозы. Повторы увеличивают длительность.', apply: s => { s.jumpStun += 1; } },
   { id: 'impact_afterfield', label: 'DRV: СЛЕД УДАРА', tier: 1, branch: 'IMPACT', desc: 'На месте приземления остаётся короткий наносящий урон контур. Повторы усиливают его.', apply: s => { s.jumpAfterfield += 1; } },
   { id: 'impact_rebound', label: 'DRV: УПРУГИЙ КОНТУР +25%', tier: 1, branch: 'IMPACT', desc: 'Открывает множитель отскоков. Каждый стак добавляет 25% дальности полёта после первого отскока от стены.', apply: s => { s.jumpRebound += 1; } },
-  { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ-БЛОК', tier: 1, branch: 'IMPACT', desc: 'Базовый ЛКМ-модуль Драйвера: ставит временный квадратный блок. У модуля своя перезарядка.', apply: s => { s.impactWallUnlocked = 1; } },
+  { id: 'impact_wall_unlock', label: 'DRV: ФАЙРВОЛ-БЛОК', tier: 1, branch: 'IMPACT', desc: 'Базовый SPACE-модуль Драйвера: ставит временный квадратный блок в точке курсора.', apply: s => { s.impactWallUnlocked = 1; } },
   { id: 'impact_wall_count', label: 'DRV: ФАЙРВОЛ-БЛОК +1', tier: 1, branch: 'IMPACT', desc: 'Позволяет одновременно держать ещё один квадратный блок.', apply: s => { s.impactWallCount += 1; } },
   { id: 'impact_wall_duration', label: 'DRV: СРОК БЛОКА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый уровень увеличивает срок существования квадратных блоков.', apply: s => { s.impactWallDuration += 1; } },
-  { id: 'impact_push_unlock', label: 'DRV: ИМПУЛЬС СДВИГА', tier: 1, branch: 'IMPACT', desc: 'Базовый ПКМ-модуль Драйвера: выбранный блок летит по линии взгляда героя.', apply: s => { s.impactPushUnlocked = 1; } },
-  { id: 'impact_push_range', label: 'PUSH: ПУТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Увеличивает путь летящего блока на 20%. Выбор блока всегда доступен на любой дистанции.', apply: s => { s.impactPushRange += 1; } },
+  { id: 'impact_push_unlock', label: 'DRV: ВЕКТОР БЛОКА', tier: 1, branch: 'IMPACT', desc: 'Без перезарядки: ЛКМ толкает выбранный блок, ПКМ притягивает блок, ближайший к курсору.', apply: s => { s.impactPushUnlocked = 1; } },
+  { id: 'impact_push_range', label: 'PUSH: ПУТЬ +20%', tier: 1, branch: 'IMPACT', desc: 'Увеличивает путь толкнутого или притянутого блока на 20%. Выбор блока всегда доступен на любой дистанции.', apply: s => { s.impactPushRange += 1; } },
   { id: 'impact_push_damage', label: 'PUSH: УРОН +25%', tier: 1, branch: 'IMPACT', desc: 'Усиливает урон блока при прохождении сквозь угрозы. Стакается без ограничений.', apply: s => { s.impactPushDamage += 1; } },
-  { id: 'impact_push_cooldown', label: 'PUSH: ТАКТ +15%', tier: 1, branch: 'IMPACT', desc: 'Ускоряет восстановление импульса сдвига. Стакается без ограничений.', apply: s => { s.impactPushCooldown += 1; } },
   { id: 'impact_push_bounce', label: 'PUSH: РИКОШЕТ СТЕНЫ', tier: 1, branch: 'IMPACT', desc: 'Летящий блок начинает отскакивать от стен, пока не исчерпает дальность.', apply: s => { s.impactPushBounce = 1; } },
   { id: 'impact_push_multiplier', label: 'PUSH: МНОЖИТЕЛЬ ОТСКОКА +25%', tier: 1, branch: 'IMPACT', desc: 'Каждый отскок сильнее повышает урон летящего блока. Стакается без ограничений.', apply: s => { s.impactPushMultiplier += 1; } },
   { id: 'shg_teeth',  label: 'SHG: ОСКОЛКИ +2', tier: 1, branch: 'SHG', desc: 'Клиновой разряд получает два дополнительных осколка.', apply: s => { s.shgPellets += 2; } },
@@ -227,7 +226,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'ctrl_unlock_qrn', kind: 'weapon', weapon: 'quarantine_anchor', label: 'QRN: ЯКОРЬ', desc: 'Открывает карантинный якорь: ставится на полу или цепляется за стену и удерживает до 5 угроз.' },
   { id: 'ctrl_unlock_saw', kind: 'weapon', weapon: 'process_saw', label: 'SAW: РАЗБОР', desc: 'Открывает массовый разбор: большой импульс по области курсора быстро перехватывает несколько процессов.' },
   { id: 'bullet_ricochet', kind: 'weapon_upgrade', upgrade: 'bullet_ricochet', label: 'ОТСКОК СНАРЯДОВ +1', desc: 'Все снаряды получают дополнительный отскок от стен.' },
-  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Работает на текущее и открытое позже оружие, дроны, связи и модули героев.' },
+  { id: 'bullet_range', kind: 'weapon_upgrade', upgrade: 'bullet_range', label: 'ДАЛЬНОСТЬ ОРУЖИЯ +22%', desc: 'Работает на всё текущее и открытое позже оружие, включая пули дронов всех героев. У Драйвера увеличивает путь толчка и притягивания блока.' },
   { id: 'bullet_fire', kind: 'weapon_upgrade', upgrade: 'bullet_fire', label: 'ТЕРМО-СБОЙ СНАРЯДОВ', desc: 'Снаряды перегревают угрозы.' },
   { id: 'bullet_freeze', kind: 'weapon_upgrade', upgrade: 'bullet_freeze', label: 'КРИО-СБОЙ СНАРЯДОВ', desc: 'Снаряды охлаждают угрозы и могут коротко остановить их.' },
   { id: 'bullet_poison', kind: 'weapon_upgrade', upgrade: 'bullet_poison', label: 'КОРРОЗИЯ СНАРЯДОВ', desc: 'Снаряды заражают угрозы коррозией. Каждый уровень быстрее разрушает броню.' },
@@ -244,9 +243,8 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'impact_rebound', kind: 'weapon_upgrade', upgrade: 'impact_rebound', heroOnly: 'impact_driver', label: 'DRV: УПРУГИЙ КОНТУР +25%', desc: 'Открывает множитель отскоков. Каждый стак даёт +25% дальности после первого отскока.' },
   { id: 'impact_wall_count', kind: 'weapon_upgrade', upgrade: 'impact_wall_count', heroOnly: 'impact_driver', label: 'DRV: ФАЙРВОЛ-БЛОК +1', desc: 'Ещё один одновременно существующий квадратный блок.' },
   { id: 'impact_wall_duration', kind: 'weapon_upgrade', upgrade: 'impact_wall_duration', heroOnly: 'impact_driver', label: 'DRV: СРОК БЛОКА +25%', desc: 'Квадратные блоки существуют дольше.' },
-  { id: 'impact_push_range', kind: 'weapon_upgrade', upgrade: 'impact_push_range', heroOnly: 'impact_driver', label: 'PUSH: ПУТЬ +20%', desc: 'Увеличивает путь блока на 20%. Выбор блока имеет бесконечную дальность.' },
+  { id: 'impact_push_range', kind: 'weapon_upgrade', upgrade: 'impact_push_range', heroOnly: 'impact_driver', label: 'PUSH: ПУТЬ +20%', desc: 'Увеличивает путь толкнутого или притянутого блока на 20%. Выбор блока всегда доступен на любой дистанции.' },
   { id: 'impact_push_damage', kind: 'weapon_upgrade', upgrade: 'impact_push_damage', heroOnly: 'impact_driver', label: 'PUSH: УРОН +25%', desc: 'Усиливает урон летящего блока. Без лимита.' },
-  { id: 'impact_push_cooldown', kind: 'weapon_upgrade', upgrade: 'impact_push_cooldown', heroOnly: 'impact_driver', label: 'PUSH: ТАКТ +15%', desc: 'Ускоряет восстановление импульса сдвига. Без лимита.' },
   { id: 'impact_push_bounce', kind: 'weapon_upgrade', upgrade: 'impact_push_bounce', heroOnly: 'impact_driver', label: 'PUSH: РИКОШЕТ СТЕНЫ', desc: 'Открывает отскоки летящего блока от стен.' },
   { id: 'impact_push_multiplier', kind: 'weapon_upgrade', upgrade: 'impact_push_multiplier', heroOnly: 'impact_driver', label: 'PUSH: МНОЖИТЕЛЬ ОТСКОКА +25%', desc: 'Каждый отскок сильнее повышает урон блока. Без лимита.' },
   { id: 'shg_teeth', kind: 'weapon_upgrade', upgrade: 'shg_teeth', reqWeapon: 'shotgun', label: 'SHG: ОСКОЛКИ +2', desc: 'Клиновой разряд получает больше осколков в залпе.' },
@@ -280,7 +278,7 @@ export const WEAPON_CHEST_REWARDS = [
   { id: 'qrn_links', kind: 'weapon_upgrade', upgrade: 'qrn_links', reqWeapon: 'quarantine_anchor', label: 'QRN: ЗАХВАТ +3', desc: 'Добавляет 3 одновременных захвата. Предел одного якоря — 20 угроз.' },
   { id: 'qrn_damage', kind: 'weapon_upgrade', upgrade: 'qrn_damage', reqWeapon: 'quarantine_anchor', label: 'QRN: РАЗРЯД +', desc: 'Каждый уровень заметно усиливает урон и ускоряет разряды цепей.' },
   { id: 'wpn_dmg', kind: 'stat', stat: 'dmg', label: 'УРОН ОРУЖИЯ +18%', desc: 'Усиливает урон всего оружия. У Контролёра усиливает урон подконтрольных процессов.' },
-  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет оружейные циклы героев, дронов, Живого казино, Контроллера и его стрелковых процессов. Не ускоряет прыжки, Q или R.' }
+  { id: 'wpn_fire', kind: 'stat', stat: 'fire', label: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет оружейные циклы героев, дронов, Живого казино, Контроллера и Вектор блока Драйвера. Не ускоряет установку блоков, прыжки, Q или R.' }
 ];
 
 
@@ -382,7 +380,7 @@ export function defaultStats() {
     voidStep: 0, dashCut: 0, dashClone: 0,
     jumpImpactDamage: 0, jumpImpactRadius: 0, jumpDistance: 0, jumpStun: 0, jumpAfterfield: 0, jumpRebound: 0,
     impactWallUnlocked: 0, impactWallCount: 0, impactWallDuration: 0,
-    impactPushUnlocked: 0, impactPushRange: 0, impactPushDamage: 0, impactPushCooldown: 0, impactPushBounce: 0, impactPushMultiplier: 0,
+    impactPushUnlocked: 0, impactPushRange: 0, impactPushDamage: 0, impactPushBounce: 0, impactPushMultiplier: 0,
     activeSnap: 0, activeBlood: 0, activeOver: 0,
     droneProc: 0, orbReflect: 0, orbSpeed: 0, orbRange: 0, debtEngine: 0,
     comboPrize: 'gld', tempFire: 0,
@@ -615,7 +613,7 @@ export function spinCasino(rng, stakeKey, luck, unlockedSkins = [], opts = {}) {
       const sym = String(c.symbol || '').toUpperCase().trim() || '—';
       lockSummary.set(sym, (lockSummary.get(sym) || 0) + 1);
     }
-    payload.lockLabel = [...lockSummary.entries()].map(([sym, n]) => n > 1 ? `${sym} x${n}` : sym).join(' + ');
+    payload.lockLabel = [...lockSummary.entries()].map(([sym, n]) => n > 1 ? `${sym} ×${n}` : sym).join(' + ');
   }
   let outcome = 'LOSE';
   if (match.triple) {
@@ -655,3 +653,274 @@ export const SPECIAL_ROOMS = {
   debt_node:       { id: 'debt_node',       label: 'STATIC NODE' },
   chill_room:      { id: 'chill_room',      label: 'CHILL ROOM' }
 };
+
+// ---- complete bilingual player-facing catalog --------------------------
+// Legacy label/name/desc fields remain untouched because snapshots and older
+// clients can still carry them. UI code should prefer the explicit *Ru/*En
+// fields below. Gameplay abbreviations (Q/R, SHG, WPN, GLD, etc.) are stable
+// protocol glyphs; prose never relies on them as untranslated English words.
+const WEAPON_TEXT = {
+  shotgun: ['КЛИНОВОЙ РАЗРЯД', 'WEDGE DISCHARGE'], seeker: ['ИСКАТЕЛЬ', 'SEEKER'],
+  rocketgun: ['РАЗЛОМНЫЙ ЗАРЯД', 'RIFT CHARGE'], living_casino: ['ЖИВОЕ КАЗИНО', 'LIVING CASINO'],
+  control_sparks: ['ИСКРЫ КОНТРОЛЯ', 'CONTROL SPARKS'], impact_driver: ['УДАРНЫЙ ДРАЙВЕР', 'IMPACT DRIVER'],
+  impact_wall: ['КВАДРАТНЫЙ ФАЙРВОЛ', 'SQUARE FIREWALL'], impact_push: ['ВЕКТОР БЛОКА', 'BLOCK VECTOR'],
+  roulette: ['РУЛЕТКА', 'ROULETTE'], deck: ['КОЛОДА', 'DECK'],
+  command_pulse: ['КОМАНДА ЗАХВАТА', 'CAPTURE COMMAND'], quarantine_anchor: ['КАРАНТИННЫЙ ЯКОРЬ', 'QUARANTINE ANCHOR'],
+  process_saw: ['РАЗБОР ПРОЦЕССА', 'PROCESS DISASSEMBLY']
+};
+
+const UPGRADE_TEXT = {
+  dmg: ['УРОН +15%', 'Весь исходящий урон растёт, включая урон подконтрольных процессов.', 'DAMAGE +15%', 'Increases all outgoing damage, including damage dealt by controlled processes.'],
+  fire: ['ОРУЖЕЙНЫЙ ТАКТ +12%', 'Ускоряет оружие, спутники, пушки Живого казино, протоколы Контролёра и Вектор блока. Не влияет на блоки, прыжок, Q и R.', 'WEAPON CLOCK +12%', 'Speeds up weapons, drones, Living Casino guns, Controller protocols and Block Vector. Does not affect block placement, jumping, Q or R.'],
+  spd: ['СКОРОСТЬ +8%', 'Увеличивает скорость движения.', 'SPEED +8%', 'Increases movement speed.'],
+  maxhp: ['ЗДОРОВЬЕ +20', 'Увеличивает максимальное здоровье.', 'HEALTH +20', 'Increases maximum health.'],
+  magnet: ['МАГНИТ +40%', 'Подборы притягиваются с большей дистанции.', 'MAGNET +40%', 'Pickups are attracted from farther away.'],
+  dash: ['РЫВОК +1', 'Добавляет один заряд рывка.', 'DASH +1', 'Adds one dash charge.'],
+  dash_length: ['ДЛИНА РЫВКА +18%', 'Рывок проходит дальше.', 'DASH LENGTH +18%', 'Increases dash distance.'],
+  drone: ['СПУТНИК +1', 'Добавляет автостреляющего спутника.', 'DRONE +1', 'Adds an automatically firing drone.'],
+  luck: ['УДАЧА +1', 'Улучшает исходы наград и казино.', 'LUCK +1', 'Improves reward and casino outcomes.'],
+  proc: ['ШАНС ВЗРЫВА 10%', 'Выстрелы героя и стрелковых процессов могут взрываться. Спутникам нужен отдельный модуль взрыва.', 'BLAST CHANCE 10%', 'Hero shots and ranged process shots may explode. Drones require the separate Drone Blast module.'],
+  echo: ['ЭХО-ВЫСТРЕЛ 12%', 'Иногда создаёт дополнительный выстрел.', 'ECHO SHOT 12%', 'Occasionally creates an additional shot.'],
+  leech: ['ВАМПИРИЗМ 2%', 'Часть нанесённого урона возвращается здоровьем.', 'LIFESTEAL 2%', 'Returns part of dealt damage as health.'],
+  goldgun: ['КРЕДИТЫ ЗА УБИЙСТВА +40%', 'Угрозы оставляют больше кредитов.', 'KILL CREDITS +40%', 'Threats drop more credits.'],
+  combo_gld: ['КОМБО: КРЕДИТЫ', 'Завершённое комбо выдаёт кредиты за убийства и множитель.', 'COMBO PAYS CREDITS', 'A finished combo awards credits based on kills and multiplier.'],
+  combo_exp: ['КОМБО: ОПЫТ', 'Завершённое комбо выдаёт опыт за убийства и множитель.', 'COMBO PAYS EXPERIENCE', 'A finished combo awards experience based on kills and multiplier.'],
+  combo_hp: ['КОМБО: ЛЕЧЕНИЕ', 'Завершённое комбо восстанавливает здоровье за убийства и множитель.', 'COMBO PAYS HEALTH', 'A finished combo restores health based on kills and multiplier.'],
+  sig_target_lock: ['ЗАХВАТ ЦЕЛИ', 'R захватывает угрозу. Уровни продлевают удержание прицела.', 'TARGET LOCK', 'R locks onto a threat. Levels extend target retention.'],
+  sig_redline_boost: ['КРАСНАЯ ЗОНА', 'R даёт короткое сверхускорение. Уровни усиливают скорость и длительность.', 'REDLINE BOOST', 'R grants a short burst of extreme speed. Levels increase speed and duration.'],
+  sig_ghost_decoy: ['ПРИЗРАЧНАЯ ПРИМАНКА', 'R надолго скрывает героя и оставляет приманку для угроз.', 'GHOST DECOY', 'R conceals the hero and leaves a decoy that distracts threats.'],
+  sig_rewind_mark: ['МЕТКА ВОЗВРАТА', 'Первое R ставит метку. Повторное возвращает героя и оглушает угрозы рядом.', 'REWIND MARK', 'First R places a mark. Press R again to return and stun nearby threats.'],
+  sig_kill_switch: ['АВАРИЙНОЕ УДАЛЕНИЕ', 'Каждый заряд R стирает все угрозы на экране, включая босса. Зеркальная выплата добавляет заряды без ограничения.', 'KILL SWITCH', 'Each R charge erases every on-screen threat, including the boss. Mirror Payout adds charges without a cap.'],
+  sig_spawn_hold: ['ЗАДЕРЖКА ЗАПУСКА', 'Угрозы дольше остаются в зоне предупреждения. Повторы усиливают задержку.', 'SPAWN HOLD', 'Threats remain in spawn warnings longer. Repeats extend the delay.'],
+  sig_aegis_process: ['ПРОЦЕСС ЭГИДЫ', 'Добавляет защитную оболочку. Повторы увеличивают её запас.', 'AEGIS PROCESS', 'Adds a protective shell. Repeats increase its capacity.'],
+  sig_mirror_payout: ['ЗЕРКАЛЬНАЯ ВЫПЛАТА', 'Каждое готовое зеркало копирует следующий приз босса. Все зеркала срабатывают вместе и восстанавливаются после следующего босса.', 'MIRROR PAYOUT', 'Each ready mirror copies the next boss prize. All mirrors trigger together and recover after the following boss.'],
+  sig_null_revival: ['НУЛЕВОЕ ВОЗВРАЩЕНИЕ', 'При смертельном сбое возвращает героя с 45% здоровья. Повторы дают заряды.', 'NULL REVIVAL', 'On a lethal failure, revives the hero with 45% health. Repeats add charges.'],
+  sig_boss_key: ['КЛЮЧ БОССА', 'Первый сундук с выбором в цикле бесплатно получает максимальную редкость. Повторы дают ключи.', 'BOSS KEY', 'The first choice chest in a loop gains maximum rarity for free. Repeats add keys.'],
+  bullet_ricochet: ['ОТСКОК СНАРЯДОВ +1', 'Все снаряды получают дополнительный отскок от стен.', 'PROJECTILE RICOCHET +1', 'All projectiles gain one additional wall ricochet.'],
+  bullet_range: ['ДАЛЬНОСТЬ ОРУЖИЯ +22%', 'Увеличивает дальность всего текущего и будущего оружия, включая спутники и Вектор блока.', 'WEAPON RANGE +22%', 'Increases the range of all current and future weapons, including drones and Block Vector.'],
+  bullet_fire: ['ТЕРМО-СБОЙ СНАРЯДОВ', 'Снаряды перегревают угрозы и наносят периодический урон.', 'THERMAL PROJECTILES', 'Projectiles overheat threats and deal damage over time.'],
+  bullet_freeze: ['КРИО-СБОЙ СНАРЯДОВ', 'Снаряды охлаждают угрозы и могут ненадолго остановить их.', 'CRYO PROJECTILES', 'Projectiles chill threats and may briefly stop them.'],
+  bullet_poison: ['КОРРОЗИЯ СНАРЯДОВ', 'Снаряды заражают угрозы коррозией. Каждый уровень ускоряет разрушение брони и усиливает периодический урон.', 'CORROSIVE PROJECTILES', 'Projectiles corrode threats. Each level breaks armor faster and increases damage over time.'],
+  drone_element_link: ['КАНАЛ СПУТНИКОВ', 'Спутники переносят термо-, крио- и коррозийные сбои снарядов.', 'DRONE CHANNEL', 'Drones carry thermal, cryo and corrosive projectile effects.'],
+  element_amp: ['УСИЛЕНИЕ СБОЯ +25%', 'Усиливает термо-, крио- и коррозийные сбои.', 'STATUS AMPLIFIER +25%', 'Strengthens thermal, cryo and corrosive effects.'],
+  element_spread: ['ПЕРЕНОС СБОЯ', 'После удаления угрозы её статусы переходят на ближайшие цели.', 'STATUS TRANSFER', 'When a threat is deleted, its statuses spread to nearby targets.'],
+  bullet_chain: ['СВЯЗЬ СНАРЯДОВ +1', 'Попадание связывает ближайшие угрозы. Статусы переходят только с отдельным модулем.', 'PROJECTILE LINK +1', 'Hits link nearby threats. Statuses transfer only with the separate channel module.'],
+  bullet_chain_status_link: ['СТАТУСНЫЙ КАНАЛ СВЯЗИ', 'Связь переносит любые текущие и будущие оружейные статусы.', 'LINK STATUS CHANNEL', 'Projectile Link carries all current and future weapon statuses.'],
+  impact_damage: ['ДРАЙВЕР: УДАР +25%', 'Усиливает взлёт, приземление и ударный след.', 'DRIVER: IMPACT +25%', 'Increases takeoff, landing and impact-trail damage.'],
+  impact_radius: ['ДРАЙВЕР: КОНТУР +10%', 'Увеличивает радиус ударов при взлёте и приземлении.', 'DRIVER: AREA +10%', 'Increases takeoff and landing impact radius.'],
+  impact_distance: ['ДРАЙВЕР: ДАЛЬНОСТЬ +20%', 'Увеличивает дальность прыжка.', 'DRIVER: RANGE +20%', 'Increases jump distance.'],
+  impact_stun: ['ДРАЙВЕР: ЖЁСТКАЯ ПОСАДКА', 'Приземление оглушает угрозы. Повторы продлевают оглушение.', 'DRIVER: HARD LANDING', 'Landing stuns threats. Repeats extend the stun.'],
+  impact_afterfield: ['ДРАЙВЕР: УДАРНЫЙ СЛЕД', 'После приземления остаётся короткий наносящий урон контур.', 'DRIVER: IMPACT TRAIL', 'Landing leaves a brief damaging outline.'],
+  impact_rebound: ['ДРАЙВЕР: УПРУГИЙ КОНТУР +25%', 'Открывает множитель отскоков. Уровни увеличивают дальность после первого отскока.', 'DRIVER: REBOUND +25%', 'Unlocks the rebound multiplier. Levels increase travel after the first wall bounce.'],
+  impact_wall_unlock: ['ДРАЙВЕР: ФАЙРВОЛ-БЛОК', 'Открывает установку временного квадратного блока в точке курсора.', 'DRIVER: FIREWALL BLOCK', 'Unlocks temporary square block placement at the cursor.'],
+  impact_wall_count: ['ДРАЙВЕР: БЛОК +1', 'Позволяет одновременно держать ещё один блок.', 'DRIVER: BLOCK +1', 'Allows one more block to exist at once.'],
+  impact_wall_duration: ['ДРАЙВЕР: СРОК БЛОКА +25%', 'Блоки существуют дольше.', 'DRIVER: BLOCK DURATION +25%', 'Blocks last longer.'],
+  impact_push_unlock: ['ДРАЙВЕР: ВЕКТОР БЛОКА', 'Без перезарядки: левая кнопка толкает выбранный блок, правая притягивает блок, ближайший к курсору.', 'DRIVER: BLOCK VECTOR', 'No cooldown: left click pushes the selected block; right click pulls the block nearest the cursor.'],
+  impact_push_range: ['ВЕКТОР: ПУТЬ +20%', 'Увеличивает путь толкнутого или притянутого блока.', 'VECTOR: TRAVEL +20%', 'Increases the travel distance of pushed and pulled blocks.'],
+  impact_push_damage: ['ВЕКТОР: УРОН +25%', 'Усиливает урон движущегося блока без ограничения уровней.', 'VECTOR: DAMAGE +25%', 'Increases moving-block damage without a level cap.'],
+  impact_push_bounce: ['ВЕКТОР: РИКОШЕТ', 'Движущийся блок отскакивает от стен, пока не исчерпает дальность.', 'VECTOR: WALL RICOCHET', 'A moving block ricochets from walls until it runs out of range.'],
+  impact_push_multiplier: ['ВЕКТОР: МНОЖИТЕЛЬ +25%', 'Каждый отскок сильнее повышает урон блока.', 'VECTOR: BOUNCE MULTIPLIER +25%', 'Each bounce increases block damage further.'],
+  shg_teeth: ['КЛИНОВОЙ РАЗРЯД: ОСКОЛКИ +2', 'Добавляет два осколка в залп.', 'WEDGE DISCHARGE: PELLETS +2', 'Adds two pellets to each burst.'],
+  shg_longshot: ['КЛИНОВОЙ РАЗРЯД: ДАЛЬНИЙ ЗАЛП', 'Правая кнопка тратит все заряды на один дальний тяжёлый выстрел.', 'WEDGE DISCHARGE: LONG SHOT', 'Right click spends all charges on one long-range heavy shot.'],
+  sek_split: ['ИСКАТЕЛЬ: ФРАГМЕНТЫ', 'После удаления цели выпускает малые самонаводящиеся фрагменты.', 'SEEKER: FRAGMENTS', 'Deleting a target releases small homing fragments.'],
+  sek_chain: ['ИСКАТЕЛЬ: ЗАХВАТ', 'Улучшает наведение и время жизни снаряда.', 'SEEKER: LOCK', 'Improves homing and projectile lifetime.'],
+  sek_swarm: ['ИСКАТЕЛЬ: РОЙ', 'Правая кнопка выпускает рой по разным угрозам.', 'SEEKER: SWARM', 'Right click launches a swarm at different threats.'],
+  rkt_cluster: ['РАЗЛОМНЫЙ ЗАРЯД: МИНИ-ВЗРЫВЫ +2', 'Добавляет два малых взрыва при детонации.', 'RIFT CHARGE: MINI BLASTS +2', 'Adds two small blasts to each detonation.'],
+  rkt_mines: ['РАЗЛОМНЫЙ ЗАРЯД: МИНЫ', 'Детонации оставляют отложенные мины.', 'RIFT CHARGE: STATIC MINES', 'Detonations leave delayed mines.'],
+  rkt_stun: ['РАЗЛОМНЫЙ ЗАРЯД: ОГЛУШЕНИЕ', 'Взрывы могут оглушать угрозы.', 'RIFT CHARGE: STUN', 'Blasts may stun threats.'],
+  rkt_scatter: ['РАЗЛОМНЫЙ ЗАРЯД: ОТБРОС', 'Взрывы сильнее разбрасывают угрозы.', 'RIFT CHARGE: KNOCKBACK', 'Blasts push threats farther away.'],
+  rkt_remote: ['РАЗЛОМНЫЙ ЗАРЯД: РУЧНОЙ ВЗРЫВ', 'Правая кнопка по очереди взрывает выпущенные заряды.', 'RIFT CHARGE: REMOTE DETONATION', 'Right click detonates launched charges one by one.'],
+  voidstep: ['РЫВОК: РАЗРЕЗ ПУСТОТЫ', 'Рывок оставляет разрез, ранящий угрозы вдоль пути.', 'DASH: VOID RIFT', 'Dash leaves a rift that damages threats along its path.'],
+  dashcut: ['РЫВОК: ОГЛУШЕНИЕ', 'Рывок оглушает угрозы рядом с траекторией.', 'DASH STUN', 'Dash stuns threats near its path.'],
+  dashclone: ['РЫВОК: ПОСЛЕУДАР', 'В точке старта рывка остаётся короткий ударный след.', 'DASH AFTERSHOCK', 'Dash leaves a brief damaging trail at its starting point.'],
+  q_snap: ['Q: СТЯЖКА ПОЛЯ', 'Стягивает и надолго оглушает угрозы, не нанося урон.', 'Q: FIELD SNAP', 'Pulls threats together and stuns them for a long time without dealing damage.'],
+  q_blood: ['Q: КРОВАВЫЙ ИМПУЛЬС', 'Тратит здоровье на красный сигнальный взрыв.', 'Q: BLOOD PULSE', 'Spends health to create a red signal blast.'],
+  q_over: ['Q: РАЗГОН', 'Временно ускоряет стрельбу.', 'Q: OVERCLOCK', 'Temporarily increases fire rate.'],
+  droneproc: ['ВЗРЫВ СПУТНИКА', 'Пули спутников иногда создают небольшие взрывы.', 'DRONE BLAST', 'Drone bullets may create small blasts.'],
+  debtengine: ['СТАТИК-ЯДРО', 'Даёт большой урон и удачу, но каждый уровень добавляет три Статик-шторма. Контрактное очищение навсегда глушит шторм ядра.', 'STATIC CORE', 'Grants major damage and luck, but each level adds three Static Storms. Contract cleansing permanently silences the core storm.'],
+  overload: ['УРОН +50% / ЗДОРОВЬЕ −15', 'Урон растёт на 50%, максимальное здоровье снижается на 15.', 'DAMAGE +50% / HEALTH −15', 'Increases damage by 50% and reduces maximum health by 15.'],
+  gamble: ['УДАЧА +3 / СКОРОСТЬ −10%', 'Удача растёт на 3, скорость движения снижается на 10%.', 'LUCK +3 / SPEED −10%', 'Increases luck by 3 and reduces movement speed by 10%.'],
+  rlt_square_damage: ['РУЛЕТКА: УРОН +', 'Квадраты рулетки наносят больше урона.', 'ROULETTE: DAMAGE +', 'Roulette squares deal more damage.'],
+  rlt_square_size: ['РУЛЕТКА: РАЗМЕР +', 'Стартовый квадрат становится больше.', 'ROULETTE: SIZE +', 'Increases the starting square size.'],
+  rlt_fragment_count: ['РУЛЕТКА: ОСКОЛКИ +', 'При распаде появляется больше малых квадратов.', 'ROULETTE: FRAGMENTS +', 'Creates more small squares when splitting.'],
+  rlt_split_depth: ['РУЛЕТКА: ДРОБЛЕНИЕ +', 'Осколки могут дробиться ещё раз.', 'ROULETTE: SPLIT DEPTH +', 'Fragments may split one more time.'],
+  rlt_wall_charge: ['РУЛЕТКА: ОТСКОК +', 'Удар о стену сильнее заряжает последующий распад.', 'ROULETTE: WALL CHARGE +', 'Wall impacts strengthen the following split.'],
+  rlt_square_speed: ['РУЛЕТКА: СКОРОСТЬ +', 'Квадраты летят быстрее.', 'ROULETTE: SPEED +', 'Squares travel faster.'],
+  crd_card_count: ['КОЛОДА: КАРТЫ +1', 'Добавляет одну карту в каждый веер.', 'DECK: CARDS +1', 'Adds one card to every fan.'],
+  ctrl_process_slot: ['КОНТРОЛЁР: ПРОЦЕСС +1', 'Добавляет один постоянный слот подконтрольного процесса.', 'CONTROLLER: PROCESS +1', 'Adds one permanent controlled-process slot.'],
+  ctrl_process_power: ['КОНТРОЛЁР: КОНТРОЛЬ +', 'Ускоряет захват и усиливает все атаки подконтрольных процессов.', 'CONTROLLER: CONTROL +', 'Speeds up capture and strengthens all controlled-process attacks.'],
+  ctrl_capture_tier: ['КОНТРОЛЁР: АССИМИЛЯЦИЯ +', 'Расширяет список доступных для захвата угроз. Четвёртый уровень разрешает захват боссов.', 'CONTROLLER: ASSIMILATION +', 'Expands the set of capturable threats. Level four enables boss capture.'],
+  ctrl_process_fire: ['КОНТРОЛЁР: ТЕМП АТАК +', 'Подконтрольные процессы атакуют чаще.', 'CONTROLLER: ATTACK CLOCK +', 'Controlled processes attack more often.'],
+  saw_fallback_damage: ['РАЗБОР: АВАРИЙНЫЙ УРОН', 'Если цель нельзя захватить, импульс наносит ей урон.', 'DISASSEMBLY: FALLBACK DAMAGE', 'If a target cannot be captured, the pulse damages it instead.'],
+  ctrl_process_contact_status: ['КОНТРОЛЁР: ЖИВОЙ СНАРЯД', 'Телесные атаки процессов переносят все текущие и будущие оружейные статусы.', 'CONTROLLER: LIVING PROJECTILE', 'Body attacks from controlled processes carry all current and future weapon statuses.'],
+  ctrl_process_life: ['КОНТРОЛЁР: СРОК +', 'Подконтрольные процессы живут дольше. Их базовый срок зависит от максимального здоровья.', 'CONTROLLER: DURATION +', 'Controlled processes last longer. Their base duration depends on maximum health.'],
+  ctrl_process_death_heal: ['КОНТРОЛЁР: ВОЗВРАТ ЗДОРОВЬЯ', 'Гибель или окончание контроля лечит героя от максимального здоровья процесса: 2%, затем +3%, +4% и далее.', 'CONTROLLER: HEALTH RETURN', 'Process death or control expiry heals from its maximum health: 2%, then +3%, +4% and onward.'],
+  ctrl_process_persist: ['КОНТРОЛЁР: ПЕРЕНОС', 'Подконтрольные процессы переходят в следующий сектор.', 'CONTROLLER: TRANSFER', 'Controlled processes carry into the next sector.'],
+  qrn_radius: ['ЯКОРЬ: ДАЛЬНОСТЬ +', 'Якорь захватывает угрозы дальше от маркера.', 'ANCHOR: RANGE +', 'The anchor captures threats farther from its marker.'],
+  qrn_hold: ['ЯКОРЬ: УДЕРЖАНИЕ +', 'Сильно увеличивает срок работы якоря.', 'ANCHOR: HOLD +', 'Greatly extends anchor duration.'],
+  qrn_links: ['ЯКОРЬ: ЗАХВАТ +3', 'Добавляет три одновременных захвата. Предел одного якоря — 20 угроз.', 'ANCHOR: CAPTURE +3', 'Adds three simultaneous captures. One anchor can hold up to 20 threats.'],
+  qrn_damage: ['ЯКОРЬ: РАЗРЯД +', 'Усиливает урон и ускоряет разряды цепей.', 'ANCHOR: DISCHARGE +', 'Increases damage and speeds up chain discharges.']
+};
+
+const WPN_ONLY_TEXT = {
+  weapon_shotgun: ['КЛИНОВОЙ РАЗРЯД', 'Открывает короткий веерный залп с зарядами.', 'WEDGE DISCHARGE', 'Unlocks a short charged fan burst.'],
+  weapon_seeker: ['ИСКАТЕЛЬ', 'Открывает медленный самонаводящийся сигнальный снаряд.', 'SEEKER', 'Unlocks a slow homing signal projectile.'],
+  weapon_rocketgun: ['РАЗЛОМНЫЙ ЗАРЯД', 'Открывает тяжёлый снаряд с широким взрывом.', 'RIFT CHARGE', 'Unlocks a heavy projectile with a wide blast.'],
+  ctrl_unlock_qrn: ['КАРАНТИННЫЙ ЯКОРЬ', 'Открывает якорь, который ставится на полу или стене и удерживает до пяти угроз.', 'QUARANTINE ANCHOR', 'Unlocks an anchor placed on floors or walls that holds up to five threats.'],
+  ctrl_unlock_saw: ['РАЗБОР ПРОЦЕССА', 'Открывает большой импульс, быстро захватывающий несколько процессов.', 'PROCESS DISASSEMBLY', 'Unlocks a wide pulse that rapidly captures several processes.'],
+  rlt_damage: ['РУЛЕТКА: УРОН +', 'Квадраты рулетки наносят больше урона.', 'ROULETTE: DAMAGE +', 'Roulette squares deal more damage.'],
+  rlt_size: ['РУЛЕТКА: РАЗМЕР +', 'Стартовый квадрат становится больше.', 'ROULETTE: SIZE +', 'Increases the starting square size.'],
+  rlt_fragments: ['РУЛЕТКА: ОСКОЛКИ +', 'При распаде появляется больше малых квадратов.', 'ROULETTE: FRAGMENTS +', 'Creates more small squares when splitting.'],
+  rlt_split_life: ['РУЛЕТКА: ДРОБЛЕНИЕ +', 'Осколки дробятся глубже.', 'ROULETTE: SPLIT DEPTH +', 'Fragments split one level deeper.'],
+  rlt_wall_charge: ['РУЛЕТКА: ОТСКОК +', 'Удар о стену сильнее заряжает следующий распад.', 'ROULETTE: WALL CHARGE +', 'Wall impacts strengthen the next split.'],
+  rlt_speed: ['РУЛЕТКА: СКОРОСТЬ +', 'Квадраты летят быстрее.', 'ROULETTE: SPEED +', 'Squares travel faster.'],
+  wpn_dmg: ['УРОН ОРУЖИЯ +18%', 'Усиливает всё оружие и атаки подконтрольных процессов.', 'WEAPON DAMAGE +18%', 'Increases all weapon damage and controlled-process attack damage.'],
+  wpn_fire: ['ОРУЖЕЙНЫЙ ТАКТ +14%', 'Ускоряет оружие, спутники, Живое казино, Контролёра и Вектор блока. Не влияет на блоки, прыжок, Q и R.', 'WEAPON CLOCK +14%', 'Speeds up weapons, drones, Living Casino, Controller and Block Vector. Does not affect blocks, jumping, Q or R.']
+};
+
+const CORE_TEXT = {
+  blood_ring: ['КРОВАВОЕ КОЛЬЦО', 'УРОН ВОКРУГ ГЕРОЯ', 'Q сразу запускает кровавое кольцо вокруг героя.', ['+радиус', '+длительность', '+урон'], 'BLOOD RING', 'FOLLOWING DAMAGE', 'Q immediately creates a blood ring around the hero.', ['+radius', '+duration', '+damage']],
+  field_snap: ['СТЯЖКА ПОЛЯ', 'СТЯЖКА И КОНТРОЛЬ', 'Q стягивает и надолго оглушает ближайшие угрозы, не нанося урон.', ['+радиус', '+сила стяжки', '+оглушение'], 'FIELD SNAP', 'PULL AND CONTROL', 'Q pulls nearby threats together and stuns them for a long time without dealing damage.', ['+radius', '+pull strength', '+stun duration']],
+  bullet_freeze: ['ЗАМОРОЗКА ПУЛЬ', 'ЗАМОРОЗКА И КОНТРОЛЬ', 'Q создаёт холодную ауру вокруг героя.', ['+радиус', '+длительность', '+заморозка'], 'BULLET FREEZE', 'FREEZE AND CONTROL', 'Q creates a freezing aura around the hero.', ['+radius', '+duration', '+freeze duration']],
+  shell_ripper: ['РАЗРЫВ ОБОЛОЧКИ', 'БРОНЯ И БЛОКИРОВКА', 'Q наносит половинный урон без брони, вдвое сильнее ломает броню и временно отключает все способности угроз, включая боссов.', ['+радиус', '+урон броне', '+блокировка'], 'SHELL RIPPER', 'ARMOR AND ABILITY LOCK', 'Q deals half damage to unarmored threats, double damage to armor and temporarily disables every enemy ability, including boss abilities.', ['+radius', '+armor damage', '+lock duration']],
+  void_cut: ['РАЗРЕЗ ПУСТОТЫ', 'СОСТАВНОЙ ЛУЧ', 'Первое Q ставит начало. Следующие Q прокладывают звенья луча.', ['+точка связи', '+длина звена', '+урон'], 'VOID CUT', 'CHAINED BEAM', 'First Q places the origin. Further Q presses build connected beam segments.', ['+link point', '+segment length', '+damage']],
+  signal_spike: ['СИГНАЛЬНЫЙ ШИП', 'УСТАНОВКА УЗЛА', 'Q ставит шип в точку курсора.', ['+заряд', '+дальность и радиус', '+длительность и урон'], 'SIGNAL SPIKE', 'DEPLOYED NODE', 'Q deploys a spike at the cursor.', ['+charge', '+range and radius', '+duration and damage']],
+  black_box: ['ЧЁРНЫЙ ЯЩИК', 'СКРЫТИЕ И ЗАЩИТА', 'Q раскрывает чёрный ящик вокруг героя. Улучшения уменьшают зону обнаружения.', ['−радиус обнаружения', '+длительность', '+скрытие'], 'BLACK BOX', 'STEALTH AND SAFETY', 'Q opens a black box around the hero. Upgrades shrink its detection area.', ['−detection radius', '+duration', '+stealth duration']],
+  static_strike: ['СТАТИК-УДАР', 'УДАР ПО КУРСОРУ', 'Q помечает область. После задержки светлый шторм один раз бьёт все касающиеся её угрозы и исчезает.', ['+урон', '+восстановление', '+диаметр'], 'STATIC STRIKE', 'CURSOR STRIKE', 'Q marks an area. After a delay, a pale storm hits every touching threat once and disappears.', ['+damage', '+recovery', '+diameter']],
+  debt_pulse: ['СТАТИК-ИМПУЛЬС', 'ИМПУЛЬС И УЯЗВИМОСТЬ', 'Q выпускает статик-волну вокруг героя. Каждый уровень повышает урон предыдущего на 25%. Способность не создаёт статик-долг.', ['+радиус', '+25% урона', '+уязвимость'], 'STATIC PULSE', 'BURST AND EXPOSE', 'Q releases a static wave around the hero. Each level increases the previous level damage by 25%. The ability creates no static debt.', ['+radius', '+25% damage', '+vulnerability']]
+};
+
+const MUTATION_TEXT = {
+  static: ['СТАТИК', 'ПОЛЕ', 'Q оставляет поле, замедляющее вражеские пули.', 'STATIC', 'FIELD', 'Q leaves a field that slows hostile projectiles.'],
+  blood: ['КРОВЬ', 'УРОН', 'Q получает кровавый урон; часть применений стоит здоровья.', 'BLOOD', 'DAMAGE', 'Q gains blood damage; some activations cost health.'],
+  echo: ['ЭХО', 'ПОВТОР', 'Q повторяется слабее после короткой паузы.', 'ECHO', 'RECAST', 'Q repeats at reduced strength after a short delay.'],
+  shrapnel: ['ШРАПНЕЛЬ', 'СНАРЯДЫ', 'Q выпускает дополнительные снаряды.', 'SHRAPNEL', 'PROJECTILES', 'Q releases additional projectiles.'],
+  casino: ['КАЗИНО', 'ПОСЛЕ БРОСКА', 'После Q может сработать казино-проверка. Повторно не выпадает.', 'CASINO', 'POST-ROLL', 'Q may trigger a casino check. This mutation cannot appear twice.'],
+  void: ['ПУСТОТА', 'ФАЗА', 'Q даёт короткое окно неуязвимости.', 'VOID', 'PHASE', 'Q grants a brief invulnerability window.'],
+  leech: ['ПИЯВКА', 'ВОССТАНОВЛЕНИЕ', 'Попадания Q могут вернуть здоровье или кредиты.', 'LEECH', 'SUSTAIN', 'Q hits may restore health or credits.'],
+  armor_crack: ['РАЗЛОМ БРОНИ', 'ОБЛАСТЬ И БРОНЯ', 'Во всей зоне Q проходит мощный удар только по броне угроз.', 'ARMOR BREAK', 'AREA AND ARMOR', 'The entire Q area deals a powerful hit only to enemy armor.'],
+  anchor: ['ЯКОРЬ', 'ЗОНА ЗАХВАТА', 'Q оставляет область, которая тянет угрозы и замедляет только вражеские пули.', 'ANCHOR', 'LOCK ZONE', 'Q leaves an area that pulls threats and slows hostile projectiles only.'],
+  hunger: ['ГОЛОД', 'ВСПЛЕСК ПРИ МАЛОМ ЗДОРОВЬЕ', 'Q наносит урон вокруг героя. Чем меньше здоровья при активации, тем сильнее импульс.', 'HUNGER', 'LOW-HEALTH BURST', 'Q deals damage around the hero. The lower the activation health, the stronger the burst.'],
+  bad_tape: ['БИТАЯ ЛЕНТА', 'СБОЙНЫЙ ПОВТОР', 'Q повторяется двумя слабыми сбоями.', 'BAD TAPE', 'GLITCH REPEAT', 'Q repeats as two weaker glitches.']
+};
+
+function attachText(target, text, kind = 'label') {
+  if (!target || !text) return;
+  if (kind === 'name') { target.nameRu = text[0]; target.nameEn = text[1]; return; }
+  target.labelRu = text[0]; target.descRu = text[1] || '';
+  target.labelEn = text[2] || text[0]; target.descEn = text[3] || '';
+}
+
+for (const [id, text] of Object.entries(WEAPON_TEXT)) attachText(WEAPONS[id], text, 'name');
+const ENEMY_TEXT = {
+  grunt: ['РЯДОВОЙ', 'ТЕЛО РОЯ', 'ДАВЛЕНИЕ РОЯ', 'GRUNT', 'SWARM BODY', 'SWARM PRESSURE'],
+  runner: ['БЕГУН', 'БЫСТРЫЙ НАТИСК', 'СКОРОСТНОЕ ДАВЛЕНИЕ', 'RUNNER', 'FAST PRESSURE', 'SPEED PRESSURE'],
+  tank: ['ТАНК', 'ПЕРЕДНЯЯ СТЕНА', 'ЛОБОВОЕ ДАВЛЕНИЕ', 'TANK', 'FRONT WALL', 'FRONT PRESSURE'],
+  shooter: ['СТРЕЛОК', 'ДАЛЬНИЙ СТРАЖ', 'ДАЛЬНЕЕ ДАВЛЕНИЕ', 'SHOOTER', 'RANGED GUARD', 'RANGED PRESSURE'],
+  charger: ['ТАРАН', 'РАЗРЫВ ЛИНИИ', 'ЛИНЕЙНОЕ ДАВЛЕНИЕ', 'CHARGER', 'LINE BREAKER', 'LINE PRESSURE'],
+  bomber: ['ПОДРЫВНИК', 'РАЗРЫВ ПРОСТРАНСТВА', 'ДАВЛЕНИЕ ЗОН', 'BOMBER', 'SPACE BREAKER', 'AREA PRESSURE'],
+  bouncer: ['ОТСКОК', 'СМЕЩЕНИЕ', 'ДАВЛЕНИЕ ДВИЖЕНИЯ', 'BOUNCER', 'DISPLACEMENT', 'MOVEMENT PRESSURE'],
+  wall_jumper: ['НАСТЕННЫЙ ПРЫГУН', 'ЗАСАДА СО СТЕНЫ', 'ДАВЛЕНИЕ СТЕН', 'WALL JUMPER', 'WALL AMBUSH', 'WALL PRESSURE'],
+  glitch: ['СБОЙ', 'РАЗРЫВ ТЫЛА', 'ДАВЛЕНИЕ ЗАСАДЫ', 'GLITCH', 'BACKLINE DISRUPTOR', 'AMBUSH PRESSURE'],
+  slot_mob: ['АВТОМАТ', 'ПЕРЕГРУЗКА КАЗИНО', 'ЗАРАЖЕНИЕ СЛОТА', 'SLOT MOB', 'CASINO OVERLOAD', 'SLOT CORRUPTION'],
+  echo: ['ЭХО', 'КОПИЯ ОРУЖИЯ', 'ЗЕРКАЛЬНОЕ ДАВЛЕНИЕ', 'ECHO', 'WEAPON MIMIC', 'MIRROR PRESSURE'],
+  orbiter: ['ОРБИТЕР', 'ПОДВИЖНЫЙ СТРАЖ', 'ДАВЛЕНИЕ ЗАЩИТЫ', 'ORBITER', 'MOBILE GUARD', 'GUARD PRESSURE'],
+  anchor: ['ЯКОРЬ', 'ЯДРО КОНТРОЛЯ', 'ДАВЛЕНИЕ СТЯЖКИ', 'ANCHOR', 'CONTROL CORE', 'PULL PRESSURE'],
+  splitter: ['ДЕЛИТЕЛЬ', 'СЕМЯ РОЯ', 'ДАВЛЕНИЕ ПОТОКА', 'SPLITTER', 'SWARM SEED', 'FLOOD PRESSURE'],
+  prism: ['ПРИЗМА', 'ЛИНИЯ ПЕРЕКРЁСТНОГО ОГНЯ', 'ДАВЛЕНИЕ ЛИНИЙ', 'PRISM', 'CROSSFIRE LANE', 'LANE PRESSURE'],
+  pulse: ['ИМПУЛЬС', 'ВОЛНОВОЙ НАТИСК', 'ДАВЛЕНИЕ ВОЛН', 'PULSE', 'WAVE ATTACK', 'WAVE PRESSURE'],
+  leech: ['ЛЕКАРЬ', 'ПОДДЕРЖКА ВОССТАНОВЛЕНИЯ', 'ДАВЛЕНИЕ ЛЕЧЕНИЯ', 'LEECH', 'SUSTAIN SUPPORT', 'HEALING PRESSURE'],
+  warden: ['НАДЗИРАТЕЛЬ', 'КООРДИНАТОР БРОНИ', 'ДАВЛЕНИЕ БРОНИ', 'WARDEN', 'ARMOR COORDINATOR', 'ARMOR PRESSURE'],
+  damper: ['ГЛУШИТЕЛЬ', 'ПОДВИЖНОЕ УКРЫТИЕ', 'ДАВЛЕНИЕ БЕЗОПАСНОЙ ЗОНЫ', 'DAMPER', 'MOBILE SAFE NEST', 'SAFE-ZONE PRESSURE'],
+  herald: ['ВЕСТНИК', 'ДИРИЖЁР ПРИЗЫВА', 'ДАВЛЕНИЕ ПРИЗЫВА', 'HERALD', 'SUMMON DIRECTOR', 'SUMMON PRESSURE'],
+  boss: ['ВОСЬМИУГОЛЬНИК', 'РИКОШЕТНЫЙ ЛАЗЕРНЫЙ МАССИВ', 'БОСС', 'OCTAGON', 'RICOCHET LASER ARRAY', 'BOSS'],
+  boss_croupier: ['КРУПЬЕ', 'ПРАВИЛА КАЗИНО', 'БОСС', 'CROUPIER', 'CASINO RULES', 'BOSS'],
+  boss_anchor_cashier: ['ЯКОРНЫЙ КАССИР', 'КОНТРОЛЬ ГРАВИТАЦИИ', 'БОСС', 'ANCHOR CASHIER', 'GRAVITY CONTROL', 'BOSS'],
+  boss_hunter_chorus: ['ХОР ОХОТНИКА', 'ОБОЛОЧКА ОХОТНИКА', 'БОСС', 'HUNTER CHORUS', 'HUNTER SHELL', 'BOSS'],
+  boss_hunter_duelist: ['ОХОТНИК-ДУЭЛЯНТ', 'ФРАГМЕНТ ОХОТНИКА', 'БОСС-ФРАГМЕНТ', 'HUNTER DUELIST', 'HUNTER FRAGMENT', 'BOSS FRAGMENT'],
+  boss_hunter_marksman: ['ОХОТНИК-СТРЕЛОК', 'ФРАГМЕНТ ОХОТНИКА', 'БОСС-ФРАГМЕНТ', 'HUNTER MARKSMAN', 'HUNTER FRAGMENT', 'BOSS FRAGMENT'],
+  boss_hunter_trapper: ['ОХОТНИК-ЛОВЧИЙ', 'ФРАГМЕНТ ОХОТНИКА', 'БОСС-ФРАГМЕНТ', 'HUNTER TRAPPER', 'HUNTER FRAGMENT', 'BOSS FRAGMENT'],
+  boss_q_revisor: ['РЕВИЗОР Q', 'ДАВЛЕНИЕ РЫВКА', 'БОСС', 'Q REVISOR', 'DASH PRESSURE', 'BOSS'],
+  boss_trinode: ['ТРОЙНОЙ УЗЕЛ', 'ПОСЛЕДОВАТЕЛЬНЫЙ ПОЛЗУН', 'БОСС', 'TRINODE', 'SEQUENTIAL CRAWLER', 'BOSS'],
+  root_node: ['КОРНЕВОЙ УЗЕЛ', 'ЗАЩИТНЫЙ УЗЕЛ', 'ЦЕЛЬ', 'ROOT NODE', 'DEFENSE NODE', 'OBJECTIVE']
+};
+for (const [id, text] of Object.entries(ENEMY_TEXT)) {
+  const enemy = ENEMIES[id];
+  if (!enemy) continue;
+  Object.assign(enemy, { nameRu: text[0], roleRu: text[1], comboRu: text[2], nameEn: text[3], roleEn: text[4], comboEn: text[5] });
+}
+for (const item of UPGRADES) attachText(item, UPGRADE_TEXT[item.id]);
+for (const item of WEAPON_CHEST_REWARDS) {
+  const text = WPN_ONLY_TEXT[item.id] || UPGRADE_TEXT[item.upgrade || item.id];
+  attachText(item, text);
+}
+attachText(ABILITY_CHEST_REWARDS[0], ['ВОССТАНОВЛЕНИЕ Q +20%', 'Активный протокол восстанавливается быстрее.', 'Q RECOVERY +20%', 'The active protocol recovers faster.']);
+
+for (const [id, text] of Object.entries(CORE_TEXT)) {
+  const core = ACTIVE_CORES[id];
+  if (!core) continue;
+  [core.labelRu, core.roleRu, core.descRu, core.upgradeRu, core.labelEn, core.roleEn, core.descEn, core.upgradeEn] = text;
+  core.shortRu = core.labelRu;
+  core.shortEn = core.short;
+}
+for (const [id, text] of Object.entries(MUTATION_TEXT)) {
+  const mutation = ACTIVE_MUTATIONS[id];
+  if (!mutation) continue;
+  [mutation.labelRu, mutation.roleRu, mutation.descRu, mutation.labelEn, mutation.roleEn, mutation.descEn] = text;
+}
+
+const CHEST_TEXT = {
+  basic_chest: ['БАЗ', 'БАЗОВЫЙ СУНДУК', 'BSC', 'BASIC CHEST'], weapon_chest: ['ОРУЖ', 'ОРУЖЕЙНЫЙ СУНДУК', 'WPN', 'WEAPON CHEST'],
+  ability_chest: ['АКТ', 'СУНДУК АКТИВНОСТИ', 'ABL', 'ABILITY CHEST'], rare_chest: ['РЕД', 'РЕДКИЙ СУНДУК', 'RAR', 'RARE CHEST'],
+  cursed_chest: ['ПРК', 'ПРОКЛЯТЫЙ СУНДУК', 'CRS', 'CURSED CHEST']
+};
+for (const [id, text] of Object.entries(CHEST_TEXT)) {
+  Object.assign(CHESTS[id], { labelRu: text[0], nameRu: text[1], labelEn: text[2], nameEn: text[3] });
+}
+Object.assign(CHESTS.weapon_chest, { roleRu: 'ветка оружия', roleEn: 'weapon route' });
+Object.assign(CHESTS.ability_chest, { roleRu: 'ветка активностей', roleEn: 'ability route' });
+Object.assign(CHESTS.rare_chest, { roleRu: 'сила забега', roleEn: 'run power' });
+
+const ROOM_TEXT = {
+  blackout: ['ЗАТМЕНИЕ', 'BLACKOUT'], static_rain: ['СТАТИК-ШТОРМ', 'STATIC STORM'], greed: ['ЗОЛОТАЯ ЛИХОРАДКА', 'GOLD FEVER'],
+  hunter_contract: ['ВОЛНЫ ОХОТНИКА', 'HUNTER WAVES'], casino_virus: ['ВИРУС КАЗИНО', 'CASINO VIRUS'], moving_room: ['СДВИГ ЗОН', 'SHIFTING ZONES'],
+  prism_grid: ['ПРИЗМЕННАЯ СЕТЬ', 'PRISM GRID'], blood_tax: ['КРОВАВАЯ ПЛАТА', 'BLOOD PAYMENT'], echo_walls: ['ЭХО-ВЫСТРЕЛЫ', 'ECHO SHOTS'],
+  skin_cache: ['ТАЙНИК ОБЛИКОВ', 'SKIN CACHE'], trojan: ['ТРОЯНСКИЙ СУНДУК', 'TROJAN CHEST']
+};
+for (const [id, text] of Object.entries(ROOM_TEXT)) Object.assign(ROOM_MODS[id], { labelRu: text[0], labelEn: text[1] });
+const SPECIAL_TEXT = {
+  signal_contract: ['СИГНАЛЬНЫЙ КОНТРАКТ', 'SIGNAL CONTRACT'], reward_pocket: ['КАРМАН НАГРАД', 'REWARD POCKET'],
+  debt_node: ['СТАТИК-УЗЕЛ', 'STATIC NODE'], chill_room: ['ТИХАЯ КОМНАТА', 'CHILL ROOM']
+};
+for (const [id, text] of Object.entries(SPECIAL_TEXT)) Object.assign(SPECIAL_ROOMS[id], { labelRu: text[0], labelEn: text[1] });
+
+const RARITY_TEXT = {
+  basic: ['БАЗОВЫЙ', 'BASIC'], uncommon: ['НЕОБЫЧНЫЙ', 'UNCOMMON'], rare: ['РЕДКИЙ', 'RARE'],
+  superrare: ['СВЕРХРЕДКИЙ', 'SUPER RARE'], legendary: ['ЛЕГЕНДАРНЫЙ', 'LEGENDARY']
+};
+for (const [id, text] of Object.entries(RARITY_TEXT)) Object.assign(SKIN_RARITIES[id], { labelRu: text[0], labelEn: text[1] });
+const SKIN_TEXT = {
+  terminal_mint: ['СИГНАЛ ДОМА', 'Базовый домашний сигнал. Чистый терминальный след.', 'HOUSE SIGNAL', 'Base house signal. Clean terminal trail.'],
+  debt_red: ['ДОЛГОВОЙ РАЗЛОМ', 'Красный надлом сигнала.', 'DEBT FRACTURE', 'A red fracture through the signal.'],
+  void_cyan: ['КАНАЛ ПУСТОТЫ', 'Холодный фазовый хвост.', 'VOID CHANNEL', 'A cold phase trail.'],
+  casino_gold: ['БЛЕСК КАССЫ', 'Золотой жетонный след.', 'CASHIER GLEAM', 'A golden token trail.'],
+  bruise_purple: ['СБИТАЯ ЦЕПЬ', 'Фиолетовый надрез проводки.', 'BRUISED CIRCUIT', 'A purple cut through damaged circuitry.'],
+  bone_static: ['КОСТЯНОЙ ШУМ', 'Сухой терминальный треск.', 'BONE NOISE', 'A dry terminal crackle.'],
+  black_lime: ['ЛАЙМОВЫЙ ПРОЛОМ', 'Резкие кислотные искры.', 'LIME BREACH', 'Sharp acidic sparks.'],
+  bad_tv: ['БИТЫЙ ЭФИР', 'Перегоревший экранный след.', 'BAD BROADCAST', 'A burned-out screen trail.'],
+  red_static: ['КРАСНЫЙ ШТОРМ', 'Битый канал в рывке.', 'RED STORM', 'A broken channel inside the dash.'],
+  mirror_coin: ['ЛОЖНЫЙ ДЖЕКПОТ', 'Зеркальный жетонный дубль.', 'FALSE JACKPOT', 'A mirrored token duplicate.'],
+  terminal_ghost: ['ПРИЗРАК ТЕРМИНАЛА', 'Эфирный след с фантомом.', 'TERMINAL GHOST', 'An ethereal trail with a phantom.'],
+  jackpot_wound: ['РАНА ДЖЕКПОТА', 'Монетные осколки и лоскуты автомата.', 'JACKPOT WOUND', 'Coin shards and torn slot fragments.'],
+  dead_channel: ['МЁРТВЫЙ КАНАЛ', 'Порванный эфир и экранные обрывки.', 'DEAD CHANNEL', 'A torn broadcast with screen fragments.']
+};
+for (const skin of SKIN_PRESETS) {
+  const text = SKIN_TEXT[skin.id];
+  if (text) Object.assign(skin, { nameRu: text[0], noteRu: text[1], nameEn: text[2], noteEn: text[3] });
+}
+
+export function contentText(entry, lang = 'en', field = 'label') {
+  if (!entry) return '';
+  const suffix = String(lang).toLowerCase().startsWith('ru') ? 'Ru' : 'En';
+  return entry[`${field}${suffix}`] ?? entry[field] ?? '';
+}

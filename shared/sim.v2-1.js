@@ -2,7 +2,7 @@
 import {
   WEAPONS, WEAPON_ORDER, ENEMIES, SPAWN_POOLS, UPGRADES, CHESTS,
   WEAPON_CHEST_REWARDS, ABILITY_CHEST_REWARDS, HERO_UPGRADES, BOSS_SIGNATURE_UPGRADE_IDS, ACTIVE_CORES, ACTIVE_MUTATIONS,
-  rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, casinoSymbolAllowedForStake, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE
+  rollUpgradeChoices, defaultStats, spinCasino, rerollCasinoPair, casinoPayloadHasReward, casinoSymbolAllowedForStake, rollCasinoSkin, rollRoomSkin, UPGRADE_LABELS, SKIN_PRESETS, BET_STAKES, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, contentText
 } from './data.v2-1.js';
 import { generateRoom, spawnPoint, enemySpawnPoint, isEnemySpawnReachable, portalSpot, mulberry32, WALL_T } from './mapgen.v2-1.js';
 
@@ -569,7 +569,7 @@ function payBloodCost(run, p, hpCost, srcX = p?.x, srcY = p?.y, radius = 48) {
       p.hp = Math.min(maxHp(p), 50);
       p.alive = true;
       p.invuln = Math.max(p.invuln || 0, 1.0);
-      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
+      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), labelEn: favorLabel(favor), labelRu: favorDef(favor.id)?.labelRu || '', body: '50 HEALTH RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 ЗДОРОВЬЯ', bodyEn: '50 HEALTH RESTORED', playerId: p.id });
     } else {
       p.hp = 0; p.alive = false; p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0; run.fx.push({ t: 'pdown', id: p.id });
     }
@@ -585,7 +585,7 @@ function chestValueInfo(run, o = {}) {
   const type = String(o?.chest || '');
   const rawMul = Math.max(0.5, Number(o?.costMul || 1));
   const special = String(run?.plan?.specialRoomId || '');
-  let tier = Number.isFinite(Number(o?.chestTier)) ? Math.max(0, Math.min(3, Number(o.chestTier) | 0)) : 0;
+  let tier = Number.isFinite(Number(o?.chestTier)) ? Math.max(0, Math.min(4, Number(o.chestTier) | 0)) : 0;
   // Fallback for old/dev objects without a baked profile.
   if (!Number.isFinite(Number(o?.chestTier))) {
     if (type === 'rare_chest') tier = Math.max(tier, 2);
@@ -593,14 +593,14 @@ function chestValueInfo(run, o = {}) {
     if (rawMul >= 1.25 || special === 'reward_pocket') tier = Math.max(tier, 1);
     if (rawMul >= 1.65) tier = Math.max(tier, 2);
     if (rawMul >= 2.05) tier = Math.max(tier, 3);
+    if (rawMul >= 2.55) tier = Math.max(tier, 4);
   }
   const paidChoice = type === 'weapon_chest' || type === 'ability_chest';
   let slots = Number.isFinite(Number(o?.slotCount)) ? Math.max(0, Number(o.slotCount) | 0) : 0;
-  if (paidChoice && slots <= 0) slots = tier >= 3 ? 5 : (tier >= 2 ? 3 : Math.max(1, Math.min(2, 1 + tier)));
-  if (paidChoice) slots = tier >= 3 ? 5 : (tier >= 2 ? Math.max(1, Math.min(3, slots)) : Math.max(1, Math.min(2, slots)));
-  const label = tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
-  const labelRu = tier >= 3 ? 'РЕДКИЙ' : tier >= 2 ? 'ЦЕННЫЙ' : tier >= 1 ? 'ХОРОШИЙ' : 'ПРОСТОЙ';
-  const costValueMul = [0.78, 1.00, 1.26, 1.72][tier] || 1;
+  if (paidChoice) slots = tier + 1;
+  const label = tier >= 4 ? 'UNIQUE' : tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
+  const labelRu = tier >= 4 ? 'УНИКАЛЬНЫЙ' : tier >= 3 ? 'РЕДКИЙ' : tier >= 2 ? 'ЦЕННЫЙ' : tier >= 1 ? 'ХОРОШИЙ' : 'ПРОСТОЙ';
+  const costValueMul = [0.78, 1.00, 1.26, 1.50, 1.72][tier] || 1;
   const slotCostMul = paidChoice ? (0.82 + slots * 0.18 + (slots >= 5 ? 0.34 : 0)) : 1;
   const reason = String(o?.rarityReason || '').trim();
   return { tier, label, labelRu, slots, slotCount: slots, choiceBonus: Math.max(0, slots - 3), costValueMul, slotCostMul, rawMul, reason };
@@ -724,7 +724,9 @@ function safeRareUpgradePool(p) {
   return eligibleHeroUpgrades(p, null).filter(u => u && !u.cursed && u.tier >= 1 && u.tier <= 2);
 }
 function rareTierTwoChance(qualityTier = 0, loopIndex = 0) {
-  return Math.min(0.82, Math.max(0.18, 0.12 + Math.max(0, qualityTier) * 0.13 + Math.max(0, loopIndex) * 0.08));
+  // UNIQUE is a new presentation/slot band; keep the former top reward weight.
+  const rewardTier = Math.min(3, Math.max(0, Number(qualityTier) || 0));
+  return Math.min(0.82, Math.max(0.18, 0.12 + rewardTier * 0.13 + Math.max(0, loopIndex) * 0.08));
 }
 function rollSafeRareUpgrade(p, rng = Math.random, qualityTier = 0, loopIndex = 0, excluded = new Set()) {
   const available = safeRareUpgradePool(p).filter(u => !excluded.has(u.id));
@@ -734,7 +736,7 @@ function rollSafeRareUpgrade(p, rng = Math.random, qualityTier = 0, loopIndex = 
   const list = band.length ? band : available;
   return list[Math.floor(rng() * list.length)] || null;
 }
-function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
+function grantRareCasinoPrize(run, p, source = 'CASINO RAR', receipt = null) {
   const rng = Math.random;
   const pool = safeRareUpgradePool(p).filter(u => u.tier === 1);
   const fallback = safeRareUpgradePool(p);
@@ -744,6 +746,10 @@ function grantRareCasinoPrize(run, p, source = 'CASINO RAR') {
   u.apply(p.stats);
   p.hp = Math.min(p.hp, maxHp(p));
   run.fx.push({ t: 'install', id: p.id, label: `${source}: ${u.label}`, personal: 1 });
+  if (receipt) {
+    if (!Array.isArray(receipt.rareLabelPairs)) receipt.rareLabelPairs = [];
+    receipt.rareLabelPairs.push({ labelEn: u.labelEn || u.label, labelRu: u.labelRu || u.label });
+  }
   return u.label;
 }
 
@@ -954,9 +960,9 @@ function casinoStakeTable(run) {
 }
 function roomModRewardTags(mods = [], special = '') {
   const tags = [];
-  if (mods.includes('greed')) tags.push('GLD BONUS');
+  if (mods.includes('greed')) tags.push('GOLD BONUS');
   if (mods.includes('casino_virus')) tags.push('3 SPINS');
-  if (mods.includes('blood_tax')) tags.push('HP COSTS');
+  if (mods.includes('blood_tax')) tags.push('HEALTH COSTS');
   if (mods.includes('skin_cache') || special === 'reward_pocket') tags.push('REWARD↑');
   if (mods.includes('trojan')) tags.push('INFECTED CHEST');
   if (special === 'chill_room') tags.push('SAFE / SHOP');
@@ -1019,7 +1025,7 @@ function roomThreatTags(plan = {}, staticLevel = 0) {
   if (mods.includes('casino_virus')) tags.push('3 VIRUS SPINS');
   if (mods.includes('moving_room')) tags.push('DANGER ZONES');
   if (mods.includes('prism_grid')) tags.push('PRISM SLOW');
-  if (mods.includes('blood_tax')) tags.push('HP SHOP');
+  if (mods.includes('blood_tax')) tags.push('HEALTH SHOP');
   if (mods.includes('echo_walls')) tags.push('50% ECHO SHOTS');
   if (mods.includes('trojan')) tags.push('CHEST SWARM');
   if (special === 'signal_contract') tags.push('PRIORITY TARGET');
@@ -1033,14 +1039,14 @@ function roomTip(plan = {}, staticLevel = 0, staticMode = '') {
   if (special === 'chill_room') return 'SAFE ROOM: buy, BET, then leave when ready.';
   if (roomPlanCategory(plan) === 'boss') return 'BOSS FLOOR: hold space, clear adds, watch burst windows.';
   if (mods.includes('static_rain')) return String(staticMode).startsWith('paid') ? (staticMode === 'paid+seed' ? 'STATIC STACK: banked storm is spent here; natural room strikes still seed the next level.' : 'STATIC PAYOFF: survive the level; strikes here do not seed another storm.') : 'STATIC SEED: each real strike raises the next eligible room level.';
-  if (mods.includes('hunter_contract')) return 'ВОЛНЫ ОХОТНИКОВ: portal stays locked until every wave is dead.';
+  if (mods.includes('hunter_contract')) return 'HUNTER WAVES: the portal stays locked until every wave is defeated.';
   if (mods.includes('casino_virus')) return 'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.';
   if (mods.includes('moving_room')) return 'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.';
   if (mods.includes('prism_grid')) return 'PRISM GRID: pale floor cells slow movement and bullets inside them.';
-  if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and buys cost HP. Death Insurance can save a lethal payment.';
+  if (mods.includes('blood_tax')) return 'BLOOD PAYMENT: bets and purchases cost health. Death Insurance can save a lethal payment.';
   if (mods.includes('echo_walls')) return 'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.';
   if (mods.includes('trojan')) return 'TROJAN CHEST: one chest is infected. Opening it releases a swarm and locks the portal until cleanup.';
-  if (mods.includes('greed')) return 'GOLD FEVER: everything is GLD. Enemies and chests pay more gold; mistakes cost gold instead of HP.';
+  if (mods.includes('greed')) return 'GOLD FEVER: every reward is gold. Enemies and chests pay more; damage costs gold instead of health.';
   if (arch === 'cashier_maze') return 'CASHIER MAZE: blackout is forced; thick walls block dash skips and the portal is hidden in the farthest reachable cell.';
   if (arch === 'ripped_table') return 'RIPPED TABLE: the bridge decides when fights spill between halves.';
   if (arch === 'cross_terminal') return 'CROSS TERMINAL: threats travel through four lanes into the center.';
@@ -1056,11 +1062,42 @@ function roomIntel(plan = {}, staticLevel = 0, staticMode = '') {
   const mods = roomPlanMods(plan);
   const special = roomPlanSpecial(plan);
   const danger = roomDangerScore(plan, staticLevel);
+  const dangerLabelEn = roomDangerLabel(danger);
+  const dangerLabelRu = ['БЕЗОПАСНО', 'НИЗКАЯ', 'СРЕДНЯЯ', 'ВЫСОКАЯ', 'КРИТИЧЕСКАЯ', 'БОСС'][Math.max(0, Math.min(5, danger | 0))] || 'СРЕДНЯЯ';
+  const tagRu = {
+    'GOLD BONUS':'БОНУС ЗОЛОТА','3 SPINS':'3 ВРАЩЕНИЯ','HEALTH COSTS':'ПЛАТА ЗДОРОВЬЕМ','REWARD↑':'НАГРАДА↑','INFECTED CHEST':'ЗАРАЖЁННЫЙ СУНДУК','SAFE / SHOP':'БЕЗОПАСНО / МАГАЗИН',
+    'CLOSE RANGE':'БЛИЖНИЙ БОЙ','DASH SPACE':'МЕСТО ДЛЯ РЫВКА','CROSSFIRE':'ПЕРЕКРЁСТНЫЙ ОГОНЬ','LANES':'КОРИДОРЫ','NARROW BRIDGE':'УЗКИЙ МОСТ','CROSS LANES':'ПЕРЕКРЁСТНЫЕ КОРИДОРЫ','CHASE LOOP':'КОЛЬЦО ПОГОНИ','SQUEEZE LANES':'СЖАТЫЕ КОРИДОРЫ','LONG MAZE':'ДЛИННЫЙ ЛАБИРИНТ','BLACKOUT':'ТЕМНОТА','CORE POCKETS':'КАРМАНЫ ЯДРА','SHOP':'МАГАЗИН','LOCKED WAVES':'ЗАПЕРТЫЕ ВОЛНЫ','3 VIRUS SPINS':'3 ВИРУСНЫХ ВРАЩЕНИЯ','DANGER ZONES':'ОПАСНЫЕ ЗОНЫ','PRISM SLOW':'ЗАМЕДЛЕНИЕ ПРИЗМЫ','HEALTH SHOP':'МАГАЗИН ЗА ЗДОРОВЬЕ','50% ECHO SHOTS':'50% ЭХО-ВЫСТРЕЛОВ','CHEST SWARM':'РОЙ ИЗ СУНДУКА','PRIORITY TARGET':'ПРИОРИТЕТНАЯ ЦЕЛЬ','NO ENEMIES':'БЕЗ ВРАГОВ'
+  };
+  const tipEn = roomTip(plan, staticLevel, staticMode);
+  const tipRuByEn = {
+    'SAFE ROOM: buy, BET, then leave when ready.':'БЕЗОПАСНЫЙ СЕКТОР: купите нужное, сделайте ставку и уходите, когда будете готовы.',
+    'BOSS FLOOR: hold space, clear adds, watch burst windows.':'СЕКТОР БОССА: держите дистанцию, уничтожайте подкрепления и используйте окна уязвимости.',
+    'HUNTER WAVES: the portal stays locked until every wave is defeated.':'ВОЛНЫ ОХОТНИКОВ: портал заперт, пока не уничтожены все волны.',
+    'CASINO VIRUS: 3 slot events apply after their roll animation; then kill all enemies.':'ВИРУС КАЗИНО: переживите три вращения, затем уничтожьте всех врагов.',
+    'SHIFTING ZONES: hollow red zones move, slow, and pulse damage.':'ДВИЖУЩИЕСЯ ЗОНЫ: красные области перемещаются, замедляют и наносят периодический урон.',
+    'PRISM GRID: pale floor cells slow movement and bullets inside them.':'СЕТКА ПРИЗМЫ: светлые ячейки замедляют движение и снаряды.',
+    'BLOOD PAYMENT: bets and purchases cost health. Death Insurance can save a lethal payment.':'КРОВАВАЯ ПЛАТА: ставки и покупки расходуют здоровье. Страховка от смерти спасает от смертельной оплаты.',
+    'ECHO SHOTS: every projectile has 50% chance to echo, including enemy shots.':'ЭХО-ВЫСТРЕЛЫ: каждый снаряд, включая вражеский, с вероятностью 50% повторяется.',
+    'TROJAN CHEST: one chest is infected. Opening it releases a swarm and locks the portal until cleanup.':'ТРОЯНСКИЙ СУНДУК: один сундук заражён. Он выпускает рой и запирает портал до очистки.',
+    'GOLD FEVER: every reward is gold. Enemies and chests pay more; damage costs gold instead of health.':'ЗОЛОТАЯ ЛИХОРАДКА: все награды становятся золотом. Враги и сундуки дают больше, а урон отнимает золото вместо здоровья.',
+    'CASHIER MAZE: blackout is forced; thick walls block dash skips and the portal is hidden in the farthest reachable cell.':'ЛАБИРИНТ КАССИРА: темнота обязательна, толстые стены закрывают короткие пути, а портал спрятан в дальней доступной ячейке.',
+    'RIPPED TABLE: the bridge decides when fights spill between halves.':'РАЗОРВАННЫЙ СТОЛ: узкий мост связывает две половины боя.',
+    'CROSS TERMINAL: threats travel through four lanes into the center.':'КРЕСТОВОЙ ТЕРМИНАЛ: враги сходятся к центру по четырём коридорам.',
+    'RING TRACK: keep moving around the blocked core.':'КОЛЬЦЕВАЯ ТРАССА: двигайтесь вокруг закрытого ядра.',
+    'CLAMP ROOM: space squeezes into readable bands.':'ЗАЖИМ: пространство сужается до нескольких полос.',
+    'MACHINE CORE: clear pockets before the core area floods.':'МАШИННОЕ ЯДРО: очищайте карманы до заполнения центральной области.',
+    'PANIC BOX: use dash as a reset, not only as speed.':'ПАНИЧЕСКИЙ БЛОК: сохраняйте рывок для выхода из опасности.',
+    'LONG LANE: watch chargers and prism angles before committing.':'ДЛИННЫЙ КОРИДОР: следите за рывками врагов и углами призм.',
+    'WIDE FIELD: pick a side and collapse ranged nests.':'ШИРОКОЕ ПОЛЕ: выберите сторону и уничтожайте дальние позиции.',
+    'CLEAN ROOM: read the enemy pack and save dash for mistakes.':'ЧИСТЫЙ СЕКТОР: оцените состав врагов и берегите рывок для выхода из ошибки.'
+  };
+  const threatTagsEn = roomThreatTags(plan, staticLevel);
+  const rewardTagsEn = roomModRewardTags(mods, special);
   return {
-    danger, dangerLabel: roomDangerLabel(danger),
-    threatTags: roomThreatTags(plan, staticLevel),
-    rewardTags: roomModRewardTags(mods, special),
-    tip: roomTip(plan, staticLevel, staticMode)
+    danger, dangerLabel: dangerLabelEn, dangerLabelEn, dangerLabelRu,
+    threatTags: threatTagsEn, threatTagsEn, threatTagsRu: threatTagsEn.map(x => tagRu[x] || x),
+    rewardTags: rewardTagsEn, rewardTagsEn, rewardTagsRu: rewardTagsEn.map(x => tagRu[x] || x),
+    tip: tipEn, tipEn, tipRu: tipRuByEn[tipEn] || 'Изучите условия сектора перед боем.'
   };
 }
 
@@ -1069,18 +1106,18 @@ function roomObjectiveForPlan(plan = {}, depth = 0) {
   const arch = roomPlanArchetype(plan);
   const special = roomPlanSpecial(plan);
   const cat = roomPlanCategory(plan);
-  if (cat === 'boss') return { id: 'boss_cut', label: 'BOSS CUT', reward: 'FAVOR', goal: 'Kill the boss.' };
-  if (special === 'chill_room') return { id: 'lounge_cashout', label: 'SAFE CASHOUT', reward: 'SHOP', goal: 'Leave when ready.' };
-  if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'ВОЛНЫ ОХОТНИКОВ', reward: 'FAVOR', goal: 'Survive every locked hunter wave.' };
-  if (mods.includes('casino_virus')) return { id: 'virus_clean', label: 'VIRUS CLEANUP', reward: 'FAVOR', goal: 'Survive 3 virus spins, then kill every enemy.' };
-  if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'PRISM CLEANUP', reward: 'FAVOR', goal: 'Clear the room while the prism cells slow the fight.' };
-  if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', reward: 'FAVOR', goal: 'Spend HP if you dare, then clear the room.' };
-  if (mods.includes('static_rain')) return { id: 'static_clean', label: 'STATIC CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy while taking low damage.' };
-  if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', reward: 'FAVOR', goal: 'Kill every enemy and claim the cache.' };
-  if (arch === 'cashier_maze') return { id: 'clean_signal', label: 'MAZE CLEANUP', reward: 'FAVOR', goal: 'Find the far exit and kill every enemy in the maze.' };
-  if (arch === 'panic_box' || arch === 'compact') return { id: 'fast_clear', label: 'FAST CLEANUP', reward: 'FAVOR', goal: `Kill every enemy before ${fastClearTimeLimit({ plan })}s.` };
-  if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'NO-HIT CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy without taking damage.' };
-  return { id: 'clean_signal', label: 'FULL CLEANUP', reward: 'FAVOR', goal: 'Kill every enemy in the room.' };
+  if (cat === 'boss') return { id: 'boss_cut', label: 'BOSS HUNT', labelEn: 'BOSS HUNT', labelRu: 'ОХОТА НА БОССА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Defeat the boss.', goalEn: 'Defeat the boss.', goalRu: 'Победить босса.' };
+  if (special === 'chill_room') return { id: 'lounge_cashout', label: 'SAFE EXIT', labelEn: 'SAFE EXIT', labelRu: 'БЕЗОПАСНЫЙ ВЫХОД', reward: 'SHOP', rewardEn: 'SHOP', rewardRu: 'МАГАЗИН', goal: 'Leave when ready.', goalEn: 'Leave when ready.', goalRu: 'Покинуть сектор, когда будете готовы.' };
+  if (mods.includes('hunter_contract')) return { id: 'hunter_waves', label: 'HUNTER WAVES', labelEn: 'HUNTER WAVES', labelRu: 'ВОЛНЫ ОХОТНИКОВ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Survive every locked hunter wave.', goalEn: 'Survive every locked hunter wave.', goalRu: 'Пережить все запертые волны охотников.' };
+  if (mods.includes('casino_virus')) return { id: 'virus_clean', label: 'VIRUS CLEANUP', labelEn: 'VIRUS CLEANUP', labelRu: 'ОЧИСТКА ОТ ВИРУСА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Survive three virus spins, then defeat every enemy.', goalEn: 'Survive three virus spins, then defeat every enemy.', goalRu: 'Пережить три вирусных вращения, затем уничтожить всех врагов.' };
+  if (mods.includes('prism_grid')) return { id: 'grid_slow_clear', label: 'PRISM CLEANUP', labelEn: 'PRISM CLEANUP', labelRu: 'ОЧИСТКА ПРИЗМЫ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Clear the sector while prism cells slow the fight.', goalEn: 'Clear the sector while prism cells slow the fight.', goalRu: 'Очистить сектор, пока призменные ячейки замедляют бой.' };
+  if (mods.includes('blood_tax')) return { id: 'blood_paid', label: 'BLOOD CLEANUP', labelEn: 'BLOOD CLEANUP', labelRu: 'КРОВАВАЯ ОЧИСТКА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Clear the sector under Blood Payment rules.', goalEn: 'Clear the sector under Blood Payment rules.', goalRu: 'Очистить сектор по правилам кровавой платы.' };
+  if (mods.includes('static_rain')) return { id: 'static_clean', label: 'STATIC CLEANUP', labelEn: 'STATIC CLEANUP', labelRu: 'СТАТИЧЕСКАЯ ОЧИСТКА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Defeat every enemy without exceeding the damage limit.', goalEn: 'Defeat every enemy without exceeding the damage limit.', goalRu: 'Уничтожить всех врагов, не превысив предел полученного урона.' };
+  if (mods.includes('skin_cache')) return { id: 'cache_claim', label: 'CACHE CLAIM', labelEn: 'CACHE CLAIM', labelRu: 'ЗАХВАТ ХРАНИЛИЩА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Defeat every enemy and claim the cache.', goalEn: 'Defeat every enemy and claim the cache.', goalRu: 'Уничтожить всех врагов и забрать хранилище.' };
+  if (arch === 'cashier_maze') return { id: 'clean_signal', label: 'MAZE CLEANUP', labelEn: 'MAZE CLEANUP', labelRu: 'ОЧИСТКА ЛАБИРИНТА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Find the far exit and defeat every enemy in the maze.', goalEn: 'Find the far exit and defeat every enemy in the maze.', goalRu: 'Найти дальний выход и уничтожить всех врагов в лабиринте.' };
+  if (arch === 'panic_box' || arch === 'compact') return { id: 'fast_clear', label: 'FAST CLEANUP', labelEn: 'FAST CLEANUP', labelRu: 'БЫСТРАЯ ОЧИСТКА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: `Defeat every enemy within ${fastClearTimeLimit({ plan })} seconds.`, goalEn: `Defeat every enemy within ${fastClearTimeLimit({ plan })} seconds.`, goalRu: `Уничтожить всех врагов за ${fastClearTimeLimit({ plan })} секунд.` };
+  if (arch === 'wide' || arch === 'long_lane' || ['ripped_table','cross_terminal','ring_track','clamp_room','machine_core'].includes(arch)) return { id: 'no_hit', label: 'FLAWLESS CLEANUP', labelEn: 'FLAWLESS CLEANUP', labelRu: 'БЕЗУПРЕЧНАЯ ОЧИСТКА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Defeat every enemy without losing health.', goalEn: 'Defeat every enemy without losing health.', goalRu: 'Уничтожить всех врагов без потери здоровья.' };
+  return { id: 'clean_signal', label: 'FULL CLEANUP', labelEn: 'FULL CLEANUP', labelRu: 'ПОЛНАЯ ОЧИСТКА', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Defeat every enemy in the sector.', goalEn: 'Defeat every enemy in the sector.', goalRu: 'Уничтожить всех врагов в секторе.' };
 }
 function contractTeamPlayers(players) { return players instanceof Map ? [...players.values()].filter(p => p?.connected !== false) : []; }
 function newContractObjectives(plan = {}, depth = 0, players = null) {
@@ -1089,17 +1126,17 @@ function newContractObjectives(plan = {}, depth = 0, players = null) {
   const onlyImpact = team.length > 0 && team.every(isImpactDriverPlayer);
   const hasImpactReboundCounter = team.some(p => isImpactDriverPlayer(p) && Number(p?.stats?.jumpRebound || 0) > 0);
   const out = [
-    { id: 'silent_protocol', label: 'SILENT PROTOCOL', reward: 'FAVOR', goal: 'Clear the sector without using Q.' },
-    { id: 'five_channels', label: 'FIVE CHANNELS', reward: 'FAVOR', goal: 'Score kills with at least five different damage sources.', target: 5 },
-    { id: 'long_chain', label: 'LONG CHAIN', reward: 'FAVOR', goal: 'Reach the required combo multiplier.', target: Math.min(6, 3 + Math.floor(depth / 8)) }
+    { id: 'silent_protocol', label: 'SILENT PROTOCOL', labelEn: 'SILENT PROTOCOL', labelRu: 'ТИХИЙ ПРОТОКОЛ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Clear the sector without using the active protocol.', goalEn: 'Clear the sector without using the active protocol.', goalRu: 'Очистить сектор без применения активного протокола.' },
+    { id: 'five_channels', label: 'FIVE CHANNELS', labelEn: 'FIVE CHANNELS', labelRu: 'ПЯТЬ КАНАЛОВ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Score kills with at least five different damage sources.', goalEn: 'Score kills with at least five different damage sources.', goalRu: 'Совершить убийства как минимум пятью разными источниками урона.', target: 5 },
+    { id: 'long_chain', label: 'LONG CHAIN', labelEn: 'LONG CHAIN', labelRu: 'ДЛИННАЯ ЦЕПЬ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Reach the required combo multiplier.', goalEn: 'Reach the required combo multiplier.', goalRu: 'Достичь требуемого множителя серии.', target: Math.min(6, 3 + Math.floor(depth / 8)) }
   ];
-  if (!onlyImpact) out.push({ id: 'no_escape', label: 'NO ESCAPE', reward: 'FAVOR', goal: 'Clear the sector without dashing.' });
+  if (!onlyImpact) out.push({ id: 'no_escape', label: 'NO ESCAPE', labelEn: 'NO ESCAPE', labelRu: 'БЕЗ ОТСТУПЛЕНИЯ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Clear the sector without dashing.', goalEn: 'Clear the sector without dashing.', goalRu: 'Очистить сектор без рывков.' });
   if (hasImpact) {
-    out.push({ id: 'impact_cycles', label: 'IMPACT CYCLE', reward: 'FAVOR', goal: 'Land six damaging jumps, then clear the sector.', target: 6 });
-    out.push({ id: 'impact_cluster', label: 'CLUSTER DROP', reward: 'FAVOR', goal: 'Hit four threats with one landing, then clear the sector.', target: 4 });
-    if (hasImpactReboundCounter) out.push({ id: 'impact_rebound', label: 'WALL DIVIDEND', reward: 'FAVOR', goal: 'Land after at least two wall rebounds, then clear the sector.', target: 2 });
+    out.push({ id: 'impact_cycles', label: 'IMPACT CYCLE', labelEn: 'IMPACT CYCLE', labelRu: 'УДАРНЫЙ ЦИКЛ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Land six damaging jumps, then clear the sector.', goalEn: 'Land six damaging jumps, then clear the sector.', goalRu: 'Выполнить шесть наносящих урон приземлений и очистить сектор.', target: 6 });
+    out.push({ id: 'impact_cluster', label: 'CLUSTER DROP', labelEn: 'CLUSTER DROP', labelRu: 'ГРУППОВОЕ ПАДЕНИЕ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Hit four threats with one landing, then clear the sector.', goalEn: 'Hit four threats with one landing, then clear the sector.', goalRu: 'Задеть четырёх врагов одним приземлением и очистить сектор.', target: 4 });
+    if (hasImpactReboundCounter) out.push({ id: 'impact_rebound', label: 'WALL DIVIDEND', labelEn: 'WALL DIVIDEND', labelRu: 'ОТДАЧА СТЕН', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Land after at least two wall rebounds, then clear the sector.', goalEn: 'Land after at least two wall rebounds, then clear the sector.', goalRu: 'Приземлиться после двух отскоков от стен и очистить сектор.', target: 2 });
   }
-  if (!(plan.modifierIds || []).includes('greed')) out.push({ id: 'last_reserve', label: 'LAST RESERVE', reward: 'FAVOR', goal: 'Finish with every hero at 35% HP or less.', target: 35 });
+  if (!(plan.modifierIds || []).includes('greed')) out.push({ id: 'last_reserve', label: 'LAST RESERVE', labelEn: 'LAST RESERVE', labelRu: 'ПОСЛЕДНИЙ РЕЗЕРВ', reward: 'CONTRACT PRIZE', rewardEn: 'CONTRACT PRIZE', rewardRu: 'ПРИЗ КОНТРАКТА', goal: 'Finish with every hero at 35% health or less.', goalEn: 'Finish with every hero at 35% health or less.', goalRu: 'Завершить сектор, когда у каждого героя не более 35% здоровья.', target: 35 });
   return out;
 }
 function contractChoicesForPlan(plan = {}, depth = 0, seed = 1, players = null) {
@@ -1363,23 +1400,23 @@ function contractChainPayout(depth = 0, chain = 0) {
 }
 
 const CONTRACT_FAVOR_DEFS = {
-  free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'One WPN/ABL/boss choice reroll. Persists until used.', descRu: 'Один раз полностью обновляет текущий выбор WPN, ABL или приза босса. Заряд хранится до применения.' },
+  free_reroll: { id: 'free_reroll', label: 'CHOICE REROLL', labelEn: 'CHOICE REROLL', labelRu: 'ПЕРЕБРОС ВЫБОРА', tier: 'common', uses: 1, desc: 'Rerolls one weapon, ability, or boss-prize choice. Stored until used.', descEn: 'Rerolls one weapon, ability, or boss-prize choice. Stored until used.', descRu: 'Один раз полностью обновляет текущий выбор оружия, способности или приза босса. Заряд хранится до применения.' },
   clear_debt: { id: 'clear_debt', label: 'CLEAR STATIC STORM', labelRu: 'СНЯТЬ СТАТИК-ШТОРМ', tier: 'common', uses: 1, desc: 'Clears all banked Static Storm levels and permanently silences Static Core storms for this run. Persists until it can clear either source.', descRu: 'Снимает весь накопленный Статик-шторм и навсегда глушит шторм Статик-ядра в этом забеге. Новые отдельные источники статика всё ещё могут появляться.' },
-  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 HP. Persists until used.', descRu: 'Один смертельный удар оставляет героя в живых и восстанавливает 50 HP. Заряд хранится до срабатывания.' },
-  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two WPN/ABL/boss choice rerolls. Persists until used.', descRu: 'Даёт два отдельных переброса выбора WPN, ABL или приза босса. Неиспользованные заряды хранятся.' },
+  portal_insurance: { id: 'portal_insurance', label: 'DEATH INSURANCE', labelRu: 'СТРАХОВКА ОТ СМЕРТИ', tier: 'rare', uses: 1, desc: 'Once, lethal damage restores you to 50 health. Stored until used.', descRu: 'Один смертельный удар оставляет героя в живых и восстанавливает 50 здоровья. Заряд хранится до срабатывания.' },
+  epic_reroll: { id: 'epic_reroll', label: 'DOUBLE REROLL', labelRu: 'ДВА ПЕРЕБРОСА ВЫБОРА', tier: 'epic', uses: 2, desc: 'Two weapon, ability, or boss-prize choice rerolls. Stored until used.', descRu: 'Даёт два отдельных переброса выбора оружия, способности или приза босса. Неиспользованные заряды хранятся.' },
   double_favor: { id: 'double_favor', label: 'DOUBLE NEXT PRIZE', labelRu: 'ДВОЙНОЙ СЛЕДУЮЩИЙ ПРИЗ', tier: 'epic', uses: 1, desc: 'The next completed contract grants two contract prizes. Persists until used.', descRu: 'Следующий выполненный контракт выдаёт два разных контрактных приза вместо одного. Один контракт расходует один заряд.' },
-  wpn_clearance: { id: 'wpn_clearance', label: 'WPN CLEARANCE', labelRu: 'WPN-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved WPN modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных WPN-модулей. Один модуль устанавливается бесплатно.' },
-  abl_clearance: { id: 'abl_clearance', label: 'ABL CLEARANCE', labelRu: 'ABL-ДОПУСК', tier: 'rare', uses: 1, desc: 'Before INSTALL, opens a separate 30-second choice of four improved ABL modules. One module is installed for free.', descRu: 'Перед INSTALL открывает отдельный 30-секундный выбор из четырёх улучшенных ABL-модулей. Один модуль устанавливается бесплатно.' },
-  rar_clearance: { id: 'rar_clearance', label: 'RAR CLEARANCE', labelRu: 'RAR-ДОПУСК', tier: 'epic', uses: 1, desc: 'The next RAR chest guarantees enhanced safe quality.', descRu: 'Следующий RAR-сундук гарантированно получает усиленное безопасное качество. Один сундук расходует один заряд.' },
+  wpn_clearance: { id: 'wpn_clearance', label: 'WEAPON CLEARANCE', labelEn: 'WEAPON CLEARANCE', labelRu: 'ДОПУСК К ОРУЖИЮ', tier: 'rare', uses: 1, desc: 'Before installation, opens a separate 30-second choice of four improved weapon modules. One is installed for free.', descEn: 'Before installation, opens a separate 30-second choice of four improved weapon modules. One is installed for free.', descRu: 'Перед установкой открывает отдельный 30-секундный выбор из четырёх улучшенных оружейных модулей. Один модуль устанавливается бесплатно.' },
+  abl_clearance: { id: 'abl_clearance', label: 'ABILITY CLEARANCE', labelEn: 'ABILITY CLEARANCE', labelRu: 'ДОПУСК К СПОСОБНОСТЯМ', tier: 'rare', uses: 1, desc: 'Before installation, opens a separate 30-second choice of four improved ability modules. One is installed for free.', descEn: 'Before installation, opens a separate 30-second choice of four improved ability modules. One is installed for free.', descRu: 'Перед установкой открывает отдельный 30-секундный выбор из четырёх улучшенных модулей способностей. Один модуль устанавливается бесплатно.' },
+  rar_clearance: { id: 'rar_clearance', label: 'RARE CLEARANCE', labelEn: 'RARE CLEARANCE', labelRu: 'РЕДКИЙ ДОПУСК', tier: 'epic', uses: 1, desc: 'The next rare chest guarantees enhanced safe quality.', descEn: 'The next rare chest guarantees enhanced safe quality.', descRu: 'Следующий редкий сундук гарантированно получает усиленное безопасное качество. Один сундук расходует один заряд.' },
   mod_veto: { id: 'mod_veto', label: 'MOD VETO', labelRu: 'ВЕТО МОДИФИКАТОРОВ', tier: 'rare', uses: 1, desc: 'Removes every room modifier from the next sector. The charge is spent when that sector begins.', descRu: 'Снимает все модификаторы следующего сектора. Заряд расходуется при входе в этот сектор.' },
-  credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next paid WPN or ABL choice chest costs nothing.', descRu: 'Следующий платный сундук с выбором WPN или ABL открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.' },
-  salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next combat room drop x5 team GLD and EXP.', descRu: 'Первые десять убийств в следующем боевом секторе дают пятикратные командные GLD и EXP. Один сектор расходует один заряд.' }
+  credit_pass: { id: 'credit_pass', label: 'CREDIT PASS', labelEn: 'CREDIT PASS', labelRu: 'КРЕДИТНЫЙ ПРОПУСК', tier: 'common', uses: 1, desc: 'The next paid weapon or ability choice chest costs nothing.', descEn: 'The next paid weapon or ability choice chest costs nothing.', descRu: 'Следующий платный сундук с выбором оружия или способности открывается бесплатно. Бесплатные и заражённые сундуки заряд не тратят.' },
+  salvage_protocol: { id: 'salvage_protocol', label: 'SALVAGE PROTOCOL', labelEn: 'SALVAGE PROTOCOL', labelRu: 'ПРОТОКОЛ СБОРА', tier: 'epic', uses: 1, desc: 'The first ten kills in the next combat sector drop five times as much team gold and experience.', descEn: 'The first ten kills in the next combat sector drop five times as much team gold and experience.', descRu: 'Первые десять убийств в следующем боевом секторе дают в пять раз больше командного золота и опыта. Один сектор расходует один заряд.' }
 };
 function favorDef(id) { return CONTRACT_FAVOR_DEFS[String(id || '')] || null; }
 function favorLabel(f = {}) { return String((favorDef(f.id)?.label) || f.label || f.id || 'FAVOR'); }
 function makeContractFavor(id, sourceChain = 1) {
   const d = favorDef(id) || CONTRACT_FAVOR_DEFS.free_reroll;
-  return { id: d.id, label: d.label, labelRu: d.labelRu, tier: d.tier, uses: d.uses || 1, used: 0, sourceChain: Math.max(1, sourceChain | 0), nextRoomOnly: 0, persistent: 1 };
+  return { id: d.id, label: d.label, labelEn: d.labelEn || d.label, labelRu: d.labelRu, tier: d.tier, uses: d.uses || 1, used: 0, sourceChain: Math.max(1, sourceChain | 0), nextRoomOnly: 0, persistent: 1 };
 }
 
 function compactContractFavors(list = []) {
@@ -1392,7 +1429,7 @@ function compactContractFavors(list = []) {
     const def = favorDef(id) || {};
     let f = byId.get(id);
     if (!f) {
-      f = { ...raw, id, label: raw.label || def.label || id, labelRu: raw.labelRu || def.labelRu || '', tier: raw.tier || def.tier || 'common', uses: 0, used: 0, sourceChain: 0, persistent: 1, nextRoomOnly: 0 };
+      f = { ...raw, id, label: raw.label || def.label || id, labelEn: raw.labelEn || def.labelEn || def.label || raw.label || id, labelRu: raw.labelRu || def.labelRu || '', tier: raw.tier || def.tier || 'common', uses: 0, used: 0, sourceChain: 0, persistent: 1, nextRoomOnly: 0 };
       byId.set(id, f);
       out.push(f);
     }
@@ -1538,7 +1575,7 @@ function activatePendingContractFavors(run, players = null) {
       run.salvageKillsLeft = 10;
       f.used = (f.used || 0) + 1;
       run.contractFavorsUsedThisRoom.push({ id: f.id, label: favorLabel(f), ok: 1, used: 1, kills: 10 });
-      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), body: 'NEXT 10 KILLS: x5 TEAM GLD/EXP', bodyRu: 'СЛЕДУЮЩИЕ 10 УБИЙСТВ: x5 КОМАНДНЫХ GLD/EXP', bodyEn: 'NEXT 10 KILLS: x5 TEAM GLD/EXP' });
+      run.fx.push({ t: 'favor_used', id: f.id, label: favorLabel(f), labelEn: favorLabel(f), labelRu: favorDef(f.id)?.labelRu || '', body: 'NEXT 10 KILLS: ×5 TEAM GOLD/EXPERIENCE', bodyRu: 'СЛЕДУЮЩИЕ 10 УБИЙСТВ: ×5 КОМАНДНОГО ЗОЛОТА И ОПЫТА', bodyEn: 'NEXT 10 KILLS: ×5 TEAM GOLD/EXPERIENCE' });
     }
   }
   if (incoming.length) run.fx.push({ t: 'favor_active', favors: compactContractFavors(incoming).map(f => favorSnapshotItem(f, true)) });
@@ -1591,7 +1628,7 @@ function buildContractFavors(run, players = null, chain = 1, count = 1) {
 function favorSnapshotItem(f = {}, active = false) {
   const def = favorDef(f.id) || {};
   const left = active ? Math.max(0, (f.uses || 0) - (f.used || 0)) : Math.max(0, f.uses || 0);
-  return { id: f.id, label: favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', descRu: def.descRu || '', nextRoomOnly: 0, persistent: 1 };
+  return { id: f.id, label: favorLabel(f), labelEn: f.labelEn || def.labelEn || def.label || favorLabel(f), labelRu: f.labelRu || def.labelRu || '', tier: f.tier || def.tier || 'common', uses: left, usesTotal: Math.max(0, f.uses || def.uses || 0), used: Math.max(0, f.used || 0), status: active ? (left > 0 ? 'active' : 'used') : 'pending', desc: def.desc || '', descEn: def.descEn || def.desc || '', descRu: def.descRu || '', nextRoomOnly: 0, persistent: 1 };
 }
 function grantContractFavors(run, players = null, chain = 1, count = 1) {
   const want = Math.max(1, Math.min(2, count | 0));
@@ -1706,16 +1743,30 @@ function attachContractPrizePreview(run, players = null) {
   const count = hasActiveContractFavor(run, 'double_favor') ? 2 : 1;
   run.roomObjective.prizePreview = contractPrizePreview(run, players, chain, count);
 }
-function roomObjectivePayoutText(obj = {}, depth = 0, chain = 0) {
+function roomObjectivePayoutText(obj = {}, depth = 0, chain = 0, lang = 'en') {
   if (!obj?.id) return '';
-  if (obj.id === 'lounge_cashout') return 'SHOP';
+  if (obj.id === 'lounge_cashout') return lang === 'ru' ? 'МАГАЗИН' : 'SHOP';
   const preview = Array.isArray(obj.prizePreview) ? obj.prizePreview : [];
-  if (preview.length) return preview.map(f => `${favorLabel(f)}${(f.uses || 0) > 1 ? ' x' + f.uses : ''}`).join(' + ');
-  return 'NEXT ROOM PRIZE';
+  if (preview.length) return preview.map(f => `${lang === 'ru' ? (f.labelRu || favorDef(f.id)?.labelRu || f.id) : (f.labelEn || f.label || favorDef(f.id)?.labelEn || favorLabel(f))}${(f.uses || 0) > 1 ? ' ×' + f.uses : ''}`).join(' + ');
+  return lang === 'ru' ? 'ПРИЗ СЛЕДУЮЩЕГО СЕКТОРА' : 'NEXT-SECTOR PRIZE';
 }
 function decorateRoomObjective(obj, depth = 0, chain = 0, state = {}) {
   if (!obj) return null;
-  return { ...obj, reward: roomObjectivePayoutText(obj, depth, chain), ...state };
+  const rewardEn = roomObjectivePayoutText(obj, depth, chain, 'en');
+  const rewardRu = roomObjectivePayoutText(obj, depth, chain, 'ru');
+  const stateLabelEn = state.statusLabel || '';
+  const stateLabelRu = ({ NEXT: 'СЛЕДУЮЩИЙ', VOTE: 'ВЫБОР', SELECTED: 'ВЫБРАН', ACTIVE: 'АКТИВЕН', DONE: 'ВЫПОЛНЕН', PAID: 'ОПЛАЧЕН', FAILED: 'ПРОВАЛЕН' })[stateLabelEn] || '';
+  const failReasonEn = state.failReason || '';
+  const failReasonRu = ({ 'WIRE TOUCHED':'КАСАНИЕ ПРОВОДА','LANE HIT':'ПОПАДАНИЕ В ПОЛОСУ','DAMAGE TAKEN':'ПОЛУЧЕН УРОН','TOO MUCH DMG':'СЛИШКОМ МНОГО УРОНА','TIME LOST':'ВРЕМЯ ИСТЕКЛО','Q USED':'АКТИВНЫЙ ПРОТОКОЛ ИСПОЛЬЗОВАН','DASH USED':'РЫВОК ИСПОЛЬЗОВАН','NOT ENOUGH SOURCES':'НЕДОСТАТОЧНО ИСТОЧНИКОВ','COMBO TOO LOW':'СЕРИЯ СЛИШКОМ МАЛА','HP TOO HIGH':'СЛИШКОМ МНОГО ЗДОРОВЬЯ','NOT ENOUGH LANDINGS':'НЕДОСТАТОЧНО ПРИЗЕМЛЕНИЙ','NOT ENOUGH TARGETS':'НЕДОСТАТОЧНО ЦЕЛЕЙ','NOT ENOUGH REBOUNDS':'НЕДОСТАТОЧНО ОТСКОКОВ','ENEMIES LEFT':'ОСТАЛИСЬ ВРАГИ','WAVES LEFT':'ОСТАЛИСЬ ВОЛНЫ','SPINS LEFT':'ОСТАЛИСЬ ВРАЩЕНИЯ','NO BLOOD PAID':'КРОВАВАЯ ПЛАТА НЕ ВНЕСЕНА','NOT DONE':'НЕ ВЫПОЛНЕНО' })[failReasonEn] || '';
+  return {
+    ...obj,
+    labelEn: obj.labelEn || obj.label || '', labelRu: obj.labelRu || '',
+    goalEn: obj.goalEn || obj.goal || '', goalRu: obj.goalRu || '',
+    reward: rewardEn, rewardEn, rewardRu,
+    statusLabelEn: stateLabelEn, statusLabelRu: stateLabelRu,
+    failReasonEn, failReasonRu,
+    ...state
+  };
 }
 function roomObjectiveDoneRaw(obj, run, st = {}, time = 0) {
   if (!obj) return false;
@@ -1796,9 +1847,7 @@ function makeRoomObjectiveLiveResult(run, status, failReason = '') {
   const depth = run?.runDepth || 0;
   const base = roomObjectiveBasePayout(obj.id, depth);
   const done = status === 'done';
-  return {
-    ...obj,
-    reward: roomObjectivePayoutText(obj, depth, Math.max(1, (run?.runMemory?.contractStreak || 0) + 1)),
+  return decorateRoomObjective(obj, depth, Math.max(1, (run?.runMemory?.contractStreak || 0) + 1), {
     done: done ? 1 : 0,
     status,
     statusLabel: done ? 'DONE' : status === 'failed' ? 'FAILED' : 'ACTIVE',
@@ -1807,7 +1856,7 @@ function makeRoomObjectiveLiveResult(run, status, failReason = '') {
     bonusGld: 0,
     bonusExp: 0,
     progress: roomObjectiveProgress(run, st)
-  };
+  });
 }
 function updateRoomObjectiveLiveState(run) {
   const obj = run?.roomObjective;
@@ -1817,12 +1866,12 @@ function updateRoomObjectiveLiveState(run) {
   const failReason = roomObjectiveEarlyFailReason(obj, run, st);
   if (failReason) {
     run.roomObjectiveLiveState = makeRoomObjectiveLiveResult(run, 'failed', failReason);
-    run.fx.push({ t: 'contract_fail', label: obj.label, body: failReason });
+    run.fx.push({ t: 'contract_fail', label: obj.labelEn || obj.label, labelEn: obj.labelEn || obj.label, labelRu: obj.labelRu || '', body: failReason, bodyEn: failReason, bodyRu: 'УСЛОВИЕ НАРУШЕНО' });
     return;
   }
   if (roomObjectiveEarlyDoneRaw(obj, run, st)) {
     run.roomObjectiveLiveState = makeRoomObjectiveLiveResult(run, 'done', '');
-    run.fx.push({ t: 'contract_done', label: obj.label, body: 'DONE' });
+    run.fx.push({ t: 'contract_done', label: obj.labelEn || obj.label, labelEn: obj.labelEn || obj.label, labelRu: obj.labelRu || '', body: 'COMPLETE', bodyEn: 'COMPLETE', bodyRu: 'ВЫПОЛНЕНО' });
   }
 }
 function roomObjectiveStatus(run, st = run?.roomStats || {}) {
@@ -1850,7 +1899,7 @@ function evaluateRoomObjective(run, st = {}, time = 0) {
   const depth = run?.runDepth || 0;
   const base = roomObjectiveBasePayout(obj.id, depth);
   const previewChain = Math.max(0, (run?.runMemory?.contractStreak || 0) + 1);
-  return { ...obj, reward: roomObjectivePayoutText(obj, depth, previewChain), done: done ? 1 : 0, status: status.status, statusLabel: status.statusLabel, failReason: status.failReason, bonusGld: 0, bonusExp: 0, progress: roomObjectiveProgress(run, st) };
+  return decorateRoomObjective(obj, depth, previewChain, { done: done ? 1 : 0, status: status.status, statusLabel: status.statusLabel, failReason: status.failReason, bonusGld: 0, bonusExp: 0, progress: roomObjectiveProgress(run, st) });
 }
 function frozenRoomStatsAtPortalOpen(run) {
   const st = { ...(run?.roomStats || {}) };
@@ -1869,8 +1918,10 @@ function settleRoomObjectiveAtPortalOpen(run) {
   if (!live) {
     run.fx.push({
       t: result.done ? 'contract_done' : 'contract_fail',
-      label: result.label,
-      body: result.done ? 'DONE · PRIZE AFTER ROOM CHECK' : (result.failReason || 'FAILED')
+      label: result.labelEn || result.label, labelEn: result.labelEn || result.label, labelRu: result.labelRu || '',
+      body: result.done ? 'COMPLETE · PRIZE AFTER SECTOR CHECK' : (result.failReason || 'FAILED'),
+      bodyEn: result.done ? 'COMPLETE · PRIZE AFTER SECTOR CHECK' : (result.failReason || 'FAILED'),
+      bodyRu: result.done ? 'ВЫПОЛНЕНО · ПРИЗ ПОСЛЕ ПРОВЕРКИ СЕКТОРА' : 'КОНТРАКТ ПРОВАЛЕН'
     });
   }
   return run.roomObjectiveSettlement;
@@ -2176,14 +2227,14 @@ function recordPickupStat(run, type, val) {
   else if (type === 'EXP') run.roomStats.exp += val || 0;
   else if (type === 'HEA') run.roomStats.hea += val || 0;
 }
-function addRunTape(run, label, tone = 'neutral') {
+function addRunTape(run, label, tone = 'neutral', labelRu = '') {
   if (!run) return;
   const clean = String(label || '').trim().slice(0, 42);
   if (!clean) return;
   if (!run.tapeLog) run.tapeLog = [];
   const depth = run.runDepth || 0;
   if (run.tapeLog[0]?.label === clean && run.tapeLog[0]?.depth === depth) return;
-  run.tapeLog.unshift({ label: clean, tone, depth, at: Math.round(run.now || 0) });
+  run.tapeLog.unshift({ label: clean, labelEn: clean, labelRu: String(labelRu || clean).trim().slice(0, 64), tone, depth, at: Math.round(run.now || 0) });
   run.tapeLog = run.tapeLog.slice(0, 10);
 }
 function updateRunMemoryFromRoom(run, st, flags = {}) {
@@ -3455,7 +3506,7 @@ export function createPlayer(id, name, idx, skin = null) {
     roomWagerSeenOfferId: 0, roomWagerUnseenT: 0,
     bossKeyCharges: 0, bossKeyChargeLoop: -1,
     touch: new Map(),
-    wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false, wantJump: false,
+    wantDash: false, wantInteract: false, wantActive: false, wantRActive: false, wantWeapon: -1, wantSecondary: false, wantJump: false, wantWall: false,
     jumpT: 0, jumpDuration: PLAYER_JUMP_DURATION, jumpVx: 0, jumpVy: 0, jumpSeq: 0, jumpWallFxCd: 0,
     jumpCooldown: 0, jumpCooldownMax: 0, jumpBounces: 0,
     activeTargeting: null,
@@ -3858,6 +3909,8 @@ function processControllerHudSnapshot(p) {
       i,
       kind: String(m?.kind || 'process'),
       label: ENEMIES[m?.kind]?.label || String(m?.kind || 'PRC').toUpperCase().slice(0, 3),
+      labelEn: contentText(ENEMIES[m?.kind], 'en', 'name') || 'PROCESS',
+      labelRu: contentText(ENEMIES[m?.kind], 'ru', 'name') || 'ПРОЦЕСС',
       bonus: m?.bonusSlot ? 1 : 0,
       life: Math.round(Math.max(0, Math.min(1, tt / mt)) * 100),
       hp: Math.round(Math.max(0, Math.min(1, Number(m?.hp || hpMax) / hpMax)) * 100)
@@ -3867,6 +3920,7 @@ function processControllerHudSnapshot(p) {
   const capturePct = pc.cmdNeed > 0 ? Math.round(Math.max(0, Math.min(1, (pc.cmdHold || 0) / Math.max(0.001, pc.cmdNeed || 1))) * 100) : 0;
   const currentId = (p.weapons && p.weapons[p.weaponIdx || 0]) || 'command_pulse';
   const current = WEAPONS[currentId] || WEAPONS.command_pulse;
+  const captureDef = Object.values(ENEMIES).find(e => e?.label === pc.cmdTargetLabel) || null;
   const cd = Math.max(0, Number(pc.weaponCooldowns[currentId] || 0) || 0);
   const cdMax = Math.max(0.1, Number(pc.weaponCooldownMax[currentId] || current?.cooldown || 0.5) || 0.5);
   return {
@@ -3874,6 +3928,10 @@ function processControllerHudSnapshot(p) {
     label: 'CTRL',
     selected: current?.label || 'CMD',
     selectedName: current?.name || current?.label || 'CMD',
+    selectedEn: current?.label || 'CMD',
+    selectedRu: ({ command_pulse: 'КОМ', quarantine_anchor: 'ЯКР', process_saw: 'ПИЛ' })[currentId] || 'КОМ',
+    selectedNameEn: contentText(current, 'en', 'name') || contentText(current, 'en', 'label') || 'COMMAND',
+    selectedNameRu: contentText(current, 'ru', 'name') || contentText(current, 'ru', 'label') || 'КОМАНДА',
     cd: Math.ceil(cd * 10) / 10,
     cdMax: Math.ceil(cdMax * 10) / 10,
     cdPct: Math.round(Math.max(0, Math.min(1, cd / cdMax)) * 100),
@@ -3886,6 +3944,8 @@ function processControllerHudSnapshot(p) {
     captureActive: pc.cmdTargetId ? 1 : 0,
     captureTargetId: pc.cmdTargetId || '',
     captureLabel: pc.cmdTargetLabel || '',
+    captureLabelEn: captureDef ? contentText(captureDef, 'en', 'name') : (pc.cmdTargetLabel || ''),
+    captureLabelRu: captureDef ? contentText(captureDef, 'ru', 'name') : (pc.cmdTargetLabel || ''),
     capturePct,
     captureNeed: Math.ceil((pc.cmdNeed || 0) * 10) / 10,
     captureHold: Math.ceil((pc.cmdHold || 0) * 10) / 10,
@@ -3932,7 +3992,7 @@ function commandProcessController(run, p) {
       m.tx = target.x; m.ty = target.y; m.cmdT = pc.commandT; m.pulse = 0.34;
     }
     run.fx.push({ t: 'ctrl_order', id: p.id, x: Math.round(target.x), y: Math.round(target.y), count: current.length || 0, target: target.id || '', label });
-    run.fx.push({ t: 'active_mutation', label: `ФОКУС CTRL / ${label} x${current.length || 0}`, x: Math.round(target.x), y: Math.round(target.y), r: 108 + (current.length || 0) * 12, tone: 'red', owner: p.id });
+    run.fx.push({ t: 'active_mutation', label: `CONTROLLER FOCUS / ${contentText(ENEMIES[target.kind], 'en', 'label') || label} ×${current.length || 0}`, labelEn: `CONTROLLER FOCUS / ${contentText(ENEMIES[target.kind], 'en', 'label') || label} ×${current.length || 0}`, labelRu: `ФОКУС КОНТРОЛЛЕРА / ${contentText(ENEMIES[target.kind], 'ru', 'label') || 'ЦЕЛЬ'} ×${current.length || 0}`, x: Math.round(target.x), y: Math.round(target.y), r: 108 + (current.length || 0) * 12, tone: 'red', owner: p.id });
   } else {
     pc.orderTargetId = '';
     pc.orderTargetLabel = '';
@@ -3944,7 +4004,7 @@ function commandProcessController(run, p) {
       m.tx = pc.commandX; m.ty = pc.commandY; m.cmdT = pc.commandT; m.pulse = 0.25;
     }
     run.fx.push({ t: 'ctrl_order', id: p.id, x: Math.round(pc.commandX), y: Math.round(pc.commandY), count: current.length || 0 });
-    run.fx.push({ t: 'active_mutation', label: `ПРИКАЗ CTRL x${current.length || 0}`, x: Math.round(pc.commandX), y: Math.round(pc.commandY), r: 96 + (current.length || 0) * 14, tone: 'cyan', owner: p.id });
+    run.fx.push({ t: 'active_mutation', label: `CONTROLLER ORDER ×${current.length || 0}`, labelEn: `CONTROLLER ORDER ×${current.length || 0}`, labelRu: `ПРИКАЗ КОНТРОЛЛЕРА ×${current.length || 0}`, x: Math.round(pc.commandX), y: Math.round(pc.commandY), r: 96 + (current.length || 0) * 14, tone: 'cyan', owner: p.id });
   }
   return true;
 }
@@ -4208,7 +4268,7 @@ function captureEnemyAsProcess(run, players, p, e, source = 'command') {
     }
   }
   run.fx.push({ t: 'ctrl_capture', id: p.id, owner: p.id, x: Math.round(x), y: Math.round(y), kind, elite: e.elite ? 1 : 0, label: pc.lastCapture });
-  run.fx.push({ t: 'active_mutation', label: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${pc.lastCapture}`, x: Math.round(x), y: Math.round(y), r: Math.round((def.size || 24) + 70), tone: 'cyan', owner: p.id });
+  run.fx.push({ t: 'active_mutation', label: `PROCESS CAPTURED / ${contentText(def, 'en', 'label') || kind.toUpperCase()}`, labelEn: `PROCESS CAPTURED / ${contentText(def, 'en', 'label') || kind.toUpperCase()}`, labelRu: `ПРОЦЕСС ПЕРЕХВАЧЕН / ${contentText(def, 'ru', 'label') || 'ПРОЦЕСС'}`, x: Math.round(x), y: Math.round(y), r: Math.round((def.size || 24) + 70), tone: 'cyan', owner: p.id });
   return true;
 }
 function tryControlCapture(run, players, p, e, source = 'command') {
@@ -5727,15 +5787,15 @@ function livingCasinoGeneralWeaponPool(p, qualityTier = 0) {
 function livingCasinoChoicePool(p, qualityTier = 0) {
   const lc = ensureLivingCasinoState(p); if (!lc) return [];
   const pool = [];
-  if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'ЦЕЛЬ LVC +1', actionLabel: 'ADD TARGET', group: 'LIVING CASINO', role: 'TARGETING', desc: 'Adds one more shot to each LVC volley.', valueTier: qualityTier });
-  pool.push({ id: `lc_gun_range_${lc.upgrades.gunRange}`, kind: 'lc_gun_range', label: 'ДАЛЬНОСТЬ ПУШЕК +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'UTILITY', desc: 'Increases LVC gun targeting and projectile range by 15%.', valueTier: qualityTier });
+  if (livingCasinoBaseTargetMax(lc) < LC_TARGET_CAP) pool.push({ id: `lc_target_slot_${lc.upgrades.targets}`, kind: 'lc_target_slot', label: 'TARGET CHANNEL +1', labelEn: 'TARGET CHANNEL +1', labelRu: 'КАНАЛ ЦЕЛИ +1', actionLabel: 'ADD TARGET', actionLabelEn: 'ADD TARGET', actionLabelRu: 'ДОБАВИТЬ ЦЕЛЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'TARGETING', desc: 'Adds one shot to each Living Casino volley.', descEn: 'Adds one shot to each Living Casino volley.', descRu: 'Добавляет один выстрел в каждый залп Живого казино.', valueTier: qualityTier });
+  pool.push({ id: `lc_gun_range_${lc.upgrades.gunRange}`, kind: 'lc_gun_range', label: 'GUN RANGE +', labelEn: 'GUN RANGE +', labelRu: 'ДАЛЬНОСТЬ ПУШЕК +', actionLabel: 'EXTEND', actionLabelEn: 'EXTEND', actionLabelRu: 'УВЕЛИЧИТЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'UTILITY', desc: 'Increases gun targeting and projectile range by 15%.', descEn: 'Increases gun targeting and projectile range by 15%.', descRu: 'Увеличивает дальность выбора цели и полёта снарядов пушек на 15%.', valueTier: qualityTier });
   if (!livingCasinoSparksUnlocked(lc)) {
-    pool.push({ id: 'lc_spark_unlock', kind: 'lc_spark_unlock', label: 'ИСКРЫ КОНТРОЛЯ', actionLabel: 'UNLOCK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Unlocks the SPK control module.', valueTier: qualityTier });
+    pool.push({ id: 'lc_spark_unlock', kind: 'lc_spark_unlock', label: 'CONTROL SPARKS', labelEn: 'CONTROL SPARKS', labelRu: 'ИСКРЫ КОНТРОЛЯ', actionLabel: 'UNLOCK', actionLabelEn: 'UNLOCK', actionLabelRu: 'ОТКРЫТЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'CONTROL', desc: 'Unlocks control sparks.', descEn: 'Unlocks control sparks.', descRu: 'Открывает искры контроля.', valueTier: qualityTier });
   } else {
-    pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'ИСКРЫ КОНТРОЛЯ +2', actionLabel: 'ADD SPARK', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Adds two simultaneous control sparks and two target marks. Repeatable without a limit.', valueTier: qualityTier });
-    pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'УРОН ИСКР +', actionLabel: 'AMPLIFY', group: 'LIVING CASINO', role: 'DPS', desc: 'Gives control sparks damage while connected.', valueTier: qualityTier });
-    pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'ДЛИТЕЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks remain connected longer.', valueTier: qualityTier });
-    pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'ДАЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', group: 'LIVING CASINO', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_count_${lc.upgrades.sparkCount}`, kind: 'lc_spark_count', label: 'CONTROL SPARKS +2', labelEn: 'CONTROL SPARKS +2', labelRu: 'ИСКРЫ КОНТРОЛЯ +2', actionLabel: 'ADD SPARKS', actionLabelEn: 'ADD SPARKS', actionLabelRu: 'ДОБАВИТЬ ИСКРЫ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'CONTROL', desc: 'Adds two simultaneous control sparks and target marks. Repeatable without a limit.', descEn: 'Adds two simultaneous control sparks and target marks. Repeatable without a limit.', descRu: 'Добавляет две одновременные искры контроля и две метки цели. Можно улучшать без ограничений.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_damage_${lc.upgrades.sparkDamage}`, kind: 'lc_spark_damage', label: 'SPARK DAMAGE +', labelEn: 'SPARK DAMAGE +', labelRu: 'УРОН ИСКР +', actionLabel: 'AMPLIFY', actionLabelEn: 'AMPLIFY', actionLabelRu: 'УСИЛИТЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'DAMAGE', desc: 'Control sparks deal damage while connected.', descEn: 'Control sparks deal damage while connected.', descRu: 'Искры контроля наносят урон, пока сохраняют связь.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_hold_${lc.upgrades.sparkHold}`, kind: 'lc_spark_hold', label: 'SPARK DURATION +', labelEn: 'SPARK DURATION +', labelRu: 'ДЛИТЕЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', actionLabelEn: 'EXTEND', actionLabelRu: 'ПРОДЛИТЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'CONTROL', desc: 'Control sparks remain connected longer.', descEn: 'Control sparks remain connected longer.', descRu: 'Искры контроля дольше сохраняют связь.', valueTier: qualityTier });
+    pool.push({ id: `lc_spark_range_${lc.upgrades.sparkRange}`, kind: 'lc_spark_range', label: 'SPARK RANGE +', labelEn: 'SPARK RANGE +', labelRu: 'ДАЛЬНОСТЬ ИСКР +', actionLabel: 'EXTEND', actionLabelEn: 'EXTEND', actionLabelRu: 'УВЕЛИЧИТЬ', group: 'LIVING CASINO', groupEn: 'LIVING CASINO', groupRu: 'ЖИВОЕ КАЗИНО', role: 'CONTROL', desc: 'Control sparks detect targets farther away.', descEn: 'Control sparks detect targets farther away.', descRu: 'Искры контроля находят цели на большей дальности.', valueTier: qualityTier });
   }
   pool.push(...livingCasinoGeneralWeaponPool(p, qualityTier));
   return pool;
@@ -6137,7 +6197,7 @@ export function startRoom(run, players) {
     if (!p.alive) { p.alive = true; p.hp = Math.round(maxHp(p) * 0.5); }
     else if (!p.wagerNoHealRoom) p.hp = Math.min(maxHp(p), p.hp + 15);
     p.invuln = 1.2;
-    p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0; p.wantJump = false;
+    p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0; p.jumpWallFxCd = 0; p.wantJump = false; p.wantWall = false;
     p.quarantineT = 0; p.quarantineHp = 0;
     p.aegisShieldMax = aegisCapacity(p);
     p.aegisShield = p.aegisShieldMax > 0 ? p.aegisShieldMax : 0;
@@ -6156,7 +6216,7 @@ export function startRoom(run, players) {
     const enemyOverclock = p.nextRoomEnemyOverclock ? 1 : 0; p.nextRoomEnemyOverclock = 0;
     if (enemyOverclock) run.wagerEnemyOverclockRoom = 1;
     activateQueuedRoomWagerPrize(run, p);
-    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'СТАВКА: УРОН x100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
+    if (p.nextRoomDmg100) { p.tempDmgMul = 100; p.tempDmgMulT = 0; p.tempDmgMulRoom = 1; p.nextRoomDmg100 = 0; run.fx.push({ t: 'active_mutation', label: 'WAGER: DAMAGE ×100', labelEn: 'WAGER: DAMAGE ×100', labelRu: 'СТАВКА: УРОН ×100', x: Math.round(p.x), y: Math.round(p.y), r: 120, tone: 'gold', playerId: p.id }); }
     if (p.loopBuffLoop !== roomLoopIndex(run)) { p.wagerDmgMul = 1; p.wagerSpeedMul = 1; p.wagerQCdMul = 1; }
     p.dashCharges = Math.min(p.dashCharges, effectiveDashMax(p));
     ensureBossKeyCharges(run, p);
@@ -6181,7 +6241,7 @@ export function startRoom(run, players) {
   if (run.director && [...players.values()].some(p => p.connected && (p.stats?.spawnHoldStacks || 0) > 0)) {
     const stacks = Math.max(...[...players.values()].map(p => p.connected ? (p.stats?.spawnHoldStacks || 0) : 0), 0);
     run.director.pauseT = Math.max(run.director.pauseT || 0, 1.1 + Math.min(4.5, stacks * 0.75));
-    run.fx.push({ t: 'active_mutation', label: `ЗАДЕРЖКА ПОЯВЛЕНИЯ x${stacks}`, x: run.plan.w / 2, y: run.plan.h / 2, r: 150, tone: 'cyan' });
+    run.fx.push({ t: 'active_mutation', label: `SPAWN HOLD ×${stacks}`, labelEn: `SPAWN HOLD ×${stacks}`, labelRu: `ЗАДЕРЖКА ПОЯВЛЕНИЯ ×${stacks}`, x: run.plan.w / 2, y: run.plan.h / 2, r: 150, tone: 'cyan' });
   }
   if (run.plan.specialRoomId === 'chill_room') {
     run.director = null;
@@ -6219,12 +6279,12 @@ export function startRoom(run, players) {
       run.runMemory.rootLockDone = 1;
       run.fx.push({ t: 'room_event', label: 'ROOT LOCKDOWN', body: 'ACCESS DENIED · DESTROY ROOT NODES 0/4', tone: 'purple' });
     }
-    run.fx.push({ t: 'boss_intro', label: ENEMIES[bossKind]?.label || 'BOS', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
+    run.fx.push({ t: 'boss_intro', label: contentText(ENEMIES[bossKind], 'en', 'label') || 'BOSS', labelEn: contentText(ENEMIES[bossKind], 'en', 'label') || 'BOSS', labelRu: contentText(ENEMIES[bossKind], 'ru', 'label') || 'БОСС', kind: bossKind, x: Math.round(boss.x), y: Math.round(boss.y), active: boss.bossActiveCore || '' });
     const silenceSeconds = 30 + Math.max(0, Number(run.runMemory?.bossesDefeated || 0) | 0) * 10;
     run.fx.push({ t: 'boss_q_silence', label: 'Q SILENCE', seconds: silenceSeconds, x: Math.round(boss.x), y: Math.round(boss.y) });
   }
   else if (run.plan.modifierIds.includes('hunter_contract')) {
-    run.fx.push({ t: 'room_event', label: 'ВОЛНЫ ОХОТНИКОВ', body: `0/${run.hunterWave?.total || 2} ВОЛНЫ · ПОРТАЛ ЗАКРЫТ` });
+    run.fx.push({ t: 'room_event', label: 'HUNTER WAVES', labelEn: 'HUNTER WAVES', labelRu: 'ВОЛНЫ ОХОТНИКОВ', body: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED`, bodyEn: `0/${run.hunterWave?.total || 2} WAVES · PORTAL LOCKED`, bodyRu: `0/${run.hunterWave?.total || 2} ВОЛНЫ · ПОРТАЛ ЗАКРЫТ` });
   }
   if (run.plan.specialRoomId === 'reward_pocket') {
     for (let r = 0; r < 4; r++) dropPickup(run, run.portal.x + (Math.random() - 0.5) * 120, run.portal.y + (Math.random() - 0.5) * 120, Math.random() < 0.6 ? 'GLD' : 'EXP', 16 + Math.round(Math.random() * 18), { personal: 1, label: 'ПРИЗОВОЙ КАРМАН' });
@@ -8149,7 +8209,8 @@ function teamSigStack(players, key) {
 const SIGNATURE_LABEL_BY_STAT = {
   spawnHoldStacks: 'ЗАДЕРЖКА ПОЯВЛЕНИЯ', aegisStacks: 'AEGIS PROCESS', mirrorCapacity: 'MIRROR PAYOUT', nullRevives: 'NULL REVIVAL', roomWagerUnlocked: 'ROOM WAGER', bossKeys: 'BOSS KEY'
 };
-const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'КРАСНАЯ ЛИНИЯ', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
+const R_ACTIVE_LABELS = { target_lock: 'TARGET LOCK', redline_boost: 'REDLINE', ghost_decoy: 'GHOST DECOY', rewind_mark: 'REWIND MARK', kill_switch: 'KILL SWITCH' };
+const R_ACTIVE_LABELS_RU = { target_lock: 'ЗАХВАТ ЦЕЛИ', redline_boost: 'КРАСНАЯ ЛИНИЯ', ghost_decoy: 'ПРИЗРАЧНАЯ ПРИМАНКА', rewind_mark: 'МЕТКА ВОЗВРАТА', kill_switch: 'АВАРИЙНОЕ УДАЛЕНИЕ' };
 const R_ACTIVE_COOLDOWNS = Object.freeze({ target_lock: 8, redline_boost: 10, ghost_decoy: 15, rewind_mark: 14, kill_switch: 0 });
 export function rActiveCooldown(id) { return Math.max(0, Number(R_ACTIVE_COOLDOWNS[String(id || '')] || 0)); }
 function activeBossSignatureLabels(players) {
@@ -8166,27 +8227,28 @@ function activeBossSignatureLabels(players) {
   return out.slice(0, 12);
 }
 
-function rActiveLabel(p) {
+function rActiveLabel(p, lang = 'en') {
   const id = String(p?.stats?.rActiveId || '');
-  if (!id) return 'R EMPTY';
-  if (id === 'kill_switch' && !(p?.stats?.killSwitchCharge > 0)) return 'R BURNT';
-  const base = R_ACTIVE_LABELS[id] || id.toUpperCase();
+  if (!id) return lang === 'ru' ? 'ОСОБЫЙ ПРОТОКОЛ ПУСТ' : 'SPECIAL PROTOCOL EMPTY';
+  if (id === 'kill_switch' && !(p?.stats?.killSwitchCharge > 0)) return lang === 'ru' ? 'ПРОТОКОЛ ИСЧЕРПАН' : 'PROTOCOL DEPLETED';
+  const base = (lang === 'ru' ? R_ACTIVE_LABELS_RU[id] : R_ACTIVE_LABELS[id]) || id.toUpperCase();
   const stacks = Math.max(1, Number(p?.stats?.rActiveStacks || 1) | 0);
   if (id === 'kill_switch') return `${base} x${Math.max(1, Number(p?.stats?.killSwitchCharge || 0) | 0)}`;
   return id !== 'kill_switch' && stacks > 1 ? `${base} x${stacks}` : base;
 }
-function rActiveDesc(p) {
+function rActiveDesc(p, lang = 'en') {
   const id = String(p?.stats?.rActiveId || '');
-  const st = Math.max(1, p?.stats?.rActiveStacks || 1);
-  if (id === 'target_lock') return `Захват цели ${targetLockDuration(p)}с · CD ${rActiveCooldown(id)}с`;
-  if (id === 'redline_boost') return `Скорость +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)}с · CD ${rActiveCooldown(id)}с`;
-  if (id === 'ghost_decoy') return `Невидимость + призрак ${ghostDecoyDuration(p)}с · CD ${rActiveCooldown(id)}с`;
-  if (id === 'rewind_mark') return `Метка возврата ${rewindWindow(p)}с · стан ${rewindStun(p)}с · CD ${rActiveCooldown(id)}с`;
+  const sec = lang === 'ru' ? 'с' : 's';
+  const cd = lang === 'ru' ? 'перезарядка' : 'cooldown';
+  if (id === 'target_lock') return lang === 'ru' ? `Захват цели ${targetLockDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}` : `Target lock ${targetLockDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}`;
+  if (id === 'redline_boost') return lang === 'ru' ? `Скорость +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}` : `Speed +${Math.round((redlineSpeedMul(p) - 1) * 100)}% · ${redlineDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}`;
+  if (id === 'ghost_decoy') return lang === 'ru' ? `Невидимость и призрак ${ghostDecoyDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}` : `Invisibility and decoy ${ghostDecoyDuration(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}`;
+  if (id === 'rewind_mark') return lang === 'ru' ? `Окно возврата ${rewindWindow(p)} ${sec} · оглушение ${rewindStun(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}` : `Rewind window ${rewindWindow(p)} ${sec} · stun ${rewindStun(p)} ${sec} · ${cd} ${rActiveCooldown(id)} ${sec}`;
   if (id === 'kill_switch') {
     const charges = Math.max(0, Number(p?.stats?.killSwitchCharge || 0) | 0);
-    return charges > 0 ? `Стирает все проявившиеся угрозы. Осталось применений: ${charges}.` : 'KILL SWITCH сгорел.';
+    return charges > 0 ? (lang === 'ru' ? `Удаляет все проявившиеся угрозы. Применений: ${charges}.` : `Deletes every materialized threat. Uses: ${charges}.`) : (lang === 'ru' ? 'Аварийное удаление исчерпано.' : 'Kill Switch is depleted.');
   }
-  return 'R-протокол не выбран.';
+  return lang === 'ru' ? 'Особый протокол не выбран.' : 'No special protocol selected.';
 }
 function targetLockDuration(p) { return Math.round((5 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 3) * 10) / 10; }
 function redlineDuration(p) { return Math.round((3 + Math.max(0, (p?.stats?.rActiveStacks || 1) - 1) * 1) * 10) / 10; }
@@ -8225,7 +8287,7 @@ function spendBossKey(run, p, o) {
   if (!o || !['weapon_chest', 'ability_chest'].includes(String(o.chest || '')) || o.trojan || isGreedRoom(run)) return false;
   if (!bossKeyReady(run, p)) return false;
   p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1);
-  if (o) { o.chestTier = 3; o.slotCount = 5; o.costMul = 0; o.rarityReason = 'BOSS KEY'; }
+  if (o) { o.chestTier = 4; o.slotCount = 5; o.costMul = 0; o.rarityReason = 'BOSS KEY'; }
   const left = `${p.bossKeyCharges}/${bossKeyMax(p)}`;
   run.fx.push({ t: 'boss_key_used', id: p.id, playerId: p.id, label: `BOSS KEY ${left}`, body: 'FREE MAX-RARITY CHOICE CHEST', left, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y) });
   run.fx.push({ t: 'active_mutation', label: `BOSS KEY USED ${left}`, x: Math.round(o?.x ?? p.x), y: Math.round(o?.y ?? p.y), r: 120, tone: 'gold', playerId: p.id });
@@ -8327,7 +8389,7 @@ function doRActive(run, players, p) {
     p.targetLockT = targetLockDuration(p);
     p.rActiveCd = rActiveCooldown(id);
     run.fx.push({ t: 'target_lock_acquire', id: p.id, playerId: p.id, x: Math.round(e.x), y: Math.round(e.y), target: e.id });
-    run.fx.push({ t: 'active_mutation', label: `TARGET LOCK ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 90, tone: 'cyan', playerId: p.id, target: e.id });
+    run.fx.push({ t: 'active_mutation', label: `TARGET LOCK: ${contentText(ENEMIES[e.kind], 'en', 'label') || 'ENEMY'}`, labelEn: `TARGET LOCK: ${contentText(ENEMIES[e.kind], 'en', 'label') || 'ENEMY'}`, labelRu: `ЗАХВАТ ЦЕЛИ: ${contentText(ENEMIES[e.kind], 'ru', 'label') || 'ВРАГ'}`, x: Math.round(e.x), y: Math.round(e.y), r: 90, tone: 'cyan', playerId: p.id, target: e.id });
     return true;
   }
   if (id === 'redline_boost') {
@@ -8336,7 +8398,7 @@ function doRActive(run, players, p) {
     p.redlineT = dur;
     p.rActiveCd = rActiveCooldown(id);
     run.fx.push({ t: 'redline_boost', id: p.id, playerId: p.id, stack: stacks, dur, mul: redlineSpeedMul(p), x: Math.round(p.x), y: Math.round(p.y), r: 135 + stacks * 18 });
-    run.fx.push({ t: 'active_mutation', label: `КРАСНАЯ ЛИНИЯ x${stacks}`, x: Math.round(p.x), y: Math.round(p.y), r: 115 + stacks * 16, tone: 'red', playerId: p.id });
+    run.fx.push({ t: 'active_mutation', label: `REDLINE ×${stacks}`, labelEn: `REDLINE ×${stacks}`, labelRu: `КРАСНАЯ ЛИНИЯ ×${stacks}`, x: Math.round(p.x), y: Math.round(p.y), r: 115 + stacks * 16, tone: 'red', playerId: p.id });
     return true;
   }
   if (id === 'ghost_decoy') {
@@ -8407,7 +8469,7 @@ function stepRActiveState(run, players, p, dt) {
       if (e) {
         p.targetLockTargetId = e.id;
         run.fx.push({ t: 'target_lock_jump', id: p.id, playerId: p.id, x: Math.round(e.x), y: Math.round(e.y), target: e.id });
-        run.fx.push({ t: 'active_mutation', label: `LOCK JUMP ${ENEMIES[e.kind]?.label || 'ENEMY'}`, x: Math.round(e.x), y: Math.round(e.y), r: 74, tone: 'cyan', playerId: p.id, target: e.id });
+        run.fx.push({ t: 'active_mutation', label: `LOCK JUMP: ${contentText(ENEMIES[e.kind], 'en', 'label') || 'ENEMY'}`, labelEn: `LOCK JUMP: ${contentText(ENEMIES[e.kind], 'en', 'label') || 'ENEMY'}`, labelRu: `СМЕНА ЦЕЛИ: ${contentText(ENEMIES[e.kind], 'ru', 'label') || 'ВРАГ'}`, x: Math.round(e.x), y: Math.round(e.y), r: 74, tone: 'cyan', playerId: p.id, target: e.id });
       }
     }
     if (e) { p.aimX = e.x; p.aimY = e.y; }
@@ -8425,27 +8487,27 @@ function stepDecoys(run, dt) {
 }
 
 export const ROOM_WAGER_STAKES = [
-  { id: 'all_gld', ru: 'всё GLD', en: 'all GLD', loss: (run, p) => { p.economy.money = 0; } },
-  { id: 'half_gld', ru: 'половину GLD', en: 'half your GLD', needs: p => (p?.economy?.money || 0) > 0, loss: (run, p) => { p.economy.money = Math.max(0, Math.floor((p.economy.money || 0) * 0.5)); } },
-  { id: 'hp_50', ru: '50% HP', en: '50% HP', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
+  { id: 'all_gld', ru: 'всё золото', en: 'all gold', loss: (run, p) => { p.economy.money = 0; } },
+  { id: 'half_gld', ru: 'половину золота', en: 'half your gold', needs: p => (p?.economy?.money || 0) > 0, loss: (run, p) => { p.economy.money = Math.max(0, Math.floor((p.economy.money || 0) * 0.5)); } },
+  { id: 'hp_50', ru: 'половину текущего здоровья', en: 'half your current health', loss: (run, p) => { p.hp = Math.max(1, Math.round((p.hp || 1) * 0.5)); } },
   { id: 'next_no_heal', ru: 'лечение в следующем секторе', en: 'healing in the next sector', loss: (run, p) => { p.nextRoomNoHeal = 1; } },
   { id: 'next_dash_loss', ru: 'один рывок в следующем секторе', en: 'one dash in the next sector', needs: p => dashMax(p) > 0, loss: (run, p) => { p.nextRoomDashPenalty = 1; } },
   { id: 'next_weapon_slow', ru: '-30% оружейного такта в следующем секторе', en: '-30% Weapon Clock next sector', loss: (run, p) => { p.nextRoomWeaponClockMul = 0.70; } },
   { id: 'next_move_slow', ru: '-25% скорости в следующем секторе', en: '-25% speed next sector', loss: (run, p) => { p.nextRoomSpeedMul = 0.75; } },
-  { id: 'next_q_slow', ru: '+50% перезарядки Q в следующем секторе', en: '+50% Q cooldown next sector', needs: p => !!p?.active?.core, loss: (run, p) => { p.nextRoomQCdMul = 1.50; } },
-  { id: 'xp_progress', ru: 'весь прогресс текущего уровня', en: 'all current-level EXP progress', needs: p => (p?.economy?.xp || 0) > 0, loss: (run, p) => { p.economy.xp = 0; } },
+  { id: 'next_q_slow', ru: '+50% перезарядки активного протокола в следующем секторе', en: '+50% active-protocol cooldown next sector', needs: p => !!p?.active?.core, loss: (run, p) => { p.nextRoomQCdMul = 1.50; } },
+  { id: 'xp_progress', ru: 'весь прогресс текущего уровня', en: 'all current-level experience progress', needs: p => (p?.economy?.xp || 0) > 0, loss: (run, p) => { p.economy.xp = 0; } },
   { id: 'next_enemy_overclock', ru: 'усиленных врагов в следующем секторе', en: 'overclocked enemies next sector', loss: (run, p) => { p.nextRoomEnemyOverclock = 1; } },
   { id: 'loop_dmg_down', ru: '-30% урона до конца цикла', en: '-30% damage for the loop', loss: (run, p) => { p.wagerDmgMul = Math.min(p.wagerDmgMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd_down', ru: '-30% скорости до конца цикла', en: '-30% speed for the loop', loss: (run, p) => { p.wagerSpeedMul = Math.min(p.wagerSpeedMul || 1, 0.70); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_forever', ru: 'R-протокол', en: 'R protocol', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
-  { id: 'maxhp_forever', ru: '10 max HP', en: '10 max HP', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
-  { id: 'boss_key', ru: '1 заряд BOSS KEY', en: '1 BOSS KEY charge', needs: (p, run) => ensureBossKeyCharges(run, p) > 0, loss: (run, p) => { ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1); } },
-  { id: 'null_revive', ru: '1 NULL REVIVAL', en: '1 NULL REVIVAL', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } },
+  { id: 'r_forever', ru: 'особый протокол', en: 'special protocol', needs: p => !!p?.stats?.rActiveId, loss: (run, p) => { p.stats.rActiveId = ''; p.stats.rActiveStacks = 0; p.stats.killSwitchCharge = 0; } },
+  { id: 'maxhp_forever', ru: '10 единиц максимального здоровья', en: '10 maximum health', loss: (run, p) => { p.stats.maxHpAdd -= 10; p.hp = Math.min(p.hp, maxHp(p)); } },
+  { id: 'boss_key', ru: '1 заряд ключа босса', en: '1 boss-key charge', needs: (p, run) => ensureBossKeyCharges(run, p) > 0, loss: (run, p) => { ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.max(0, (p.bossKeyCharges || 0) - 1); } },
+  { id: 'null_revive', ru: '1 нулевое возрождение', en: '1 null revival', needs: p => (p?.stats?.nullRevives || 0) > 0, loss: (run, p) => { p.stats.nullRevives = Math.max(0, (p.stats.nullRevives || 0) - 1); } },
   { id: 'base_weapon_loss', ru: 'один оружейный модуль', en: 'one weapon module', heroes: ['base'], needs: p => (p?.weapons || []).length > 1, loss: (run, p) => { const i = Math.max(1, Math.min((p.weapons || []).length - 1, p.weaponIdx || 1)); p.weapons.splice(i, 1); p.weaponIdx = Math.max(0, Math.min(p.weapons.length - 1, p.weaponIdx || 0)); } },
   { id: 'base_fire_loss', ru: '12% оружейного такта', en: '12% Weapon Clock', heroes: ['base'], loss: (run, p) => { p.stats.fireMul = Math.max(0.35, (p.stats.fireMul || 1) / 1.12); } },
   { id: 'base_power_loss', ru: '12% мощности оружия', en: '12% weapon power', heroes: ['base'], loss: (run, p) => { p.stats.weaponDmgMul = Math.max(0.35, (p.stats.weaponDmgMul || 1) / 1.12); } },
   { id: 'lc_spark_drain', ru: 'заряды искр следующего сектора', en: 'next sector spark charges', heroes: ['living_casino'], needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), loss: (run, p) => { p.nextRoomSparkDrain = 1; } },
-  { id: 'lc_target_loss', ru: 'один канал цели LVC', en: 'one LVC target channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.targets || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.targets = Math.max(0, (lc.upgrades.targets || 0) - 1); lc.base.targetIds = lc.base.targetIds.slice(0, livingCasinoBaseTargetMax(lc)); } } },
+  { id: 'lc_target_loss', ru: 'один канал цели Живого казино', en: 'one Living Casino target channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.targets || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.targets = Math.max(0, (lc.upgrades.targets || 0) - 1); lc.base.targetIds = lc.base.targetIds.slice(0, livingCasinoBaseTargetMax(lc)); } } },
   { id: 'lc_spark_loss', ru: 'один канал искр', en: 'one spark channel', heroes: ['living_casino'], needs: p => (ensureLivingCasinoState(p)?.upgrades?.sparkCount || 0) > 0, loss: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, (lc.upgrades.sparkCount || 0) - 1); lc.sparks.charges = Math.min(lc.sparks.charges || 0, livingCasinoSparkMax(lc)); lc.sparks.targetIds = lc.sparks.targetIds.slice(0, livingCasinoSparkMax(lc)); } } },
   { id: 'ctrl_release', ru: 'все перехваченные процессы', en: 'all captured processes', heroes: ['process_controller'], needs: p => (p?.processController?.controlled || []).length > 0, loss: (run, p) => { const pc = ensureProcessControllerState(p); if (pc) { for (const m of pc.controlled || []) if (m) expireControlledProcess(run, p, m, 'released'); pc.controlled = []; } } },
   { id: 'ctrl_slot_loss', ru: 'один слот процесса', en: 'one process slot', heroes: ['process_controller'], needs: p => (p?.stats?.ctrlMax || 0) > 0, loss: (run, p) => { p.stats.ctrlMax = Math.max(0, (p.stats.ctrlMax || 0) - 1); const pc = ensureProcessControllerState(p); if (pc) pc.controlled = processControllerTrimControlled(p, pc); } },
@@ -8456,23 +8518,23 @@ export const ROOM_WAGER_STAKES = [
 export const ROOM_WAGER_CONDITIONS = [
   { id: 'dash15', ru: 'сделать 15 рывков', en: 'dash 15 times', heroes: ['base', 'living_casino', 'process_controller'], ok: (run, p) => (p.wagerStats?.dash || 0) >= 15 },
   { id: 'no_damage', ru: 'не получить урон', en: 'take no damage', ok: (run, p) => (p.wagerStats?.damage || 0) <= 0 },
-  { id: 'damage10', ru: '10 секунд подряд без потери HP', en: 'avoid HP damage for 10 seconds straight', ok: (run, p) => !!p.wagerStats?.damage10Complete || (p.wagerStats?.damage10Hold || 0) >= 10 },
-  { id: 'q3', ru: 'использовать Q 3 раза', en: 'use Q 3 times', needs: p => !!p?.active?.core, ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
-  { id: 'r2', ru: 'использовать R 2 раза', en: 'use R 2 times', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
+  { id: 'damage10', ru: '10 секунд подряд без потери здоровья', en: 'avoid health damage for 10 seconds straight', ok: (run, p) => !!p.wagerStats?.damage10Complete || (p.wagerStats?.damage10Hold || 0) >= 10 },
+  { id: 'q3', ru: 'использовать активный протокол 3 раза', en: 'use the active protocol 3 times', needs: p => !!p?.active?.core, ok: (run, p) => (p.wagerStats?.q || 0) >= 3 },
+  { id: 'r2', ru: 'использовать особый протокол 2 раза', en: 'use the special protocol 2 times', needs: p => !!p?.stats?.rActiveId, ok: (run, p) => (p.wagerStats?.r || 0) >= 2 },
   { id: 'kills10', ru: 'удалить 10 угроз', en: 'delete 10 threats', ok: (run, p) => (p.wagerStats?.kills || 0) >= 10 },
-  { id: 'kills12_no_hp', ru: 'удалить 12 угроз без урона по HP', en: 'delete 12 threats without HP damage', ok: (run, p) => (p.wagerStats?.kills || 0) >= 12 && (p.wagerStats?.damage || 0) <= 0 },
+  { id: 'kills12_no_hp', ru: 'удалить 12 угроз без потери здоровья', en: 'delete 12 threats without losing health', ok: (run, p) => (p.wagerStats?.kills || 0) >= 12 && (p.wagerStats?.damage || 0) <= 0 },
   { id: 'hits20_5s', ru: 'нанести 20 попаданий за 5 секунд', en: 'land 20 hits within 5 seconds', ok: (run, p) => (p.wagerStats?.hitBurstBest || 0) >= 20 },
   { id: 'six_one_attack', ru: 'удалить 6 угроз одной атакой или эффектом', en: 'delete 6 threats with one attack or effect', ok: (run, p) => (p.wagerStats?.sameAttackBest || 0) >= 6 },
-  { id: 'heal20pct', ru: 'восстановить 20% максимального HP', en: 'restore 20% max HP', needs: p => (p?.stats?.lifesteal || 0) > 0 || (p?.stats?.ctrlDeathHeal || 0) > 0 || (p?.processController?.controlled || []).some(m => m?.kind === 'leech'), ok: (run, p) => (p.wagerStats?.healed || 0) >= maxHp(p) * 0.20 },
+  { id: 'heal20pct', ru: 'восстановить 20% максимального здоровья', en: 'restore 20% maximum health', needs: p => (p?.stats?.lifesteal || 0) > 0 || (p?.stats?.ctrlDeathHeal || 0) > 0 || (p?.processController?.controlled || []).some(m => m?.kind === 'leech'), ok: (run, p) => (p.wagerStats?.healed || 0) >= maxHp(p) * 0.20 },
   { id: 'three_statuses', ru: 'нанести урон тремя разными статусами', en: 'deal damage with three different statuses', needs: p => ((p?.stats?.bulletFire || 0) > 0 && (p?.stats?.bulletPoison || 0) > 0 && (p?.stats?.bulletFreeze || 0) > 0), ok: (run, p) => (p.wagerStats?.statusKinds || []).length >= 3 },
   { id: 'kills_q_cooldown10', ru: 'удалить 10 угроз во время перезарядки Q', en: 'delete 10 threats while Q is cooling down', needs: p => !!p?.active?.core, ok: (run, p) => (p.wagerStats?.killsWhileQCd || 0) >= 10 },
-  { id: 'low_hp_hold15', ru: 'продержаться 15 секунд ниже 35% HP', en: 'survive 15 seconds below 35% HP', ok: (run, p) => (p.wagerStats?.lowHpHold || 0) >= 15 },
+  { id: 'low_hp_hold15', ru: 'продержаться 15 секунд ниже 35% здоровья', en: 'survive 15 seconds below 35% health', ok: (run, p) => (p.wagerStats?.lowHpHold || 0) >= 15 },
   { id: 'elite_fast8', ru: 'удалить элитную угрозу за 8 секунд после появления', en: 'delete an elite threat within 8 seconds of materializing', ok: (run, p) => (p.wagerStats?.fastEliteKills || 0) >= 1 },
   { id: 'ally_projectile_kills6', ru: 'совершить 6 убийств снарядами союзников', en: 'score 6 kills with allied projectiles', needs: p => (p?.stats?.drones || 0) > 0 || (isProcessControllerPlayer(p) && (p?.processController?.controlled || []).some(m => ENEMIES[m?.kind]?.ranged || ['shooter','prism','pulse','orbiter','echo'].includes(m?.kind))), ok: (run, p) => (p.wagerStats?.allyProjectileKills || 0) >= 6 },
   { id: 'shield_half', ru: 'сохранить половину начального щита', en: 'finish with half the starting shield', needs: p => (p?.aegisShieldMax || aegisCapacity(p)) > 0, ok: (run, p) => (p.aegisShield || 0) >= Math.max(1, p.wagerStats?.startShield || p.aegisShieldMax || 0) * 0.5 },
-  { id: 'hp50', ru: 'закончить сектор выше 50% HP', en: 'finish above 50% HP', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
-  { id: 'lowhp15', ru: 'закончить сектор ниже 35% HP', en: 'finish below 35% HP', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive },
-  { id: 'base_no_q', ru: 'очистить сектор без Q', en: 'clear the sector without Q', heroes: ['base'], ok: (run, p) => (p.wagerStats?.q || 0) <= 0 },
+  { id: 'hp50', ru: 'закончить сектор выше 50% здоровья', en: 'finish above 50% health', ok: (run, p) => p.hp > maxHp(p) * 0.50 },
+  { id: 'lowhp15', ru: 'закончить сектор ниже 35% здоровья', en: 'finish below 35% health', ok: (run, p) => p.hp <= maxHp(p) * 0.35 && p.alive },
+  { id: 'base_no_q', ru: 'очистить сектор без активного протокола', en: 'clear the sector without the active protocol', heroes: ['base'], ok: (run, p) => (p.wagerStats?.q || 0) <= 0 },
   { id: 'base_kills18', ru: 'удалить 18 угроз', en: 'delete 18 threats', heroes: ['base'], ok: (run, p) => (p.wagerStats?.kills || 0) >= 18 },
   { id: 'lc_marks4', ru: 'передать 4 указания пушкам', en: 'issue 4 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 4 },
   { id: 'lc_marks8', ru: 'передать 8 указаний пушкам', en: 'issue 8 gun marks', heroes: ['living_casino'], ok: (run, p) => (p.wagerStats?.lcMarks || 0) >= 8 },
@@ -8490,19 +8552,19 @@ export const ROOM_WAGER_CONDITIONS = [
   { id: 'impact_clean3', ru: 'сделать 3 точных посадки без промаха', en: 'make 3 clean landings without a miss', heroes: ['impact_driver'], ok: (run, p) => (p.wagerStats?.impactLandings || 0) >= 3 && (p.wagerStats?.impactMisses || 0) <= 0 }
 ];
 export const ROOM_WAGER_PRIZES = [
-  { id: 'dmg100', ru: 'урон x100 на следующий сектор', en: 'x100 damage next sector', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
+  { id: 'dmg100', ru: 'урон ×100 на следующий сектор', en: '×100 damage next sector', prize: (run, p) => { p.nextRoomDmg100 = 1; } },
   { id: 'loop_dmg50', ru: '+50% урона до конца цикла', en: '+50% damage for the loop', prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'loop_spd50', ru: '+50% скорости до конца цикла', en: '+50% speed for the loop', prize: (run, p) => { p.wagerSpeedMul = Math.max(p.wagerSpeedMul || 1, 1.5); p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'aegis', ru: '+1 AEGIS', en: '+1 AEGIS', prize: (run, p) => { const before = Math.max(0, p.aegisShieldMax || aegisCapacity(p)); p.stats.aegisStacks += 1; p.aegisShieldMax = aegisCapacity(p); p.aegisShield = Math.min(p.aegisShieldMax, Math.max(0, p.aegisShield || 0) + Math.max(0, p.aegisShieldMax - before)); } },
-  { id: 'boss_key', ru: '+1 BOSS KEY', en: '+1 BOSS KEY', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
-  { id: 'null_revive', ru: '+1 NULL REVIVAL', en: '+1 NULL REVIVAL', prize: (run, p) => { p.stats.nullRevives += 1; } },
-  { id: 'mirror', ru: '+1 заряд MIRROR', en: '+1 MIRROR capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
-  { id: 'q_loop', ru: 'Q быстрее до конца цикла', en: 'faster Q for the loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
-  { id: 'r_stack', ru: '+1 уровень R', en: '+1 R level', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } },
+  { id: 'aegis', ru: '+1 Эгида', en: '+1 Aegis', prize: (run, p) => { const before = Math.max(0, p.aegisShieldMax || aegisCapacity(p)); p.stats.aegisStacks += 1; p.aegisShieldMax = aegisCapacity(p); p.aegisShield = Math.min(p.aegisShieldMax, Math.max(0, p.aegisShield || 0) + Math.max(0, p.aegisShieldMax - before)); } },
+  { id: 'boss_key', ru: '+1 ключ босса', en: '+1 Boss Key', prize: (run, p) => { p.stats.bossKeys += 1; ensureBossKeyCharges(run, p); p.bossKeyCharges = Math.min(bossKeyMax(p), (p.bossKeyCharges || 0) + 1); } },
+  { id: 'null_revive', ru: '+1 нулевое возрождение', en: '+1 Null Revival', prize: (run, p) => { p.stats.nullRevives += 1; } },
+  { id: 'mirror', ru: '+1 заряд зеркала', en: '+1 Mirror capacity', prize: (run, p) => { p.stats.mirrorCapacity += 1; } },
+  { id: 'q_loop', ru: 'активный протокол быстрее до конца цикла', en: 'faster active protocol for the loop', prize: (run, p) => { p.wagerQCdMul = 0.70; p.loopBuffLoop = roomLoopIndex(run); } },
+  { id: 'r_stack', ru: '+1 уровень особого протокола', en: '+1 special-protocol level', needs: p => !!p?.stats?.rActiveId && p.stats.rActiveId !== 'kill_switch', prize: (run, p) => { p.stats.rActiveStacks += 1; } },
   { id: 'base_overclock', ru: '+75% урона до конца цикла', en: '+75% damage for the loop', heroes: ['base'], prize: (run, p) => { p.wagerDmgMul = Math.max(p.wagerDmgMul || 1, 1.75); p.loopBuffLoop = roomLoopIndex(run); } },
   { id: 'base_fire_plus', ru: '+18% оружейного такта', en: '+18% Weapon Clock', heroes: ['base'], prize: (run, p) => { p.stats.fireMul *= 1.18; } },
   { id: 'base_power_plus', ru: '+15% мощности оружия', en: '+15% weapon power', heroes: ['base'], prize: (run, p) => { p.stats.weaponDmgMul *= 1.15; p.wagerWeaponDamagePrize = (p.wagerWeaponDamagePrize || 0) + 1; } },
-  { id: 'lc_target_plus', ru: '+1 канал цели LVC', en: '+1 LVC target channel', heroes: ['living_casino'], needs: p => livingCasinoBaseTargetMax(ensureLivingCasinoState(p)) < LC_TARGET_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.targets = Math.max(0, lc.upgrades.targets || 0) + 1; } },
+  { id: 'lc_target_plus', ru: '+1 канал цели Живого казино', en: '+1 Living Casino target channel', heroes: ['living_casino'], needs: p => livingCasinoBaseTargetMax(ensureLivingCasinoState(p)) < LC_TARGET_CAP, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.targets = Math.max(0, lc.upgrades.targets || 0) + 1; } },
   { id: 'lc_spark_plus', ru: '+1 заряд искр', en: '+1 spark charge', heroes: ['living_casino'], needs: p => { const lc = ensureLivingCasinoState(p); return livingCasinoSparksUnlocked(lc); }, prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) { lc.upgrades.sparkCount = Math.max(0, lc.upgrades.sparkCount || 0) + 1; lc.sparks.charges = Math.min(livingCasinoSparkMax(lc), (lc.sparks.charges || 0) + 1); } } },
   { id: 'lc_spark_damage_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 мощность искр', en: '+1 spark power', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkDamage = Math.max(0, lc.upgrades.sparkDamage || 0) + 1; } },
   { id: 'lc_spark_hold_plus', needs: p => livingCasinoSparksUnlocked(ensureLivingCasinoState(p)), ru: '+1 длительность искр', en: '+1 spark duration', heroes: ['living_casino'], prize: (run, p) => { const lc = ensureLivingCasinoState(p); if (lc) lc.upgrades.sparkHold = Math.max(0, lc.upgrades.sparkHold || 0) + 1; } },
@@ -8543,9 +8605,21 @@ function makeRoomWagerOffer(run, p) {
   const prize = pickRoomWagerItem(ROOM_WAGER_PRIZES, p, run);
   const textRu = `Поставить [${stake.ru}] на [${condition.ru}] → получить [${prize.ru}]`;
   const textEn = `Wager [${stake.en}] on [${condition.en}] → receive [${prize.en}]`;
+  const stakeDetailRu = `При провале вы потеряете: ${stake.ru}.`;
+  const stakeDetailEn = `If you fail, you lose: ${stake.en}.`;
+  const conditionDetailRu = `Условие этого сектора: ${condition.ru}.`;
+  const conditionDetailEn = `Condition for this sector: ${condition.en}.`;
+  const prizeDetailRu = `При успехе со следующего сектора: ${prize.ru}.`;
+  const prizeDetailEn = `On success, starting next sector: ${prize.en}.`;
   // A wager is a deliberate choice, not a reaction check. INSTALL remains open
   // until the player accepts or skips it, so the offer owns no countdown.
-  return { id: run.roomWagerSeq, stake: stake.id, stakeText: stake.ru, stakeTextRu: stake.ru, stakeTextEn: stake.en, condition: condition.id, conditionText: condition.ru, conditionTextRu: condition.ru, conditionTextEn: condition.en, prize: prize.id, prizeText: prize.ru, prizeTextRu: prize.ru, prizeTextEn: prize.en, text: textRu, textRu, textEn };
+  return {
+    id: run.roomWagerSeq,
+    stake: stake.id, stakeText: stake.en, stakeTextRu: stake.ru, stakeTextEn: stake.en, stakeDetailRu, stakeDetailEn,
+    condition: condition.id, conditionText: condition.en, conditionTextRu: condition.ru, conditionTextEn: condition.en, conditionDetailRu, conditionDetailEn,
+    prize: prize.id, prizeText: prize.en, prizeTextRu: prize.ru, prizeTextEn: prize.en, prizeDetailRu, prizeDetailEn,
+    text: textEn, textRu, textEn
+  };
 }
 function ensureRoomWagerOffer(run, p) {
   if (!p?.stats?.roomWagerUnlocked || p.roomWagerActive || p.roomWagerDecisionDone) { p.roomWagerOffer = null; p.roomWagerSeenOfferId = 0; p.roomWagerUnseenT = 0; return null; }
@@ -8580,7 +8654,7 @@ function handleRoomWagerAccept(run, players, p, offerId = 0) {
   p.roomWagerDecisionDone = true;
   p.roomWagerSeenOfferId = 0;
   p.roomWagerUnseenT = 0;
-  run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', body: p.roomWagerActive?.textRu || '', bodyRu: p.roomWagerActive?.textRu || '', bodyEn: p.roomWagerActive?.textEn || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
+  run.fx.push({ t: 'room_wager_accept', id: p.id, playerId: p.id, label: 'ROOM WAGER ACCEPTED', labelEn: 'ROOM WAGER ACCEPTED', labelRu: 'СТАВКА ПРИНЯТА', body: p.roomWagerActive?.textEn || '', bodyRu: p.roomWagerActive?.textRu || '', bodyEn: p.roomWagerActive?.textEn || '', x: Math.round(p.x), y: Math.round(p.y), r: 100, tone: 'gold' });
   return true;
 }
 function handleRoomWagerDecline(run, players, p, offerId = 0, timedOut = false) {
@@ -8607,11 +8681,11 @@ export function settleRoomWager(run, players, p) {
     // applying a sector/loop bonus retroactively to the fight already won.
     p.roomWagerPrizePending = prize?.id || w.prize || '';
     p.roomWagerBossKeyHeld = 0;
-    run.fx.push({ t: 'room_wager_paid', silent: 1, queued: 1, id: p.id, playerId: p.id, label: 'WAGER PAID', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green', body: prize?.ru || w.prizeTextRu || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
+    run.fx.push({ t: 'room_wager_paid', silent: 1, queued: 1, id: p.id, playerId: p.id, label: 'WAGER COMPLETE', labelEn: 'WAGER COMPLETE', labelRu: 'СТАВКА ВЫПОЛНЕНА', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green', body: prize?.en || w.prizeTextEn || '', bodyRu: prize?.ru || w.prizeTextRu || '', bodyEn: prize?.en || w.prizeTextEn || '', wagerRu: w.textRu || '', wagerEn: w.textEn || w.text || '' });
   } else {
     stake?.loss?.(run, p);
     p.roomWagerBossKeyHeld = 0;
-    run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: stake?.ru || w.stakeTextRu || '', bodyRu: stake?.ru || w.stakeTextRu || '', bodyEn: stake?.en || w.stakeTextEn || '', wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || '' });
+    run.fx.push({ t: 'room_wager_lost', id: p.id, playerId: p.id, label: 'WAGER LOST', labelEn: 'WAGER LOST', labelRu: 'СТАВКА ПРОИГРАНА', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'red', body: stake?.en || w.stakeTextEn || '', bodyRu: stake?.ru || w.stakeTextRu || '', bodyEn: stake?.en || w.stakeTextEn || '', wagerRu: w.textRu || '', wagerEn: w.textEn || w.text || '' });
   }
 }
 
@@ -8632,9 +8706,9 @@ export function updateRoomWagerCompletion(run, players) {
     w.completed = 1;
     run.fx.push({
       t: 'room_wager_complete', id: p.id, playerId: p.id,
-      label: 'WAGER COMPLETE', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green',
-      body: w.prizeTextRu || '', bodyRu: w.prizeTextRu || '', bodyEn: w.prizeTextEn || '',
-      wagerRu: w.textRu || w.text || '', wagerEn: w.textEn || ''
+      label: 'WAGER COMPLETE', labelEn: 'WAGER COMPLETE', labelRu: 'СТАВКА ВЫПОЛНЕНА', x: Math.round(p.x), y: Math.round(p.y), r: 125, tone: 'green',
+      body: w.prizeTextEn || '', bodyRu: w.prizeTextRu || '', bodyEn: w.prizeTextEn || '',
+      wagerRu: w.textRu || '', wagerEn: w.textEn || w.text || ''
     });
   }
 }
@@ -8646,7 +8720,7 @@ export function activateQueuedRoomWagerPrize(run, p) {
   const prize = ROOM_WAGER_PRIZES.find(x => x.id === id);
   if (!prize) return false;
   prize.prize?.(run, p);
-  run.fx.push({ t: 'room_wager_reward_active', id: p.id, playerId: p.id, label: 'WAGER REWARD ACTIVE', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'green', body: prize.ru || '', bodyRu: prize.ru || '', bodyEn: prize.en || '' });
+  run.fx.push({ t: 'room_wager_reward_active', id: p.id, playerId: p.id, label: 'WAGER REWARD ACTIVE', labelEn: 'WAGER REWARD ACTIVE', labelRu: 'НАГРАДА СТАВКИ АКТИВНА', x: Math.round(p.x), y: Math.round(p.y), r: 110, tone: 'green', body: prize.en || '', bodyRu: prize.ru || '', bodyEn: prize.en || '' });
   return true;
 }
 
@@ -8659,20 +8733,20 @@ function roomWagerProgress(run, p, w = null) {
   if (id === 'impact_multi4') return { value: Math.min(4, st.impactBestHits || 0), max: 4, textRu: `${Math.min(4, st.impactBestHits || 0)}/4 УГРОЗЫ`, textEn: `${Math.min(4, st.impactBestHits || 0)}/4 THREATS` };
   if (id === 'impact_bounce2') return { value: Math.min(2, st.impactBestBounces || 0), max: 2, textRu: `${Math.min(2, st.impactBestBounces || 0)}/2 ОТСКОКА`, textEn: `${Math.min(2, st.impactBestBounces || 0)}/2 REBOUNDS` };
   if (id === 'impact_clean3') return { value: (st.impactMisses || 0) > 0 ? 0 : Math.min(3, st.impactLandings || 0), max: 3, textRu: (st.impactMisses || 0) > 0 ? 'ПРОМАХ' : `${Math.min(3, st.impactLandings || 0)}/3 ТОЧНО`, textEn: (st.impactMisses || 0) > 0 ? 'MISSED' : `${Math.min(3, st.impactLandings || 0)}/3 CLEAN` };
-  if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 Q`, textRu: `${Math.min(3, st.q || 0)}/3 Q`, textEn: `${Math.min(3, st.q || 0)}/3 Q` };
-  if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 R`, textRu: `${Math.min(2, st.r || 0)}/2 R`, textEn: `${Math.min(2, st.r || 0)}/2 R` };
+  if (id === 'q3') return { value: Math.min(3, st.q || 0), max: 3, text: `${Math.min(3, st.q || 0)}/3 ACTIVE`, textRu: `${Math.min(3, st.q || 0)}/3 АКТИВНЫХ`, textEn: `${Math.min(3, st.q || 0)}/3 ACTIVE` };
+  if (id === 'r2') return { value: Math.min(2, st.r || 0), max: 2, text: `${Math.min(2, st.r || 0)}/2 SPECIAL`, textRu: `${Math.min(2, st.r || 0)}/2 ОСОБЫХ`, textEn: `${Math.min(2, st.r || 0)}/2 SPECIAL` };
   if (id === 'kills10') return { value: Math.min(10, st.kills || 0), max: 10, text: `${Math.min(10, st.kills || 0)}/10 KILL`, textRu: `${Math.min(10, st.kills || 0)}/10 УГРОЗ`, textEn: `${Math.min(10, st.kills || 0)}/10 THREATS` };
-  if (id === 'kills12_no_hp') return { value: dmg > 0 ? 0 : Math.min(12, st.kills || 0), max: 12, textRu: dmg > 0 ? 'УРОН ПО HP ПОЛУЧЕН' : `${Math.min(12, st.kills || 0)}/12 УГРОЗ`, textEn: dmg > 0 ? 'HP DAMAGE TAKEN' : `${Math.min(12, st.kills || 0)}/12 THREATS` };
+  if (id === 'kills12_no_hp') return { value: dmg > 0 ? 0 : Math.min(12, st.kills || 0), max: 12, textRu: dmg > 0 ? 'ЗДОРОВЬЕ ПОТЕРЯНО' : `${Math.min(12, st.kills || 0)}/12 УГРОЗ`, textEn: dmg > 0 ? 'HEALTH LOST' : `${Math.min(12, st.kills || 0)}/12 THREATS` };
   if (id === 'hits20_5s') return { value: Math.min(20, st.hitBurstBest || 0), max: 20, textRu: `${Math.min(20, st.hitBurstBest || 0)}/20 ПОПАДАНИЙ`, textEn: `${Math.min(20, st.hitBurstBest || 0)}/20 HITS` };
   if (id === 'six_one_attack') return { value: Math.min(6, st.sameAttackBest || 0), max: 6, textRu: `${Math.min(6, st.sameAttackBest || 0)}/6 ОДНИМ ЭФФЕКТОМ`, textEn: `${Math.min(6, st.sameAttackBest || 0)}/6 ONE EFFECT` };
-  if (id === 'heal20pct') { const need = Math.max(1, Math.ceil(maxHp(p) * 0.20)); return { value: Math.min(need, Math.round(st.healed || 0)), max: need, textRu: `${Math.min(need, Math.round(st.healed || 0))}/${need} HP`, textEn: `${Math.min(need, Math.round(st.healed || 0))}/${need} HP` }; }
+  if (id === 'heal20pct') { const need = Math.max(1, Math.ceil(maxHp(p) * 0.20)); return { value: Math.min(need, Math.round(st.healed || 0)), max: need, textRu: `${Math.min(need, Math.round(st.healed || 0))}/${need} ЗДОРОВЬЯ`, textEn: `${Math.min(need, Math.round(st.healed || 0))}/${need} HEALTH` }; }
   if (id === 'three_statuses') { const n = Math.min(3, (st.statusKinds || []).length); return { value: n, max: 3, textRu: `${n}/3 СТАТУСА`, textEn: `${n}/3 STATUSES` }; }
   if (id === 'kills_q_cooldown10') return { value: Math.min(10, st.killsWhileQCd || 0), max: 10, textRu: `${Math.min(10, st.killsWhileQCd || 0)}/10 УГРОЗ`, textEn: `${Math.min(10, st.killsWhileQCd || 0)}/10 THREATS` };
   if (id === 'low_hp_hold15') return { value: Math.min(15, Math.floor(st.lowHpHold || 0)), max: 15, textRu: `${Math.min(15, Math.floor(st.lowHpHold || 0))}/15 СЕК`, textEn: `${Math.min(15, Math.floor(st.lowHpHold || 0))}/15 SEC` };
   if (id === 'elite_fast8') return { value: Math.min(1, st.fastEliteKills || 0), max: 1, textRu: (st.fastEliteKills || 0) ? 'ЭЛИТА УДАЛЕНА' : 'ЭЛИТА 0/1', textEn: (st.fastEliteKills || 0) ? 'ELITE DELETED' : 'ELITE 0/1' };
   if (id === 'ally_projectile_kills6') return { value: Math.min(6, st.allyProjectileKills || 0), max: 6, textRu: `${Math.min(6, st.allyProjectileKills || 0)}/6 СОЮЗНЫХ`, textEn: `${Math.min(6, st.allyProjectileKills || 0)}/6 ALLIED` };
   if (id === 'shield_half') { const start = Math.max(1, st.startShield || p.aegisShieldMax || 1); const have = Math.max(0, p.aegisShield || 0); return { value: Math.min(start, have), max: Math.ceil(start * 0.5), textRu: `ЩИТ ${Math.round(have)}/${Math.round(start)}`, textEn: `SHIELD ${Math.round(have)}/${Math.round(start)}` }; }
-  if (id === 'base_no_q') return { value: (st.q || 0) <= 0 ? 1 : 0, max: 1, textRu: (st.q || 0) <= 0 ? 'Q НЕ ИСПОЛЬЗОВАНА' : 'Q ИСПОЛЬЗОВАНА', textEn: (st.q || 0) <= 0 ? 'Q UNUSED' : 'Q USED' };
+  if (id === 'base_no_q') return { value: (st.q || 0) <= 0 ? 1 : 0, max: 1, textRu: (st.q || 0) <= 0 ? 'ПРОТОКОЛ НЕ ИСПОЛЬЗОВАН' : 'ПРОТОКОЛ ИСПОЛЬЗОВАН', textEn: (st.q || 0) <= 0 ? 'PROTOCOL UNUSED' : 'PROTOCOL USED' };
   if (id === 'base_kills18') return { value: Math.min(18, st.kills || 0), max: 18, textRu: `${Math.min(18, st.kills || 0)}/18 УГРОЗ`, textEn: `${Math.min(18, st.kills || 0)}/18 THREATS` };
   if (id === 'lc_marks4') return { value: Math.min(4, st.lcMarks || 0), max: 4, textRu: `${Math.min(4, st.lcMarks || 0)}/4 УКАЗАНИЯ`, textEn: `${Math.min(4, st.lcMarks || 0)}/4 MARKS` };
   if (id === 'lc_marks8') return { value: Math.min(8, st.lcMarks || 0), max: 8, textRu: `${Math.min(8, st.lcMarks || 0)}/8 УКАЗАНИЙ`, textEn: `${Math.min(8, st.lcMarks || 0)}/8 MARKS` };
@@ -8684,14 +8758,14 @@ function roomWagerProgress(run, p, w = null) {
   if (id === 'ctrl_captures2') return { value: Math.min(2, st.ctrlCaptures || 0), max: 2, textRu: `${Math.min(2, st.ctrlCaptures || 0)}/2 ПЕРЕХВАТА`, textEn: `${Math.min(2, st.ctrlCaptures || 0)}/2 CAPTURES` };
   if (id === 'ctrl_captures4') return { value: Math.min(4, st.ctrlCaptures || 0), max: 4, textRu: `${Math.min(4, st.ctrlCaptures || 0)}/4 ПЕРЕХВАТА`, textEn: `${Math.min(4, st.ctrlCaptures || 0)}/4 CAPTURES` };
   if (id === 'ctrl_full_team') { const have = (ensureProcessControllerState(p)?.controlled || []).length; const need = processControllerMax(p); return { value: Math.min(need, have), max: need, textRu: `${Math.min(need, have)}/${need} ПРОЦЕССОВ`, textEn: `${Math.min(need, have)}/${need} PROCESSES` }; }
-  if (id === 'no_damage') return { value: dmg > 0 ? 0 : 1, max: 1, text: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0', textRu: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0', textEn: dmg > 0 ? 'DAMAGE TAKEN' : 'DAMAGE 0' };
+  if (id === 'no_damage') return { value: dmg > 0 ? 0 : 1, max: 1, text: dmg > 0 ? 'DAMAGE TAKEN' : 'DAMAGE 0', textRu: dmg > 0 ? 'УРОН ПОЛУЧЕН' : 'УРОН 0', textEn: dmg > 0 ? 'DAMAGE TAKEN' : 'DAMAGE 0' };
   if (id === 'damage10') {
     const complete = !!st.damage10Complete || !!(w || p?.roomWagerActive)?.completed;
     const hold = complete ? 10 : Math.min(10, Math.max(0, Number(st.damage10Hold || 0)));
-    return { value: hold, max: 10, text: complete ? 'СТАВКА ВЫПОЛНЕНА' : `${Math.floor(hold)}/10 СЕК БЕЗ ПОТЕРИ HP`, textRu: complete ? 'СТАВКА ВЫПОЛНЕНА' : `${Math.floor(hold)}/10 СЕК БЕЗ ПОТЕРИ HP`, textEn: complete ? 'WAGER COMPLETE' : `${Math.floor(hold)}/10 SEC WITHOUT HP LOSS` };
+    return { value: hold, max: 10, text: complete ? 'WAGER COMPLETE' : `${Math.floor(hold)}/10 SEC WITHOUT HEALTH LOSS`, textRu: complete ? 'СТАВКА ВЫПОЛНЕНА' : `${Math.floor(hold)}/10 СЕК БЕЗ ПОТЕРИ ЗДОРОВЬЯ`, textEn: complete ? 'WAGER COMPLETE' : `${Math.floor(hold)}/10 SEC WITHOUT HEALTH LOSS` };
   }
-  if (id === 'hp50') return { value: Math.max(0, Math.min(100, Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100))), max: 50, text: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textRu: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textEn: `HP ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%` };
-  if (id === 'lowhp15') return { value: (p?.hp || 0) <= maxHp(p) * 0.35 ? 1 : 0, max: 1, text: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%', textRu: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКИЙ HP: ДА' : 'НУЖЕН HP <35%', textEn: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'LOW HP: YES' : 'NEED HP <35%' };
+  if (id === 'hp50') return { value: Math.max(0, Math.min(100, Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100))), max: 50, text: `HEALTH ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textRu: `ЗДОРОВЬЕ ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%`, textEn: `HEALTH ${Math.round((p?.hp || 0) / Math.max(1, maxHp(p)) * 100)}% / >50%` };
+  if (id === 'lowhp15') return { value: (p?.hp || 0) <= maxHp(p) * 0.35 ? 1 : 0, max: 1, text: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'LOW HEALTH: YES' : 'NEED HEALTH <35%', textRu: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'НИЗКОЕ ЗДОРОВЬЕ: ДА' : 'НУЖНО ЗДОРОВЬЕ <35%', textEn: (p?.hp || 0) <= maxHp(p) * 0.35 ? 'LOW HEALTH: YES' : 'NEED HEALTH <35%' };
   return { value: 0, max: 1, text: '' };
 }
 
@@ -8832,7 +8906,7 @@ export function damagePlayer(run, p, dmg, srcX, srcY, opts = {}) {
       p.hp = Math.min(maxHp(p), 50);
       p.alive = true;
       p.invuln = Math.max(p.invuln, 1.0);
-      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: '50 HP RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 HP', bodyEn: '50 HP RESTORED', playerId: p.id });
+      run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), labelEn: favorLabel(favor), labelRu: favorDef(favor.id)?.labelRu || '', body: '50 HEALTH RESTORED', bodyRu: 'ВОССТАНОВЛЕНО 50 ЗДОРОВЬЯ', bodyEn: '50 HEALTH RESTORED', playerId: p.id });
       return;
     }
     p.hp = 0; p.alive = false; p.jumpT = 0; p.jumpVx = 0; p.jumpVy = 0;
@@ -9463,32 +9537,51 @@ export function impactPushTravel(p) {
   const local = Math.pow(1.20, Math.max(0, Number(p?.stats?.impactPushRange || 0) | 0));
   return 390 * weaponRangeMultiplier(p) * local;
 }
-export function impactWallPlacementRange(p) { return 560 * weaponRangeMultiplier(p); }
-function impactPushCooldown(p) {
-  const local = Math.pow(1.15, Math.max(0, Number(p?.stats?.impactPushCooldown || 0) | 0));
-  return weaponCycleSeconds(p, (WEAPONS.impact_push?.cooldown || 3.2) / local, 1, 0.35);
+export function impactWallPlacementRange(_p) { return Number.POSITIVE_INFINITY; }
+export function impactWallInteractionPad(wall) {
+  return Math.max(44, Math.min(64, Math.min(Number(wall?.w || 0), Number(wall?.h || 0)) * 0.85));
 }
 function impactWallUnderAim(p, walls) {
   const ax = Number(p?.aimX), ay = Number(p?.aimY);
   if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
-  // The interaction halo is deliberately larger than the physical square.
-  // Newest wins if two halos overlap; collision geometry stays unchanged.
-  for (let i = (walls || []).length - 1; i >= 0; i--) {
-    const wall = walls[i];
+  // Selection is global and ignores line of sight. The generous halo avoids
+  // pixel hunting; overlapping halos resolve to the square nearest the cursor.
+  let best = null, bestDist = Number.POSITIVE_INFINITY;
+  for (const wall of walls || []) {
     if (!wall || wall.owner !== p.id || wall.moving || wall.settling) continue;
-    const pad = Math.max(16, Math.min(28, Math.min(wall.w || 0, wall.h || 0) * 0.30));
-    if (ax >= wall.x - pad && ax <= wall.x + wall.w + pad && ay >= wall.y - pad && ay <= wall.y + wall.h + pad) return wall;
+    const pad = impactWallInteractionPad(wall);
+    if (ax < wall.x - pad || ax > wall.x + wall.w + pad || ay < wall.y - pad || ay > wall.y + wall.h + pad) continue;
+    const center = impactWallCenter(wall);
+    const d = dist2(ax, ay, center.x, center.y);
+    if (d < bestDist) { best = wall; bestDist = d; }
   }
-  return null;
+  return best;
 }
-function impactWallPushVector(p, wall) {
+function impactWallNearestToCursor(p, walls) {
+  const ax = Number(p?.aimX), ay = Number(p?.aimY);
+  if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
+  let best = null, bestDist = Number.POSITIVE_INFINITY;
+  for (const wall of walls || []) {
+    if (!wall || wall.owner !== p.id || wall.motionMode || wall.settling) continue;
+    const center = impactWallCenter(wall);
+    const dist = Math.hypot(ax - center.x, ay - center.y);
+    if (dist < bestDist) { best = wall; bestDist = dist; }
+  }
+  return best;
+}
+function impactWallMotionVector(p, wall, mode = 'push') {
   if (!p || !wall || wall.owner !== p.id || wall.moving || wall.settling) return null;
   const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
   const ax = Number(p.aimX), ay = Number(p.aimY);
   if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
-  // Copy the hero's aim ray exactly. The selected square's centre/edge normal
-  // never participates in the launch-vector calculation.
-  let dx = ax - p.x, dy = ay - p.y;
+  // The cursor selects a square only. LMB pushes it radially away from the
+  // Driver; RMB pulls it radially back toward the Driver.
+  let dx = mode === 'pull' ? p.x - cx : cx - p.x;
+  let dy = mode === 'pull' ? p.y - cy : cy - p.y;
+  if (Math.hypot(dx, dy) < 1) {
+    dx = ax - p.x; dy = ay - p.y;
+    if (mode === 'pull') { dx *= -1; dy *= -1; }
+  }
   if (Math.hypot(dx, dy) < 1) { dx = p.dirX || 1; dy = p.dirY || 0; }
   const dir = norm(dx, dy);
   return { x: dir.x, y: dir.y, cx, cy, contactX: ax, contactY: ay };
@@ -9533,23 +9626,9 @@ function impactOccupantStillInside(run, players, wall, token) {
   const p = players.get(id);
   return !!p?.alive && rectHitCircle(p.x, p.y, PLAYER_SIZE / 2, wall);
 }
-function impactWallKeepsRoutes(run, players) {
-  const alivePlayers = [...players.values()].filter(x => x?.alive);
-  const portalTarget = { x: run.portal?.x ?? run.plan.w / 2, y: run.portal?.y ?? run.plan.h / 2 };
-  if (!alivePlayers.every(pl => impactWallRouteExists(run, pl, portalTarget, PLAYER_SIZE / 2))) return false;
-  return (run.enemies || []).filter(enemyCombatReady).every(e => {
-    let target = alivePlayers[0];
-    if (!target) return true;
-    let best = dist2(e.x, e.y, target.x, target.y);
-    for (const pl of alivePlayers.slice(1)) { const d = dist2(e.x, e.y, pl.x, pl.y); if (d < best) { best = d; target = pl; } }
-    return impactWallRouteExists(run, e, target, Math.max(8, (e.size || 24) / 2));
-  });
-}
 function finalizeImpactWallCollision(run, players, wall) {
   attachImpactWallCollision(run, wall);
-  if (impactWallKeepsRoutes(run, players)) return true;
-  removeImpactTempWall(run, wall, 'unsafe_route');
-  return false;
+  return true;
 }
 function stopImpactWall(run, players, wall, reason = 'range') {
   if (!wall || (!wall.moving && !wall.settling)) return;
@@ -9559,31 +9638,39 @@ function stopImpactWall(run, players, wall, reason = 'range') {
   if (!wall.settling) finalizeImpactWallCollision(run, players, wall);
   run.fx.push({ t: 'impact_wall_stop', id: wall.owner || '', wallId: wall.id || '', x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, reason, settling: wall.settling ? 1 : 0 });
 }
-function startImpactWallPush(run, players, p) {
-  if (!isImpactDriverPlayer(p) || !(p.stats?.impactPushUnlocked > 0) || (p.impactPushCd || 0) > 0) return false;
-  const wall = impactWallUnderAim(p, run.tempWalls || []);
+function startImpactWallMotion(run, players, p, mode = 'push') {
+  if (!isImpactDriverPlayer(p) || !(p.stats?.impactPushUnlocked > 0)) return false;
+  const wall = mode === 'pull'
+    ? impactWallNearestToCursor(p, run.tempWalls || [])
+    : impactWallUnderAim(p, run.tempWalls || []);
   if (!wall) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: 'PUSH AIM AT FWL' });
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.aimX || p.x), y: Math.round(p.aimY || p.y), reason: mode === 'pull' ? 'PULL NO FWL' : 'PUSH AIM AT FWL' });
     return false;
   }
   const center = impactWallCenter(wall);
   // Owned blocks can be selected across the entire room and through walls.
   // Flight distance after launch remains the separate upgradeable stat.
-  const vector = impactWallPushVector(p, wall);
+  const vector = impactWallMotionVector(p, wall, mode);
   if (!vector) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: 'PUSH NO AIM' });
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(center.x), y: Math.round(center.y), reason: mode === 'pull' ? 'PULL NO AIM' : 'PUSH NO AIM' });
     return false;
   }
   const speed = Math.max(260, Number(WEAPONS.impact_push?.speed || 520));
   detachImpactWallCollision(run, wall);
   wall.moving = 1; wall.settling = 0; wall.settlingIds = [];
   wall.vx = vector.x * speed; wall.vy = vector.y * speed;
+  wall.motionMode = mode === 'pull' ? 'pull' : 'push';
+  // A moving block is a weapon body: it carries every current weapon status.
+  // Refreshing this during flight also makes later/debug-applied status stacks
+  // visible immediately, while hit logic continues to use the owner as truth.
+  wall.elem = bulletElementString(p, 'weapon');
+  wall.elemPower = bulletElementPower(p, 'weapon');
   wall.pushLeft = impactPushTravel(p); wall.pushBounces = 0; wall.pushHitKeys = {};
   wall.pushDamage = weaponDamageValue(p, (WEAPONS.impact_push?.dmg || 20) * (1 + Math.max(0, Number(p.stats?.impactPushDamage || 0)) * 0.25));
   wall.pushBounceUnlocked = p.stats?.impactPushBounce > 0 ? 1 : 0;
   wall.pushBounceAmp = 0.50 + Math.max(0, Number(p.stats?.impactPushMultiplier || 0)) * 0.25;
-  p.impactPushCdMax = impactPushCooldown(p); p.impactPushCd = p.impactPushCdMax;
-  run.fx.push({ t: 'impact_wall_push', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(vector.cx), y: Math.round(vector.cy), contactX: Math.round(vector.contactX), contactY: Math.round(vector.contactY), w: wall.w, h: wall.h, dx: Math.round(vector.x * 100), dy: Math.round(vector.y * 100), range: Math.round(wall.pushLeft) });
+  p.impactPushCdMax = 0; p.impactPushCd = 0;
+  run.fx.push({ t: 'impact_wall_push', id: p.id, playerId: p.id, wallId: wall.id, mode: wall.motionMode, x: Math.round(vector.cx), y: Math.round(vector.cy), contactX: Math.round(vector.contactX), contactY: Math.round(vector.contactY), w: wall.w, h: wall.h, dx: Math.round(vector.x * 100), dy: Math.round(vector.y * 100), range: Math.round(wall.pushLeft) });
   return true;
 }
 function hitEnemiesWithImpactWall(run, players, wall) {
@@ -9635,37 +9722,15 @@ function damageEnemiesInsideImpactWall(run, players, wall) {
   return hits;
 }
 
-function impactWallRouteExists(run, from, to, half = PLAYER_SIZE / 2) {
-  const walls = run.plan?.walls || [];
-  if (!segmentBlockedByWalls(from.x, from.y, to.x, to.y, walls, half + 3)) return true;
-  const probe = { id: 'temp_wall_route', x: from.x, y: from.y, size: half * 2, stuckT: 1 };
-  return buildEntityNavPath(run, probe, to, half).length > 0;
-}
-
 function impactWallPlacementReason(run, players, p, wall) {
   const padRect = (r, pad = 0) => ({ x: r.x - pad, y: r.y - pad, w: r.w + pad * 2, h: r.h + pad * 2 });
   const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   if (wall.x < WALL_T + 16 || wall.y < WALL_T + 16 || wall.x + wall.w > run.plan.w - WALL_T - 16 || wall.y + wall.h > run.plan.h - WALL_T - 16) return 'FWL OUT OF BOUNDS';
   for (const w of run.plan.walls || []) if (w !== wall && overlaps(padRect(w, 8), wall)) return 'FWL BLOCKED';
   for (const w of run.tempWalls || []) if (w !== wall && overlaps(padRect(w, 8), wall)) return 'FWL BLOCKED';
-  // The block may be placed almost flush with a hero. Reject only an actual
-  // body overlap plus a tiny three-pixel readability gap, not the old 80px box.
-  for (const pl of players.values()) if (pl?.alive && rectHitCircle(pl.x, pl.y, PLAYER_SIZE / 2 + 3, wall)) return 'FWL PLAYER';
-  // Hostile processes deliberately do not block placement. When a block is
-  // created over them it stays non-solid, lets every occupant walk out, and
-  // deals periodic contact damage until its volume becomes empty.
-  for (const pl of players.values()) {
-    const pc = ensureProcessControllerState(pl);
-    for (const m of pc?.controlled || []) {
-      const gap = Math.max(30, (m.size || 24) / 2 + 18);
-      if (overlaps(wall, { x: m.x - gap, y: m.y - gap, w: gap * 2, h: gap * 2 })) return 'FWL ALLY';
-    }
-  }
-  const portal = run.portal;
-  if (portal && overlaps(wall, { x: portal.x - 92, y: portal.y - 92, w: 184, h: 184 })) return 'FWL PORTAL';
-  for (const o of run.plan.interactables || []) if (!o.opened && overlaps(wall, { x: o.x - 72, y: o.y - 72, w: 144, h: 144 })) return 'FWL OBJECT';
-  for (const k of run.pickups || []) if (overlaps(wall, { x: k.x - 28, y: k.y - 28, w: 56, h: 56 })) return 'FWL PICKUP';
-  for (const s of run.roomSockets || []) if (overlaps(wall, { x: s.x - 70, y: s.y - 70, w: 140, h: 140 })) return 'FWL OBJECT';
+  // Loot, chests, portals, players and every unit type are legal placement
+  // surfaces. A new block phases until body occupants leave it. Only another
+  // wall (including a moving room wall) may reject an otherwise in-room point.
   for (const w of run.movingWalls || []) if (overlaps(padRect(w, 18), wall)) return 'FWL HAZARD';
   return '';
 }
@@ -9673,22 +9738,10 @@ function impactWallPlacementReason(run, players, p, wall) {
 function tryPlaceImpactWall(run, players, p) {
   if (!isImpactDriverPlayer(p) || !(p.stats?.impactWallUnlocked > 0) || p.weapons[p.weaponIdx] !== 'impact_wall') return false;
   const blockSize = Math.max(32, Number(WEAPONS.impact_wall?.size || 66) || 66);
-  const rawDx = (p.aimX ?? p.x + (p.dirX || 1)) - p.x, rawDy = (p.aimY ?? p.y + (p.dirY || 0)) - p.y;
-  const rawLen = Math.hypot(rawDx, rawDy);
-  const aimDir = rawLen > 0.001 ? norm(rawDx, rawDy) : norm(p.dirX || 1, p.dirY || 0);
-  const half = blockSize / 2, bodyGap = PLAYER_SIZE / 2 + 4;
-  // Axis-aligned squares need a direction-aware tangent: a diagonal placement
-  // needs more centre distance than a cardinal one to keep its corner clear.
-  let lo = 0, hi = half * Math.SQRT2 + bodyGap + 2;
-  for (let i = 0; i < 22; i++) {
-    const mid = (lo + hi) / 2;
-    const gapX = Math.max(0, Math.abs(aimDir.x * mid) - half);
-    const gapY = Math.max(0, Math.abs(aimDir.y * mid) - half);
-    if (Math.hypot(gapX, gapY) < bodyGap) lo = mid; else hi = mid;
-  }
-  const placementRange = impactWallPlacementRange(p);
-  const aimLen = Math.max(hi, Math.min(placementRange, rawLen || hi));
-  const aim = { x: p.x + aimDir.x * aimLen, y: p.y + aimDir.y * aimLen, dir: aimDir, len: aimLen };
+  const aim = {
+    x: Number.isFinite(Number(p.aimX)) ? Number(p.aimX) : Number(p.x || 0),
+    y: Number.isFinite(Number(p.aimY)) ? Number(p.aimY) : Number(p.y || 0)
+  };
   const wall = {
     id: nid(), owner: p.id, temp: 1, kind: 'impact_wall',
     x: Math.round(aim.x - blockSize / 2), y: Math.round(aim.y - blockSize / 2),
@@ -9699,56 +9752,38 @@ function tryPlaceImpactWall(run, players, p) {
   if (!Array.isArray(run.tempWalls)) run.tempWalls = [];
   const own = run.tempWalls.filter(w => w.owner === p.id).sort((a, b) => Number(a.placedAt || 0) - Number(b.placedAt || 0));
   const cap = 1 + Math.max(0, Number(p.stats?.impactWallCount || 0) | 0);
-  const replaced = own.length >= cap ? own[0] : null;
-  if (replaced) {
-    run.tempWalls = run.tempWalls.filter(w => w !== replaced);
-    run.plan.walls = (run.plan.walls || []).filter(w => w !== replaced);
+  // Capacity is the only placement gate. Once extra slots are unlocked, SPACE
+  // can fill them back-to-back; an existing block is never silently replaced.
+  if (own.length >= cap) {
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(aim.x), y: Math.round(aim.y), reason: 'FWL LIMIT' });
+    return false;
   }
   const blocked = impactWallPlacementReason(run, players, p, wall);
   if (blocked) {
-    if (replaced) { run.tempWalls.push(replaced); if (!replaced.moving && !replaced.settling) run.plan.walls.push(replaced); }
-    run._navGridCache?.clear?.();
     run.fx.push({ t: 'denied', id: p.id, x: Math.round(aim.x), y: Math.round(aim.y), reason: blocked });
     return false;
   }
   wall.placedAt = run.now || 0;
-  wall.settlingIds = impactWallOccupants(run, players, wall).filter(id => String(id).startsWith('e:'));
+  wall.settlingIds = impactWallOccupants(run, players, wall);
   wall.settling = wall.settlingIds.length ? 1 : 0;
   wall.phaseDamageT = 0;
   run.tempWalls.push(wall);
   if (!wall.settling) run.plan.walls.push(wall);
   run._navGridCache?.clear?.();
-  const alivePlayers = [...players.values()].filter(x => x?.alive);
-  const portalTarget = { x: run.portal?.x ?? run.plan.w / 2, y: run.portal?.y ?? run.plan.h / 2 };
-  let routeOk = wall.settling || alivePlayers.every(pl => impactWallRouteExists(run, pl, portalTarget, PLAYER_SIZE / 2));
-  if (!wall.settling && routeOk && alivePlayers.length) {
-    routeOk = (run.enemies || []).filter(enemyCombatReady).every(e => {
-      let target = alivePlayers[0], best = dist2(e.x, e.y, target.x, target.y);
-      for (const pl of alivePlayers.slice(1)) { const d = dist2(e.x, e.y, pl.x, pl.y); if (d < best) { best = d; target = pl; } }
-      return impactWallRouteExists(run, e, target, Math.max(8, (e.size || 24) / 2));
-    });
-  }
-  if (!routeOk) {
-    run.tempWalls = run.tempWalls.filter(w => w !== wall);
-    run.plan.walls = run.plan.walls.filter(w => w !== wall);
-    if (replaced) { run.tempWalls.push(replaced); if (!replaced.moving && !replaced.settling) run.plan.walls.push(replaced); }
-    run._navGridCache?.clear?.();
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(aim.x), y: Math.round(aim.y), reason: 'FWL NO ROUTE' });
-    return false;
-  }
-  if (replaced) run.fx.push({ t: 'impact_wall_end', id: p.id, wallId: replaced.id, x: Math.round(replaced.x + replaced.w / 2), y: Math.round(replaced.y + replaced.h / 2), w: replaced.w, h: replaced.h, reason: 'replace' });
   run.fx.push({ t: 'impact_wall_place', id: p.id, playerId: p.id, wallId: wall.id, x: Math.round(wall.x + wall.w / 2), y: Math.round(wall.y + wall.h / 2), w: wall.w, h: wall.h, ttl: Math.round(wall.ttl * 10) / 10, count: run.tempWalls.filter(w => w.owner === p.id).length, max: cap, phased: wall.settling ? 1 : 0 });
   return true;
 }
 
-function fireImpactFirewall(run, players, p, dt) {
+function placeImpactFirewall(run, players, p) {
+  if (!isImpactDriverPlayer(p)) return false;
+  return tryPlaceImpactWall(run, players, p);
+}
+
+function fireImpactWallPush(run, players, p) {
   if (!p.fire) { p.fireWasDown = false; return; }
-  if (p.fireWasDown || p.cd > 0) return;
+  if (p.fireWasDown) return;
   p.fireWasDown = true;
-  if (tryPlaceImpactWall(run, players, p)) {
-    p.impactWallCdMax = weaponCycleSeconds(p, WEAPONS.impact_wall?.cooldown || 2.6, 1, 0.75);
-    p.cd = p.impactWallCdMax;
-  }
+  startImpactWallMotion(run, players, p, 'push');
 }
 
 function stepImpactTempWalls(run, players, dt) {
@@ -9769,6 +9804,9 @@ function stepImpactTempWalls(run, players, dt) {
       continue;
     }
     if (!wall.moving) continue;
+    const statusOwner = players.get(wall.owner);
+    wall.elem = statusOwner ? bulletElementString(statusOwner, 'weapon') : '';
+    wall.elemPower = statusOwner ? bulletElementPower(statusOwner, 'weapon') : 0;
     let travel = Math.min(Math.max(0, wall.pushLeft || 0), Math.hypot(wall.vx || 0, wall.vy || 0) * dt);
     let guard = 0;
     while (travel > 0.001 && wall.moving && guard++ < 12) {
@@ -9797,7 +9835,7 @@ function stepImpactTempWalls(run, players, dt) {
 }
 
 function fireWeapon(run, players, p, dt) {
-  if (isImpactDriverPlayer(p)) { fireImpactFirewall(run, players, p, dt); return; }
+  if (isImpactDriverPlayer(p)) { fireImpactWallPush(run, players, p); return; }
   if (isLivingCasinoPlayer(p)) { handleLivingCasinoBaseMark(run, players, p, dt); return; }
   if (isProcessControllerPlayer(p)) { fireProcessControllerProtocol(run, players, p, dt); return; }
   p.cd = Math.max(0, (p.cd || 0) - dt);
@@ -10987,7 +11025,7 @@ function stepHunterWaves(run, players, dt) {
   if (run.enemies.length <= 0) {
     if (hw.index >= hw.total) {
       hw.done = true;
-      run.fx.push({ t: 'room_event_done', label: 'ВОЛНЫ ОХОТНИКОВ', body: 'ALL WAVES CLEAR' });
+      run.fx.push({ t: 'room_event_done', label: 'HUNTER WAVES', labelEn: 'HUNTER WAVES', labelRu: 'ВОЛНЫ ОХОТНИКОВ', body: 'ALL WAVES CLEARED', bodyEn: 'ALL WAVES CLEARED', bodyRu: 'ВСЕ ВОЛНЫ ОЧИЩЕНЫ' });
       openPortal(run);
       return;
     }
@@ -11017,23 +11055,23 @@ function buildCasinoVirusEvent(run, players) {
   const mobN = Math.min(10, 4 + Math.floor(Math.random() * 4) + Math.floor((run.runDepth || 0) / 5));
 
   if (loop <= 0) {
-    if (roll < 0.46) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
-    if (roll < 0.72) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 1 };
-    if (roll < 0.90) return { kind: 'elite_pack', label: 'VIRUS GUARD PACK', center, n: 2 + Math.floor(Math.random() * 2), pool: elitePool };
-    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 5 };
+    if (roll < 0.46) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', labelEn: 'VIRUS MOB PACK', labelRu: 'ВИРУСНАЯ СТАЯ', center, n: mobN, pool: mobPool };
+    if (roll < 0.72) return { kind: 'static', label: 'VIRAL STATIC STORM', labelEn: 'VIRAL STATIC STORM', labelRu: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 1 };
+    if (roll < 0.90) return { kind: 'elite_pack', label: 'VIRUS GUARD PACK', labelEn: 'VIRUS GUARD PACK', labelRu: 'ВИРУСНАЯ СТРАЖА', center, n: 2 + Math.floor(Math.random() * 2), pool: elitePool };
+    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', labelEn: 'VIRUS SLOT JACKPOT', labelRu: 'ДЖЕКПОТ ВИРУСА', center, n: 5 };
   }
   if (loop === 1) {
-    if (roll < 0.34) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN, pool: mobPool };
-    if (roll < 0.58) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 2 };
-    if (roll < 0.82) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 2 + Math.floor(Math.random() * 3), pool: elitePool };
-    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 };
+    if (roll < 0.34) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', labelEn: 'VIRUS MOB PACK', labelRu: 'ВИРУСНАЯ СТАЯ', center, n: mobN, pool: mobPool };
+    if (roll < 0.58) return { kind: 'static', label: 'VIRAL STATIC STORM', labelEn: 'VIRAL STATIC STORM', labelRu: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: 2 };
+    if (roll < 0.82) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', labelEn: 'VIRUS ELITE PACK', labelRu: 'ЭЛИТА ВИРУСА', center, n: 2 + Math.floor(Math.random() * 3), pool: elitePool };
+    return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', labelEn: 'VIRUS SLOT JACKPOT', labelRu: 'ДЖЕКПОТ ВИРУСА', center, n: 6 };
   }
-  if (roll < 0.26) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', center, n: mobN + Math.min(3, loop), pool: mobPool };
-  if (roll < 0.48) return { kind: 'static', label: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: Math.min(3, 2 + Math.floor(loop / 4)) };
-  if (roll < 0.66) return { kind: 'big_static', label: 'БОЛЬШОЙ СТАТИК-ШТОРМ', center, stacks: Math.min(STATIC_RAIN_MAX_LEVEL, 4 + Math.floor(loop / 2)) };
-  if (roll < 0.84) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', center, n: 3 + Math.floor(Math.random() * 3) + Math.min(2, df.late), pool: elitePool };
-  if (roll < 0.94 && loop >= 3) return { kind: 'mini_boss', label: 'VIRUS MINI BOSS', center };
-  return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', center, n: 6 + Math.min(4, loop) };
+  if (roll < 0.26) return { kind: 'mob_pack', label: 'VIRUS MOB PACK', labelEn: 'VIRUS MOB PACK', labelRu: 'ВИРУСНАЯ СТАЯ', center, n: mobN + Math.min(3, loop), pool: mobPool };
+  if (roll < 0.48) return { kind: 'static', label: 'VIRAL STATIC STORM', labelEn: 'VIRAL STATIC STORM', labelRu: 'ВИРУСНЫЙ СТАТИК-ШТОРМ', center, stacks: Math.min(3, 2 + Math.floor(loop / 4)) };
+  if (roll < 0.66) return { kind: 'big_static', label: 'BIG STATIC STORM', labelEn: 'BIG STATIC STORM', labelRu: 'БОЛЬШОЙ СТАТИК-ШТОРМ', center, stacks: Math.min(STATIC_RAIN_MAX_LEVEL, 4 + Math.floor(loop / 2)) };
+  if (roll < 0.84) return { kind: 'elite_pack', label: 'VIRUS ELITE PACK', labelEn: 'VIRUS ELITE PACK', labelRu: 'ЭЛИТА ВИРУСА', center, n: 3 + Math.floor(Math.random() * 3) + Math.min(2, df.late), pool: elitePool };
+  if (roll < 0.94 && loop >= 3) return { kind: 'mini_boss', label: 'VIRUS MINI BOSS', labelEn: 'VIRUS MINI BOSS', labelRu: 'МИНИ-БОСС ВИРУСА', center };
+  return { kind: 'jackpot', label: 'VIRUS SLOT JACKPOT', labelEn: 'VIRUS SLOT JACKPOT', labelRu: 'ДЖЕКПОТ ВИРУСА', center, n: 6 + Math.min(4, loop) };
 }
 
 function safeRunNow(run) {
@@ -11048,13 +11086,15 @@ function scheduleCasinoVirusEvent(run, players) {
   const ev = buildCasinoVirusEvent(run, players);
   const symbols = casinoVirusSymbols(ev.label);
   cv.lastLabel = ev.label;
+  cv.lastLabelEn = ev.labelEn || ev.label;
+  cv.lastLabelRu = ev.labelRu || ev.label;
   cv.lastSymbols = symbols;
   cv.spinSeq = (cv.spinSeq || 0) + 1;
   const now = safeRunNow(run);
   cv.pendingEvent = { ...ev, symbols, applyAt: now + 1.45 };
   cv.nextSpin = 0;
   // The outcome is visible now, but its gameplay effect is delayed until the reels stop.
-  run.fx.push({ t: 'casino_virus_spin', label: ev.label, symbols, spinsLeft: cv.spinsLeft, nextSpin: 0, seq: cv.spinSeq, x: Math.round(ev.center.x), y: Math.round(ev.center.y), rainStacks: cv.activeRainStacks || 0, rainKind: cv.rainKind || '', pending: 1 });
+  run.fx.push({ t: 'casino_virus_spin', label: ev.label, labelEn: ev.labelEn || ev.label, labelRu: ev.labelRu || ev.label, symbols, spinsLeft: cv.spinsLeft, nextSpin: 0, seq: cv.spinSeq, x: Math.round(ev.center.x), y: Math.round(ev.center.y), rainStacks: cv.activeRainStacks || 0, rainKind: cv.rainKind || '', pending: 1 });
 }
 function applyCasinoVirusEvent(run, players, ev) {
   if (!ev) return 0;
@@ -11076,7 +11116,7 @@ function applyCasinoVirusEvent(run, players, ev) {
       const e = spawnEnemy(run, players, kind, canElite, pos, { noArmor });
       if (e) { e.virusSpawn = true; spawned++; }
     }
-    run.fx.push({ t: 'director_wave', label: ev.label, intent: 'chaos', x: Math.round(center.x), y: Math.round(center.y), count: spawned });
+    run.fx.push({ t: 'director_wave', label: ev.label, labelEn: ev.labelEn || ev.label, labelRu: ev.labelRu || ev.label, intent: 'chaos', x: Math.round(center.x), y: Math.round(center.y), count: spawned });
   } else if (ev.kind === 'static' || ev.kind === 'big_static') {
     if (!(cv.activeRainStacks > 0)) cv.rainT = ev.kind === 'big_static' ? 0.12 : 0.18;
     cv.activeRainStacks = Math.max(cv.activeRainStacks || 0, Math.max(1, ev.stacks || 2));
@@ -11087,7 +11127,7 @@ function applyCasinoVirusEvent(run, players, ev) {
     const e = spawnEnemy(run, players, 'herald', true, center, { noArmor: true });
     if (e) {
       e.maxHp = Math.round(e.maxHp * 1.65); e.hp = e.maxHp; e.dmg = Math.round(e.dmg * 1.25); e.virusBoss = true; e.virusSpawn = true; spawned = 1;
-      run.fx.push({ t: 'director_wave', label: ev.label, intent: 'director', x: Math.round(center.x), y: Math.round(center.y), count: 1 });
+      run.fx.push({ t: 'director_wave', label: ev.label, labelEn: ev.labelEn || ev.label, labelRu: ev.labelRu || ev.label, intent: 'director', x: Math.round(center.x), y: Math.round(center.y), count: 1 });
     }
   } else if (ev.kind === 'jackpot') {
     const n = Math.max(1, ev.n || 6);
@@ -11386,28 +11426,29 @@ function tryInteract(run, players, p) {
 }
 
 
-function weaponChoiceDisabled(p, opt) {
-  if (!opt) return 'НЕТ ВАРИАНТА';
-  if (opt.heroOnly === 'impact_driver' && !isImpactDriverPlayer(p)) return 'ТОЛЬКО ДЛЯ DRV';
-  if (opt.heroOnly && opt.heroOnly !== 'impact_driver') return 'ДРУГОЙ АНТИВИРУС';
+function weaponChoiceDisabled(p, opt, lang = 'en') {
+  const tr = (en, ru) => lang === 'ru' ? ru : en;
+  if (!opt) return tr('NO OPTION', 'НЕТ ВАРИАНТА');
+  if (opt.heroOnly === 'impact_driver' && !isImpactDriverPlayer(p)) return tr('DRIVER ONLY', 'ТОЛЬКО ДЛЯ УДАРНОГО ДРАЙВЕРА');
+  if (opt.heroOnly && opt.heroOnly !== 'impact_driver') return tr('WRONG ANTIVIRUS', 'ДРУГОЙ АНТИВИРУС');
   if (isLivingCasinoPlayer(p)) return '';
   if (isProcessControllerPlayer(p)) {
-    if (opt.kind === 'weapon' && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
-    if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
+    if (opt.kind === 'weapon' && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return tr('WRONG ANTIVIRUS', 'ДРУГОЙ АНТИВИРУС');
+    if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return tr('WRONG ANTIVIRUS', 'ДРУГОЙ АНТИВИРУС');
   } else {
-    if (opt.kind === 'weapon' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
-    if (opt.kind === 'weapon_upgrade' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return 'ДРУГОЙ АНТИВИРУС';
+    if (opt.kind === 'weapon' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.weapon || ''))) return tr('WRONG ANTIVIRUS', 'ДРУГОЙ АНТИВИРУС');
+    if (opt.kind === 'weapon_upgrade' && PROCESS_CONTROLLER_WEAPON_SET.has(String(opt.reqWeapon || ''))) return tr('WRONG ANTIVIRUS', 'ДРУГОЙ АНТИВИРУС');
   }
-  if (opt.kind === 'weapon' && p.weapons.includes(opt.weapon)) return 'УЖЕ ЕСТЬ';
-  if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return `НУЖЕН ${WEAPONS[opt.reqWeapon]?.label || opt.reqWeapon}`;
+  if (opt.kind === 'weapon' && p.weapons.includes(opt.weapon)) return tr('ALREADY OWNED', 'УЖЕ ЕСТЬ');
+  if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && !p.weapons.includes(opt.reqWeapon)) return tr(`REQUIRES ${contentText(WEAPONS[opt.reqWeapon], 'en', 'label') || opt.reqWeapon}`, `НУЖНО: ${contentText(WEAPONS[opt.reqWeapon], 'ru', 'label') || 'ОРУЖИЕ'}`);
   if (opt.kind === 'weapon_upgrade') {
     const id = opt.upgrade || opt.id;
-    if (id === 'drone_element_link' && !(p?.stats?.drones > 0)) return 'НУЖЕН DRONE';
-    if (id === 'drone_element_link' && !playerHasBulletElement(p)) return 'НУЖЕН СТАТУС';
-    if (id === 'bullet_chain_status_link' && !(p?.stats?.bulletChain > 0)) return 'НУЖНА СВЯЗЬ СНАРЯДОВ';
-    if (id === 'bullet_chain_status_link' && p?.stats?.bulletChainStatuses > 0) return 'УЖЕ ЕСТЬ';
-    if (id === 'ctrl_process_contact_status' && p?.stats?.ctrlProcessContactStatus > 0) return 'УЖЕ ЕСТЬ';
-    if ((id === 'element_amp' || id === 'element_spread') && !playerHasBulletElement(p)) return 'НУЖЕН ОГОНЬ/ХОЛОД/ЯД';
+    if (id === 'drone_element_link' && !(p?.stats?.drones > 0)) return tr('REQUIRES A DRONE', 'НУЖЕН ДРОН');
+    if (id === 'drone_element_link' && !playerHasBulletElement(p)) return tr('REQUIRES A STATUS', 'НУЖЕН СТАТУС');
+    if (id === 'bullet_chain_status_link' && !(p?.stats?.bulletChain > 0)) return tr('REQUIRES PROJECTILE LINK', 'НУЖНА СВЯЗЬ СНАРЯДОВ');
+    if (id === 'bullet_chain_status_link' && p?.stats?.bulletChainStatuses > 0) return tr('ALREADY OWNED', 'УЖЕ ЕСТЬ');
+    if (id === 'ctrl_process_contact_status' && p?.stats?.ctrlProcessContactStatus > 0) return tr('ALREADY OWNED', 'УЖЕ ЕСТЬ');
+    if ((id === 'element_amp' || id === 'element_spread') && !playerHasBulletElement(p)) return tr('REQUIRES FIRE, COLD, OR POISON', 'НУЖЕН ОГОНЬ, ХОЛОД ИЛИ ЯД');
   }
   return '';
 }
@@ -11415,11 +11456,14 @@ function weaponChoiceEligible(p, opt) { return !weaponChoiceDisabled(p, opt); }
 
 function weaponChoiceWeight(p, opt, qualityTier = 0) {
   if (!opt) return 1;
+  // Tier 4 changes the visual band and grants the fifth slot, but intentionally
+  // keeps the old maximum reward weighting from tier 3.
+  const rewardTier = Math.min(3, Math.max(0, Number(qualityTier) || 0));
   let w = 1;
-  if (opt.kind === 'weapon' && !p.weapons.includes(opt.weapon)) w += 2.2 + qualityTier * 0.9;
-  if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && p.weapons.includes(opt.reqWeapon)) w += 1.5 + qualityTier * 0.55;
-  if (opt.kind === 'weapon_upgrade' && !opt.reqWeapon) w += qualityTier >= 2 ? 0.45 : 0;
-  if (opt.kind === 'stat') w *= qualityTier >= 2 ? 0.65 : 0.9;
+  if (opt.kind === 'weapon' && !p.weapons.includes(opt.weapon)) w += 2.2 + rewardTier * 0.9;
+  if (opt.kind === 'weapon_upgrade' && opt.reqWeapon && p.weapons.includes(opt.reqWeapon)) w += 1.5 + rewardTier * 0.55;
+  if (opt.kind === 'weapon_upgrade' && !opt.reqWeapon) w += rewardTier >= 2 ? 0.45 : 0;
+  if (opt.kind === 'stat') w *= rewardTier >= 2 ? 0.65 : 0.9;
   return Math.max(0.1, w);
 }
 function weightedPickOption(rng, pool, weightFn, used = new Set()) {
@@ -11457,10 +11501,16 @@ function processControllerChoicePool(p, qualityTier = 0) {
       return {
         ...opt,
         id: isDmgStat ? 'ctrl_proc_dmg_stat' : isFireStat ? 'ctrl_proc_fire_stat' : opt.id,
-        label: isDmgStat ? 'CTRL: УРОН ПРОЦЕССОВ +18%' : isFireStat ? 'CTRL: ТЕМП СТРЕЛЬБЫ +14%' : opt.label,
-        desc: isDmgStat ? 'Подконтрольные процессы сильнее кусают, стреляют и наносят урон своими действиями.' : isFireStat ? 'Ускоряет протоколы Контроллера, стрельбу процессов и его дроны.' : opt.desc,
-        disabled: 0, disabledReason: '', valueTier: qualityTier, pcOnly: 1, group: 'CTRL',
-        actionLabel: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : (String(opt.upgrade || opt.id) === 'drone_element_link' ? 'УСИЛИТЬ СПУТНИКОВ' : (String(opt.upgrade || opt.id).startsWith('bullet_') || String(opt.upgrade || opt.id).startsWith('element_') ? 'УСИЛИТЬ СТРЕЛЬБУ' : 'УСИЛИТЬ КОНТРОЛЬ'))
+        label: isDmgStat ? 'PROCESS DAMAGE +18%' : isFireStat ? 'PROCESS ATTACK RATE +14%' : contentText(opt, 'en', 'label'),
+        labelEn: isDmgStat ? 'PROCESS DAMAGE +18%' : isFireStat ? 'PROCESS ATTACK RATE +14%' : contentText(opt, 'en', 'label'),
+        labelRu: isDmgStat ? 'УРОН ПРОЦЕССОВ +18%' : isFireStat ? 'ТЕМП АТАК ПРОЦЕССОВ +14%' : contentText(opt, 'ru', 'label'),
+        desc: isDmgStat ? 'Controlled processes deal more damage with every attack.' : isFireStat ? 'Speeds up Controller protocols, process attacks, and drones.' : contentText(opt, 'en', 'desc'),
+        descEn: isDmgStat ? 'Controlled processes deal more damage with every attack.' : isFireStat ? 'Speeds up Controller protocols, process attacks, and drones.' : contentText(opt, 'en', 'desc'),
+        descRu: isDmgStat ? 'Все атаки подконтрольных процессов наносят больше урона.' : isFireStat ? 'Ускоряет протоколы Контроллера, атаки процессов и дроны.' : contentText(opt, 'ru', 'desc'),
+        disabled: 0, disabledReason: '', disabledReasonEn: '', disabledReasonRu: '', valueTier: qualityTier, pcOnly: 1, group: 'CONTROLLER', groupEn: 'CONTROLLER', groupRu: 'КОНТРОЛЛЕР',
+        actionLabel: opt.kind === 'weapon' ? 'UNLOCK COMMAND' : (String(opt.upgrade || opt.id) === 'drone_element_link' ? 'UPGRADE DRONES' : (String(opt.upgrade || opt.id).startsWith('bullet_') || String(opt.upgrade || opt.id).startsWith('element_') ? 'UPGRADE FIREPOWER' : 'UPGRADE CONTROL')),
+        actionLabelEn: opt.kind === 'weapon' ? 'UNLOCK COMMAND' : (String(opt.upgrade || opt.id) === 'drone_element_link' ? 'UPGRADE DRONES' : (String(opt.upgrade || opt.id).startsWith('bullet_') || String(opt.upgrade || opt.id).startsWith('element_') ? 'UPGRADE FIREPOWER' : 'UPGRADE CONTROL')),
+        actionLabelRu: opt.kind === 'weapon' ? 'ОТКРЫТЬ КОМАНДУ' : (String(opt.upgrade || opt.id) === 'drone_element_link' ? 'УСИЛИТЬ ДРОНЫ' : (String(opt.upgrade || opt.id).startsWith('bullet_') || String(opt.upgrade || opt.id).startsWith('element_') ? 'УСИЛИТЬ СТРЕЛЬБУ' : 'УСИЛИТЬ КОНТРОЛЬ'))
       };
     });
 }
@@ -11482,7 +11532,7 @@ function makeProcessControllerWeaponChoices(p, rng = Math.random, count = 3, qua
 const IMPACT_DRIVER_WPN_IDS = new Set([
   'impact_damage', 'impact_radius', 'impact_distance', 'impact_stun', 'impact_afterfield', 'impact_rebound',
   'impact_wall_count', 'impact_wall_duration',
-  'impact_push_range', 'impact_push_damage', 'impact_push_cooldown', 'impact_push_bounce', 'impact_push_multiplier',
+  'impact_push_range', 'impact_push_damage', 'impact_push_bounce', 'impact_push_multiplier',
   'bullet_range', 'bullet_fire', 'bullet_freeze', 'bullet_poison', 'element_amp', 'element_spread', 'bullet_chain', 'bullet_chain_status_link'
 ]);
 function impactDriverChoicePool(p, qualityTier = 0) {
@@ -11491,16 +11541,16 @@ function impactDriverChoicePool(p, qualityTier = 0) {
       const id = String(opt?.upgrade || opt?.id || '');
       if (opt?.kind !== 'weapon_upgrade' || !IMPACT_DRIVER_WPN_IDS.has(id) || !weaponChoiceEligible(p, opt)) return false;
       if (id === 'impact_wall_count' || id === 'impact_wall_duration') return p?.stats?.impactWallUnlocked > 0;
-      if (id === 'impact_push_range' || id === 'impact_push_damage' || id === 'impact_push_cooldown' || id === 'impact_push_bounce') {
+      if (id === 'impact_push_range' || id === 'impact_push_damage' || id === 'impact_push_bounce') {
         if (!(p?.stats?.impactPushUnlocked > 0)) return false;
         if (id === 'impact_push_bounce' && p?.stats?.impactPushBounce > 0) return false;
       }
       if (id === 'impact_push_multiplier') return p?.stats?.impactPushUnlocked > 0 && p?.stats?.impactPushBounce > 0;
       return true;
     })
-    .map(opt => ({ ...opt, disabled: 0, disabledReason: '', valueTier: qualityTier, impactOnly: 1, group: 'DRV' }));
-  pool.push({ id: 'impact_power_stat', kind: 'stat', stat: 'dmg', label: 'DRV: МОЩНОСТЬ +18%', desc: 'Усиливает взлёт, посадку и след удара.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRV' });
-  pool.push({ id: 'impact_clock_stat', kind: 'stat', stat: 'fire', label: 'DRV: ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Ускоряет ЛКМ-файрвол, PUSH и дроны. Прыжок не ускоряет.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRV' });
+    .map(opt => ({ ...opt, label: contentText(opt, 'en', 'label'), labelEn: contentText(opt, 'en', 'label'), labelRu: contentText(opt, 'ru', 'label'), desc: contentText(opt, 'en', 'desc'), descEn: contentText(opt, 'en', 'desc'), descRu: contentText(opt, 'ru', 'desc'), disabled: 0, disabledReason: '', disabledReasonEn: '', disabledReasonRu: '', valueTier: qualityTier, impactOnly: 1, group: 'DRIVER', groupEn: 'DRIVER', groupRu: 'УДАРНЫЙ ДРАЙВЕР' }));
+  pool.push({ id: 'impact_power_stat', kind: 'stat', stat: 'dmg', label: 'IMPACT POWER +18%', labelEn: 'IMPACT POWER +18%', labelRu: 'МОЩНОСТЬ УДАРА +18%', desc: 'Strengthens takeoff, landing, and the impact trail.', descEn: 'Strengthens takeoff, landing, and the impact trail.', descRu: 'Усиливает взлёт, посадку и ударный след.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRIVER', groupEn: 'DRIVER', groupRu: 'УДАРНЫЙ ДРАЙВЕР' });
+  pool.push({ id: 'impact_clock_stat', kind: 'stat', stat: 'fire', label: 'WEAPON CLOCK +14%', labelEn: 'WEAPON CLOCK +14%', labelRu: 'ОРУЖЕЙНЫЙ ТАКТ +14%', desc: 'Speeds up drones. The Driver block actions and jump are instant and have no cooldown.', descEn: 'Speeds up drones. The Driver block actions and jump are instant and have no cooldown.', descRu: 'Ускоряет дроны. Действия с блоками и прыжок Драйвера мгновенные и не имеют перезарядки.', disabled: 0, valueTier: qualityTier, impactOnly: 1, group: 'DRIVER', groupEn: 'DRIVER', groupRu: 'УДАРНЫЙ ДРАЙВЕР' });
   return pool;
 }
 export function impactDriverWeaponChoiceWeight(p, opt, qualityTier = 0) {
@@ -11584,15 +11634,22 @@ function addActiveChoiceMeta(opt) {
 function makeCoreChoice(coreId, kind, p) {
   const c = ACTIVE_CORES[coreId];
   const a = ensureActive(p);
-  const current = a.core ? ACTIVE_CORES[a.core]?.label : 'НЕТ Q';
+  const currentEn = a.core ? contentText(ACTIVE_CORES[a.core], 'en', 'label') : 'NO ACTIVE PROTOCOL';
+  const currentRu = a.core ? contentText(ACTIVE_CORES[a.core], 'ru', 'label') : 'НЕТ АКТИВНОГО ПРОТОКОЛА';
+  const coreEn = contentText(c, 'en', 'label');
+  const coreRu = contentText(c, 'ru', 'label');
   const replace = kind === 'active_core_replace';
   return addActiveChoiceMeta({
     id: `${kind}_${coreId}`, kind, core: coreId,
-    label: replace ? `ЗАМЕНИТЬ Q: ${c.label}` : `Q: ${c.label}`,
-    actionLabel: replace ? 'ЗАМЕНИТЬ Q' : 'УСТАНОВИТЬ Q',
-    group: 'Q', role: c.role || 'ACTIVE',
-    preview: replace ? `${current} → ${c.label}. Текущие мутации сохранятся.` : `Q станет ${c.label} I.`,
-    desc: c.desc,
+    label: replace ? `REPLACE: ${coreEn}` : `ACTIVE: ${coreEn}`,
+    labelEn: replace ? `REPLACE: ${coreEn}` : `ACTIVE: ${coreEn}`,
+    labelRu: replace ? `ЗАМЕНИТЬ: ${coreRu}` : `АКТИВНЫЙ: ${coreRu}`,
+    actionLabel: replace ? 'REPLACE ACTIVE' : 'INSTALL ACTIVE', actionLabelEn: replace ? 'REPLACE ACTIVE' : 'INSTALL ACTIVE', actionLabelRu: replace ? 'ЗАМЕНИТЬ АКТИВНЫЙ' : 'УСТАНОВИТЬ АКТИВНЫЙ',
+    group: 'ACTIVE', groupEn: 'ACTIVE', groupRu: 'АКТИВНЫЙ', role: c.role || 'ACTIVE',
+    preview: replace ? `${currentEn} → ${coreEn}. Mutations are preserved.` : `Installs ${coreEn} I.`,
+    previewEn: replace ? `${currentEn} → ${coreEn}. Mutations are preserved.` : `Installs ${coreEn} I.`,
+    previewRu: replace ? `${currentRu} → ${coreRu}. Мутации сохраняются.` : `Устанавливает ${coreRu} I.`,
+    desc: contentText(c, 'en', 'desc'), descEn: contentText(c, 'en', 'desc'), descRu: contentText(c, 'ru', 'desc'),
     tone: c.tone
   });
 }
@@ -11600,10 +11657,14 @@ function makeUpgradeCoreChoice(p) {
   const a = ensureActive(p); const c = ACTIVE_CORES[a.core];
   return addActiveChoiceMeta({
     id: `active_upgrade_${a.core}_${a.level + 1}`, kind: 'active_upgrade_core', core: a.core,
-    label: `${c.label} ${roman(a.level)} → ${roman(a.level + 1)}`,
-    actionLabel: 'УСИЛИТЬ Q', group: 'POWER', role: c.role || 'ACTIVE',
-    preview: a.core === 'signal_spike' ? `${roman(a.level + 1)}: +1 заряд SPIKE. Дальность и зона заметно растут.` : (a.core === 'void_cut' ? `${roman(a.level + 1)}: +1 точка связи. Каждый сегмент луча становится намного длиннее.` : `${roman(a.level + 1)}: ${c.upgrade?.join(' · ') || '+сила'}.`),
-    desc: c.desc, tone: c.tone
+    label: `${contentText(c, 'en', 'label')} ${roman(a.level)} → ${roman(a.level + 1)}`,
+    labelEn: `${contentText(c, 'en', 'label')} ${roman(a.level)} → ${roman(a.level + 1)}`,
+    labelRu: `${contentText(c, 'ru', 'label')} ${roman(a.level)} → ${roman(a.level + 1)}`,
+    actionLabel: 'UPGRADE ACTIVE', actionLabelEn: 'UPGRADE ACTIVE', actionLabelRu: 'УСИЛИТЬ АКТИВНЫЙ', group: 'POWER', groupEn: 'POWER', groupRu: 'МОЩНОСТЬ', role: c.role || 'ACTIVE',
+    preview: a.core === 'signal_spike' ? `${roman(a.level + 1)}: +1 Spike charge. Range and area grow.` : (a.core === 'void_cut' ? `${roman(a.level + 1)}: +1 link point. Every beam segment grows longer.` : `${roman(a.level + 1)}: power increased.`),
+    previewEn: a.core === 'signal_spike' ? `${roman(a.level + 1)}: +1 Spike charge. Range and area grow.` : (a.core === 'void_cut' ? `${roman(a.level + 1)}: +1 link point. Every beam segment grows longer.` : `${roman(a.level + 1)}: power increased.`),
+    previewRu: a.core === 'signal_spike' ? `${roman(a.level + 1)}: +1 заряд шипа. Дальность и зона растут.` : (a.core === 'void_cut' ? `${roman(a.level + 1)}: +1 точка связи. Каждый отрезок луча становится длиннее.` : `${roman(a.level + 1)}: мощность увеличена.`),
+    desc: contentText(c, 'en', 'desc'), descEn: contentText(c, 'en', 'desc'), descRu: contentText(c, 'ru', 'desc'), tone: c.tone
   });
 }
 function makeMutationChoice(mutId, p) {
@@ -11615,11 +11676,15 @@ function makeMutationChoice(mutId, p) {
     id: upgrade ? `active_upgrade_mut_${mutId}_${next}` : `active_mut_${mutId}`,
     kind: upgrade ? 'active_upgrade_mutation' : 'active_add_mutation', mutation: mutId, mutationLevel: next,
     repeatable: activeMutationCanUpgrade(mutId) ? 1 : 0,
-    label: upgrade ? `MUTATION: ${m.label} ${roman(current)} → ${roman(next)}` : `MUTATION: ${m.label}`,
-    actionLabel: upgrade ? 'УСИЛИТЬ МУТАЦИЮ' : 'ДОБАВИТЬ МУТАЦИЮ',
-    group: 'MUTATION', role: m.role || 'SIGNAL',
-    preview: upgrade ? `${m.label} получает уровень ${roman(next)}.` : `${m.label} усиливает текущую Q и меняет её поведение.`,
-    desc: m.desc, tone: m.tone
+    label: upgrade ? `MUTATION: ${contentText(m, 'en', 'label')} ${roman(current)} → ${roman(next)}` : `MUTATION: ${contentText(m, 'en', 'label')}`,
+    labelEn: upgrade ? `MUTATION: ${contentText(m, 'en', 'label')} ${roman(current)} → ${roman(next)}` : `MUTATION: ${contentText(m, 'en', 'label')}`,
+    labelRu: upgrade ? `МУТАЦИЯ: ${contentText(m, 'ru', 'label')} ${roman(current)} → ${roman(next)}` : `МУТАЦИЯ: ${contentText(m, 'ru', 'label')}`,
+    actionLabel: upgrade ? 'UPGRADE MUTATION' : 'ADD MUTATION', actionLabelEn: upgrade ? 'UPGRADE MUTATION' : 'ADD MUTATION', actionLabelRu: upgrade ? 'УСИЛИТЬ МУТАЦИЮ' : 'ДОБАВИТЬ МУТАЦИЮ',
+    group: 'MUTATION', groupEn: 'MUTATION', groupRu: 'МУТАЦИЯ', role: m.role || 'SIGNAL',
+    preview: upgrade ? `${contentText(m, 'en', 'label')} reaches level ${roman(next)}.` : `${contentText(m, 'en', 'label')} changes the active protocol.`,
+    previewEn: upgrade ? `${contentText(m, 'en', 'label')} reaches level ${roman(next)}.` : `${contentText(m, 'en', 'label')} changes the active protocol.`,
+    previewRu: upgrade ? `${contentText(m, 'ru', 'label')} получает уровень ${roman(next)}.` : `${contentText(m, 'ru', 'label')} меняет активный протокол.`,
+    desc: contentText(m, 'en', 'desc'), descEn: contentText(m, 'en', 'desc'), descRu: contentText(m, 'ru', 'desc'), tone: m.tone
   });
 }
 function roman(n) {
@@ -11761,6 +11826,10 @@ function applyRandomCasinoAbility(run, players, p, pl = {}) {
   const ok = applyAbilityChestOption(run, players, p, { ...opt, _noMirror: 1 });
   if (ok) {
     pl.abilityLabel = opt.actionLabel ? `${opt.actionLabel}: ${opt.label}` : opt.label;
+    pl.abilityLabelPair = {
+      labelEn: opt.actionLabelEn ? `${opt.actionLabelEn}: ${opt.labelEn || opt.label}` : (opt.labelEn || opt.label),
+      labelRu: opt.actionLabelRu ? `${opt.actionLabelRu}: ${opt.labelRu || opt.label}` : (opt.labelRu || opt.label)
+    };
     // Casino results should be compact; remove chest_open duplicate if it was just pushed.
     run.fx = run.fx.filter((f, i) => i < beforeFx || f.t !== 'chest_open');
   }
@@ -11775,6 +11844,8 @@ function applyCasinoWeaponPairDamage(p, stakeKey, pl = {}) {
   p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * (1 + pct / 100);
   if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
   pl.weaponLabels.push(`WPN PAIR: WEAPON DAMAGE +${pct}%`);
+  if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+  pl.weaponLabelPairs.push({ labelEn: `WEAPON DAMAGE +${pct}%`, labelRu: `УРОН ОРУЖИЯ +${pct}%` });
   pl.weaponLabel = pl.weaponLabels.join(' + ');
   pl.weaponPairDamagePct = (pl.weaponPairDamagePct || 0) + pct;
   return pct;
@@ -11789,6 +11860,8 @@ function applyRandomCasinoWeaponUpgrade(run, players, p, pl = {}, qualityTier = 
   if (!ok) return false;
   if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
   pl.weaponLabels.push(`WPN TRIPLE: ${opt.label || opt.id || 'UPGRADE'}`);
+  if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+  pl.weaponLabelPairs.push({ labelEn: opt.labelEn || opt.label || opt.id || 'UPGRADE', labelRu: opt.labelRu || opt.label || opt.id || 'УЛУЧШЕНИЕ' });
   pl.weaponLabel = pl.weaponLabels.join(' + ');
   // The casino history is the single authoritative receipt. Suppress the
   // chest duplicate created by the shared WPN application path.
@@ -11849,9 +11922,9 @@ function applyWeaponChestOption(run, players, p, opt) {
     run.fx.push({ t: 'chest_open', id: p.id, name: p.name || '', personal: 1, chest: 'WPN', rewards: [label], x: Math.round(p.x), y: Math.round(p.y) });
     return true;
   }
-  const disabledReason = weaponChoiceDisabled(p, opt);
+  const disabledReason = weaponChoiceDisabled(p, opt, 'en');
   if (disabledReason) {
-    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, chest: 'WPN' });
+    run.fx.push({ t: 'denied', id: p.id, x: Math.round(p.x), y: Math.round(p.y), reason: disabledReason, reasonEn: disabledReason, reasonRu: weaponChoiceDisabled(p, opt, 'ru'), chest: 'WPN' });
     return false;
   }
   if (opt.kind === 'weapon') {
@@ -12038,7 +12111,7 @@ function openChest(run, players, p, o) {
     return;
   } else if (o.chest === 'rare_chest') {
     const clearance = consumeContractFavor(run, ['rar_clearance']);
-    if (clearance) value = { ...value, tier: Math.max(3, value.tier || 1), label: 'CLEARANCE', labelRu: 'ДОПУСК', reason: 'RAR CLEARANCE' };
+    if (clearance) value = { ...value, tier: Math.max(4, value.tier || 1), label: 'CLEARANCE', labelRu: 'ДОПУСК', reason: 'RAR CLEARANCE' };
     takeCasinoHoldChoices(p, 2);
     const loopIndex = Math.max(0, Math.floor((run.runDepth || 0) / 4));
     const u = rollSafeRareUpgrade(p, rng, value.tier, loopIndex);
@@ -12073,19 +12146,25 @@ function openChest(run, players, p, o) {
 
 
 
-function continueMultiPickChestOffer(prev, idx, label = '') {
+function continueMultiPickChestOffer(prev, idx, choice = '') {
   const slotCount = Math.max(0, Number(prev?.slotCount || prev?.slots || (prev?.choices?.length || 0)) | 0);
   const inferredTotal = slotCount >= 5 ? 2 : 1;
   const picksTotal = Math.max(1, inferredTotal, Number(prev?.picksTotal || 0) | 0);
   const picksRemaining = Math.max(1, Math.min(picksTotal, Number(prev?.picksRemaining || picksTotal) | 0));
   if (picksRemaining <= 1) return null;
   const choices = (prev.choices || []).filter((_, i) => i !== idx);
+  const rawLabel = typeof choice === 'object' ? (choice?.label || choice?.id || '') : choice;
+  const labelPair = typeof choice === 'object' ? {
+    labelEn: choice?.labelEn || choice?.label || choice?.id || '',
+    labelRu: choice?.labelRu || choice?.label || choice?.id || ''
+  } : { labelEn: String(choice || ''), labelRu: String(choice || '') };
   return {
     ...prev,
     choices,
     picksRemaining: picksRemaining - 1,
     picksTotal,
-    pickedLabels: [...(Array.isArray(prev?.pickedLabels) ? prev.pickedLabels : []), String(label || '').trim()].filter(Boolean),
+    pickedLabels: [...(Array.isArray(prev?.pickedLabels) ? prev.pickedLabels : []), String(rawLabel || '').trim()].filter(Boolean),
+    pickedLabelPairs: [...(Array.isArray(prev?.pickedLabelPairs) ? prev.pickedLabelPairs : []), labelPair].filter(x => x.labelEn || x.labelRu),
     pickSeq: ((prev?.pickSeq || 0) + 1) | 0
   };
 }
@@ -12098,7 +12177,7 @@ export function handleWeaponPick(run, players, p, choiceIdx) {
   const opt = prev.choices[idx];
   const ok = applyWeaponChestOption(run, players, p, opt);
   if (ok) {
-    p.weaponChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'WPN');
+    p.weaponChestOffer = continueMultiPickChestOffer(prev, idx, opt || 'WPN');
     if (prev.contractPrize && !p.weaponChestOffer) finishContractChoicePrize(run, p);
   }
   return ok;
@@ -12112,7 +12191,7 @@ export function handleAbilityPick(run, players, p, choiceIdx) {
   const opt = prev.choices[idx];
   const ok = applyAbilityChestOption(run, players, p, opt);
   if (ok) {
-    p.abilityChestOffer = continueMultiPickChestOffer(prev, idx, opt?.label || opt?.id || 'ABL');
+    p.abilityChestOffer = continueMultiPickChestOffer(prev, idx, opt || 'ABL');
     if (prev.contractPrize && !p.abilityChestOffer) finishContractChoicePrize(run, p);
   }
   return ok;
@@ -12183,8 +12262,9 @@ export function handleRerollOffer(run, players, p, kind = '') {
     p.bossSignatureChoices = choices.slice(0, count);
     p.offer = { ...prev, choices: p.bossSignatureChoices, rerollAnimSeq: ((prev.rerollAnimSeq || 0) + 1) };
   } else return false;
-  const rerollBodyRu = k === 'weapon' ? 'ВЫБОР WPN ПЕРЕБРОШЕН' : k === 'ability' ? 'ВЫБОР ABL ПЕРЕБРОШЕН' : 'ВЫБОР ПРИЗА БОССА ПЕРЕБРОШЕН';
-  run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), body: k.toUpperCase() + ' REROLLED', bodyRu: rerollBodyRu, bodyEn: k.toUpperCase() + ' REROLLED', playerId: p.id });
+  const rerollBodyRu = k === 'weapon' ? 'ВЫБОР ОРУЖИЯ ПЕРЕБРОШЕН' : k === 'ability' ? 'ВЫБОР СПОСОБНОСТИ ПЕРЕБРОШЕН' : 'ВЫБОР ПРИЗА БОССА ПЕРЕБРОШЕН';
+  const rerollBodyEn = k === 'weapon' ? 'WEAPON CHOICE REROLLED' : k === 'ability' ? 'ABILITY CHOICE REROLLED' : 'BOSS-PRIZE CHOICE REROLLED';
+  run.fx.push({ t: 'favor_used', id: favor.id, label: favorLabel(favor), labelEn: favorLabel(favor), labelRu: favorDef(favor.id)?.labelRu || '', body: rerollBodyEn, bodyRu: rerollBodyRu, bodyEn: rerollBodyEn, playerId: p.id });
   run.fx.push({ t: 'choice_reroll', id: p.id, kind: k, label: favorLabel(favor) });
   return true;
 }
@@ -12213,9 +12293,9 @@ function applyDevBossReward(run, p, id) {
 
 function devRandomWeaponChestProfile(rng = Math.random) {
   const r = rng();
-  const tier = r < 0.12 ? 3 : r < 0.36 ? 2 : r < 0.72 ? 1 : 0;
-  const slotCount = tier >= 3 ? 5 : tier >= 2 ? 3 : tier >= 1 ? (rng() < 0.72 ? 2 : 1) : (rng() < 0.62 ? 1 : 2);
-  const label = tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
+  const tier = r < 0.12 ? 4 : r < 0.22 ? 3 : r < 0.36 ? 2 : r < 0.72 ? 1 : 0;
+  const slotCount = tier + 1;
+  const label = tier >= 4 ? 'UNIQUE' : tier >= 3 ? 'RARE' : tier >= 2 ? 'VALUABLE' : tier >= 1 ? 'GOOD' : 'SIMPLE';
   return { tier, slotCount, label };
 }
 function devWeaponChestSpot(run, p) {
@@ -12470,7 +12550,7 @@ export function handleDevCommand(run, players, p, cmd = {}) {
     const b = spawnEnemy(run, players, kind, false, null, { noArmor: true });
     b.hp = b.maxHp;
     run.bossKind = kind;
-    run.fx.push({ t: 'boss_intro', label: ENEMIES[kind]?.label || 'BOS', kind, x: Math.round(b.x), y: Math.round(b.y) });
+    run.fx.push({ t: 'boss_intro', label: contentText(ENEMIES[kind], 'en', 'label') || 'BOSS', labelEn: contentText(ENEMIES[kind], 'en', 'label') || 'BOSS', labelRu: contentText(ENEMIES[kind], 'ru', 'label') || 'БОСС', kind, x: Math.round(b.x), y: Math.round(b.y) });
     return true;
   }
   if (action === 'set_final_room') {
@@ -12608,7 +12688,7 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
     }
     if (!pl.rareChoice) {
       pl.rareLabels = [];
-      for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
+      for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR', pl));
       pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
     }
   }
@@ -12637,10 +12717,12 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
       for (let i = 0; i < abilityCount; i++) {
         const tmp = {};
         if (!applyRandomCasinoAbility(run, players, p, tmp)) {
-          if (isImpactDriverPlayer(p)) { p.stats.jumpDistance += 1; tmp.abilityLabel = 'DRV RANGE +20%'; }
-          else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+          if (isImpactDriverPlayer(p)) { p.stats.jumpDistance += 1; tmp.abilityLabel = 'DRV RANGE +20%'; tmp.abilityLabelPair = { labelEn: 'DRIVER RANGE +20%', labelRu: 'ДАЛЬНОСТЬ ДРАЙВЕРА +20%' }; }
+          else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; tmp.abilityLabelPair = { labelEn: 'DASH +1', labelRu: 'РЫВОК +1' }; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
         }
         pl.abilityLabels.push(tmp.abilityLabel || 'ABL');
+        if (!Array.isArray(pl.abilityLabelPairs)) pl.abilityLabelPairs = [];
+        pl.abilityLabelPairs.push(tmp.abilityLabelPair || { labelEn: tmp.abilityLabel || 'ABILITY', labelRu: tmp.abilityLabel || 'СПОСОБНОСТЬ' });
       }
       pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
     }
@@ -12654,6 +12736,8 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
       p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
       if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
       pl.weaponLabels.push('WPN TRIPLE: WEAPON DAMAGE +18%');
+      if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+      pl.weaponLabelPairs.push({ labelEn: 'WEAPON DAMAGE +18%', labelRu: 'УРОН ОРУЖИЯ +18%' });
       pl.weaponLabel = pl.weaponLabels.join(' + ');
     }
   }
@@ -12675,9 +12759,13 @@ function applyCasinoResolvedResult(run, players, p, res, ctx = {}) {
         if (unowned.length) {
           const w = unowned[Math.floor(Math.random() * unowned.length)];
           p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
+          if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+          pl.weaponLabelPairs.push({ labelEn: contentText(WEAPONS[w], 'en', 'name'), labelRu: contentText(WEAPONS[w], 'ru', 'name') });
         } else {
           p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15;
           pl.weaponLabels.push('WEAPON DMG +15%');
+          if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+          pl.weaponLabelPairs.push({ labelEn: 'WEAPON DAMAGE +15%', labelRu: 'УРОН ОРУЖИЯ +15%' });
         }
       }
       pl.weaponLabel = pl.weaponLabels.join(' + ');
@@ -12747,26 +12835,26 @@ export function handleCasinoSkinPick(run, players, p, choiceIdx) { return { ok: 
 export function handleCasinoDecision(run, players, p, action, knownUnlockedSkins = []) { return { ok: false, error: 'DECISION DISABLED', id: p?.id || '' }; }
 
 export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = []) {
-  const fail = (error) => ({ ok: false, error, stakeKey });
-  if (!p.alive) return fail('ИГРОК DOWN');
-  if (run.phase !== 'play' && run.phase !== 'clear') return fail('BET НЕДОСТУПЕН');
+  const fail = (errorEn, errorRu = errorEn) => ({ ok: false, error: errorEn, errorEn, errorRu, stakeKey });
+  if (!p.alive) return fail('PLAYER DOWN', 'ИГРОК ВЫВЕДЕН ИЗ СТРОЯ');
+  if (run.phase !== 'play' && run.phase !== 'clear') return fail('BET UNAVAILABLE', 'СТАВКА НЕДОСТУПНА');
   const baseStake = BET_STAKES[stakeKey];
   const stake = casinoStakeCost(run, stakeKey);
-  if (!baseStake || !stake) return fail('НЕВЕРНАЯ СТАВКА');
+  if (!baseStake || !stake) return fail('INVALID STAKE', 'НЕВЕРНАЯ СТАВКА');
   const near = run.plan.interactables.find(o => o.type === 'bet' && dist2(p.x, p.y, o.x, o.y) < (INTERACT_DIST + 30) ** 2);
-  if (!near) return fail('ПОДОЙДИ К BET TERMINAL');
+  if (!near) return fail('MOVE CLOSER TO THE BET TERMINAL', 'ПОДОЙДИТЕ К ТЕРМИНАЛУ СТАВОК');
   if (isBloodTaxRoom(run)) {
     const hpCost = bloodTaxHpCost(stake);
     if (!canPayBloodCost(p, hpCost)) {
       run.fx.push({ t: 'denied', id: p.id, obj: near.id, hpCost: 1, cost: hpCost, have: Math.round(p.hp), reason: 'NO HP' });
-      return fail('НЕДОСТАТОЧНО HP');
+      return fail('NOT ENOUGH HEALTH', 'НЕДОСТАТОЧНО ЗДОРОВЬЯ');
     }
     payBloodCost(run, p, hpCost, near.x, near.y, 54);
-    if (!p.alive) return fail('HP PAID');
+    if (!p.alive) return fail('HEALTH PAID', 'ЗДОРОВЬЕ УПЛАЧЕНО');
   } else {
     if (p.economy.money < stake) {
       run.fx.push({ t: 'denied', id: p.id, obj: near.id });
-      return fail('НЕДОСТАТОЧНО GLD');
+      return fail('NOT ENOUGH GOLD', 'НЕДОСТАТОЧНО ЗОЛОТА');
     }
     p.economy.money -= stake;
   }
@@ -12812,7 +12900,7 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
   const rareCount = Math.max(0, Number(pl.rareCount || (pl.rare ? 1 : 0)) | 0);
   if (rareCount) {
     pl.rareLabels = [];
-    for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR'));
+    for (let i = 0; i < rareCount; i++) pl.rareLabels.push(grantRareCasinoPrize(run, p, 'CASINO RAR', pl));
     pl.rareLabel = pl.rareLabels.filter(Boolean).join(' + ');
   }
   if (pl.dash) {
@@ -12826,10 +12914,12 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       const before = pl.abilityLabel || '';
       const tmp = {};
       if (!applyRandomCasinoAbility(run, players, p, tmp)) {
-        if (isImpactDriverPlayer(p)) { p.stats.jumpDistance += 1; tmp.abilityLabel = 'DRV RANGE +20%'; }
-        else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
+        if (isImpactDriverPlayer(p)) { p.stats.jumpDistance += 1; tmp.abilityLabel = 'DRV RANGE +20%'; tmp.abilityLabelPair = { labelEn: 'DRIVER RANGE +20%', labelRu: 'ДАЛЬНОСТЬ ДРАЙВЕРА +20%' }; }
+        else { p.stats.dashAdd += 1; tmp.dash = 1; tmp.abilityLabel = 'DASH +1'; tmp.abilityLabelPair = { labelEn: 'DASH +1', labelRu: 'РЫВОК +1' }; p.dashCharges = Math.min(dashMax(p), p.dashCharges + 1); }
       }
       pl.abilityLabels.push(tmp.abilityLabel || before || 'ABL');
+      if (!Array.isArray(pl.abilityLabelPairs)) pl.abilityLabelPairs = [];
+      pl.abilityLabelPairs.push(tmp.abilityLabelPair || { labelEn: tmp.abilityLabel || before || 'ABILITY', labelRu: tmp.abilityLabel || before || 'СПОСОБНОСТЬ' });
     }
     pl.abilityLabel = pl.abilityLabels.filter(Boolean).join(' + ');
   }
@@ -12842,6 +12932,8 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.18;
       if (!Array.isArray(pl.weaponLabels)) pl.weaponLabels = [];
       pl.weaponLabels.push('WPN TRIPLE: WEAPON DAMAGE +18%');
+      if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+      pl.weaponLabelPairs.push({ labelEn: 'WEAPON DAMAGE +18%', labelRu: 'УРОН ОРУЖИЯ +18%' });
       pl.weaponLabel = pl.weaponLabels.join(' + ');
     }
   }
@@ -12854,9 +12946,13 @@ export function handleCasino(run, players, p, stakeKey, knownUnlockedSkins = [])
       if (unowned.length) {
         const w = unowned[Math.floor(Math.random() * unowned.length)];
         p.weapons.push(w); pl.weaponLabels.push(WEAPONS[w].label);
+        if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+        pl.weaponLabelPairs.push({ labelEn: contentText(WEAPONS[w], 'en', 'name'), labelRu: contentText(WEAPONS[w], 'ru', 'name') });
       } else {
         p.stats.weaponDmgMul = Math.max(0.05, Number(p.stats.weaponDmgMul) || 1) * 1.15;
         pl.weaponLabels.push('WEAPON DMG +15%');
+        if (!Array.isArray(pl.weaponLabelPairs)) pl.weaponLabelPairs = [];
+        pl.weaponLabelPairs.push({ labelEn: 'WEAPON DAMAGE +15%', labelRu: 'УРОН ОРУЖИЯ +15%' });
       }
     }
     pl.weaponLabel = pl.weaponLabels.join(' + ');
@@ -12934,7 +13030,7 @@ function beginTransition(run, players) {
   if (fast) tapes.push('FAST CLEAN');
   if (run.plan?.modifierIds?.includes('prism_grid')) tapes.push('PRISM SLOW CLEARED');
   if (run.plan?.modifierIds?.includes('blood_tax') && (st.bloodTaxes || 0) > 0) tapes.push('BLOOD TAX PAID');
-  if (run.plan?.modifierIds?.includes('hunter_contract') && run.hunterWave?.done) tapes.push('ВОЛНЫ ОХОТНИКОВ CLEARED');
+  if (run.plan?.modifierIds?.includes('hunter_contract') && run.hunterWave?.done) tapes.push('HUNTER WAVES CLEARED');
   if (run.plan?.modifierIds?.includes('casino_virus') && run.casinoVirus?.done) tapes.push('VIRUS SPINS CLEARED');
   const bonusGld = noHit ? 10 + Math.floor((run.runDepth || 0) * 1.5) : 0;
   const bonusExp = fast ? 8 + Math.floor((run.runDepth || 0) * 1.2) : 0;
@@ -12971,17 +13067,20 @@ function beginTransition(run, players) {
     }
   }
   updateRunMemoryFromRoom(run, st, { noHit, fast, bonusGld, bonusExp, objectiveSeen: !!objResult, objectiveDone: !!objResult?.done, objectiveGld: 0, objectiveExp: 0, contractGld: contractBonusGld, contractExp: contractBonusExp, favorsEarned: earnedFavors.length });
-  for (const tape of tapes) addRunTape(run, tape, tape.includes('NO HIT') || tape.includes('FAST') ? 'green' : tape.includes('STATIC') || tape.includes('WIRE') ? 'cyan' : tape.includes('BLOOD') ? 'red' : 'purple');
+  const tapeRu = {
+    'NO HIT TAPE':'БЕЗ УРОНА','FAST CLEAN':'БЫСТРАЯ ОЧИСТКА','PRISM SLOW CLEARED':'ПРИЗМА ОЧИЩЕНА','BLOOD TAX PAID':'КРОВАВАЯ ПЛАТА ВНЕСЕНА','HUNTER WAVES CLEARED':'ВОЛНЫ ОХОТНИКОВ ОЧИЩЕНЫ','VIRUS SPINS CLEARED':'ВИРУСНЫЕ ВРАЩЕНИЯ ОЧИЩЕНЫ'
+  };
+  for (const tape of tapes) addRunTape(run, tape, tape.includes('NO HIT') || tape.includes('FAST') ? 'green' : tape.includes('STATIC') || tape.includes('WIRE') ? 'cyan' : tape.includes('BLOOD') ? 'red' : 'purple', tapeRu[tape] || tape);
   if (objResult?.done) {
-    addRunTape(run, `CONTRACT DONE ${objResult.label}`, 'gold');
+    addRunTape(run, `CONTRACT COMPLETE: ${objResult.labelEn || objResult.label}`, 'gold', `КОНТРАКТ ВЫПОЛНЕН: ${objResult.labelRu || ''}`);
     const favorText = earnedFavors.length ? earnedFavors.map(f => `${favorLabel(f)}${(f.uses || 0) > 1 ? ' x' + f.uses : ''}`).join(' + ') : 'NEXT ROOM PRIZE';
     run.fx.push({ t: 'contract_paid', label: objResult.label, body: favorText, favors: earnedFavors.map(f => favorSnapshotItem(f, false)) });
   } else if (objResult) {
-    addRunTape(run, `CONTRACT FAILED ${objResult.label}`, 'red');
+    addRunTape(run, `CONTRACT FAILED: ${objResult.labelEn || objResult.label}`, 'red', `КОНТРАКТ ПРОВАЛЕН: ${objResult.labelRu || ''}`);
     // Failure banner is emitted at portal-open settlement. ROOM CHECK repeats the reason.
   }
-  if (contractChain >= 3) addRunTape(run, `CONTRACT CHAIN x${contractChain}`, 'gold');
-  if (run.skinRoomReward) addRunTape(run, `HIDDEN SKIN ${String(run.skinRoomReward.rarity || '').toUpperCase()}`, 'purple');
+  if (contractChain >= 3) addRunTape(run, `CONTRACT CHAIN ×${contractChain}`, 'gold', `ЦЕПЬ КОНТРАКТОВ ×${contractChain}`);
+  if (run.skinRoomReward) addRunTape(run, `HIDDEN SKIN: ${String(run.skinRoomReward.rarity || '').toUpperCase()}`, 'purple', 'СКРЫТЫЙ ОБЛИК ПОЛУЧЕН');
   for (const wp of players.values()) if (wp.connected) settleRoomWager(run, players, wp);
   run.fx.push({ t: 'room_invoice', roomId: run.plan?.roomId || '', solvedTime: Math.round(time), kills: st.kills ?? run.kills, gld: Math.round(st.gld || 0), exp: Math.round(st.exp || 0), hea: Math.round(st.hea || 0), dmg: Math.round(st.damageTaken || 0), noHit, fast, staticPaid: run.staticRainFromPending ? 1 : 0, nextStatic: nextStaticRainLevel(run, players), archetype: run.plan?.roomArchetype || 'standard', shellBreaks: st.shellBreaks || 0, prismHits: st.prismHits || 0, bloodTaxes: st.bloodTaxes || 0, wireTouches: st.wireTouches || 0, huntedWaves: st.huntedWaves || 0, bonusGld, bonusExp, objectiveBonusGld, objectiveBonusExp, contractChain, contractBonusGld, contractBonusExp, contractFavorsEarned: earnedFavors.map(f => favorSnapshotItem(f, false)), objective: objResult ? { id: objResult.id, label: objResult.label, done: objResult.done, status: objResult.done ? 'paid' : 'failed', statusLabel: objResult.done ? 'PAID' : 'FAILED', failReason: objResult.failReason || '', progress: objResult.progress, prizePreview: objResult.prizePreview || [], bonusGld: objectiveBonusGld, bonusExp: objectiveBonusExp } : null, tapes: tapes.slice(0, 4) });
   if (isFinalBossRoom(run)) {
@@ -13142,24 +13241,35 @@ function stepInstall(run, players, dt) {
 }
 
 // ---------------------------------------------------------------- active ability core/mutation runtime
-function activeCoreLabel(p) {
+function activeMutationLabelsForLanguage(p, lang = 'en') {
   const a = ensureActive(p);
-  const c = ACTIVE_CORES[a.core];
-  if (!c) return 'НЕТ ПРОТОКОЛА';
-  const muts = activeMutationLabels(p);
-  const compactMuts = muts.length > 3 ? [...muts.slice(0, 3), `+${muts.length - 3} MUT`] : muts;
-  const chargeTag = a.core === 'signal_spike' ? ` [${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}]` : (a.core === 'void_cut' ? ` [LINK ${roman(voidLaserMaxSegments(p))}]` : '');
-  return `Q: ${c.label} ${roman(a.level || 1)}${chargeTag}${compactMuts.length ? ' +' + compactMuts.join('+') : ''}`;
+  return a.mutations.map(id => {
+    const label = contentText(ACTIVE_MUTATIONS[id], lang, 'label') || id.toUpperCase();
+    const level = activeMutationLevel(p, id);
+    return `${label}${level > 1 ? ' ' + roman(level) : ''}`;
+  });
 }
-function activeCoreDesc(p) {
+function activeCoreLabel(p, lang = 'en') {
   const a = ensureActive(p);
   const c = ACTIVE_CORES[a.core];
-  if (!c) return 'Q сейчас пустая. Открой сундук протоколов, чтобы выбрать активный модуль.';
+  if (!c) return lang === 'ru' ? 'НЕТ АКТИВНОГО ПРОТОКОЛА' : 'NO ACTIVE PROTOCOL';
+  const muts = activeMutationLabelsForLanguage(p, lang);
+  const compactMuts = muts.length > 3 ? [...muts.slice(0, 3), `+${muts.length - 3} ${lang === 'ru' ? 'МУТ.' : 'MUT.'}`] : muts;
+  const chargeTag = a.core === 'signal_spike' ? ` [${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}]` : (a.core === 'void_cut' ? ` [${lang === 'ru' ? 'ЗВЕНО' : 'LINK'} ${roman(voidLaserMaxSegments(p))}]` : '');
+  return `${lang === 'ru' ? 'АКТИВНЫЙ' : 'ACTIVE'}: ${contentText(c, lang, 'label')} ${roman(a.level || 1)}${chargeTag}${compactMuts.length ? ' +' + compactMuts.join('+') : ''}`;
+}
+function activeCoreDesc(p, lang = 'en') {
+  const a = ensureActive(p);
+  const c = ACTIVE_CORES[a.core];
+  if (!c) return lang === 'ru' ? 'Активный протокол не выбран. Откройте сундук способностей.' : 'No active protocol selected. Open an ability chest.';
   const muts = a.mutations.map(id => ({ ...ACTIVE_MUTATIONS[id], level: activeMutationLevel(p, id) })).filter(m => m.id);
   const chargeLine = a.core === 'signal_spike'
-    ? `\nЗаряды: ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}. Улучшения заметно увеличивают дальность установки и размер зоны.`
-    : (a.core === 'void_cut' ? `\nЗвенья луча: ${roman(voidLaserMaxSegments(p))}. Улучшения добавляют новые звенья и дальность.` : '');
-  return `${c.label} ${roman(a.level || 1)}\n${c.desc}${chargeLine}` + (muts.length ? `\nМутации: ${muts.map(m => `${m.label} ${roman(m.level)} — ${m.desc}`).join(' / ')}` : '\nМутации: нет. Открой ABL-сундук, чтобы добавить мутацию.');
+    ? (lang === 'ru' ? `\nЗаряды: ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}. Улучшения увеличивают дальность и зону.` : `\nCharges: ${ensureSignalSpikeCharges(p)}/${signalSpikeMaxCharges(p)}. Upgrades increase range and area.`)
+    : (a.core === 'void_cut' ? (lang === 'ru' ? `\nЗвенья луча: ${roman(voidLaserMaxSegments(p))}. Улучшения добавляют звенья и дальность.` : `\nBeam links: ${roman(voidLaserMaxSegments(p))}. Upgrades add links and range.`) : '');
+  const mutationText = muts.length
+    ? `${lang === 'ru' ? 'Мутации' : 'Mutations'}: ${muts.map(m => `${contentText(m, lang, 'label')} ${roman(m.level)} — ${contentText(m, lang, 'desc')}`).join(' / ')}`
+    : (lang === 'ru' ? 'Мутаций нет. Откройте сундук способностей.' : 'No mutations. Open an ability chest.');
+  return `${contentText(c, lang, 'label')} ${roman(a.level || 1)}\n${contentText(c, lang, 'desc')}${chargeLine}\n${mutationText}`;
 }
 
 function activeCooldown(p) {
@@ -13378,18 +13488,18 @@ function buildActiveCasinoRoll(run, p, ctx) {
   const lvl = Math.max(1, ensureActive(p).level || 1);
   const luck = Math.max(0, p.stats.luck || 0);
   const r = Math.random() + luck * 0.012;
-  let outcome = 'GLD', label = 'CASINO GLD', tone = 'green';
+  let outcome = 'GLD', label = 'CASINO CREDITS', labelEn = 'CASINO CREDITS', labelRu = 'КАЗИНО: КРЕДИТЫ', tone = 'green';
   let symbols = ['GLD', 'GLD', 'Q'];
 
-  if (r < 0.11) { outcome = 'HIT'; label = 'CASINO HIT'; tone = 'red'; symbols = ['DMG', 'DMG', 'BAD']; }
-  else if (r < 0.18) { outcome = 'DEBT'; label = 'STATIC STORM'; tone = 'purple'; symbols = ['STC', 'STORM', 'Q']; }
-  else if (r < 0.38) { outcome = 'DOUBLE'; label = 'Q x2'; tone = 'cyan'; symbols = ['Q', 'Q', 'COPY']; }
-  else if (r < 0.43) { outcome = 'TEN'; label = 'Q x10'; tone = 'green'; symbols = ['Q', 'Q', '10']; }
-  else if (r < 0.62) { outcome = 'GLD'; label = 'CASINO GLD'; tone = 'green'; symbols = ['GLD', 'GLD', 'PAY']; }
-  else if (r < 0.78) { outcome = 'EXP'; label = 'CASINO EXP'; tone = 'cyan'; symbols = ['EXP', 'EXP', 'UP']; }
-  else { outcome = 'HEAL'; label = 'CASINO HEAL'; tone = 'green'; symbols = ['HEA', 'HEA', 'OK']; }
+  if (r < 0.11) { outcome = 'HIT'; label = labelEn = 'CASINO HIT'; labelRu = 'КАЗИНО: УДАР'; tone = 'red'; symbols = ['DMG', 'DMG', 'BAD']; }
+  else if (r < 0.18) { outcome = 'DEBT'; label = labelEn = 'STATIC STORM'; labelRu = 'СТАТИК-ШТОРМ'; tone = 'purple'; symbols = ['STC', 'STORM', 'Q']; }
+  else if (r < 0.38) { outcome = 'DOUBLE'; label = labelEn = 'PROTOCOL ×2'; labelRu = 'ПРОТОКОЛ ×2'; tone = 'cyan'; symbols = ['Q', 'Q', 'COPY']; }
+  else if (r < 0.43) { outcome = 'TEN'; label = labelEn = 'PROTOCOL ×10'; labelRu = 'ПРОТОКОЛ ×10'; tone = 'green'; symbols = ['Q', 'Q', '10']; }
+  else if (r < 0.62) { outcome = 'GLD'; label = labelEn = 'CASINO CREDITS'; labelRu = 'КАЗИНО: КРЕДИТЫ'; tone = 'green'; symbols = ['GLD', 'GLD', 'PAY']; }
+  else if (r < 0.78) { outcome = 'EXP'; label = labelEn = 'CASINO EXPERIENCE'; labelRu = 'КАЗИНО: ОПЫТ'; tone = 'cyan'; symbols = ['EXP', 'EXP', 'UP']; }
+  else { outcome = 'HEAL'; label = labelEn = 'CASINO HEAL'; labelRu = 'КАЗИНО: ЛЕЧЕНИЕ'; tone = 'green'; symbols = ['HEA', 'HEA', 'OK']; }
 
-  return { owner: p.id, x: ctx.x, y: ctx.y, hitCount: ctx.hitCount || 0, core: ctx.core || ensureActive(p).core, lvl, outcome, label, tone, symbols };
+  return { owner: p.id, x: ctx.x, y: ctx.y, hitCount: ctx.hitCount || 0, core: ctx.core || ensureActive(p).core, lvl, outcome, label, labelEn, labelRu, tone, symbols };
 }
 function applyActiveCasinoRoll(run, players, cr) {
   const p = players.get(cr.owner);
@@ -13417,8 +13527,8 @@ function applyActiveCasinoRoll(run, players, cr) {
   } else if (cr.outcome === 'HEAL') {
     grantPersonalEconomy(run, players, p, 'HEA', 10 + lvl * 5 + (cr.hitCount || 0), 'Q CASINO', cr.x, cr.y);
   }
-  run.fx.push({ t: 'active_casino_roll', phase: 'result', id: p.id, x: Math.round(cr.x), y: Math.round(cr.y), symbols: cr.symbols, outcome: cr.outcome, label: cr.label, tone: cr.tone });
-  run.fx.push({ t: 'active_mutation', label: cr.label, x: Math.round(cr.x), y: Math.round(cr.y), r: cr.outcome === 'TEN' ? 155 : cr.outcome === 'DOUBLE' ? 130 : 104, tone: cr.tone, squareBlast: cr.outcome === 'HIT' || cr.outcome === 'DEBT' ? 1 : 0 });
+  run.fx.push({ t: 'active_casino_roll', phase: 'result', id: p.id, x: Math.round(cr.x), y: Math.round(cr.y), symbols: cr.symbols, outcome: cr.outcome, label: cr.label, labelEn: cr.labelEn || cr.label, labelRu: cr.labelRu || cr.label, tone: cr.tone });
+  run.fx.push({ t: 'active_mutation', label: cr.label, labelEn: cr.labelEn || cr.label, labelRu: cr.labelRu || cr.label, x: Math.round(cr.x), y: Math.round(cr.y), r: cr.outcome === 'TEN' ? 155 : cr.outcome === 'DOUBLE' ? 130 : 104, tone: cr.tone, squareBlast: cr.outcome === 'HIT' || cr.outcome === 'DEBT' ? 1 : 0 });
 }
 function activeCasinoRoll(run, p, ctx, opts = {}) {
   if (opts.skipCasino) return;
@@ -13427,8 +13537,8 @@ function activeCasinoRoll(run, p, ctx, opts = {}) {
   cr.at = run.now + 1.48;
   run.pendingCasinoRolls.push(cr);
   // Start the visible roll immediately, but do not apply the reward/penalty until the reels stop.
-  run.fx.push({ t: 'active_casino_roll', phase: 'spin', id: p.id, x: Math.round(ctx.x), y: Math.round(ctx.y), symbols: ['?', '?', '?'], outcome: 'SPIN', label: 'ROLLING...', tone: 'green' });
-  run.fx.push({ t: 'active_mutation', label: 'CASINO ROLL', x: Math.round(ctx.x), y: Math.round(ctx.y), r: 92, tone: 'green' });
+  run.fx.push({ t: 'active_casino_roll', phase: 'spin', id: p.id, x: Math.round(ctx.x), y: Math.round(ctx.y), symbols: ['?', '?', '?'], outcome: 'SPIN', label: 'ROLLING...', labelEn: 'ROLLING...', labelRu: 'ВРАЩЕНИЕ...', tone: 'green' });
+  run.fx.push({ t: 'active_mutation', label: 'CASINO ROLL', labelEn: 'CASINO ROLL', labelRu: 'БРОСОК КАЗИНО', x: Math.round(ctx.x), y: Math.round(ctx.y), r: 92, tone: 'green' });
 }
 
 function activeNoise(run, label, x, y, r = 110, tone = 'cyan', extra = {}) {
@@ -14046,13 +14156,13 @@ function doActive(run, players, p) {
     p.activeTargeting = null;
     if ((p.bossQSilenceDenyT || 0) <= 0) {
       p.bossQSilenceDenyT = 0.65;
-      run.fx.push({ t: 'active_denied', id: p.id, reason: 'boss_silence', label: `Q SILENCE ${Math.ceil(p.bossQSilenceT)}s`, x: Math.round(p.x), y: Math.round(p.y) });
+      run.fx.push({ t: 'active_denied', id: p.id, reason: 'boss_silence', label: `Q SILENCE ${Math.ceil(p.bossQSilenceT)}s`, labelEn: `Q SILENCE ${Math.ceil(p.bossQSilenceT)}s`, labelRu: `Q ЗАГЛУШЕНА ${Math.ceil(p.bossQSilenceT)}с`, x: Math.round(p.x), y: Math.round(p.y) });
     }
     return;
   }
   const a = ensureActive(p);
   if (!a.core) {
-    run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'НЕТ ПРОТОКОЛА', x: Math.round(p.x), y: Math.round(p.y) });
+    run.fx.push({ t: 'active_denied', id: p.id, reason: 'missing', label: 'NO ACTIVE PROTOCOL', labelEn: 'NO ACTIVE PROTOCOL', labelRu: 'НЕТ АКТИВНОГО ПРОТОКОЛА', x: Math.round(p.x), y: Math.round(p.y) });
     p.activeCd = 0.25;
     p.activeTargeting = null;
     return;
@@ -14110,7 +14220,7 @@ function doActive(run, players, p) {
   const charges = ensureSignalSpikeCharges(p);
   if (charges <= 0) {
     p.activeTargeting = null;
-    run.fx.push({ t: 'active_denied', id: p.id, reason: 'НЕТ ЗАРЯДОВ ШИПА', label: `ПЕРЕЗАРЯДКА ШИПА ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, x: Math.round(p.x), y: Math.round(p.y) });
+    run.fx.push({ t: 'active_denied', id: p.id, reason: 'NO SPIKE CHARGES', reasonEn: 'NO SPIKE CHARGES', reasonRu: 'НЕТ ЗАРЯДОВ ШИПА', label: `SPIKE RECHARGE ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, labelEn: `SPIKE RECHARGE ${Math.ceil((p.activeCd || 0) * 10) / 10}s`, labelRu: `ПЕРЕЗАРЯДКА ШИПА ${Math.ceil((p.activeCd || 0) * 10) / 10} с`, x: Math.round(p.x), y: Math.round(p.y) });
     return;
   }
 
@@ -14223,7 +14333,7 @@ function fireShotgunLongshot(run, players, p) {
 }
 
 function doSecondaryWeapon(run, players, p) {
-  if (isImpactDriverPlayer(p)) return startImpactWallPush(run, players, p);
+  if (isImpactDriverPlayer(p)) return startImpactWallMotion(run, players, p, 'pull');
   const wid = p?.weapons?.[p.weaponIdx] || '';
   if (wid === 'rocketgun') {
     if (!(p?.stats?.rktRemote || 0)) { run.fx.push({ t: 'denied', id: p.id, reason: 'NO RKT REMOTE', x: Math.round(p.x), y: Math.round(p.y) }); return false; }
@@ -14268,7 +14378,7 @@ function clearAirborneActionQueue(p) {
   // Impact Driver may cast Q and operate both Firewall modules while airborne.
   // These inputs are consumed later in the same tick without changing jump
   // position, velocity or time. Other heroes keep the strict airborne lock.
-  if (!isImpactDriverPlayer(p)) { p.wantActive = false; p.wantSecondary = false; }
+  if (!isImpactDriverPlayer(p)) { p.wantActive = false; p.wantSecondary = false; p.wantWall = false; }
   p.wantRActive = false;
   p.wantWeapon = -1;
   if (p.fire && !isImpactDriverPlayer(p)) p.fireWasDown = true;
@@ -14463,13 +14573,13 @@ function stepPlayers(run, players, dt) {
     if (silenceBefore > 0 && p.bossQSilenceT <= 0) run.fx.push({ t: 'boss_q_silence_end', id: p.id, playerId: p.id, label: 'Q CHANNEL RESTORED', x: Math.round(p.x), y: Math.round(p.y), tone: 'cyan' });
     p.bossQSilenceDenyT = Math.max(0, (p.bossQSilenceDenyT || 0) - dt);
     const weaponClock = weaponClockMultiplier(p);
-    // The Driver chains jumps immediately after landing. Weapon Clock applies
-    // only to its LMB/RMB weapon modules, never to the jump itself.
+    // The Driver chains jumps and block actions without recovery timers.
     p.jumpCooldown = 0;
     p.jumpCooldownMax = 0;
     if (isImpactDriverPlayer(p)) {
       p.cd = Math.max(0, Number(p.cd || 0) - dt);
-      p.impactPushCd = Math.max(0, Number(p.impactPushCd || 0) - dt);
+      p.impactPushCd = 0;
+      p.impactPushCdMax = 0;
     }
     p.sekSwarmCd = Math.max(0, (p.sekSwarmCd || 0) - dt * weaponClock);
     p.shgLongshotCd = Math.max(0, (p.shgLongshotCd || 0) - dt * weaponClock);
@@ -14592,6 +14702,8 @@ function stepPlayers(run, players, dt) {
       else doSecondaryWeapon(run, players, p);
     }
     p.wantSecondary = false;
+    if ((!wasAirborne || isImpactDriverPlayer(p)) && p.wantWall && run.phase === 'play' && isImpactDriverPlayer(p)) placeImpactFirewall(run, players, p);
+    p.wantWall = false;
     // Living Casino runs both autonomous guns in parallel and has no active weapon slot.
     if (isLivingCasinoPlayer(p)) p.weaponIdx = 0;
     else if (!wasAirborne && p.wantWeapon >= 0 && p.wantWeapon < p.weapons.length) {
@@ -14683,7 +14795,11 @@ function livingCasinoHudSnapshot(p) {
 // ---------------------------------------------------------------- active ability snapshot
 function activeSummary(p) {
   ensureActive(p);
-  return { label: activeCoreLabel(p), desc: activeCoreDesc(p) };
+  return {
+    label: activeCoreLabel(p, 'en'), desc: activeCoreDesc(p, 'en'),
+    labelEn: activeCoreLabel(p, 'en'), descEn: activeCoreDesc(p, 'en'),
+    labelRu: activeCoreLabel(p, 'ru'), descRu: activeCoreDesc(p, 'ru')
+  };
 }
 
 function activeTargetingSnapshot(run, p) {
@@ -14713,7 +14829,7 @@ function activeTargetingSnapshot(run, p) {
   return (q || r) ? { q, r } : null;
 }
 
-function playerBuildSnapshot(p) {
+function playerBuildSnapshot(p, run = null) {
   const stats = {};
   for (const [key, value] of Object.entries(p?.stats || {})) {
     if (typeof value === 'number' && Number.isFinite(value)) stats[key] = Math.round(value * 10000) / 10000;
@@ -14736,12 +14852,14 @@ function playerBuildSnapshot(p) {
     active: { core: String(active.core || ''), level: Math.max(0, Number(active.level || 0) | 0), mutations },
     livingCasino: lc ? { ...lc.upgrades } : null,
     impactWall: isImpactDriverPlayer(p) && (p.stats?.impactWallUnlocked || 0) > 0 ? {
-      cd: Math.ceil(Math.max(0, Number(p.cd || 0)) * 10) / 10,
-      cdMax: Math.ceil(Math.max(0.1, Number(p.impactWallCdMax || WEAPONS.impact_wall?.cooldown || 2.6)) * 10) / 10,
+      cd: 0,
+      cdMax: 0,
+      count: (run?.tempWalls || []).filter(w => w?.owner === p.id).length,
+      max: 1 + Math.max(0, Number(p.stats?.impactWallCount || 0) | 0),
       pushUnlocked: p.stats?.impactPushUnlocked > 0 ? 1 : 0,
-      pushCd: Math.ceil(Math.max(0, Number(p.impactPushCd || 0)) * 10) / 10,
-      pushCdMax: Math.ceil(Math.max(0.1, Number(p.impactPushCdMax || impactPushCooldown(p))) * 10) / 10,
-      placementRange: Math.round(impactWallPlacementRange(p)),
+      pushCd: 0,
+      pushCdMax: 0,
+      placementRange: -1,
       pushReach: -1,
       pushTravel: Math.round(impactPushTravel(p))
     } : null
@@ -14774,7 +14892,7 @@ export function buildSnapshot(run, players) {
       Math.ceil((p.rActiveCd || 0) * 10) / 10,
       Math.ceil(Math.max(p.targetLockT || 0, p.redlineT || 0, p.ghostT || 0, p.rewindT || 0) * 10) / 10,
       rActiveLabel(p), rActiveDesc(p), mirrorLeft(p), mirrorCapacity(p), Math.max(0, p.stats?.nullRevives || 0), bossKeySpendableCharges(run, p), p.roomWagerOffer ? { ...p.roomWagerOffer } : null, p.roomWagerActive ? { ...p.roomWagerActive, progress: roomWagerProgress(run, p, p.roomWagerActive), stats: { ...(p.wagerStats || {}) } } : null,
-      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10,
+      p.rewindMark ? Math.round(p.rewindMark.x) : null, p.rewindMark ? Math.round(p.rewindMark.y) : null, bossKeyMax(p), livingCasinoHudSnapshot(p), Math.max(0, Math.round(p.stats?.luck || 0)), processControllerHudSnapshot(p), dashDistance(p), casinoSessionSnapshot(p), activeTargetingSnapshot(run, p), playerBuildSnapshot(p, run), Math.ceil(Math.max(0, p.bossQSilenceT || 0) * 10) / 10,
       Math.round(Math.max(0, p.jumpT || 0) * 1000) / 1000, Math.round(Math.max(0.01, p.jumpDuration || PLAYER_JUMP_DURATION) * 1000) / 1000, Math.max(0, Number(p.jumpSeq || 0) | 0),
       Math.max(0, Number(p.jumpBounces || 0) | 0), 0, 0
     ]);
@@ -14952,15 +15070,31 @@ export function buildSnapshot(run, players) {
       skinReward: (run.skinRoomReward && !run.skinRoomReward.claimed) ? (run.skinRoomReward.rarity || 'uncommon') : '',
       director: run.director?.label || '', directorIntent: run.director?.lastIntent || '', directorWave: run.director?.waveIndex || 0,
       staticRainStacks: currentStaticBreakdown.total || 0, staticRainBaseStacks: run.staticRainStacks || 0, staticRainBreakdown: currentStaticBreakdown, staticRainNext: nextStatic, staticRainNextBreakdown: nextStaticBreakdownForCurrent, staticRainMode: staticMode, debtEngineStacks: debtEngineUpgradeStacks, debtEngineRainStacks: debtEngineRoomStacks, staticCoreStormDisabled: run.staticCoreStormDisabled ? 1 : 0,
-      danger: currentIntel.danger, dangerLabel: currentIntel.dangerLabel, threatTags: currentIntel.threatTags, rewardTags: currentIntel.rewardTags, tip: currentIntel.tip,
+      danger: currentIntel.danger,
+      dangerLabel: currentIntel.dangerLabelEn, dangerLabelEn: currentIntel.dangerLabelEn, dangerLabelRu: currentIntel.dangerLabelRu,
+      threatTags: currentIntel.threatTagsEn, threatTagsEn: currentIntel.threatTagsEn, threatTagsRu: currentIntel.threatTagsRu,
+      rewardTags: currentIntel.rewardTagsEn, rewardTagsEn: currentIntel.rewardTagsEn, rewardTagsRu: currentIntel.rewardTagsRu,
+      tip: currentIntel.tipEn, tipEn: currentIntel.tipEn, tipRu: currentIntel.tipRu,
       objective: run.roomObjective ? { ...decorateRoomObjective(run.roomObjective, run.runDepth || 0, Math.max(1, (run.runMemory?.contractStreak || 0) + 1), run.roomObjectiveSettlement ? { status: run.roomObjectiveSettlement.status, statusLabel: run.roomObjectiveSettlement.statusLabel, failReason: run.roomObjectiveSettlement.failReason || '', done: run.roomObjectiveSettlement.done ? 1 : 0, locked: 1 } : roomObjectiveStatus(run)), progress: run.roomObjectiveSettlement ? run.roomObjectiveSettlement.progress : roomObjectiveProgress(run) } : null,
       contractChoice: run.contractChoice ? { ...run.contractChoice, votes: { ...(run.contractChoice.votes || {}) } } : null,
       rootLock: run.rootLock ? { active: run.rootLock.active ? 1 : 0, bossId: run.rootLock.bossId || '', nodeIds: [...(run.rootLock.nodeIds || [])], total: run.rootLock.total || 4, left: run.rootLock.left || 0 } : null,
-      next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], tempWalls: (run.tempWalls || []).map(w => ({ id:w.id, owner:w.owner || '', temp:1, kind:'impact_wall', x:w.x, y:w.y, w:w.w, h:w.h, ttl:Math.max(0, w.ttl || 0), maxT:Math.max(0, w.maxT || 0), moving:w.moving ? 1 : 0, settling:w.settling ? 1 : 0, vx:Math.round(w.vx || 0), vy:Math.round(w.vy || 0), bounces:Math.max(0, Number(w.pushBounces || 0) | 0) })), prismZones: run.prismZones || [],
+      next: nextPreview, sockets: run.roomSockets || [], wires: run.roomWires || [], movingWalls: run.movingWalls || [], tempWalls: (run.tempWalls || []).map(w => {
+        const owner = players.get(w.owner);
+        const elem = w.moving && owner ? bulletElementString(owner, 'weapon') : '';
+        return { id:w.id, owner:w.owner || '', temp:1, kind:'impact_wall', x:w.x, y:w.y, w:w.w, h:w.h, ttl:Math.max(0, w.ttl || 0), maxT:Math.max(0, w.maxT || 0), moving:w.moving ? 1 : 0, settling:w.settling ? 1 : 0, vx:Math.round(w.vx || 0), vy:Math.round(w.vy || 0), bounces:Math.max(0, Number(w.pushBounces || 0) | 0), elem, motionMode:w.motionMode === 'pull' ? 'pull' : 'push' };
+      }), prismZones: run.prismZones || [],
       hunterWave: run.hunterWave || null, casinoVirus: run.casinoVirus || null, betStakes: casinoStakeTable(run), contractWagers: { ...(run.roomContractStakes || {}) },
       runMemory: { ...(run.runMemory || {}) }, tapeLog: (run.tapeLog || []).slice(0, 10), skinPity: run.skinPity || 0, contractFavors: contractFavorSnapshot(run), combo: comboSnapshot(run, players), playerCombos: playerCombosSnapshot(run, players), signaturesActive: activeBossSignatureLabels(players), installWait: installWaitSnapshot(run, players), decoys: (run.decoys || []).map(d => ({ x: Math.round(d.x), y: Math.round(d.y), t: Math.ceil((d.t || 0) * 10) / 10 }))
     },
-    players: ps, enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
+    players: ps,
+    playerText: Object.fromEntries([...players.values()].filter(p => p?.connected).map(p => {
+      const active = activeSummary(p);
+      return [p.id, {
+        activeLabelEn: active.labelEn, activeLabelRu: active.labelRu, activeDescEn: active.descEn, activeDescRu: active.descRu,
+        specialLabelEn: rActiveLabel(p, 'en'), specialLabelRu: rActiveLabel(p, 'ru'), specialDescEn: rActiveDesc(p, 'en'), specialDescRu: rActiveDesc(p, 'ru')
+      }];
+    })),
+    enemies: es, bullets: bs, companions: cs, pickups: ks, objects: os, fx
   };
 }
 

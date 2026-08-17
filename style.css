@@ -3538,11 +3538,16 @@ button:hover,
   padding: 4px 7px;
 }
 .chest-offer-meta b { color: var(--fg); font-weight: 900; }
-.chest-offer-meta.tier-1 span { border-color: rgba(0,255,102,.28); }
-.chest-offer-meta.tier-2 span { border-color: rgba(255,216,91,.38); }
-.chest-offer-meta.tier-2 b { color: var(--gold); }
-.chest-offer-meta.tier-3 span { border-color: rgba(180,92,255,.45); box-shadow: inset 0 0 18px rgba(180,92,255,.08); }
-.chest-offer-meta.tier-3 b { color: var(--purple); }
+.chest-offer-meta.tier-0 .chest-rarity-badge { border-color: rgba(168,168,168,.28); }
+.chest-offer-meta.tier-0 .chest-rarity-badge b { color: #c8c8c8; }
+.chest-offer-meta.tier-1 .chest-rarity-badge { border-color: rgba(0,255,102,.28); }
+.chest-offer-meta.tier-1 .chest-rarity-badge b { color: var(--green); }
+.chest-offer-meta.tier-2 .chest-rarity-badge { border-color: rgba(102,246,255,.38); }
+.chest-offer-meta.tier-2 .chest-rarity-badge b { color: var(--cyan); }
+.chest-offer-meta.tier-3 .chest-rarity-badge { border-color: rgba(180,92,255,.45); }
+.chest-offer-meta.tier-3 .chest-rarity-badge b { color: var(--purple); }
+.chest-offer-meta.tier-4 .chest-rarity-badge { border-color: rgba(255,211,77,.54); }
+.chest-offer-meta.tier-4 .chest-rarity-badge b { color: var(--gold); }
 .chest-offer-meta .chest-reason {
   flex-basis: 100%;
   color: var(--dim);
@@ -5485,6 +5490,18 @@ body.ctrl-capture-active #custom-cursor .cc::after {
 
 /* v2.1.170 — explicit wager decision */
 #room-wager-card .wager-title { display: flex !important; justify-content: space-between !important; gap: 12px !important; }
+
+/* v3.0.2 — CSS-generated microcopy follows the selected language too. */
+html[lang="ru"] #skin-editor.locked #skin-preview::before { content: '?' !important; }
+html[lang="en"] #skin-editor.locked #skin-preview::before { content: '?' !important; }
+html[lang="ru"] #menu #skin-editor.locked #skin-note::before { content: 'ЗАКРЫТО // '; }
+html[lang="en"] #menu #skin-editor.locked #skin-note::before { content: 'LOCKED // '; }
+html[lang="ru"] #install-modal.boss-signature-modal .panel-title::before { content: 'СИГНАТУРА УГРОЗЫ'; }
+html[lang="en"] #install-modal.boss-signature-modal .panel-title::before { content: 'THREAT SIGNATURE'; }
+html[lang="ru"] #youtube-player-wrap.yt-video-8bit::after,
+html[lang="ru"].yt-video-8bit #youtube-player-wrap::after { content: '8-БИТНЫЙ ФИЛЬТР ВИДЕО'; }
+html[lang="en"] #youtube-player-wrap.yt-video-8bit::after,
+html[lang="en"].yt-video-8bit #youtube-player-wrap::after { content: '8-BIT VIDEO FILTER'; }
 #room-wager-card .wager-title span { color: var(--dim) !important; font-variant-numeric: tabular-nums; }
 #room-wager-card .wager-actions { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
 #room-wager-card .wager-actions button { width: 100% !important; margin: 0 !important; }

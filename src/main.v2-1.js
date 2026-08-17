@@ -6,7 +6,7 @@ import { Effects } from './effects.v2-1.js';
 import { Renderer } from './render.v2-1.js';
 import { Hud } from './hud.v2-1.js';
 import { AudioBus } from './audio.v2-1.js';
-import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, HERO_UPGRADES, WEAPON_CHEST_REWARDS, BOSS_SIGNATURE_UPGRADE_IDS } from '../shared/data.v2-1.js';
+import { SKIN_PRESETS, SKIN_RARITIES, DEFAULT_UNLOCKED_SKINS, ACTIVE_CORES, ACTIVE_MUTATIONS, ROOM_MODS, SPECIAL_ROOMS, ROOM_SEQUENCE, HERO_UPGRADES, WEAPON_CHEST_REWARDS, BOSS_SIGNATURE_UPGRADE_IDS, contentText } from '../shared/data.v2-1.js';
 import { setupLanguageButtons, onLangChange, t, labelStatus, getLang, locRole, locAction, localText } from './i18n.v2-1.js';
 
 const $ = id => document.getElementById(id);
@@ -117,8 +117,8 @@ const HEROES = {
     id: 'impact_driver',
     labelRu: 'УДАРНЫЙ ДРАЙВЕР', labelEn: 'IMPACT DRIVER',
     descRu: 'инерционный протокол', descEn: 'inertial impact protocol',
-    explainRu: 'Не использует обычное оружие и рывок. ЛКМ ставит Файрвол-блок, ПКМ запускает блок строго от точки клика через его центр. Оба модуля и Q работают в полёте. SPACE запускает инерционный прыжок: взлёт и посадка наносят урон. От стен герой отскакивает сразу; множитель и дополнительная дальность отскока открываются отдельно.',
-    explainEn: 'Uses no conventional weapon or dash. LMB places a Firewall Block; RMB launches it from the clicked point through its centre. Both modules and Q work in mid-air. SPACE launches an inertial jump whose takeoff and landing deal damage. Wall rebounds are innate; their multiplier and extra rebound travel are unlocked separately.'
+    explainRu: 'Не использует обычное оружие и рывок. [SHIFT] запускает инерционный прыжок. [ПРОБЕЛ] без перезарядки ставит Файрвол-блоки до лимита. ЛКМ толкает выделенный рамкой блок. ПКМ без области наведения притягивает доступный собственный блок, ближайший к курсору. У обеих кнопок нет перезарядки. Дальность оружия увеличивает оба пути, а летящий блок переносит оружейные статусы. Все действия и Q работают в полёте.',
+    explainEn: 'Uses no conventional weapon or dash. [SHIFT] starts the inertial jump. [SPACE] places Firewall Blocks without cooldown until every slot is full. LMB pushes the framed block. RMB has no targeting area and pulls the available owned block nearest the cursor. Neither mouse action has a cooldown. Weapon Range increases both paths, and moving blocks carry weapon statuses. Every module and Q works in mid-air.'
   }
 };
 function readUnlockedHeroes() {
@@ -245,10 +245,10 @@ function updateSkinPreview() {
     core.style.borderColor = p.outline;
     core.style.boxShadow = `0 0 ${p.rarity === 'legendary' ? 24 : p.rarity === 'superrare' ? 18 : 10}px ${p.outline}${unlocked ? '88' : '44'}`;
   }
-  if (name) name.textContent = p.name;
+  if (name) name.textContent = contentText(p, getLang(), 'name') || p.id;
   if (note) {
     const status = selected ? 'SELECTED' : (unlocked ? 'UNLOCKED' : 'LOCKED');
-    note.textContent = `${rarity.label} · ${labelStatus(status)}`;
+    note.textContent = `${contentText(rarity, getLang(), 'label') || localText('ОБЫЧНЫЙ', 'BASIC')} · ${labelStatus(status)}`;
     note.removeAttribute('title');
   }
   applySkinTheme(selectedSkinId);
@@ -333,7 +333,8 @@ function handleSkinUnlock(id, source = 'casino') {
     const alt = fallbackLockedSkin(skin?.rarity || '');
     if (!alt) {
       try {
-        hud.feed(`${getLang() !== 'en' ? 'ВСЕ ОБЛИКИ ОТКРЫТЫ' : 'ALL SHELLS UNLOCKED'}: ${skin.rarity?.toUpperCase?.() || 'SHELL'}`, 'g');
+        const rarityName = contentText(SKIN_RARITIES[skin.rarity] || {}, getLang(), 'label') || localText('ОБЛИК', 'SHELL');
+        hud.feed(`${localText('ВСЕ ОБЛИКИ ОТКРЫТЫ', 'ALL SHELLS UNLOCKED')}: ${rarityName}`, 'g');
         hud.openSkinClaim?.({ allOwned: 1, name: getLang() !== 'en' ? 'ВСЕ ОБЛИКИ ОТКРЫТЫ' : 'ALL SHELLS UNLOCKED', rarity: 'complete', source });
       } catch {}
       return;
@@ -351,8 +352,9 @@ function handleSkinUnlock(id, source = 'casino') {
     const prefix = source === 'room' ? (ru ? 'ОБЛИК ИЗ СЕКТОРА' : 'SECTOR SHELL') : (ru ? 'ОБЛИК ОТКРЫТ' : 'SHELL UNLOCKED');
     const suffix = fallback ? (ru ? ' / БЕЗ ДУБЛЯ' : ' / NO DUPLICATE') : '';
     try {
-      hud.feed(`${prefix}: ${skin.name}${suffix}`, skin.rarity === 'legendary' || skin.rarity === 'superrare' ? 'p' : 'g');
-      hud.openSkinClaim?.({ id: skin.id, name: skin.name, rarity: skin.rarity, source });
+      const skinName = contentText(skin, getLang(), 'name') || skin.id;
+      hud.feed(`${prefix}: ${skinName}${suffix}`, skin.rarity === 'legendary' || skin.rarity === 'superrare' ? 'p' : 'g');
+      hud.openSkinClaim?.({ id: skin.id, name: skinName, rarity: skin.rarity, source });
     } catch {}
   }
 }
@@ -363,7 +365,8 @@ function handleCasinoSkinReward(pl = {}) {
 window.NNCCKKRR_UNLOCK_SKIN = unlockSkin;
 
 function playerName() {
-  const name = ($('name-input').value || 'PLAYER').trim().toUpperCase() || 'PLAYER';
+  const fallbackName = localText('ИГРОК', 'PLAYER');
+  const name = ($('name-input').value || fallbackName).trim().toUpperCase() || fallbackName;
   localStorage.setItem('nnc_name', name);
   return name;
 }
@@ -446,34 +449,34 @@ function bindYouTubeMusicUi() {
   };
   const sourceLabel = res => {
     if (!res?.ok) return '';
-    return res.sourceType === 'video' ? `VIDEO ${res.sourceId || res.playlist}` : `PLAYLIST ${res.sourceId || res.playlist}`;
+    return res.sourceType === 'video' ? `${localText('ЗАПИСЬ', 'VIDEO')} ${res.sourceId || res.playlist}` : `${localText('СПИСОК', 'PLAYLIST')} ${res.sourceId || res.playlist}`;
   };
   const friendlyYtError = code => {
     const c = String(code || '').trim();
-    if (c === '2') return 'YT ERR 2 · BAD LINK';
+    if (c === '2') return localText('ОШИБКА 2 · НЕВЕРНАЯ ССЫЛКА', 'YT ERROR 2 · BAD LINK');
     if (c === '5') return 'YT ERR 5 · HTML5';
-    if (c === '100') return 'YT ERR 100 · NOT FOUND';
-    if (c === '101' || c === '150') return 'YT ERR 150 · EMBED BLOCKED';
-    return c ? `YT ERR ${c}` : 'YT ERR';
+    if (c === '100') return localText('ОШИБКА 100 · НЕ НАЙДЕНО', 'YT ERROR 100 · NOT FOUND');
+    if (c === '101' || c === '150') return localText('ОШИБКА 150 · ВСТРАИВАНИЕ ЗАПРЕЩЕНО', 'YT ERROR 150 · EMBED BLOCKED');
+    return c ? `${localText('ОШИБКА', 'YT ERROR')} ${c}` : localText('ОШИБКА ВНЕШНЕЙ МУЗЫКИ', 'YT ERROR');
   };
   const syncYtUi = () => {
     try { audio.syncYouTubeState?.(); } catch {}
     if (audio.isYouTubeActive?.()) {
-      setToggle('PAUSE');
-      setYtStatus('PLAYING · INTERNAL AMBIENT MUTED');
+      setToggle(localText('ПАУЗА', 'PAUSE'));
+      setYtStatus(localText('ИГРАЕТ · ВНУТРЕННЯЯ МУЗЫКА ЗАГЛУШЕНА', 'PLAYING · INTERNAL AMBIENT MUTED'));
       setBusy(false);
       return true;
     }
     if (audio.ytMusic?.error) {
-      setToggle('PLAY');
+      setToggle(localText('ИГРАТЬ', 'PLAY'));
       setYtStatus(friendlyYtError(audio.ytMusic.error));
       setBusy(false);
       return true;
     }
     const state = audio.ytMusic?.lastState;
     if (audio.ytMusic?.loading) {
-      setToggle('PAUSE');
-      setYtStatus(state === 3 ? 'BUFFERING...' : 'LOADING...');
+      setToggle(localText('ПАУЗА', 'PAUSE'));
+      setYtStatus(state === 3 ? localText('БУФЕРИЗАЦИЯ…', 'BUFFERING…') : localText('ЗАГРУЗКА…', 'LOADING…'));
       return false;
     }
     return false;
@@ -485,26 +488,26 @@ function bindYouTubeMusicUi() {
       if (syncYtUi() || performance.now() - started > maxMs) {
         clearInterval(timer);
         if (!audio.isYouTubeActive?.() && !audio.ytMusic?.error) {
-          setToggle('PLAY');
+          setToggle(localText('ИГРАТЬ', 'PLAY'));
           setBusy(false);
-          setYtStatus(audio.ytMusic?.loading ? 'LOADING...' : 'CLICK PLAY ON VIDEO');
+          setYtStatus(audio.ytMusic?.loading ? localText('ЗАГРУЗКА…', 'LOADING…') : localText('НАЖМИ «ИГРАТЬ» НА ЗАПИСИ', 'CLICK PLAY ON VIDEO'));
         }
       }
     }, 260);
   };
-  const init = () => audio.initYouTubeMusic?.('youtube-player').catch?.(() => setYtStatus('API ERR'));
+  const init = () => audio.initYouTubeMusic?.('youtube-player').catch?.(() => setYtStatus(localText('ОШИБКА СЛУЖБЫ', 'API ERROR')));
   if (load) load.addEventListener('click', async () => {
     uiClick('ui_click');
     const value = input?.value || '';
-    if (!value.trim()) { setYtStatus('PASTE YOUTUBE LINK'); return; }
+    if (!value.trim()) { setYtStatus(localText('ВСТАВЬ ССЫЛКУ', 'PASTE YOUTUBE LINK')); return; }
     setBusy(true);
-    setYtStatus('LOADING...');
+    setYtStatus(localText('ЗАГРУЗКА…', 'LOADING…'));
     try {
       const res = await audio.loadYouTubePlaylist?.(value);
-      if (res?.ok) { setYtStatus(`LOADED ${sourceLabel(res)}`); setToggle('PLAY'); }
-      else setYtStatus(res?.error === 'PLAYER_NOT_READY' ? 'PLAYER LOADING...' : 'BAD YOUTUBE LINK');
+      if (res?.ok) { setYtStatus(`${localText('ЗАГРУЖЕНО', 'LOADED')} ${sourceLabel(res)}`); setToggle(localText('ИГРАТЬ', 'PLAY')); }
+      else setYtStatus(res?.error === 'PLAYER_NOT_READY' ? localText('ПРОИГРЫВАТЕЛЬ ЗАГРУЖАЕТСЯ…', 'PLAYER LOADING…') : localText('НЕВЕРНАЯ ССЫЛКА', 'BAD YOUTUBE LINK'));
     } catch {
-      setYtStatus('API ERR');
+      setYtStatus(localText('ОШИБКА СЛУЖБЫ', 'API ERROR'));
     } finally {
       setBusy(false);
     }
@@ -512,31 +515,31 @@ function bindYouTubeMusicUi() {
   if (toggle) toggle.addEventListener('click', async () => {
     uiClick('ui_click');
     const savedNow = input?.value || localStorage.getItem('tc_youtube_playlist') || '';
-    if (!savedNow.trim()) { setYtStatus('PASTE YOUTUBE LINK FIRST'); return; }
+    if (!savedNow.trim()) { setYtStatus(localText('СНАЧАЛА ВСТАВЬ ССЫЛКУ', 'PASTE YOUTUBE LINK FIRST')); return; }
     if (audio.isYouTubeActive?.()) {
       audio.pauseYouTube?.();
-      setToggle('PLAY');
-      setYtStatus('PAUSED · INTERNAL AMBIENT');
+      setToggle(localText('ИГРАТЬ', 'PLAY'));
+      setYtStatus(localText('ПАУЗА · ВНУТРЕННЯЯ МУЗЫКА', 'PAUSED · INTERNAL AMBIENT'));
       return;
     }
     setBusy(true);
-    setYtStatus('LOADING...');
+    setYtStatus(localText('ЗАГРУЗКА…', 'LOADING…'));
     try {
       const parsed = audio.parseYouTubeSource?.(savedNow);
       const current = localStorage.getItem('tc_youtube_playlist') || '';
       if (savedNow.trim() !== current.trim() || parsed?.id !== audio.ytMusic?.sourceId) {
         const loaded = await audio.loadYouTubePlaylist?.(savedNow);
-        if (!loaded?.ok) { setYtStatus('BAD YOUTUBE LINK'); setBusy(false); return; }
+        if (!loaded?.ok) { setYtStatus(localText('НЕВЕРНАЯ ССЫЛКА', 'BAD YOUTUBE LINK')); setBusy(false); return; }
       }
-      setYtStatus('STARTING YOUTUBE...');
+      setYtStatus(localText('ЗАПУСК ВНЕШНЕЙ МУЗЫКИ…', 'STARTING YOUTUBE…'));
       const playing = await audio.playYouTube?.();
-      setToggle(playing ? 'PAUSE' : 'PLAY');
-      setYtStatus(playing ? 'BUFFERING...' : 'PLAYER BLOCKED');
+      setToggle(playing ? localText('ПАУЗА', 'PAUSE') : localText('ИГРАТЬ', 'PLAY'));
+      setYtStatus(playing ? localText('БУФЕРИЗАЦИЯ…', 'BUFFERING…') : localText('ПРОИГРЫВАТЕЛЬ ЗАБЛОКИРОВАН', 'PLAYER BLOCKED'));
       if (playing) watchYtStart();
       else setBusy(false);
     } catch {
-      setToggle('PLAY');
-      setYtStatus('API ERR');
+      setToggle(localText('ИГРАТЬ', 'PLAY'));
+      setYtStatus(localText('ОШИБКА СЕРВИСА', 'SERVICE ERROR'));
       setBusy(false);
     }
   });
@@ -546,12 +549,12 @@ function bindYouTubeMusicUi() {
   setInterval(() => {
     const txt = String(status?.textContent || '');
     if (/LOADING|BUFFERING|STARTING/.test(txt) && audio.isYouTubeActive?.()) {
-      setToggle('PAUSE');
-      setYtStatus('PLAYING · INTERNAL AMBIENT MUTED');
+      setToggle(localText('ПАУЗА', 'PAUSE'));
+      setYtStatus(localText('ИГРАЕТ · ВНУТРЕННЯЯ МУЗЫКА ЗАГЛУШЕНА', 'PLAYING · INTERNAL AMBIENT MUTED'));
       setBusy(false);
     }
   }, 900);
-  if (saved) { setYtStatus('YOUTUBE SAVED · CLICK PLAY'); setToggle('PLAY'); }
+  if (saved) { setYtStatus(localText('ССЫЛКА СОХРАНЕНА · НАЖМИ «ИГРАТЬ»', 'LINK SAVED · CLICK PLAY')); setToggle(localText('ИГРАТЬ', 'PLAY')); }
 }
 bindYouTubeMusicUi();
 onLangChange(() => {
@@ -561,6 +564,12 @@ onLangChange(() => {
   applyVisualFilter(false);
   setMenuVersion(net.connected ? true : null);
   refreshMenuStatusLanguage();
+  if (devPanel) {
+    const reopen = devOpen;
+    devPanel.remove();
+    devPanel = null;
+    if (reopen) ensureDevPanel().classList.remove('hidden');
+  }
 });
 
 async function connect() {
@@ -693,18 +702,19 @@ function ensureDevPanel() {
   devPanel = document.createElement('div');
   devPanel.id = 'dev-panel';
   devPanel.className = 'hidden';
-  const coreOpts = Object.values(ACTIVE_CORES).map(c => `<option value="${c.id}">${c.label}</option>`).join('');
-  const mutOpts = Object.values(ACTIVE_MUTATIONS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
-  const categoryOpts = [''].concat(ROOM_SEQUENCE, ['chill']).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'AUTO'}</option>`).join('');
-  const specialOpts = [''].concat(Object.keys(SPECIAL_ROOMS)).map(v => `<option value="${v}">${v ? v.toUpperCase() : 'NONE'}</option>`).join('');
+  const coreOpts = Object.values(ACTIVE_CORES).map(c => `<option value="${c.id}">${contentText(c, getLang(), 'label')}</option>`).join('');
+  const mutOpts = Object.values(ACTIVE_MUTATIONS).map(m => `<label><input type="checkbox" value="${m.id}"> ${contentText(m, getLang(), 'label')}</label>`).join('');
+  const categoryLabel = v => ({ combat:localText('БОЙ','COMBAT'), boss:localText('ГЛАВНАЯ УГРОЗА','BOSS'), chill:localText('ПЕРЕДЫШКА','CHILL'), casino:localText('КАЗИНО','CASINO') })[v] || String(v || '').replace(/_/g, ' ').toUpperCase();
+  const categoryOpts = [''].concat(ROOM_SEQUENCE, ['chill']).map(v => `<option value="${v}">${v ? categoryLabel(v) : localText('АВТО', 'AUTO')}</option>`).join('');
+  const specialOpts = [''].concat(Object.keys(SPECIAL_ROOMS)).map(v => `<option value="${v}">${v ? contentText(SPECIAL_ROOMS[v], getLang(), 'label') : localText('НЕТ', 'NONE')}</option>`).join('');
   const roomArchLabels = {
-    panic_box: 'PANIC BOX', compact: 'COMPACT', standard: 'STANDARD', wide: 'WIDE', long_lane: 'LONG LANE', lounge: 'LOUNGE', boss: 'BOSS',
-    ripped_table: 'РАЗОРВАННЫЙ СТОЛ', cross_terminal: 'КРЕСТОВОЙ ТЕРМИНАЛ', ring_track: 'КОЛЬЦЕВОЙ ТРЕК',
-    clamp_room: 'СЕКТОР-ЗАЖИМ', cashier_maze: 'ЛАБИРИНТ КАССЫ', machine_core: 'ЯДРО АВТОМАТА'
+    panic_box: localText('ТЕСНЫЙ СЕКТОР','PANIC BOX'), compact: localText('МАЛЫЙ СЕКТОР','COMPACT'), standard: localText('СТАНДАРТНЫЙ','STANDARD'), wide: localText('ШИРОКИЙ','WIDE'), long_lane: localText('ДЛИННЫЙ КОРИДОР','LONG LANE'), lounge: localText('КАЗИНО-ЛАУНЖ','LOUNGE'), boss: localText('ЗАЛ ГЛАВНОЙ УГРОЗЫ','BOSS'),
+    ripped_table: localText('РАЗОРВАННЫЙ СТОЛ','RIPPED TABLE'), cross_terminal: localText('КРЕСТОВОЙ ТЕРМИНАЛ','CROSS TERMINAL'), ring_track: localText('КОЛЬЦЕВОЙ ТРЕК','RING TRACK'),
+    clamp_room: localText('СЕКТОР-ЗАЖИМ','CLAMP SECTOR'), cashier_maze: localText('ЛАБИРИНТ КАССЫ','CASHIER MAZE'), machine_core: localText('ЯДРО АВТОМАТА','MACHINE CORE')
   };
-  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? (roomArchLabels[v] || v.toUpperCase()) : 'AUTO'}</option>`).join('');
-  const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${m.label}</label>`).join('');
-  const bossRewardLabel = id => String(id || '').replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase();
+  const archetypeOpts = ['', 'panic_box','compact','standard','wide','long_lane','ripped_table','cross_terminal','ring_track','clamp_room','cashier_maze','machine_core','lounge','boss'].map(v => `<option value="${v}">${v ? (roomArchLabels[v] || v.toUpperCase()) : localText('АВТО', 'AUTO')}</option>`).join('');
+  const roomModOpts = Object.values(ROOM_MODS).map(m => `<label><input type="checkbox" value="${m.id}"> ${contentText(m, getLang(), 'label')}</label>`).join('');
+  const bossRewardLabel = id => locLabel(String(id || '').replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase());
   const bossRewardOpts = BOSS_SIGNATURE_UPGRADE_IDS.map(id => `<option value="${id}">${bossRewardLabel(id)}</option>`).join('');
   const rActiveOpts = [
     ['sig_target_lock', 'TARGET LOCK'],
@@ -712,74 +722,74 @@ function ensureDevPanel() {
     ['sig_ghost_decoy', 'GHOST DECOY'],
     ['sig_rewind_mark', 'REWIND MARK'],
     ['sig_kill_switch', 'KILL SWITCH']
-  ].map(([id, label]) => `<option value="${id}">${label}</option>`).join('');
+  ].map(([id, label]) => `<option value="${id}">${locLabel(label)}</option>`).join('');
   devPanel.innerHTML = `
-    <div class="dev-title">DEV MODE <span>F2</span></div>
-    <div class="dev-note">SINGLE PLAYER/HOST only · full test lab · F2</div>
+    <div class="dev-title">${localText('РЕЖИМ ОТЛАДКИ', 'DEBUG MODE')} <span>F2</span></div>
+    <div class="dev-note">${localText('ТОЛЬКО ОДИНОЧНАЯ ИГРА ИЛИ ХОСТ · ПОЛНАЯ ЛАБОРАТОРИЯ', 'SINGLE PLAYER/HOST ONLY · FULL TEST LAB')} · F2</div>
     <div class="dev-buttons dev-priority">
-      <button id="dev-repair-transition">FIX STUCK TRANSITION</button>
-      <button id="dev-open-portal">OPEN PORTAL NOW</button>
-      <button id="dev-wpn-offer">ОРУЖЕЙНЫЙ ВЫБОР</button>
-      <button id="dev-wpn-chest">ОРУЖЕЙНЫЙ СУНДУК</button>
-      <button id="dev-luck-plus">LUCK +1</button>
-      <button id="dev-sig-offer">BOSS SIG OFFER</button>
-      <button id="dev-win-run">WIN RUN</button>
+      <button id="dev-repair-transition">${localText('ПОЧИНИТЬ ПЕРЕХОД', 'FIX STUCK TRANSITION')}</button>
+      <button id="dev-open-portal">${localText('ОТКРЫТЬ ПОРТАЛ', 'OPEN PORTAL NOW')}</button>
+      <button id="dev-wpn-offer">${localText('ОРУЖЕЙНЫЙ ВЫБОР', 'WEAPON OFFER')}</button>
+      <button id="dev-wpn-chest">${localText('ОРУЖЕЙНЫЙ СУНДУК', 'WEAPON CHEST')}</button>
+      <button id="dev-luck-plus">${localText('УДАЧА +1', 'LUCK +1')}</button>
+      <button id="dev-sig-offer">${localText('ПРИЗ ГЛАВНОЙ УГРОЗЫ', 'BOSS SIGNATURE OFFER')}</button>
+      <button id="dev-win-run">${localText('ЗАВЕРШИТЬ ЗАБЕГ', 'WIN RUN')}</button>
     </div>
-    <div class="dev-section-title">NEXT ROOM LAB</div>
-    <div class="dev-row"><label>CAT</label><select id="dev-room-cat">${categoryOpts}</select></div>
-    <div class="dev-row"><label>SPEC</label><select id="dev-room-special">${specialOpts}</select></div>
-    <div class="dev-row"><label>ARCH</label><select id="dev-room-arch">${archetypeOpts}</select></div>
+    <div class="dev-section-title">${localText('ЛАБОРАТОРИЯ СЛЕДУЮЩЕГО СЕКТОРА', 'NEXT ROOM LAB')}</div>
+    <div class="dev-row"><label>${localText('ТИП', 'TYPE')}</label><select id="dev-room-cat">${categoryOpts}</select></div>
+    <div class="dev-row"><label>${localText('ОСОБ.', 'SPECIAL')}</label><select id="dev-room-special">${specialOpts}</select></div>
+    <div class="dev-row"><label>${localText('ФОРМА', 'LAYOUT')}</label><select id="dev-room-arch">${archetypeOpts}</select></div>
     <div class="dev-muts dev-room-mods" id="dev-room-mods">${roomModOpts}</div>
     <div class="dev-buttons dev-priority">
-      <button id="dev-apply-next">LOCK NEXT ROOM</button>
-      <button id="dev-clear-next">AUTO NEXT</button>
+      <button id="dev-apply-next">${localText('ЗАФИКСИРОВАТЬ СЕКТОР', 'LOCK NEXT ROOM')}</button>
+      <button id="dev-clear-next">${localText('АВТОВЫБОР СЕКТОРА', 'AUTO NEXT')}</button>
     </div>
 
-    <div class="dev-section-title">BOSS / SIGNATURE</div>
-    <div class="dev-row"><label>BOSS</label><select id="dev-boss-kind"><option value="boss_croupier">CROUPIER</option><option value="boss_hunter_chorus">HNT</option><option value="boss_q_revisor">RUSH</option><option value="boss_anchor_cashier">ANCHOR+</option><option value="boss_trinode">TRI</option><option value="boss">OCT</option></select></div>
-    <div class="dev-row"><label>REWARD</label><select id="dev-boss-reward">${bossRewardOpts}</select></div>
+    <div class="dev-section-title">${localText('ГЛАВНАЯ УГРОЗА / СИГНАТУРА', 'BOSS / SIGNATURE')}</div>
+    <div class="dev-row"><label>${localText('УГРОЗА', 'BOSS')}</label><select id="dev-boss-kind"><option value="boss_croupier">${localText('КРУПЬЕ','CROUPIER')}</option><option value="boss_hunter_chorus">${localText('ХОР ОХОТНИКОВ','HUNTER CHORUS')}</option><option value="boss_q_revisor">${localText('РЕВИЗОР','REVISOR')}</option><option value="boss_anchor_cashier">${localText('ЯКОРНЫЙ КАССИР','ANCHOR CASHIER')}</option><option value="boss_trinode">${localText('ТРОЙНОЙ УЗЕЛ','TRINODE')}</option><option value="boss">${localText('ВОСЬМИУГОЛЬНИК','OCTAGON')}</option></select></div>
+    <div class="dev-row"><label>${localText('НАГРАДА', 'REWARD')}</label><select id="dev-boss-reward">${bossRewardOpts}</select></div>
     <div class="dev-row"><label>R</label><select id="dev-r-active">${rActiveOpts}</select></div>
     <div class="dev-buttons dev-priority">
-      <button id="dev-give-boss-reward">GIVE REWARD</button>
-      <button id="dev-offer-boss-reward">OFFER SELECTED</button>
-      <button id="dev-set-r-active">SET R ACTIVE</button>
-      <button id="dev-r-ready">R READY</button>
+      <button id="dev-give-boss-reward">${localText('ВЫДАТЬ НАГРАДУ', 'GIVE REWARD')}</button>
+      <button id="dev-offer-boss-reward">${localText('ПРЕДЛОЖИТЬ ВЫБРАННОЕ', 'OFFER SELECTED')}</button>
+      <button id="dev-set-r-active">${localText('УСТАНОВИТЬ R', 'SET R ACTIVE')}</button>
+      <button id="dev-r-ready">${localText('R ГОТОВА', 'R READY')}</button>
     </div>
     <div class="dev-buttons">
-      <button id="dev-aegis">AEGIS +45</button>
-      <button id="dev-spawn-hold">SPAWN HOLD +1</button>
-      <button id="dev-mirror">MIRROR +1</button>
-      <button id="dev-revive">REVIVE +1</button>
-      <button id="dev-boss-key">BOSS KEY +1</button>
-      <button id="dev-wager-offer">WAGER OFFER</button>
-      <button id="dev-wagers-on">WAGERS ON</button>
-      <button id="dev-wagers-off">WAGERS OFF</button>
-      <button id="dev-hidden-virus">HIDDEN VIRUS</button>
-      <button id="dev-reset-kill-switch">RESET KILL FLAG</button>
+      <button id="dev-aegis">${localText('ЭГИДА +45', 'AEGIS +45')}</button>
+      <button id="dev-spawn-hold">${localText('ЗАДЕРЖКА ПОЯВЛЕНИЯ +1', 'SPAWN HOLD +1')}</button>
+      <button id="dev-mirror">${localText('ЗЕРКАЛО +1', 'MIRROR +1')}</button>
+      <button id="dev-revive">${localText('ВОЗВРАЩЕНИЕ +1', 'REVIVE +1')}</button>
+      <button id="dev-boss-key">${localText('КЛЮЧ ЯДРА +1', 'BOSS KEY +1')}</button>
+      <button id="dev-wager-offer">${localText('ПРЕДЛОЖИТЬ СТАВКУ', 'WAGER OFFER')}</button>
+      <button id="dev-wagers-on">${localText('СТАВКИ ВКЛ.', 'WAGERS ON')}</button>
+      <button id="dev-wagers-off">${localText('СТАВКИ ВЫКЛ.', 'WAGERS OFF')}</button>
+      <button id="dev-hidden-virus">${localText('СКРЫТЫЙ ВИРУС', 'HIDDEN VIRUS')}</button>
+      <button id="dev-reset-kill-switch">${localText('СБРОСИТЬ УДАЛЕНИЕ', 'RESET KILL FLAG')}</button>
     </div>
-    <div class="dev-section-title">Q / PLAYER</div>
-    <div class="dev-row"><label>CORE</label><select id="dev-core">${coreOpts}</select></div>
-    <div class="dev-row"><label>LVL</label><select id="dev-level"><option value="1">I</option><option value="2">II</option><option value="3" selected>III</option><option value="4">IV</option><option value="5">V</option><option value="6">VI</option><option value="7">VII</option><option value="8">VIII</option></select></div>
+    <div class="dev-section-title">${localText('Q / ИГРОК', 'Q / PLAYER')}</div>
+    <div class="dev-row"><label>${localText('ЯДРО', 'CORE')}</label><select id="dev-core">${coreOpts}</select></div>
+    <div class="dev-row"><label>${localText('УР.', 'LEVEL')}</label><select id="dev-level"><option value="1">I</option><option value="2">II</option><option value="3" selected>III</option><option value="4">IV</option><option value="5">V</option><option value="6">VI</option><option value="7">VII</option><option value="8">VIII</option></select></div>
     <div class="dev-muts" id="dev-muts">${mutOpts}</div>
     <div class="dev-buttons">
-      <button id="dev-apply">SET Q</button>
-      <button id="dev-ready">READY</button>
-      <button id="dev-q-silence">Q SILENCE 30s</button>
-      <button id="dev-abl">ABL OFFER</button>
-      <button id="dev-pack">SPAWN PACK</button>
-      <button id="dev-clear">CLEAR</button>
-      <button id="dev-wpn">ALL WPN</button>
-      <button id="dev-money">GLD/EXP</button>
-      <button id="dev-heroes-open">UNLOCK HEROES</button>
-      <button id="dev-heroes-lock">LOCK HEROES</button>
-      <button id="dev-skins-open">UNLOCK SKINS</button>
-      <button id="dev-skins-lock">LOCK SKINS</button>
-      <button id="dev-god">GOD: OFF</button>
-      <button id="dev-all-installs">ALL INSTALLS</button>
-      <button id="dev-all-wpn-mods">ALL WPN MODS</button>
-      <button id="dev-all-sigs">ALL SIGS</button>
-      <button id="dev-spawn-boss">SPAWN BOSS</button>
-      <button id="dev-final">FINAL DEPTH</button>
+      <button id="dev-apply">${localText('УСТАНОВИТЬ Q', 'SET Q')}</button>
+      <button id="dev-ready">${localText('ГОТОВО', 'READY')}</button>
+      <button id="dev-q-silence">${localText('ЗАГЛУШИТЬ Q НА 30 С', 'Q SILENCE 30s')}</button>
+      <button id="dev-abl">${localText('ВЫБОР ПРОТОКОЛА', 'PROTOCOL OFFER')}</button>
+      <button id="dev-pack">${localText('СОЗДАТЬ ПАК', 'SPAWN PACK')}</button>
+      <button id="dev-clear">${localText('ОЧИСТИТЬ', 'CLEAR')}</button>
+      <button id="dev-wpn">${localText('ВСЁ ОРУЖИЕ', 'ALL WEAPONS')}</button>
+      <button id="dev-money">${localText('КРЕДИТЫ / ОПЫТ', 'CREDITS / EXPERIENCE')}</button>
+      <button id="dev-heroes-open">${localText('ОТКРЫТЬ ГЕРОЕВ', 'UNLOCK HEROES')}</button>
+      <button id="dev-heroes-lock">${localText('ЗАКРЫТЬ ГЕРОЕВ', 'LOCK HEROES')}</button>
+      <button id="dev-skins-open">${localText('ОТКРЫТЬ ОБЛИКИ', 'UNLOCK SKINS')}</button>
+      <button id="dev-skins-lock">${localText('ЗАКРЫТЬ ОБЛИКИ', 'LOCK SKINS')}</button>
+      <button id="dev-god">${localText('НЕУЯЗВИМОСТЬ: ВЫКЛ.', 'GOD: OFF')}</button>
+      <button id="dev-all-installs">${localText('ВСЕ УЛУЧШЕНИЯ', 'ALL INSTALLS')}</button>
+      <button id="dev-all-wpn-mods">${localText('ВСЕ МОДУЛИ ОРУЖИЯ', 'ALL WEAPON MODS')}</button>
+      <button id="dev-all-sigs">${localText('ВСЕ СИГНАТУРЫ', 'ALL SIGNATURES')}</button>
+      <button id="dev-spawn-boss">${localText('СОЗДАТЬ ГЛАВНУЮ УГРОЗУ', 'SPAWN BOSS')}</button>
+      <button id="dev-final">${localText('ФИНАЛЬНАЯ ГЛУБИНА', 'FINAL DEPTH')}</button>
     </div>`;
   document.body.appendChild(devPanel);
   const cmd = (action, extra = {}) => net.sendDev({ action, ...extra });
@@ -792,36 +802,36 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-repair-transition')?.addEventListener('click', () => {
     hud.resetInstallSync?.();
     cmd('repair_transition');
-    hud.feed('DEV: TRANSITION RECOVERY', 'c');
+    hud.feed(localText('ОТЛАДКА: ПЕРЕХОД ВОССТАНОВЛЕН', 'DEBUG: TRANSITION RECOVERY'), 'c');
   });
-  devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed('DEV: PORTAL OPEN', 'c'); });
-  devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed('DEV: WPN OFFER', 'c'); });
-  devPanel.querySelector('#dev-wpn-chest')?.addEventListener('click', () => { cmd('spawn_weapon_chest'); hud.feed('DEV: SPAWN WPN CHEST', 'c'); });
-  devPanel.querySelector('#dev-luck-plus')?.addEventListener('click', () => { cmd('luck_plus'); hud.feed('DEV: LUCK +1', 'c'); });
-  devPanel.querySelector('#dev-sig-offer')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind }); hud.feed('DEV: BOSS SIG OFFER', 'c'); });
-  devPanel.querySelector('#dev-give-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`DEV: ${id.replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase()}`, 'c'); });
-  devPanel.querySelector('#dev-offer-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind, force: [id] }); hud.feed('DEV: FORCED BOSS OFFER', 'c'); });
-  devPanel.querySelector('#dev-set-r-active')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-r-active')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`DEV R: ${id.replace(/^sig_/, '').replace(/_/g, ' ').toUpperCase()}`, 'c'); });
-  devPanel.querySelector('#dev-r-ready')?.addEventListener('click', () => { cmd('r_ready'); hud.feed('DEV: R READY', 'c'); });
+  devPanel.querySelector('#dev-open-portal')?.addEventListener('click', () => { cmd('open_portal'); hud.feed(localText('ОТЛАДКА: ПОРТАЛ ОТКРЫТ', 'DEBUG: PORTAL OPEN'), 'c'); });
+  devPanel.querySelector('#dev-wpn-offer')?.addEventListener('click', () => { cmd('weapon_offer'); hud.feed(localText('ОТЛАДКА: ОРУЖЕЙНЫЙ ВЫБОР', 'DEBUG: WEAPON OFFER'), 'c'); });
+  devPanel.querySelector('#dev-wpn-chest')?.addEventListener('click', () => { cmd('spawn_weapon_chest'); hud.feed(localText('ОТЛАДКА: ОРУЖЕЙНЫЙ СУНДУК', 'DEBUG: SPAWN WEAPON CHEST'), 'c'); });
+  devPanel.querySelector('#dev-luck-plus')?.addEventListener('click', () => { cmd('luck_plus'); hud.feed(localText('ОТЛАДКА: УДАЧА +1', 'DEBUG: LUCK +1'), 'c'); });
+  devPanel.querySelector('#dev-sig-offer')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind }); hud.feed(localText('ОТЛАДКА: ПРИЗ ГЛАВНОЙ УГРОЗЫ', 'DEBUG: BOSS SIGNATURE OFFER'), 'c'); });
+  devPanel.querySelector('#dev-give-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`${localText('ОТЛАДКА', 'DEBUG')}: ${bossRewardLabel(id)}`, 'c'); });
+  devPanel.querySelector('#dev-offer-boss-reward')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-boss-reward')?.value || 'sig_target_lock'; const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss'; cmd('boss_signature_offer', { kind, force: [id] }); hud.feed(localText('ОТЛАДКА: ВЫБРАННЫЙ ПРИЗ ПРЕДЛОЖЕН', 'DEBUG: FORCED BOSS OFFER'), 'c'); });
+  devPanel.querySelector('#dev-set-r-active')?.addEventListener('click', () => { const id = devPanel.querySelector('#dev-r-active')?.value || 'sig_target_lock'; cmd('give_boss_reward', { id }); hud.feed(`${localText('ОТЛАДКА', 'DEBUG')} R: ${bossRewardLabel(id)}`, 'c'); });
+  devPanel.querySelector('#dev-r-ready')?.addEventListener('click', () => { cmd('r_ready'); hud.feed(localText('ОТЛАДКА: R ГОТОВА', 'DEBUG: R READY'), 'c'); });
   devPanel.querySelector('#dev-aegis')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_aegis_process' }));
   devPanel.querySelector('#dev-spawn-hold')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_spawn_hold' }));
   devPanel.querySelector('#dev-mirror')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_mirror_payout' }));
   devPanel.querySelector('#dev-revive')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_null_revival' }));
   devPanel.querySelector('#dev-boss-key')?.addEventListener('click', () => cmd('give_boss_reward', { id: 'sig_boss_key' }));
-  devPanel.querySelector('#dev-wager-offer')?.addEventListener('click', () => { cmd('force_room_wager_offer'); hud.feed('DEV: WAGER OFFER', 'c'); });
-  devPanel.querySelector('#dev-wagers-on')?.addEventListener('click', () => { cmd('unlock_room_wagers'); hud.feed('DEV: WAGERS ON', 'c'); });
-  devPanel.querySelector('#dev-wagers-off')?.addEventListener('click', () => { cmd('lock_room_wagers'); hud.feed('DEV: WAGERS OFF', 'r'); });
-  devPanel.querySelector('#dev-hidden-virus')?.addEventListener('click', () => { cmd('spawn_hidden_casino_virus'); hud.feed('DEV: HIDDEN VIRUS', 'p'); });
-  devPanel.querySelector('#dev-reset-kill-switch')?.addEventListener('click', () => { cmd('reset_kill_switch_flag'); hud.feed('DEV: KILL SWITCH RESET', 'c'); });
-  devPanel.querySelector('#dev-win-run')?.addEventListener('click', () => { cmd('win_run'); hud.feed('DEV: WIN RUN', 'c'); });
-  devPanel.querySelector('#dev-apply-next')?.addEventListener('click', () => { cmd('set_next_room', readNextRoomLab()); hud.feed('DEV: NEXT ROOM LOCKED', 'c'); });
-  devPanel.querySelector('#dev-clear-next')?.addEventListener('click', () => { cmd('clear_next_room'); hud.feed('DEV: NEXT ROOM AUTO', ''); });
+  devPanel.querySelector('#dev-wager-offer')?.addEventListener('click', () => { cmd('force_room_wager_offer'); hud.feed(localText('ОТЛАДКА: СТАВКА ПРЕДЛОЖЕНА', 'DEBUG: WAGER OFFER'), 'c'); });
+  devPanel.querySelector('#dev-wagers-on')?.addEventListener('click', () => { cmd('unlock_room_wagers'); hud.feed(localText('ОТЛАДКА: СТАВКИ ВКЛЮЧЕНЫ', 'DEBUG: WAGERS ON'), 'c'); });
+  devPanel.querySelector('#dev-wagers-off')?.addEventListener('click', () => { cmd('lock_room_wagers'); hud.feed(localText('ОТЛАДКА: СТАВКИ ВЫКЛЮЧЕНЫ', 'DEBUG: WAGERS OFF'), 'r'); });
+  devPanel.querySelector('#dev-hidden-virus')?.addEventListener('click', () => { cmd('spawn_hidden_casino_virus'); hud.feed(localText('ОТЛАДКА: СКРЫТЫЙ ВИРУС', 'DEBUG: HIDDEN VIRUS'), 'p'); });
+  devPanel.querySelector('#dev-reset-kill-switch')?.addEventListener('click', () => { cmd('reset_kill_switch_flag'); hud.feed(localText('ОТЛАДКА: УДАЛЕНИЕ СБРОШЕНО', 'DEBUG: KILL SWITCH RESET'), 'c'); });
+  devPanel.querySelector('#dev-win-run')?.addEventListener('click', () => { cmd('win_run'); hud.feed(localText('ОТЛАДКА: ЗАБЕГ ЗАВЕРШЁН', 'DEBUG: WIN RUN'), 'c'); });
+  devPanel.querySelector('#dev-apply-next')?.addEventListener('click', () => { cmd('set_next_room', readNextRoomLab()); hud.feed(localText('ОТЛАДКА: СЛЕДУЮЩИЙ СЕКТОР ЗАФИКСИРОВАН', 'DEBUG: NEXT ROOM LOCKED'), 'c'); });
+  devPanel.querySelector('#dev-clear-next')?.addEventListener('click', () => { cmd('clear_next_room'); hud.feed(localText('ОТЛАДКА: АВТОВЫБОР СЕКТОРА', 'DEBUG: NEXT ROOM AUTO'), ''); });
   devPanel.querySelector('#dev-apply')?.addEventListener('click', () => {
     const core = devPanel.querySelector('#dev-core')?.value || 'void_cut';
     const level = Number(devPanel.querySelector('#dev-level')?.value || 3);
     const mutations = [...devPanel.querySelectorAll('#dev-muts input:checked')].map(x => x.value).slice(0, 3);
     cmd('set_active', { core, level, mutations });
-    hud.feed(`DEV Q: ${String(core).toUpperCase()}`, 'c');
+    hud.feed(`${localText('ОТЛАДКА', 'DEBUG')} Q: ${contentText(ACTIVE_CORES[core], getLang(), 'label') || core}`, 'c');
   });
   devPanel.querySelector('#dev-ready')?.addEventListener('click', () => cmd('reset_cd'));
   devPanel.querySelector('#dev-q-silence')?.addEventListener('click', () => cmd('boss_q_silence', { seconds: 30 }));
@@ -830,21 +840,21 @@ function ensureDevPanel() {
   devPanel.querySelector('#dev-clear')?.addEventListener('click', () => cmd('clear_enemies'));
   devPanel.querySelector('#dev-wpn')?.addEventListener('click', () => cmd('give_all_weapons'));
   devPanel.querySelector('#dev-money')?.addEventListener('click', () => cmd('money_xp'));
-  devPanel.querySelector('#dev-god')?.addEventListener('click', (e) => { devGod = !devGod; e.currentTarget.textContent = `GOD: ${devGod ? 'ON' : 'OFF'}`; cmd('god', { enabled: devGod }); });
+  devPanel.querySelector('#dev-god')?.addEventListener('click', (e) => { devGod = !devGod; e.currentTarget.textContent = localText(`НЕУЯЗВИМОСТЬ: ${devGod ? 'ВКЛ.' : 'ВЫКЛ.'}`, `GOD: ${devGod ? 'ON' : 'OFF'}`); cmd('god', { enabled: devGod }); });
   devPanel.querySelector('#dev-all-installs')?.addEventListener('click', () => cmd('give_all_installs'));
   devPanel.querySelector('#dev-all-wpn-mods')?.addEventListener('click', () => cmd('give_all_weapon_mods'));
   devPanel.querySelector('#dev-all-sigs')?.addEventListener('click', () => cmd('give_all_signatures'));
   devPanel.querySelector('#dev-spawn-boss')?.addEventListener('click', () => { const kind = devPanel.querySelector('#dev-boss-kind')?.value || 'boss_croupier'; cmd('spawn_boss', { kind }); });
   devPanel.querySelector('#dev-final')?.addEventListener('click', () => cmd('set_final_room'));
   devPanel.querySelector('#dev-heroes-open')?.addEventListener('click', () => {
-    writeUnlockedHeroes(new Set(Object.keys(HEROES))); updateHeroSelector(); hud.feed('DEV: ALL HEROES UNLOCKED', 'c');
+    writeUnlockedHeroes(new Set(Object.keys(HEROES))); updateHeroSelector(); hud.feed(localText('ОТЛАДКА: ВСЕ ГЕРОИ ОТКРЫТЫ', 'DEBUG: ALL HEROES UNLOCKED'), 'c');
   });
-  devPanel.querySelector('#dev-heroes-lock')?.addEventListener('click', () => { lockAllHeroes(); hud.feed('DEV: HEROES LOCKED', 'r'); });
+  devPanel.querySelector('#dev-heroes-lock')?.addEventListener('click', () => { lockAllHeroes(); hud.feed(localText('ОТЛАДКА: ГЕРОИ ЗАКРЫТЫ', 'DEBUG: HEROES LOCKED'), 'r'); });
   devPanel.querySelector('#dev-skins-open')?.addEventListener('click', () => {
-    const set = readUnlockedSkins(); for (const sk of SKIN_PRESETS) set.add(sk.id); writeUnlockedSkins(set); updateSkinPreview(); hud.feed('DEV: ALL SKINS UNLOCKED', 'c');
+    const set = readUnlockedSkins(); for (const sk of SKIN_PRESETS) set.add(sk.id); writeUnlockedSkins(set); updateSkinPreview(); hud.feed(localText('ОТЛАДКА: ВСЕ ОБЛИКИ ОТКРЫТЫ', 'DEBUG: ALL SKINS UNLOCKED'), 'c');
   });
   devPanel.querySelector('#dev-skins-lock')?.addEventListener('click', () => {
-    writeUnlockedSkins(new Set(DEFAULT_UNLOCKED_SKINS)); selectedSkinId = firstUnlockedSkinId(); localStorage.setItem(skinSaveKey, selectedSkinId); skinIndex = Math.max(0, presetById(selectedSkinId)); updateSkinPreview(); applySkinTheme(selectedSkinId); hud.feed('DEV: SKINS LOCKED', 'r');
+    writeUnlockedSkins(new Set(DEFAULT_UNLOCKED_SKINS)); selectedSkinId = firstUnlockedSkinId(); localStorage.setItem(skinSaveKey, selectedSkinId); skinIndex = Math.max(0, presetById(selectedSkinId)); updateSkinPreview(); applySkinTheme(selectedSkinId); hud.feed(localText('ОТЛАДКА: ОБЛИКИ ЗАКРЫТЫ', 'DEBUG: SKINS LOCKED'), 'r');
   });
   return devPanel;
 }
@@ -852,7 +862,7 @@ function toggleDevPanel() {
   devOpen = !devOpen;
   const p = ensureDevPanel();
   p.classList.toggle('hidden', !devOpen);
-  hud.feed(devOpen ? 'DEV MODE ON' : 'DEV MODE OFF', devOpen ? 'c' : '');
+  hud.feed(devOpen ? localText('РЕЖИМ ОТЛАДКИ ВКЛЮЧЁН', 'DEBUG MODE ON') : localText('РЕЖИМ ОТЛАДКИ ВЫКЛЮЧЕН', 'DEBUG MODE OFF'), devOpen ? 'c' : '');
 }
 
 // ---------------------------------------------------------------- game loop
@@ -899,16 +909,20 @@ function frame(now) {
   if (sendNow) {
     const sdt = Math.min(0.05, (now - (lastSend || now - 16)) / 1000) * GAME_SPEED;
     lastSend = now;
-    const dash = input.takeDash();
+    const shiftAction = input.takeDash();
     const inter = input.takeInter();
     const active = input.takeActive();
     const ractive = input.takeRActive();
     const secondary = input.takeSecondary();
-    const jump = input.takeJump();
+    const spaceAction = input.takeSpace();
+    const impactDriverActive = me?.[P.BUILD]?.hero === 'impact_driver';
+    const dash = impactDriverActive ? false : shiftAction;
+    const jump = impactDriverActive ? shiftAction : false;
+    const wall = impactDriverActive ? spaceAction : false;
     const livingCasinoActive = me?.[P.LVC]?.hero === 'living_casino';
     const rawWeapon = input.takeWeapon(me ? me[P.WEAPONS].length : 1);
     const wpn = livingCasinoActive ? -1 : rawWeapon;
-    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen, ractive && !modalOpen, jump && !modalOpen);
+    const pkt = state.applyLocalInput(mv, aim, input.fire && !modalOpen, dash && !modalOpen, inter && !modalOpen, active && !modalOpen, wpn, sdt, secondary && !modalOpen, ractive && !modalOpen, jump && !modalOpen, wall && !modalOpen);
     net.sendInput(pkt);
   }
 
@@ -940,11 +954,11 @@ function bindYouTubeMiniControlsV2180() {
     const active = !!audio.isYouTubeActive?.();
     const hasPlaylist = !!(localStorage.getItem('tc_youtube_playlist') || audio.ytMusic?.playlist || '').trim();
     box.classList.toggle('hidden', !hasPlaylist && !active);
-    if (pp) pp.textContent = active ? 'PAUSE' : 'PLAY';
+    if (pp) pp.textContent = active ? localText('ПАУЗА', 'PAUSE') : localText('ИГРАТЬ', 'PLAY');
     const vol = Math.round(audio.youTubeVolume?.() ?? Math.min(100, (audio.musicVolume || 0.7) * 200));
-    if (label) label.textContent = `YT ${vol}`;
+    if (label) label.textContent = `${localText('ГРОМКОСТЬ', 'YT')} ${vol}`;
     const video8Bit = !!audio.getYouTube8BitMask?.();
-    if (bit) bit.classList.toggle('on', video8Bit);
+    if (bit) { bit.textContent = localText('8 БИТ', '8-BIT'); bit.classList.toggle('on', video8Bit); }
     document.documentElement.classList.toggle('yt-video-8bit', video8Bit);
     $('youtube-music')?.classList.toggle('yt-video-8bit', video8Bit);
     $('youtube-player-wrap')?.classList.toggle('yt-video-8bit', video8Bit);
